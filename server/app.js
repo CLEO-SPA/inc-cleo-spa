@@ -1,4 +1,4 @@
-import express from 'express';
+import express, { json, urlencoded } from 'express';
 import cors from 'cors';
 import createHttpError from 'http-errors';
 import mainRoutes from './routes/mainRoutes.js';
