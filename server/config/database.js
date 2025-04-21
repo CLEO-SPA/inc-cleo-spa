@@ -1,6 +1,6 @@
-import pg from "pg";
-import pgCamelCase from "pg-camelcase";
-import "dotenv/config";
+import pg from 'pg';
+import pgCamelCase from 'pg-camelcase';
+import 'dotenv/config';
 
 pgCamelCase.inject(pg); // This will convert all column names to camelCase automatically
 
