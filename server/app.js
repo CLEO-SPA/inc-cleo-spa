@@ -1,7 +1,9 @@
 import express, { json, urlencoded } from 'express';
 import cors from 'cors';
 import createHttpError from 'http-errors';
+import session from 'express-session';
 import mainRoutes from './routes/mainRoutes.js';
+import sessionStore from './middlewares/sessionMiddleware.js';
 
 const app = express();
 
@@ -17,6 +19,22 @@ const corsOptions = {
 app.use(json());
 app.use(urlencoded({ extended: true }));
 app.use(cors(corsOptions));
+
+app.use(
+  session({
+    store: sessionStore,
+    secret: process.env.SESSION_SECRET,
+    resave: false,
+    saveUninitialized: false,
+    cookie: {
+      maxAge: 1000 * 60 * 60 * 24, // 1 day
+      secure: process.env.NODE_ENV === 'production', // Set to true if using HTTPS
+      sameSite: 'lax',
+      httpOnly: true,
+    },
+  })
+);
+
 app.use('/api', mainRoutes);
 
 // Health check route
