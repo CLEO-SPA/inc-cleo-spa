@@ -1,4 +1,3 @@
-// Parse a PostgreSQL connection string into config object
 export const parseConnectionString = (connectionString) => {
   // Return empty object if no connection string provided
   if (!connectionString) return {};
