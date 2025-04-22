@@ -8,4 +8,19 @@ router.post('/login', employeeController.getAuthEmployee, comparePassword, emplo
 router.post('/logout', employeeController.logoutEmployee);
 router.post('/register', hashPassword, employeeController.createEmployee);
 
+const isAuthenticated = (req, res, next) => {
+  if (req.session && req.session.userId) {
+    return next();
+  }
+
+  res.status(401).json({ message: 'Unauthorized: Please log in.' });
+};
+
+router.get('/check-session', isAuthenticated, (req, res) => {
+  res.status(200).json({
+    isAuthenticated: true,
+    user: { id: req.session.userId },
+  });
+});
+
 export default router;
