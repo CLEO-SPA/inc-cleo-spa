@@ -55,10 +55,19 @@ const getAuthEmployee = async (req, res, next) => {
 
 const createEmployee = async (req, res, next) => {
   try {
-    const { employeeCode, departmentId, employeeContact, employeeEmail, employeeIsActive, employeeName } = req.body;
+    const {
+      employeeCode,
+      departmentId,
+      employeeContact,
+      employeeEmail,
+      employeeName,
+      positionId,
+      employeeIsActive,
+      commissionPercentage,
+    } = req.body;
     const passwordHash = res.locals.hash;
 
-    if (!employeeCode || !departmentId || !employeeContact || !employeeEmail || !employeeName) {
+    if (!employeeCode || !departmentId || !employeeContact || !employeeEmail || !employeeName || !positionId) {
       return res.status(400).json({ message: 'All fields are required' });
     }
     if (!validator.isEmail(employeeEmail)) {
@@ -67,8 +76,8 @@ const createEmployee = async (req, res, next) => {
     if (!validator.isMobilePhone(employeeContact, 'any', { strictMode: false })) {
       return res.status(400).json({ message: 'Invalid contact number format' });
     }
-    if (employeeIsActive !== undefined && typeof employeeIsActive !== 'boolean') {
-      return res.status(400).json({ message: 'employeeIsActive must be a boolean' });
+    if (commissionPercentage && !validator.isFloat(commissionPercentage.toString(), { min: 0 })) {
+      return res.status(400).json({ message: 'Invalid commission percentage' });
     }
 
     // Check if the employee code already exists

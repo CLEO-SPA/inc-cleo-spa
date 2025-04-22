@@ -59,7 +59,7 @@ const createEmployee = async ({
       parseInt(departmentId, 10),
       employeeContact,
       employeeEmail,
-      employeeIsActive,
+      employeeIsActive || true,
       employeeName,
       parseInt(positionId, 10) || null,
       parseFloat(commissionPercentage) || 0.0,
