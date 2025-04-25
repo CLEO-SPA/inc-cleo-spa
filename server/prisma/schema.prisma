@@ -1,7 +1,3 @@
-generator client {
-  provider = "prisma-client-js"
-}
-
 datasource db {
   provider = "postgresql"
   url      = env("DATABASE_URL")
@@ -19,7 +15,7 @@ model cs_audit_creation_log {
   user_id        BigInt?
   table_name     String?       @db.VarChar(50)
   record_id      BigInt?
-  created_at_utc DateTime?     @default(now()) @db.Timestamptz(6)
+  created_at_utc DateTime      @default(now()) @db.Timestamptz(6)
   data           Json?
   cs_employees   cs_employees? @relation(fields: [user_id], references: [employee_id], onDelete: NoAction, onUpdate: NoAction)
 }
@@ -29,7 +25,7 @@ model cs_audit_deletion_log {
   user_id        BigInt?
   table_name     String?       @db.VarChar(50)
   record_id      BigInt?
-  created_at_utc DateTime?     @default(now()) @db.Timestamptz(6)
+  created_at_utc DateTime      @default(now()) @db.Timestamptz(6)
   deleted_data   Json?
   cs_employees   cs_employees? @relation(fields: [user_id], references: [employee_id], onDelete: NoAction, onUpdate: NoAction)
 }
@@ -39,7 +35,7 @@ model cs_audit_modification_log {
   user_id        BigInt?
   table_name     String?       @db.VarChar(50)
   record_id      BigInt?
-  created_at_utc DateTime?     @default(now()) @db.Timestamptz(6)
+  created_at_utc DateTime      @default(now()) @db.Timestamptz(6)
   old_data       Json?
   new_data       Json?
   changed_fields Json?
@@ -75,7 +71,7 @@ model cs_care_package_items {
   care_package_items_id BigInt          @id @default(autoincrement())
   care_package_id       BigInt
   created_at_utc        DateTime        @default(now()) @db.Timestamptz(6)
-  updated_at_utc        DateTime        @db.Timestamptz(6)
+  updated_at_utc        DateTime        @default(now()) @db.Timestamptz(6)
   cs_care_package       cs_care_package @relation(fields: [care_package_id], references: [care_package_id], onDelete: Cascade)
 }
 
@@ -96,39 +92,38 @@ model cs_employee_performance_incentive_rules {
   percentage_value                        Decimal?             @db.Decimal
   absolute_value                          Decimal?             @db.Decimal
   remarks                                 String?
-  created_at_utc                          DateTime?            @default(now()) @db.Timestamptz(6)
-  updated_at_utc                          DateTime?            @default(now()) @db.Timestamptz(6)
+  created_at_utc                          DateTime             @default(now()) @db.Timestamptz(6)
+  updated_at_utc                          DateTime             @default(now()) @db.Timestamptz(6)
   cs_application_type                     cs_application_type? @relation(fields: [application_type_id], references: [application_type_id], onDelete: Cascade, map: "cs_employee_performance_incentive_rule_application_type_id_fkey")
   cs_membership_type                      cs_membership_type[]
 }
 
 model cs_employees {
-  employee_id                                                                    BigInt                                    @id @default(autoincrement())
-  employee_code                                                                  String                                    @db.VarChar(50)
-  department_id                                                                  BigInt
-  created_at_utc                                                                 DateTime                                  @default(now()) @db.Timestamptz(6)
-  employee_contact                                                               String                                    @db.VarChar(20)
-  employee_email                                                                 String                                    @db.VarChar(255)
-  employee_is_active                                                             Boolean
-  employee_name                                                                  String                                    @db.VarChar(100)
-  updated_at_utc                                                                 DateTime?                                 @default(now()) @db.Timestamptz(6)
-  position_id                                                                    BigInt?
-  commission_percentage                                                          Decimal?                                  @default(0.00) @db.Decimal(10, 2)
-  cs_audit_creation_log                                                          cs_audit_creation_log[]
-  cs_audit_deletion_log                                                          cs_audit_deletion_log[]
-  cs_audit_modification_log                                                      cs_audit_modification_log[]
-  cs_department                                                                  cs_department                             @relation(fields: [department_id], references: [department_id])
-  cs_position                                                                    cs_position?                              @relation(fields: [position_id], references: [position_id], onDelete: NoAction, onUpdate: NoAction, map: "fk_position_id")
-  cs_invoice_payment_cs_invoice_payment_invoice_payment_created_byTocs_employees cs_invoice_payment[]                      @relation("cs_invoice_payment_invoice_payment_created_byTocs_employees")
-  cs_invoice_payment_cs_invoice_payment_invoice_payment_updated_byTocs_employees cs_invoice_payment[]                      @relation("cs_invoice_payment_invoice_payment_updated_byTocs_employees")
-  cs_invoices                                                                    cs_invoices[]
-  cs_member_care_package                                                         cs_member_care_package[]
-  cs_member_care_package_transaction_logs                                        cs_member_care_package_transaction_logs[]
-  cs_refunds                                                                     cs_refunds[]
-  cs_serving_employee_to_invoice_items                                           cs_serving_employee_to_invoice_items[]
-  cs_sessions                                                                    cs_sessions[]
-  cs_task_queue                                                                  cs_task_queue[]
-  cs_user_auth                                                                   cs_user_auth?
+  employee_id                             BigInt                                    @id @default(autoincrement())
+  employee_code                           String                                    @db.VarChar(50)
+  department_id                           BigInt
+  created_at_utc                          DateTime                                  @default(now()) @db.Timestamptz(6)
+  employee_contact                        String                                    @db.VarChar(20)
+  employee_email                          String                                    @db.VarChar(255)
+  employee_is_active                      Boolean
+  employee_name                           String                                    @db.VarChar(100)
+  updated_at_utc                          DateTime                                  @default(now()) @db.Timestamptz(6)
+  position_id                             BigInt?
+  commission_percentage                   Decimal?                                  @default(0.00) @db.Decimal(10, 2)
+  cs_audit_creation_log                   cs_audit_creation_log[]
+  cs_audit_deletion_log                   cs_audit_deletion_log[]
+  cs_audit_modification_log               cs_audit_modification_log[]
+  cs_department                           cs_department                             @relation(fields: [department_id], references: [department_id])
+  cs_position                             cs_position?                              @relation(fields: [position_id], references: [position_id], onDelete: NoAction, onUpdate: NoAction, map: "fk_position_id")
+  CreatedInvoicePayments                  cs_invoice_payment[]                      @relation("CreatedInvoicePayments")
+  UpdatedInvoicePayments                  cs_invoice_payment[]                      @relation("UpdatedInvoicePayments")
+  cs_invoices                             cs_invoices[]
+  cs_member_care_package                  cs_member_care_package[]
+  cs_member_care_package_transaction_logs cs_member_care_package_transaction_logs[]
+  cs_refunds                              cs_refunds[]
+  cs_serving_employee_to_invoice_items    cs_serving_employee_to_invoice_items[]
+  cs_task_queue                           cs_task_queue[]
+  cs_user_auth                            cs_user_auth?
 }
 
 model cs_invoice_items {
@@ -150,19 +145,19 @@ model cs_invoice_items {
 }
 
 model cs_invoice_payment {
-  invoice_payment_id                                                       BigInt            @id @default(autoincrement())
-  payment_method_id                                                        BigInt
-  invoice_id                                                               BigInt
-  invoice_payment_amount                                                   Decimal?          @db.Decimal(10, 2)
-  remarks                                                                  String?
-  invoice_payment_created_by                                               BigInt
-  created_at_utc                                                           DateTime          @default(now()) @db.Timestamptz(6)
-  invoice_payment_updated_by                                               BigInt
-  updated_at_utc                                                           DateTime          @default(now()) @db.Timestamptz(6)
-  cs_invoices                                                              cs_invoices       @relation(fields: [invoice_id], references: [invoice_id], onDelete: Cascade, onUpdate: NoAction)
-  cs_employees_cs_invoice_payment_invoice_payment_created_byTocs_employees cs_employees      @relation("cs_invoice_payment_invoice_payment_created_byTocs_employees", fields: [invoice_payment_created_by], references: [employee_id])
-  cs_employees_cs_invoice_payment_invoice_payment_updated_byTocs_employees cs_employees      @relation("cs_invoice_payment_invoice_payment_updated_byTocs_employees", fields: [invoice_payment_updated_by], references: [employee_id])
-  cs_payment_method                                                        cs_payment_method @relation(fields: [payment_method_id], references: [payment_method_id])
+  invoice_payment_id         BigInt            @id @default(autoincrement())
+  payment_method_id          BigInt
+  invoice_id                 BigInt
+  invoice_payment_amount     Decimal?          @db.Decimal(10, 2)
+  remarks                    String?
+  invoice_payment_created_by BigInt
+  created_at_utc             DateTime          @default(now()) @db.Timestamptz(6)
+  invoice_payment_updated_by BigInt
+  updated_at_utc             DateTime          @default(now()) @db.Timestamptz(6)
+  cs_invoices                cs_invoices       @relation(fields: [invoice_id], references: [invoice_id], onDelete: Cascade, onUpdate: NoAction)
+  CreatedByEmployee          cs_employees      @relation("CreatedInvoicePayments", fields: [invoice_payment_created_by], references: [employee_id])
+  UpdatedByEmployee          cs_employees      @relation("UpdatedInvoicePayments", fields: [invoice_payment_updated_by], references: [employee_id])
+  cs_payment_method          cs_payment_method @relation(fields: [payment_method_id], references: [payment_method_id])
 }
 
 model cs_invoices {
@@ -195,7 +190,7 @@ model cs_member_care_package {
   member_care_package_status       BigInt
   member_care_package_total_amount Decimal                          @db.Decimal(10, 2)
   created_at_utc                   DateTime                         @default(now()) @db.Timestamptz(6)
-  updated_at_utc                   DateTime                         @db.Timestamptz(6)
+  updated_at_utc                   DateTime                         @default(now()) @db.Timestamptz(6)
   care_package_remarks             String?                          @db.VarChar(255)
   cs_employees                     cs_employees                     @relation(fields: [employee_id], references: [employee_id])
   cs_status                        cs_status                        @relation(fields: [member_care_package_status], references: [status_id])
@@ -232,7 +227,7 @@ model cs_member_care_package_transaction_logs {
   member_care_package_transaction_logs_transaction_type String                         @db.VarChar(100)
   member_care_package_transaction_logs_description      String
   member_care_package_transaction_logs_amount           Decimal                        @db.Decimal(10, 2)
-  member_care_package_transaction_logs_transaction_date DateTime                       @default(now()) @db.Timestamptz(6) // Keep original name
+  member_care_package_transaction_logs_transaction_date DateTime                       @default(now()) @db.Timestamptz(6)
   created_at_utc                                        DateTime                       @default(now()) @db.Timestamptz(6)
   member_care_package_details_id                        BigInt
   employee_id                                           BigInt
@@ -248,10 +243,10 @@ model cs_members {
   member_email             String                     @unique @db.VarChar(150)
   member_contact           String?                    @db.Char(8)
   member_sex               String?                    @db.Char(1)
-  member_dob               DateTime                   @db.Date // Keep original name
+  member_dob               DateTime                   @db.Date
   remarks                  String?
   created_at_utc           DateTime                   @default(now()) @db.Timestamptz(6)
-  updated_at_utc           DateTime                   @db.Timestamptz(6)
+  updated_at_utc           DateTime                   @default(now()) @db.Timestamptz(6)
   cs_invoices              cs_invoices[]
   cs_member_care_package   cs_member_care_package[]
   cs_membership_accounts   cs_membership_accounts[]
@@ -263,11 +258,11 @@ model cs_membership_accounts {
   membership_accounts_id BigInt             @id @default(autoincrement())
   member_id              BigInt
   membership_type_id     BigInt
-  start_date             DateTime           @db.Timestamp(6) // Keep original name
-  end_date               DateTime?          @db.Timestamp(6) // Keep original name
+  start_date             DateTime           @db.Timestamp(6)
+  end_date               DateTime?          @db.Timestamp(6)
   is_active              Boolean
-  created_at_utc         DateTime           @db.Timestamp(6)
-  updated_at_utc         DateTime           @db.Timestamp(6)
+  created_at_utc         DateTime           @default(now()) @db.Timestamp(6)
+  updated_at_utc         DateTime           @default(now()) @db.Timestamp(6)
   status_id              BigInt
   cs_members             cs_members         @relation(fields: [member_id], references: [member_id], onDelete: Cascade, onUpdate: NoAction, map: "fk_member_id")
   cs_membership_type     cs_membership_type @relation(fields: [membership_type_id], references: [membership_type_id], onDelete: NoAction, onUpdate: NoAction, map: "fk_membership_type_id")
@@ -294,8 +289,8 @@ model cs_membership_type {
   account_stored_value_top_up_performance_rule_id                                        BigInt?
   account_stored_value_top_up_commission_rule_id                                         BigInt?
   account_creation_performance_rule_id                                                   BigInt?
-  created_at_utc                                                                         DateTime?                                @default(now()) @db.Timestamptz(6)
-  updated_at_utc                                                                         DateTime?                                @default(now()) @db.Timestamptz(6)
+  created_at_utc                                                                         DateTime                                 @default(now()) @db.Timestamptz(6)
+  updated_at_utc                                                                         DateTime                                 @default(now()) @db.Timestamptz(6)
   default_stored_value                                                                   Decimal?                                 @db.Decimal
   account_creation_commission_rule_id                                                    BigInt?
   cs_membership_accounts                                                                 cs_membership_accounts[]
@@ -311,8 +306,8 @@ model cs_payment_method {
   is_used_to_create_pending_invoice Boolean?
   is_used_to_deduct_from_package    Boolean?
   is_revenue                        Boolean?
-  created_at_utc                    DateTime?            @db.Timestamptz(6)
-  updated_at_utc                    DateTime?            @db.Timestamptz(6)
+  created_at_utc                    DateTime             @default(now()) @db.Timestamptz(6)
+  updated_at_utc                    DateTime             @default(now()) @db.Timestamptz(6)
   cs_invoice_payment                cs_invoice_payment[]
 }
 
@@ -331,8 +326,8 @@ model cs_position {
   position_description          String?        @db.VarChar(255)
   position_is_active            Boolean?       @default(true)
   default_commission_percentage Decimal?       @db.Decimal(10, 2)
-  created_at_utc                DateTime?      @default(now()) @db.Timestamptz(6)
-  updated_at_utc                DateTime?      @default(now()) @db.Timestamptz(6)
+  created_at_utc                DateTime       @default(now()) @db.Timestamptz(6)
+  updated_at_utc                DateTime       @default(now()) @db.Timestamptz(6)
   department_id                 BigInt
   cs_employees                  cs_employees[]
   cs_department                 cs_department  @relation(fields: [department_id], references: [department_id], onDelete: Cascade)
@@ -343,7 +338,7 @@ model cs_product_categories {
   product_category_name        String        @db.VarChar(255)
   product_category_sequence_no Int
   created_at_utc               DateTime      @default(now()) @db.Timestamptz(6)
-  updated_at_utc               DateTime      @db.Timestamptz(6)
+  updated_at_utc               DateTime      @default(now()) @db.Timestamptz(6)
   cs_products                  cs_products[]
 }
 
@@ -355,8 +350,8 @@ model cs_products {
   product_remarks       String?
   product_default_price Decimal?               @db.Decimal(10, 2)
   product_is_active     Boolean?               @default(true)
-  created_at_utc        DateTime?              @default(now()) @db.Timestamptz(6)
-  updated_at_utc        DateTime?              @default(now()) @db.Timestamptz(6)
+  created_at_utc        DateTime               @default(now()) @db.Timestamptz(6)
+  updated_at_utc        DateTime               @default(now()) @db.Timestamptz(6)
   product_category_id   BigInt?
   cs_product_categories cs_product_categories? @relation(fields: [product_category_id], references: [product_category_id], onDelete: Cascade)
 }
@@ -377,7 +372,7 @@ model cs_refunds {
   invoice_id          BigInt?
   refund_total_amount Decimal?          @db.Decimal(10, 2)
   refund_remarks      String?
-  refund_date         DateTime?         @db.Timestamptz(6) // Keep original name
+  refund_date         DateTime?         @db.Timestamptz(6)
   employee_id         BigInt?
   cs_refund_items     cs_refund_items[]
   cs_invoices         cs_invoices?      @relation(fields: [invoice_id], references: [invoice_id], onDelete: NoAction, onUpdate: NoAction, map: "fk_cs_refunds_invoice_id")
@@ -388,7 +383,7 @@ model cs_role_permissions {
   role_id            BigInt
   permission_id      BigInt
   created_at_utc     DateTime        @default(now()) @db.Timestamptz(6)
-  updated_at_utc     DateTime?       @db.Timestamptz(6)
+  updated_at_utc     DateTime        @default(now()) @db.Timestamptz(6)
   role_permission_id BigInt          @id @default(autoincrement())
   cs_permissions     cs_permissions  @relation(fields: [permission_id], references: [permission_id])
   cs_roles           cs_roles        @relation(fields: [role_id], references: [role_id])
@@ -400,7 +395,7 @@ model cs_roles {
   role_name           String                @db.VarChar(20)
   description         String                @db.VarChar(50)
   created_at_utc      DateTime              @default(now()) @db.Timestamptz(6)
-  updated_at_utc      DateTime?             @db.Timestamptz(6)
+  updated_at_utc      DateTime              @default(now()) @db.Timestamptz(6)
   cs_role_permissions cs_role_permissions[]
 }
 
@@ -429,7 +424,7 @@ model cs_service_categories {
   service_category_name        String       @db.VarChar(255)
   service_category_sequence_no Int?
   created_at_utc               DateTime     @default(now()) @db.Timestamptz(6)
-  updated_at_utc               DateTime     @db.Timestamptz(6)
+  updated_at_utc               DateTime     @default(now()) @db.Timestamptz(6)
   cs_service                   cs_service[]
 }
 
@@ -443,8 +438,8 @@ model cs_serving_employee_to_invoice_items {
   rewarded_for_period_year             Int?             @db.SmallInt
   system_generated_remarks             String?
   user_remarks                         String?
-  created_at_utc                       DateTime?        @default(now()) @db.Timestamptz(6)
-  updated_at_utc                       DateTime?        @default(now()) @db.Timestamptz(6)
+  created_at_utc                       DateTime         @default(now()) @db.Timestamptz(6)
+  updated_at_utc                       DateTime         @default(now()) @db.Timestamptz(6)
   invoice_item_id                      BigInt
   reviewed_by_employee_id              BigInt?
   sharing_ratio                        Decimal?         @db.Decimal
@@ -452,15 +447,6 @@ model cs_serving_employee_to_invoice_items {
   final_revenue_performance            Decimal?         @db.Decimal
   cs_employees                         cs_employees?    @relation(fields: [reviewed_by_employee_id], references: [employee_id], map: "cs_serving_employee_to_invoice_ite_reviewed_by_employee_id_fkey")
   cs_invoice_items                     cs_invoice_items @relation(fields: [invoice_item_id], references: [invoice_item_id], onDelete: Cascade)
-}
-
-model cs_sessions {
-  session_id    BigInt       @id @default(autoincrement())
-  employee_id   BigInt
-  refresh_token String       @db.VarChar(550)
-  is_active     Boolean
-  expires_at    DateTime     @db.Timestamptz(6) // Keep original name
-  cs_employees  cs_employees @relation(fields: [employee_id], references: [employee_id])
 }
 
 model cs_status {
@@ -479,8 +465,8 @@ model cs_status {
 model cs_stored_value_accounts {
   stored_value_accounts_id          BigInt                              @id @default(autoincrement())
   stored_value_accounts_balance     Decimal                             @db.Decimal(10, 2)
-  created_at_utc                    DateTime?                           @default(now()) @db.Timestamptz(6)
-  updated_at_utc                    DateTime?                           @default(now()) @db.Timestamptz(6)
+  created_at_utc                    DateTime                            @default(now()) @db.Timestamptz(6)
+  updated_at_utc                    DateTime                            @default(now()) @db.Timestamptz(6)
   member_id                         BigInt
   cs_members                        cs_members                          @relation(fields: [member_id], references: [member_id], onDelete: Cascade, onUpdate: NoAction, map: "fk_cs_stored_value_accounts_member_id")
   cs_stored_value_transactions_logs cs_stored_value_transactions_logs[]
@@ -507,7 +493,7 @@ model cs_task_queue {
   cs_serviceService_id BigInt?
   record_id            BigInt
   created_at_utc       DateTime     @default(now()) @db.Timestamptz(6)
-  updated_at_utc       DateTime     @db.Timestamptz(6)
+  updated_at_utc       DateTime     @default(now()) @db.Timestamptz(6)
   cs_service           cs_service?  @relation(fields: [cs_serviceService_id], references: [service_id])
   cs_employees         cs_employees @relation(fields: [employee_id], references: [employee_id])
   cs_status            cs_status    @relation(fields: [status_id], references: [status_id])
@@ -517,8 +503,8 @@ model cs_translation {
   id             Int      @id @default(autoincrement())
   english        String   @db.VarChar(255)
   chinese        String   @db.VarChar(255)
-  created_at_utc DateTime @db.Timestamp(6)
-  updated_at_utc DateTime @db.Timestamp(6)
+  created_at_utc DateTime @default(now()) @db.Timestamp(6)
+  updated_at_utc DateTime @default(now()) @db.Timestamp(6)
 }
 
 model cs_user_auth {
@@ -526,7 +512,7 @@ model cs_user_auth {
   employee_id    BigInt          @unique
   password       String          @db.VarChar(72)
   created_at_utc DateTime        @default(now()) @db.Timestamptz(6)
-  updated_at_utc DateTime?       @db.Timestamptz(6)
+  updated_at_utc DateTime        @default(now()) @db.Timestamptz(6)
   cs_employees   cs_employees    @relation(fields: [employee_id], references: [employee_id])
   cs_user_roles  cs_user_roles[]
 }
@@ -534,7 +520,7 @@ model cs_user_auth {
 model cs_user_roles {
   user_id             BigInt
   created_at_utc      DateTime            @default(now()) @db.Timestamptz(6)
-  updated_at_utc      DateTime?           @default(now()) @db.Timestamptz(6)
+  updated_at_utc      DateTime            @default(now()) @db.Timestamptz(6)
   role_permission_id  BigInt
   cs_role_permissions cs_role_permissions @relation(fields: [role_permission_id], references: [role_permission_id])
   cs_user_auth        cs_user_auth        @relation(fields: [user_id], references: [user_id])
