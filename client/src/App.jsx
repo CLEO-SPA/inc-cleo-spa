@@ -1,5 +1,12 @@
 import { BrowserRouter, Routes, Route } from 'react-router-dom';
-import LoginPage from './pages/LoginPage'; // Import the LoginPage
+import { ProtectedRoute } from '@/context/RouteProtectionContext';
+
+// Pages
+// import HomePage from '@/pages/HomePage';
+import LoginPage from '@/pages/LoginPage';
+
+// 404
+import NotFoundPage from '@/pages/404';
 
 function App() {
   return (
@@ -14,6 +21,8 @@ function App() {
 
         {/* Example of a placeholder for the root path */}
         <Route path='/' element={<div>Home Page Placeholder</div>} />
+
+        <Route path='*' element={<NotFoundPage />} />
       </Routes>
     </BrowserRouter>
   );
