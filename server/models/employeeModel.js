@@ -2,7 +2,7 @@ import pool from '../config/database.js';
 
 const checkEmployeeCodeExists = async (employeeCode) => {
   try {
-    const query = 'SELECT * FROM cs_employees WHERE employee_code = $1';
+    const query = `SELECT * FROM employees WHERE employee_code = $1`;
     const values = [employeeCode];
     const result = await pool.query(query, values);
 
@@ -15,8 +15,8 @@ const checkEmployeeCodeExists = async (employeeCode) => {
 const getAuthEmployee = async (employeeCode) => {
   try {
     const query = `
-      SELECT * FROM cs_employees emp
-      INNER JOIN cs_user_auth ua
+      SELECT * FROM employees emp
+      INNER JOIN user_auth ua
       ON emp.employee_id = ua.employee_id
       WHERE emp.employee_code = $1
       `;
@@ -42,6 +42,7 @@ const createEmployee = async ({
   positionId,
   commissionPercentage,
   passwordHash,
+  createdAt,
 }) => {
   const client = await pool.connect();
 
@@ -50,8 +51,8 @@ const createEmployee = async ({
     await client.query('BEGIN');
 
     const insertEmployeeQuery = `
-      INSERT INTO cs_employees (employee_code, department_id, employee_contact, employee_email, employee_is_active, employee_name, position_id, commission_percentage)
-      VALUES ($1, $2, $3, $4, $5, $6, $7, $8)
+      INSERT INTO employees (employee_code, department_id, employee_contact, employee_email, employee_is_active, employee_name, position_id, commission_percentage, created_at_utc)
+      VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9)
       RETURNING *;
     `;
     const values = [
@@ -63,13 +64,14 @@ const createEmployee = async ({
       employeeName,
       parseInt(positionId, 10) || null,
       parseFloat(commissionPercentage) || 0.0,
+      createdAt || new Date().toISOString(),
     ];
 
     const result = await client.query(insertEmployeeQuery, values);
     const newEmployee = result.rows[0];
 
     const insertAuthQuery = `
-      INSERT INTO cs_user_auth (employee_id, password_hash)
+      INSERT INTO user_auth (employee_id, password_hash)
       VALUES ($1, $2)
       RETURNING *;
     `;

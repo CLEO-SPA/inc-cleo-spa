@@ -6,7 +6,7 @@ const PGStore = connectPgSimple(session);
 
 const sessionStore = new PGStore({
   pool: pool,
-  tableName: 'cs_sessions',
+  tableName: 'sessions',
   createTableIfMissing: true,
 });
 
