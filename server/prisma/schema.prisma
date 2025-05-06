@@ -3,131 +3,96 @@ datasource db {
   url      = env("DATABASE_URL")
 }
 
-model application_type {
-  application_type_id            BigInt                            @id @default(autoincrement())
-  application_type               String                            @db.VarChar(50)
-  remarks                        String?
+model application_types {
+  id                                   BigInt                                 @id @default(autoincrement())
+  application_type                     String                                 @db.VarChar(50)
+  remarks                              String?
   employee_performance_incentive_rules employee_performance_incentive_rules[]
 }
 
-model audit_creation_log {
-  log_id         BigInt    @id @default(autoincrement())
-  user_id        BigInt?
-  table_name     String?   @db.VarChar(50)
-  record_id      BigInt?
-  created_at_utc DateTime  @default(now()) @db.Timestamptz(6)
-  data           Json?
-  employees      employees? @relation(fields: [user_id], references: [employee_id], onDelete: NoAction, onUpdate: NoAction)
-}
-
-model audit_deletion_log {
-  log_id         BigInt    @id @default(autoincrement())
-  user_id        BigInt?
-  table_name     String?   @db.VarChar(50)
-  record_id      BigInt?
-  created_at_utc DateTime  @default(now()) @db.Timestamptz(6)
-  deleted_data   Json?
-  employees      employees? @relation(fields: [user_id], references: [employee_id], onDelete: NoAction, onUpdate: NoAction)
-}
-
-model audit_modification_log {
-  log_id         BigInt    @id @default(autoincrement())
-  user_id        BigInt?
-  table_name     String?   @db.VarChar(50)
-  record_id      BigInt?
-  created_at_utc DateTime  @default(now()) @db.Timestamptz(6)
-  old_data       Json?
-  new_data       Json?
-  changed_fields Json?
-  employees      employees? @relation(fields: [user_id], references: [employee_id], onDelete: NoAction, onUpdate: NoAction)
-}
-
-model care_package {
-  care_package_id           BigInt                      @id @default(autoincrement())
+model care_packages {
+  id                        BigInt                      @id @default(autoincrement())
   care_package_name         String                      @db.VarChar(200)
   care_package_remarks      String?
   care_package_price        Decimal                     @db.Decimal(10, 2)
   care_package_status       BigInt
-  created_at_utc            DateTime                    @default(now()) @db.Timestamptz(6)
-  updated_at_utc            DateTime                    @db.Timestamptz(6)
+  created_at                DateTime                    @db.Timestamptz(6)
+  updated_at                DateTime                    @db.Timestamptz(6)
   care_package_customizable Boolean                     @default(false)
-  status                    status                      @relation(fields: [care_package_status], references: [status_id])
+  status                    statuses                    @relation(fields: [care_package_status], references: [id])
   care_package_item_details care_package_item_details[]
   care_package_items        care_package_items[]
 }
 
 model care_package_item_details {
-  care_package_item_details_id       BigInt       @id @default(autoincrement())
+  id                                 BigInt        @id @default(autoincrement())
   care_package_item_details_quantity Int
-  care_package_item_details_discount Decimal      @db.Decimal(10, 2)
-  care_package_item_details_price    Decimal      @db.Decimal(10, 2)
+  care_package_item_details_discount Decimal       @db.Decimal(10, 2)
+  care_package_item_details_price    Decimal       @db.Decimal(10, 2)
   service_id                         BigInt
   care_package_id                    BigInt
-  care_package                       care_package @relation(fields: [care_package_id], references: [care_package_id], onDelete: Cascade)
-  service                            service      @relation(fields: [service_id], references: [service_id], map: "fk_service")
+  care_package                       care_packages @relation(fields: [care_package_id], references: [id], onDelete: Cascade)
+  service                            services      @relation(fields: [service_id], references: [id], map: "fk_service")
 }
 
 model care_package_items {
-  care_package_items_id BigInt       @id @default(autoincrement())
-  care_package_id       BigInt
-  created_at_utc        DateTime     @default(now()) @db.Timestamptz(6)
-  updated_at_utc        DateTime     @default(now()) @db.Timestamptz(6)
-  care_package          care_package @relation(fields: [care_package_id], references: [care_package_id], onDelete: Cascade)
+  id              BigInt        @id @default(autoincrement())
+  care_package_id BigInt
+  created_at      DateTime      @db.Timestamptz(6)
+  updated_at      DateTime      @db.Timestamptz(6)
+  care_package    care_packages @relation(fields: [care_package_id], references: [id], onDelete: Cascade)
 }
 
-model department {
-  department_id          BigInt      @id @default(autoincrement())
+model departments {
+  id                     BigInt      @id @default(autoincrement())
   department_name        String      @db.VarChar(200)
   department_description String?     @db.VarChar(255)
   department_is_active   Boolean
-  created_at_utc         DateTime    @default(now()) @db.Timestamptz(6)
-  updated_at_utc         DateTime?   @default(now()) @db.Timestamptz(6)
+  created_at             DateTime    @db.Timestamptz(6)
+  updated_at             DateTime?   @db.Timestamptz(6)
   employees              employees[]
-  position               position[]
+  position               positions[]
 }
 
 model employee_performance_incentive_rules {
-  employee_performance_incentive_rules_id BigInt            @id @default(autoincrement())
-  application_type_id                     BigInt?
-  percentage_value                        Decimal?          @db.Decimal
-  absolute_value                          Decimal?          @db.Decimal
-  remarks                                 String?
-  created_at_utc                          DateTime          @default(now()) @db.Timestamptz(6)
-  updated_at_utc                          DateTime          @default(now()) @db.Timestamptz(6)
-  application_type                        application_type? @relation(fields: [application_type_id], references: [application_type_id], onDelete: Cascade, map: "employee_performance_incentive_rule_application_type_id_fkey")
-  membership_type                         membership_type[]
+  id                  BigInt             @id @default(autoincrement())
+  application_type_id BigInt?
+  percentage_value    Decimal?           @db.Decimal
+  absolute_value      Decimal?           @db.Decimal
+  remarks             String?
+  created_at          DateTime           @db.Timestamptz(6)
+  updated_at          DateTime           @db.Timestamptz(6)
+  application_type    application_types? @relation(fields: [application_type_id], references: [id], onDelete: Cascade, map: "employee_performance_incentive_rule_application_type_id_fkey")
+  membership_type     membership_types[]
 }
 
 model employees {
-  employee_id                          BigInt                                 @id @default(autoincrement())
+  id                                   BigInt                                 @id @default(autoincrement())
   employee_code                        String                                 @db.VarChar(50)
   department_id                        BigInt
-  created_at_utc                       DateTime                               @default(now()) @db.Timestamptz(6)
+  created_at                           DateTime                               @db.Timestamptz(6)
   employee_contact                     String                                 @db.VarChar(20)
   employee_email                       String                                 @db.VarChar(255)
   employee_is_active                   Boolean
   employee_name                        String                                 @db.VarChar(100)
-  updated_at_utc                       DateTime                               @default(now()) @db.Timestamptz(6)
+  updated_at                           DateTime                               @db.Timestamptz(6)
   position_id                          BigInt?
   commission_percentage                Decimal?                               @default(0.00) @db.Decimal(10, 2)
-  audit_creation_log                   audit_creation_log[]
-  audit_deletion_log                   audit_deletion_log[]
-  audit_modification_log               audit_modification_log[]
-  department                           department                             @relation(fields: [department_id], references: [department_id])
-  position                             position?                              @relation(fields: [position_id], references: [position_id], onDelete: NoAction, onUpdate: NoAction, map: "fk_position_id")
-  CreatedInvoicePayments               invoice_payment[]                      @relation("CreatedInvoicePayments")
-  UpdatedInvoicePayments               invoice_payment[]                      @relation("UpdatedInvoicePayments")
+  department                           departments                            @relation(fields: [department_id], references: [id])
+  position                             positions?                             @relation(fields: [position_id], references: [id], onDelete: NoAction, onUpdate: NoAction, map: "fk_position_id")
+  CreatedInvoicePayments               invoice_payments[]                     @relation("CreatedInvoicePayments")
+  UpdatedInvoicePayments               invoice_payments[]                     @relation("UpdatedInvoicePayments")
   invoices                             invoices[]
-  member_care_package                  member_care_package[]
+  member_care_package                  member_care_packages[]
   member_care_package_transaction_logs member_care_package_transaction_logs[]
   refunds                              refunds[]
   serving_employee_to_invoice_items    serving_employee_to_invoice_items[]
-  task_queue                           task_queue[]
-  user_auth                            user_auth?
+  task_queue                           task_queues[]
+  user_auth                            user_auths?
 }
 
 model invoice_items {
-  invoice_item_id                   BigInt                              @id @default(autoincrement())
+  id                                BigInt                              @id @default(autoincrement())
   invoice_id                        BigInt
   service_name                      String?                             @db.VarChar(255)
   product_name                      String?                             @db.VarChar(255)
@@ -139,395 +104,373 @@ model invoice_items {
   remarks                           String?
   amount                            Decimal?                            @db.Decimal(10, 2)
   item_type                         item_type
-  invoices                          invoices                            @relation(fields: [invoice_id], references: [invoice_id], onDelete: Cascade, onUpdate: NoAction)
+  invoices                          invoices                            @relation(fields: [invoice_id], references: [id], onDelete: Cascade, onUpdate: NoAction)
   refund_items                      refund_items[]
   serving_employee_to_invoice_items serving_employee_to_invoice_items[]
 }
 
-model invoice_payment {
-  invoice_payment_id         BigInt         @id @default(autoincrement())
+model invoice_payments {
+  id                         BigInt          @id @default(autoincrement())
   payment_method_id          BigInt
   invoice_id                 BigInt
-  invoice_payment_amount     Decimal?       @db.Decimal(10, 2)
+  invoice_payment_amount     Decimal?        @db.Decimal(10, 2)
   remarks                    String?
   invoice_payment_created_by BigInt
-  created_at_utc             DateTime       @default(now()) @db.Timestamptz(6)
+  created_at                 DateTime        @db.Timestamptz(6)
   invoice_payment_updated_by BigInt
-  updated_at_utc             DateTime       @default(now()) @db.Timestamptz(6)
-  invoices                   invoices       @relation(fields: [invoice_id], references: [invoice_id], onDelete: Cascade, onUpdate: NoAction)
-  CreatedByEmployee          employees      @relation("CreatedInvoicePayments", fields: [invoice_payment_created_by], references: [employee_id])
-  UpdatedByEmployee          employees      @relation("UpdatedInvoicePayments", fields: [invoice_payment_updated_by], references: [employee_id])
-  payment_method             payment_method @relation(fields: [payment_method_id], references: [payment_method_id])
+  updated_at                 DateTime        @db.Timestamptz(6)
+  invoices                   invoices        @relation(fields: [invoice_id], references: [id], onDelete: Cascade, onUpdate: NoAction)
+  CreatedByEmployee          employees       @relation("CreatedInvoicePayments", fields: [invoice_payment_created_by], references: [id])
+  UpdatedByEmployee          employees       @relation("UpdatedInvoicePayments", fields: [invoice_payment_updated_by], references: [id])
+  payment_method             payment_methods @relation(fields: [payment_method_id], references: [id])
 }
 
 model invoices {
-  invoice_id                       BigInt            @id @default(autoincrement())
+  id                               BigInt             @id @default(autoincrement())
   customer_type                    customer_type
   member_id                        BigInt
-  total_paid_amount                Decimal           @db.Decimal(10, 2)
-  outstanding_total_payment_amount Decimal           @db.Decimal(10, 2)
+  total_paid_amount                Decimal            @db.Decimal(10, 2)
+  outstanding_total_payment_amount Decimal            @db.Decimal(10, 2)
   invoice_status                   BigInt
   remarks                          String?
-  manual_invoice_no                String?           @db.VarChar(50)
+  manual_invoice_no                String?            @db.VarChar(50)
   reference_invoice_id             BigInt?
   invoice_handler_employee_id      BigInt
-  created_at_utc                   DateTime          @default(now()) @db.Timestamptz(6)
-  updated_at_utc                   DateTime          @default(now()) @db.Timestamptz(6)
-  total_invoice_amount             Decimal?          @db.Decimal(10, 2)
+  created_at                       DateTime           @db.Timestamptz(6)
+  updated_at                       DateTime           @db.Timestamptz(6)
+  total_invoice_amount             Decimal?           @db.Decimal(10, 2)
   invoice_items                    invoice_items[]
-  invoice_payment                  invoice_payment[]
-  employees                        employees         @relation(fields: [invoice_handler_employee_id], references: [employee_id])
-  status                           status            @relation(fields: [invoice_status], references: [status_id])
-  members                          members           @relation(fields: [member_id], references: [member_id], onDelete: Cascade)
+  invoice_payment                  invoice_payments[]
+  employees                        employees          @relation(fields: [invoice_handler_employee_id], references: [id])
+  status                           statuses           @relation(fields: [invoice_status], references: [id])
+  members                          members            @relation(fields: [member_id], references: [id], onDelete: Cascade)
   refunds                          refunds[]
 }
 
-model member_care_package {
-  member_care_package_id        BigInt                        @id @default(autoincrement())
-  member_id                     BigInt
-  employee_id                   BigInt
-  care_package_name             String                        @db.VarChar(100)
-  member_care_package_status    BigInt
+model member_care_packages {
+  id                               BigInt                        @id @default(autoincrement())
+  member_id                        BigInt
+  employee_id                      BigInt
+  care_package_name                String                        @db.VarChar(100)
+  member_care_package_status       BigInt
   member_care_package_total_amount Decimal                       @db.Decimal(10, 2)
-  created_at_utc                DateTime                      @default(now()) @db.Timestamptz(6)
-  updated_at_utc                DateTime                      @default(now()) @db.Timestamptz(6)
-  care_package_remarks          String?                       @db.VarChar(255)
-  employees                     employees                     @relation(fields: [employee_id], references: [employee_id])
-  status                        status                        @relation(fields: [member_care_package_status], references: [status_id])
-  members                       members                       @relation(fields: [member_id], references: [member_id], onDelete: Cascade)
-  member_care_package_details   member_care_package_details[]
+  created_at                       DateTime                      @db.Timestamptz(6)
+  updated_at                       DateTime                      @db.Timestamptz(6)
+  care_package_remarks             String?                       @db.VarChar(255)
+  employees                        employees                     @relation(fields: [employee_id], references: [id])
+  status                           statuses                      @relation(fields: [member_care_package_status], references: [id])
+  members                          members                       @relation(fields: [member_id], references: [id], onDelete: Cascade)
+  member_care_package_details      member_care_package_details[]
 }
 
 model member_care_package_details {
-  member_care_package_details_id       BigInt                                 @id @default(autoincrement())
+  id                                   BigInt                                 @id @default(autoincrement())
   member_care_package_details_discount Decimal                                @db.Decimal(10, 2)
   member_care_package_details_price    Decimal                                @db.Decimal(10, 2)
   member_care_package_id               BigInt
   service_id                           BigInt?
   status_id                            BigInt
-  member_care_package                  member_care_package                    @relation(fields: [member_care_package_id], references: [member_care_package_id], onDelete: Cascade)
-  service                              service?                               @relation(fields: [service_id], references: [service_id])
-  status                               status                                 @relation(fields: [status_id], references: [status_id])
+  member_care_package                  member_care_packages                   @relation(fields: [member_care_package_id], references: [id], onDelete: Cascade)
+  service                              services?                              @relation(fields: [service_id], references: [id])
+  status                               statuses                               @relation(fields: [status_id], references: [id])
   member_care_package_items_logs       member_care_package_items_logs[]
   member_care_package_transaction_logs member_care_package_transaction_logs[]
 }
 
 model member_care_package_items_logs {
-  member_care_package_items_logs_id      BigInt                      @id @default(autoincrement())
-  member_care_package_items_logs_type    String                      @db.VarChar(100)
+  id                                        BigInt                      @id @default(autoincrement())
+  member_care_package_items_logs_type       String                      @db.VarChar(100)
   member_care_package_item_logs_description String
-  member_care_package_item_status        BigInt
-  created_at_utc                         DateTime                    @default(now()) @db.Timestamptz(6)
-  member_care_package_details_id         BigInt
-  member_care_package_details            member_care_package_details @relation(fields: [member_care_package_details_id], references: [member_care_package_details_id], onDelete: Cascade)
+  member_care_package_item_status           BigInt
+  created_at                                DateTime                    @db.Timestamptz(6)
+  member_care_package_details_id            BigInt
+  member_care_package_details               member_care_package_details @relation(fields: [member_care_package_details_id], references: [id], onDelete: Cascade)
 }
 
 model member_care_package_transaction_logs {
-  member_care_package_transaction_log_id             BigInt                      @id @default(autoincrement())
+  id                                                    BigInt                      @id @default(autoincrement())
   member_care_package_transaction_logs_transaction_type String                      @db.VarChar(100)
-  member_care_package_transaction_logs_description   String
-  member_care_package_transaction_logs_amount        Decimal                     @db.Decimal(10, 2)
-  member_care_package_transaction_logs_transaction_date DateTime                    @default(now()) @db.Timestamptz(6)
-  created_at_utc                                     DateTime                    @default(now()) @db.Timestamptz(6)
-  member_care_package_details_id                     BigInt
-  employee_id                                        BigInt
-  member_care_package_transaction_logs_quantity      Int?
-  service_id                                         Int?
-  employees                                          employees                   @relation(fields: [employee_id], references: [employee_id])
-  member_care_package_details                        member_care_package_details @relation(fields: [member_care_package_details_id], references: [member_care_package_details_id], onDelete: Cascade)
+  member_care_package_transaction_logs_description      String
+  member_care_package_transaction_logs_amount           Decimal                     @db.Decimal(10, 2)
+  member_care_package_transaction_logs_transaction_date DateTime                    @db.Timestamptz(6)
+  created_at                                            DateTime                    @db.Timestamptz(6)
+  member_care_package_details_id                        BigInt
+  employee_id                                           BigInt
+  member_care_package_transaction_logs_quantity         Int?
+  service_id                                            Int?
+  employees                                             employees                   @relation(fields: [employee_id], references: [id])
+  member_care_package_details                           member_care_package_details @relation(fields: [member_care_package_details_id], references: [id], onDelete: Cascade)
 }
 
 model members {
-  member_id             BigInt                  @id @default(autoincrement())
+  id                    BigInt                  @id @default(autoincrement())
   member_name           String                  @db.VarChar(200)
   member_email          String                  @unique @db.VarChar(150)
   member_contact        String?                 @db.Char(8)
   member_sex            String?                 @db.Char(1)
   member_dob            DateTime                @db.Date
   remarks               String?
-  created_at_utc        DateTime                @default(now()) @db.Timestamptz(6)
-  updated_at_utc        DateTime                @default(now()) @db.Timestamptz(6)
+  created_at            DateTime                @db.Timestamptz(6)
+  updated_at            DateTime                @db.Timestamptz(6)
   invoices              invoices[]
-  member_care_package   member_care_package[]
+  member_care_package   member_care_packages[]
   membership_accounts   membership_accounts[]
-  membership_history    membership_history[]
+  membership_history    membership_histories[]
   stored_value_accounts stored_value_accounts[]
 }
 
 model membership_accounts {
-  membership_accounts_id BigInt          @id @default(autoincrement())
-  member_id              BigInt
-  membership_type_id     BigInt
-  start_date             DateTime        @db.Timestamp(6)
-  end_date               DateTime?       @db.Timestamp(6)
-  is_active              Boolean
-  created_at_utc         DateTime        @default(now()) @db.Timestamp(6)
-  updated_at_utc         DateTime        @default(now()) @db.Timestamp(6)
-  status_id              BigInt
-  members                members         @relation(fields: [member_id], references: [member_id], onDelete: Cascade, onUpdate: NoAction, map: "fk_member_id")
-  membership_type        membership_type @relation(fields: [membership_type_id], references: [membership_type_id], onDelete: NoAction, onUpdate: NoAction, map: "fk_membership_type_id")
-  status                 status          @relation(fields: [status_id], references: [status_id], onDelete: NoAction, onUpdate: NoAction, map: "fk_status_id")
+  id                 BigInt           @id @default(autoincrement())
+  member_id          BigInt
+  membership_type_id BigInt
+  start_date         DateTime         @db.Timestamp(6)
+  end_date           DateTime?        @db.Timestamp(6)
+  is_active          Boolean
+  created_at         DateTime         @db.Timestamp(6)
+  updated_at         DateTime         @db.Timestamp(6)
+  status_id          BigInt
+  members            members          @relation(fields: [member_id], references: [id], onDelete: Cascade, onUpdate: NoAction, map: "fk_member_id")
+  membership_type    membership_types @relation(fields: [membership_type_id], references: [id], onDelete: NoAction, onUpdate: NoAction, map: "fk_membership_type_id")
+  status             statuses         @relation(fields: [status_id], references: [id], onDelete: NoAction, onUpdate: NoAction, map: "fk_status_id")
 }
 
-model membership_history {
-  membership_history_id                                                        BigInt           @id @default(autoincrement())
-  member_id                                                                    BigInt
-  old_membership_type_id                                                       BigInt?
-  new_membership_type_id                                                       BigInt?
-  remarks                                                                      String?
-  created_at_utc                                                               DateTime?        @default(now()) @db.Timestamptz(6)
-  members                                                                      members          @relation(fields: [member_id], references: [member_id], onDelete: Cascade)
-  membership_type_membership_history_new_membership_type_idTomembership_type membership_type? @relation("membership_history_new_membership_type_idTomembership_type", fields: [new_membership_type_id], references: [membership_type_id])
-  membership_type_membership_history_old_membership_type_idTomembership_type membership_type? @relation("membership_history_old_membership_type_idTomembership_type", fields: [old_membership_type_id], references: [membership_type_id])
+model membership_histories {
+  id                                                                         BigInt            @id @default(autoincrement())
+  member_id                                                                  BigInt
+  old_membership_type_id                                                     BigInt?
+  new_membership_type_id                                                     BigInt?
+  remarks                                                                    String?
+  created_at                                                                 DateTime?         @db.Timestamptz(6)
+  members                                                                    members           @relation(fields: [member_id], references: [id], onDelete: Cascade)
+  membership_type_membership_history_new_membership_type_idTomembership_type membership_types? @relation("membership_history_new_membership_type_idTomembership_type", fields: [new_membership_type_id], references: [id])
+  membership_type_membership_history_old_membership_type_idTomembership_type membership_types? @relation("membership_history_old_membership_type_idTomembership_type", fields: [old_membership_type_id], references: [id])
 }
 
-model membership_type {
-  membership_type_id                                                              BigInt                                @id @default(autoincrement())
-  membership_type_name                                                            String                                @db.VarChar(50)
-  default_discount_for_products                                                   Decimal?                              @db.Decimal
-  default_discount_percentage_for_service                                         Decimal?                              @db.Decimal
-  account_stored_value_top_up_performance_rule_id                                 BigInt?
-  account_stored_value_top_up_commission_rule_id                                  BigInt?
-  account_creation_performance_rule_id                                            BigInt?
-  created_at_utc                                                                  DateTime                              @default(now()) @db.Timestamptz(6)
-  updated_at_utc                                                                  DateTime                              @default(now()) @db.Timestamptz(6)
-  default_stored_value                                                            Decimal?                              @db.Decimal
-  account_creation_commission_rule_id                                             BigInt?
-  membership_accounts                                                             membership_accounts[]
-  membership_history_membership_history_new_membership_type_idTomembership_type membership_history[]                  @relation("membership_history_new_membership_type_idTomembership_type")
-  membership_history_membership_history_old_membership_type_idTomembership_type membership_history[]                  @relation("membership_history_old_membership_type_idTomembership_type")
-  employee_performance_incentive_rules                                            employee_performance_incentive_rules? @relation(fields: [account_stored_value_top_up_commission_rule_id], references: [employee_performance_incentive_rules_id], onUpdate: NoAction, map: "membership_type_account_creation_performance_rule_id_fkey")
+model membership_types {
+  id                                              BigInt                                @id @default(autoincrement())
+  membership_type_name                            String                                @db.VarChar(50)
+  default_discount_for_products                   Decimal?                              @db.Decimal
+  default_discount_percentage_for_service         Decimal?                              @db.Decimal
+  account_stored_value_top_up_performance_rule_id BigInt?
+  account_stored_value_top_up_commission_rule_id  BigInt?
+  account_creation_performance_rule_id            BigInt?
+  created_at                                      DateTime                              @db.Timestamptz(6)
+  updated_at                                      DateTime                              @db.Timestamptz(6)
+  default_stored_value                            Decimal?                              @db.Decimal
+  account_creation_commission_rule_id             BigInt?
+  membership_accounts                             membership_accounts[]
+  employee_performance_incentive_rules            employee_performance_incentive_rules? @relation(fields: [account_stored_value_top_up_commission_rule_id], references: [id], onUpdate: NoAction, map: "membership_type_account_creation_performance_rule_id_fkey")
+
+  membership_histories_new membership_histories[] @relation("membership_history_new_membership_type_idTomembership_type")
+
+  membership_histories_old membership_histories[] @relation("membership_history_old_membership_type_idTomembership_type")
 }
 
-model payment_method {
-  payment_method_id                 BigInt            @id @default(autoincrement())
-  payment_method_name               String            @db.VarChar(50)
+model payment_methods {
+  id                                BigInt             @id @default(autoincrement())
+  payment_method_name               String             @db.VarChar(50)
   is_active                         Boolean?
   is_used_to_create_pending_invoice Boolean?
   is_used_to_deduct_from_package    Boolean?
   is_revenue                        Boolean?
-  created_at_utc                    DateTime          @default(now()) @db.Timestamptz(6)
-  updated_at_utc                    DateTime          @default(now()) @db.Timestamptz(6)
-  invoice_payment                   invoice_payment[]
+  created_at                        DateTime           @db.Timestamptz(6)
+  updated_at                        DateTime           @db.Timestamptz(6)
+  invoice_payment                   invoice_payments[]
 }
 
-model permissions {
-  permission_id    BigInt             @id @default(autoincrement())
-  read_access      Boolean
-  update_access    Boolean
-  create_access    Boolean
-  delete_access    Boolean
-  role_permissions role_permissions[]
-}
-
-model position {
-  position_id                   BigInt      @id @default(autoincrement())
+model positions {
+  id                            BigInt      @id @default(autoincrement())
   position_name                 String      @db.VarChar(255)
   position_description          String?     @db.VarChar(255)
   position_is_active            Boolean?    @default(true)
   default_commission_percentage Decimal?    @db.Decimal(10, 2)
-  created_at_utc                DateTime    @default(now()) @db.Timestamptz(6)
-  updated_at_utc                DateTime    @default(now()) @db.Timestamptz(6)
+  created_at                    DateTime    @db.Timestamptz(6)
+  updated_at                    DateTime    @db.Timestamptz(6)
   department_id                 BigInt
   employees                     employees[]
-  department                    department  @relation(fields: [department_id], references: [department_id], onDelete: Cascade)
+  department                    departments @relation(fields: [department_id], references: [id], onDelete: Cascade)
 }
 
 model product_categories {
-  product_category_id          BigInt     @id @default(autoincrement())
+  id                           BigInt     @id @default(autoincrement())
   product_category_name        String     @db.VarChar(255)
   product_category_sequence_no Int
-  created_at_utc               DateTime   @default(now()) @db.Timestamptz(6)
-  updated_at_utc               DateTime   @default(now()) @db.Timestamptz(6)
+  created_at                   DateTime   @db.Timestamptz(6)
+  updated_at                   DateTime   @db.Timestamptz(6)
   products                     products[]
 }
 
 model products {
-  product_id            BigInt              @id @default(autoincrement())
+  id                    BigInt              @id @default(autoincrement())
   product_name          String              @db.VarChar(255)
   product_description   String?             @db.VarChar(255)
   product_sequence_no   Int?
   product_remarks       String?
   product_default_price Decimal?            @db.Decimal(10, 2)
   product_is_active     Boolean?            @default(true)
-  created_at_utc        DateTime            @default(now()) @db.Timestamptz(6)
-  updated_at_utc        DateTime            @default(now()) @db.Timestamptz(6)
+  created_at            DateTime            @db.Timestamptz(6)
+  updated_at            DateTime            @db.Timestamptz(6)
   product_category_id   BigInt?
-  product_categories    product_categories? @relation(fields: [product_category_id], references: [product_category_id], onDelete: Cascade)
+  product_categories    product_categories? @relation(fields: [product_category_id], references: [id], onDelete: Cascade)
 }
 
 model refund_items {
-  refund_item_id      BigInt         @id @default(autoincrement())
+  id                  BigInt         @id @default(autoincrement())
   refund_id           BigInt?
   invoice_item_id     BigInt?
   refund_quantity     Int?
   refund_item_amount  Decimal?       @db.Decimal(10, 2)
   refund_item_remarks String?
-  invoice_items       invoice_items? @relation(fields: [invoice_item_id], references: [invoice_item_id], onDelete: NoAction, onUpdate: NoAction, map: "fk_refund_items_invoice_item_id")
-  refunds             refunds?       @relation(fields: [refund_id], references: [refund_id], onDelete: NoAction, onUpdate: NoAction, map: "fk_refund_items_refund_id")
+  invoice_items       invoice_items? @relation(fields: [invoice_item_id], references: [id], onDelete: NoAction, onUpdate: NoAction, map: "fk_refund_items_invoice_item_id")
+  refunds             refunds?       @relation(fields: [refund_id], references: [id], onDelete: NoAction, onUpdate: NoAction, map: "fk_refund_items_refund_id")
 }
 
 model refunds {
-  refund_id           BigInt         @id @default(autoincrement())
+  id                  BigInt         @id @default(autoincrement())
   invoice_id          BigInt?
   refund_total_amount Decimal?       @db.Decimal(10, 2)
   refund_remarks      String?
   refund_date         DateTime?      @db.Timestamptz(6)
   employee_id         BigInt?
   refund_items        refund_items[]
-  invoices            invoices?      @relation(fields: [invoice_id], references: [invoice_id], onDelete: NoAction, onUpdate: NoAction, map: "fk_refunds_invoice_id")
-  employees           employees?     @relation(fields: [employee_id], references: [employee_id], onDelete: NoAction, onUpdate: NoAction, map: "fk_employee")
-}
-
-model role_permissions {
-  role_id            BigInt       @id @default(autoincrement()) // Changed primary key definition
-  role_id_fk         BigInt       // Renamed original role_id to avoid conflict
-  permission_id      BigInt
-  created_at_utc     DateTime     @default(now()) @db.Timestamptz(6)
-  updated_at_utc     DateTime     @default(now()) @db.Timestamptz(6)
-  permissions        permissions  @relation(fields: [permission_id], references: [permission_id])
-  roles              roles        @relation(fields: [role_id_fk], references: [role_id]) // Updated relation field
-  user_roles         user_roles[]
-
-  @@unique([role_id_fk, permission_id]) // Added unique constraint if needed
+  invoices            invoices?      @relation(fields: [invoice_id], references: [id], onDelete: NoAction, onUpdate: NoAction, map: "fk_refunds_invoice_id")
+  employees           employees?     @relation(fields: [employee_id], references: [id], onDelete: NoAction, onUpdate: NoAction, map: "fk_employee")
 }
 
 model roles {
-  role_id          BigInt             @id @default(autoincrement())
-  role_name        String             @db.VarChar(20)
-  description      String             @db.VarChar(50)
-  created_at_utc   DateTime           @default(now()) @db.Timestamptz(6)
-  updated_at_utc   DateTime           @default(now()) @db.Timestamptz(6)
-  role_permissions role_permissions[]
+  id          BigInt   @id @default(autoincrement())
+  role_name   String   @db.VarChar(20)
+  description String   @db.VarChar(50)
+  created_at  DateTime @db.Timestamptz(6)
+  updated_at  DateTime @db.Timestamptz(6)
 }
 
-model service {
-  service_id                  BigInt                        @id @default(autoincrement())
+model services {
+  id                          BigInt                        @id @default(autoincrement())
   service_name                String                        @db.VarChar(255)
   service_description         String?                       @db.VarChar(255)
   service_remarks             String?
   service_estimated_duration  Decimal                       @db.Decimal
   service_default_price       Decimal                       @db.Decimal(10, 2)
   service_is_active           Boolean
-  created_at_utc              DateTime                      @default(now()) @db.Timestamptz(6)
-  updated_at_utc              DateTime                      @default(now()) @db.Timestamptz(6)
+  created_at                  DateTime                      @db.Timestamptz(6)
+  updated_at                  DateTime                      @db.Timestamptz(6)
   service_category_id         BigInt
   service_sequence_no         Int
   care_package_item_details   care_package_item_details[]
   member_care_package_details member_care_package_details[]
-  service_categories          service_categories            @relation(fields: [service_category_id], references: [service_category_id], onDelete: Cascade, map: "service_categories_service_category_id_fkey")
-  task_queue                  task_queue[]
+  service_categories          service_categories            @relation(fields: [service_category_id], references: [id], onDelete: Cascade, map: "service_categories_service_category_id_fkey")
+  task_queue                  task_queues[]
 
   @@index([service_category_id], map: "fki_service_service_category_id_fkey")
 }
 
 model service_categories {
-  service_category_id          BigInt    @id(map: "service_categories_pkey1") @default(autoincrement())
-  service_category_name        String    @db.VarChar(255)
+  id                           BigInt     @id(map: "service_categories_pkey1") @default(autoincrement())
+  service_category_name        String     @db.VarChar(255)
   service_category_sequence_no Int?
-  created_at_utc               DateTime  @default(now()) @db.Timestamptz(6)
-  updated_at_utc               DateTime  @default(now()) @db.Timestamptz(6)
-  service                      service[]
+  created_at                   DateTime   @db.Timestamptz(6)
+  updated_at                   DateTime   @db.Timestamptz(6)
+  service                      services[]
 }
 
 model serving_employee_to_invoice_items {
-  serving_employee_to_invoice_items_id BigInt        @id @default(autoincrement())
-  commission_percentage                Decimal?      @db.Decimal(10, 2)
-  custom_commission_percentage         Decimal?      @db.Decimal(10, 2)
-  final_calculated_commission_value    Decimal?      @db.Decimal(10, 2)
-  reward_status                        String?       @db.VarChar(10)
-  rewarded_for_period_month            Int?          @db.SmallInt
-  rewarded_for_period_year             Int?          @db.SmallInt
-  system_generated_remarks             String?
-  user_remarks                         String?
-  created_at_utc                       DateTime      @default(now()) @db.Timestamptz(6)
-  updated_at_utc                       DateTime      @default(now()) @db.Timestamptz(6)
-  invoice_item_id                      BigInt
-  reviewed_by_employee_id              BigInt?
-  sharing_ratio                        Decimal?      @db.Decimal
-  employee_id                          BigInt?
-  final_revenue_performance            Decimal?      @db.Decimal
-  employees                            employees?    @relation(fields: [reviewed_by_employee_id], references: [employee_id], map: "serving_employee_to_invoice_ite_reviewed_by_employee_id_fkey")
-  invoice_items                        invoice_items @relation(fields: [invoice_item_id], references: [invoice_item_id], onDelete: Cascade)
+  id                                BigInt        @id @default(autoincrement())
+  commission_percentage             Decimal?      @db.Decimal(10, 2)
+  custom_commission_percentage      Decimal?      @db.Decimal(10, 2)
+  final_calculated_commission_value Decimal?      @db.Decimal(10, 2)
+  reward_status                     String?       @db.VarChar(10)
+  rewarded_for_period_month         Int?          @db.SmallInt
+  rewarded_for_period_year          Int?          @db.SmallInt
+  system_generated_remarks          String?
+  user_remarks                      String?
+  created_at                        DateTime      @db.Timestamptz(6)
+  updated_at                        DateTime      @db.Timestamptz(6)
+  invoice_item_id                   BigInt
+  reviewed_by_employee_id           BigInt?
+  sharing_ratio                     Decimal?      @db.Decimal
+  employee_id                       BigInt?
+  final_revenue_performance         Decimal?      @db.Decimal
+  employees                         employees?    @relation(fields: [reviewed_by_employee_id], references: [id], map: "serving_employee_to_invoice_ite_reviewed_by_employee_id_fkey")
+  invoice_items                     invoice_items @relation(fields: [invoice_item_id], references: [id], onDelete: Cascade)
 }
 
-model status {
-  status_id                   BigInt                        @id @default(autoincrement())
+model statuses {
+  id                          BigInt                        @id @default(autoincrement())
   status_name                 String                        @unique @db.VarChar(50)
   status_description          String?                       @db.VarChar(255)
-  created_at_utc              DateTime                      @default(now()) @db.Timestamptz(6)
-  care_package                care_package[]
+  created_at                  DateTime                      @db.Timestamptz(6)
+  care_package                care_packages[]
   invoices                    invoices[]
-  member_care_package         member_care_package[]
+  member_care_package         member_care_packages[]
   member_care_package_details member_care_package_details[]
   membership_accounts         membership_accounts[]
-  task_queue                  task_queue[]
+  task_queue                  task_queues[]
 }
 
 model stored_value_accounts {
-  stored_value_accounts_id       BigInt                           @id @default(autoincrement())
+  id                             BigInt                           @id @default(autoincrement())
   stored_value_accounts_balance  Decimal                          @db.Decimal(10, 2)
-  created_at_utc                 DateTime                         @default(now()) @db.Timestamptz(6)
-  updated_at_utc                 DateTime                         @default(now()) @db.Timestamptz(6)
+  created_at                     DateTime                         @db.Timestamptz(6)
+  updated_at                     DateTime                         @db.Timestamptz(6)
   member_id                      BigInt
-  members                        members                          @relation(fields: [member_id], references: [member_id], onDelete: Cascade, onUpdate: NoAction, map: "fk_stored_value_accounts_member_id")
+  members                        members                          @relation(fields: [member_id], references: [id], onDelete: Cascade, onUpdate: NoAction, map: "fk_stored_value_accounts_member_id")
   stored_value_transactions_logs stored_value_transactions_logs[]
 }
 
 model stored_value_transactions_logs {
-  stored_value_transactions_logs_id BigInt                @id @default(autoincrement())
-  stored_value_account_id           BigInt
-  transaction_type                  String                @db.VarChar(50)
-  balance_change_amount             Decimal?              @db.Decimal
-  remarks                           String?               @db.VarChar(100)
-  created_at_utc                    DateTime?             @default(now()) @db.Timestamptz(6)
-  balance_after                     Decimal?              @db.Decimal
-  stored_value_accounts             stored_value_accounts @relation(fields: [stored_value_account_id], references: [stored_value_accounts_id], onDelete: Cascade, onUpdate: NoAction)
+  id                      BigInt                @id @default(autoincrement())
+  stored_value_account_id BigInt
+  transaction_type        String                @db.VarChar(50)
+  balance_change_amount   Decimal?              @db.Decimal
+  remarks                 String?               @db.VarChar(100)
+  created_at              DateTime?             @db.Timestamptz(6)
+  balance_after           Decimal?              @db.Decimal
+  stored_value_accounts   stored_value_accounts @relation(fields: [stored_value_account_id], references: [id], onDelete: Cascade, onUpdate: NoAction)
 }
 
-model task_queue {
-  task_queue_id     BigInt    @id @default(autoincrement())
-  task_name         String    @db.VarChar(50)
-  table_name        String    @db.VarChar(100)
-  employee_id       BigInt
-  status_id         BigInt
-  payload           Json?
-  serviceService_id BigInt?   // Renamed field to avoid conflict with relation name
-  record_id         BigInt
-  created_at_utc    DateTime  @default(now()) @db.Timestamptz(6)
-  updated_at_utc    DateTime  @default(now()) @db.Timestamptz(6)
-  service           service?  @relation(fields: [serviceService_id], references: [service_id]) // Updated relation field
-  employees         employees @relation(fields: [employee_id], references: [employee_id])
-  status            status    @relation(fields: [status_id], references: [status_id])
+model task_queues {
+  id          BigInt    @id @default(autoincrement())
+  task_name   String    @db.VarChar(50)
+  table_name  String    @db.VarChar(100)
+  employee_id BigInt
+  status_id   BigInt
+  payload     Json?
+  service_id  BigInt?
+  record_id   BigInt
+  created_at  DateTime  @db.Timestamptz(6)
+  updated_at  DateTime  @db.Timestamptz(6)
+  service     services? @relation(fields: [service_id], references: [id])
+  employees   employees @relation(fields: [employee_id], references: [id])
+  status      statuses  @relation(fields: [status_id], references: [id])
 }
 
-model translation {
-  id             Int      @id @default(autoincrement())
-  english        String   @db.VarChar(255)
-  chinese        String   @db.VarChar(255)
-  created_at_utc DateTime @default(now()) @db.Timestamp(6)
-  updated_at_utc DateTime @default(now()) @db.Timestamp(6)
+model translations {
+  id         Int      @id @default(autoincrement())
+  english    String   @db.VarChar(255)
+  chinese    String   @db.VarChar(255)
+  created_at DateTime @db.Timestamp(6)
+  updated_at DateTime @db.Timestamp(6)
 }
 
-model user_auth {
-  user_id        BigInt       @id @default(autoincrement())
-  employee_id    BigInt       @unique
-  password       String       @db.VarChar(72)
-  created_at_utc DateTime     @default(now()) @db.Timestamptz(6)
-  updated_at_utc DateTime     @default(now()) @db.Timestamptz(6)
-  employees      employees    @relation(fields: [employee_id], references: [employee_id])
-  user_roles     user_roles[]
+model user_auths {
+  id           BigInt         @id @default(autoincrement())
+  employee_id  BigInt         @unique
+  password     String         @db.VarChar(72)
+  created_at   DateTime       @db.Timestamptz(6)
+  updated_at   DateTime       @db.Timestamptz(6)
+  employees    employees      @relation(fields: [employee_id], references: [id])
+  user_to_role user_to_role[]
 }
 
-model user_roles {
-  user_id            BigInt
-  created_at_utc     DateTime         @default(now()) @db.Timestamptz(6)
-  updated_at_utc     DateTime         @default(now()) @db.Timestamptz(6)
-  role_permission_id BigInt
-  role_permissions   role_permissions @relation(fields: [role_permission_id], references: [role_id]) // Updated reference field
-  user_auth          user_auth        @relation(fields: [user_id], references: [user_id])
+model user_to_role {
+  user_id    BigInt
+  created_at DateTime   @db.Timestamptz(6)
+  updated_at DateTime   @db.Timestamptz(6)
+  role_id    BigInt
+  user_auth  user_auths @relation(fields: [user_id], references: [id])
 
-  @@id([role_permission_id, user_id])
+  @@id([role_id, user_id])
 }
 
 enum customer_type {
