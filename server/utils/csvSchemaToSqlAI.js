@@ -15,7 +15,7 @@ const SCHEMA_FILE_PATH = path.join(__dirname, '../prisma/schema.prisma');
 const OPENROUTER_API_KEY = process.env.OPENROUTER_API_KEY;
 const AI_MODEL_NAME = 'deepseek/deepseek-chat:free';
 const OPENROUTER_API_URL = 'https://openrouter.ai/api/v1/chat/completions';
-const MAX_AI_CALLS = 30; // Increased limit for potentially longer SQL
+const MAX_AI_CALLS = 50; // Increased limit for potentially longer SQL
 const CONTINUE_MARKER = '-- SQL_CONTINUE_MARKER';
 
 // --- Helper Functions ---
@@ -218,7 +218,7 @@ async function callOpenRouterAI(allCsvData, schemaContent) {
       }
       throw error; // Re-throw the error to stop the process
     }
-  } // End while loop
+  }
 
   if (callCount >= MAX_AI_CALLS && continueProcessing) {
     console.warn(
