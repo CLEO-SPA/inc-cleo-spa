@@ -79,9 +79,11 @@ export const transformRequestDates = (data, localDateTime) => {
     !(data instanceof File || data instanceof Blob)
   ) {
     const copy = {};
+    let dateFieldFound = false;
     for (const key in data) {
       if (Object.prototype.hasOwnProperty.call(data, key)) {
         if (isUtcDateField(key)) {
+          dateFieldFound = true;
           const utcIso = convertLocalToUtc(data[key], localDateTime);
           copy[key] = utcIso !== null ? utcIso : data[key];
         } else {
@@ -89,6 +91,18 @@ export const transformRequestDates = (data, localDateTime) => {
         }
       }
     }
+
+    if (!dateFieldFound) {
+      const now = new Date();
+      const currentUtcIso = convertLocalToUtc(now, localDateTime);
+      if (currentUtcIso !== null) {
+        copy['created_at'] = currentUtcIso;
+        copy['updated_at'] = currentUtcIso;
+      } else {
+        console.error('Failed to set created_at and updated_at fields. UTC conversion returned null.');
+      }
+    }
+
     return copy;
   }
   return data;
