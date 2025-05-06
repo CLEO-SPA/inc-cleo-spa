@@ -7,12 +7,12 @@ DECLARE
 BEGIN
     -- Try to get existing status
     SELECT status_id INTO v_status_id
-    FROM cs_status
+    FROM status
     WHERE status_name = p_status_name;
 
     -- If not found, create new status
     IF v_status_id IS NULL THEN
-        INSERT INTO cs_status (
+        INSERT INTO status (
             status_name,
             status_description,
             created_at
