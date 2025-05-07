@@ -8,6 +8,9 @@ import LoginPage from '@/pages/LoginPage';
 // 404
 import NotFoundPage from '@/pages/404';
 
+//Homepage
+import HomePage from '@/pages/HomePage';
+
 function App() {
   return (
     <BrowserRouter>
@@ -20,7 +23,7 @@ function App() {
         {/* <Route path="/" element={<HomePage />} /> */}
 
         {/* Example of a placeholder for the root path */}
-        <Route path='/' element={<div>Home Page Placeholder</div>} />
+        <Route path='/' element={<HomePage/>} />
 
         <Route path='*' element={<NotFoundPage />} />
       </Routes>
