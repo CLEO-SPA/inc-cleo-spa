@@ -148,28 +148,29 @@ model invoices {
 }
 
 model member_care_packages {
-  id                               BigInt                        @id @default(autoincrement())
-  member_id                        BigInt
-  employee_id                      BigInt
-  care_package_name                String                        @db.VarChar(100)
-  member_care_package_status       BigInt
-  member_care_package_total_amount Decimal                       @db.Decimal(10, 2)
-  created_at                       DateTime                      @db.Timestamptz(6)
-  updated_at                       DateTime                      @db.Timestamptz(6)
-  care_package_remarks             String?                       @db.VarChar(255)
-  employees                        employees                     @relation(fields: [employee_id], references: [id])
-  status                           statuses                      @relation(fields: [member_care_package_status], references: [id])
-  members                          members                       @relation(fields: [member_id], references: [id], onDelete: Cascade)
-  member_care_package_details      member_care_package_details[]
+  id                          BigInt                        @id @default(autoincrement())
+  member_id                   BigInt
+  employee_id                 BigInt
+  name                        String                        @db.VarChar(100)
+  status                      BigInt
+  total_amount                Decimal                       @db.Decimal(10, 2)
+  created_at                  DateTime                      @db.Timestamptz(6)
+  updated_at                  DateTime                      @db.Timestamptz(6)
+  remarks                     String?                       @db.VarChar(255)
+  employees                   employees                     @relation(fields: [employee_id], references: [id])
+  statuses                    statuses                      @relation(fields: [status], references: [id])
+  members                     members                       @relation(fields: [member_id], references: [id], onDelete: Cascade)
+  member_care_package_details member_care_package_details[]
 }
 
 model member_care_package_details {
   id                                   BigInt                                 @id @default(autoincrement())
-  member_care_package_details_discount Decimal                                @db.Decimal(10, 2)
-  member_care_package_details_price    Decimal                                @db.Decimal(10, 2)
+  discount                             Decimal                                @db.Decimal(10, 2)
+  price                                Decimal                                @db.Decimal(10, 2)
   member_care_package_id               BigInt
   service_id                           BigInt?
   status_id                            BigInt
+  quantity                             Int
   member_care_package                  member_care_packages                   @relation(fields: [member_care_package_id], references: [id], onDelete: Cascade)
   service                              services?                              @relation(fields: [service_id], references: [id])
   status                               statuses                               @relation(fields: [status_id], references: [id])
@@ -178,25 +179,25 @@ model member_care_package_details {
 }
 
 model member_care_package_items_logs {
-  id                                        BigInt                      @id @default(autoincrement())
-  member_care_package_items_logs_type       String                      @db.VarChar(100)
-  member_care_package_item_logs_description String
-  member_care_package_item_status           BigInt
-  created_at                                DateTime                    @db.Timestamptz(6)
-  member_care_package_details_id            BigInt
-  member_care_package_details               member_care_package_details @relation(fields: [member_care_package_details_id], references: [id], onDelete: Cascade)
+  id                             BigInt                      @id @default(autoincrement())
+  type                           String                      @db.VarChar(100)
+  description                    String
+  status                         BigInt
+  created_at                     DateTime                    @db.Timestamptz(6)
+  member_care_package_details_id BigInt
+  member_care_package_details    member_care_package_details @relation(fields: [member_care_package_details_id], references: [id], onDelete: Cascade)
 }
 
 model member_care_package_transaction_logs {
   id                                                    BigInt                      @id @default(autoincrement())
-  member_care_package_transaction_logs_transaction_type String                      @db.VarChar(100)
-  member_care_package_transaction_logs_description      String
-  member_care_package_transaction_logs_amount           Decimal                     @db.Decimal(10, 2)
+  type                                                  String                      @db.VarChar(100)
+  description                                           String
   member_care_package_transaction_logs_transaction_date DateTime                    @db.Timestamptz(6)
+  transaction_amount                                    Decimal                     @db.Decimal(10, 2)
+  amount_changed                                        Decimal                     @db.Decimal(10, 2)
   created_at                                            DateTime                    @db.Timestamptz(6)
   member_care_package_details_id                        BigInt
   employee_id                                           BigInt
-  member_care_package_transaction_logs_quantity         Int?
   service_id                                            Int?
   employees                                             employees                   @relation(fields: [employee_id], references: [id])
   member_care_package_details                           member_care_package_details @relation(fields: [member_care_package_details_id], references: [id], onDelete: Cascade)
