@@ -14,4 +14,6 @@ router.post(
 
 router.post('/invites', employeeController.acceptInvitation, hashPassword, employeeController.updateEmployeePassword);
 
+router.get('/', employeeController.getAllEmployees);
+
 export default router;

@@ -12,6 +12,71 @@ const checkEmployeeCodeExists = async (employee_code) => {
   }
 };
 
+const getAllEmployees = async (offset, limit) => {
+  try {
+    const query = `
+      SELECT * FROM employees
+      ORDER BY employee_id ASC
+      LIMIT $1 OFFSET $2;
+    `;
+    const values = [limit, offset];
+    const result = await pool.query(query, values);
+
+    const totalQuery = `SELECT COUNT(*) FROM employees`;
+    const totalResult = await pool.query(totalQuery);
+    const totalPages = Math.ceil(totalResult.rows[0].count / limit);
+
+    return {
+      employees: result.rows,
+      totalPages,
+    };
+  } catch (error) {
+    throw new Error('Error fetching employees');
+  }
+};
+
+const createSuperUser = async (email, password_hash) => {
+  const client = await pool.connect();
+
+  try {
+    await client.query('BEGIN');
+    // Create dummy employee
+    const insertEmployeeQuery = `
+      INSERT INTO employees (employee_code, employee_contact, employee_email, employee_name, created_at, updated_at)
+      VALUES ($1, $2, $3, $4, $5, $6)
+      RETURNING *;
+    `;
+    const employeeValues = [
+      'superuser_code',
+      'superuser_contact',
+      email,
+      'Super User',
+      new Date().toISOString(),
+      new Date().toISOString(),
+    ];
+    const employeeResult = await client.query(insertEmployeeQuery, employeeValues);
+    const newEmployee = employeeResult.rows[0];
+
+    const query = `
+      INSERT INTO user_auth (employee_id, password_hash)
+      VALUES ($1, $2)
+      RETURNING *;
+    `;
+    const values = [newEmployee?.id, password_hash];
+    const result = await client.query(query, values);
+    const newAuth = result.rows[0];
+
+    await client.query('COMMIT');
+    return newAuth;
+  } catch (error) {
+    console.error('Error creating super user:', error);
+    await client.query('ROLLBACK');
+    throw new Error('Error creating super user');
+  } finally {
+    client.release();
+  }
+};
+
 const getAuthEmployee = async (identity) => {
   try {
     const query = `
@@ -121,9 +186,24 @@ const updateEmployeePassword = async (email, password_hash) => {
   }
 };
 
+const getUserCount = async () => {
+  try {
+    const query = `SELECT COUNT(*) FROM user_auth`;
+    const result = await pool.query(query);
+    const count = parseInt(result.rows[0].count, 10);
+    return count;
+  } catch (error) {
+    console.error('Error getting user count:', error);
+    throw new Error('Error getting user count');
+  }
+};
+
 export default {
   createEmployee,
   checkEmployeeCodeExists,
   getAuthEmployee,
   updateEmployeePassword,
+  getAllEmployees,
+  createSuperUser,
+  getUserCount,
 };

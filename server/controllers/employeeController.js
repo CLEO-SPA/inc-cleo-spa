@@ -187,6 +187,28 @@ const updateEmployeePassword = async (req, res) => {
   }
 };
 
+const getAllEmployees = async (req, res) => {
+  const page = parseInt(req.query.page) || 1;
+  const limit = parseInt(req.query.limit) || 10;
+  const offset = (page - 1) * limit;
+
+  try {
+    const { employees, totalPages } = await model.getAllEmployees(offset, limit);
+    const totalItemsResult = await pool.query('SELECT COUNT(*) FROM employees');
+    const totalItems = parseInt(totalItemsResult.rows[0].count);
+
+    res.status(200).json({
+      currentPage: page,
+      totalPages: totalPages,
+      totalItems: totalItems,
+      pageSize: limit,
+      data: employees,
+    });
+  } catch (error) {
+    res.status(500).json({ message: 'Error getting employees', error: error.message });
+  }
+};
+
 export default {
   defaultPassword,
   createEmployee,
@@ -196,4 +218,5 @@ export default {
   inviteEmployee,
   acceptInvitation,
   updateEmployeePassword,
+  getAllEmployees,
 };
