@@ -21,8 +21,8 @@ const loginEmployee = async (req, res, next) => {
       req.session.userId = res.locals.userId;
 
       res.status(200).json({
-        message: 'Login successful',
         userId: res.locals.userId,
+        role: res.locals.role,
       });
     });
   } else {
@@ -61,6 +61,7 @@ const getAuthEmployee = async (req, res, next) => {
 
     res.locals.hash = employee.password_hash;
     res.locals.userId = employee.employee_id;
+    res.locals.role = employee.role_name;
     next();
   } catch (error) {
     res.status(500).json({ message: 'Error getting employee', error: error.message });

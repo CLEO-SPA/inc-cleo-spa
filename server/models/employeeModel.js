@@ -81,8 +81,9 @@ const getAuthEmployee = async (identity) => {
   try {
     const query = `
       SELECT * FROM employees emp
-      INNER JOIN user_auth ua
-      ON emp.employee_id = ua.employee_id
+      INNER JOIN user_auth ua ON emp.employee_id = ua.employee_id
+      INNER JOIN user_to_role utr ON ua.user_id = utr.user_id
+      INNER JOIN roles r ON utr.role_id = r.role_id
       WHERE emp.employee_contact = $1 OR emp.employee_email = $1
       `;
     const values = [identity];
