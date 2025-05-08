@@ -16,14 +16,9 @@ function App() {
     <BrowserRouter>
       {/* You can add layout components here that should appear on all pages, like a Navbar or Footer */}
       <Routes>
-        {/* Define the route for the login page */}
         <Route path='/login' element={<LoginPage />} />
 
-        {/* Add other routes here, e.g., a home page */}
-        {/* <Route path="/" element={<HomePage />} /> */}
-
-        {/* Example of a placeholder for the root path */}
-        <Route path='/' element={<HomePage/>} />
+        <Route path='/' element={<HomePage />} />
 
         <Route path='*' element={<NotFoundPage />} />
       </Routes>
