@@ -36,44 +36,14 @@ const getAllEmployees = async (offset, limit) => {
 };
 
 const createSuperUser = async (email, password_hash) => {
-  const client = await pool.connect();
-
   try {
-    await client.query('BEGIN');
-    // Create dummy employee
-    const insertEmployeeQuery = `
-      INSERT INTO employees (employee_code, employee_contact, employee_email, employee_name, created_at, updated_at)
-      VALUES ($1, $2, $3, $4, $5, $6)
-      RETURNING *;
-    `;
-    const employeeValues = [
-      'superuser_code',
-      'superuser_contact',
-      email,
-      'Super User',
-      new Date().toISOString(),
-      new Date().toISOString(),
-    ];
-    const employeeResult = await client.query(insertEmployeeQuery, employeeValues);
-    const newEmployee = employeeResult.rows[0];
-
-    const query = `
-      INSERT INTO user_auth (employee_id, password_hash)
-      VALUES ($1, $2)
-      RETURNING *;
-    `;
-    const values = [newEmployee?.id, password_hash];
-    const result = await client.query(query, values);
-    const newAuth = result.rows[0];
-
-    await client.query('COMMIT');
-    return newAuth;
+    const query = `CALL create_temp_su($1, $2)`;
+    const values = [email, password_hash];
+    await pool.query(query, values);
+    return { success: true, message: 'Super user created successfully' };
   } catch (error) {
     console.error('Error creating super user:', error);
-    await client.query('ROLLBACK');
     throw new Error('Error creating super user');
-  } finally {
-    client.release();
   }
 };
 
