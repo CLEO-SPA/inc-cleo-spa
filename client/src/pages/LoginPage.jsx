@@ -1,38 +1,36 @@
 import React, { useState } from 'react';
+import { useNavigate, useLocation } from 'react-router-dom';
+import useAuth from '@/hooks/useAuth';
 import { Container, Box, Typography, TextField, Button, Paper, Avatar } from '@mui/material';
 import LockOutlinedIcon from '@mui/icons-material/LockOutlined';
-// Assuming you might have an API call function
-// import { loginUser } from '../services/authService';
-// Assuming you might use a context for auth state
-// import { useAuth } from '../context/AuthContext';
 
 function LoginPage() {
-  // const { login } = useAuth(); // Example using AuthContext
-  const [email, setEmail] = useState('');
+  const [username, setUsername] = useState('');
   const [password, setPassword] = useState('');
   const [error, setError] = useState('');
+  const [isSubmitting, setIsSubmitting] = useState(false);
 
-  const handleSubmit = async (event) => {
-    event.preventDefault();
-    setError(''); // Clear previous errors
+  const navigate = useNavigate();
+  const location = useLocation();
+  const { login } = useAuth();
 
-    if (!email || !password) {
-      setError('Please enter both email and password.');
-      return;
-    }
+  const from = location.state?.from?.pathname || '/';
 
+  const handleSubmit = async (e) => {
+    e.preventDefault();
+    setError('');
+    setIsSubmitting(true);
     try {
-      // --- Placeholder for API call ---
-      console.log('Attempting login with:', { email, password });
-      // const userData = await loginUser({ email, password });
-      // login(userData); // Update auth state via context
-      // Handle successful login (e.g., redirect)
-      // navigate('/dashboard'); // Requires useNavigate from react-router-dom
-      alert('Login successful (placeholder)!'); // Placeholder
-      // --- End Placeholder ---
+      const success = await login({ username, password });
+      if (success) {
+        navigate(from, { replace: true });
+      } else {
+        setError('Login failed. Please check your credentials.');
+      }
     } catch (err) {
-      console.error('Login failed:', err);
-      setError(err.response?.data?.message || 'Login failed. Please check your credentials.');
+      setError(err.response?.data?.message || 'An unexpected error occurred during login.');
+    } finally {
+      setIsSubmitting(false);
     }
   };
 
@@ -60,14 +58,14 @@ function LoginPage() {
             margin='normal'
             required
             fullWidth
-            id='email'
-            label='Email Address'
-            name='email'
-            autoComplete='email'
+            id='username'
+            label='Email Or Mobile Number'
+            name='username'
+            autoComplete='username'
             autoFocus
-            value={email}
-            onChange={(e) => setEmail(e.target.value)}
-            error={!!error} // Highlight field if there's a general error
+            value={username}
+            onChange={(e) => setUsername(e.target.value)}
+            error={!!error}
           />
           <TextField
             margin='normal'
@@ -80,7 +78,7 @@ function LoginPage() {
             autoComplete='current-password'
             value={password}
             onChange={(e) => setPassword(e.target.value)}
-            error={!!error} // Highlight field if there's a general error
+            error={!!error}
           />
           {/* Optional: Remember me checkbox */}
           {/* <FormControlLabel
@@ -92,8 +90,8 @@ function LoginPage() {
               {error}
             </Typography>
           )}
-          <Button type='submit' fullWidth variant='contained' sx={{ mt: 3, mb: 2 }}>
-            Sign In
+          <Button type='submit' disabled={isSubmitting} fullWidth variant='contained' sx={{ mt: 3, mb: 2 }}>
+            {isSubmitting ? 'Logging in...' : 'Login'}
           </Button>
         </Box>
       </Paper>
