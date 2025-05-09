@@ -8,8 +8,8 @@ router.post(
   '/register',
   employeeController.defaultPassword,
   hashPassword,
-  employeeController.createEmployee,
-  employeeController.inviteEmployee
+  employeeController.createEmployee
+  // employeeController.inviteEmployee
 );
 
 router.post('/invites', employeeController.acceptInvitation, hashPassword, employeeController.updateEmployeePassword);

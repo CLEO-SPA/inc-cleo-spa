@@ -8,7 +8,7 @@ datasource db {
 }
 
 model care_packages {
-  id                        BigInt   @id(map: "cs_care_package_pkey") @default(autoincrement())
+  id                        BigInt   @id @default(autoincrement())
   care_package_name         String   @db.VarChar(200)
   care_package_remarks      String?
   care_package_price        Decimal  @db.Decimal(10, 2)
@@ -18,10 +18,12 @@ model care_packages {
   care_package_status       String?  @db.VarChar
   created_by                Int?
   last_updated_by           Int?
+
+  statuses statuses[]
 }
 
 model care_package_item_details {
-  id                                 BigInt  @id(map: "cs_care_package_item_details_pkey") @default(autoincrement())
+  id                                 BigInt  @id @default(autoincrement())
   care_package_item_details_quantity Int
   care_package_item_details_discount Decimal @db.Decimal(10, 2)
   care_package_item_details_price    Decimal @db.Decimal(10, 2)
@@ -30,7 +32,7 @@ model care_package_item_details {
 }
 
 model care_package_items {
-  id              BigInt   @id(map: "cs_care_package_items_pkey") @default(autoincrement())
+  id              BigInt   @id @default(autoincrement())
   care_package_id BigInt
   created_at      DateTime @default(now()) @db.Timestamptz(6)
   updated_at      DateTime @db.Timestamptz(6)
@@ -38,6 +40,7 @@ model care_package_items {
 
 model employees {
   id                                   BigInt                                 @id @default(autoincrement())
+  user_auth_id                         BigInt
   employee_code                        String                                 @db.VarChar(50)
   department_id                        BigInt
   created_at                           DateTime                               @db.Timestamptz(6)
@@ -49,7 +52,7 @@ model employees {
   position_id                          BigInt?
   commission_percentage                Decimal?                               @default(0.00) @db.Decimal(10, 2)
   department                           departments                            @relation(fields: [department_id], references: [id])
-  position                             positions?                             @relation(fields: [position_id], references: [id], onDelete: NoAction, onUpdate: NoAction, map: "fk_position_id")
+  position                             positions?                             @relation(fields: [position_id], references: [id])
   CreatedInvoicePayments               invoice_payments[]                     @relation("CreatedInvoicePayments")
   UpdatedInvoicePayments               invoice_payments[]                     @relation("UpdatedInvoicePayments")
   invoices                             invoices[]
@@ -57,8 +60,62 @@ model employees {
   member_care_package_transaction_logs member_care_package_transaction_logs[]
   refunds                              refunds[]
   serving_employee_to_invoice_items    serving_employee_to_invoice_items[]
-  task_queue                           task_queues[]
-  user_auth                            user_auths?
+  user_auths                           user_auths                            @relation(fields: [user_auth_id], references: [id])
+}
+
+model serving_employee_to_invoice_items {
+  id                                BigInt        @id @default(autoincrement())
+  commission_percentage             Decimal?      @db.Decimal(10, 2)
+  custom_commission_percentage      Decimal?      @db.Decimal(10, 2)
+  final_calculated_commission_value Decimal?      @db.Decimal(10, 2)
+  reward_status                     String?       @db.VarChar(10)
+  rewarded_for_period_month         Int?          @db.SmallInt
+  rewarded_for_period_year          Int?          @db.SmallInt
+  system_generated_remarks          String?
+  user_remarks                      String?
+  created_at                        DateTime      @db.Timestamptz(6)
+  updated_at                        DateTime      @db.Timestamptz(6)
+  invoice_item_id                   BigInt
+  reviewed_by_employee_id           BigInt?
+  sharing_ratio                     Decimal?      @db.Decimal
+  employee_id                       BigInt?
+  final_revenue_performance         Decimal?      @db.Decimal
+  employees                         employees?    @relation(fields: [reviewed_by_employee_id], references: [id], map: "serving_employee_to_invoice_ite_reviewed_by_employee_id_fkey")
+  invoice_items                     invoice_items @relation(fields: [invoice_item_id], references: [id], onDelete: Cascade)
+}
+
+model refunds {
+  id                  BigInt         @id @default(autoincrement())
+  invoice_id          BigInt?
+  refund_total_amount Decimal?       @db.Decimal(10, 2)
+  refund_remarks      String?
+  refund_date         DateTime?      @db.Timestamptz(6)
+  employee_id         BigInt?
+  refund_items        refund_items[]
+  invoices            invoices?      @relation(fields: [invoice_id], references: [id], onDelete: NoAction, onUpdate: NoAction, map: "fk_refunds_invoice_id")
+  employees           employees?     @relation(fields: [employee_id], references: [id], onDelete: NoAction, onUpdate: NoAction, map: "fk_employee")
+}
+
+model refund_items {
+  id                  BigInt         @id @default(autoincrement())
+  refund_id           BigInt?
+  invoice_item_id     BigInt?
+  refund_quantity     Int?
+  refund_item_amount  Decimal?       @db.Decimal(10, 2)
+  refund_item_remarks String?
+  invoice_items       invoice_items? @relation(fields: [invoice_item_id], references: [id], onDelete: NoAction, onUpdate: NoAction, map: "fk_refund_items_invoice_item_id")
+  refunds             refunds?       @relation(fields: [refund_id], references: [id], onDelete: NoAction, onUpdate: NoAction, map: "fk_refund_items_refund_id")
+}
+
+model departments {
+  id                     BigInt      @id @default(autoincrement())
+  department_name        String      @db.VarChar(200)
+  department_description String?     @db.VarChar(255)
+  department_is_active   Boolean
+  created_at             DateTime    @db.Timestamptz(6)
+  updated_at             DateTime?   @db.Timestamptz(6)
+  employees              employees[]
+  position               positions[]
 }
 
 model invoice_items {
@@ -148,6 +205,18 @@ model member_care_package_details {
   member_care_package_transaction_logs member_care_package_transaction_logs[]
 }
 
+model statuses {
+  id                          BigInt                        @id @default(autoincrement())
+  status_name                 String                        @unique @db.VarChar(50)
+  status_description          String?                       @db.VarChar(255)
+  created_at                  DateTime                      @db.Timestamptz(6)
+  care_package                care_packages[]
+  invoices                    invoices[]
+  member_care_package         member_care_packages[]
+  member_care_package_details member_care_package_details[]
+  membership_accounts         membership_accounts[]
+}
+
 model member_care_package_items_logs {
   id                             BigInt                      @id @default(autoincrement())
   type                           String                      @db.VarChar(100)
@@ -162,17 +231,20 @@ model member_care_package_transaction_logs {
   id                                                    BigInt                      @id @default(autoincrement())
   type                                                  String                      @db.VarChar(100)
   description                                           String
-  member_care_package_transaction_logs_transaction_date DateTime                    @db.Timestamptz(6)
+  transaction_date                                      DateTime                    @db.Timestamptz(6)
   transaction_amount                                    Decimal                     @db.Decimal(10, 2)
   amount_changed                                        Decimal                     @db.Decimal(10, 2)
   created_at                                            DateTime                    @db.Timestamptz(6)
   member_care_package_details_id                        BigInt
   employee_id                                           BigInt
   service_id                                            Int?
+
+  employees employees[]
+  member_care_package_details member_care_package_details[]
 }
 
 model members {
-  id                 Int       @id @default(autoincrement())
+  id                 BigInt       @id @default(autoincrement())
   name               String    @db.VarChar(100)
   email              String?   @db.VarChar(100)
   contact            String?   @db.VarChar(20)
@@ -186,6 +258,10 @@ model members {
   updated_at         DateTime? @db.Timestamptz(6)
   created_by         Int?
   user_auth_id       BigInt?
+
+  invoices invoices[]
+
+  member_care_packages member_care_packages[]
 }
 
 model membership_accounts {
@@ -198,10 +274,12 @@ model membership_accounts {
   membership_accounts_created_at DateTime  @db.Timestamp(6)
   membership_accounts_updated_at DateTime  @db.Timestamp(6)
   status_id                      BigInt
+
+  statuses statuses[]
 }
 
 model membership_types {
-  id                                      BigInt    @id(map: "cs_membership_type_pkey") @default(autoincrement())
+  id                                      BigInt    @id @default(autoincrement())
   membership_type_name                    String    @db.VarChar(50)
   default_discount_for_products           Decimal?  @db.Decimal
   default_discount_percentage_for_service Decimal?  @db.Decimal
@@ -210,16 +288,18 @@ model membership_types {
 }
 
 model payment_methods {
-  payment_method_id         Int      @id
+  id         BigInt      @id
   payment_method_name       String
   is_enabled                Boolean
   is_revenue                Boolean
   payment_method_created_at DateTime @db.Timestamptz(6)
   payment_method_updated_at DateTime @db.Timestamptz(6)
+
+  invoice_payments invoice_payments[]
 }
 
 model positions {
-  position_id                   BigInt    @id(map: "cs_position_pkey") @default(autoincrement())
+  id                   BigInt   @id @default(autoincrement())
   position_name                 String    @db.VarChar(255)
   position_description          String?   @db.VarChar(255)
   position_is_active            Boolean?  @default(true)
@@ -227,10 +307,14 @@ model positions {
   position_created_at           DateTime? @default(now()) @db.Timestamptz(6)
   position_updated_at           DateTime? @default(now()) @db.Timestamptz(6)
   department_id                 BigInt
+
+  employees employees[]
+
+  departments departments[]
 }
 
 model product_categories {
-  product_category_id          BigInt   @id(map: "cs_product_categories_pkey") @default(autoincrement())
+  id          BigInt   @id @default(autoincrement())
   product_category_name        String   @db.VarChar(255)
   product_category_sequence_no Int
   product_category_created_at  DateTime @default(now()) @db.Timestamptz(6)
@@ -238,7 +322,7 @@ model product_categories {
 }
 
 model products {
-  product_id            BigInt    @id(map: "cs_products_pkey") @default(autoincrement())
+  id            BigInt    @id @default(autoincrement())
   product_name          String    @db.VarChar(255)
   product_description   String?   @db.VarChar(255)
   product_sequence_no   Int?
@@ -256,6 +340,8 @@ model roles {
   role_name   String   @db.VarChar(20)
   description String   @db.VarChar(50)
   created_at  DateTime @db.Timestamptz(6)
+
+  user_to_role user_to_role[]
 }
 
 model services {
@@ -272,10 +358,11 @@ model services {
   service_sequence_no        Int
 
   @@index([service_category_id], map: "fki_cs_service_service_category_id_fkey")
+  member_care_package_details member_care_package_details[]
 }
 
 model service_categories {
-  id                           BigInt   @id(map: "cs_service_categories_pkey1") @default(autoincrement())
+  id                           BigInt   @id @default(autoincrement())
   service_category_name        String   @db.VarChar(255)
   service_category_sequence_no Int?
   service_category_created_at  DateTime @default(now()) @db.Timestamptz(6)
@@ -283,7 +370,7 @@ model service_categories {
 }
 
 model translations {
-  id                 Int      @id(map: "cs_translation_pkey") @default(autoincrement())
+  id                 Int      @id @default(autoincrement())
   english            String   @db.VarChar(255)
   chinese            String   @db.VarChar(255)
   meaning_in_english String   @db.VarChar(255)
@@ -294,11 +381,14 @@ model translations {
 }
 
 model user_to_role {
-  id         BigInt   @id(map: "user_role_pkey") @default(autoincrement())
-  user_id    Int
-  role_id    Int
+  id         BigInt   @id @default(autoincrement())
+  user_id    BigInt
+  role_id    BigInt
   created_at DateTime @db.Timestamptz(6)
   updated_at DateTime @db.Timestamptz(6)
+
+  user_auths user_auths @relation(fields: [user_id], references: [id])
+  roles      roles     @relation(fields: [role_id], references: [id])
 }
 
 model appointments {
@@ -316,7 +406,7 @@ model appointments {
 }
 
 model member_care_package {
-  id                               BigInt   @id(map: "cs_member_care_package_pkey") @default(autoincrement())
+  id                               BigInt   @id @default(autoincrement())
   member_id                        BigInt
   member_care_package_outlet       BigInt
   employee_id                      BigInt
@@ -419,12 +509,6 @@ model sale_transactions {
   updated_at                       DateTime? @db.Timestamptz(6)
 }
 
-model system_parameters {
-  id                       Int       @id @default(autoincrement()) @db.SmallInt
-  mock_up_current_datetime DateTime? @db.Timestamptz(6)
-  is_in_simulation_mode    Boolean?
-}
-
 model timetables {
   id                  Int       @id @default(autoincrement())
   employee_id         Int
@@ -437,13 +521,17 @@ model timetables {
   updated_at          DateTime? @db.Timestamp(6)
 }
 
-model user_auth {
-  id            BigInt    @id(map: "cs_user_auth_pkey") @default(autoincrement())
+model user_auths {
+  id            BigInt    @id @default(autoincrement())
   password      String    @db.VarChar(72)
   created_at    DateTime  @db.Timestamptz(6)
-  updated_at    DateTime? @db.Timestamptz(6)
+  updated_at    DateTime  @db.Timestamptz(6)
   email         String?   @db.VarChar(50)
-  mobile_number String?   @db.VarChar(15)
+  phone         String?   @db.VarChar(20)
+
+  employees employees[]
+
+  user_to_role user_to_role[]
 }
 
 model voucher_template_details {
@@ -473,12 +561,12 @@ model voucher_templates {
   updated_at               DateTime? @db.Timestamptz(6)
 }
 
-enum cs_customer_type {
+enum customer_type {
   Member
   Walk_In_Customer
 }
 
-enum cs_item_type {
+enum item_type {
   Product
   Service
   Member_Care_Package

@@ -6,7 +6,7 @@ const checkEmployeeCodeExists = async (employee_code) => {
     const values = [employee_code];
     const result = await pool.query(query, values);
 
-    return result.rows.length > 0; // Returns true if employee code exists
+    return result.rows.length > 0;
   } catch (error) {
     throw new Error('Error checking employee code existence');
   }
@@ -51,9 +51,9 @@ const getAuthEmployee = async (identity) => {
   try {
     const query = `
       SELECT * FROM employees emp
-      INNER JOIN user_auth ua ON emp.employee_id = ua.employee_id
-      INNER JOIN user_to_role utr ON ua.user_id = utr.user_id
-      INNER JOIN roles r ON utr.role_id = r.role_id
+      INNER JOIN user_auth ua ON emp.user_auth_id = ua.id
+      INNER JOIN user_to_role utr ON ua.id = utr.user_id
+      INNER JOIN roles r ON utr.role_id = r.id
       WHERE emp.employee_contact = $1 OR emp.employee_email = $1
       `;
     const values = [identity];
@@ -87,9 +87,18 @@ const createEmployee = async ({
     // Start a transaction
     await client.query('BEGIN');
 
+    const insertAuthQuery = `
+      INSERT INTO user_auths (email ,password, created_at, updated_at)
+      VALUES ($1, $2, $3, $4)
+      RETURNING *;
+    `;
+    const authValues = [employee_email, password_hash, created_at, updated_at];
+    const authResult = await client.query(insertAuthQuery, authValues);
+    const newAuth = authResult.rows[0];
+
     const insertEmployeeQuery = `
-      INSERT INTO employees (employee_code, department_id, employee_contact, employee_email, employee_is_active, employee_name, position_id, commission_percentage, created_at, updated_at)
-      VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10)
+      INSERT INTO employees (employee_code, department_id, employee_contact, employee_email, employee_is_active, employee_name, position_id, commission_percentage, created_at, updated_at, user_auth_id)
+      VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11)
       RETURNING *;
     `;
     const values = [
@@ -103,19 +112,11 @@ const createEmployee = async ({
       parseFloat(commission_percentage) || 0.0,
       created_at,
       updated_at,
+      newAuth.id,
     ];
 
     const result = await client.query(insertEmployeeQuery, values);
     const newEmployee = result.rows[0];
-
-    const insertAuthQuery = `
-      INSERT INTO user_auth (employee_id, password_hash)
-      VALUES ($1, $2)
-      RETURNING *;
-    `;
-    const authValues = [newEmployee.id, password_hash];
-    const authResult = await client.query(insertAuthQuery, authValues);
-    const newAuth = authResult.rows[0];
 
     await client.query('COMMIT');
     return {
@@ -137,9 +138,9 @@ const updateEmployeePassword = async (email, password_hash) => {
   try {
     await client.query('BEGIN');
     const query = `
-      UPDATE user_auth
-      SET password_hash = $1
-      WHERE employee_id = (SELECT employee_id FROM employees WHERE employee_email = $2)
+      UPDATE user_auths
+      SET password = $1
+      WHERE email = $2
       RETURNING *;
     `;
     const values = [password_hash, email];
@@ -159,7 +160,7 @@ const updateEmployeePassword = async (email, password_hash) => {
 
 const getUserCount = async () => {
   try {
-    const query = `SELECT COUNT(*) FROM user_auth`;
+    const query = `SELECT COUNT(*) FROM user_auths`;
     const result = await pool.query(query);
     const count = parseInt(result.rows[0].count, 10);
     return count;

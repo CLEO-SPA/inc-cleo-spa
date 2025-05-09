@@ -113,7 +113,11 @@ const createEmployee = async (req, res, next) => {
     // Create the new employee
     const newEmployee = await model.createEmployee({ ...req.body, password_hash });
 
-    next();
+    // next();
+    res.status(201).json({
+      message: 'Employee created successfully',
+      employee: newEmployee,
+    });
   } catch (error) {
     res.status(500).json({ message: 'Error creating employee', error: error.message });
   }
