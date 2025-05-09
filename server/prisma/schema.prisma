@@ -1,69 +1,39 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
 datasource db {
   provider = "postgresql"
   url      = env("DATABASE_URL")
 }
 
-model application_types {
-  id                                   BigInt                                 @id @default(autoincrement())
-  application_type                     String                                 @db.VarChar(50)
-  remarks                              String?
-  employee_performance_incentive_rules employee_performance_incentive_rules[]
-}
-
 model care_packages {
-  id                        BigInt                      @id @default(autoincrement())
-  care_package_name         String                      @db.VarChar(200)
+  id                        BigInt   @id(map: "cs_care_package_pkey") @default(autoincrement())
+  care_package_name         String   @db.VarChar(200)
   care_package_remarks      String?
-  care_package_price        Decimal                     @db.Decimal(10, 2)
-  care_package_status       BigInt
-  created_at                DateTime                    @db.Timestamptz(6)
-  updated_at                DateTime                    @db.Timestamptz(6)
-  care_package_customizable Boolean                     @default(false)
-  status                    statuses                    @relation(fields: [care_package_status], references: [id])
-  care_package_item_details care_package_item_details[]
-  care_package_items        care_package_items[]
+  care_package_price        Decimal  @db.Decimal(10, 2)
+  created_at                DateTime @default(now()) @db.Timestamptz(6)
+  updated_at                DateTime @db.Timestamptz(6)
+  care_package_customizable Boolean  @default(false)
+  care_package_status       String?  @db.VarChar
+  created_by                Int?
+  last_updated_by           Int?
 }
 
 model care_package_item_details {
-  id                                 BigInt        @id @default(autoincrement())
+  id                                 BigInt  @id(map: "cs_care_package_item_details_pkey") @default(autoincrement())
   care_package_item_details_quantity Int
-  care_package_item_details_discount Decimal       @db.Decimal(10, 2)
-  care_package_item_details_price    Decimal       @db.Decimal(10, 2)
+  care_package_item_details_discount Decimal @db.Decimal(10, 2)
+  care_package_item_details_price    Decimal @db.Decimal(10, 2)
   service_id                         BigInt
   care_package_id                    BigInt
-  care_package                       care_packages @relation(fields: [care_package_id], references: [id], onDelete: Cascade)
-  service                            services      @relation(fields: [service_id], references: [id], map: "fk_service")
 }
 
 model care_package_items {
-  id              BigInt        @id @default(autoincrement())
+  id              BigInt   @id(map: "cs_care_package_items_pkey") @default(autoincrement())
   care_package_id BigInt
-  created_at      DateTime      @db.Timestamptz(6)
-  updated_at      DateTime      @db.Timestamptz(6)
-  care_package    care_packages @relation(fields: [care_package_id], references: [id], onDelete: Cascade)
-}
-
-model departments {
-  id                     BigInt      @id @default(autoincrement())
-  department_name        String      @db.VarChar(200)
-  department_description String?     @db.VarChar(255)
-  department_is_active   Boolean
-  created_at             DateTime    @db.Timestamptz(6)
-  updated_at             DateTime?   @db.Timestamptz(6)
-  employees              employees[]
-  position               positions[]
-}
-
-model employee_performance_incentive_rules {
-  id                  BigInt             @id @default(autoincrement())
-  application_type_id BigInt?
-  percentage_value    Decimal?           @db.Decimal
-  absolute_value      Decimal?           @db.Decimal
-  remarks             String?
-  created_at          DateTime           @db.Timestamptz(6)
-  updated_at          DateTime           @db.Timestamptz(6)
-  application_type    application_types? @relation(fields: [application_type_id], references: [id], onDelete: Cascade, map: "employee_performance_incentive_rule_application_type_id_fkey")
-  membership_type     membership_types[]
+  created_at      DateTime @default(now()) @db.Timestamptz(6)
+  updated_at      DateTime @db.Timestamptz(6)
 }
 
 model employees {
@@ -199,143 +169,86 @@ model member_care_package_transaction_logs {
   member_care_package_details_id                        BigInt
   employee_id                                           BigInt
   service_id                                            Int?
-  employees                                             employees                   @relation(fields: [employee_id], references: [id])
-  member_care_package_details                           member_care_package_details @relation(fields: [member_care_package_details_id], references: [id], onDelete: Cascade)
 }
 
 model members {
-  id                    BigInt                  @id @default(autoincrement())
-  member_name           String                  @db.VarChar(200)
-  member_email          String                  @unique @db.VarChar(150)
-  member_contact        String?                 @db.Char(8)
-  member_sex            String?                 @db.Char(1)
-  member_dob            DateTime                @db.Date
-  remarks               String?
-  created_at            DateTime                @db.Timestamptz(6)
-  updated_at            DateTime                @db.Timestamptz(6)
-  invoices              invoices[]
-  member_care_package   member_care_packages[]
-  membership_accounts   membership_accounts[]
-  membership_history    membership_histories[]
-  stored_value_accounts stored_value_accounts[]
+  id                 Int       @id @default(autoincrement())
+  name               String    @db.VarChar(100)
+  email              String?   @db.VarChar(100)
+  contact            String?   @db.VarChar(20)
+  dob                DateTime? @db.Date
+  sex                String?   @db.VarChar(10)
+  remarks            String?   @db.VarChar(255)
+  address            String?   @db.VarChar(255)
+  nric               String?   @db.VarChar(9)
+  membership_type_id Int?
+  created_at         DateTime? @db.Timestamptz(6)
+  updated_at         DateTime? @db.Timestamptz(6)
+  created_by         Int?
+  user_auth_id       BigInt?
 }
 
 model membership_accounts {
-  id                 BigInt           @id @default(autoincrement())
-  member_id          BigInt
-  membership_type_id BigInt
-  start_date         DateTime         @db.Timestamp(6)
-  end_date           DateTime?        @db.Timestamp(6)
-  is_active          Boolean
-  created_at         DateTime         @db.Timestamp(6)
-  updated_at         DateTime         @db.Timestamp(6)
-  status_id          BigInt
-  members            members          @relation(fields: [member_id], references: [id], onDelete: Cascade, onUpdate: NoAction, map: "fk_member_id")
-  membership_type    membership_types @relation(fields: [membership_type_id], references: [id], onDelete: NoAction, onUpdate: NoAction, map: "fk_membership_type_id")
-  status             statuses         @relation(fields: [status_id], references: [id], onDelete: NoAction, onUpdate: NoAction, map: "fk_status_id")
-}
-
-model membership_histories {
-  id                                                                         BigInt            @id @default(autoincrement())
-  member_id                                                                  BigInt
-  old_membership_type_id                                                     BigInt?
-  new_membership_type_id                                                     BigInt?
-  remarks                                                                    String?
-  created_at                                                                 DateTime?         @db.Timestamptz(6)
-  members                                                                    members           @relation(fields: [member_id], references: [id], onDelete: Cascade)
-  membership_type_membership_history_new_membership_type_idTomembership_type membership_types? @relation("membership_history_new_membership_type_idTomembership_type", fields: [new_membership_type_id], references: [id])
-  membership_type_membership_history_old_membership_type_idTomembership_type membership_types? @relation("membership_history_old_membership_type_idTomembership_type", fields: [old_membership_type_id], references: [id])
+  membership_accounts_id         BigInt    @id(map: "cs_membership_accounts_pkey") @default(autoincrement())
+  member_id                      BigInt
+  membership_type_id             BigInt
+  start_date                     DateTime  @db.Timestamp(6)
+  end_date                       DateTime? @db.Timestamp(6)
+  is_active                      Boolean
+  membership_accounts_created_at DateTime  @db.Timestamp(6)
+  membership_accounts_updated_at DateTime  @db.Timestamp(6)
+  status_id                      BigInt
 }
 
 model membership_types {
-  id                                              BigInt                                @id @default(autoincrement())
-  membership_type_name                            String                                @db.VarChar(50)
-  default_discount_for_products                   Decimal?                              @db.Decimal
-  default_discount_percentage_for_service         Decimal?                              @db.Decimal
-  account_stored_value_top_up_performance_rule_id BigInt?
-  account_stored_value_top_up_commission_rule_id  BigInt?
-  account_creation_performance_rule_id            BigInt?
-  created_at                                      DateTime                              @db.Timestamptz(6)
-  updated_at                                      DateTime                              @db.Timestamptz(6)
-  default_stored_value                            Decimal?                              @db.Decimal
-  account_creation_commission_rule_id             BigInt?
-  membership_accounts                             membership_accounts[]
-  employee_performance_incentive_rules            employee_performance_incentive_rules? @relation(fields: [account_stored_value_top_up_commission_rule_id], references: [id], onUpdate: NoAction, map: "membership_type_account_creation_performance_rule_id_fkey")
-
-  membership_histories_new membership_histories[] @relation("membership_history_new_membership_type_idTomembership_type")
-
-  membership_histories_old membership_histories[] @relation("membership_history_old_membership_type_idTomembership_type")
+  id                                      BigInt    @id(map: "cs_membership_type_pkey") @default(autoincrement())
+  membership_type_name                    String    @db.VarChar(50)
+  default_discount_for_products           Decimal?  @db.Decimal
+  default_discount_percentage_for_service Decimal?  @db.Decimal
+  created_at                              DateTime? @db.Timestamptz(6)
+  updated_at                              DateTime? @db.Timestamptz(6)
 }
 
 model payment_methods {
-  id                                BigInt             @id @default(autoincrement())
-  payment_method_name               String             @db.VarChar(50)
-  is_active                         Boolean?
-  is_used_to_create_pending_invoice Boolean?
-  is_used_to_deduct_from_package    Boolean?
-  is_revenue                        Boolean?
-  created_at                        DateTime           @db.Timestamptz(6)
-  updated_at                        DateTime           @db.Timestamptz(6)
-  invoice_payment                   invoice_payments[]
+  payment_method_id         Int      @id
+  payment_method_name       String
+  is_enabled                Boolean
+  is_revenue                Boolean
+  payment_method_created_at DateTime @db.Timestamptz(6)
+  payment_method_updated_at DateTime @db.Timestamptz(6)
 }
 
 model positions {
-  id                            BigInt      @id @default(autoincrement())
-  position_name                 String      @db.VarChar(255)
-  position_description          String?     @db.VarChar(255)
-  position_is_active            Boolean?    @default(true)
-  default_commission_percentage Decimal?    @db.Decimal(10, 2)
-  created_at                    DateTime    @db.Timestamptz(6)
-  updated_at                    DateTime    @db.Timestamptz(6)
+  position_id                   BigInt    @id(map: "cs_position_pkey") @default(autoincrement())
+  position_name                 String    @db.VarChar(255)
+  position_description          String?   @db.VarChar(255)
+  position_is_active            Boolean?  @default(true)
+  default_commission_percentage Decimal?  @db.Decimal(10, 2)
+  position_created_at           DateTime? @default(now()) @db.Timestamptz(6)
+  position_updated_at           DateTime? @default(now()) @db.Timestamptz(6)
   department_id                 BigInt
-  employees                     employees[]
-  department                    departments @relation(fields: [department_id], references: [id], onDelete: Cascade)
 }
 
 model product_categories {
-  id                           BigInt     @id @default(autoincrement())
-  product_category_name        String     @db.VarChar(255)
+  product_category_id          BigInt   @id(map: "cs_product_categories_pkey") @default(autoincrement())
+  product_category_name        String   @db.VarChar(255)
   product_category_sequence_no Int
-  created_at                   DateTime   @db.Timestamptz(6)
-  updated_at                   DateTime   @db.Timestamptz(6)
-  products                     products[]
+  product_category_created_at  DateTime @default(now()) @db.Timestamptz(6)
+  product_category_updated_at  DateTime @db.Timestamptz(6)
 }
 
 model products {
-  id                    BigInt              @id @default(autoincrement())
-  product_name          String              @db.VarChar(255)
-  product_description   String?             @db.VarChar(255)
+  product_id            BigInt    @id(map: "cs_products_pkey") @default(autoincrement())
+  product_name          String    @db.VarChar(255)
+  product_description   String?   @db.VarChar(255)
   product_sequence_no   Int?
   product_remarks       String?
-  product_default_price Decimal?            @db.Decimal(10, 2)
-  product_is_active     Boolean?            @default(true)
-  created_at            DateTime            @db.Timestamptz(6)
-  updated_at            DateTime            @db.Timestamptz(6)
+  product_default_price Decimal?  @db.Decimal(10, 2)
+  product_outlet_id     BigInt
+  product_is_active     Boolean?  @default(true)
+  product_created_at    DateTime? @default(now()) @db.Timestamptz(6)
+  product_updated_at    DateTime? @default(now()) @db.Timestamptz(6)
   product_category_id   BigInt?
-  product_categories    product_categories? @relation(fields: [product_category_id], references: [id], onDelete: Cascade)
-}
-
-model refund_items {
-  id                  BigInt         @id @default(autoincrement())
-  refund_id           BigInt?
-  invoice_item_id     BigInt?
-  refund_quantity     Int?
-  refund_item_amount  Decimal?       @db.Decimal(10, 2)
-  refund_item_remarks String?
-  invoice_items       invoice_items? @relation(fields: [invoice_item_id], references: [id], onDelete: NoAction, onUpdate: NoAction, map: "fk_refund_items_invoice_item_id")
-  refunds             refunds?       @relation(fields: [refund_id], references: [id], onDelete: NoAction, onUpdate: NoAction, map: "fk_refund_items_refund_id")
-}
-
-model refunds {
-  id                  BigInt         @id @default(autoincrement())
-  invoice_id          BigInt?
-  refund_total_amount Decimal?       @db.Decimal(10, 2)
-  refund_remarks      String?
-  refund_date         DateTime?      @db.Timestamptz(6)
-  employee_id         BigInt?
-  refund_items        refund_items[]
-  invoices            invoices?      @relation(fields: [invoice_id], references: [id], onDelete: NoAction, onUpdate: NoAction, map: "fk_refunds_invoice_id")
-  employees           employees?     @relation(fields: [employee_id], references: [id], onDelete: NoAction, onUpdate: NoAction, map: "fk_employee")
 }
 
 model roles {
@@ -346,141 +259,234 @@ model roles {
 }
 
 model services {
-  id                          BigInt                        @id @default(autoincrement())
-  service_name                String                        @db.VarChar(255)
-  service_description         String?                       @db.VarChar(255)
-  service_remarks             String?
-  service_estimated_duration  Decimal                       @db.Decimal
-  service_default_price       Decimal                       @db.Decimal(10, 2)
-  service_is_active           Boolean
-  created_at                  DateTime                      @db.Timestamptz(6)
-  updated_at                  DateTime                      @db.Timestamptz(6)
-  service_category_id         BigInt
-  service_sequence_no         Int
-  care_package_item_details   care_package_item_details[]
-  member_care_package_details member_care_package_details[]
-  service_categories          service_categories            @relation(fields: [service_category_id], references: [id], onDelete: Cascade, map: "service_categories_service_category_id_fkey")
-  task_queue                  task_queues[]
+  id                         BigInt   @id(map: "cs_service_pkey") @default(autoincrement())
+  service_name               String   @db.VarChar(255)
+  service_description        String?  @db.VarChar(255)
+  service_remarks            String?
+  service_estimated_duration Decimal  @db.Decimal
+  service_default_price      Decimal  @db.Decimal(10, 2)
+  service_is_active          Boolean
+  service_created_at         DateTime @default(now()) @db.Timestamptz(6)
+  service_updated_at         DateTime @default(now()) @db.Timestamptz(6)
+  service_category_id        BigInt
+  service_sequence_no        Int
 
-  @@index([service_category_id], map: "fki_service_service_category_id_fkey")
+  @@index([service_category_id], map: "fki_cs_service_service_category_id_fkey")
 }
 
 model service_categories {
-  id                           BigInt     @id(map: "service_categories_pkey1") @default(autoincrement())
-  service_category_name        String     @db.VarChar(255)
+  id                           BigInt   @id(map: "cs_service_categories_pkey1") @default(autoincrement())
+  service_category_name        String   @db.VarChar(255)
   service_category_sequence_no Int?
-  created_at                   DateTime   @db.Timestamptz(6)
-  updated_at                   DateTime   @db.Timestamptz(6)
-  service                      services[]
-}
-
-model serving_employee_to_invoice_items {
-  id                                BigInt        @id @default(autoincrement())
-  commission_percentage             Decimal?      @db.Decimal(10, 2)
-  custom_commission_percentage      Decimal?      @db.Decimal(10, 2)
-  final_calculated_commission_value Decimal?      @db.Decimal(10, 2)
-  reward_status                     String?       @db.VarChar(10)
-  rewarded_for_period_month         Int?          @db.SmallInt
-  rewarded_for_period_year          Int?          @db.SmallInt
-  system_generated_remarks          String?
-  user_remarks                      String?
-  created_at                        DateTime      @db.Timestamptz(6)
-  updated_at                        DateTime      @db.Timestamptz(6)
-  invoice_item_id                   BigInt
-  reviewed_by_employee_id           BigInt?
-  sharing_ratio                     Decimal?      @db.Decimal
-  employee_id                       BigInt?
-  final_revenue_performance         Decimal?      @db.Decimal
-  employees                         employees?    @relation(fields: [reviewed_by_employee_id], references: [id], map: "serving_employee_to_invoice_ite_reviewed_by_employee_id_fkey")
-  invoice_items                     invoice_items @relation(fields: [invoice_item_id], references: [id], onDelete: Cascade)
-}
-
-model statuses {
-  id                          BigInt                        @id @default(autoincrement())
-  status_name                 String                        @unique @db.VarChar(50)
-  status_description          String?                       @db.VarChar(255)
-  created_at                  DateTime                      @db.Timestamptz(6)
-  care_package                care_packages[]
-  invoices                    invoices[]
-  member_care_package         member_care_packages[]
-  member_care_package_details member_care_package_details[]
-  membership_accounts         membership_accounts[]
-  task_queue                  task_queues[]
-}
-
-model stored_value_accounts {
-  id                             BigInt                           @id @default(autoincrement())
-  stored_value_accounts_balance  Decimal                          @db.Decimal(10, 2)
-  created_at                     DateTime                         @db.Timestamptz(6)
-  updated_at                     DateTime                         @db.Timestamptz(6)
-  member_id                      BigInt
-  members                        members                          @relation(fields: [member_id], references: [id], onDelete: Cascade, onUpdate: NoAction, map: "fk_stored_value_accounts_member_id")
-  stored_value_transactions_logs stored_value_transactions_logs[]
-}
-
-model stored_value_transactions_logs {
-  id                      BigInt                @id @default(autoincrement())
-  stored_value_account_id BigInt
-  transaction_type        String                @db.VarChar(50)
-  balance_change_amount   Decimal?              @db.Decimal
-  remarks                 String?               @db.VarChar(100)
-  created_at              DateTime?             @db.Timestamptz(6)
-  balance_after           Decimal?              @db.Decimal
-  stored_value_accounts   stored_value_accounts @relation(fields: [stored_value_account_id], references: [id], onDelete: Cascade, onUpdate: NoAction)
-}
-
-model task_queues {
-  id          BigInt    @id @default(autoincrement())
-  task_name   String    @db.VarChar(50)
-  table_name  String    @db.VarChar(100)
-  employee_id BigInt
-  status_id   BigInt
-  payload     Json?
-  service_id  BigInt?
-  record_id   BigInt
-  created_at  DateTime  @db.Timestamptz(6)
-  updated_at  DateTime  @db.Timestamptz(6)
-  service     services? @relation(fields: [service_id], references: [id])
-  employees   employees @relation(fields: [employee_id], references: [id])
-  status      statuses  @relation(fields: [status_id], references: [id])
+  service_category_created_at  DateTime @default(now()) @db.Timestamptz(6)
+  service_category_updated_at  DateTime @db.Timestamptz(6)
 }
 
 model translations {
-  id         Int      @id @default(autoincrement())
-  english    String   @db.VarChar(255)
-  chinese    String   @db.VarChar(255)
-  created_at DateTime @db.Timestamp(6)
-  updated_at DateTime @db.Timestamp(6)
-}
-
-model user_auths {
-  id           BigInt         @id @default(autoincrement())
-  employee_id  BigInt         @unique
-  password     String         @db.VarChar(72)
-  created_at   DateTime       @db.Timestamptz(6)
-  updated_at   DateTime       @db.Timestamptz(6)
-  employees    employees      @relation(fields: [employee_id], references: [id])
-  user_to_role user_to_role[]
+  id                 Int      @id(map: "cs_translation_pkey") @default(autoincrement())
+  english            String   @db.VarChar(255)
+  chinese            String   @db.VarChar(255)
+  meaning_in_english String   @db.VarChar(255)
+  meaning_in_chinese String   @db.VarChar(255)
+  page               String?  @db.VarChar(255)
+  created_at         DateTime @db.Timestamp(6)
+  updated_at         DateTime @db.Timestamp(6)
 }
 
 model user_to_role {
-  user_id    BigInt
-  created_at DateTime   @db.Timestamptz(6)
-  updated_at DateTime   @db.Timestamptz(6)
-  role_id    BigInt
-  user_auth  user_auths @relation(fields: [user_id], references: [id])
-
-  @@id([role_id, user_id])
+  id         BigInt   @id(map: "user_role_pkey") @default(autoincrement())
+  user_id    Int
+  role_id    Int
+  created_at DateTime @db.Timestamptz(6)
+  updated_at DateTime @db.Timestamptz(6)
 }
 
-enum customer_type {
+model appointments {
+  id                    BigInt    @id
+  member_id             BigInt?
+  servicing_employee_id BigInt?
+  appointment_date      DateTime? @db.Timestamptz(6)
+  start_time            DateTime? @db.Timestamptz(6)
+  end_time              DateTime? @db.Timestamptz(6)
+  remarks               String?
+  created_at            DateTime? @db.Timestamptz(6)
+  created_by            BigInt?
+  updated_at            DateTime? @db.Timestamptz(6)
+  updated_by            BigInt?
+}
+
+model member_care_package {
+  id                               BigInt   @id(map: "cs_member_care_package_pkey") @default(autoincrement())
+  member_id                        BigInt
+  member_care_package_outlet       BigInt
+  employee_id                      BigInt
+  care_package_name                String   @db.VarChar(100)
+  member_care_package_status       BigInt
+  member_care_package_total_amount Decimal  @db.Decimal(10, 2)
+  member_care_package_created_at   DateTime @default(now()) @db.Timestamptz(6)
+  member_care_package_updated_at   DateTime @db.Timestamptz(6)
+  care_package_remarks             String?  @db.VarChar(255)
+}
+
+model member_voucher_details {
+  id                BigInt    @id
+  member_voucher_id BigInt
+  service_id        Int
+  service_name      String?   @db.VarChar(100)
+  original_price    Decimal?  @db.Decimal(10, 2)
+  custom_price      Decimal?  @db.Decimal(10, 2)
+  discount          Decimal?  @db.Decimal(10, 2)
+  final_price       Decimal?  @db.Decimal(10, 2)
+  duration          Int?
+  created_at        DateTime? @db.Timestamptz(6)
+  updated_at        DateTime? @db.Timestamptz(6)
+}
+
+model member_voucher_transaction_logs {
+  id                  Int       @id @default(autoincrement())
+  member_voucher_id   Int
+  service_description String?   @db.VarChar(500)
+  service_date        DateTime? @db.Timestamptz(6)
+  current_balance     Decimal?  @db.Decimal(10, 2)
+  amount_change       Decimal?  @db.Decimal
+  serviced_by         BigInt?
+  type                String?   @db.VarChar(25)
+  created_by          BigInt?
+  last_updated_by     BigInt?
+  created_at          DateTime? @db.Timestamptz(6)
+  updated_at          DateTime? @db.Timestamptz(6)
+}
+
+model member_vouchers {
+  id                   BigInt    @id
+  member_vouchers_name String    @db.VarChar(100)
+  voucher_template_id  Int
+  members_id           Int
+  current_balance      Decimal?  @db.Decimal(10, 2)
+  starting_balance     Decimal?  @db.Decimal(10, 2)
+  free_of_charge       Decimal?  @db.Decimal(10, 2)
+  default_total_price  Decimal?  @db.Decimal(10, 2)
+  status               String?   @db.VarChar(50)
+  remarks              String?   @db.VarChar(500)
+  created_by           BigInt?
+  handled_by           BigInt?
+  last_updated_by      BigInt?
+  created_at           DateTime? @db.Timestamptz(6)
+  updated_at           DateTime? @db.Timestamptz(6)
+}
+
+model payment_to_sale_transactions {
+  id                  Int       @id
+  payment_method_id   Int?
+  sale_transaction_id Int?
+  amount              Decimal?  @db.Decimal(10, 2)
+  remarks             String?
+  created_by          Int?
+  created_at          DateTime? @db.Timestamptz(6)
+  updated_by          Int?
+  updated_at          DateTime? @db.Timestamptz(6)
+}
+
+model sale_transaction_items {
+  id                     Int      @id
+  sale_transactions_id   Int?
+  service_name           String?  @db.VarChar(255)
+  product_name           String?  @db.VarChar(255)
+  member_care_package_id BigInt?
+  member_voucher_id      BigInt?
+  original_unit_price    Decimal? @db.Decimal(10, 2)
+  custom_unit_price      Decimal? @db.Decimal(10, 2)
+  discount_percentage    Decimal? @db.Decimal(5, 2)
+  quantity               Int?
+  remarks                String?  @db.VarChar(500)
+  amount                 Decimal? @db.Decimal(10, 2)
+  item_type              String?  @db.VarChar(255)
+}
+
+model sale_transactions {
+  id                               BigInt    @id @default(autoincrement())
+  customer_type                    String?   @db.VarChar(50)
+  member_id                        BigInt?
+  total_paid_amount                Decimal?  @db.Decimal
+  outstanding_total_payment_amount Decimal?  @db.Decimal
+  sale_transaction_status          String?   @db.VarChar(25)
+  remarks                          String?   @db.VarChar(500)
+  receipt_no                       String?   @db.VarChar(80)
+  reference_sales_transaction_id   BigInt?
+  handled_by                       BigInt?
+  created_by                       BigInt?
+  created_at                       DateTime? @db.Timestamptz(6)
+  updated_at                       DateTime? @db.Timestamptz(6)
+}
+
+model system_parameters {
+  id                       Int       @id @default(autoincrement()) @db.SmallInt
+  mock_up_current_datetime DateTime? @db.Timestamptz(6)
+  is_in_simulation_mode    Boolean?
+}
+
+model timetables {
+  id                  Int       @id @default(autoincrement())
+  employee_id         Int
+  restday_number      Int
+  effective_startdate DateTime  @db.Timestamp(6)
+  effective_enddate   DateTime? @db.Timestamp(6)
+  created_by          Int?
+  created_at          DateTime? @db.Timestamp(6)
+  updated_by          Int?
+  updated_at          DateTime? @db.Timestamp(6)
+}
+
+model user_auth {
+  id            BigInt    @id(map: "cs_user_auth_pkey") @default(autoincrement())
+  password      String    @db.VarChar(72)
+  created_at    DateTime  @db.Timestamptz(6)
+  updated_at    DateTime? @db.Timestamptz(6)
+  email         String?   @db.VarChar(50)
+  mobile_number String?   @db.VarChar(15)
+}
+
+model voucher_template_details {
+  id                  BigInt  @id @default(autoincrement())
+  voucher_template_id BigInt
+  service_id          BigInt
+  service_name        String  @db.VarChar(100)
+  original_price      Decimal @db.Decimal(10, 2)
+  custom_price        Decimal @db.Decimal(10, 2)
+  discount            Decimal @db.Decimal(10, 2)
+  final_price         Decimal @db.Decimal(10, 2)
+  duration            Int
+  service_category_id Int?
+}
+
+model voucher_templates {
+  id                       BigInt    @id @default(autoincrement())
+  voucher_template_name    String    @db.VarChar(100)
+  default_starting_balance Decimal?  @db.Decimal(10, 2)
+  default_free_of_charge   Decimal?  @db.Decimal(10, 2)
+  default_total_price      Decimal?  @db.Decimal(10, 2)
+  remarks                  String?   @db.VarChar(500)
+  status                   String?   @db.VarChar(50)
+  created_by               BigInt?
+  last_updated_by          BigInt?
+  created_at               DateTime? @db.Timestamptz(6)
+  updated_at               DateTime? @db.Timestamptz(6)
+}
+
+enum cs_customer_type {
   Member
   Walk_In_Customer
 }
 
-enum item_type {
+enum cs_item_type {
   Product
   Service
   Member_Care_Package
   Membership_Account
+  Member_Voucher      @map("Member Voucher")
+}
+
+enum customer_type_enum {
+  member
+  walk_in_customer @map("walk-in-customer")
 }
