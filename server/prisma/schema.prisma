@@ -343,7 +343,6 @@ model roles {
   role_name   String   @db.VarChar(20)
   description String   @db.VarChar(50)
   created_at  DateTime @db.Timestamptz(6)
-  updated_at  DateTime @db.Timestamptz(6)
 }
 
 model services {
