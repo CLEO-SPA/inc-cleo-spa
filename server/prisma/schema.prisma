@@ -15,11 +15,11 @@ model care_packages {
   created_at                DateTime @default(now()) @db.Timestamptz(6)
   updated_at                DateTime @db.Timestamptz(6)
   care_package_customizable Boolean  @default(false)
-  care_package_status       String?  @db.VarChar
+  status_id                 BigInt
   created_by                Int?
   last_updated_by           Int?
 
-  statuses statuses[]
+  statuses statuses @relation(fields: [status_id], references: [id])
 }
 
 model care_package_item_details {
@@ -60,7 +60,7 @@ model employees {
   member_care_package_transaction_logs member_care_package_transaction_logs[]
   refunds                              refunds[]
   serving_employee_to_invoice_items    serving_employee_to_invoice_items[]
-  user_auths                           user_auths                            @relation(fields: [user_auth_id], references: [id])
+  user_auths                           user_auths                             @relation(fields: [user_auth_id], references: [id])
 }
 
 model serving_employee_to_invoice_items {
@@ -228,23 +228,24 @@ model member_care_package_items_logs {
 }
 
 model member_care_package_transaction_logs {
-  id                                                    BigInt                      @id @default(autoincrement())
-  type                                                  String                      @db.VarChar(100)
-  description                                           String
-  transaction_date                                      DateTime                    @db.Timestamptz(6)
-  transaction_amount                                    Decimal                     @db.Decimal(10, 2)
-  amount_changed                                        Decimal                     @db.Decimal(10, 2)
-  created_at                                            DateTime                    @db.Timestamptz(6)
-  member_care_package_details_id                        BigInt
-  employee_id                                           BigInt
-  service_id                                            Int?
+  id                             BigInt   @id @default(autoincrement())
+  type                           String   @db.VarChar(100)
+  description                    String
+  transaction_date               DateTime @db.Timestamptz(6)
+  transaction_amount             Decimal  @db.Decimal(10, 2)
+  amount_changed                 Decimal  @db.Decimal(10, 2)
+  created_at                     DateTime @db.Timestamptz(6)
+  member_care_package_details_id BigInt
+  employee_id                    BigInt
+  service_id                     BigInt
 
-  employees employees[]
-  member_care_package_details member_care_package_details[]
+  employees                   employees                   @relation(fields: [employee_id], references: [id])
+  service                     services                    @relation(fields: [service_id], references: [id])
+  member_care_package_details member_care_package_details @relation(fields: [member_care_package_details_id], references: [id], onDelete: Cascade)
 }
 
 model members {
-  id                 BigInt       @id @default(autoincrement())
+  id                 BigInt    @id @default(autoincrement())
   name               String    @db.VarChar(100)
   email              String?   @db.VarChar(100)
   contact            String?   @db.VarChar(20)
@@ -275,7 +276,7 @@ model membership_accounts {
   membership_accounts_updated_at DateTime  @db.Timestamp(6)
   status_id                      BigInt
 
-  statuses statuses[]
+  statuses statuses @relation(fields: [status_id], references: [id])
 }
 
 model membership_types {
@@ -288,7 +289,7 @@ model membership_types {
 }
 
 model payment_methods {
-  id         BigInt      @id
+  id                        BigInt   @id
   payment_method_name       String
   is_enabled                Boolean
   is_revenue                Boolean
@@ -299,7 +300,7 @@ model payment_methods {
 }
 
 model positions {
-  id                   BigInt   @id @default(autoincrement())
+  id                            BigInt    @id @default(autoincrement())
   position_name                 String    @db.VarChar(255)
   position_description          String?   @db.VarChar(255)
   position_is_active            Boolean?  @default(true)
@@ -308,13 +309,12 @@ model positions {
   position_updated_at           DateTime? @default(now()) @db.Timestamptz(6)
   department_id                 BigInt
 
-  employees employees[]
-
-  departments departments[]
+  departments departments @relation(fields: [department_id], references: [id])
+  employees   employees[]
 }
 
 model product_categories {
-  id          BigInt   @id @default(autoincrement())
+  id                           BigInt   @id @default(autoincrement())
   product_category_name        String   @db.VarChar(255)
   product_category_sequence_no Int
   product_category_created_at  DateTime @default(now()) @db.Timestamptz(6)
@@ -322,7 +322,7 @@ model product_categories {
 }
 
 model products {
-  id            BigInt    @id @default(autoincrement())
+  id                    BigInt    @id @default(autoincrement())
   product_name          String    @db.VarChar(255)
   product_description   String?   @db.VarChar(255)
   product_sequence_no   Int?
@@ -345,20 +345,21 @@ model roles {
 }
 
 model services {
-  id                         BigInt   @id(map: "cs_service_pkey") @default(autoincrement())
-  service_name               String   @db.VarChar(255)
-  service_description        String?  @db.VarChar(255)
-  service_remarks            String?
-  service_estimated_duration Decimal  @db.Decimal
-  service_default_price      Decimal  @db.Decimal(10, 2)
-  service_is_active          Boolean
-  service_created_at         DateTime @default(now()) @db.Timestamptz(6)
-  service_updated_at         DateTime @default(now()) @db.Timestamptz(6)
-  service_category_id        BigInt
-  service_sequence_no        Int
+  id                                   BigInt                                 @id(map: "cs_service_pkey") @default(autoincrement())
+  service_name                         String                                 @db.VarChar(255)
+  service_description                  String?                                @db.VarChar(255)
+  service_remarks                      String?
+  service_estimated_duration           Decimal                                @db.Decimal
+  service_default_price                Decimal                                @db.Decimal(10, 2)
+  service_is_active                    Boolean
+  service_created_at                   DateTime                               @default(now()) @db.Timestamptz(6)
+  service_updated_at                   DateTime                               @default(now()) @db.Timestamptz(6)
+  service_category_id                  BigInt
+  service_sequence_no                  Int
+  member_care_package_details          member_care_package_details[]
+  member_care_package_transaction_logs member_care_package_transaction_logs[]
 
   @@index([service_category_id], map: "fki_cs_service_service_category_id_fkey")
-  member_care_package_details member_care_package_details[]
 }
 
 model service_categories {
@@ -388,7 +389,7 @@ model user_to_role {
   updated_at DateTime @db.Timestamptz(6)
 
   user_auths user_auths @relation(fields: [user_id], references: [id])
-  roles      roles     @relation(fields: [role_id], references: [id])
+  roles      roles      @relation(fields: [role_id], references: [id])
 }
 
 model appointments {
@@ -522,12 +523,12 @@ model timetables {
 }
 
 model user_auths {
-  id            BigInt    @id @default(autoincrement())
-  password      String    @db.VarChar(72)
-  created_at    DateTime  @db.Timestamptz(6)
-  updated_at    DateTime  @db.Timestamptz(6)
-  email         String?   @db.VarChar(50)
-  phone         String?   @db.VarChar(20)
+  id         BigInt   @id @default(autoincrement())
+  password   String   @db.VarChar(72)
+  created_at DateTime @db.Timestamptz(6)
+  updated_at DateTime @db.Timestamptz(6)
+  email      String?  @db.VarChar(50)
+  phone      String?  @db.VarChar(20)
 
   employees employees[]
 
