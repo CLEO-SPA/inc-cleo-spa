@@ -3,7 +3,7 @@ import { ProtectedRoute } from '@/context/RouteProtectionContext';
 
 // Pages
 // import HomePage from '@/pages/HomePage';
-import LoginPage from '@/pages/LoginPage';
+import Login from '@/pages/Login';
 
 // 404
 import NotFoundPage from '@/pages/404';
@@ -17,7 +17,7 @@ function App() {
       {/* You can add layout components here that should appear on all pages, like a Navbar or Footer */}
       <Routes>
         {/* Define the route for the login page */}
-        <Route path='/login' element={<LoginPage />} />
+        <Route path='/login' element={<Login />} />
 
         {/* Add other routes here, e.g., a home page */}
         {/* <Route path="/" element={<HomePage />} /> */}
