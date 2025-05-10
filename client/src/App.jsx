@@ -9,7 +9,7 @@ import LoginPage from '@/pages/LoginPage';
 import NotFoundPage from '@/pages/404';
 
 //Homepage
-import HomePage from '@/pages/HomePage';
+import HomePage from '@/pages/Dashboard';
 
 function App() {
   return (
