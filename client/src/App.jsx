@@ -4,13 +4,13 @@ import ProtectedRoute from '@/components/ProtectedRoute';
 
 // Pages
 // import HomePage from '@/pages/HomePage';
-import LoginPage from '@/pages/LoginPage';
+import Login from '@/pages/Login';
 
 // 404
 import NotFoundPage from '@/pages/404';
 
 //Homepage
-import HomePage from '@/pages/HomePage';
+import HomePage from '@/pages/Dashboard';
 
 function App() {
   return (
