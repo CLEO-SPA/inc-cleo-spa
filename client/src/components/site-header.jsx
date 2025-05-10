@@ -58,10 +58,10 @@ export function SiteHeader() {
                 Home
               </BreadcrumbLink>
             </BreadcrumbItem>
-            <BreadcrumbSeparator />
+            {/* <BreadcrumbSeparator />
             <BreadcrumbItem>
               <BreadcrumbPage>Dashboard</BreadcrumbPage>
-            </BreadcrumbItem>
+            </BreadcrumbItem> */}
           </BreadcrumbList>
         </Breadcrumb>
         
