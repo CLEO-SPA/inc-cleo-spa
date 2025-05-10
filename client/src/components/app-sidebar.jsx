@@ -5,7 +5,8 @@ import {
   CalendarDays,
   ShieldUser,
   Box,
-  Wand
+  Wand,
+  LayoutDashboard
 } from "lucide-react"
 import { NavMain } from "@/components/nav-main"
 import { NavUser } from "@/components/nav-user"
@@ -26,6 +27,12 @@ const data = {
     avatar: "/avatars/shadcn.jpg",
   },
   navMain: [
+    {
+      title: "Dashboard",
+      url: "#",
+      icon: LayoutDashboard,
+      isActive: true,
+    },
     {
       title: "Users",
       url: "#",
