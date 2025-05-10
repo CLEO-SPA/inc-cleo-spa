@@ -1,5 +1,6 @@
-import { BrowserRouter, Routes, Route } from 'react-router-dom';
-import { ProtectedRoute } from '@/context/RouteProtectionContext';
+import { BrowserRouter as Router, Routes, Route } from 'react-router-dom';
+import { AuthProvider } from '@/context/AuthContext';
+import ProtectedRoute from '@/components/ProtectedRoute';
 
 // Pages
 // import HomePage from '@/pages/HomePage';
@@ -13,21 +14,17 @@ import HomePage from '@/pages/Dashboard';
 
 function App() {
   return (
-    <BrowserRouter>
-      {/* You can add layout components here that should appear on all pages, like a Navbar or Footer */}
-      <Routes>
-        {/* Define the route for the login page */}
-        <Route path='/login' element={<Login />} />
-
-        {/* Add other routes here, e.g., a home page */}
-        {/* <Route path="/" element={<HomePage />} /> */}
-
-        {/* Example of a placeholder for the root path */}
-        <Route path='/' element={<HomePage/>} />
-
-        <Route path='*' element={<NotFoundPage />} />
-      </Routes>
-    </BrowserRouter>
+    <AuthProvider>
+      <Router>
+        <Routes>
+          <Route path='/' element={<ProtectedRoute />}>
+            <Route index element={<HomePage />} />
+          </Route>
+          <Route path='/login' element={<LoginPage />} />
+          <Route path='*' element={<NotFoundPage />} />
+        </Routes>
+      </Router>
+    </AuthProvider>
   );
 }
 
