@@ -1,20 +1,13 @@
 import * as React from "react"
 import {
-  BookOpen,
-  Bot,
   Command,
-  Frame,
-  LifeBuoy,
-  Map,
-  PieChart,
-  Send,
-  Settings2,
-  SquareTerminal,
+  Users,
+  CalendarDays,
+  ShieldUser,
+  Box,
+  Wand
 } from "lucide-react"
-
 import { NavMain } from "@/components/nav-main"
-import { NavProjects } from "@/components/nav-projects"
-import { NavSecondary } from "@/components/nav-secondary"
 import { NavUser } from "@/components/nav-user"
 import {
   Sidebar,
@@ -28,19 +21,19 @@ import {
 
 const data = {
   user: {
-    name: "shadcn",
-    email: "m@example.com",
+    name: "Tina",
+    email: "tina@gmail.com",
     avatar: "/avatars/shadcn.jpg",
   },
   navMain: [
     {
-      title: "Playground",
+      title: "Users",
       url: "#",
-      icon: SquareTerminal,
+      icon: ShieldUser,
       isActive: true,
       items: [
         {
-          title: "History",
+          title: "View Users",
           url: "#",
         },
         {
@@ -54,98 +47,64 @@ const data = {
       ],
     },
     {
-      title: "Models",
+      title: "Services",
       url: "#",
-      icon: Bot,
+      icon: Wand,
       items: [
         {
-          title: "Genesis",
+          title: "Add New Service",
           url: "#",
         },
         {
-          title: "Explorer",
-          url: "#",
-        },
-        {
-          title: "Quantum",
+          title: "Manage Services",
           url: "#",
         },
       ],
     },
     {
-      title: "Documentation",
+      title: "Products",
       url: "#",
-      icon: BookOpen,
+      icon: Box,
       items: [
         {
-          title: "Introduction",
+          title: "Create Product",
           url: "#",
         },
         {
-          title: "Get Started",
-          url: "#",
-        },
-        {
-          title: "Tutorials",
-          url: "#",
-        },
-        {
-          title: "Changelog",
+          title: "Manage Products",
           url: "#",
         },
       ],
     },
     {
-      title: "Settings",
-      url: "#",
-      icon: Settings2,
+      title: "Employees",
+      url: "",
+      icon: Users,
       items: [
         {
-          title: "General",
+          title: "Add New Employee",
           url: "#",
         },
         {
-          title: "Team",
-          url: "#",
-        },
-        {
-          title: "Billing",
-          url: "#",
-        },
-        {
-          title: "Limits",
+          title: "Manage Employees",
           url: "#",
         },
       ],
     },
-  ],
-  navSecondary: [
     {
-      title: "Support",
+      title: "Appointments",
       url: "#",
-      icon: LifeBuoy,
-    },
-    {
-      title: "Feedback",
-      url: "#",
-      icon: Send,
-    },
-  ],
-  projects: [
-    {
-      name: "Design Engineering",
-      url: "#",
-      icon: Frame,
-    },
-    {
-      name: "Sales & Marketing",
-      url: "#",
-      icon: PieChart,
-    },
-    {
-      name: "Travel",
-      url: "#",
-      icon: Map,
+      icon: CalendarDays,
+      items: [
+        {
+          title: "View Appointments",
+          url: "#",
+        },
+        {
+          title: "Add New Appointment",
+          url: "#",
+        },
+      ],
     },
   ],
 }
@@ -167,7 +126,7 @@ export function AppSidebar({
                   <Command className="size-4" />
                 </div>
                 <div className="grid flex-1 text-left text-sm leading-tight">
-                  <span className="truncate font-medium">Acme Inc</span>
+                  <span className="truncate font-medium">Cleo Spa</span>
                   <span className="truncate text-xs">Enterprise</span>
                 </div>
               </a>
@@ -177,8 +136,6 @@ export function AppSidebar({
       </SidebarHeader>
       <SidebarContent>
         <NavMain items={data.navMain} />
-        <NavProjects projects={data.projects} />
-        <NavSecondary items={data.navSecondary} className="mt-auto" />
       </SidebarContent>
       <SidebarFooter>
         <NavUser user={data.user} />
