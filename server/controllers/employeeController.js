@@ -42,7 +42,7 @@ const logoutEmployee = async (req, res) => {
   });
 };
 
-const getAuthEmployee = async (req, res, next) => {
+const getAuthUser = async (req, res, next) => {
   try {
     const { emp_identity, password } = req.body;
     if (!emp_identity || !password) {
@@ -54,14 +54,14 @@ const getAuthEmployee = async (req, res, next) => {
     }
 
     // Check if the employee exists
-    const employee = await model.getAuthEmployee(emp_identity);
-    if (!employee) {
+    const user = await model.getAuthUser(emp_identity);
+    if (!user) {
       return res.status(404).json({ message: 'Employee not found' });
     }
 
-    res.locals.hash = employee.password_hash;
-    res.locals.userId = employee.employee_id;
-    res.locals.role = employee.role_name;
+    res.locals.hash = user.password;
+    res.locals.userId = user.id;
+    res.locals.role = user.role_name;
     next();
   } catch (error) {
     res.status(500).json({ message: 'Error getting employee', error: error.message });
@@ -165,7 +165,7 @@ const acceptInvitation = async (req, res, next) => {
 
     res.locals.email = email;
 
-    const employee = await model.getAuthEmployee(email);
+    const employee = await model.getAuthUser(email);
 
     if (!employee) {
       return res.status(404).json({ message: 'Employee not found' });
@@ -217,7 +217,7 @@ const getAllEmployees = async (req, res) => {
 export default {
   defaultPassword,
   createEmployee,
-  getAuthEmployee,
+  getAuthUser,
   loginEmployee,
   logoutEmployee,
   inviteEmployee,

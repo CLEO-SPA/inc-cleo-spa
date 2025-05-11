@@ -47,14 +47,13 @@ const createSuperUser = async (email, password_hash) => {
   }
 };
 
-const getAuthEmployee = async (identity) => {
+const getAuthUser = async (identity) => {
   try {
     const query = `
-      SELECT * FROM employees emp
-      INNER JOIN user_auth ua ON emp.user_auth_id = ua.id
+      SELECT * FROM user_auth ua
       INNER JOIN user_to_role utr ON ua.id = utr.user_id
       INNER JOIN roles r ON utr.role_id = r.id
-      WHERE emp.employee_contact = $1 OR emp.employee_email = $1
+      WHERE ua.phone = $1 OR ua.email = $1
       `;
     const values = [identity];
     const result = await pool.query(query, values);
@@ -173,7 +172,7 @@ const getUserCount = async () => {
 export default {
   createEmployee,
   checkEmployeeCodeExists,
-  getAuthEmployee,
+  getAuthUser,
   updateEmployeePassword,
   getAllEmployees,
   createSuperUser,
