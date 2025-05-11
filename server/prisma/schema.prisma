@@ -251,6 +251,7 @@ model members {
 
   invoices invoices[]
 
+  user_auths           user_auths?            @relation(fields: [user_auth_id], references: [id])
   member_care_packages member_care_packages[]
 }
 
@@ -522,6 +523,8 @@ model user_auths {
   employees employees[]
 
   user_to_role user_to_role[]
+
+  members members[]
 }
 
 model voucher_template_details {
