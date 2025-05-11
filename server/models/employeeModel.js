@@ -50,13 +50,25 @@ const createSuperUser = async (email, password_hash) => {
 const getAuthUser = async (identity) => {
   try {
     const query = `
-      SELECT * FROM user_auths ua
+      SELECT 
+        ua.id, 
+        ua.email,
+        ua.phone,
+        ua.password,
+        r.role_name,
+        e.employee_name,
+        m.name AS member_name
+      FROM user_auths ua
       INNER JOIN user_to_role utr ON ua.id = utr.user_id
       INNER JOIN roles r ON utr.role_id = r.id
+      LEFT JOIN employees e ON ua.id = e.user_auth_id
+      LEFT JOIN members m ON ua.id = m.user_auth_id
       WHERE ua.phone = $1 OR ua.email = $1
       `;
     const values = [identity];
     const result = await pool.query(query, values);
+
+    // console.log('getAuthUser result:', result.rows);
 
     if (result.rows.length === 0) {
       return null;

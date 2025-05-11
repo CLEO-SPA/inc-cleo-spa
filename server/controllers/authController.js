@@ -6,7 +6,12 @@ const isAuthenticated = (req, res, next) => {
   if (req.session && req.session.userId) {
     return res.status(200).json({
       isAuthenticated: true,
-      user: { id: req.session.userId },
+      user: {
+        user_id: req.session.user_id,
+        username: req.session.username,
+        email: req.session.email,
+        role: req.session.role,
+      },
     });
   }
 

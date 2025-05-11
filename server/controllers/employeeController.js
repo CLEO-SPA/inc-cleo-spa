@@ -18,11 +18,16 @@ const loginEmployee = async (req, res, next) => {
         console.error('Error regenerating session:', err);
         return res.status(500).json({ message: 'Session error' });
       }
-      req.session.userId = res.locals.userId;
+      req.session.user_id = res.locals.user_id;
+      req.session.username = res.locals.username;
+      req.session.email = res.locals.email;
+      req.session.role = res.locals.role;
 
       res.status(200).json({
         user: {
-          id: res.locals.userId,
+          user_id: res.locals.user_id,
+          username: res.locals.username,
+          email: res.locals.email,
           role: res.locals.role,
         },
       });
@@ -63,7 +68,9 @@ const getAuthUser = async (req, res, next) => {
     }
 
     res.locals.hash = user.password;
-    res.locals.userId = user.id;
+    res.locals.username = user.employee_name || user.name || user.email.split('@')[0];
+    res.locals.user_id = user.id;
+    res.locals.email = user.email;
     res.locals.role = user.role_name;
     next();
   } catch (error) {
