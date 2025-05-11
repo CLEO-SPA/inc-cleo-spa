@@ -1,29 +1,28 @@
 import { BrowserRouter as Router, Routes, Route } from 'react-router-dom';
 import { AuthProvider } from '@/context/AuthContext';
+import { DateRangeProvider } from '@/context/DateRangeContext';
 import ProtectedRoute from '@/components/ProtectedRoute';
 
 // Pages
-// import HomePage from '@/pages/HomePage';
-import Login from '@/pages/Login';
+import HomePage from '@/pages/Dashboard';
+import LoginPage from '@/pages/LoginPage';
 
 // 404
 import NotFoundPage from '@/pages/404';
 
-//Homepage
-import HomePage from '@/pages/Dashboard';
-
 function App() {
   return (
     <AuthProvider>
-      <Router>
-        <Routes>
-          <Route path='/' element={<ProtectedRoute />}>
+      <DateRangeProvider>
+        <Router>
+          <Routes>
             <Route index element={<HomePage />} />
-          </Route>
-          <Route path='/login' element={<LoginPage />} />
-          <Route path='*' element={<NotFoundPage />} />
-        </Routes>
-      </Router>
+            <Route path='/' element={<ProtectedRoute />}></Route>
+            <Route path='/login' element={<LoginPage />} />
+            <Route path='*' element={<NotFoundPage />} />
+          </Routes>
+        </Router>
+      </DateRangeProvider>
     </AuthProvider>
   );
 }

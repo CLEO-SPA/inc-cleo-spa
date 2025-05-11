@@ -1,8 +1,12 @@
 import React, { useState } from 'react';
 import { useNavigate, useLocation } from 'react-router-dom';
 import useAuth from '@/hooks/useAuth';
-import { Container, Box, Typography, TextField, Button, Paper, Avatar } from '@mui/material';
-import LockOutlinedIcon from '@mui/icons-material/LockOutlined';
+import { Button } from '@/components/ui/button';
+import { Input } from '@/components/ui/input';
+import { Label } from '@/components/ui/label';
+import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
+import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
+import { Lock } from 'lucide-react'; // Lucide icon
 
 function LoginPage() {
   const [username, setUsername] = useState('');
@@ -35,67 +39,59 @@ function LoginPage() {
   };
 
   return (
-    <Container component='main' maxWidth='xs'>
-      <Paper
-        elevation={3}
-        sx={{
-          marginTop: 8,
-          display: 'flex',
-          flexDirection: 'column',
-          alignItems: 'center',
-          padding: 4, // Add padding
-          bgcolor: 'background.paper', // Use theme's paper background
-        }}
-      >
-        <Avatar sx={{ m: 1, bgcolor: 'secondary.main' }}>
-          <LockOutlinedIcon />
-        </Avatar>
-        <Typography component='h1' variant='h5' color='primary'>
-          Sign In
-        </Typography>
-        <Box component='form' onSubmit={handleSubmit} noValidate sx={{ mt: 1 }}>
-          <TextField
-            margin='normal'
-            required
-            fullWidth
-            id='username'
-            label='Email Or Mobile Number'
-            name='username'
-            autoComplete='username'
-            autoFocus
-            value={username}
-            onChange={(e) => setUsername(e.target.value)}
-            error={!!error}
-          />
-          <TextField
-            margin='normal'
-            required
-            fullWidth
-            name='password'
-            label='Password'
-            type='password'
-            id='password'
-            autoComplete='current-password'
-            value={password}
-            onChange={(e) => setPassword(e.target.value)}
-            error={!!error}
-          />
-          {/* Optional: Remember me checkbox */}
-          {/* <FormControlLabel
-            control={<Checkbox value="remember" color="primary" />}
-            label="Remember me"
-          /> */}
-          {error && (
-            <Typography color='error' variant='body2' sx={{ mt: 1 }}>
-              {error}
-            </Typography>
-          )}
-          <Button type='submit' disabled={isSubmitting} fullWidth variant='contained' sx={{ mt: 3, mb: 2 }}>
-            {isSubmitting ? 'Logging in...' : 'Login'}
-          </Button>
-        </Box>
-      </Paper>
-    </Container>
+    <div className='flex items-center justify-center min-h-screen bg-background'>
+      <Card className='w-full max-w-sm'>
+        <CardHeader className='space-y-1 text-center'>
+          <div className='flex justify-center mb-4'>
+            <Avatar>
+              {/* <AvatarImage src="/placeholder-avatar.jpg" alt="Lock" /> */}
+              <AvatarFallback>
+                <Lock className='h-6 w-6' />
+              </AvatarFallback>
+            </Avatar>
+          </div>
+          <CardTitle className='text-2xl font-bold'>Sign In</CardTitle>
+          <CardDescription>Enter your email or mobile number and password to login.</CardDescription>
+        </CardHeader>
+        <CardContent>
+          <form onSubmit={handleSubmit} className='space-y-4'>
+            <div className='space-y-2'>
+              <Label htmlFor='username'>Email or Mobile Number</Label>
+              <Input
+                id='username'
+                name='username'
+                type='text'
+                placeholder='you@example.com or 87654321'
+                required
+                autoComplete='username'
+                autoFocus
+                value={username}
+                onChange={(e) => setUsername(e.target.value)}
+                className={error ? 'border-destructive' : ''}
+              />
+            </div>
+            <div className='space-y-2'>
+              <Label htmlFor='password'>Password</Label>
+              <Input
+                id='password'
+                name='password'
+                type='password'
+                placeholder='********'
+                required
+                autoComplete='current-password'
+                value={password}
+                onChange={(e) => setPassword(e.target.value)}
+                className={error ? 'border-destructive' : ''}
+              />
+            </div>
+            {error && <p className='text-sm text-destructive text-center'>{error}</p>}
+            <Button type='submit' disabled={isSubmitting} className='w-full'>
+              {isSubmitting ? 'Logging in...' : 'Login'}
+            </Button>
+          </form>
+        </CardContent>
+      </Card>
+    </div>
   );
 }
 

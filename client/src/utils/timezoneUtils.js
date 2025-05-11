@@ -16,7 +16,7 @@ export const getBrowserTimezone = () => {
 const isUtcDateField = (key) => {
   if (typeof key !== 'string') return false;
   const lowerkey = key.toLowerCase();
-  return lowerkey.endsWith('ed_at');
+  return lowerkey.endsWith('ed_at') || lowerkey.endsWith('_utc');
 };
 
 const convertLocalToUtc = (localDateTime, localTimezone) => {

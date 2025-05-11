@@ -15,13 +15,13 @@ function BreadcrumbList({
   ...props
 }) {
   return (
-    (<ol
+    <ol
       data-slot="breadcrumb-list"
       className={cn(
         "text-muted-foreground flex flex-wrap items-center gap-1.5 text-sm break-words sm:gap-2.5",
         className
       )}
-      {...props} />)
+      {...props} />
   );
 }
 
@@ -30,10 +30,10 @@ function BreadcrumbItem({
   ...props
 }) {
   return (
-    (<li
+    <li
       data-slot="breadcrumb-item"
       className={cn("inline-flex items-center gap-1.5", className)}
-      {...props} />)
+      {...props} />
   );
 }
 
@@ -45,10 +45,10 @@ function BreadcrumbLink({
   const Comp = asChild ? Slot : "a"
 
   return (
-    (<Comp
+    <Comp
       data-slot="breadcrumb-link"
       className={cn("hover:text-foreground transition-colors", className)}
-      {...props} />)
+      {...props} />
   );
 }
 
@@ -57,13 +57,13 @@ function BreadcrumbPage({
   ...props
 }) {
   return (
-    (<span
+    <span
       data-slot="breadcrumb-page"
       role="link"
       aria-disabled="true"
       aria-current="page"
       className={cn("text-foreground font-normal", className)}
-      {...props} />)
+      {...props} />
   );
 }
 
@@ -73,14 +73,14 @@ function BreadcrumbSeparator({
   ...props
 }) {
   return (
-    (<li
+    <li
       data-slot="breadcrumb-separator"
       role="presentation"
       aria-hidden="true"
       className={cn("[&>svg]:size-3.5", className)}
       {...props}>
       {children ?? <ChevronRight />}
-    </li>)
+    </li>
   );
 }
 
@@ -89,7 +89,7 @@ function BreadcrumbEllipsis({
   ...props
 }) {
   return (
-    (<span
+    <span
       data-slot="breadcrumb-ellipsis"
       role="presentation"
       aria-hidden="true"
@@ -97,7 +97,7 @@ function BreadcrumbEllipsis({
       {...props}>
       <MoreHorizontal className="size-4" />
       <span className="sr-only">More</span>
-    </span>)
+    </span>
   );
 }
 
