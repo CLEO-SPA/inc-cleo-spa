@@ -13,7 +13,7 @@ const isAuthenticated = (req, res, next) => {
   res.status(401).json({ message: 'Unauthorized: Please log in.' });
 };
 
-const setUpSuperUser = async (req, res, next) => {
+const decodeSuperUserToken = async (req, res, next) => {
   const { token } = req.params;
   if (!token) {
     return res.status(400).json({ message: 'Token is required' });
@@ -23,11 +23,26 @@ const setUpSuperUser = async (req, res, next) => {
     const decoded = jwt.verify(token, process.env.JWT_SECRET);
     const { email, password } = decoded;
 
+    req.body.password = password;
+    req.body.email = email;
+
+    next();
+  } catch (error) {
+    console.error('Error decoding super user token:', error);
+    return null;
+  }
+};
+
+const setUpSuperUser = async (req, res, next) => {
+  try {
     // Check if no user exists in the database
     const userCount = await model.getUserCount();
     if (userCount > 0) {
       return res.status(400).json({ message: 'Super user already exists' });
     }
+
+    const { email } = req.body;
+    const password = res.locals.hash;
 
     await model.createSuperUser(email, password);
 
@@ -41,4 +56,5 @@ const setUpSuperUser = async (req, res, next) => {
 export default {
   isAuthenticated,
   setUpSuperUser,
+  decodeSuperUserToken,
 };

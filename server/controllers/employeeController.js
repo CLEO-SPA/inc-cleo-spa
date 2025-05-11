@@ -21,8 +21,10 @@ const loginEmployee = async (req, res, next) => {
       req.session.userId = res.locals.userId;
 
       res.status(200).json({
-        userId: res.locals.userId,
-        role: res.locals.role,
+        user: {
+          id: res.locals.userId,
+          role: res.locals.role,
+        },
       });
     });
   } else {
@@ -44,17 +46,18 @@ const logoutEmployee = async (req, res) => {
 
 const getAuthUser = async (req, res, next) => {
   try {
-    const { emp_identity, password } = req.body;
-    if (!emp_identity || !password) {
+    const { username, password } = req.body;
+
+    if (!username || !password) {
       return res.status(400).json({ message: 'All fields are required' });
     }
 
-    if (!validator.isEmail(emp_identity) || !validator.isMobilePhone(emp_identity, 'any', { strictMode: false })) {
+    if (!validator.isEmail(username) && !validator.isMobilePhone(username, 'any', { strictMode: false })) {
       return res.status(400).json({ message: 'Invalid email or contact number format' });
     }
 
     // Check if the employee exists
-    const user = await model.getAuthUser(emp_identity);
+    const user = await model.getAuthUser(username);
     if (!user) {
       return res.status(404).json({ message: 'Employee not found' });
     }

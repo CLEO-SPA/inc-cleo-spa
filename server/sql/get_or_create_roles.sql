@@ -14,7 +14,7 @@ BEGIN
     IF v_role_id IS NULL THEN
         INSERT INTO roles (
             role_name,
-            role_description,
+            description,
             created_at
         ) VALUES (
             p_role_name,

@@ -49,6 +49,8 @@ export const AuthProvider = ({ children }) => {
   const login = async (credentials) => {
     try {
       const response = await api.post('/auth/login', credentials);
+      // console.log('AuthContext: Login response:', response.data);
+
       if (response.data && response.data.user) {
         setUser(response.data.user);
         setIsAuthenticated(true);

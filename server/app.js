@@ -8,7 +8,7 @@ import sessionStore from './middlewares/sessionMiddleware.js';
 const app = express();
 
 const corsOptions = {
-  origin: [process.env.LOCAL_FRONTEND_URL],
+  origin: [process.env.LOCAL_FRONTEND_URL, process.env.LOCAL_BACKEND_URL],
   methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS'],
   allowedHeaders: ['Content-Type', 'Authorization', 'Set-Cookie', 'X-Requested-With', 'Access-Control-Allow-Origin'],
   credentials: true,

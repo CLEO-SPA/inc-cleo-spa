@@ -1,6 +1,6 @@
 CREATE OR REPLACE PROCEDURE create_temp_su(
     p_email VARCHAR(255),
-    p_password_hash VARCHAR(255),
+    p_password_hash VARCHAR(255)
 )
 LANGUAGE plpgsql
 AS $$

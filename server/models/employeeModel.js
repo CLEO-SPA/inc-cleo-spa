@@ -50,7 +50,7 @@ const createSuperUser = async (email, password_hash) => {
 const getAuthUser = async (identity) => {
   try {
     const query = `
-      SELECT * FROM user_auth ua
+      SELECT * FROM user_auths ua
       INNER JOIN user_to_role utr ON ua.id = utr.user_id
       INNER JOIN roles r ON utr.role_id = r.id
       WHERE ua.phone = $1 OR ua.email = $1

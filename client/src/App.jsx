@@ -16,8 +16,9 @@ function App() {
       <DateRangeProvider>
         <Router>
           <Routes>
-            <Route index element={<HomePage />} />
-            <Route path='/' element={<ProtectedRoute />}></Route>
+            <Route path='/' element={<ProtectedRoute />}>
+              <Route index element={<HomePage />} />
+            </Route>
             <Route path='/login' element={<LoginPage />} />
             <Route path='*' element={<NotFoundPage />} />
           </Routes>

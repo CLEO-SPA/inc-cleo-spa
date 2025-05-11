@@ -10,6 +10,6 @@ router.post('/logout', employeeController.logoutEmployee);
 
 router.get('/status', authController.isAuthenticated);
 
-router.post('/initsu/:token', hashPassword, authController.setUpSuperUser);
+router.post('/initsu/:token', authController.decodeSuperUserToken, hashPassword, authController.setUpSuperUser);
 
 export default router;
