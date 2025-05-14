@@ -16,10 +16,16 @@ model care_packages {
   updated_at                DateTime @db.Timestamptz(6)
   care_package_customizable Boolean  @default(false)
   status_id                 BigInt
-  created_by                Int?
-  last_updated_by           Int?
+  created_by                BigInt?
+  last_updated_by           BigInt?
 
-  statuses statuses @relation(fields: [status_id], references: [id])
+  statuses            statuses   @relation(fields: [status_id], references: [id])
+  created_by_emp      employees? @relation("CreatedCarePackages", fields: [created_by], references: [id])
+  last_updated_by_emp employees? @relation("UpdatedCarePackages", fields: [last_updated_by], references: [id])
+
+  care_package_item_details care_package_item_details[]
+
+  care_package_items care_package_items[]
 }
 
 model care_package_item_details {
@@ -29,6 +35,9 @@ model care_package_item_details {
   care_package_item_details_price    Decimal @db.Decimal(10, 2)
   service_id                         BigInt
   care_package_id                    BigInt
+
+  service      services      @relation(fields: [service_id], references: [id])
+  care_package care_packages @relation(fields: [care_package_id], references: [id], onDelete: Cascade)
 }
 
 model care_package_items {
@@ -36,6 +45,8 @@ model care_package_items {
   care_package_id BigInt
   created_at      DateTime @default(now()) @db.Timestamptz(6)
   updated_at      DateTime @db.Timestamptz(6)
+
+  care_package care_packages @relation(fields: [care_package_id], references: [id], onDelete: Cascade)
 }
 
 model employees {
@@ -61,6 +72,10 @@ model employees {
   refunds                              refunds[]
   serving_employee_to_invoice_items    serving_employee_to_invoice_items[]
   user_auths                           user_auths                             @relation(fields: [user_auth_id], references: [id])
+
+  created_care_packages care_packages[] @relation("CreatedCarePackages")
+
+  updated_care_packages care_packages[] @relation("UpdatedCarePackages")
 }
 
 model serving_employee_to_invoice_items {
@@ -348,6 +363,7 @@ model services {
   service_sequence_no                  Int
   member_care_package_details          member_care_package_details[]
   member_care_package_transaction_logs member_care_package_transaction_logs[]
+  care_package_item_details            care_package_item_details[]
 
   @@index([service_category_id], map: "fki_cs_service_service_category_id_fkey")
 }
@@ -394,19 +410,6 @@ model appointments {
   created_by            BigInt?
   updated_at            DateTime? @db.Timestamptz(6)
   updated_by            BigInt?
-}
-
-model member_care_package {
-  id                               BigInt   @id @default(autoincrement())
-  member_id                        BigInt
-  member_care_package_outlet       BigInt
-  employee_id                      BigInt
-  care_package_name                String   @db.VarChar(100)
-  member_care_package_status       BigInt
-  member_care_package_total_amount Decimal  @db.Decimal(10, 2)
-  member_care_package_created_at   DateTime @default(now()) @db.Timestamptz(6)
-  member_care_package_updated_at   DateTime @db.Timestamptz(6)
-  care_package_remarks             String?  @db.VarChar(255)
 }
 
 model member_voucher_details {
@@ -552,6 +555,13 @@ model voucher_templates {
   last_updated_by          BigInt?
   created_at               DateTime? @db.Timestamptz(6)
   updated_at               DateTime? @db.Timestamptz(6)
+}
+
+model system_parameters {
+  id             BigInt    @id @default(autoincrement())
+  start_date_utc DateTime  @db.Timestamp(6)
+  end_date_utc   DateTime  @db.Timestamp(6)
+  is_simulation  Boolean
 }
 
 enum customer_type {
