@@ -4,7 +4,7 @@ import createHttpError from 'http-errors';
 import session from 'express-session';
 import cookieParser from 'cookie-parser';
 import mainRoutes from './routes/mainRoutes.js';
-import sessionStore from './middlewares/sessionMiddleware.js';
+import sessionStore from './store/sessionStore.js';
 
 const app = express();
 
