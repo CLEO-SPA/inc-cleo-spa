@@ -9,7 +9,7 @@ import sessionRoutes from './sessionRoutes.js';
 import employeeRoutes from './employeeRoutes.js';
 import roleRoutes from './roleRoutes.js'; // Add this import
 
-// router.use(simulationMiddleware);
+router.use(simulationMiddleware);
 
 router.use('/auth', authRoutes);
 router.use('/session', sessionRoutes);
