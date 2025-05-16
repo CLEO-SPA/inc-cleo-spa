@@ -1,9 +1,10 @@
 import { createContext, useContext, useState, useEffect, useCallback } from 'react';
-import apiClient from '@/services/api';
+import api from '@/services/api';
 import { parseISO, isValid } from 'date-fns';
 
 const DateRangeContext = createContext();
 
+// eslint-disable-next-line react-refresh/only-export-components
 export const useDateRange = () => {
   const context = useContext(DateRangeContext);
   if (!context) {
@@ -23,7 +24,7 @@ export const DateRangeProvider = ({ children }) => {
     const fetchInitialDateRange = async () => {
       setIsLoading(true);
       try {
-        const response = await apiClient.get('/session/gdr');
+        const response = await api.get('/session/gdr');
         if (response.data) {
           const rawStartDate = response.data.startDate_utc; // Should be a local Date object after interceptor
           const rawEndDate = response.data.endDate_utc; // Should be a local Date object after interceptor
@@ -66,11 +67,11 @@ export const DateRangeProvider = ({ children }) => {
 
   const updateDateRangeOnServer = useCallback(async (startDate, endDate) => {
     try {
-      await apiClient.post('/session/sdr', {
-        startDate_utc: startDate,
-        endDate_utc: endDate,
+      const response = await api.post('/session/sdr', {
+        startDate_utc: startDate === undefined ? null : startDate,
+        endDate_utc: endDate === undefined ? null : endDate,
       });
-      console.log('Date range (as Date objects) sent to interceptor for UTC conversion.');
+      console.log('Date range sent to server.', response.data);
     } catch (error) {
       console.error('Error updating date range on server:', error.response ? error.response.data : error.message);
     }
