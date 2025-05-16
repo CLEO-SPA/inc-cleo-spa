@@ -2,7 +2,35 @@ import model from '../models/employeeModel.js';
 import jwt from 'jsonwebtoken';
 import 'dotenv/config';
 
-const isAuthenticated = (req, res, next) => {
+const isAuthenticated = (req, res) => {
+  const rememberToken = req.cookies && req.cookies[process.env.REMEMBER_TOKEN];
+
+  if (rememberToken) {
+    try {
+      const decoded = jwt.verify(rememberToken, process.env.JWT_SECRET);
+      if (!req.session.user_id) {
+        req.session.endDate_utc = new Date().toISOString();
+        req.session.user_id = decoded.user_id;
+        req.session.username = decoded.username;
+        req.session.email = decoded.email;
+        req.session.role = decoded.role;
+        req.session.save();
+      }
+      return res.status(200).json({
+        isAuthenticated: true,
+        user: {
+          user_id: decoded.user_id,
+          username: decoded.username,
+          email: decoded.email,
+          role: decoded.role,
+        },
+      });
+    } catch (error) {
+      console.warn('Invalid remember_me token:', error.message);
+      res.clearCookie(process.env.REMEMBER_TOKEN, { path: '/' });
+    }
+  }
+
   if (req.session && req.session.userId) {
     return res.status(200).json({
       isAuthenticated: true,
@@ -38,7 +66,7 @@ const decodeSuperUserToken = async (req, res, next) => {
   }
 };
 
-const setUpSuperUser = async (req, res, next) => {
+const setUpSuperUser = async (req, res) => {
   try {
     // Check if no user exists in the database
     const userCount = await model.getUserCount();

@@ -2,6 +2,7 @@ import express, { json, urlencoded } from 'express';
 import cors from 'cors';
 import createHttpError from 'http-errors';
 import session from 'express-session';
+import cookieParser from 'cookie-parser';
 import mainRoutes from './routes/mainRoutes.js';
 import sessionStore from './middlewares/sessionMiddleware.js';
 
@@ -26,6 +27,7 @@ const corsOptions = {
 app.use(json());
 app.use(urlencoded({ extended: true }));
 app.use(cors(corsOptions));
+app.use(cookieParser());
 
 app.use(
   session({
