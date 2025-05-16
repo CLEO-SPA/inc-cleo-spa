@@ -1,20 +1,34 @@
-// Example usage in a routes file
 import express from 'express';
 import roleMiddleware from '../middlewares/roleMiddleware.js';
-import someController from '../controllers/someController.js';
 
 const router = express.Router();
 
-// Routes that require 'admin' role
-router.get('/admin-only', 
-  roleMiddleware.hasRole('admin'), 
-  someController.adminOnlyFunction
-);
-
-// Routes that require either 'manager' OR 'supervisor' role
-router.post('/manager-or-supervisor', 
-  roleMiddleware.hasRole(['manager', 'supervisor']), 
-  someController.managerFunction
+router.get('/test-super-admin/', 
+  roleMiddleware.hasRole('super_admin'), 
+  (req, res) => {
+    res.status(200).json({
+      success: true,
+      message: 'Super admin access granted',
+      protectedData: {
+        systemStats: {
+          totalUsers: 152,
+          activeUsers: 87,
+          pendingRequests: 14
+        },
+        sensitiveOperations: [
+          'Full database access',
+          'User role management',
+          'System configuration',
+          'Security audit logs'
+        ],
+        serverInfo: {
+          version: '1.0.0',
+          environment: process.env.NODE_ENV,
+          uptime: process.uptime() + ' seconds'
+        }
+      }
+    });
+  }
 );
 
 export default router;

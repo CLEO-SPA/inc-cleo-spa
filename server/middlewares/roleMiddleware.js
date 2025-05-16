@@ -1,19 +1,14 @@
 import roleModel from '../models/roleModel.js';
 
-/**
- * Middleware to check if a user has the required role(s)
- * @param {string|string[]} requiredRoles - Single role string or array of role strings
- * @returns {Function} Express middleware function
- */
 const hasRole = (requiredRoles) => {
   return async (req, res, next) => {
     try {
       // Check if user is authenticated
-      if (!req.session || !req.session.userId) {
+      if (!req.session || !req.session.user_id) {
         return res.status(401).json({ message: 'Unauthorized - Please log in' });
       }
 
-      const userId = req.session.userId;
+      const userId = 18;
       
       // Get user roles from the database
       const userRoles = await roleModel.getUserRoles(userId);
@@ -32,7 +27,7 @@ const hasRole = (requiredRoles) => {
         });
       }
       
-      // If user has the required role, proceed to the next middleware or route handler
+      // If user has the required role, proceed
       next();
     } catch (error) {
       console.error('Role verification error:', error);

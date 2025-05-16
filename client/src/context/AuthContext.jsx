@@ -81,8 +81,35 @@ export const AuthProvider = ({ children }) => {
     }
   };
 
+  /**
+   * Check if the current user has one of the specified roles
+   * @param {string|string[]} requiredRoles - Single role or array of roles
+   * @returns {boolean} - True if user has one of the required roles
+   */
+  const hasRole = useCallback((requiredRoles) => {
+    if (!isAuthenticated || !user || !user.roles) {
+      return false;
+    }
+    
+    // Convert required roles to array if it's a string
+    const roles = Array.isArray(requiredRoles) ? requiredRoles : [requiredRoles];
+    
+    // Check if user has at least one of the required roles
+    return roles.some(role => user.roles.includes(role));
+  }, [isAuthenticated, user]);
+
   return (
-    <AuthContext.Provider value={{ user, isAuthenticated, isLoading, login, logout, checkAuthStatus }}>
+    <AuthContext.Provider 
+      value={{ 
+        user, 
+        isAuthenticated, 
+        isLoading, 
+        login, 
+        logout, 
+        checkAuthStatus,
+        hasRole
+      }}
+    >
       {children}
     </AuthContext.Provider>
   );

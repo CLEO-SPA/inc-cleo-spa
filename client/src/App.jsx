@@ -8,6 +8,8 @@ import HomePage from '@/pages/HomePage';
 import LoginPage from '@/pages/LoginPage';
 import ResetPasswordPage from '@/pages/ResetPasswordPage';
 import NotFoundPage from '@/pages/404Page';
+import RoleTest from '@/pages/roleTest';
+import UnauthorizedPage from '@/pages/UnauthorizedPage';
 
 function App() {
   return (
@@ -18,7 +20,14 @@ function App() {
             <Route path='/' element={<ProtectedRoute />}>
               <Route index element={<HomePage />} />
             </Route>
+            
+            {/* Role-protected route */}
+            <Route path='/role-test' element={<ProtectedRoute requiredRoles="super_admin" />}>
+              <Route index element={<RoleTest />} />
+            </Route>
+            
             <Route path='/login' element={<LoginPage />} />
+            <Route path='/unauthorized' element={<UnauthorizedPage />} />
 
             {/* Invitation & Reset Password */}
             <Route path='/invites' element={<ResetPasswordPage />} />
