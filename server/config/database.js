@@ -2,36 +2,42 @@ import pg from 'pg';
 import 'dotenv/config';
 import { parseConnectionString } from '../utils/dbConnectionParser.js';
 
-// Determine database configuration method - connection string or individual parameters
-const connectionString = process.env.DATABASE_URL;
-let dbConfig = {};
+let isSimulationMode = false;
 
-if (connectionString) {
-  // Use connection string if available
-  dbConfig = parseConnectionString(connectionString);
-} else {
-  // Fall back to individual parameters
-  dbConfig = {
-    user: process.env.DB_USER,
-    password: process.env.DB_PASSWORD,
-    host: process.env.DB_HOST,
-    database: process.env.DB_DATABASE,
-    port: process.env.DB_PORT ? parseInt(process.env.DB_PORT, 10) : 5432,
-    ssl: process.env.DB_SSL === 'true' ? { rejectUnauthorized: true } : false,
+function createNamedPool(EnvConfig, poolName) {
+  const connectionString = EnvConfig;
+  const dbConfig = parseConnectionString(connectionString);
+
+  const pool = new pg.Pool({
+    ...dbConfig,
+    max: dbConfig.maxConnections || parseInt(process.env.DB_MAX_CONNECTIONS, 10) || 10,
+  });
+
+  const oldQuery = pool.query;
+  pool.query = function (...args) {
+    const [sql, params] = args;
+    console.log(`${poolName} | Executing query: ${sql} | Parameters: ${params ? JSON.stringify(params) : 'None'}`);
+    return oldQuery.apply(pool, args);
   };
+  return pool;
 }
 
-// Create the connection pool
-const pool = new pg.Pool({
-  ...dbConfig,
-  max: dbConfig.maxConnections || parseInt(process.env.DB_MAX_CONNECTIONS, 10) || 10,
-});
+const prodPool = createNamedPool(process.env.PROD_DB_URL, 'PRODUCTION');
+const simPool = createNamedPool(process.env.SIM_DB_URL, 'SIMULATION');
 
-const oldQuery = pool.query;
-pool.query = function (...args) {
-  const [sql, params] = args;
-  console.log(`EXECUTING QUERY |`, sql, params);
-  return oldQuery.apply(pool, args);
-};
+export function setSimulation(simulationEnabled) {
+  isSimulationMode = !!simulationEnabled; // explicitly convert to boolean
+  console.log(`Simulation mode set to: ${isSimulationMode}`);
+}
 
-export default pool;
+export function getIsSimulation() {
+  return isSimulationMode;
+}
+
+export function pool() {
+  return isSimulationMode ? simPool : prodPool;
+}
+
+export function getProdPool() {
+  return prodPool;
+}

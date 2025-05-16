@@ -1,5 +1,6 @@
 import nodemailer from 'nodemailer';
 
+// Not Used in the current code, but can be used for testing
 const transporter = nodemailer.createTransport({
   host: process.env.SMTP_HOST,
   port: process.env.SMTP_PORT,

@@ -2,8 +2,9 @@ import { isValid, format, parseISO } from 'date-fns';
 import { fromZonedTime } from 'date-fns-tz';
 
 export const getBrowserTimezone = () => {
+  let detectedTimezone;
   try {
-    const detectedTimezone = Intl.DateTimeFormat().resolvedOptions().timeZone;
+    detectedTimezone = Intl.DateTimeFormat().resolvedOptions().timeZone;
     // console.log(`Detected browser timezone: ${detectedTimezone}`);
     return detectedTimezone;
   } catch (e) {

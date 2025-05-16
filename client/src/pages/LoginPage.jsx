@@ -7,10 +7,12 @@ import { Label } from '@/components/ui/label';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
 import { Lock } from 'lucide-react'; // Lucide icon
+import { Checkbox } from '@/components/ui/checkbox'; // Import Checkbox
 
 function LoginPage() {
   const [username, setUsername] = useState('');
   const [password, setPassword] = useState('');
+  const [rememberMe, setRememberMe] = useState(false); // Add state for rememberMe
   const [error, setError] = useState('');
   const [isSubmitting, setIsSubmitting] = useState(false);
 
@@ -25,7 +27,7 @@ function LoginPage() {
     setError('');
     setIsSubmitting(true);
     try {
-      const success = await login({ username, password });
+      const success = await login({ username, password, rememberMe }); // Pass rememberMe
       if (success) {
         navigate(from, { replace: true });
       } else {
@@ -83,6 +85,15 @@ function LoginPage() {
                 onChange={(e) => setPassword(e.target.value)}
                 className={error ? 'border-destructive' : ''}
               />
+            </div>
+            <div className='flex items-center space-x-2'>
+              <Checkbox id='rememberMe' checked={rememberMe} onCheckedChange={setRememberMe} />
+              <Label
+                htmlFor='rememberMe'
+                className='text-sm font-medium leading-none peer-disabled:cursor-not-allowed peer-disabled:opacity-70'
+              >
+                Remember me
+              </Label>
             </div>
             {error && <p className='text-sm text-destructive text-center'>{error}</p>}
             <Button type='submit' disabled={isSubmitting} className='w-full'>
