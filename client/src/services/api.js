@@ -44,9 +44,7 @@ apiClient.interceptors.response.use(
   },
   async (error) => {
     if (error.response && error.response.status === 401) {
-      if (!window.location.pathname.includes('/login')) {
-        window.location.href = '/login';
-      }
+      window.dispatchEvent(new CustomEvent('auth-error-401'));
     }
 
     return Promise.reject(error);
