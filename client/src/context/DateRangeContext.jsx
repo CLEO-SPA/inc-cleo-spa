@@ -25,6 +25,8 @@ export const DateRangeProvider = ({ children }) => {
       setIsLoading(true);
       try {
         const response = await api.get('/session/gdr');
+        // console.log('Initial date range fetched from server:', response.data);
+
         if (response.data) {
           const rawStartDate = response.data.startDate_utc; // Should be a local Date object after interceptor
           const rawEndDate = response.data.endDate_utc; // Should be a local Date object after interceptor

@@ -53,40 +53,25 @@ const toggleSimulation = async (req, res) => {
       return res.status(400).json({ message: 'is_simulation is required.' });
     }
 
-    const callQuery = 'CALL set_simulation($1, $2, $3)';
+    const funcQuery = `SELECT set_simulation($1, $2, $3) AS result`;
     const values = [is_simulation, startDate_utc, endDate_utc];
 
-    const result = await pool.query(callQuery, values);
+    const result = await pool.query(funcQuery, values);
+
+    // console.log(result);
+
     if (result.rowCount === 0) {
       return res.status(400).json({ message: 'Failed to toggle simulation.' });
     }
+    res.status(200).json({
+      message: 'Simulation state updated successfully.',
+      is_simulation: result.rows[0].result,
+      startDate_utc: startDate_utc || null,
+      endDate_utc: endDate_utc || null,
+    });
   } catch (error) {
     console.error('Error toggling simulation:', error);
     return res.status(500).json({ message: 'Failed to toggle simulation.' });
-  }
-};
-
-const updateSimulation = async (req, res) => {
-  const { startDate_utc, endDate_utc } = req.body;
-
-  try {
-    if (startDate_utc === null || startDate_utc === undefined) {
-      return res.status(400).json({ message: 'startDate_utc is required.' });
-    }
-    if (endDate_utc === null || endDate_utc === undefined) {
-      return res.status(400).json({ message: 'endDate_utc is required.' });
-    }
-
-    const callQuery = 'CALL set_simulation($1, $2, $3)';
-    const values = [true, startDate_utc, endDate_utc];
-
-    const result = await pool.query(callQuery, values);
-    if (result.rowCount === 0) {
-      return res.status(400).json({ message: 'Failed to update simulation.' });
-    }
-  } catch (error) {
-    console.error('Error updating simulation:', error);
-    return res.status(500).json({ message: 'Failed to update simulation.' });
   }
 };
 
@@ -116,6 +101,5 @@ export default {
   setDateRange,
   getDateRange,
   toggleSimulation,
-  updateSimulation,
   getSimulation,
 };

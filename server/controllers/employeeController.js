@@ -1,4 +1,5 @@
 import model from '../models/employeeModel.js';
+import { getCurrentSimStatus } from '../services/simulationService.js';
 import mailService from '../services/mailService.js';
 import validator from 'validator';
 import crypto from 'crypto';
@@ -14,13 +15,16 @@ const defaultPassword = async (req, res, next) => {
 const loginEmployee = async (req, res) => {
   if (res.locals.result) {
     const { rememberMe } = req.body;
+    const simParams = getCurrentSimStatus().params;
+    const { start_date_utc, end_date_utc } = simParams;
 
     req.session.regenerate((err) => {
       if (err) {
         console.error('Error regenerating session:', err);
         return res.status(500).json({ message: 'Session error' });
       }
-      req.session.endDate_utc = new Date().toISOString();
+      req.session.startDate_utc = getCurrentSimStatus().isActive ? start_date_utc : null;
+      req.session.endDate_utc = getCurrentSimStatus().isActive ? end_date_utc : new Date();
       req.session.user_id = res.locals.user_id;
       req.session.username = res.locals.username;
       req.session.email = res.locals.email;
@@ -245,17 +249,15 @@ const getAllEmployees = async (req, res) => {
 
   try {
     const { employees, totalPages } = await model.getAllEmployees(offset, limit, startDate_utc, endDate_utc);
-    const totalItemsResult = await model.getUserCount();
-    const totalItems = parseInt(totalItemsResult.rows[0].count);
 
     res.status(200).json({
       currentPage: page,
       totalPages: totalPages,
-      totalItems: totalItems,
       pageSize: limit,
       data: employees,
     });
   } catch (error) {
+    console.log('Error getting employees:', error);
     res.status(500).json({ message: 'Error getting employees', error: error.message });
   }
 };

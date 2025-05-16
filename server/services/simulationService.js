@@ -1,7 +1,7 @@
 import { setSimulation, getProdPool } from '../config/database.js';
 
 const SYSTEM_PARAMS_ID = parseInt(process.env.SYSTEM_PARAMS_ID, 10) || 1;
-const CACHE_TTL_MS = parseInt(process.env.CACHE_TTL_MS, 10) || 60000; // cache lifetime 1 minute
+const CACHE_TTL_MS = parseInt(process.env.CACHE_TTL_MS, 10) || 15000; // cache lifetime 15 seconds
 
 // in-memory cache
 let SysParamsCache = {

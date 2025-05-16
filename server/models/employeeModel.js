@@ -1,29 +1,38 @@
-import pool from '../config/database.js';
+import { pool, getProdPool as prodPool } from '../config/database.js';
 
 const checkEmployeeCodeExists = async (employee_code) => {
   try {
     const query = `SELECT * FROM employees WHERE employee_code = $1`;
     const values = [employee_code];
-    const result = await pool.query(query, values);
+    const result = await pool().query(query, values);
 
     return result.rows.length > 0;
   } catch (error) {
-    throw new Error('Error checking employee code existence');
+    throw new Error('Error checking employee code existence', error);
   }
 };
 
-const getAllEmployees = async (offset, limit) => {
+const getAllEmployees = async (offset, limit, startDate_utc, endDate_utc) => {
   try {
     const query = `
       SELECT * FROM employees
-      ORDER BY employee_id ASC
-      LIMIT $1 OFFSET $2;
+      WHERE created_at BETWEEN
+        COALESCE($3, '0001-01-01'::timestamp with time zone)
+        AND $4
+      ORDER BY id ASC
+      LIMIT $1 OFFSET $2
     `;
-    const values = [limit, offset];
-    const result = await pool.query(query, values);
+    const values = [limit, offset, startDate_utc, endDate_utc];
+    const result = await pool().query(query, values);
 
-    const totalQuery = `SELECT COUNT(*) FROM employees`;
-    const totalResult = await pool.query(totalQuery);
+    const totalQuery = `
+      SELECT COUNT(*) FROM employees
+      WHERE created_at BETWEEN
+        COALESCE($1, '0001-01-01'::timestamp with time zone)
+        AND $2
+    `;
+    const totalValues = [startDate_utc, endDate_utc];
+    const totalResult = await pool().query(totalQuery, totalValues);
     const totalPages = Math.ceil(totalResult.rows[0].count / limit);
 
     return {
@@ -31,6 +40,7 @@ const getAllEmployees = async (offset, limit) => {
       totalPages,
     };
   } catch (error) {
+    console.error('Error fetching employees:', error);
     throw new Error('Error fetching employees');
   }
 };
@@ -39,7 +49,7 @@ const createSuperUser = async (email, password_hash) => {
   try {
     const query = `CALL create_temp_su($1, $2)`;
     const values = [email, password_hash];
-    await pool.query(query, values);
+    await pool().query(query, values);
     return { success: true, message: 'Super user created successfully' };
   } catch (error) {
     console.error('Error creating super user:', error);
@@ -47,6 +57,12 @@ const createSuperUser = async (email, password_hash) => {
   }
 };
 
+/**
+ * !! USE THIS FUNCTION ONLY FOR AUTHENTICATION !!
+ * This func uses productive DB to fetch login data
+ * @param {"email || phone_no"} identity
+ * @returns
+ */
 const getAuthUser = async (identity) => {
   try {
     const query = `
@@ -58,7 +74,7 @@ const getAuthUser = async (identity) => {
         r.role_name,
         e.employee_name,
         m.name AS member_name
-      FROM user_auths ua
+      FROM user_auth ua
       INNER JOIN user_to_role utr ON ua.id = utr.user_id
       INNER JOIN roles r ON utr.role_id = r.id
       LEFT JOIN employees e ON ua.id = e.user_auth_id
@@ -66,7 +82,7 @@ const getAuthUser = async (identity) => {
       WHERE ua.phone = $1 OR ua.email = $1
       `;
     const values = [identity];
-    const result = await pool.query(query, values);
+    const result = await prodPool().query(query, values);
 
     // console.log('getAuthUser result:', result.rows);
 
@@ -75,7 +91,37 @@ const getAuthUser = async (identity) => {
     }
     return result.rows[0];
   } catch (error) {
-    throw new Error('Error fetching employee data');
+    throw new Error('Error fetching employee data', error);
+  }
+};
+
+const getUserData = async (identity) => {
+  try {
+    const query = `
+      SELECT 
+        ua.id, 
+        ua.email,
+        ua.phone,
+        ua.password,
+        r.role_name,
+        e.employee_name,
+        m.name AS member_name
+      FROM user_auth ua
+      INNER JOIN user_to_role utr ON ua.id = utr.user_id
+      INNER JOIN roles r ON utr.role_id = r.id
+      LEFT JOIN employees e ON ua.id = e.user_auth_id
+      LEFT JOIN members m ON ua.id = m.user_auth_id
+      WHERE ua.phone = $1 OR ua.email = $1
+      `;
+    const values = [identity];
+    const result = await pool().query(query, values);
+
+    if (result.rows.length === 0) {
+      return null;
+    }
+    return result.rows[0];
+  } catch (error) {
+    throw new Error('Error fetching employee data', error);
   }
 };
 
@@ -92,14 +138,14 @@ const createEmployee = async ({
   created_at,
   updated_at,
 }) => {
-  const client = await pool.connect();
+  const client = await pool().connect();
 
   try {
     // Start a transaction
     await client.query('BEGIN');
 
     const insertAuthQuery = `
-      INSERT INTO user_auths (email ,password, created_at, updated_at)
+      INSERT INTO user_auth (email ,password, created_at, updated_at)
       VALUES ($1, $2, $3, $4)
       RETURNING *;
     `;
@@ -144,12 +190,12 @@ const createEmployee = async ({
 };
 
 const updateEmployeePassword = async (email, password_hash) => {
-  const client = await pool.connect();
+  const client = await pool().connect();
 
   try {
     await client.query('BEGIN');
     const query = `
-      UPDATE user_auths
+      UPDATE user_auth
       SET password = $1
       WHERE email = $2
       RETURNING *;
@@ -171,8 +217,8 @@ const updateEmployeePassword = async (email, password_hash) => {
 
 const getUserCount = async () => {
   try {
-    const query = `SELECT COUNT(*) FROM user_auths`;
-    const result = await pool.query(query);
+    const query = `SELECT COUNT(*) FROM user_auth`;
+    const result = await pool().query(query);
     const count = parseInt(result.rows[0].count, 10);
     return count;
   } catch (error) {
@@ -189,4 +235,5 @@ export default {
   getAllEmployees,
   createSuperUser,
   getUserCount,
+  getUserData,
 };

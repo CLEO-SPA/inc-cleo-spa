@@ -10,20 +10,22 @@ import employeeController from '../controllers/employeeController.js';
 // =========================
 // Public routes
 // =========================
-router.post(
-  '/register',
-  employeeController.defaultPassword,
-  hashPassword,
-  employeeController.createEmployee
-  // employeeController.inviteEmployee
-);
 router.post('/invites', employeeController.acceptInvitation, hashPassword, employeeController.updateEmployeePassword);
 
 // =========================
 // Private routes
 // =========================
 router.use(isAuthenticated);
+
 router.get('/', employeeController.getAllEmployees);
+
+router.post(
+  '/create',
+  employeeController.defaultPassword,
+  hashPassword,
+  employeeController.createEmployee
+  // employeeController.inviteEmployee
+);
 router.post(
   'regenerate-uri',
   roleMiddleware.hasRole(['super_admin', 'data_admin']),

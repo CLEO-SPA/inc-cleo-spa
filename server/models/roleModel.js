@@ -1,4 +1,4 @@
-import pool from '../config/database.js';
+import { pool } from '../config/database.js';
 
 const getUserRoles = async (userId) => {
   try {
@@ -9,10 +9,10 @@ const getUserRoles = async (userId) => {
       WHERE utr.user_id = $1
     `;
     const values = [userId];
-    const result = await pool.query(query, values);
+    const result = await pool().query(query, values);
 
     // Return array of role names
-    return result.rows.map(row => row.role_name);
+    return result.rows.map((row) => row.role_name);
   } catch (error) {
     console.error('Error fetching user roles:', error);
     throw new Error('Error fetching user roles');
@@ -20,5 +20,5 @@ const getUserRoles = async (userId) => {
 };
 
 export default {
-  getUserRoles
+  getUserRoles,
 };
