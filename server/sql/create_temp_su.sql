@@ -12,7 +12,7 @@ DECLARE
 BEGIN
     -- Check if the user already exists
     SELECT id INTO v_user_auth_id
-    FROM user_auths
+    FROM user_auth
     WHERE email = p_email;
 
     IF v_user_auth_id IS NOT NULL THEN
@@ -22,7 +22,7 @@ BEGIN
     v_role_id := get_or_create_roles(v_role_name);
 
     -- Add the employee to user_auth
-    INSERT INTO user_auths (
+    INSERT INTO user_auth (
         email,
         password,
         created_at,
