@@ -22,6 +22,7 @@ export function SiteHeader() {
   const [localCalendarRange, setLocalCalendarRange] = useState(globalDateRange);
 
   const { user } = useAuth();
+
   const {
     isSimulationActive,
     simulationStartDate,
@@ -109,7 +110,7 @@ export function SiteHeader() {
     setIsSimPopoverOpen(false);
   };
 
-  const canManageSimulation = user && (user.role === 'Super Admin' || user.role === 'data_admin');
+  const canManageSimulation = user && (user.role === 'super_admin' || user.role === 'data_admin');
 
   let calendarFromDateForGlobalPicker = undefined;
   let calendarToDateForGlobalPicker = undefined;

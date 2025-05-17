@@ -84,11 +84,14 @@ const getAuthUser = async (identity) => {
     const values = [identity];
     const result = await prodPool().query(query, values);
 
-    // console.log('getAuthUser result:', result.rows);
-
     if (result.rows.length === 0) {
       return null;
     }
+
+    result.rows.forEach((row) => {
+      row.role_name = row.role_name.toLowerCase().replace(' ', '_');
+    });
+
     return result.rows[0];
   } catch (error) {
     throw new Error('Error fetching employee data', error);
@@ -119,6 +122,11 @@ const getUserData = async (identity) => {
     if (result.rows.length === 0) {
       return null;
     }
+
+    result.rows.forEach((row) => {
+      row.role_name = row.role_name.toLowerCase().replace(' ', '_');
+    });
+
     return result.rows[0];
   } catch (error) {
     throw new Error('Error fetching employee data', error);

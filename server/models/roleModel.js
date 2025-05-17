@@ -1,4 +1,4 @@
-import { pool } from '../config/database.js';
+import { getProdPool as pool } from '../config/database.js';
 
 const getUserRoles = async (userId) => {
   try {
@@ -10,6 +10,10 @@ const getUserRoles = async (userId) => {
     `;
     const values = [userId];
     const result = await pool().query(query, values);
+
+    result.rows.forEach((row) => {
+      row.role_name = row.role_name.toLowerCase().replace(' ', '_');
+    });
 
     // Return array of role names
     return result.rows.map((row) => row.role_name);

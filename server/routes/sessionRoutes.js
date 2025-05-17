@@ -18,10 +18,6 @@ router.post('/sdr', sessionController.setDateRange);
 router.get('/gdr', sessionController.getDateRange);
 
 router.get('/sim', sessionController.getSimulation);
-router.post(
-  '/sim',
-  // roleMiddleware.hasRole('data_admin'),
-  sessionController.toggleSimulation
-);
+router.post('/sim', roleMiddleware.hasRole(['super_admin', 'data_admin']), sessionController.toggleSimulation);
 
 export default router;
