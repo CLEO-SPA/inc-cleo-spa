@@ -1,252 +1,717 @@
-DROP TABLE IF EXISTS cs_status CASCADE;
-CREATE TABLE IF NOT EXISTS cs_status (
-    status_id BIGSERIAL PRIMARY KEY,
-    status_name VARCHAR(50) NOT NULL UNIQUE,
-    status_description TEXT,
-    created_at_utc TIMESTAMPTZ DEFAULT CURRENT_TIMESTAMP
+-- CreateEnum
+CREATE TYPE "customer_type" AS ENUM ('Member', 'Walk_In_Customer');
+
+-- CreateEnum
+CREATE TYPE "item_type" AS ENUM ('Product', 'Service', 'Member_Care_Package', 'Membership_Account', 'Member Voucher');
+
+-- CreateEnum
+CREATE TYPE "customer_type_enum" AS ENUM ('member', 'walk-in-customer');
+
+-- CreateTable
+CREATE TABLE "care_packages" (
+    "id" BIGSERIAL NOT NULL,
+    "care_package_name" VARCHAR(200) NOT NULL,
+    "care_package_remarks" TEXT,
+    "care_package_price" DECIMAL(10,2) NOT NULL,
+    "created_at" TIMESTAMPTZ(6) NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    "updated_at" TIMESTAMPTZ(6) NOT NULL,
+    "care_package_customizable" BOOLEAN NOT NULL DEFAULT false,
+    "status_id" BIGINT NOT NULL,
+    "created_by" BIGINT,
+    "last_updated_by" BIGINT,
+
+    CONSTRAINT "care_packages_pkey" PRIMARY KEY ("id")
 );
 
-DROP TABLE IF EXISTS cs_department CASCADE;
-CREATE TABLE IF NOT EXISTS cs_department (
-    department_id BIGSERIAL PRIMARY KEY,
-    department_name VARCHAR(100) NOT NULL UNIQUE,
-    department_description TEXT,
-    department_is_active BOOLEAN NOT NULL DEFAULT TRUE,
-    created_at_utc TIMESTAMPTZ DEFAULT CURRENT_TIMESTAMP,
-    updated_at_utc TIMESTAMPTZ DEFAULT CURRENT_TIMESTAMP
+-- CreateTable
+CREATE TABLE "care_package_item_details" (
+    "id" BIGSERIAL NOT NULL,
+    "care_package_item_details_quantity" INTEGER NOT NULL,
+    "care_package_item_details_discount" DECIMAL(10,2) NOT NULL,
+    "care_package_item_details_price" DECIMAL(10,2) NOT NULL,
+    "service_id" BIGINT NOT NULL,
+    "care_package_id" BIGINT NOT NULL,
+
+    CONSTRAINT "care_package_item_details_pkey" PRIMARY KEY ("id")
 );
 
-DROP TABLE IF EXISTS cs_positions CASCADE;
-CREATE TABLE IF NOT EXISTS cs_positions (
-    position_id BIGSERIAL PRIMARY KEY,
-    position_name VARCHAR(100) NOT NULL UNIQUE,
-    position_description TEXT,
-    position_is_active BOOLEAN NOT NULL DEFAULT TRUE,
-    default_commission_percentage DECIMAL(10, 2) NOT NULL DEFAULT 0.00,
-    department_id BIGINT NOT NULL,
-    created_at_utc TIMESTAMPTZ DEFAULT CURRENT_TIMESTAMP,
-    updated_at_utc TIMESTAMPTZ DEFAULT CURRENT_TIMESTAMP,
+-- CreateTable
+CREATE TABLE "care_package_items" (
+    "id" BIGSERIAL NOT NULL,
+    "care_package_id" BIGINT NOT NULL,
+    "created_at" TIMESTAMPTZ(6) NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    "updated_at" TIMESTAMPTZ(6) NOT NULL,
 
-    FOREIGN KEY (department_id) REFERENCES cs_department(department_id) ON DELETE CASCADE ON UPDATE CASCADE
+    CONSTRAINT "care_package_items_pkey" PRIMARY KEY ("id")
 );
 
-DROP TABLE IF EXISTS cs_employees CASCADE;
-CREATE TABLE IF NOT EXISTS cs_employees (
-    employee_id BIGSERIAL PRIMARY KEY,
-    employee_code VARCHAR(50) NOT NULL UNIQUE,
-    department_id BIGINT NOT NULL,
-    employee_name VARCHAR(100) NOT NULL,
-    employee_contact VARCHAR(10) NOT NULL UNIQUE,
-    employee_email VARCHAR(100) NOT NULL UNIQUE,
-    employee_is_active BOOLEAN NOT NULL DEFAULT TRUE,
-    position_id BIGINT NOT NULL,
-    commission_percentage DECIMAL(10, 2) NOT NULL DEFAULT 0.00,
-    created_at_utc TIMESTAMPTZ DEFAULT CURRENT_TIMESTAMP,
-    updated_at_utc TIMESTAMPTZ DEFAULT CURRENT_TIMESTAMP,
+-- CreateTable
+CREATE TABLE "employees" (
+    "id" BIGSERIAL NOT NULL,
+    "user_auth_id" BIGINT NOT NULL,
+    "employee_code" VARCHAR(50) NOT NULL,
+    "department_id" BIGINT NOT NULL,
+    "created_at" TIMESTAMPTZ(6) NOT NULL,
+    "employee_contact" VARCHAR(20) NOT NULL,
+    "employee_email" VARCHAR(255) NOT NULL,
+    "employee_is_active" BOOLEAN NOT NULL,
+    "employee_name" VARCHAR(100) NOT NULL,
+    "updated_at" TIMESTAMPTZ(6) NOT NULL,
+    "position_id" BIGINT,
+    "commission_percentage" DECIMAL(10,2) DEFAULT 0.00,
 
-    FOREIGN KEY (department_id) REFERENCES cs_department(department_id),
-    FOREIGN KEY (position_id) REFERENCES cs_positions(position_id)
+    CONSTRAINT "employees_pkey" PRIMARY KEY ("id")
 );
 
-DROP INDEX IF EXISTS idx_employee_code CASCADE;
-CREATE INDEX IF NOT EXISTS idx_employee_code ON cs_employees(employee_code);
+-- CreateTable
+CREATE TABLE "serving_employee_to_invoice_items" (
+    "id" BIGSERIAL NOT NULL,
+    "commission_percentage" DECIMAL(10,2),
+    "custom_commission_percentage" DECIMAL(10,2),
+    "final_calculated_commission_value" DECIMAL(10,2),
+    "reward_status" VARCHAR(10),
+    "rewarded_for_period_month" SMALLINT,
+    "rewarded_for_period_year" SMALLINT,
+    "system_generated_remarks" TEXT,
+    "user_remarks" TEXT,
+    "created_at" TIMESTAMPTZ(6) NOT NULL,
+    "updated_at" TIMESTAMPTZ(6) NOT NULL,
+    "invoice_item_id" BIGINT NOT NULL,
+    "reviewed_by_employee_id" BIGINT,
+    "sharing_ratio" DECIMAL,
+    "employee_id" BIGINT,
+    "final_revenue_performance" DECIMAL,
 
-DROP TABLE IF EXISTS cs_members CASCADE;
-CREATE TABLE IF NOT EXISTS cs_members (
-    member_id BIGSERIAL PRIMARY KEY,
-    member_name VARCHAR(100) NOT NULL,
-    member_email VARCHAR(100) NOT NULL UNIQUE,
-    member_contact VARCHAR(10) NOT NULL UNIQUE,
-    member_dob DATE NOT NULL,
-    remarks TEXT,
-    created_at_utc TIMESTAMPTZ DEFAULT CURRENT_TIMESTAMP,
-    updated_at_utc TIMESTAMPTZ DEFAULT CURRENT_TIMESTAMP
+    CONSTRAINT "serving_employee_to_invoice_items_pkey" PRIMARY KEY ("id")
 );
 
-DROP TABLE IF EXISTS cs_membership_types CASCADE;
-CREATE TABLE IF NOT EXISTS cs_membership_types (
-    membership_type_id BIGSERIAL PRIMARY KEY,
-    membership_type_name VARCHAR(50) NOT NULL,
-    default_discount_for_products INT NOT NULL DEFAULT 0,
-    default_discount_percentage_for_service DECIMAL(10, 2) NOT NULL DEFAULT 0.00,
-    account_stored_value_top_up_performance_rule_id BIGINT,
-    account_stored_value_top_up_commission_rule_id BIGINT,
-    account_creation_performance_rule_id BIGINT,
-    default_stored_value INT NOT NULL DEFAULT 0,
-    account_creation_commission_rule_id BIGINT,
-    created_at_utc TIMESTAMPTZ DEFAULT CURRENT_TIMESTAMP,
-    updated_at_utc TIMESTAMPTZ DEFAULT CURRENT_TIMESTAMP
-)
+-- CreateTable
+CREATE TABLE "refunds" (
+    "id" BIGSERIAL NOT NULL,
+    "invoice_id" BIGINT,
+    "refund_total_amount" DECIMAL(10,2),
+    "refund_remarks" TEXT,
+    "refund_date" TIMESTAMPTZ(6),
+    "employee_id" BIGINT,
 
-DROP TABLE IF EXISTS cs_membership_accounts CASCADE;
-CREATE TABLE IF NOT EXISTS cs_membership_accounts (
-    membership_account_id BIGSERIAL PRIMARY KEY,
-    member_id BIGINT NOT NULL,
-    membership_type_id BIGINT NOT NULL,
-    membership_account_start_date TIMESTAMPTZ NOT NULL,
-    membership_account_end_date TIMESTAMPTZ NOT NULL,
-    status_id BIGINT NOT NULL,
-    created_at_utc TIMESTAMPTZ DEFAULT CURRENT_TIMESTAMP,
-    updated_at_utc TIMESTAMPTZ DEFAULT CURRENT_TIMESTAMP,
-
-    FOREIGN KEY (member_id) REFERENCES cs_members(member_id) ON DELETE CASCADE ON UPDATE CASCADE,
-    FOREIGN KEY (membership_type_id) REFERENCES cs_membership_types(membership_type_id) ON DELETE CASCADE ON UPDATE CASCADE,
-    FOREIGN KEY (status_id) REFERENCES cs_status(status_id) ON DELETE CASCADE ON UPDATE CASCADE
+    CONSTRAINT "refunds_pkey" PRIMARY KEY ("id")
 );
 
-DROP TABLE IF EXISTS cs_user_auth CASCADE;
-CREATE TABLE IF NOT EXISTS cs_user_auth (
-    user_id BIGSERIAL PRIMARY KEY,
-    employee_id BIGINT NOT NULL UNIQUE,
-    password_hash VARCHAR(255) NOT NULL,
-    created_at_utc TIMESTAMPTZ DEFAULT CURRENT_TIMESTAMP,
-    updated_at_utc TIMESTAMPTZ DEFAULT CURRENT_TIMESTAMP,
+-- CreateTable
+CREATE TABLE "refund_items" (
+    "id" BIGSERIAL NOT NULL,
+    "refund_id" BIGINT,
+    "invoice_item_id" BIGINT,
+    "refund_quantity" INTEGER,
+    "refund_item_amount" DECIMAL(10,2),
+    "refund_item_remarks" TEXT,
 
-    FOREIGN KEY (employee_id) REFERENCES cs_employees(employee_id) ON DELETE CASCADE ON UPDATE CASCADE
+    CONSTRAINT "refund_items_pkey" PRIMARY KEY ("id")
 );
 
-DROP TABLE IF EXISTS cs_permissions CASCADE;
-CREATE TABLE IF NOT EXISTS cs_permissions (
-    permission_id BIGSERIAL PRIMARY KEY,
-    read_access BOOLEAN NOT NULL DEFAULT FALSE,
-    create_access BOOLEAN NOT NULL DEFAULT FALSE,
-    delete_access BOOLEAN NOT NULL DEFAULT FALSE,
-    update_access BOOLEAN NOT NULL DEFAULT FALSE
+-- CreateTable
+CREATE TABLE "departments" (
+    "id" BIGSERIAL NOT NULL,
+    "department_name" VARCHAR(200) NOT NULL,
+    "department_description" VARCHAR(255),
+    "department_is_active" BOOLEAN NOT NULL,
+    "created_at" TIMESTAMPTZ(6) NOT NULL,
+    "updated_at" TIMESTAMPTZ(6),
+
+    CONSTRAINT "departments_pkey" PRIMARY KEY ("id")
 );
 
-DROP TABLE IF EXISTS cs_roles CASCADE;
-CREATE TABLE IF NOT EXISTS cs_roles (
-    role_id BIGSERIAL PRIMARY KEY,
-    role_name VARCHAR(100) NOT NULL UNIQUE,
-    role_description TEXT,
-    created_at_utc TIMESTAMPTZ DEFAULT CURRENT_TIMESTAMP,
-    updated_at_utc TIMESTAMPTZ DEFAULT CURRENT_TIMESTAMP
+-- CreateTable
+CREATE TABLE "invoice_items" (
+    "id" BIGSERIAL NOT NULL,
+    "invoice_id" BIGINT NOT NULL,
+    "service_name" VARCHAR(255),
+    "product_name" VARCHAR(255),
+    "member_care_package_id" BIGINT,
+    "original_unit_price" DECIMAL(10,2),
+    "custom_unit_price" DECIMAL(10,2),
+    "discount_percentage" DECIMAL(10,2),
+    "quantity" INTEGER NOT NULL,
+    "remarks" TEXT,
+    "amount" DECIMAL(10,2),
+    "item_type" "item_type" NOT NULL,
+
+    CONSTRAINT "invoice_items_pkey" PRIMARY KEY ("id")
 );
 
-DROP TABLE IF EXISTS cs_role_permission CASCADE;
-CREATE TABLE IF NOT EXISTS cs_role_permission (
-    role_permission_id BIGSERIAL PRIMARY KEY,
-    role_id BIGINT NOT NULL,
-    permission_id BIGINT NOT NULL,
+-- CreateTable
+CREATE TABLE "invoice_payments" (
+    "id" BIGSERIAL NOT NULL,
+    "payment_method_id" BIGINT NOT NULL,
+    "invoice_id" BIGINT NOT NULL,
+    "invoice_payment_amount" DECIMAL(10,2),
+    "remarks" TEXT,
+    "invoice_payment_created_by" BIGINT NOT NULL,
+    "created_at" TIMESTAMPTZ(6) NOT NULL,
+    "invoice_payment_updated_by" BIGINT NOT NULL,
+    "updated_at" TIMESTAMPTZ(6) NOT NULL,
 
-    FOREIGN KEY (role_id) REFERENCES cs_roles(role_id) ON DELETE CASCADE ON UPDATE CASCADE,
-    FOREIGN KEY (permission_id) REFERENCES cs_permissions(permission_id) ON DELETE CASCADE ON UPDATE CASCADE
+    CONSTRAINT "invoice_payments_pkey" PRIMARY KEY ("id")
 );
 
-DROP TABLE IF EXISTS cs_user_role CASCADE;
-CREATE TABLE IF NOT EXISTS cs_user_role (
-    user_role_id BIGSERIAL PRIMARY KEY,
-    user_id BIGINT NOT NULL,
-    role_id BIGINT NOT NULL,
+-- CreateTable
+CREATE TABLE "invoices" (
+    "id" BIGSERIAL NOT NULL,
+    "customer_type" "customer_type" NOT NULL,
+    "member_id" BIGINT NOT NULL,
+    "total_paid_amount" DECIMAL(10,2) NOT NULL,
+    "outstanding_total_payment_amount" DECIMAL(10,2) NOT NULL,
+    "invoice_status" BIGINT NOT NULL,
+    "remarks" TEXT,
+    "manual_invoice_no" VARCHAR(50),
+    "reference_invoice_id" BIGINT,
+    "invoice_handler_employee_id" BIGINT NOT NULL,
+    "created_at" TIMESTAMPTZ(6) NOT NULL,
+    "updated_at" TIMESTAMPTZ(6) NOT NULL,
+    "total_invoice_amount" DECIMAL(10,2),
 
-    FOREIGN KEY (user_id) REFERENCES cs_user_auth(user_id) ON DELETE CASCADE ON UPDATE CASCADE,
-    FOREIGN KEY (role_id) REFERENCES cs_roles(role_id) ON DELETE CASCADE ON UPDATE CASCADE
+    CONSTRAINT "invoices_pkey" PRIMARY KEY ("id")
 );
 
-DROP TABLE IF EXISTS cs_service_categories CASCADE;
-CREATE TABLE IF NOT EXISTS cs_service_categories (
-    service_category_id BIGSERIAL PRIMARY KEY,
-    service_category_name VARCHAR(255) NOT NULL UNIQUE,
-    service_category_description TEXT,
-    service_category_sequence_no INT NOT NULL DEFAULT 0,
-    created_at_utc TIMESTAMPTZ DEFAULT CURRENT_TIMESTAMP,
-    updated_at_utc TIMESTAMPTZ DEFAULT CURRENT_TIMESTAMP
+-- CreateTable
+CREATE TABLE "member_care_packages" (
+    "id" BIGSERIAL NOT NULL,
+    "member_id" BIGINT NOT NULL,
+    "employee_id" BIGINT NOT NULL,
+    "name" VARCHAR(100) NOT NULL,
+    "status" BIGINT NOT NULL,
+    "total_price" DECIMAL(10,2) NOT NULL,
+    "created_at" TIMESTAMPTZ(6) NOT NULL,
+    "updated_at" TIMESTAMPTZ(6) NOT NULL,
+    "remarks" VARCHAR(255),
+
+    CONSTRAINT "member_care_packages_pkey" PRIMARY KEY ("id")
 );
 
-DROP TABLE IF EXISTS cs_services CASCADE;
-CREATE TABLE IF NOT EXISTS cs_services (
-    service_id BIGSERIAL PRIMARY KEY,
-    service_name VARCHAR(255) NOT NULL,
-    service_description TEXT,
-    service_remarks TEXT,
-    service_estimated_duration INT NOT NULL,
-    service_default_price DECIMAL(10, 2) NOT NULL DEFAULT 0.00,
-    service_is_active BOOLEAN NOT NULL DEFAULT TRUE,
-    service_category_id BIGINT NOT NULL,
-    service_sequence_no INT NOT NULL DEFAULT 0,
-    created_at_utc TIMESTAMPTZ DEFAULT CURRENT_TIMESTAMP,
-    updated_at_utc TIMESTAMPTZ DEFAULT CURRENT_TIMESTAMP,
+-- CreateTable
+CREATE TABLE "member_care_package_details" (
+    "id" BIGSERIAL NOT NULL,
+    "discount" DECIMAL(10,2) NOT NULL,
+    "price" DECIMAL(10,2) NOT NULL,
+    "member_care_package_id" BIGINT NOT NULL,
+    "service_id" BIGINT,
+    "status_id" BIGINT NOT NULL,
+    "quantity" INTEGER NOT NULL,
 
-    FOREIGN KEY (service_category_id) REFERENCES cs_service_categories(service_category_id) ON DELETE CASCADE ON UPDATE CASCADE
+    CONSTRAINT "member_care_package_details_pkey" PRIMARY KEY ("id")
 );
 
--- TODO: care_package_customizable is not final
-DROP TABLE IF EXISTS cs_care_package CASCADE;
-CREATE TABLE IF NOT EXISTS cs_care_package (
-    care_package_id BIGSERIAL PRIMARY KEY,
-    care_package_name VARCHAR(255) NOT NULL,
-    care_package_remarks TEXT,
-    care_package_price DECIMAL(10, 2) NOT NULL DEFAULT 0.00,
-    care_package_customizable BOOLEAN NOT NULL DEFAULT FALSE,
-    status_id BIGINT NOT NULL,
-    created_at_utc TIMESTAMPTZ DEFAULT CURRENT_TIMESTAMP,
-    updated_at_utc TIMESTAMPTZ DEFAULT CURRENT_TIMESTAMP,
+-- CreateTable
+CREATE TABLE "statuses" (
+    "id" BIGSERIAL NOT NULL,
+    "status_name" VARCHAR(50) NOT NULL,
+    "status_description" VARCHAR(255),
+    "created_at" TIMESTAMPTZ(6) NOT NULL,
 
-    FOREIGN KEY (status_id) REFERENCES cs_status(status_id) ON DELETE CASCADE ON UPDATE CASCADE
+    CONSTRAINT "statuses_pkey" PRIMARY KEY ("id")
 );
 
-DROP TABLE IF EXISTS cs_care_package_items CASCADE;
-CREATE TABLE IF NOT EXISTS cs_care_package_items (
-    care_package_item_id BIGSERIAL PRIMARY KEY,
-    care_package_id BIGINT NOT NULL,
-    created_at_utc TIMESTAMPTZ DEFAULT CURRENT_TIMESTAMP,
-    updated_at_utc TIMESTAMPTZ DEFAULT CURRENT_TIMESTAMP,
+-- CreateTable
+CREATE TABLE "member_care_package_transaction_logs" (
+    "id" BIGSERIAL NOT NULL,
+    "type" VARCHAR(100) NOT NULL,
+    "description" TEXT NOT NULL,
+    "transaction_date" TIMESTAMPTZ(6) NOT NULL,
+    "transaction_amount" DECIMAL(10,2) NOT NULL,
+    "amount_changed" DECIMAL(10,2) NOT NULL,
+    "created_at" TIMESTAMPTZ(6) NOT NULL,
+    "member_care_package_details_id" BIGINT NOT NULL,
+    "employee_id" BIGINT NOT NULL,
+    "service_id" BIGINT NOT NULL,
 
-    FOREIGN KEY (care_package_id) REFERENCES cs_care_package(care_package_id) ON DELETE CASCADE ON UPDATE CASCADE
+    CONSTRAINT "member_care_package_transaction_logs_pkey" PRIMARY KEY ("id")
 );
 
-DROP TABLE IF EXISTS cs_care_package_item_details CASCADE;
-CREATE TABLE IF NOT EXISTS cs_care_package_item_details (
-    care_package_item_detail_id BIGSERIAL PRIMARY KEY,
-    care_package_item_id BIGINT NOT NULL,
-    care_package_item_detail_quantity INT NOT NULL DEFAULT 1,
-    care_package_item_detail_discount DECIMAL(10, 2) NOT NULL DEFAULT 0.00,
-    care_package_item_detail_price DECIMAL(10, 2) NOT NULL DEFAULT 0.00,
-    service_id BIGINT NOT NULL,
+-- CreateTable
+CREATE TABLE "members" (
+    "id" BIGSERIAL NOT NULL,
+    "name" VARCHAR(100) NOT NULL,
+    "email" VARCHAR(100),
+    "contact" VARCHAR(20),
+    "dob" DATE,
+    "sex" VARCHAR(10),
+    "remarks" VARCHAR(255),
+    "address" VARCHAR(255),
+    "nric" VARCHAR(9),
+    "membership_type_id" INTEGER,
+    "created_at" TIMESTAMPTZ(6),
+    "updated_at" TIMESTAMPTZ(6),
+    "created_by" INTEGER,
+    "user_auth_id" BIGINT,
 
-    FOREIGN KEY (care_package_item_id) REFERENCES cs_care_package_items(care_package_item_id) ON DELETE CASCADE ON UPDATE CASCADE,
-    FOREIGN KEY (service_id) REFERENCES cs_services(service_id) ON DELETE CASCADE ON UPDATE CASCADE
+    CONSTRAINT "members_pkey" PRIMARY KEY ("id")
 );
 
-DROP TABLE IF EXISTS cs_member_care_package CASCADE;
-CREATE TABLE IF NOT EXISTS cs_member_care_package (
-    member_care_package_id BIGSERIAL PRIMARY KEY,
-    member_id BIGINT NOT NULL,
-    employee_id BIGINT NOT NULL,
-    care_package_name VARCHAR(100) NOT NULL,
-    member_care_package_status BIGINT NOT NULL,
-    member_care_package_total_amount DECIMAL(10,2) NOT NULL,
-    remarks TEXT,
-    created_at_utc TIMESTAMPTZ DEFAULT CURRENT_TIMESTAMP,
-    updated_at_utc TIMESTAMPTZ DEFAULT CURRENT_TIMESTAMP,
+-- CreateTable
+CREATE TABLE "membership_accounts" (
+    "membership_accounts_id" BIGSERIAL NOT NULL,
+    "member_id" BIGINT NOT NULL,
+    "membership_type_id" BIGINT NOT NULL,
+    "start_date" TIMESTAMP(6) NOT NULL,
+    "end_date" TIMESTAMP(6),
+    "is_active" BOOLEAN NOT NULL,
+    "membership_accounts_created_at" TIMESTAMP(6) NOT NULL,
+    "membership_accounts_updated_at" TIMESTAMP(6) NOT NULL,
+    "status_id" BIGINT NOT NULL,
 
-    FOREIGN KEY (member_id) REFERENCES cs_members(member_id) ON DELETE CASCADE ON UPDATE CASCADE,
-    FOREIGN KEY (employee_id) REFERENCES cs_employees(employee_id) ON DELETE CASCADE ON UPDATE CASCADE
+    CONSTRAINT "cs_membership_accounts_pkey" PRIMARY KEY ("membership_accounts_id")
 );
 
-DROP TABLE IF EXISTS cs_member_care_package_details CASCADE;
-CREATE TABLE IF NOT EXISTS cs_member_care_package_details (
-    member_care_package_details_id BIGSERIAL PRIMARY KEY,
-    member_care_package_details_discount DECIMAL(10,2) NOT NULL,
-    member_care_package_details_price DECIMAL(10,2) NOT NULL,
-    member_care_package_id BIGINT NOT NULL,
-    service_id BIGINT NOT NULL,
-    status_id BIGINT NOT NULL,
+-- CreateTable
+CREATE TABLE "membership_types" (
+    "id" BIGSERIAL NOT NULL,
+    "membership_type_name" VARCHAR(50) NOT NULL,
+    "default_discount_for_products" DECIMAL,
+    "default_discount_percentage_for_service" DECIMAL,
+    "created_at" TIMESTAMPTZ(6),
+    "updated_at" TIMESTAMPTZ(6),
 
-    FOREIGN KEY (member_care_package_id) REFERENCES cs_member_care_package(member_care_package_id) ON DELETE CASCADE ON UPDATE CASCADE,
-    FOREIGN KEY (service_id) REFERENCES cs_services(service_id) ON DELETE CASCADE ON UPDATE CASCADE,
-    FOREIGN KEY (status_id) REFERENCES cs_status(status_id) ON DELETE CASCADE ON UPDATE CASCADE
+    CONSTRAINT "membership_types_pkey" PRIMARY KEY ("id")
 );
 
-DROP TABLE IF EXISTS cs_member_care_package_item_logs CASCADE;
-CREATE TABLE IF NOT EXISTS cs_member_care_package_item_logs (
-    member_care_package_item_logs_id BIGSERIAL PRIMARY KEY,
-    member_care_package_item_logs_type VARCHAR(100) NOT NULL,
-    member_care_package_item_logs_description TEXT,
-    member_care_package_details_id BIGINT NOT NULL,
-    status_id BIGINT NOT NULL,
-    created_at_utc TIMESTAMPTZ DEFAULT CURRENT_TIMESTAMP,
+-- CreateTable
+CREATE TABLE "payment_methods" (
+    "id" BIGINT NOT NULL,
+    "payment_method_name" TEXT NOT NULL,
+    "is_enabled" BOOLEAN NOT NULL,
+    "is_revenue" BOOLEAN NOT NULL,
+    "payment_method_created_at" TIMESTAMPTZ(6) NOT NULL,
+    "payment_method_updated_at" TIMESTAMPTZ(6) NOT NULL,
 
-    FOREIGN KEY (member_care_package_details_id) REFERENCES cs_member_care_package_details(member_care_package_details_id) ON DELETE CASCADE ON UPDATE CASCADE,
-    FOREIGN KEY (status_id) REFERENCES cs_status(status_id) ON DELETE CASCADE ON UPDATE CASCADE
+    CONSTRAINT "payment_methods_pkey" PRIMARY KEY ("id")
 );
+
+-- CreateTable
+CREATE TABLE "positions" (
+    "id" BIGSERIAL NOT NULL,
+    "position_name" VARCHAR(255) NOT NULL,
+    "position_description" VARCHAR(255),
+    "position_is_active" BOOLEAN DEFAULT true,
+    "default_commission_percentage" DECIMAL(10,2),
+    "position_created_at" TIMESTAMPTZ(6) DEFAULT CURRENT_TIMESTAMP,
+    "position_updated_at" TIMESTAMPTZ(6) DEFAULT CURRENT_TIMESTAMP,
+    "department_id" BIGINT NOT NULL,
+
+    CONSTRAINT "positions_pkey" PRIMARY KEY ("id")
+);
+
+-- CreateTable
+CREATE TABLE "product_categories" (
+    "id" BIGSERIAL NOT NULL,
+    "product_category_name" VARCHAR(255) NOT NULL,
+    "product_category_sequence_no" INTEGER NOT NULL,
+    "product_category_created_at" TIMESTAMPTZ(6) NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    "product_category_updated_at" TIMESTAMPTZ(6) NOT NULL,
+
+    CONSTRAINT "product_categories_pkey" PRIMARY KEY ("id")
+);
+
+-- CreateTable
+CREATE TABLE "products" (
+    "id" BIGSERIAL NOT NULL,
+    "product_name" VARCHAR(255) NOT NULL,
+    "product_description" VARCHAR(255),
+    "product_sequence_no" INTEGER,
+    "product_remarks" TEXT,
+    "product_default_price" DECIMAL(10,2),
+    "product_outlet_id" BIGINT NOT NULL,
+    "product_is_active" BOOLEAN DEFAULT true,
+    "product_created_at" TIMESTAMPTZ(6) DEFAULT CURRENT_TIMESTAMP,
+    "product_updated_at" TIMESTAMPTZ(6) DEFAULT CURRENT_TIMESTAMP,
+    "product_category_id" BIGINT,
+
+    CONSTRAINT "products_pkey" PRIMARY KEY ("id")
+);
+
+-- CreateTable
+CREATE TABLE "roles" (
+    "id" BIGSERIAL NOT NULL,
+    "role_name" VARCHAR(20) NOT NULL,
+    "description" VARCHAR(50) NOT NULL,
+    "created_at" TIMESTAMPTZ(6) NOT NULL,
+
+    CONSTRAINT "roles_pkey" PRIMARY KEY ("id")
+);
+
+-- CreateTable
+CREATE TABLE "services" (
+    "id" BIGSERIAL NOT NULL,
+    "service_name" VARCHAR(255) NOT NULL,
+    "service_description" VARCHAR(255),
+    "service_remarks" TEXT,
+    "service_estimated_duration" DECIMAL NOT NULL,
+    "service_default_price" DECIMAL(10,2) NOT NULL,
+    "service_is_active" BOOLEAN NOT NULL,
+    "service_created_at" TIMESTAMPTZ(6) NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    "service_updated_at" TIMESTAMPTZ(6) NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    "service_category_id" BIGINT NOT NULL,
+    "service_sequence_no" INTEGER NOT NULL,
+
+    CONSTRAINT "cs_service_pkey" PRIMARY KEY ("id")
+);
+
+-- CreateTable
+CREATE TABLE "service_categories" (
+    "id" BIGSERIAL NOT NULL,
+    "service_category_name" VARCHAR(255) NOT NULL,
+    "service_category_sequence_no" INTEGER,
+    "service_category_created_at" TIMESTAMPTZ(6) NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    "service_category_updated_at" TIMESTAMPTZ(6) NOT NULL,
+
+    CONSTRAINT "service_categories_pkey" PRIMARY KEY ("id")
+);
+
+-- CreateTable
+CREATE TABLE "translations" (
+    "id" SERIAL NOT NULL,
+    "english" VARCHAR(255) NOT NULL,
+    "chinese" VARCHAR(255) NOT NULL,
+    "meaning_in_english" VARCHAR(255) NOT NULL,
+    "meaning_in_chinese" VARCHAR(255) NOT NULL,
+    "page" VARCHAR(255),
+    "created_at" TIMESTAMP(6) NOT NULL,
+    "updated_at" TIMESTAMP(6) NOT NULL,
+
+    CONSTRAINT "translations_pkey" PRIMARY KEY ("id")
+);
+
+-- CreateTable
+CREATE TABLE "user_to_role" (
+    "id" BIGSERIAL NOT NULL,
+    "user_id" BIGINT NOT NULL,
+    "role_id" BIGINT NOT NULL,
+    "created_at" TIMESTAMPTZ(6) NOT NULL,
+    "updated_at" TIMESTAMPTZ(6) NOT NULL,
+
+    CONSTRAINT "user_to_role_pkey" PRIMARY KEY ("id")
+);
+
+-- CreateTable
+CREATE TABLE "appointments" (
+    "id" BIGINT NOT NULL,
+    "member_id" BIGINT,
+    "servicing_employee_id" BIGINT,
+    "appointment_date" TIMESTAMPTZ(6),
+    "start_time" TIMESTAMPTZ(6),
+    "end_time" TIMESTAMPTZ(6),
+    "remarks" TEXT,
+    "created_at" TIMESTAMPTZ(6),
+    "created_by" BIGINT,
+    "updated_at" TIMESTAMPTZ(6),
+    "updated_by" BIGINT,
+
+    CONSTRAINT "appointments_pkey" PRIMARY KEY ("id")
+);
+
+-- CreateTable
+CREATE TABLE "member_voucher_details" (
+    "id" BIGINT NOT NULL,
+    "member_voucher_id" BIGINT NOT NULL,
+    "service_id" INTEGER NOT NULL,
+    "service_name" VARCHAR(100),
+    "original_price" DECIMAL(10,2),
+    "custom_price" DECIMAL(10,2),
+    "discount" DECIMAL(10,2),
+    "final_price" DECIMAL(10,2),
+    "duration" INTEGER,
+    "created_at" TIMESTAMPTZ(6),
+    "updated_at" TIMESTAMPTZ(6),
+
+    CONSTRAINT "member_voucher_details_pkey" PRIMARY KEY ("id")
+);
+
+-- CreateTable
+CREATE TABLE "member_voucher_transaction_logs" (
+    "id" SERIAL NOT NULL,
+    "member_voucher_id" INTEGER NOT NULL,
+    "service_description" VARCHAR(500),
+    "service_date" TIMESTAMPTZ(6),
+    "current_balance" DECIMAL(10,2),
+    "amount_change" DECIMAL,
+    "serviced_by" BIGINT,
+    "type" VARCHAR(25),
+    "created_by" BIGINT,
+    "last_updated_by" BIGINT,
+    "created_at" TIMESTAMPTZ(6),
+    "updated_at" TIMESTAMPTZ(6),
+
+    CONSTRAINT "member_voucher_transaction_logs_pkey" PRIMARY KEY ("id")
+);
+
+-- CreateTable
+CREATE TABLE "member_vouchers" (
+    "id" BIGINT NOT NULL,
+    "member_vouchers_name" VARCHAR(100) NOT NULL,
+    "voucher_template_id" INTEGER NOT NULL,
+    "members_id" INTEGER NOT NULL,
+    "current_balance" DECIMAL(10,2),
+    "starting_balance" DECIMAL(10,2),
+    "free_of_charge" DECIMAL(10,2),
+    "default_total_price" DECIMAL(10,2),
+    "status" VARCHAR(50),
+    "remarks" VARCHAR(500),
+    "created_by" BIGINT,
+    "handled_by" BIGINT,
+    "last_updated_by" BIGINT,
+    "created_at" TIMESTAMPTZ(6),
+    "updated_at" TIMESTAMPTZ(6),
+
+    CONSTRAINT "member_vouchers_pkey" PRIMARY KEY ("id")
+);
+
+-- CreateTable
+CREATE TABLE "payment_to_sale_transactions" (
+    "id" INTEGER NOT NULL,
+    "payment_method_id" INTEGER,
+    "sale_transaction_id" INTEGER,
+    "amount" DECIMAL(10,2),
+    "remarks" TEXT,
+    "created_by" INTEGER,
+    "created_at" TIMESTAMPTZ(6),
+    "updated_by" INTEGER,
+    "updated_at" TIMESTAMPTZ(6),
+
+    CONSTRAINT "payment_to_sale_transactions_pkey" PRIMARY KEY ("id")
+);
+
+-- CreateTable
+CREATE TABLE "sale_transaction_items" (
+    "id" INTEGER NOT NULL,
+    "sale_transactions_id" INTEGER,
+    "service_name" VARCHAR(255),
+    "product_name" VARCHAR(255),
+    "member_care_package_id" BIGINT,
+    "member_voucher_id" BIGINT,
+    "original_unit_price" DECIMAL(10,2),
+    "custom_unit_price" DECIMAL(10,2),
+    "discount_percentage" DECIMAL(5,2),
+    "quantity" INTEGER,
+    "remarks" VARCHAR(500),
+    "amount" DECIMAL(10,2),
+    "item_type" VARCHAR(255),
+
+    CONSTRAINT "sale_transaction_items_pkey" PRIMARY KEY ("id")
+);
+
+-- CreateTable
+CREATE TABLE "sale_transactions" (
+    "id" BIGSERIAL NOT NULL,
+    "customer_type" VARCHAR(50),
+    "member_id" BIGINT,
+    "total_paid_amount" DECIMAL,
+    "outstanding_total_payment_amount" DECIMAL,
+    "sale_transaction_status" VARCHAR(25),
+    "remarks" VARCHAR(500),
+    "receipt_no" VARCHAR(80),
+    "reference_sales_transaction_id" BIGINT,
+    "handled_by" BIGINT,
+    "created_by" BIGINT,
+    "created_at" TIMESTAMPTZ(6),
+    "updated_at" TIMESTAMPTZ(6),
+
+    CONSTRAINT "sale_transactions_pkey" PRIMARY KEY ("id")
+);
+
+-- CreateTable
+CREATE TABLE "timetables" (
+    "id" SERIAL NOT NULL,
+    "employee_id" INTEGER NOT NULL,
+    "restday_number" INTEGER NOT NULL,
+    "effective_startdate" TIMESTAMP(6) NOT NULL,
+    "effective_enddate" TIMESTAMP(6),
+    "created_by" INTEGER,
+    "created_at" TIMESTAMP(6),
+    "updated_by" INTEGER,
+    "updated_at" TIMESTAMP(6),
+
+    CONSTRAINT "timetables_pkey" PRIMARY KEY ("id")
+);
+
+-- CreateTable
+CREATE TABLE "voucher_template_details" (
+    "id" BIGSERIAL NOT NULL,
+    "voucher_template_id" BIGINT NOT NULL,
+    "service_id" BIGINT NOT NULL,
+    "service_name" VARCHAR(100) NOT NULL,
+    "original_price" DECIMAL(10,2) NOT NULL,
+    "custom_price" DECIMAL(10,2) NOT NULL,
+    "discount" DECIMAL(10,2) NOT NULL,
+    "final_price" DECIMAL(10,2) NOT NULL,
+    "duration" INTEGER NOT NULL,
+    "service_category_id" INTEGER,
+
+    CONSTRAINT "voucher_template_details_pkey" PRIMARY KEY ("id")
+);
+
+-- CreateTable
+CREATE TABLE "voucher_templates" (
+    "id" BIGSERIAL NOT NULL,
+    "voucher_template_name" VARCHAR(100) NOT NULL,
+    "default_starting_balance" DECIMAL(10,2),
+    "default_free_of_charge" DECIMAL(10,2),
+    "default_total_price" DECIMAL(10,2),
+    "remarks" VARCHAR(500),
+    "status" VARCHAR(50),
+    "created_by" BIGINT,
+    "last_updated_by" BIGINT,
+    "created_at" TIMESTAMPTZ(6),
+    "updated_at" TIMESTAMPTZ(6),
+
+    CONSTRAINT "voucher_templates_pkey" PRIMARY KEY ("id")
+);
+
+-- CreateTable
+CREATE TABLE "system_parameters" (
+    "id" BIGSERIAL NOT NULL,
+    "start_date_utc" TIMESTAMP(6),
+    "end_date_utc" TIMESTAMP(6),
+    "is_simulation" BOOLEAN NOT NULL,
+
+    CONSTRAINT "system_parameters_pkey" PRIMARY KEY ("id")
+);
+
+-- CreateTable
+CREATE TABLE "sessions" (
+    "sid" VARCHAR NOT NULL,
+    "sess" JSON NOT NULL,
+    "expire" TIMESTAMP(6) NOT NULL,
+
+    CONSTRAINT "session_pkey" PRIMARY KEY ("sid")
+);
+
+-- CreateTable
+CREATE TABLE "user_auth" (
+    "id" BIGSERIAL NOT NULL,
+    "password" VARCHAR(72) NOT NULL,
+    "created_at" TIMESTAMPTZ(6) NOT NULL,
+    "updated_at" TIMESTAMPTZ(6) NOT NULL,
+    "email" VARCHAR(50),
+    "phone" VARCHAR(20),
+
+    CONSTRAINT "user_auth_pkey" PRIMARY KEY ("id")
+);
+
+-- CreateIndex
+CREATE UNIQUE INDEX "statuses_status_name_key" ON "statuses"("status_name");
+
+-- CreateIndex
+CREATE INDEX "fki_cs_service_service_category_id_fkey" ON "services"("service_category_id");
+
+-- CreateIndex
+CREATE INDEX "IDX_session_expire" ON "sessions"("expire");
+
+-- AddForeignKey
+ALTER TABLE "care_packages" ADD CONSTRAINT "care_packages_created_by_fkey" FOREIGN KEY ("created_by") REFERENCES "employees"("id") ON DELETE SET NULL ON UPDATE CASCADE;
+
+-- AddForeignKey
+ALTER TABLE "care_packages" ADD CONSTRAINT "care_packages_last_updated_by_fkey" FOREIGN KEY ("last_updated_by") REFERENCES "employees"("id") ON DELETE SET NULL ON UPDATE CASCADE;
+
+-- AddForeignKey
+ALTER TABLE "care_packages" ADD CONSTRAINT "care_packages_status_id_fkey" FOREIGN KEY ("status_id") REFERENCES "statuses"("id") ON DELETE RESTRICT ON UPDATE CASCADE;
+
+-- AddForeignKey
+ALTER TABLE "care_package_item_details" ADD CONSTRAINT "care_package_item_details_care_package_id_fkey" FOREIGN KEY ("care_package_id") REFERENCES "care_packages"("id") ON DELETE CASCADE ON UPDATE CASCADE;
+
+-- AddForeignKey
+ALTER TABLE "care_package_item_details" ADD CONSTRAINT "care_package_item_details_service_id_fkey" FOREIGN KEY ("service_id") REFERENCES "services"("id") ON DELETE RESTRICT ON UPDATE CASCADE;
+
+-- AddForeignKey
+ALTER TABLE "care_package_items" ADD CONSTRAINT "care_package_items_care_package_id_fkey" FOREIGN KEY ("care_package_id") REFERENCES "care_packages"("id") ON DELETE CASCADE ON UPDATE CASCADE;
+
+-- AddForeignKey
+ALTER TABLE "employees" ADD CONSTRAINT "employees_department_id_fkey" FOREIGN KEY ("department_id") REFERENCES "departments"("id") ON DELETE RESTRICT ON UPDATE CASCADE;
+
+-- AddForeignKey
+ALTER TABLE "employees" ADD CONSTRAINT "employees_position_id_fkey" FOREIGN KEY ("position_id") REFERENCES "positions"("id") ON DELETE SET NULL ON UPDATE CASCADE;
+
+-- AddForeignKey
+ALTER TABLE "employees" ADD CONSTRAINT "employees_user_auth_id_fkey" FOREIGN KEY ("user_auth_id") REFERENCES "user_auth"("id") ON DELETE RESTRICT ON UPDATE CASCADE;
+
+-- AddForeignKey
+ALTER TABLE "serving_employee_to_invoice_items" ADD CONSTRAINT "serving_employee_to_invoice_ite_reviewed_by_employee_id_fkey" FOREIGN KEY ("reviewed_by_employee_id") REFERENCES "employees"("id") ON DELETE SET NULL ON UPDATE CASCADE;
+
+-- AddForeignKey
+ALTER TABLE "serving_employee_to_invoice_items" ADD CONSTRAINT "serving_employee_to_invoice_items_invoice_item_id_fkey" FOREIGN KEY ("invoice_item_id") REFERENCES "invoice_items"("id") ON DELETE CASCADE ON UPDATE CASCADE;
+
+-- AddForeignKey
+ALTER TABLE "refunds" ADD CONSTRAINT "fk_employee" FOREIGN KEY ("employee_id") REFERENCES "employees"("id") ON DELETE NO ACTION ON UPDATE NO ACTION;
+
+-- AddForeignKey
+ALTER TABLE "refunds" ADD CONSTRAINT "fk_refunds_invoice_id" FOREIGN KEY ("invoice_id") REFERENCES "invoices"("id") ON DELETE NO ACTION ON UPDATE NO ACTION;
+
+-- AddForeignKey
+ALTER TABLE "refund_items" ADD CONSTRAINT "fk_refund_items_invoice_item_id" FOREIGN KEY ("invoice_item_id") REFERENCES "invoice_items"("id") ON DELETE NO ACTION ON UPDATE NO ACTION;
+
+-- AddForeignKey
+ALTER TABLE "refund_items" ADD CONSTRAINT "fk_refund_items_refund_id" FOREIGN KEY ("refund_id") REFERENCES "refunds"("id") ON DELETE NO ACTION ON UPDATE NO ACTION;
+
+-- AddForeignKey
+ALTER TABLE "invoice_items" ADD CONSTRAINT "invoice_items_invoice_id_fkey" FOREIGN KEY ("invoice_id") REFERENCES "invoices"("id") ON DELETE CASCADE ON UPDATE NO ACTION;
+
+-- AddForeignKey
+ALTER TABLE "invoice_payments" ADD CONSTRAINT "invoice_payments_invoice_id_fkey" FOREIGN KEY ("invoice_id") REFERENCES "invoices"("id") ON DELETE CASCADE ON UPDATE NO ACTION;
+
+-- AddForeignKey
+ALTER TABLE "invoice_payments" ADD CONSTRAINT "invoice_payments_invoice_payment_created_by_fkey" FOREIGN KEY ("invoice_payment_created_by") REFERENCES "employees"("id") ON DELETE RESTRICT ON UPDATE CASCADE;
+
+-- AddForeignKey
+ALTER TABLE "invoice_payments" ADD CONSTRAINT "invoice_payments_invoice_payment_updated_by_fkey" FOREIGN KEY ("invoice_payment_updated_by") REFERENCES "employees"("id") ON DELETE RESTRICT ON UPDATE CASCADE;
+
+-- AddForeignKey
+ALTER TABLE "invoice_payments" ADD CONSTRAINT "invoice_payments_payment_method_id_fkey" FOREIGN KEY ("payment_method_id") REFERENCES "payment_methods"("id") ON DELETE RESTRICT ON UPDATE CASCADE;
+
+-- AddForeignKey
+ALTER TABLE "invoices" ADD CONSTRAINT "invoices_invoice_handler_employee_id_fkey" FOREIGN KEY ("invoice_handler_employee_id") REFERENCES "employees"("id") ON DELETE RESTRICT ON UPDATE CASCADE;
+
+-- AddForeignKey
+ALTER TABLE "invoices" ADD CONSTRAINT "invoices_invoice_status_fkey" FOREIGN KEY ("invoice_status") REFERENCES "statuses"("id") ON DELETE RESTRICT ON UPDATE CASCADE;
+
+-- AddForeignKey
+ALTER TABLE "invoices" ADD CONSTRAINT "invoices_member_id_fkey" FOREIGN KEY ("member_id") REFERENCES "members"("id") ON DELETE CASCADE ON UPDATE CASCADE;
+
+-- AddForeignKey
+ALTER TABLE "member_care_packages" ADD CONSTRAINT "member_care_packages_employee_id_fkey" FOREIGN KEY ("employee_id") REFERENCES "employees"("id") ON DELETE RESTRICT ON UPDATE CASCADE;
+
+-- AddForeignKey
+ALTER TABLE "member_care_packages" ADD CONSTRAINT "member_care_packages_member_id_fkey" FOREIGN KEY ("member_id") REFERENCES "members"("id") ON DELETE CASCADE ON UPDATE CASCADE;
+
+-- AddForeignKey
+ALTER TABLE "member_care_packages" ADD CONSTRAINT "member_care_packages_status_fkey" FOREIGN KEY ("status") REFERENCES "statuses"("id") ON DELETE RESTRICT ON UPDATE CASCADE;
+
+-- AddForeignKey
+ALTER TABLE "member_care_package_details" ADD CONSTRAINT "member_care_package_details_member_care_package_id_fkey" FOREIGN KEY ("member_care_package_id") REFERENCES "member_care_packages"("id") ON DELETE CASCADE ON UPDATE CASCADE;
+
+-- AddForeignKey
+ALTER TABLE "member_care_package_details" ADD CONSTRAINT "member_care_package_details_service_id_fkey" FOREIGN KEY ("service_id") REFERENCES "services"("id") ON DELETE SET NULL ON UPDATE CASCADE;
+
+-- AddForeignKey
+ALTER TABLE "member_care_package_details" ADD CONSTRAINT "member_care_package_details_status_id_fkey" FOREIGN KEY ("status_id") REFERENCES "statuses"("id") ON DELETE RESTRICT ON UPDATE CASCADE;
+
+-- AddForeignKey
+ALTER TABLE "member_care_package_transaction_logs" ADD CONSTRAINT "member_care_package_transaction_logs_employee_id_fkey" FOREIGN KEY ("employee_id") REFERENCES "employees"("id") ON DELETE RESTRICT ON UPDATE CASCADE;
+
+-- AddForeignKey
+ALTER TABLE "member_care_package_transaction_logs" ADD CONSTRAINT "member_care_package_transaction_logs_member_care_package_d_fkey" FOREIGN KEY ("member_care_package_details_id") REFERENCES "member_care_package_details"("id") ON DELETE CASCADE ON UPDATE CASCADE;
+
+-- AddForeignKey
+ALTER TABLE "member_care_package_transaction_logs" ADD CONSTRAINT "member_care_package_transaction_logs_service_id_fkey" FOREIGN KEY ("service_id") REFERENCES "services"("id") ON DELETE RESTRICT ON UPDATE CASCADE;
+
+-- AddForeignKey
+ALTER TABLE "members" ADD CONSTRAINT "members_user_auth_id_fkey" FOREIGN KEY ("user_auth_id") REFERENCES "user_auth"("id") ON DELETE SET NULL ON UPDATE CASCADE;
+
+-- AddForeignKey
+ALTER TABLE "membership_accounts" ADD CONSTRAINT "membership_accounts_status_id_fkey" FOREIGN KEY ("status_id") REFERENCES "statuses"("id") ON DELETE RESTRICT ON UPDATE CASCADE;
+
+-- AddForeignKey
+ALTER TABLE "positions" ADD CONSTRAINT "positions_department_id_fkey" FOREIGN KEY ("department_id") REFERENCES "departments"("id") ON DELETE RESTRICT ON UPDATE CASCADE;
+
+-- AddForeignKey
+ALTER TABLE "user_to_role" ADD CONSTRAINT "user_to_role_role_id_fkey" FOREIGN KEY ("role_id") REFERENCES "roles"("id") ON DELETE RESTRICT ON UPDATE CASCADE;
+
+-- AddForeignKey
+ALTER TABLE "user_to_role" ADD CONSTRAINT "user_to_role_user_id_fkey" FOREIGN KEY ("user_id") REFERENCES "user_auth"("id") ON DELETE RESTRICT ON UPDATE CASCADE;
