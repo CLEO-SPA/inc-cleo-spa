@@ -11,7 +11,7 @@ const isAuthenticated = (req, res) => {
   if (rememberToken) {
     try {
       const decoded = jwt.verify(rememberToken, process.env.JWT_SECRET);
-      if (!req.session.user_id) {
+      if (decoded) {
         req.session.startDate_utc = getCurrentSimStatus().isActive ? start_date_utc : null;
         req.session.endDate_utc = getCurrentSimStatus().isActive ? end_date_utc : new Date();
         req.session.user_id = decoded.user_id;
