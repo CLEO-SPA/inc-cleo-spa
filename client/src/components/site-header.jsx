@@ -6,9 +6,9 @@ import { useSidebar } from '@/components/ui/sidebar';
 import { useState, useEffect } from 'react';
 import DateRangePicker from '@/components/date-range-picker';
 import { useDateRange } from '@/context/DateRangeContext';
+import { useAuth } from '@/context/AuthContext';
 import { useSimulationStore } from '@/stores/useSimulationStore';
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
-import useAuth from '@/hooks/useAuth';
 import { format } from 'date-fns';
 
 export function SiteHeader() {
@@ -21,7 +21,7 @@ export function SiteHeader() {
   const [isGlobalDatePickerPopoverOpen, setIsGlobalDatePickerPopoverOpen] = useState(false);
   const [localCalendarRange, setLocalCalendarRange] = useState(globalDateRange);
 
-  const { user } = useAuth();
+  const { user, setShowReloadTimer, setTimerSeconds } = useAuth(); // Get timer setters
 
   const {
     isSimulationActive,
@@ -101,12 +101,32 @@ export function SiteHeader() {
       alert('Simulation start date cannot be after end date.');
       return;
     }
-    await toggleSimulationStatus(true, simDateRange.from, simDateRange.to);
+    try {
+      await toggleSimulationStatus(true, simDateRange.from, simDateRange.to);
+      // If toggleSimulationStatus is successful (doesn't throw), then trigger timer.
+      if (setShowReloadTimer && setTimerSeconds) {
+        setShowReloadTimer(true);
+        setTimerSeconds(5); // Reset to 5 seconds
+      }
+    } catch (error) {
+      // Error is already handled (e.g., alerted) by toggleSimulationStatus
+      console.error('SiteHeader: Failed to activate/update simulation', error);
+    }
     setIsSimPopoverOpen(false);
   };
 
   const handleDeactivateSimulation = async () => {
-    await toggleSimulationStatus(false, null, null);
+    try {
+      await toggleSimulationStatus(false, null, null);
+      // If toggleSimulationStatus is successful (doesn't throw), then trigger timer.
+      if (setShowReloadTimer && setTimerSeconds) {
+        setShowReloadTimer(true);
+        setTimerSeconds(5); // Reset to 5 seconds
+      }
+    } catch (error) {
+      // Error is already handled (e.g., alerted) by toggleSimulationStatus
+      console.error('SiteHeader: Failed to deactivate simulation', error);
+    }
     setIsSimPopoverOpen(false);
   };
 
