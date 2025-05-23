@@ -8,7 +8,7 @@ export const useSimulationStore = create((set, get) => ({
   simulationEndDate: null,
   isLoadingSimulation: false,
   errorSimulation: null,
-  initialLoadDone: false, // To track if initial fetch has occurred
+  initialLoadDone: false,
 
   fetchSimulationConfig: async () => {
     if (get().isLoadingSimulation || get().initialLoadDone) return;
@@ -53,17 +53,25 @@ export const useSimulationStore = create((set, get) => ({
         simulationStartDate: isActive && startDate instanceof Date && isValid(startDate) ? startDate : null,
         simulationEndDate: isActive && endDate instanceof Date && isValid(endDate) ? endDate : null,
         isLoadingSimulation: false,
+        errorSimulation: null, // Clear any previous error
       });
     } catch (error) {
       console.error('Failed to toggle simulation status:', error);
       const errorMessage = error.response?.data?.message || error.message || 'Failed to update simulation status.';
-      await get().fetchSimulationConfig(); // Re-fetch to ensure consistency
-      alert(`Error: ${errorMessage}`);
+
+      // Attempt to re-fetch current state to ensure UI consistency after error
+      await get().fetchSimulationConfig();
+
+      // Update the store with the error, ensuring isLoadingSimulation is false.
+      // fetchSimulationConfig might have already set isLoadingSimulation.
       set((state) => ({
-        ...state, // keep potentially updated state from fetchSimulationConfig
-        isLoadingSimulation: false, // ensure loading is false
+        ...state,
+        isLoadingSimulation: false,
         errorSimulation: errorMessage,
       }));
+
+      alert(`Error: ${errorMessage}`); // Inform the user
+      throw error; // Re-throw the error so the caller knows the operation failed
     }
   },
 }));
