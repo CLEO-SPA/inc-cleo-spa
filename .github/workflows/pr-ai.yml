@@ -21,7 +21,7 @@ jobs:
           node-version: "20"
 
       - name: Install Dependencies
-        run: npm install @octokit/rest # Install octokit for GitHub API interaction
+        run: npm install @octokit/rest
 
       - name: Generate PR Summary
         id: generate_summary_content
