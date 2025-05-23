@@ -99,6 +99,10 @@ Here is the template:
 
 ## Changes Made
 [Based on the PR title, body, and commit messages, list the major changes made in bullet points with SHA in bracket. Consider new endpoints, components, significant refactors, or bug fixes.]
+For example:
+- Added new user authentication endpoint (\`/api/auth/register\`) (SHA: f123abc)
+- Refactored the main data processing logic for improved efficiency (SHA: d456efg)
+- Fixed a bug in the user profile display (SHA: h789ijk)
 
 ## Screenshots / UI Changes (if any)
 Include screenshots, or screen recordings to show UI/UX changes.
