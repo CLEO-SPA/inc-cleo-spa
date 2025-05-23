@@ -9,6 +9,10 @@ import LoginPage from '@/pages/LoginPage';
 import ResetPasswordPage from '@/pages/ResetPasswordPage';
 import NotFoundPage from '@/pages/404Page';
 
+// Appointments
+import ManageAppointmentsPage from '@/pages/ManageAppointmentsPage';
+
+
 function App() {
   return (
     <AuthProvider>
@@ -16,13 +20,21 @@ function App() {
         <Router>
           <Routes>
             <Route path='/' element={<ProtectedRoute />}>
+              {/* Home page */}
               <Route index element={<HomePage />} />
+
+              {/* appointments */}
+              <Route path='/appointments' element={<ManageAppointmentsPage />} />
+
+
             </Route>
             <Route path='/login' element={<LoginPage />} />
 
             {/* Invitation & Reset Password */}
             <Route path='/invites' element={<ResetPasswordPage />} />
             <Route path='/reset-password' element={<ResetPasswordPage />} />
+            
+
 
             {/* 404 Page */}
             <Route path='*' element={<NotFoundPage />} />
