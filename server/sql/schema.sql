@@ -178,7 +178,7 @@ CREATE TABLE "member_care_packages" (
     "id" BIGSERIAL NOT NULL,
     "member_id" BIGINT NOT NULL,
     "employee_id" BIGINT NOT NULL,
-    "name" VARCHAR(100) NOT NULL,
+    "package_name" VARCHAR(100) NOT NULL,
     "status" BIGINT NOT NULL,
     "total_price" DECIMAL(10,2) NOT NULL,
     "created_at" TIMESTAMPTZ(6) NOT NULL,
