@@ -20,7 +20,7 @@ const getPaginatedCarePackages = async (
   ];
 
   const sqlFunctionQuery = `
-    SELECT get_care_packages_paginated_json(
+    SELECT get_cp_paginated_json(
       p_limit := $1,
       p_search_term := $2,
       p_start_date_utc := $3,
@@ -37,13 +37,13 @@ const getPaginatedCarePackages = async (
     const { rows: resultRows } = await pool().query(sqlFunctionQuery, params);
 
     if (!resultRows[0] || !resultRows[0].result) {
-      console.error('Invalid response from SQL function get_care_packages_paginated_json');
+      console.error('Invalid response from SQL function get_cp_paginated_json');
       throw new Error('Could not retrieve paginated care packages due to invalid DB response.');
     }
     const result = resultRows[0].result;
 
     if (result.error) {
-      console.error('Error reported by SQL function get_care_packages_paginated_json:', result.error);
+      console.error('Error reported by SQL function get_cp_paginated_json:', result.error);
       throw new Error(`Database error: ${result.error}`);
     }
 

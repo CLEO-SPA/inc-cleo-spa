@@ -1,4 +1,4 @@
-CREATE OR REPLACE FUNCTION get_care_packages_paginated_json(
+CREATE OR REPLACE FUNCTION get_cp_paginated_json(
     p_limit INTEGER,
     p_search_term TEXT DEFAULT NULL,
     p_start_date_utc TIMESTAMPTZ DEFAULT NULL,
