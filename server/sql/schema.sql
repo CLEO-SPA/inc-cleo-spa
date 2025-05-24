@@ -57,7 +57,6 @@ CREATE TABLE "employees" (
     "employee_name" VARCHAR(100) NOT NULL,
     "updated_at" TIMESTAMPTZ(6) NOT NULL,
     "position_id" BIGINT,
-    "commission_percentage" DECIMAL(10,2) DEFAULT 0.00,
 
     CONSTRAINT "employees_pkey" PRIMARY KEY ("id")
 );
@@ -280,7 +279,6 @@ CREATE TABLE "positions" (
     "position_name" VARCHAR(255) NOT NULL,
     "position_description" VARCHAR(255),
     "position_is_active" BOOLEAN DEFAULT true,
-    "default_commission_percentage" DECIMAL(10,2),
     "position_created_at" TIMESTAMPTZ(6) DEFAULT CURRENT_TIMESTAMP,
     "position_updated_at" TIMESTAMPTZ(6) DEFAULT CURRENT_TIMESTAMP,
 
