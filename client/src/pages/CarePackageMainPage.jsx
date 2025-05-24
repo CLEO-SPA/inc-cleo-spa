@@ -22,7 +22,7 @@ import {
   ChevronsLeft,
   ChevronsRight,
 } from 'lucide-react';
-import { useCarePackageStore } from '../stores/carePackagePaginationStore';
+import { useCarePackageStore } from '../stores/useCpPaginationStore';
 import { Card, CardContent, CardHeader, CardTitle, CardFooter } from '@/components/ui/card';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { AppSidebar } from '@/components/app-sidebar';

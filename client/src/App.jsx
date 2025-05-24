@@ -4,7 +4,7 @@ import { DateRangeProvider } from '@/context/DateRangeContext';
 import ProtectedRoute from '@/components/ProtectedRoute';
 
 // Components
-import ReloadTimerPopup from './components/ReloadTimerPopup';
+import ReloadTimerPopup from '@/components/ReloadTimerPopup';
 
 // Pages
 import HomePage from '@/pages/HomePage';
