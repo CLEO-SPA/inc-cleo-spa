@@ -76,7 +76,7 @@ export async function checkAndUpdateSimState() {
 export const getCurrentSimStatus = () => {
   return {
     isActive: SysParamsCache.isActiveSimulation,
-    params: SysParamsCache.data,
+    params: SysParamsCache?.data,
     lastFetched: new Date(SysParamsCache.lastFetched).toISOString(),
   };
 };

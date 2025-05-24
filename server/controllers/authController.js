@@ -6,7 +6,8 @@ import 'dotenv/config';
 const isAuthenticated = (req, res) => {
   const rememberToken = req.cookies && req.cookies[process.env.REMEMBER_TOKEN];
   const simParams = getCurrentSimStatus().params;
-  const { start_date_utc, end_date_utc } = simParams;
+  const start_date_utc = simParams?.start_date_utc;
+  const end_date_utc = simParams?.end_date_utc;
   if (rememberToken) {
     try {
       const decoded = jwt.verify(rememberToken, process.env.JWT_SECRET);

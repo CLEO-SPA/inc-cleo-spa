@@ -20,4 +20,8 @@ router.get('/gdr', sessionController.getDateRange);
 router.get('/sim', sessionController.getSimulation);
 router.post('/sim', roleMiddleware.hasRole(['super_admin', 'data_admin']), sessionController.toggleSimulation);
 
+// SSE event
+router.get('/events', sessionController.streamSimEvent);
+router.get('/test-sse', sessionController.testSSE);
+
 export default router;

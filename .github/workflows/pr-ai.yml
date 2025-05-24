@@ -1,0 +1,81 @@
+name: CleoAI PR Bot
+
+on:
+  pull_request:
+    types: [opened, synchronize] # Trigger when a PR is opened or new commits are pushed
+
+jobs:
+  generate_summary:
+    runs-on: ubuntu-latest
+    permissions:
+      pull-requests: write # Grant permission to write to pull requests (to update description)
+      contents: read # Grant permission to read repository contents (for scripts and GITHUB_TOKEN)
+
+    steps:
+      - name: Checkout Repository
+        uses: actions/checkout@v4
+
+      - name: Set up Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: "20"
+
+      - name: Install Dependencies
+        run: npm install @octokit/rest
+
+      - name: Generate PR Summary
+        id: generate_summary_content
+        env:
+          OPENROUTER_API_KEY: ${{ secrets.OPENROUTER_API_KEY }}
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          PR_TITLE: ${{ github.event.pull_request.title }}
+          PR_BODY: ${{ github.event.pull_request.body }}
+          PR_NUMBER: ${{ github.event.pull_request.number }}
+          REPO_OWNER: ${{ github.repository_owner }}
+          REPO_NAME: ${{ github.event.repository.name }}
+        run: node ./scripts/generate-pr-summary.js > pr_summary_output.md
+
+      - name: Update PR Description
+        uses: actions/github-script@v7
+        with:
+          script: |
+            const fs = require('fs');
+            // The new summary content from the file already includes the markers
+            const newBotSummaryWithMarkers = fs.readFileSync('pr_summary_output.md', 'utf8').trim();
+
+            const prNumber = context.payload.pull_request.number;
+            let currentBody = context.payload.pull_request.body || ""; // Ensure currentBody is a string, default to empty
+
+            const BOT_SUMMARY_START_MARKER = "<!-- BOT_SUMMARY_START -->";
+            const BOT_SUMMARY_END_MARKER = "<!-- BOT_SUMMARY_END -->";
+
+            const startIndex = currentBody.indexOf(BOT_SUMMARY_START_MARKER);
+            const endIndex = currentBody.indexOf(BOT_SUMMARY_END_MARKER);
+
+            let finalPrBody;
+
+            if (startIndex !== -1 && endIndex !== -1 && endIndex > startIndex) {
+              // Markers found, replace the content between them
+              console.log('Bot summary markers found. Replacing existing bot summary.');
+              const prefix = currentBody.substring(0, startIndex);
+              const suffix = currentBody.substring(endIndex + BOT_SUMMARY_END_MARKER.length);
+              finalPrBody = prefix + newBotSummaryWithMarkers + suffix;
+            } else {
+              // Markers not found (or not found correctly), append the new summary.
+              // This handles the first run or cases where markers were removed.
+              console.log('Bot summary markers not found or incomplete. Appending new summary.');
+              if (currentBody.trim().length > 0) {
+                finalPrBody = currentBody + "\n\n" + newBotSummaryWithMarkers;
+              } else {
+                finalPrBody = newBotSummaryWithMarkers;
+              }
+            }
+
+            // Update the PR description
+            await github.rest.pulls.update({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              pull_number: prNumber,
+              body: finalPrBody.trim() // Trim the final body to remove any leading/trailing whitespace
+            });
+            console.log('PR description updated successfully using hybrid approach!');

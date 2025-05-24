@@ -3,6 +3,9 @@ import { AuthProvider } from '@/context/AuthContext';
 import { DateRangeProvider } from '@/context/DateRangeContext';
 import ProtectedRoute from '@/components/ProtectedRoute';
 
+// Components
+import ReloadTimerPopup from './components/ReloadTimerPopup';
+
 // Pages
 import HomePage from '@/pages/HomePage';
 import LoginPage from '@/pages/LoginPage';
@@ -16,6 +19,7 @@ import ManageAppointmentsPage from '@/pages/ManageAppointmentsPage';
 function App() {
   return (
     <AuthProvider>
+      <ReloadTimerPopup />
       <DateRangeProvider>
         <Router>
           <Routes>

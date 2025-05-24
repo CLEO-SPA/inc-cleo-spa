@@ -16,7 +16,8 @@ const loginEmployee = async (req, res) => {
   if (res.locals.result) {
     const { rememberMe } = req.body;
     const simParams = getCurrentSimStatus().params;
-    const { start_date_utc, end_date_utc } = simParams;
+    const start_date_utc = simParams?.start_date_utc;
+    const end_date_utc = simParams?.end_date_utc;
 
     req.session.regenerate((err) => {
       if (err) {
