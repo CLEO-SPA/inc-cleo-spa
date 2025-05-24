@@ -178,12 +178,12 @@ CREATE TABLE "member_care_packages" (
     "id" BIGSERIAL NOT NULL,
     "member_id" BIGINT NOT NULL,
     "employee_id" BIGINT NOT NULL,
-    "name" VARCHAR(100) NOT NULL,
-    "status" BIGINT NOT NULL,
+    "package_name" VARCHAR(100) NOT NULL,
+    "status_id" BIGINT NOT NULL,
     "total_price" DECIMAL(10,2) NOT NULL,
     "created_at" TIMESTAMPTZ(6) NOT NULL,
     "updated_at" TIMESTAMPTZ(6) NOT NULL,
-    "remarks" VARCHAR(255),
+    "package_remarks" VARCHAR(255),
 
     CONSTRAINT "member_care_packages_pkey" PRIMARY KEY ("id")
 );
@@ -191,10 +191,11 @@ CREATE TABLE "member_care_packages" (
 -- CreateTable
 CREATE TABLE "member_care_package_details" (
     "id" BIGSERIAL NOT NULL,
+    "service_name" VARCHAR(100) NOT NULL,
     "discount" DECIMAL(10,2) NOT NULL,
     "price" DECIMAL(10,2) NOT NULL,
     "member_care_package_id" BIGINT NOT NULL,
-    "service_id" BIGINT,
+    "service_id" BIGINT NOT NULL,
     "status_id" BIGINT NOT NULL,
     "quantity" INTEGER NOT NULL,
 
