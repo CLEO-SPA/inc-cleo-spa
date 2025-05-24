@@ -50,11 +50,10 @@ CREATE TABLE "employees" (
     "id" BIGSERIAL NOT NULL,
     "user_auth_id" BIGINT NOT NULL,
     "employee_code" VARCHAR(50) NOT NULL,
-    "department_id" BIGINT NOT NULL,
     "created_at" TIMESTAMPTZ(6) NOT NULL,
     "employee_contact" VARCHAR(20) NOT NULL,
     "employee_email" VARCHAR(255) NOT NULL,
-    "employee_is_active" BOOLEAN NOT NULL,
+    "verified_status_id" BIGINT NOT NULL,
     "employee_name" VARCHAR(100) NOT NULL,
     "updated_at" TIMESTAMPTZ(6) NOT NULL,
     "position_id" BIGINT,
@@ -107,18 +106,6 @@ CREATE TABLE "refund_items" (
     "refund_item_remarks" TEXT,
 
     CONSTRAINT "refund_items_pkey" PRIMARY KEY ("id")
-);
-
--- CreateTable
-CREATE TABLE "departments" (
-    "id" BIGSERIAL NOT NULL,
-    "department_name" VARCHAR(200) NOT NULL,
-    "department_description" VARCHAR(255),
-    "department_is_active" BOOLEAN NOT NULL,
-    "created_at" TIMESTAMPTZ(6) NOT NULL,
-    "updated_at" TIMESTAMPTZ(6),
-
-    CONSTRAINT "departments_pkey" PRIMARY KEY ("id")
 );
 
 -- CreateTable
@@ -296,7 +283,6 @@ CREATE TABLE "positions" (
     "default_commission_percentage" DECIMAL(10,2),
     "position_created_at" TIMESTAMPTZ(6) DEFAULT CURRENT_TIMESTAMP,
     "position_updated_at" TIMESTAMPTZ(6) DEFAULT CURRENT_TIMESTAMP,
-    "department_id" BIGINT NOT NULL,
 
     CONSTRAINT "positions_pkey" PRIMARY KEY ("id")
 );
@@ -625,9 +611,6 @@ ALTER TABLE "care_package_item_details" ADD CONSTRAINT "care_package_item_detail
 ALTER TABLE "care_package_items" ADD CONSTRAINT "care_package_items_care_package_id_fkey" FOREIGN KEY ("care_package_id") REFERENCES "care_packages"("id") ON DELETE CASCADE ON UPDATE CASCADE;
 
 -- AddForeignKey
-ALTER TABLE "employees" ADD CONSTRAINT "employees_department_id_fkey" FOREIGN KEY ("department_id") REFERENCES "departments"("id") ON DELETE RESTRICT ON UPDATE CASCADE;
-
--- AddForeignKey
 ALTER TABLE "employees" ADD CONSTRAINT "employees_position_id_fkey" FOREIGN KEY ("position_id") REFERENCES "positions"("id") ON DELETE SET NULL ON UPDATE CASCADE;
 
 -- AddForeignKey
@@ -682,7 +665,7 @@ ALTER TABLE "member_care_packages" ADD CONSTRAINT "member_care_packages_employee
 ALTER TABLE "member_care_packages" ADD CONSTRAINT "member_care_packages_member_id_fkey" FOREIGN KEY ("member_id") REFERENCES "members"("id") ON DELETE CASCADE ON UPDATE CASCADE;
 
 -- AddForeignKey
-ALTER TABLE "member_care_packages" ADD CONSTRAINT "member_care_packages_status_fkey" FOREIGN KEY ("status") REFERENCES "statuses"("id") ON DELETE RESTRICT ON UPDATE CASCADE;
+ALTER TABLE "member_care_packages" ADD CONSTRAINT "member_care_packages_status_fkey" FOREIGN KEY ("status_id") REFERENCES "statuses"("id") ON DELETE RESTRICT ON UPDATE CASCADE;
 
 -- AddForeignKey
 ALTER TABLE "member_care_package_details" ADD CONSTRAINT "member_care_package_details_member_care_package_id_fkey" FOREIGN KEY ("member_care_package_id") REFERENCES "member_care_packages"("id") ON DELETE CASCADE ON UPDATE CASCADE;
@@ -709,10 +692,10 @@ ALTER TABLE "members" ADD CONSTRAINT "members_user_auth_id_fkey" FOREIGN KEY ("u
 ALTER TABLE "membership_accounts" ADD CONSTRAINT "membership_accounts_status_id_fkey" FOREIGN KEY ("status_id") REFERENCES "statuses"("id") ON DELETE RESTRICT ON UPDATE CASCADE;
 
 -- AddForeignKey
-ALTER TABLE "positions" ADD CONSTRAINT "positions_department_id_fkey" FOREIGN KEY ("department_id") REFERENCES "departments"("id") ON DELETE RESTRICT ON UPDATE CASCADE;
-
--- AddForeignKey
 ALTER TABLE "user_to_role" ADD CONSTRAINT "user_to_role_role_id_fkey" FOREIGN KEY ("role_id") REFERENCES "roles"("id") ON DELETE RESTRICT ON UPDATE CASCADE;
 
 -- AddForeignKey
 ALTER TABLE "user_to_role" ADD CONSTRAINT "user_to_role_user_id_fkey" FOREIGN KEY ("user_id") REFERENCES "user_auth"("id") ON DELETE RESTRICT ON UPDATE CASCADE;
+
+-- AddForeignKey
+ALTER TABLE "employees" ADD CONSTRAINT "verified_status_id_fkey" FOREIGN KEY ("verified_status_id") REFERENCES "statuses"("id") ON UPDATE CASCADE;
