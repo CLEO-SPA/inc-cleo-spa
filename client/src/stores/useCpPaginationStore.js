@@ -85,7 +85,7 @@ export const useCarePackageStore = create((set, get) => ({
 
     try {
       // Use your imported API service
-      const response = await api.get('/cp/packages', { params: queryParams });
+      const response = await api.get('/cp/pkgs', { params: queryParams });
 
       console.log(response);
 
