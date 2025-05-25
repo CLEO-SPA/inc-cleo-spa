@@ -1,7 +1,7 @@
 import { create } from 'zustand';
 import api from '@/services/api';
 
-export const useCarePackageStore = create((set, get) => ({
+export const useCpPaginationStore = create((set, get) => ({
   // States
   currentPage: 1,
   currentLimit: 10,

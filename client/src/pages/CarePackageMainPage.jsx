@@ -22,7 +22,7 @@ import {
   ChevronsLeft,
   ChevronsRight,
 } from 'lucide-react';
-import { useCarePackageStore } from '../stores/useCpPaginationStore';
+import { useCpPaginationStore } from '../stores/useCpPaginationStore';
 import { Card, CardContent, CardHeader, CardTitle, CardFooter } from '@/components/ui/card';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { AppSidebar } from '@/components/app-sidebar';
@@ -48,7 +48,7 @@ function MainPage() {
     goToPage,
     setSearchTerm,
     setLimit,
-  } = useCarePackageStore();
+  } = useCpPaginationStore();
 
   const [inputSearchTerm, setInputSearchTerm] = useState(searchTerm);
   const [targetPageInput, setTargetPageInput] = useState('');
