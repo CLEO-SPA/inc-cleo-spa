@@ -15,5 +15,12 @@ import controller from '../controllers/cpController.js';
 // =========================
 router.use(isAuthenticated);
 router.get('/pkgs', controller.getAllCarePackages);
+router.get('/:id', controller.getCarePackageById);
+
+router.post('/', controller.createCarePackage);
+
+router.put('/:id', controller.updateCarePackageById);
+
+router.delete('/:id', controller.deleteCarePackageById);
 
 export default router;

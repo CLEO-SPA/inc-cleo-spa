@@ -68,7 +68,70 @@ const getCarePackageById = async (req, res) => {
   }
 };
 
+const createCarePackage = async (req, res) => {
+  try {
+    const { package_name, package_remarks, package_price, is_customizable, services, created_at, updated_at } =
+      req.body;
+
+    if (!package_name || !package_price || !Array.isArray(services)) {
+      return res.status(400).json({ message: 'Missing required fields or invalid data format' });
+    }
+
+    const isValidService = services.every((s) => {
+      return (
+        typeof s.id === 'string' &&
+        typeof s.name === 'string' &&
+        typeof s.quantity === 'number' &&
+        s.quantity > 0 &&
+        typeof s.price === 'number' &&
+        s.price >= 0 &&
+        typeof s.discount === 'number' &&
+        s.discount >= 0 &&
+        s.discount <= 1
+      );
+    });
+
+    if (!isValidService) {
+      return res.status(400).json({ message: 'Missing required fields or invalid data format' });
+    }
+
+    const results = await model.createCarePackage({
+      package_name,
+      package_remarks,
+      package_price,
+      services,
+      is_customizable,
+      created_at,
+      updated_at,
+    });
+
+    res.status(201).json(results);
+  } catch (error) {
+    console.error('Error creating carePackage', error);
+    res.status(500).json({ message: 'Error creating carePackage', error: error.message });
+  }
+};
+
+const updateCarePackageById = async (req, res) => {
+  try {
+  } catch (error) {
+    console.error('Error updating carePackage By Id', error);
+    res.status(500).json({ message: 'Error updating carePackage By Id', error: error.message });
+  }
+};
+
+const deleteCarePackageById = async (req, res) => {
+  try {
+  } catch (error) {
+    console.error('Error deleting carePackage By Id', error);
+    res.status(500).json({ message: 'Error deleting carePackage By Id', error: error.message });
+  }
+};
+
 export default {
   getAllCarePackages,
   getCarePackageById,
+  createCarePackage,
+  updateCarePackageById,
+  deleteCarePackageById,
 };

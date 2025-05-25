@@ -127,7 +127,56 @@ const getCarePackageById = async (id) => {
   }
 };
 
+const createCarePackage = async ({
+  package_name,
+  package_remarks,
+  package_price,
+  services,
+  is_customizable,
+  created_at,
+  updated_at,
+}) => {
+  const params = [
+    package_name,
+    package_remarks,
+    parseFloat(package_price),
+    !!!is_customizable,
+    services,
+    created_at,
+    updated_at,
+  ];
+
+  const sqlProcedureQuery = `
+      CALL create_care_package(
+        p_package_name := $1,
+        p_remarks := $2,
+        p_price := $3,
+        p_customizable := $4,
+        p_services := $5,
+        p_created_at := $6,
+        p_updated_at := $7
+      );
+    `;
+  try {
+    const { rows } = await pool().query(sqlProcedureQuery, params);
+
+    console.log(rows);
+
+    return 1;
+  } catch (error) {
+    console.error('Error in CarePackageModel.createCarePackage:', error);
+    throw new Error('Could not create new care package');
+  }
+};
+
+const updateCarePackageById = async (id) => {};
+
+const deleteCarePackageById = async (id) => {};
+
 export default {
   getPaginatedCarePackages,
   getCarePackageById,
+  createCarePackage,
+  updateCarePackageById,
+  deleteCarePackageById,
 };
