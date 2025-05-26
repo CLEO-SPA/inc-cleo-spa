@@ -3,8 +3,8 @@ import bcrypt from 'bcryptjs';
 
 const saltRounds = 10;
 
-export const hashPassword = async (req: Request, res: Response, next: NextFunction) => {
-  const callback = (err: any, hash: any) => {
+export const hashPassword = async (req: Request, res: Response, next: NextFunction): Promise<void> => {
+  const callback = (err: unknown, hash: string | undefined): void => {
     if (err) {
       throw new Error('Error hashing password');
     } else {
@@ -17,8 +17,8 @@ export const hashPassword = async (req: Request, res: Response, next: NextFuncti
   bcrypt.hash(req.body.password, saltRounds, callback);
 };
 
-export const comparePassword = async (req: Request, res: Response, next: NextFunction) => {
-  const callback = (err: any, result: any) => {
+export const comparePassword = async (req: Request, res: Response, next: NextFunction): Promise<void> => {
+  const callback = (err: unknown, result: boolean | undefined): void => {
     if (err) {
       throw new Error('Error comparing password');
     } else {

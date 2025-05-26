@@ -11,7 +11,8 @@ interface SseClient {
 interface DbChangePayload {
   table: string;
   action: string;
-  data: any;
+  data: object;
+  old_data?: object;
 }
 
 let sseClients: SseClient[] = [];
@@ -39,7 +40,7 @@ function addSseClient(req: Request, res: Response): void {
 /**
  * Send message to all connected SSE clients.
  */
-function broadcastMessage(data: any, eventName: string = 'message'): void {
+function broadcastMessage(data: object, eventName: string = 'message'): void {
   if (sseClients.length === 0) {
     // console.log('No SSE clients connected to broadcast to.');
     return;
