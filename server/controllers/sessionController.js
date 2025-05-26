@@ -1,7 +1,6 @@
 import validator from 'validator';
-import { getProdPool } from '../config/database.js';
-
-const pool = getProdPool();
+import { getProdPool as pool } from '../config/database.js';
+import { addSseClient, testNotification } from '../services/sseService.js';
 
 const setDateRange = (req, res) => {
   const { startDate_utc, endDate_utc } = req.body; // Expecting UTC ISO strings
@@ -53,19 +52,20 @@ const toggleSimulation = async (req, res) => {
       return res.status(400).json({ message: 'is_simulation is required.' });
     }
 
-    const funcQuery = `SELECT set_simulation($1, $2, $3) AS result`;
+    const funcQuery = `SELECT set_simulation($1, $2, $3)`;
     const values = [is_simulation, startDate_utc, endDate_utc];
 
-    const result = await pool.query(funcQuery, values);
+    const { rows, rowCount } = await pool().query(funcQuery, values);
 
-    // console.log(result);
+    // console.log('\n', typeof rows, rows);
 
-    if (result.rowCount === 0) {
+    if (rowCount === 0) {
       return res.status(400).json({ message: 'Failed to toggle simulation.' });
     }
+
     res.status(200).json({
       message: 'Simulation state updated successfully.',
-      is_simulation: result.rows[0].result,
+      is_simulation: rows[0].result,
       startDate_utc: startDate_utc || null,
       endDate_utc: endDate_utc || null,
     });
@@ -80,7 +80,7 @@ const getSimulation = async (req, res) => {
     const query = 'SELECT * FROM system_parameters WHERE id = $1';
     const values = [1];
 
-    const result = await pool.query(query, values);
+    const result = await pool().query(query, values);
     if (result.rowCount === 0) {
       return res.status(404).json({ message: 'Simulation state not found.' });
     }
@@ -97,9 +97,29 @@ const getSimulation = async (req, res) => {
   }
 };
 
+// SSE Event
+const streamSimEvent = async (req, res) => {
+  res.setHeader('Content-Type', 'text/event-stream');
+  res.setHeader('Cache-Control', 'no-cache');
+  res.setHeader('Connection', 'keep-alive');
+  res.flushHeaders();
+
+  addSseClient(req, res);
+
+  res.write('event: connected\n');
+  res.write('data: {"message": "SSE connection established"}\n\n');
+};
+
+const testSSE = async (req, res) => {
+  await testNotification();
+  res.json({ message: 'Test notification sent' });
+};
+
 export default {
   setDateRange,
   getDateRange,
   toggleSimulation,
   getSimulation,
+  streamSimEvent,
+  testSSE,
 };
