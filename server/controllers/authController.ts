@@ -12,7 +12,7 @@ const isAuthenticated = (req: Request, res: Response, next: NextFunction): void 
   const end_date_utc = simParams?.end_date_utc;
   if (rememberToken) {
     try {
-      const decoded = jwt.verify(rememberToken, process.env.JWT_SECRET as string) as AuthJwtPayload;
+      const decoded = jwt.verify(rememberToken, process.env.AUTH_JWT_SECRET as string) as AuthJwtPayload;
       if (!req.session.user_id) {
         req.session.start_date_utc = getCurrentSimStatus().isActive ? start_date_utc : null;
         req.session.end_date_utc = getCurrentSimStatus().isActive ? end_date_utc : new Date().toUTCString();

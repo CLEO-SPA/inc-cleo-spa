@@ -16,6 +16,7 @@ const simulationMiddleware = async (req: Request, res: Response, next: NextFunct
 
       if (
         req.session.start_date_utc &&
+        simStatus.params?.start_date_utc &&
         new Date(req.session.end_date_utc as string) < new Date(simStatus.params?.start_date_utc as string)
       ) {
         res.status(400).json({
@@ -27,6 +28,7 @@ const simulationMiddleware = async (req: Request, res: Response, next: NextFunct
 
       if (
         req.session.end_date_utc &&
+        simStatus.params?.end_date_utc &&
         new Date(req.session.end_date_utc) > new Date(simStatus.params?.end_date_utc as string)
       ) {
         res.status(400).json({

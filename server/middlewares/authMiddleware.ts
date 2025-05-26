@@ -6,7 +6,7 @@ import 'dotenv/config';
 const isAuthenticated = (req: Request, res: Response, next: NextFunction) => {
   const token = req.cookies[process.env.REMEMBER_TOKEN as string];
   if (token) {
-    jwt.verify(token, process.env.JWT_SECRET as string, (err: any, decoded: any) => {
+    jwt.verify(token, process.env.AUTH_JWT_SECRET as string, (err: any, decoded: any) => {
       if (err) {
         throw new Error('Unauthorized');
       }

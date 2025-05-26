@@ -1,4 +1,4 @@
-import express, { json, NextFunction, Response, urlencoded } from 'express';
+import express, { json, NextFunction, Request, Response, urlencoded } from 'express';
 import cors from 'cors';
 import session from 'express-session';
 import cookieParser from 'cookie-parser';
@@ -46,10 +46,9 @@ app.use(
 
 app.use('/api', mainRoutes);
 
-// app.all('*', (req, res, next) => {
-//   const err = new NotFoundError(`Can't find ${req.originalUrl} on this server!`);
-//   next(err);
-// });
+app.all('/*a', (req: Request, res: Response, next: NextFunction) => {
+  throw new NotFoundError(`Can't find ${req.originalUrl} on this server!`);
+});
 
 app.use(globalErrorHandler);
 

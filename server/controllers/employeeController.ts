@@ -40,7 +40,7 @@ const loginEmployee = async (req: Request, res: Response, next: NextFunction) =>
       };
 
       if (rememberMe) {
-        const token = jwt.sign(userPayload, process.env.JWT_SECRET as string, {
+        const token = jwt.sign(userPayload, process.env.AUTH_JWT_SECRET as string, {
           expiresIn: '30d',
         });
         res.cookie(process.env.REMEMBER_TOKEN as string, token, {
@@ -159,7 +159,7 @@ const getAuthUser = async (req: Request, res: Response, next: NextFunction): Pro
 //     // Create the new employee
 //     const newEmployee = await model.createEmployee({ ...req.body, password_hash });
 
-//     const token = jwt.sign({ email: employee_email }, process.env.JWT_SECRET as string, {
+//     const token = jwt.sign({ email: employee_email }, process.env.INV_JWT_SECRET as string, {
 //       expiresIn: '3d',
 //     });
 
@@ -183,7 +183,7 @@ const getAuthUser = async (req: Request, res: Response, next: NextFunction): Pro
 //   }
 
 //   try {
-//     const token = jwt.sign({ email: employeeEmail }, process.env.JWT_SECRET, {
+//     const token = jwt.sign({ email: employeeEmail }, process.env.INV_JWT_SECRET, {
 //       expiresIn: '3d',
 //     });
 //     const callbackUrl = `${process.LOCAL_FRONTEND_URL}/invites?token=${token}`;
@@ -270,7 +270,7 @@ const regenerateInvitationLink = async (req: Request, res: Response, next: NextF
   }
 
   try {
-    const token = jwt.sign({ email: employeeEmail }, process.env.JWT_SECRET as string, {
+    const token = jwt.sign({ email: employeeEmail }, process.env.INV_JWT_SECRET as string, {
       expiresIn: '3d',
     });
     const callbackUrl = `${process.env.LOCAL_FRONTEND_URL as string}/invites?token=${token}`;
