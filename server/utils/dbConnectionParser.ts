@@ -1,4 +1,4 @@
-export const parseConnectionString = (connectionString) => {
+export const parseConnectionString = (connectionString: string) => {
   // Return empty object if no connection string provided
   if (!connectionString) return {};
 
@@ -23,7 +23,7 @@ export const parseConnectionString = (connectionString) => {
     const ssl = sslMode === 'require' || sslMode === 'true' ? { rejectUnauthorized: true } : false;
 
     // Extract max connections if provided
-    const maxConnections = url.searchParams.get('max') ? parseInt(url.searchParams.get('max')) : null;
+    const maxConnections = url.searchParams.get('max') ? parseInt(url.searchParams.get('max') || '10') : null;
 
     return {
       user,
@@ -35,7 +35,7 @@ export const parseConnectionString = (connectionString) => {
       maxConnections,
     };
   } catch (error) {
-    console.error('Error parsing connection string:', error.message);
+    console.error('Error parsing connection string:', error);
     return {};
   }
 };

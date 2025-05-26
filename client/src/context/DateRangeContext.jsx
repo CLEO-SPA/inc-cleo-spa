@@ -28,8 +28,8 @@ export const DateRangeProvider = ({ children }) => {
         // console.log('Initial date range fetched from server:', response.data);
 
         if (response.data) {
-          const rawStartDate = response.data.startDate_utc; // Should be a local Date object after interceptor
-          const rawEndDate = response.data.endDate_utc; // Should be a local Date object after interceptor
+          const rawStartDate = response.data.start_date_utc; // Should be a local Date object after interceptor
+          const rawEndDate = response.data.end_date_utc; // Should be a local Date object after interceptor
 
           let finalFrom = undefined;
           let finalTo = undefined;
@@ -70,8 +70,8 @@ export const DateRangeProvider = ({ children }) => {
   const updateDateRangeOnServer = useCallback(async (startDate, endDate) => {
     try {
       const response = await api.post('/session/sdr', {
-        startDate_utc: startDate === undefined ? null : startDate,
-        endDate_utc: endDate === undefined ? null : endDate,
+        start_date_utc: startDate === undefined ? null : startDate,
+        end_date_utc: endDate === undefined ? null : endDate,
       });
       console.log('Date range sent to server.', response.data);
     } catch (error) {

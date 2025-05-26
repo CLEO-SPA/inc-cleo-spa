@@ -1,15 +1,15 @@
-import express, { json, urlencoded } from 'express';
+import express, { json, NextFunction, Request, Response, urlencoded } from 'express';
 import cors from 'cors';
-import createHttpError from 'http-errors';
 import session from 'express-session';
 import cookieParser from 'cookie-parser';
 import mainRoutes from './routes/mainRoutes.js';
 import sessionStore from './store/sessionStore.js';
+import { globalErrorHandler, NotFoundError } from './types/errors.js';
 
 const app = express();
 
 const corsOptions = {
-  origin: [process.env.LOCAL_FRONTEND_URL, process.env.LOCAL_BACKEND_URL],
+  origin: [process.env.LOCAL_FRONTEND_URL, process.env.LOCAL_BACKEND_URL] as string[],
   methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS'],
   allowedHeaders: [
     'Content-Type',
@@ -32,7 +32,7 @@ app.use(cookieParser());
 app.use(
   session({
     store: sessionStore,
-    secret: process.env.SESSION_SECRET,
+    secret: process.env.SESSION_SECRET as string,
     resave: false,
     saveUninitialized: false,
     cookie: {
@@ -46,18 +46,10 @@ app.use(
 
 app.use('/api', mainRoutes);
 
-// Health check route
-app.get('/api/health', (req, res) => {
-  res.status(200).json({ status: 'ok' });
+app.all('/*a', (req: Request, res: Response, next: NextFunction) => {
+  throw new NotFoundError(`Can't find ${req.originalUrl} on this server!`);
 });
 
-app.use(function (req, res, next) {
-  return next(createHttpError(404, `Unknown Resource ${req.method} ${req.originalUrl}`));
-});
-
-// eslint-disable-next-line no-unused-vars
-app.use(function (err, req, res, next) {
-  return res.status(err.status || 500).json({ error: err.message || 'Unknown Server Error!' });
-});
+app.use(globalErrorHandler);
 
 export default app;
