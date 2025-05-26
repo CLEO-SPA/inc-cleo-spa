@@ -4,14 +4,13 @@ import { DateRangeProvider } from '@/context/DateRangeContext';
 import ProtectedRoute from '@/components/ProtectedRoute';
 
 // Components
-import ReloadTimerPopup from '@/components/ReloadTimerPopup';
+import ReloadTimerPopup from './components/ReloadTimerPopup';
 
 // Pages
 import HomePage from '@/pages/HomePage';
 import LoginPage from '@/pages/LoginPage';
 import ResetPasswordPage from '@/pages/ResetPasswordPage';
 import NotFoundPage from '@/pages/404Page';
-import CarePackagePage from '@/pages/CarePackageMainPage';
 
 function App() {
   return (
@@ -22,9 +21,6 @@ function App() {
           <Routes>
             <Route path='/' element={<ProtectedRoute />}>
               <Route index element={<HomePage />} />
-
-              {/* Care Package Management */}
-              <Route path='/care-package' element={<CarePackagePage />} />
             </Route>
             <Route path='/login' element={<LoginPage />} />
 
