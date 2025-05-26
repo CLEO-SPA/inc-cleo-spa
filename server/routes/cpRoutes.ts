@@ -1,0 +1,26 @@
+import express from 'express';
+const router = express.Router();
+
+import roleMiddleware from '../middlewares/roleMiddleware.js';
+import isAuthenticated from '../middlewares/authMiddleware.js';
+
+import controller from '../controllers/cpController.js';
+
+// =========================
+// Public routes
+// =========================
+
+// =========================
+// Private routes
+// =========================
+router.use(isAuthenticated);
+router.get('/pkgs', controller.getAllCarePackages);
+router.get('/:id', controller.getCarePackageById);
+
+router.post('/', controller.createCarePackage);
+
+router.put('/:id', controller.updateCarePackageById);
+
+router.delete('/:id', controller.deleteCarePackageById);
+
+export default router;
