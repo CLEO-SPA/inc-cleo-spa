@@ -1,6 +1,6 @@
 import { getProdPool as pool } from '../config/database.js';
 
-const getUserRoles = async (userId) => {
+const getUserRoles = async (userId: string) => {
   try {
     const query = `
       SELECT r.role_name 
