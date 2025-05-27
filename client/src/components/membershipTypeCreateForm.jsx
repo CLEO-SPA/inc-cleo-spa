@@ -15,9 +15,6 @@ const MembershipTypeCreateForm = () => {
         createMembershipType
     } = useMembershipTypeStore;
 
-    // Used for form reset without changing state
-    const formRef = React.useRef();
-
     // This is used to retrieve the form fields and set up the confirm pop-up
     const handleSubmit = async (e) => {
         e.preventDefault();
@@ -122,7 +119,7 @@ const MembershipTypeCreateForm = () => {
                 onConfirm={() => {
                     setShowConfirm(false);
                     createMembershipType(formValues);
-                    formRef.current.reset(); // form reset after creation
+                    setIsCreating(false);
                 }}
             />
         </div>

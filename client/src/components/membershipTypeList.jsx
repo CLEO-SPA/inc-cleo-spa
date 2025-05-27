@@ -1,11 +1,13 @@
 import * as React from 'react';
 import ConfirmationPopUp from './confirmationPopUp';
+import MembershipTypeUpdateForm from './membershipTypeUpdateForm';
 import useMembershipTypeStore from '@/stores/useMembershipTypeStore';
 
 const MembershipTypeTable = () => {
     const {
-        membershipTypes,
+        membershipTypeList,
         loading,
+        isUpdating,
         setSelectedMembershipTypeId,
         setIsUpdating,
         getMembershipTypeById,
@@ -15,12 +17,12 @@ const MembershipTypeTable = () => {
 
     const [showConfirm, setShowConfirm] = useState(false);
     const [formValues, setFormValues] = useState({});
-    
+
     const handleDelete = async (data) => {
         console.log("Delete Data: " + data);
 
         setFormValues(data);
-        showConfirm(true);
+        setShowConfirm(true);
     };
 
     const confirmBody = (
@@ -51,7 +53,7 @@ const MembershipTypeTable = () => {
                     </tr>
                 </thead>
                 <tbody>
-                    {membershipTypes.map((type, index) => (
+                    {membershipTypeList.map((type, index) => (
                         <tr key={type.membership_type_id} className="hover:bg-gray-50">
                             <td className="p-3 border">{index + 1}</td>
                             <td className="p-3 border">{type.membership_type_name}</td>
@@ -71,7 +73,6 @@ const MembershipTypeTable = () => {
                                     <button
                                         className="bg-red-600 text-white py-1 px-3 rounded text-sm hover:bg-red-700"
                                         onClick={() => {
-                                            setSelectedMembershipTypeId(type.membership_type_id);
                                             handleDelete(getMembershipTypeById(type.membership_type_id));
                                         }}
                                     >
@@ -83,6 +84,8 @@ const MembershipTypeTable = () => {
                     ))}
                 </tbody>
             </table>
+            {isUpdating && <MembershipTypeUpdateForm />}
+            
             <ConfirmationPopUp
                 open={showConfirm}
                 title="Warning! Are you sure you wish to delete the following entry:"
@@ -91,7 +94,6 @@ const MembershipTypeTable = () => {
                 onConfirm={() => {
                     setShowConfirm(false);
                     deleteMembershipType(selectedMembershipTypeId);
-                    formRef.current.reset(); // form reset after creation
                 }}
             />
         </div>

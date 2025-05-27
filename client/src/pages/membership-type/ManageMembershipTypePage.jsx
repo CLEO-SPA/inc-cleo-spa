@@ -5,7 +5,6 @@ import useMembershipStore from '@/stores/useMembershipTypeStore';
 // Import your components
 import MembershipTypeList from '@/components/membershipTypeList';
 import CreateMembershipForm from '@/components/membership/CreateMembershipForm';
-import UpdateMembershipTypeForm from '@/components/membership/UpdateMembershipForm';
 
 const MembershipTypePage = () => {
   const { 
@@ -14,7 +13,6 @@ const MembershipTypePage = () => {
     loading,
 
     isCreating,
-    isUpdating,
 
     setIsCreating
   } = useMembershipStore();
@@ -52,7 +50,6 @@ const MembershipTypePage = () => {
 
       {/* Modals - Only render when needed */}
       {isCreating && <CreateMembershipForm />}
-      {isUpdating && <UpdateMembershipTypeForm />}
     </div>
   );
 };

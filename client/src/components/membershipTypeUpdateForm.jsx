@@ -1,6 +1,7 @@
 import * as React from 'react';
+import { useState } from React;
 // import button from '@/components/ui/button';
-import ConfirmationPopUp from './confirmationPopUp';
+import  ConfirmationPopUp  from './confirmationPopUp';
 import useMembershipTypeStore from '@/stores/useMembershipTypeStore';
 
 const MembershipTypeUpdateForm = () => {
@@ -12,11 +13,14 @@ const MembershipTypeUpdateForm = () => {
         isUpdating,
         loading,
         setIsUpdating,
+        selectedMembershipTypeId,
+        getMembershipTypeById,
         updateMembershipType
-    } = useMembershipTypeStore;
+    } = useMembershipTypeStore();
+
+    const selectMembershipType = {...getMembershipTypeById(selectedMembershipTypeId)}; // !!!
 
     // Used for form reset without changing state
-    const formRef = React.useRef();
 
     // This is used to retrieve the form fields and set up the confirm pop-up
     const handleSubmit = async (e) => {
@@ -29,7 +33,7 @@ const MembershipTypeUpdateForm = () => {
         setShowConfirm(true);
     };
 
-    // This is used to create the confirm pop-up body
+    // This is used to update the confirm pop-up body
     const confirmBody = (
         <div>
             {Object.entries(formValues).map(([key, value]) => (
@@ -61,6 +65,7 @@ const MembershipTypeUpdateForm = () => {
                                 id="membership_type_name"
                                 type="text"
                                 name="membership_type_name"
+                                defaultValue={selectMembershipType.membership_type_name}
                                 className="w-full border rounded p-2"
                                 required
                                 disabled={loading}
@@ -73,6 +78,7 @@ const MembershipTypeUpdateForm = () => {
                                 id="default_percentage_services_discount"
                                 type="number"
                                 name="default_discount_percentage_for_service"
+                                defaultValue={selectMembershipType.default_percentage_services_discount}
                                 className="w-full border rounded p-2"
                                 required
                                 disabled={loading}
@@ -85,6 +91,7 @@ const MembershipTypeUpdateForm = () => {
                                 id="default_percentage_products_discount"
                                 type="number"
                                 name="default_discount_for_products"
+                                defaultValue={selectMembershipType.default_percentage_products_discount}
                                 className="w-full border rounded p-2"
                                 required
                                 disabled={loading}
@@ -101,12 +108,12 @@ const MembershipTypeUpdateForm = () => {
                                     Cancel
                                 </button>
                                 <button
-                                    data-testid="create-membership-button"
+                                    data-testid="update-membership-button"
                                     type="submit"
                                     className="bg-blue-600 text-white px-4 py-2 rounded"
                                     disabled={loading}
                                 >
-                                    Create
+                                    Update
                                 </button>
                             </div>
                         </div>
@@ -122,7 +129,7 @@ const MembershipTypeUpdateForm = () => {
                 onConfirm={() => {
                     setShowConfirm(false);
                     updateMembershipType(formValues); // NOT DONE
-                    formRef.current.reset(); // form reset after creation
+                    setIsUpdating(false);
                 }}
             />
         </div>

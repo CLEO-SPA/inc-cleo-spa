@@ -43,7 +43,7 @@ const useMembershipTypeStore = create((set, get) => ({
     },
 
     getMembershipTypeById: (id) => {
-        return get().membershipTypes.find(type => type.id === id);
+        return get().membershipTypes.find(type => type.membership_type_id === id);
     },
 
     createMembershipType: async (data) => {
