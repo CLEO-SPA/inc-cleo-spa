@@ -1,6 +1,6 @@
 import { pool } from '../config/database.js';
 import { PaginatedOptions, PaginatedReturn } from '../types/common.types.js';
-import { CarePackages } from '../types/model.types.js';
+import { CarePackageItemDetails, CarePackageItems, CarePackages } from '../types/model.types.js';
 import { encodeCursor } from '../utils/cursorUtils.js';
 
 const getPaginatedCarePackages = async (
@@ -166,10 +166,236 @@ const updateCarePackageById = async (id: string) => {};
 
 const deleteCarePackageById = async (id: string) => {};
 
+interface emulatePayload {
+  id?: string;
+  package_name?: string;
+  package_remarks?: string;
+  package_price?: number;
+  services?: {
+    id: string;
+    name: string;
+    quantity: number;
+    price: number;
+    discount: number;
+  }[];
+  is_customizable?: boolean;
+  status_id?: string;
+  created_at?: string;
+  updated_at?: string;
+  user_id?: string;
+}
+
+interface FieldMapping {
+  payloadKey: keyof emulatePayload;
+  dbKey: keyof CarePackages;
+  transform?: (value: any) => any;
+}
+
+const emulateCarePackage = async (method: string, payload: emulatePayload) => {
+  const handlers = {
+    POST: em_post,
+    PUT: em_put,
+    DELETE: em_delete,
+  };
+
+  async function em_post(payload: emulatePayload) {
+    try {
+      const lastCpSql: string = 'SELECT * FROM care_packages ORDER BY id DESC LIMIT 1';
+      const { rows: cpRows } = await pool().query<CarePackages>(lastCpSql);
+      const lastCp: CarePackages | undefined = cpRows[0];
+      const lastCpId = lastCp && lastCp.id ? parseInt(lastCp.id) : 0;
+
+      const statusSql = 'SELECT get_or_create_status($1) as id';
+      const { rows: statusRows } = await pool().query<{ id: string }>(statusSql, ['ENABLED']);
+      if (statusRows.length === 0 || !statusRows[0].id) {
+        throw new Error('Failed to get or create status ID.');
+      }
+      const statusId = statusRows[0].id;
+
+      const newCp: CarePackages = {
+        id: (lastCpId + 1).toString(),
+        care_package_name: payload.package_name,
+        care_package_remarks: payload.package_remarks,
+        care_package_price: payload.package_price,
+        care_package_customizable: payload.is_customizable,
+        status_id: statusId,
+        created_by: payload.user_id,
+        last_updated_by: payload.user_id,
+        created_at: payload.created_at || new Date().toISOString(),
+        updated_at: payload.updated_at || new Date().toISOString(),
+      };
+
+      let oldCpItemDetails: CarePackageItemDetails[] = [];
+      const newCpItemDetails: CarePackageItemDetails[] = [];
+
+      if (payload.services && payload.services.length > 0) {
+        const lastCpItemDetailsSql: string = 'SELECT * FROM care_package_item_details ORDER BY id DESC LIMIT 1';
+        const { rows: itemRows } = await pool().query<CarePackageItemDetails>(lastCpItemDetailsSql);
+        oldCpItemDetails = itemRows;
+        const lastCpItemDetailsId = itemRows[0] && itemRows[0].id ? parseInt(itemRows[0].id) : 0;
+
+        payload.services.forEach((service, idx) => {
+          newCpItemDetails.push({
+            id: (lastCpItemDetailsId + idx + 1).toString(),
+            care_package_id: newCp.id,
+            service_id: service.id,
+            care_package_item_details_quantity: service.quantity,
+            care_package_item_details_discount: service.discount,
+            care_package_item_details_price: service.price,
+          });
+        });
+      }
+
+      return {
+        old: {
+          care_packages: cpRows,
+          care_package_item_details: oldCpItemDetails,
+        },
+        new: {
+          care_packages: [newCp],
+          care_package_item_details: newCpItemDetails,
+        },
+      };
+    } catch (error) {
+      console.error('Error emulating create care package:', error);
+      if (error instanceof Error) {
+        throw new Error(`Error emulating create care package: ${error.message}`);
+      }
+      throw new Error('An unknown error occurred while emulating create care package');
+    }
+  }
+
+  async function em_put(payload: emulatePayload) {
+    try {
+      if (!payload.id) {
+        throw new Error('Payload must include an id for the care package to update.');
+      }
+
+      const cpSql: string = 'SELECT * FROM care_packages WHERE id = $1';
+      const cpItemDetailsSql: string = 'SELECT * FROM care_package_item_details WHERE care_package_id = $1';
+
+      const { rows: cpRows } = await pool().query<CarePackages>(cpSql, [payload.id]);
+      if (cpRows.length === 0) {
+        throw new Error(`Care package with id ${payload.id} not found for update.`);
+      }
+      const oldCarePackage: CarePackages = cpRows[0];
+
+      const { rows: oldCpItemDetails } = await pool().query<CarePackageItemDetails>(cpItemDetailsSql, [
+        oldCarePackage.id,
+      ]);
+
+      const fieldMappings: FieldMapping[] = [
+        { payloadKey: 'package_name', dbKey: 'care_package_name' },
+        { payloadKey: 'package_remarks', dbKey: 'care_package_remarks' },
+        { payloadKey: 'package_price', dbKey: 'care_package_price' },
+        { payloadKey: 'is_customizable', dbKey: 'care_package_customizable' },
+        { payloadKey: 'status_id', dbKey: 'status_id' },
+        { payloadKey: 'created_at', dbKey: 'created_at' },
+        { payloadKey: 'updated_at', dbKey: 'updated_at' },
+        { payloadKey: 'user_id', dbKey: 'created_by' },
+        { payloadKey: 'user_id', dbKey: 'last_updated_by' },
+      ];
+
+      const updatedCpFields: Partial<CarePackages> = {};
+      fieldMappings.forEach((m) => {
+        if (m.payloadKey in payload) {
+          const payloadValue = payload[m.payloadKey as keyof emulatePayload];
+          const existingValue = oldCarePackage[m.dbKey as keyof CarePackages];
+          const processedPayloadValue = m.transform ? m.transform(payloadValue) : payloadValue;
+
+          if (processedPayloadValue !== undefined && processedPayloadValue !== existingValue) {
+            updatedCpFields[m.dbKey as keyof CarePackages] = processedPayloadValue;
+          }
+        }
+      });
+
+      const newCp: CarePackages = {
+        ...oldCarePackage,
+        ...updatedCpFields,
+        updated_at: payload.updated_at || new Date().toISOString(), // Ensure updated_at is always fresh
+      };
+
+      const newCpItemDetails: CarePackageItemDetails[] = (payload.services || []).map((servicePayload) => {
+        const existingItem = oldCpItemDetails.find((oldItem) => oldItem.service_id === servicePayload.id);
+        return {
+          id: existingItem ? existingItem.id : undefined, // Reuse DB ID if service matches, else undefined for new
+          care_package_id: oldCarePackage.id,
+          service_id: servicePayload.id,
+          care_package_item_details_quantity: servicePayload.quantity,
+          care_package_item_details_discount: servicePayload.discount,
+          care_package_item_details_price: servicePayload.price,
+        };
+      });
+
+      return {
+        old: {
+          care_packages: [oldCarePackage],
+          care_package_item_details: oldCpItemDetails,
+        },
+        new: {
+          care_packages: [newCp],
+          care_package_item_details: newCpItemDetails,
+        },
+      };
+    } catch (error) {
+      console.error('Error emulating update care package:', error);
+      if (error instanceof Error) {
+        throw new Error(`Error emulating update care package: ${error.message}`);
+      }
+      throw new Error('An unknown error occurred while emulating update care package');
+    }
+  }
+
+  async function em_delete(payload: emulatePayload) {
+    try {
+      if (!payload.id) {
+        throw new Error('Payload must include an id for the care package to delete.');
+      }
+
+      const cpSql: string = 'SELECT * FROM care_packages WHERE id = $1';
+      const cpItemDetailsSql: string = 'SELECT * FROM care_package_item_details WHERE care_package_id = $1';
+
+      const { rows: cpRows } = await pool().query<CarePackages>(cpSql, [payload.id]);
+      if (cpRows.length === 0) {
+        throw new Error(`Care package with id ${payload.id} not found for deletion.`);
+      }
+      const oldCarePackage: CarePackages = cpRows[0];
+      const { rows: oldCpItemDetails } = await pool().query<CarePackageItemDetails>(cpItemDetailsSql, [
+        oldCarePackage.id,
+      ]);
+
+      return {
+        old: {
+          care_packages: [oldCarePackage],
+          care_package_item_details: oldCpItemDetails,
+        },
+        new: {
+          care_packages: [],
+          care_package_item_details: [],
+        },
+      };
+    } catch (error) {
+      console.error('Error emulating delete care package:', error);
+      if (error instanceof Error) {
+        throw new Error(`Error emulating delete care package: ${error.message}`);
+      }
+      throw new Error('An unknown error occurred while emulating delete care package');
+    }
+  }
+
+  const handler = handlers[method.toUpperCase() as keyof typeof handlers];
+  if (handler) {
+    return handler(payload);
+  } else {
+    throw new Error(`Unsupported method: ${method}`);
+  }
+};
+
 export default {
   getPaginatedCarePackages,
   getCarePackageById,
   createCarePackage,
   updateCarePackageById,
   deleteCarePackageById,
+  emulateCarePackage,
 };

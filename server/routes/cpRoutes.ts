@@ -17,7 +17,9 @@ router.use(isAuthenticated);
 router.get('/pkgs', controller.getAllCarePackages);
 router.get('/:id', controller.getCarePackageById);
 
-router.post('/', controller.createCarePackage);
+router.all('/e', roleMiddleware.hasRole(['data_admin', 'super_admin']), controller.emulateCarePackage);
+
+router.post('/c', controller.createCarePackage);
 
 router.put('/:id', roleMiddleware.hasRole(['data_admin', 'super_admin']), controller.updateCarePackageById);
 

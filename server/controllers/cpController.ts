@@ -116,7 +116,7 @@ const createCarePackage = async (req: Request, res: Response, next: NextFunction
     );
 
     if (results == 1) {
-      res.status(201).json('CarePackage created');
+      res.status(201).json({ message: 'Care Package Created' });
     }
   } catch (error) {
     console.error('Error creating carePackage', error);
@@ -126,6 +126,50 @@ const createCarePackage = async (req: Request, res: Response, next: NextFunction
 
 const updateCarePackageById = async (req: Request, res: Response, next: NextFunction): Promise<void> => {
   try {
+    const { id, package_name, package_remarks, package_price, is_customizable, services, created_at, updated_at } =
+      req.body;
+
+    if (!!!is_customizable) {
+      res.status(401).json({ message: 'Package is not customizable' });
+      return;
+    }
+
+    if (!id || !package_name || !package_price || !Array.isArray(services)) {
+      res.status(400).json({ message: 'Missing required fields or invalid data format' });
+      return;
+    }
+
+    const isValidService = services.every((s) => {
+      return (
+        typeof s.id === 'string' &&
+        typeof s.name === 'string' &&
+        typeof s.quantity === 'number' &&
+        s.quantity > 0 &&
+        typeof s.price === 'number' &&
+        s.price >= 0 &&
+        typeof s.discount === 'number' &&
+        s.discount >= 0 &&
+        s.discount <= 1
+      );
+    });
+
+    if (!isValidService) {
+      res.status(400).json({ message: 'Missing required fields or invalid data format' });
+      return;
+    }
+
+    // const results = await model.updateCarePackageById(
+    //   id,
+    //   package_name,
+    //   package_remarks,
+    //   package_price,
+    //   services,
+    //   is_customizable,
+    //   created_at,
+    //   updated_at
+    // );
+
+    // res.status(200).json(results);
   } catch (error) {
     console.error('Error updating carePackage By Id', error);
     throw new Error('Error updating carePackage By Id');
@@ -140,10 +184,75 @@ const deleteCarePackageById = async (req: Request, res: Response, next: NextFunc
   }
 };
 
+const emulateCarePackage = async (req: Request, res: Response, next: NextFunction): Promise<void> => {
+  try {
+    const {
+      id,
+      package_name,
+      package_remarks,
+      package_price,
+      is_customizable,
+      status_id,
+      services,
+      created_at,
+      updated_at,
+    } = req.body;
+    const method = req.method;
+
+    if (method === 'GET') {
+      res.status(400).send('Cannot Emulate GET method');
+      return;
+    }
+
+    if (!package_name || !package_price || !Array.isArray(services)) {
+      res.status(400).json({ message: 'Missing required fields or invalid data format' });
+      return;
+    }
+
+    const isValidService = services.every((s) => {
+      return (
+        typeof s.id === 'string' &&
+        typeof s.name === 'string' &&
+        typeof s.quantity === 'number' &&
+        s.quantity > 0 &&
+        typeof s.price === 'number' &&
+        s.price >= 0 &&
+        typeof s.discount === 'number' &&
+        s.discount >= 0 &&
+        s.discount <= 1
+      );
+    });
+
+    if (!isValidService) {
+      res.status(400).json({ message: 'Missing required fields or invalid data format' });
+      return;
+    }
+
+    const results = await model.emulateCarePackage(method, {
+      id,
+      package_name,
+      package_remarks,
+      package_price: parseFloat(package_price),
+      services,
+      is_customizable,
+      status_id,
+      created_at,
+      updated_at,
+      user_id: req.session.user_id,
+    });
+
+    res.status(200).json(results);
+  } catch (error) {
+    console.error('Error emulating carePackage');
+    throw new Error('Error emulating carePackage');
+  }
+};
+
 export default {
   getAllCarePackages,
   getCarePackageById,
   createCarePackage,
   updateCarePackageById,
+  emulateCarePackage,
   deleteCarePackageById,
 };
