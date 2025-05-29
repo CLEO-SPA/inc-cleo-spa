@@ -1,6 +1,6 @@
 import { pool } from '../config/database.js';
 import { PaginatedOptions, PaginatedReturn } from '../types/common.types.js';
-import { CarePackageItemDetails, CarePackageItems, CarePackages } from '../types/model.types.js';
+import { CarePackageItemDetails, CarePackages } from '../types/model.types.js';
 import { encodeCursor } from '../utils/cursorUtils.js';
 
 const getPaginatedCarePackages = async (
@@ -168,21 +168,21 @@ const deleteCarePackageById = async (id: string) => {};
 
 interface emulatePayload {
   id?: string;
-  package_name?: string;
-  package_remarks?: string;
-  package_price?: number;
-  services?: {
+  package_name: string;
+  package_remarks: string;
+  package_price: number;
+  services: {
     id: string;
     name: string;
     quantity: number;
     price: number;
     discount: number;
   }[];
-  is_customizable?: boolean;
-  status_id?: string;
-  created_at?: string;
-  updated_at?: string;
-  user_id?: string;
+  is_customizable: boolean;
+  status_id: string;
+  created_at: string;
+  updated_at: string;
+  user_id: string;
 }
 
 interface FieldMapping {
@@ -237,7 +237,7 @@ const emulateCarePackage = async (method: string, payload: emulatePayload) => {
         payload.services.forEach((service, idx) => {
           newCpItemDetails.push({
             id: (lastCpItemDetailsId + idx + 1).toString(),
-            care_package_id: newCp.id,
+            care_package_id: newCp.id!,
             service_id: service.id,
             care_package_item_details_quantity: service.quantity,
             care_package_item_details_discount: service.discount,
@@ -319,7 +319,7 @@ const emulateCarePackage = async (method: string, payload: emulatePayload) => {
         const existingItem = oldCpItemDetails.find((oldItem) => oldItem.service_id === servicePayload.id);
         return {
           id: existingItem ? existingItem.id : undefined, // Reuse DB ID if service matches, else undefined for new
-          care_package_id: oldCarePackage.id,
+          care_package_id: oldCarePackage.id!, // non-null assertion
           service_id: servicePayload.id,
           care_package_item_details_quantity: servicePayload.quantity,
           care_package_item_details_discount: servicePayload.discount,

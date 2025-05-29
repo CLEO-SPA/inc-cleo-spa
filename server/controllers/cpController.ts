@@ -238,7 +238,7 @@ const emulateCarePackage = async (req: Request, res: Response, next: NextFunctio
       status_id,
       created_at,
       updated_at,
-      user_id: req.session.user_id,
+      user_id: req.session.user_id!,
     });
 
     res.status(200).json(results);

@@ -14,6 +14,7 @@ import controller from '../controllers/cpController.js';
 // Private routes
 // =========================
 router.use(isAuthenticated);
+
 router.get('/pkgs', controller.getAllCarePackages);
 router.get('/:id', controller.getCarePackageById);
 
