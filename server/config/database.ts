@@ -1,4 +1,4 @@
-import pg, { Pool, PoolConfig, QueryResult, QueryConfig, ClientConfig, QueryResultRow, PoolClient } from 'pg';
+import pg, { Pool } from 'pg';
 import 'dotenv/config';
 import { parseConnectionString } from '../utils/dbConnectionParser.js';
 

@@ -40,6 +40,22 @@ export interface MemberCarePackages {
   [key: string]: any;
 }
 
+export interface CarePackageItemDetails {
+  id?: string;
+  care_package_item_details_quantity?: number;
+  care_package_item_details_discount?: number;
+  care_package_item_details_price?: number;
+  service_id?: string;
+  care_package_id?: string;
+}
+
+export interface CarePackageItems {
+  id?: string;
+  care_package_id?: string;
+  created_at?: string;
+  updated_at?: string;
+}
+
 export interface SystemParameters {
   id: string;
   start_date_utc: string;
