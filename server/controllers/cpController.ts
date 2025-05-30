@@ -78,8 +78,16 @@ const getCarePackageById = async (req: Request, res: Response, next: NextFunctio
 
 const createCarePackage = async (req: Request, res: Response, next: NextFunction): Promise<void> => {
   try {
-    const { package_name, package_remarks, package_price, is_customizable, services, created_at, updated_at } =
-      req.body;
+    const {
+      package_name,
+      package_remarks,
+      package_price,
+      is_customizable,
+      employee_id,
+      services,
+      created_at,
+      updated_at,
+    } = req.body;
 
     if (!package_name || !package_price || !Array.isArray(services)) {
       res.status(400).json({ message: 'Missing required fields or invalid data format' });
@@ -88,15 +96,18 @@ const createCarePackage = async (req: Request, res: Response, next: NextFunction
 
     const isValidService = services.every((s) => {
       return (
-        typeof s.id === 'string' &&
-        typeof s.name === 'string' &&
-        typeof s.quantity === 'number' &&
-        s.quantity > 0 &&
-        typeof s.price === 'number' &&
-        s.price >= 0 &&
-        typeof s.discount === 'number' &&
-        s.discount >= 0 &&
-        s.discount <= 1
+        typeof s.id === 'string' ||
+        (typeof s.id === 'number' &&
+          typeof s.name === 'string' &&
+          typeof s.quantity === 'number' &&
+          s.quantity > 0 &&
+          typeof s.price === 'number' &&
+          s.price >= 0 &&
+          typeof s.finalPrice === 'number' &&
+          s.finalPrice >= 0 &&
+          typeof s.discount === 'number' &&
+          s.discount >= 0 &&
+          s.discount <= 1)
       );
     });
 
@@ -110,14 +121,13 @@ const createCarePackage = async (req: Request, res: Response, next: NextFunction
       package_remarks,
       parseFloat(package_price),
       services,
-      is_customizable,
+      !!!is_customizable,
+      employee_id || req.session.user_id,
       created_at,
       updated_at
     );
 
-    if (results == 1) {
-      res.status(201).json({ message: 'Care Package Created' });
-    }
+    res.status(201).json(results);
   } catch (error) {
     console.error('Error creating carePackage', error);
     throw new Error('Error creating carePackage');

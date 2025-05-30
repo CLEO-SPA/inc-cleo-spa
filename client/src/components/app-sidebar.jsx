@@ -1,5 +1,5 @@
 import * as React from 'react';
-import { Command, Users, CalendarDays, ShieldUser, Box, Wand, LayoutDashboard } from 'lucide-react';
+import { Command, Users, CalendarDays, ShieldUser, Box, Wand, LayoutDashboard, Package, Tickets } from 'lucide-react';
 import { NavMain } from '@/components/nav-main';
 import { NavUser } from '@/components/nav-user';
 import {
@@ -68,6 +68,36 @@ const data = {
         {
           title: 'Manage Products',
           url: '#',
+        },
+      ],
+    },
+    {
+      title: 'Vouchers',
+      url: '#',
+      icon: Tickets,
+      items: [
+        {
+          title: 'Create Voucher',
+          url: '#',
+        },
+        {
+          title: 'Manage Vouchers',
+          url: '#',
+        },
+      ],
+    },
+    {
+      title: 'Care Packages',
+      url: '#',
+      icon: Package,
+      items: [
+        {
+          title: 'Create Care Package',
+          url: '#',
+        },
+        {
+          title: 'Manage Care Packages',
+          url: '/mcp',
         },
       ],
     },
