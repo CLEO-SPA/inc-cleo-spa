@@ -1,12 +1,21 @@
 import { create } from 'zustand';
 import api from '@/services/api';
 
-const getInitialState = () => ({
+import { 
+    DataToExportList,
+    UnusedMemberVoucherData,
+    UnusedMemberCarePackageData, 
+    MemberDetailsData, 
+    DataExportState, 
+    UseDataExportStore 
+} from '../types/dataExport';
+
+const getInitialState = (): DataExportState=> ({
     loading: false,
     success: false,
     error: false,
     errorMessage: null,
-    dataExportList: [],
+    dataExportList: null,
     columns: [],
     selectedTable: null,
     isSelectingUnusedMemberVoucher: false,
@@ -15,80 +24,83 @@ const getInitialState = () => ({
     timeInput: null
 });
 
-const useDataExportStore = create((set, get) => ({
+const useDataExportStore = create<UseDataExportStore>((set, get) => ({
 
-    ...getInitialState,
+    ...getInitialState(),
 
-    fetchMemberDetails: async () => {
+    fetchMemberDetails: async (): Promise<void> => {
 
         set({ loading: true, success: false, error: false })
 
         try {
             const response = await api.get(`placeholder`);
-            const dataToExport = response.data.data;
+            const dataToExport: DataToExportList<MemberDetailsData> = response.data.data;
 
             set({
                 loading: false,
                 success: true,
                 error: false,
-                errorMessage: false,
+                errorMessage: null,
                 dataExportList: dataToExport
             });
 
         } catch (error) {
             console.error(`Error fetching Member Details: ${error}`);
-            set({ error: error.message, loading: false });
+            const errorMessage = error instanceof Error ? error.message: "Unknown error";
+            set({ error: true, errorMessage: errorMessage, loading: false });
         }
 
     },
 
-    fetchMinimumTimeSinceUsedOfMemberVoucher: async (time) => {
+    fetchMinimumTimeSinceUsedOfMemberVoucher: async (time: number): Promise<void> => {
 
         set({ loading: true, success: false, error: false })
 
         try {
             const response = await api.get(`placeholder?time=${time}`);
-            const dataToExport = response.data.data;
+            const dataToExport: DataToExportList<UnusedMemberVoucherData> = response.data.data;
 
             set({
                 loading: false,
                 success: true,
                 error: false,
-                errorMessage: false,
+                errorMessage: null,
                 dataExportList: dataToExport
             });
 
         } catch (error) {
             console.error(`Error fetching Member Vouchers that were unused for the stated amount of time and its details: ${error}`);
-            set({ error: error.message, loading: false });
+            const errorMessage = error instanceof Error ? error.message: "Unknown error";
+            set({ error: true, errorMessage: errorMessage, loading: false });
         }
 
     },
 
-    fetchMinimumTimeSinceUsedOfMemberCarePackage: async (time) => {
+    fetchMinimumTimeSinceUsedOfMemberCarePackage: async (time: number): Promise<void> => {
 
         set({ loading: true, success: false, error: false })
 
         try {
             const response = await api.get(`placeholder?time=${time}`);
-            const dataToExport = response.data.data;
+            const dataToExport: DataToExportList<UnusedMemberCarePackageData> = response.data.data;
 
             set({
                 loading: false,
                 success: true,
                 error: false,
-                errorMessage: false,
+                errorMessage: null,
                 dataExportList: dataToExport
             });
 
         } catch (error) {
             console.error(`Error fetching Member Care Packages that were unused for the stated amount of time and its details: ${error}`);
-            set({ error: error.message, loading: false });
+            const errorMessage = error instanceof Error ? error.message: "Unknown error";
+            set({ error: true, errorMessage: errorMessage, loading: false });
         }
 
     },
 
-    getDataToExport: async () => {
+    getDataToExport: async (): Promise<void> => {
         
         const {selectedTable, timeInput} = get();
 
@@ -97,15 +109,15 @@ const useDataExportStore = create((set, get) => ({
         }
 
         if (selectedTable === "unused-member-voucher") {
-            await get().fetchMinimumTimeSinceUsedOfMemberVoucher(timeInput);
+            await get().fetchMinimumTimeSinceUsedOfMemberVoucher(timeInput? timeInput : 7);
         }
 
         if (selectedTable === "unused-member-care-package") {
-            await get().fetchMinimumTimeSinceUsedOfMemberCarePackage(timeInput);
+            await get().fetchMinimumTimeSinceUsedOfMemberCarePackage(timeInput? timeInput : 7);
         }
     },
 
-    setSelectedTable: (value) => {
+    setSelectedTable: (value: string): void => {
         set({ selectedTable: value })
 
         if (value === 'member-details') {
@@ -123,17 +135,17 @@ const useDataExportStore = create((set, get) => ({
         }
     },
 
-    setTimeInput: (value) => set({ timeInput: value }),
+    setTimeInput: (value: number): void => set({ timeInput: value }),
 
-    setExportFormat: (value) => set({ exportFormat: value }),
+    setExportFormat: (value: string): void => set({ exportFormat: value }),
 
-    setErrorMessage: (value) => set({ errorMessage: value }),
+    setErrorMessage: (value: string): void=> set({ errorMessage: value }),
 
-    setLoading: (value) => set({ loading: value }),
+    setLoading: (value: boolean): void => set({ loading: value }),
 
-    setColumns: (value) => set({ columns: value}),
+    setColumns: (value: string[]): void => set({ columns: value}),
 
-    reset: () => (set(getInitialState))
+    reset: (): void => (set(getInitialState))
 }));
 
 export default useDataExportStore;

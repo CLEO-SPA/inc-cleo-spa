@@ -1,6 +1,7 @@
 import useDataExportStore from "@/stores/useDataExportStore";
 import * as XLSX from "xlsx";
 import { Loader2 } from 'lucide-react';
+import { DataToExportList } from '../types/dataExport';
 
 // Assuming that the data is like this: 
 /* const data: [
@@ -14,25 +15,25 @@ import { Loader2 } from 'lucide-react';
 ] 
  */
 
-const convertToExcel = (data, selectedTable) => {
-    const worksheet = XLSX.utils.json_to_sheet(data);
+const convertToExcel = (data: DataToExportList<any>, selectedTable: string) => {
+    const worksheet = XLSX.utils.json_to_sheet(data.dataToExportList);
     const workbook = XLSX.utils.book_new();
-    XLSX.utils.book_append_sheet(worksheet, workbook, selectedTable);
+    XLSX.utils.book_append_sheet(workbook, worksheet, selectedTable);
 
     const wbout = XLSX.write(workbook, { bookType: "xlsx", type: "array" });
     return wbout;
 }
 
-const convertToJSON = (data) => {
+const convertToJSON = (data: DataToExportList<any>) => {
     return JSON.stringify(data, null, 2);
 };
 
-const convertToCSV = (data, columns) => {
+const convertToCSV = (data: DataToExportList<any>, columns: string[]) => {
     let csv = '';
 
     csv = columns.join(',') + '\n';
 
-    data.forEach((object) => {
+    data.dataToExportList.forEach((object) => {
         const row = columns.map(col => {
             const value = String(object[col] || '');
             return value.includes(',') ? `"${value}"` : value;
@@ -74,6 +75,10 @@ const ExportDataButton = () => {
             const { dataExportList } = useDataExportStore.getState();
             const data = dataExportList;
 
+            if (data === null) {
+                throw new Error('No data available for export');
+            }
+
             switch (exportFormat) {
                 case "json":
                     content = convertToJSON(data);
@@ -106,8 +111,10 @@ const ExportDataButton = () => {
             document.body.removeChild(link);
             URL.revokeObjectURL(url);
         } catch (error) {
-            setErrorMessage('Failed to export data. Please try again.');
+            const errorMessage = error instanceof Error ? error.message: "Unknown error";
+            setErrorMessage(errorMessage);
             setLoading(false);
+            
             console.error('Error exporting data:', error);
         } finally {
             setLoading(false);

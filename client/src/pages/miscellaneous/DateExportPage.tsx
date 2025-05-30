@@ -1,4 +1,4 @@
-import * as React from 'react';
+// import React from 'react';
 
 import useDataExportStore from '@/stores/useDataExportStore';
 import SelectedTableColumnList from '@/components/selectedTableColumnList';
@@ -14,11 +14,21 @@ const DataExport = () => {
         timeInput,
         isSelectingUnusedMemberVoucher,
         isSelectingUnusedMemberCarePackage,
-        
+
         setSelectedTable,
         setTimeInput,
         setExportFormat
     } = useDataExportStore();
+
+    if (!selectedTable) {
+        return (
+            <div className="fixed inset-0 bg-black bg-opacity-50 flex justify-center items-center">
+                <div className="bg-white p-6 rounded">
+                    <p>Loading membership data...</p>
+                </div>
+            </div>
+        );
+    }
 
     return (
         <div>
@@ -68,13 +78,16 @@ const DataExport = () => {
                                 <label className="block text-sm font-medium mb-2" htmlFor="unused-days-input">
                                     Minimum Time Since Use (Days)
                                 </label>
-                                <input id="unused-days-input" 
-                                 type="number"
-                                 min="0"
-                                 value={timeInput}
-                                 onChange={(e) => setTimeInput(e.target.value)}
-                                 required
-                                 />
+                                <input id="unused-days-input"
+                                    type="number"
+                                    min="0"
+                                    value={timeInput || 0}
+                                    onChange={(e) => {
+                                        const value = Number(e.target.value);
+                                        setTimeInput(isNaN(value) ? 0 : value);
+                                    }}
+                                    required
+                                />
                             </div>
                         )}
 
@@ -86,7 +99,7 @@ const DataExport = () => {
                             </label>
                             <select
                                 id="format-select"
-                                value={exportFormat}
+                                value={exportFormat || 'csv'}
                                 onChange={(e) => setExportFormat(e.target.value)}
                                 className="w-full p-2 border rounded-md bg-white shadow-sm focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
                             >
