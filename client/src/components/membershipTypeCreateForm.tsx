@@ -1,25 +1,37 @@
-import * as React from 'react';
+import React, { useState } from 'react';
 // import button from '@/components/ui/button';
+
+import { NewMembershipType } from '@/types/membershipType';
 import ConfirmationPopUp from './confirmationPopUp';
 import useMembershipTypeStore from '@/stores/useMembershipTypeStore';
 
 const MembershipTypeCreateForm = () => {
 
-    const [showConfirm, setShowConfirm] = useState(false);
-    const [formValues, setFormValues] = useState({});
+    const [showConfirm, setShowConfirm] = useState<boolean>(false);
+    const [formValues, setFormValues] = useState<NewMembershipType>({
+        membership_type_name: '',
+        default_percentage_discount_for_products: 0,
+        default_percentage_discount_for_services: 0,
+        created_by: 0
+    });
 
     const {
         isCreating,
         loading,
         setIsCreating,
         createMembershipType
-    } = useMembershipTypeStore;
+    } = useMembershipTypeStore();
 
     // This is used to retrieve the form fields and set up the confirm pop-up
-    const handleSubmit = async (e) => {
+    const handleSubmit = async (e: React.FormEvent<HTMLFormElement>) => {
         e.preventDefault();
-        const formData = new FormData(e.target);
-        const data = Object.fromEntries(formData);
+        const formData = new FormData(e.currentTarget);
+        const data: NewMembershipType = {
+            membership_type_name: formData.get('membership_type_name') as string,
+            default_percentage_discount_for_products: Number(formData.get('default_percentage_discount_for_products')),
+            default_percentage_discount_for_services: Number(formData.get('default_percentage_discount_for_services')),
+            created_by: Number(formData.get('created_by'))
+        }
         console.log(data);
 
         setFormValues(data);
@@ -65,6 +77,18 @@ const MembershipTypeCreateForm = () => {
                         </div>
 
                         <div>
+                            <label className="block mb-2">Default Products Discount(%)</label>
+                            <input
+                                id="default_percentage_products_discount"
+                                type="number"
+                                name="default_discount_for_products"
+                                className="w-full border rounded p-2"
+                                required
+                                disabled={loading}
+                            />
+                        </div>
+
+                        <div>
                             <label className="block mb-2">Default Services Discount(%)</label>
                             <input
                                 id="default_percentage_services_discount"
@@ -76,18 +100,18 @@ const MembershipTypeCreateForm = () => {
                             />
                         </div>
 
-                        <div>
-                            <label className="block mb-2">Default Products Discount(%)</label>
+                        {/* Created By field not done. Waiting for Employee store to finish */}
+                        {/* <div>
+                            <label className="block mb-2">Created By</label>
                             <input
-                                id="default_percentage_products_discount"
+                                id="created_by"
                                 type="number"
-                                name="default_discount_for_products"
+                                name="created_by"
                                 className="w-full border rounded p-2"
                                 required
                                 disabled={loading}
                             />
-                        </div>
-                        {/* NOT DONE STILL HAVE FIELDS */}
+                        </div> */}
                         <div className="p-6 border-t bg-gray-50">
                             <div className="flex justify-end gap-2">
                                 <button

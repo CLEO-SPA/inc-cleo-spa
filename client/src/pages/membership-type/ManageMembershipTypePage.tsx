@@ -1,17 +1,15 @@
 import React, { useEffect } from 'react';
-import Navbar from '@/components/Navbar';
+// import Navbar from '@/components/Navbar';
 import useMembershipStore from '@/stores/useMembershipTypeStore';
 
-// Import your components
 import MembershipTypeList from '@/components/membershipTypeList';
-import CreateMembershipForm from '@/components/membership/CreateMembershipForm';
+import CreateMembershipForm from '@/components/membershipTypeCreateForm';
 
 const MembershipTypePage = () => {
   const { 
     initialize, 
     error,
     loading,
-
     isCreating,
 
     setIsCreating
@@ -24,7 +22,7 @@ const MembershipTypePage = () => {
 
   return (
     <div>
-      <Navbar />
+      {/* <Navbar /> */}
       
       {/* Header */}
       <div className="flex justify-between items-center m-6">
