@@ -49,13 +49,20 @@ const createMember = async (req: Request, res: Response, next: NextFunction) => 
 // Update an existing member
 const updateMember = async (req: Request, res: Response, next: NextFunction) => {
   try {
-    const updatedMember = await model.updateMember(req.body);
+    const { id } = req.params;
+
+    const updatedMember = await model.updateMember({
+      ...req.body,
+      id: Number(id),
+    });
+
     res.status(200).json(updatedMember);
   } catch (error) {
     console.error('Error in updateMember:', error);
     res.status(500).json({ message: 'Failed to update member' });
   }
 };
+
 
 // Delete a member by ID
 const deleteMember = async (req: Request, res: Response, next: NextFunction) => {
