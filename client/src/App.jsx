@@ -11,6 +11,7 @@ import HomePage from '@/pages/HomePage';
 import LoginPage from '@/pages/LoginPage';
 import ResetPasswordPage from '@/pages/ResetPasswordPage';
 import NotFoundPage from '@/pages/404Page';
+import ManageCarePackagesPage from './pages/CarePackages/ManageCarePackagesPage';
 
 function App() {
   return (
@@ -21,6 +22,7 @@ function App() {
           <Routes>
             <Route path='/' element={<ProtectedRoute />}>
               <Route index element={<HomePage />} />
+              <Route path='/mcp' element={<ManageCarePackagesPage />} />
             </Route>
             <Route path='/login' element={<LoginPage />} />
 
