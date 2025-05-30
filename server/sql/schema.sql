@@ -1,7 +1,6 @@
 -- Drop Tables
 DROP TABLE IF EXISTS "care_packages" CASCADE;
 DROP TABLE IF EXISTS "care_package_item_details" CASCADE;
-DROP TABLE IF EXISTS "care_package_items" CASCADE;
 DROP TABLE IF EXISTS "employees" CASCADE;
 DROP TABLE IF EXISTS "serving_employee_to_invoice_items" CASCADE;
 DROP TABLE IF EXISTS "refunds" CASCADE;
@@ -79,16 +78,6 @@ CREATE TABLE "care_package_item_details" (
     "care_package_id" BIGINT NOT NULL,
 
     CONSTRAINT "care_package_item_details_pkey" PRIMARY KEY ("id")
-);
-
--- CreateTable
-CREATE TABLE "care_package_items" (
-    "id" BIGSERIAL NOT NULL,
-    "care_package_id" BIGINT NOT NULL,
-    "created_at" TIMESTAMPTZ(6) NOT NULL DEFAULT CURRENT_TIMESTAMP,
-    "updated_at" TIMESTAMPTZ(6) NOT NULL,
-
-    CONSTRAINT "care_package_items_pkey" PRIMARY KEY ("id")
 );
 
 -- CreateTable
@@ -650,9 +639,6 @@ ALTER TABLE "care_package_item_details" ADD CONSTRAINT "care_package_item_detail
 
 -- AddForeignKey
 ALTER TABLE "care_package_item_details" ADD CONSTRAINT "care_package_item_details_service_id_fkey" FOREIGN KEY ("service_id") REFERENCES "services"("id") ON DELETE RESTRICT ON UPDATE CASCADE;
-
--- AddForeignKey
-ALTER TABLE "care_package_items" ADD CONSTRAINT "care_package_items_care_package_id_fkey" FOREIGN KEY ("care_package_id") REFERENCES "care_packages"("id") ON DELETE CASCADE ON UPDATE CASCADE;
 
 -- AddForeignKey
 ALTER TABLE "employees" ADD CONSTRAINT "employees_position_id_fkey" FOREIGN KEY ("position_id") REFERENCES "positions"("id") ON DELETE SET NULL ON UPDATE CASCADE;
