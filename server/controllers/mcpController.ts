@@ -63,6 +63,56 @@ const getAllMemberCarePackages = async (req: Request, res: Response, next: NextF
   }
 };
 
+const createMemberCarePackage = async (req: Request, res: Response, next: NextFunction): Promise<void> => {
+  try {
+    const { package_name, member_id, employee_id, package_remarks, package_price, services, created_at, updated_at } =
+      req.body;
+
+    if (!package_name || !member_id || !employee_id || !package_price || !Array.isArray(services)) {
+      res.status(400).json({ message: 'Missing required fields or invalid data format' });
+      return;
+    }
+
+    const isValidService = services.every((s) => {
+      return (
+        typeof s.id === 'string' &&
+        typeof s.name === 'string' &&
+        typeof s.quantity === 'number' &&
+        s.quantity > 0 &&
+        typeof s.price === 'number' &&
+        s.price >= 0 &&
+        typeof s.finalPrice === 'number' &&
+        s.finalPrice >= 0 &&
+        typeof s.discount === 'number' &&
+        s.discount >= 0 &&
+        s.discount <= 1
+      );
+    });
+
+    if (!isValidService) {
+      res.status(400).json({ message: 'Missing required fields or invalid data format' });
+      return;
+    }
+
+    const results = await model.createMemberCarePackage(
+      package_name,
+      member_id,
+      employee_id,
+      package_remarks,
+      parseFloat(package_price),
+      services,
+      created_at,
+      updated_at
+    );
+
+    res.status(201).json(results);
+  } catch (error) {
+    console.error('Error creating member care package', error);
+    throw new Error('Error creating member care package');
+  }
+};
+
 export default {
   getAllMemberCarePackages,
+  createMemberCarePackage,
 };

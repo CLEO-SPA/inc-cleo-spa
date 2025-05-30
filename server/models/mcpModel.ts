@@ -1,6 +1,6 @@
 import { pool } from '../config/database.js';
 import { PaginatedOptions, PaginatedReturn } from '../types/common.types.js';
-import { MemberCarePackages } from '../types/model.types.js';
+import { Employees, MemberCarePackages, MemberCarePackagesDetails } from '../types/model.types.js';
 import { encodeCursor } from '../utils/cursorUtils.js';
 
 const getPaginatedMemberCarePackages = async (
@@ -114,6 +114,132 @@ const getPaginatedMemberCarePackages = async (
   }
 };
 
+interface servicePayload {
+  id: string;
+  name: string;
+  quantity: number;
+  price: number;
+  finalPrice: number;
+  discount: number;
+}
+
+const createMemberCarePackage = async (
+  package_name: string,
+  member_id: string,
+  employee_id: string,
+  package_remarks: string,
+  package_price: number,
+  services: servicePayload[],
+  created_at: string,
+  updated_at: string
+) => {
+  const client = await pool().connect();
+
+  try {
+    await client.query('BEGIN');
+
+    const v_member_sql = 'SELECT id FROM members WHERE id = $1';
+    const v_employee_sql = 'SELECT id FROM employees WHERE id = $1';
+    const v_status_sql = 'SELECT get_or_create_status($1) as id';
+
+    const [memberResult, employeeResult, statusResult] = await Promise.all([
+      client.query(v_member_sql, [member_id]),
+      client.query<Employees>(v_employee_sql, [employee_id]),
+      client.query<{ id: string }>(v_status_sql, ['ENABLED']),
+    ]);
+
+    if (memberResult.rowCount === 0) {
+      throw new Error(`Invalid member_id: ${member_id} does not exist.`);
+    }
+    if (employeeResult.rowCount === 0) {
+      throw new Error(`Invalid employee_id: ${employee_id} does not exist.`);
+    }
+    if (!statusResult.rows || statusResult.rows.length === 0 || !statusResult.rows[0].id) {
+      throw new Error('Failed to get or create status ID.');
+    }
+    const statusId = statusResult.rows[0].id;
+
+    const i_mcp_sql = `
+      INSERT INTO member_care_packages
+      (member_id, employee_id, package_name, package_remarks, status_id, total_price, created_at, updated_at)
+      VALUES ($1, $2, $3, $4, $5, $6, $7, $8) RETURNING id
+    `;
+    const { rows: mcpRows } = await client.query<{ id: string }>(i_mcp_sql, [
+      member_id,
+      employee_id,
+      package_name,
+      package_remarks,
+      statusId,
+      package_price,
+      created_at,
+      updated_at,
+    ]);
+
+    if (!mcpRows || mcpRows.length === 0 || !mcpRows[0].id) {
+      throw new Error('Failed to insert member care package or retrieve its ID.');
+    }
+    const memberCarePackageId = mcpRows[0].id;
+
+    const i_mcpd_sql = `
+      INSERT INTO member_care_package_details
+      (service_name, discount, price, member_care_package_id, service_id, status_id, quantity)
+      VALUES ($1, $2, $3, $4, $5, $6, $7) RETURNING id
+    `;
+    const i_mcptl_sql = `
+      INSERT INTO member_care_package_transaction_logs
+      (type, description, transaction_date, transaction_amount, amount_changed, member_care_package_details_id, employee_id, service_id, created_at)
+      VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9) RETURNING id
+    `;
+
+    const serviceProcessingPromises = services.map(async (service) => {
+      const { rows: mcpdRows } = await client.query<{ id: string }>(i_mcpd_sql, [
+        service.name,
+        service.discount,
+        service.price,
+        memberCarePackageId,
+        service.id,
+        statusId,
+        service.quantity,
+      ]);
+
+      if (!mcpdRows || mcpdRows.length === 0 || !mcpdRows[0].id) {
+        throw new Error(`Failed to insert detail for service ${service.name} or retrieve its ID.`);
+      }
+      const memberCarePackageDetailId = mcpdRows[0].id;
+
+      await client.query<{ id: string }>(i_mcptl_sql, [
+        'PURCHASE',
+        package_name,
+        created_at,
+        service.finalPrice,
+        service.finalPrice,
+        memberCarePackageDetailId,
+        employee_id,
+        service.id,
+        created_at,
+      ]);
+    });
+
+    await Promise.all(serviceProcessingPromises);
+
+    await client.query('COMMIT');
+
+    return {
+      memberCarePackageId: memberCarePackageId,
+    };
+  } catch (error) {
+    console.error('Error creating member care package:', error);
+    await client.query('ROLLBACK');
+    if (error instanceof Error) {
+      throw error;
+    }
+    throw new Error('An unexpected error occurred while creating the member care package.');
+  } finally {
+    client.release();
+  }
+};
+
 export default {
   getPaginatedMemberCarePackages,
+  createMemberCarePackage,
 };
