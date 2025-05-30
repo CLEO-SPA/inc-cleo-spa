@@ -1,6 +1,6 @@
 import { pool } from '../config/database.js';
 import { PaginatedOptions, PaginatedReturn } from '../types/common.types.js';
-import { CarePackageItemDetails, CarePackages } from '../types/model.types.js';
+import { CarePackageItemDetails, CarePackages, Employees } from '../types/model.types.js';
 import { encodeCursor } from '../utils/cursorUtils.js';
 
 const getPaginatedCarePackages = async (
@@ -128,37 +128,99 @@ const getCarePackageById = async (id: string) => {
   }
 };
 
+interface servicePayload {
+  id: string;
+  name: string;
+  quantity: number;
+  price: number;
+  finalPrice: number;
+  discount: number;
+}
+
 const createCarePackage = async (
   package_name: string,
   package_remarks: string,
   package_price: number,
-  services: object,
+  services: servicePayload[],
   is_customizable: boolean,
+  employee_id: string,
   created_at: string,
   updated_at: string
-): Promise<number> => {
-  const params = [package_name, package_remarks, package_price, !!!is_customizable, services, created_at, updated_at];
-
-  const sqlProcedureQuery = `
-      CALL create_care_package(
-        p_package_name := $1,
-        p_remarks := $2,
-        p_price := $3,
-        p_customizable := $4,
-        p_services := $5,
-        p_created_at := $6,
-        p_updated_at := $7
-      );
-    `;
+) => {
+  const client = await pool().connect();
   try {
-    const { rows } = await pool().query(sqlProcedureQuery, params);
+    await client.query('BEGIN');
 
-    console.log(rows);
+    const v_employee_sql = 'SELECT id FROM employees WHERE id = $1';
+    const v_status_sql = 'SELECT get_or_create_status($1) as id';
 
-    return 1;
+    const [employeeResult, statusResult] = await Promise.all([
+      client.query<Employees>(v_employee_sql, [employee_id]),
+      client.query<{ id: string }>(v_status_sql, ['ENABLED']),
+    ]);
+
+    if (employeeResult.rowCount === 0) {
+      throw new Error(`Invalid employee_id: ${employee_id} does not exist.`);
+    }
+    if (!statusResult.rows || statusResult.rows.length === 0 || !statusResult.rows[0].id) {
+      throw new Error('Failed to get or create status ID.');
+    }
+    const statusId = statusResult.rows[0].id;
+
+    const i_cp_sql = `
+      INSERT INTO care_packages
+      (care_package_name, care_package_remarks, care_package_price, care_package_customizable, status_id, created_by, last_updated_by, created_at, updated_at)
+      VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9) RETURNING id;
+    `;
+    const { rows: cpRows } = await client.query<{ id: string }>(i_cp_sql, [
+      package_name,
+      package_remarks,
+      package_price,
+      is_customizable,
+      statusId,
+      employee_id,
+      employee_id,
+      created_at,
+      updated_at,
+    ]);
+
+    if (!cpRows || cpRows.length === 0 || !cpRows[0].id) {
+      throw new Error('Failed to insert care package or retrieve its ID.');
+    }
+    const carePackageId = cpRows[0].id;
+
+    const i_cpid_sql = `
+      INSERT INTO care_package_item_details
+      (care_package_item_details_quantity, care_package_item_details_discount, care_package_item_details_price, service_id, care_package_id)
+      VALUES ($1, $2, $3, $4, $5) RETURNING id;
+    `;
+
+    const serviceProcessingPromise = services.map(async (service) => {
+      await client.query<{ id: string }>(i_cpid_sql, [
+        service.quantity,
+        service.discount,
+        service.finalPrice,
+        service.id,
+        carePackageId,
+      ]);
+    });
+
+    await Promise.all(serviceProcessingPromise);
+
+    await client.query('COMMIT');
+
+    return {
+      carePackageId: carePackageId,
+    };
   } catch (error) {
-    console.error('Error in CarePackageModel.createCarePackage:', error);
-    throw new Error('Could not create new care package');
+    console.error('Error creating care package:', error);
+    await client.query('ROLLBACK');
+    if (error instanceof Error) {
+      throw error;
+    }
+    throw new Error('An unexpected error occurred while creating the care package.');
+  } finally {
+    client.release();
   }
 };
 
@@ -171,13 +233,7 @@ interface emulatePayload {
   package_name: string;
   package_remarks: string;
   package_price: number;
-  services: {
-    id: string;
-    name: string;
-    quantity: number;
-    price: number;
-    discount: number;
-  }[];
+  services: servicePayload[];
   is_customizable: boolean;
   status_id: string;
   created_at: string;
