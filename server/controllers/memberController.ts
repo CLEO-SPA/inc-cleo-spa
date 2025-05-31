@@ -5,30 +5,35 @@ import model from '../models/memberModel.js';
 const getAllMembers = async (req: Request, res: Response, next: NextFunction) => {
   try {
     const {
-      page = '0',
+      page = '1',
       limit = '10',
       startDate_utc,
       endDate_utc,
       createdBy,
-      name,
-      phoneNumber,
+      search
     } = req.query;
 
-    const offset = parseInt(page as string) * parseInt(limit as string);
+    const offset = (parseInt(page as string)-1) * parseInt(limit as string);
     const pageLimit = parseInt(limit as string);
 
-    const members = await model.getAllMembers(
+    const result = await model.getAllMembers(
       offset,
       pageLimit,
       startDate_utc as string,
       endDate_utc as string,
       createdBy as string,
-      name as string,
-      phoneNumber as string
+      search as string
     );
 
-    res.status(200).json(members);
-  } catch (error) {
+      res.status(200).json({
+      data: result.members,
+      pageInfo: {
+        currentPage: parseInt(page as string),
+        totalPages: result.totalPages,
+        totalCount: result.members.length, // You might want to add this to your model
+        limit: pageLimit
+      }
+    });  } catch (error) {
     console.error('Error in getAllMembers:', error);
     res.status(500).json({ message: 'Failed to fetch members' });
   }

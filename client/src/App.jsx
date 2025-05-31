@@ -12,6 +12,7 @@ import LoginPage from '@/pages/LoginPage';
 import ResetPasswordPage from '@/pages/ResetPasswordPage';
 import NotFoundPage from '@/pages/404Page';
 import ManageCarePackagesPage from './pages/CarePackages/ManageCarePackagesPage';
+import ManageMembersPage from './pages/member/ManageMembersPage';
 
 function App() {
   return (
@@ -23,8 +24,10 @@ function App() {
             <Route path='/' element={<ProtectedRoute />}>
               <Route index element={<HomePage />} />
               <Route path='/mcp' element={<ManageCarePackagesPage />} />
+              <Route path='/member' element={<ManageMembersPage />} />
             </Route>
             <Route path='/login' element={<LoginPage />} />
+
 
             {/* Invitation & Reset Password */}
             <Route path='/invites' element={<ResetPasswordPage />} />

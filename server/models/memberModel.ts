@@ -2,6 +2,7 @@ import { pool, getProdPool as prodPool } from '../config/database.js';
 import { CreateMemberInput, UpdateMemberInput } from '../types/member.types.js';
 import { getMemberOutstandingAmounts } from '../services/paymentService.js';
 import { getLastVisitedDatesForMembers } from '../services/getLastVisitedDatesForMember.js';
+import { format } from 'date-fns';
 
 
 const getAllMembers = async (
@@ -10,8 +11,7 @@ const getAllMembers = async (
   startDate_utc?: string,
   endDate_utc?: string,
   createdBy?: string,
-  name?: string,
-  phoneNumber?: string
+  search?: string
 ) => {
   try {
     const filters: string[] = [];
@@ -38,15 +38,12 @@ const getAllMembers = async (
       }
     }
 
-    if (name) {
-      filters.push(`m.name ILIKE $${idx++}`);
-      values.push(`%${name}%`);
+    if (search) {
+      filters.push(`(m.name ILIKE $${idx} OR m.contact ILIKE $${idx})`);
+      values.push(`%${search}%`);
+      idx++;
     }
 
-    if (phoneNumber) {
-      filters.push(`m.contact ILIKE $${idx++}`);
-      values.push(`%${phoneNumber}%`);
-    }
 
     const whereClause = filters.length > 0 ? `WHERE ${filters.join(' AND ')}` : '';
 
@@ -83,11 +80,21 @@ const getAllMembers = async (
     const lastVisitedMap = await getLastVisitedDatesForMembers();
 
     const enrichedMembers = result.rows.map((member: any) => ({
-    ...member,
-     total_amount_owed: outstandingMap[member.id] || 0 , 
-     last_visit_date: lastVisitedMap[member.id] || null
-    }));
-
+  ...member,
+  total_amount_owed: outstandingMap[member.id] || 0,
+  last_visit_date: lastVisitedMap[member.id]
+    ? format(new Date(lastVisitedMap[member.id]), 'dd MMM yyyy, hh:mm a')
+    : null,
+  created_at: member.created_at
+    ? format(new Date(member.created_at), 'dd MMM yyyy, hh:mm a')
+    : null,
+  updated_at: member.updated_at
+    ? format(new Date(member.updated_at), 'dd MMM yyyy, hh:mm a')
+    : null,
+  dob: member.dob
+    ? format(new Date(member.dob), 'dd MMM yyyy')
+    : null,
+}));
 
     return {
       members: enrichedMembers,

@@ -14,11 +14,11 @@ export const getMemberOutstandingAmounts = async (): Promise<
         created_at
       FROM sale_transactions st1
       WHERE customer_type = 'member' 
-        AND (reference_sale_transaction_id = 0 
-             OR reference_sale_transaction_id IS NULL
+        AND (reference_sales_transaction_id = 0 
+             OR reference_sales_transaction_id IS NULL
              OR NOT EXISTS (
                SELECT 1 FROM sale_transactions st2 
-               WHERE st2.id = st1.reference_sale_transaction_id
+               WHERE st2.id = st1.reference_sales_transaction_id
              ))
 
       UNION ALL
@@ -30,7 +30,7 @@ export const getMemberOutstandingAmounts = async (): Promise<
         pc.root_transaction_id,
         st.created_at
       FROM sale_transactions st
-      INNER JOIN payment_chains pc ON st.reference_sale_transaction_id = pc.id
+      INNER JOIN payment_chains pc ON st.reference_sales_transaction_id = pc.id
       WHERE st.customer_type = 'member'
     ),
     latest_chain_status AS (

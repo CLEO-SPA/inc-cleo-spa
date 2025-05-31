@@ -9,8 +9,7 @@ import { pool, getProdPool as prodPool } from '../config/database.js';
       undefined,          // startDate_utc
       undefined,          // endDate_utc
       undefined,           // createdBy
-      undefined,               // name
-      undefined                  // phoneNumber
+      undefined,               // search  by name or phone number 
     );
 
     console.log('Filtered members:', result.members);
