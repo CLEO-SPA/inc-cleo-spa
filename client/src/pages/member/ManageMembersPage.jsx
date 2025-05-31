@@ -6,6 +6,8 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Calendar } from 'lucide-react';
+import DateRangePicker from '@/components/date-range-picker';
+import { format } from 'date-fns';
 
 import {
   DropdownMenu,
@@ -65,8 +67,10 @@ const {
   // Local state for form inputs only
   const [inputSearchTerm, setInputSearchTerm] = useState('');
   const [inputCreatedBy, setInputCreatedBy] = useState('');
-  const [inputStartDate, setInputStartDate] = useState('');
-  const [inputEndDate, setInputEndDate] = useState('');
+  const [createdDateRange, setCreatedDateRange] = useState({
+    from: undefined, // or new Date(existingStartDate) if you have initial values
+    to: undefined    // or new Date(existingEndDate) if you have initial values
+  });
 
   const [targetPageInput, setTargetPageInput] = useState('');
 
@@ -74,8 +78,10 @@ const {
 useEffect(() => {
   setInputSearchTerm(searchTerm || '');
   setInputCreatedBy(createdBy || '');
-  setInputStartDate(startDate_utc || '');
-  setInputEndDate(endDate_utc || '');
+  setCreatedDateRange({
+    from: startDate_utc ? new Date(startDate_utc) : undefined,
+    to: endDate_utc ? new Date(endDate_utc) : undefined
+  });
 }, [searchTerm, createdBy, startDate_utc, endDate_utc]);
 
 
@@ -86,9 +92,12 @@ useEffect(() => {
 
   const handleSearchSubmit = (e) => {
     e.preventDefault();
+
+  const startDateString = createdDateRange.from ? format(createdDateRange.from, 'yyyy-MM-dd') : '';
+  const endDateString = createdDateRange.to ? format(createdDateRange.to, 'yyyy-MM-dd') : '';
     setSearchTerm(inputSearchTerm);
     setCreatedBy(inputCreatedBy);
-    setDateRange(inputStartDate, inputEndDate);
+    setDateRange(startDateString, endDateString);
     goToPage(1);
     setTargetPageInput(''); // Clear input after search
   };
@@ -241,28 +250,16 @@ useEffect(() => {
                   <div className='flex items-center gap-1'>
                     <Calendar className='h-4 w-4 text-gray-500' />
                     <span className='text-sm text-gray-600 whitespace-nowrap'>Created:</span>
-                    <Input
-                      id="startDate"
-                      type="date"
-                      value={inputStartDate}
-                      onChange={(e) => setInputStartDate(e.target.value)}
-                      className='w-auto'
-                      title="Member created from"
-                    />
-                    <span className='text-gray-400'>→</span>
-                    <Input
-                      id="endDate"
-                      type="date"
-                      value={inputEndDate}
-                      onChange={(e) => setInputEndDate(e.target.value)}
-                      className='w-auto'
-                      title="Member created to"
+                    <DateRangePicker
+                      value={createdDateRange}
+                      onValueChange={setCreatedDateRange}
                     />
                   </div>
+
                   
                   <Button type='submit'
-                                      className='w-25'
- disabled={isFetching}>
+                    className='w-25'
+                    disabled={isFetching}>
                     Search
                   </Button>
                 </div>
