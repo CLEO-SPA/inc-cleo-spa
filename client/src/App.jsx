@@ -13,6 +13,7 @@ import ResetPasswordPage from '@/pages/ResetPasswordPage';
 import NotFoundPage from '@/pages/404Page';
 import ManageCarePackagesPage from './pages/CarePackages/ManageCarePackagesPage';
 import ManageMembersPage from './pages/member/ManageMembersPage';
+import CreateMembersPage from './pages/member/CreateMemberPage';
 
 function App() {
   return (
@@ -25,6 +26,7 @@ function App() {
               <Route index element={<HomePage />} />
               <Route path='/mcp' element={<ManageCarePackagesPage />} />
               <Route path='/member' element={<ManageMembersPage />} />
+              <Route path='/member/create' element={<CreateMembersPage />} />
             </Route>
             <Route path='/login' element={<LoginPage />} />
 
