@@ -1,4 +1,5 @@
 import { useForm } from 'react-hook-form';
+import { useParams, useNavigate } from 'react-router-dom';
 import usePaymentMethodStore from '@/stores/usePaymentMethodStore';
 import { Input } from '@/components/ui/input';
 import { Button } from '@/components/ui/button';
@@ -8,9 +9,9 @@ import { Switch } from '@/components/ui/switch';
 import { AppSidebar } from '@/components/app-sidebar';
 import { SiteHeader } from '@/components/site-header';
 import { SidebarInset, SidebarProvider } from '@/components/ui/sidebar';
-import { ArrowLeft } from 'lucide-react';
-import { useState } from 'react';
-import { Link, useNavigate } from 'react-router-dom';
+import { ArrowLeft, Loader2 } from 'lucide-react';
+import { useState, useEffect } from 'react';
+import { Link } from 'react-router-dom';
 import {
   Dialog,
   DialogContent,
@@ -19,12 +20,24 @@ import {
   DialogFooter,
 } from '@/components/ui/dialog';
 
-const CreatePaymentMethodPage = () => {
-  const { createPaymentMethod, isCreating } = usePaymentMethodStore();
-  const [error, setError] = useState(null);
-  const [showSuccessDialog, setShowSuccessDialog] = useState(false);
-  const [createdPaymentMethod, setCreatedPaymentMethod] = useState(null);
+
+const EditPaymentMethodPage = () => {
+  const { id } = useParams();
   const navigate = useNavigate();
+  const {
+    paymentMethod,
+    fetchPaymentMethodById,
+    updatePaymentMethod,
+    isLoading,
+    isUpdating
+  } = usePaymentMethodStore();
+  const [error, setError] = useState(null);
+  const [isInitialLoading, setIsInitialLoading] = useState(true);
+  const [showSuccessDialog, setShowSuccessDialog] = useState(false);
+  const [updatedPaymentMethod, setUpdatedPaymentMethod] = useState(null);
+  const handleGoToPaymentMethods = () => {
+    navigate('/payment-method');
+  };
 
   const {
     register,
@@ -32,7 +45,7 @@ const CreatePaymentMethodPage = () => {
     setValue,
     watch,
     reset,
-    formState: { errors }
+    formState: { errors, isDirty }
   } = useForm({
     defaultValues: {
       payment_method_name: '',
@@ -47,34 +60,84 @@ const CreatePaymentMethodPage = () => {
   const isRevenue = watch('is_revenue');
   const showOnPaymentPage = watch('show_on_payment_page');
 
+  // Fetch payment method data on component mount
+  useEffect(() => {
+    const loadPaymentMethod = async () => {
+      if (id) {
+        setIsInitialLoading(true);
+        const result = await fetchPaymentMethodById(id);
+
+        if (result.success && result.data) {
+          const data = result.data;
+          // Pre-populate form with existing data
+          reset({
+            payment_method_name: data.payment_method_name || '',
+            is_enabled: data.is_enabled !== undefined ? data.is_enabled : true,
+            is_revenue: data.is_revenue !== undefined ? data.is_revenue : false,
+            show_on_payment_page: data.show_on_payment_page !== undefined ? data.show_on_payment_page : true
+          });
+        } else {
+          setError(result.error || 'Failed to load payment method');
+        }
+        setIsInitialLoading(false);
+      }
+    };
+
+    loadPaymentMethod();
+  }, [id, fetchPaymentMethodById, reset]);
+
   const onSubmit = async (data) => {
     setError(null);
     const timestamp = new Date().toISOString();
 
-    const result = await createPaymentMethod({
+    const result = await updatePaymentMethod(id, {
       ...data,
-      created_at: timestamp,
       updated_at: timestamp,
     });
 
     if (result.success) {
-      setCreatedPaymentMethod(data);
-      setShowSuccessDialog(true);
-      reset();
+      setUpdatedPaymentMethod(result.data); // Store updated data for summary
+      setShowSuccessDialog(true);           // Show the dialog
     } else {
       setError(result.error);
     }
   };
 
-  const handleCloseDialog = () => {
-    setShowSuccessDialog(false);
-    setCreatedPaymentMethod(null);
+
+  const handleCancel = () => {
+    if (isDirty) {
+      const confirmLeave = window.confirm('You have unsaved changes. Are you sure you want to leave?');
+      if (confirmLeave) {
+        navigate('/payment-method');
+      }
+    } else {
+      navigate('/payment-method');
+    }
   };
 
-  const handleGoToPaymentMethods = () => {
-    setShowSuccessDialog(false);
-    navigate('/payment-method');
-  };
+  // Show loading spinner while fetching initial data
+  if (isInitialLoading) {
+    return (
+      <div className='[--header-height:calc(theme(spacing.14))]'>
+        <SidebarProvider className='flex flex-col'>
+          <SiteHeader />
+          <div className='flex flex-1'>
+            <AppSidebar />
+            <SidebarInset>
+              <div className="w-full max-w-none p-6">
+                <div className="flex items-center justify-center h-64">
+                  <div className="flex items-center gap-2">
+                    <Loader2 className="h-6 w-6 animate-spin" />
+                    <span className="text-gray-600">Loading payment method...</span>
+                  </div>
+                </div>
+              </div>
+            </SidebarInset>
+          </div>
+        </SidebarProvider>
+      </div>
+    );
+  }
 
   return (
     <div className='[--header-height:calc(theme(spacing.14))]'>
@@ -86,14 +149,14 @@ const CreatePaymentMethodPage = () => {
             <div className="w-full max-w-none p-6">
               {/* Header Section */}
               <div className="flex items-center gap-3 mb-6">
-                 <Link to="/payment-method">
-                    <Button variant="ghost" size="sm" className="p-2">
+                <Link to="/payment-method">
+                  <Button variant="ghost" size="sm" className="p-2">
                     <ArrowLeft className="h-4 w-4" />
-                    </Button>
+                  </Button>
                 </Link>
                 <div>
-                  <h1 className="text-2xl font-semibold text-gray-900">Create New Payment Method</h1>
-                  <p className="text-sm text-gray-600 mt-1">Add a new payment method to the system</p>
+                  <h1 className="text-2xl font-semibold text-gray-900">Edit Payment Method</h1>
+                  <p className="text-sm text-gray-600 mt-1">Update payment method settings</p>
                 </div>
               </div>
 
@@ -109,16 +172,16 @@ const CreatePaymentMethodPage = () => {
                         <Label htmlFor="payment_method_name" className="text-sm font-medium text-gray-700">
                           Payment Method Name *
                         </Label>
-                        <Input 
+                        <Input
                           id="payment_method_name"
-                          placeholder="Enter payment method name (e.g., Credit Card, PayPal, Bank Transfer)" 
-                          {...register("payment_method_name", { 
+                          placeholder="Enter payment method name (e.g., Credit Card, PayPal, Bank Transfer)"
+                          {...register("payment_method_name", {
                             required: "Payment method name is required",
                             minLength: {
                               value: 2,
                               message: "Payment method name must be at least 2 characters"
                             }
-                          })} 
+                          })}
                           className={errors.payment_method_name ? "border-red-500" : ""}
                         />
                         {errors.payment_method_name && (
@@ -149,7 +212,7 @@ const CreatePaymentMethodPage = () => {
                         <Switch
                           id="is_enabled"
                           checked={isEnabled}
-                          onCheckedChange={(checked) => setValue('is_enabled', checked)}
+                          onCheckedChange={(checked) => setValue('is_enabled', checked, { shouldDirty: true })}
                         />
                       </div>
 
@@ -166,7 +229,7 @@ const CreatePaymentMethodPage = () => {
                         <Switch
                           id="is_revenue"
                           checked={isRevenue}
-                          onCheckedChange={(checked) => setValue('is_revenue', checked)}
+                          onCheckedChange={(checked) => setValue('is_revenue', checked, { shouldDirty: true })}
                         />
                       </div>
 
@@ -183,7 +246,7 @@ const CreatePaymentMethodPage = () => {
                         <Switch
                           id="show_on_payment_page"
                           checked={showOnPaymentPage}
-                          onCheckedChange={(checked) => setValue('show_on_payment_page', checked)}
+                          onCheckedChange={(checked) => setValue('show_on_payment_page', checked, { shouldDirty: true })}
                         />
                       </div>
                     </div>
@@ -222,26 +285,43 @@ const CreatePaymentMethodPage = () => {
                   </div>
                 )}
 
-                {/* Submit Button */}
+                {/* Action Buttons */}
                 <div className="flex justify-between items-center pt-6 border-t">
                   <div className="text-sm text-gray-500">
                     All fields marked with * are required
                   </div>
-                  <Button 
-                    type="submit" 
-                    disabled={isCreating} 
-                    className="px-12 py-3 bg-blue-600 hover:bg-blue-700 text-white font-medium text-base"
-                  >
-                    {isCreating ? "Creating Payment Method..." : "Create Payment Method"}
-                  </Button>
+                  <div className="flex gap-3">
+                    <Button
+                      type="button"
+                      variant="outline"
+                      onClick={handleCancel}
+                      disabled={isUpdating}
+                      className="px-8 py-3 text-base"
+                    >
+                      Cancel
+                    </Button>
+                    <Button
+                      type="submit"
+                      disabled={isUpdating || !isDirty}
+                      className="px-12 py-3 bg-blue-600 hover:bg-blue-700 text-white font-medium text-base"
+                    >
+                      {isUpdating ? (
+                        <>
+                          <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+                          Updating...
+                        </>
+                      ) : (
+                        "Update Payment Method"
+                      )}
+                    </Button>
+                  </div>
                 </div>
               </form>
             </div>
           </SidebarInset>
         </div>
 
-        {/* Success Dialog */}
-        <Dialog open={showSuccessDialog} onOpenChange={setShowSuccessDialog}>
+        {<Dialog open={showSuccessDialog} onOpenChange={setShowSuccessDialog}>
           <DialogContent className="sm:max-w-md">
             <DialogHeader>
               <DialogTitle className="flex items-center gap-2 text-green-600">
@@ -250,47 +330,47 @@ const CreatePaymentMethodPage = () => {
                     <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
                   </svg>
                 </div>
-                Payment Method Created Successfully!
+                Payment Method Updated Successfully!
               </DialogTitle>
             </DialogHeader>
             <div className="py-4">
               <p className="text-sm text-gray-600 mb-4">
-                Your payment method "{createdPaymentMethod?.payment_method_name}" has been created successfully.
+                Your payment method "{updatedPaymentMethod?.payment_method_name}" has been updated successfully.
               </p>
               <div className="bg-gray-50 rounded-lg p-3 space-y-2">
                 <div className="flex justify-between text-sm">
                   <span className="text-gray-600">Status:</span>
-                  <span className={`font-medium ${createdPaymentMethod?.is_enabled ? 'text-green-600' : 'text-gray-600'}`}>
-                    {createdPaymentMethod?.is_enabled ? 'Enabled' : 'Disabled'}
+                  <span className={`font-medium ${updatedPaymentMethod?.is_enabled ? 'text-green-600' : 'text-gray-600'}`}>
+                    {updatedPaymentMethod?.is_enabled ? 'Enabled' : 'Disabled'}
                   </span>
                 </div>
                 <div className="flex justify-between text-sm">
                   <span className="text-gray-600">Revenue Generating:</span>
-                  <span className={`font-medium ${createdPaymentMethod?.is_revenue ? 'text-blue-600' : 'text-gray-600'}`}>
-                    {createdPaymentMethod?.is_revenue ? 'Yes' : 'No'}
+                  <span className={`font-medium ${updatedPaymentMethod?.is_revenue ? 'text-blue-600' : 'text-gray-600'}`}>
+                    {updatedPaymentMethod?.is_revenue ? 'Yes' : 'No'}
                   </span>
                 </div>
                 <div className="flex justify-between text-sm">
                   <span className="text-gray-600">Visible to Customers:</span>
-                  <span className={`font-medium ${createdPaymentMethod?.show_on_payment_page ? 'text-purple-600' : 'text-gray-600'}`}>
-                    {createdPaymentMethod?.show_on_payment_page ? 'Yes' : 'No'}
+                  <span className={`font-medium ${updatedPaymentMethod?.show_on_payment_page ? 'text-purple-600' : 'text-gray-600'}`}>
+                    {updatedPaymentMethod?.show_on_payment_page ? 'Yes' : 'No'}
                   </span>
                 </div>
               </div>
             </div>
             <DialogFooter className="flex gap-2">
-              <Button variant="outline" onClick={handleCloseDialog}>
-                Create Another
-              </Button>
               <Button onClick={handleGoToPaymentMethods} className="bg-blue-600 hover:bg-blue-700">
-                View All Payment Methods
+                Back to Payment Methods
               </Button>
             </DialogFooter>
           </DialogContent>
         </Dialog>
+        }
       </SidebarProvider>
     </div>
+
+
   );
 };
 
-export default CreatePaymentMethodPage;
+export default EditPaymentMethodPage;

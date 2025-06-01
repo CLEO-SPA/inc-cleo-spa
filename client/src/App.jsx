@@ -16,6 +16,7 @@ import ManageMembersPage from './pages/member/ManageMembersPage';
 import CreateMembersPage from './pages/member/CreateMemberPage';
 import ManagePaymentMethodsPage from './pages/payment-method/ManagePaymentMethodsPage';
 import CreatePaymentMethodPage from './pages/payment-method/CreatePaymentMethodPage';
+import EditPaymentMethodPage from './pages/payment-method/EditPaymentMethodPage';
 
 
 function App() {
@@ -34,6 +35,7 @@ function App() {
               {/* Payment Methods Management */}
               <Route path='/payment-method' element={<ManagePaymentMethodsPage/>} /> 
               <Route path='/payment-method/create' element={<CreatePaymentMethodPage />} />   
+              <Route path="/payment-method/edit/:id" element={<EditPaymentMethodPage />} />
             </Route>
             <Route path='/login' element={<LoginPage />} />
 

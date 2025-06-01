@@ -144,10 +144,25 @@ const getPaymentMethodsForPaymentPage = async () => {
   }
 };
 
+const getPaymentMethodById = async (id: number) => {
+  try {
+    const query = `SELECT * FROM payment_methods WHERE id = $1`;
+    const result = await pool().query(query, [id]);
+
+    return result.rows[0]; // or `null` if not found
+  } catch (error) {
+    console.error('Error fetching payment method by ID:', error);
+    throw new Error('Could not fetch payment method');
+  }
+};
+
+
+
 export default {
   getAllPaymentMethods,
   createPaymentMethod,
   updatePaymentMethod,
   deletePaymentMethod,
-  getPaymentMethodsForPaymentPage
+  getPaymentMethodsForPaymentPage,
+  getPaymentMethodById
 };

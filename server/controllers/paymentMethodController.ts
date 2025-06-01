@@ -37,6 +37,30 @@ const getPaymentMethodsForPaymentPage = async (req: Request, res: Response) => {
   }
 };
 
+// Get a single payment method by ID
+const getPaymentMethodById = async (req: Request, res: Response): Promise<void> => {
+  try {
+    const id = parseInt(req.params.id, 10);
+
+    if (isNaN(id)) {
+      res.status(400).json({ message: 'Invalid payment method ID' });
+      return; // Add explicit return
+    }
+
+    const method = await model.getPaymentMethodById(id);
+
+    if (!method) {
+      res.status(404).json({ message: 'Payment method not found' });
+      return; // Add explicit return
+    }
+
+    res.status(200).json(method);
+  } catch (error) {
+    console.error('Error in getPaymentMethodById:', error);
+    res.status(500).json({ message: 'Failed to fetch payment method' });
+  }
+};
+
 // Create a new payment method
 const createPaymentMethod = async (req: Request, res: Response) => {
   try {
@@ -79,6 +103,7 @@ const deletePaymentMethod = async (req: Request, res: Response) => {
 
 // Export all handlers
 export default {
+  getPaymentMethodById,
   getAllPaymentMethods,
   getPaymentMethodsForPaymentPage,
   createPaymentMethod,

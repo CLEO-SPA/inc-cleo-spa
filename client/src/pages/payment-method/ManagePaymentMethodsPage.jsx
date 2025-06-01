@@ -133,7 +133,7 @@ function ManagePaymentMethodsPage() {
 
   const handleEdit = (id) => {
     setSelectedPaymentMethodId(id);
-    navigate(`/payment-method/${id}/edit`); // Adjust route as needed
+    navigate(`/payment-method/edit/${id}`); // Adjust route as needed
   };
 
   const handleCreate = () => {

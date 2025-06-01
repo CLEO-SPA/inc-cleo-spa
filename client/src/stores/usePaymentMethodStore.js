@@ -107,7 +107,33 @@ const usePaymentMethodStore = create((set, get) => ({
   }
 },
 
+
+
   // CRUD Actions
+  fetchPaymentMethodById: async (id) => {
+    set({ isFetching: true, error: false, errorMessage: null });
+
+    try {
+      const response = await api.get(`/payment-method/${id}`);
+      set({
+        selectedPaymentMethodId: id,
+        selectedPaymentMethod: response.data,
+        isFetching: false,
+      });
+      return { success: true, data: response.data };
+    } catch (error) {
+      set({
+        selectedPaymentMethodId: null,
+        selectedPaymentMethod: null,
+        isFetching: false,
+        error: true,
+        errorMessage: error.response?.data?.message || error.message || 'Failed to fetch payment method',
+      });
+      return { success: false, error: error.response?.data?.message || error.message };
+    }
+  },
+
+
   createPaymentMethod: async (data) => {
     set({ isCreating: true, error: false, errorMessage: null });
 
