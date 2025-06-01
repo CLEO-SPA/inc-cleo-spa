@@ -243,13 +243,7 @@ interface emulatePayload {
   user_id?: string;
 }
 
-const emulateCarePackage = async (method: string, payload: emulatePayload) => {
-  const handlers = {
-    POST: em_post,
-    PUT: em_put,
-    DELETE: em_delete,
-  };
-
+const emulateCarePackage = async (method: string, payload: Partial<emulatePayload>) => {
   async function em_post(payload: emulatePayload) {
     try {
       const lastCpSql: string = 'SELECT * FROM care_packages ORDER BY id DESC LIMIT 1';
@@ -475,11 +469,53 @@ const emulateCarePackage = async (method: string, payload: emulatePayload) => {
     }
   }
 
-  const handler = handlers[method.toUpperCase() as keyof typeof handlers];
-  if (handler) {
-    return handler(payload);
-  } else {
+  const handlers: { [key: string]: Function } = {
+    POST: em_post,
+    PUT: em_put,
+    DELETE: em_delete,
+  };
+
+  const upperMethod = method.toUpperCase();
+  const handler = handlers[upperMethod];
+
+  if (!handler) {
     throw new Error(`Unsupported method: ${method}`);
+  }
+
+  if (upperMethod === 'POST') {
+    if (
+      !payload.package_name ||
+      !payload.package_remarks ||
+      payload.package_price === undefined ||
+      !payload.services ||
+      typeof payload.is_customizable !== 'boolean' ||
+      !payload.created_at ||
+      !payload.updated_at
+    ) {
+      throw new Error('Missing required fields in payload for POST emulation.');
+    }
+    return em_post(payload as emulatePayload);
+  } else if (upperMethod === 'PUT') {
+    if (
+      !payload.id ||
+      !payload.package_name ||
+      !payload.package_remarks ||
+      payload.package_price === undefined ||
+      !payload.services ||
+      typeof payload.is_customizable !== 'boolean' ||
+      !payload.status_id ||
+      !payload.updated_at
+    ) {
+      throw new Error('Missing required fields in payload for PUT emulation.');
+    }
+    return em_put(payload as emulatePayload);
+  } else if (upperMethod === 'DELETE') {
+    if (!payload.id) {
+      throw new Error("Missing 'id' in payload for DELETE emulation.");
+    }
+    return em_delete(payload as emulatePayload);
+  } else {
+    throw new Error(`Handler dispatch error for method: ${method}`);
   }
 };
 

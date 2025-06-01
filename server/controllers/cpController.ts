@@ -59,7 +59,7 @@ const getAllCarePackages = async (req: Request, res: Response, next: NextFunctio
     res.status(200).json(results);
   } catch (error) {
     console.error('Error in CarePackageController.getCarePackages:', error);
-    throw new Error('Error in CarePackageController.getCarePackages');
+    next(error);
   }
 };
 
@@ -72,7 +72,7 @@ const getCarePackageById = async (req: Request, res: Response, next: NextFunctio
     res.status(200).json(results);
   } catch (error) {
     console.error('Error getting carePackage By Id', error);
-    throw new Error('Error getting carePackage By Id');
+    next(error);
   }
 };
 
@@ -130,7 +130,7 @@ const createCarePackage = async (req: Request, res: Response, next: NextFunction
     res.status(201).json(results);
   } catch (error) {
     console.error('Error creating carePackage', error);
-    throw new Error('Error creating carePackage');
+    next(error);
   }
 };
 
@@ -182,7 +182,7 @@ const updateCarePackageById = async (req: Request, res: Response, next: NextFunc
     // res.status(200).json(results);
   } catch (error) {
     console.error('Error updating carePackage By Id', error);
-    throw new Error('Error updating carePackage By Id');
+    next(error);
   }
 };
 
@@ -190,38 +190,96 @@ const deleteCarePackageById = async (req: Request, res: Response, next: NextFunc
   try {
   } catch (error) {
     console.error('Error deleting carePackage By Id', error);
-    throw new Error('Error deleting carePackage By Id');
+    next(error);
   }
 };
 
+interface servicePayload {
+  id: string;
+  name: string;
+  quantity: number;
+  price: number;
+  finalPrice: number;
+  discount: number;
+}
+
+interface emulatePayload {
+  id?: string;
+  package_name: string;
+  package_remarks: string;
+  package_price: number;
+  services: servicePayload[];
+  is_customizable: boolean;
+  status_id: string;
+  created_at: string;
+  updated_at: string;
+  employee_id?: string;
+  user_id?: string;
+}
+
 const emulateCarePackage = async (req: Request, res: Response, next: NextFunction): Promise<void> => {
   try {
-    const {
-      id,
-      package_name,
-      package_remarks,
-      package_price,
-      is_customizable,
-      status_id,
-      services,
-      created_at,
-      updated_at,
-      employee_id,
-    } = req.body;
-    const method = req.method;
+    const method = req.method as string;
+    const user_id = req.session?.user_id;
 
     if (method === 'GET') {
       res.status(400).send('Cannot Emulate GET method');
       return;
     }
 
-    if (!package_name || !package_price || !Array.isArray(services)) {
-      res.status(400).json({ message: 'Missing required fields or invalid data format' });
+    if (method === 'DELETE') {
+      const deleteId = req.query?.id;
+      if (!deleteId) {
+        res.status(400).json({ message: "Missing 'id' for DELETE operation (expected in body or params)." });
+        return;
+      }
+
+      const results = await model.emulateCarePackage(method, { id: deleteId } as emulatePayload);
+      res.status(200).json(results);
       return;
     }
 
-    const isValidService = services.every((s) => {
-      return (
+    const {
+      id,
+      package_name,
+      package_remarks,
+      package_price,
+      services,
+      is_customizable,
+      status_id,
+      created_at,
+      updated_at,
+      employee_id,
+    } = req.body;
+
+    // --- Validations for POST and PUT ---
+    const requiredFieldsErrorMessages: string[] = [];
+    if (!package_name) requiredFieldsErrorMessages.push('package_name is required');
+    if (package_price === undefined) requiredFieldsErrorMessages.push('package_price is required');
+    if (!Array.isArray(services) || services.length === 0) {
+      requiredFieldsErrorMessages.push('services must be a non-empty array');
+    }
+    if (typeof is_customizable !== 'boolean') requiredFieldsErrorMessages.push('is_customizable (boolean) is required');
+    if (method === 'PUT') if (!status_id) requiredFieldsErrorMessages.push('status_id is required');
+    if (method === 'POST') if (!created_at) requiredFieldsErrorMessages.push('created_at is required');
+    if (!updated_at) requiredFieldsErrorMessages.push('updated_at is required');
+
+    if (requiredFieldsErrorMessages.length > 0) {
+      res
+        .status(400)
+        .json({ message: 'Missing or invalid required fields: ' + requiredFieldsErrorMessages.join(', ') });
+      return;
+    }
+
+    const numericPackagePrice = parseFloat(package_price);
+    if (isNaN(numericPackagePrice)) {
+      res.status(400).json({ message: 'Invalid package_price format.' });
+      return;
+    }
+
+    const isValidService = services.every(
+      (s: any) =>
+        s &&
         typeof s.id === 'string' &&
         typeof s.name === 'string' &&
         typeof s.quantity === 'number' &&
@@ -231,32 +289,32 @@ const emulateCarePackage = async (req: Request, res: Response, next: NextFunctio
         typeof s.discount === 'number' &&
         s.discount >= 0 &&
         s.discount <= 1
-      );
-    });
+    );
 
     if (!isValidService) {
-      res.status(400).json({ message: 'Missing required fields or invalid data format' });
+      res.status(400).json({ message: 'One or more service items have an invalid format or missing fields.' });
       return;
     }
 
-    const results = await model.emulateCarePackage(method, {
+    const modelPayload: Partial<emulatePayload> = {
       id,
       package_name,
-      package_remarks,
-      package_price: parseFloat(package_price),
+      package_remarks: package_remarks || '',
+      package_price: numericPackagePrice,
       services,
       is_customizable,
       status_id,
       created_at,
       updated_at,
-      employee_id: employee_id,
-      user_id: req.session.user_id!,
-    });
+      employee_id,
+      user_id,
+    };
 
+    const results = await model.emulateCarePackage(method, modelPayload);
     res.status(200).json(results);
   } catch (error) {
     console.error('Error emulating carePackage');
-    throw new Error('Error emulating carePackage');
+    next(error);
   }
 };
 
