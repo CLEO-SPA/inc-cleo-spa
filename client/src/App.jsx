@@ -14,6 +14,9 @@ import NotFoundPage from '@/pages/404Page';
 import ManageCarePackagesPage from './pages/CarePackages/ManageCarePackagesPage';
 import ManageMembersPage from './pages/member/ManageMembersPage';
 import CreateMembersPage from './pages/member/CreateMemberPage';
+import ManagePaymentMethodsPage from './pages/payment-method/ManagePaymentMethodsPage';
+import CreatePaymentMethodPage from './pages/payment-method/CreatePaymentMethodPage';
+
 
 function App() {
   return (
@@ -25,8 +28,12 @@ function App() {
             <Route path='/' element={<ProtectedRoute />}>
               <Route index element={<HomePage />} />
               <Route path='/mcp' element={<ManageCarePackagesPage />} />
+              {/* Member Management */}
               <Route path='/member' element={<ManageMembersPage />} />
               <Route path='/member/create' element={<CreateMembersPage />} />
+              {/* Payment Methods Management */}
+              <Route path='/payment-method' element={<ManagePaymentMethodsPage/>} /> 
+              <Route path='/payment-method/create' element={<CreatePaymentMethodPage />} />   
             </Route>
             <Route path='/login' element={<LoginPage />} />
 
