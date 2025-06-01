@@ -206,6 +206,7 @@ const emulateCarePackage = async (req: Request, res: Response, next: NextFunctio
       services,
       created_at,
       updated_at,
+      employee_id,
     } = req.body;
     const method = req.method;
 
@@ -248,6 +249,7 @@ const emulateCarePackage = async (req: Request, res: Response, next: NextFunctio
       status_id,
       created_at,
       updated_at,
+      employee_id: employee_id,
       user_id: req.session.user_id!,
     });
 

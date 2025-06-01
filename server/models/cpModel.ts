@@ -1,7 +1,8 @@
 import { pool } from '../config/database.js';
-import { PaginatedOptions, PaginatedReturn } from '../types/common.types.js';
+import { FieldMapping, PaginatedOptions, PaginatedReturn } from '../types/common.types.js';
 import { CarePackageItemDetails, CarePackages, Employees } from '../types/model.types.js';
 import { encodeCursor } from '../utils/cursorUtils.js';
+import { getEmployeeIdByUserAuthId } from './employeeModel.js';
 
 const getPaginatedCarePackages = async (
   limit: number,
@@ -238,13 +239,8 @@ interface emulatePayload {
   status_id: string;
   created_at: string;
   updated_at: string;
-  user_id: string;
-}
-
-interface FieldMapping {
-  payloadKey: keyof emulatePayload;
-  dbKey: keyof CarePackages;
-  transform?: (value: any) => any;
+  employee_id?: string;
+  user_id?: string;
 }
 
 const emulateCarePackage = async (method: string, payload: emulatePayload) => {
@@ -268,6 +264,9 @@ const emulateCarePackage = async (method: string, payload: emulatePayload) => {
       }
       const statusId = statusRows[0].id;
 
+      payload.employee_id =
+        payload.employee_id || (await getEmployeeIdByUserAuthId(payload.user_id as string)).rows[0].id;
+
       const newCp: CarePackages = {
         id: (lastCpId + 1).toString(),
         care_package_name: payload.package_name,
@@ -275,8 +274,8 @@ const emulateCarePackage = async (method: string, payload: emulatePayload) => {
         care_package_price: payload.package_price,
         care_package_customizable: payload.is_customizable,
         status_id: statusId,
-        created_by: payload.user_id,
-        last_updated_by: payload.user_id,
+        created_by: payload.employee_id,
+        last_updated_by: payload.employee_id,
         created_at: payload.created_at || new Date().toISOString(),
         updated_at: payload.updated_at || new Date().toISOString(),
       };
@@ -340,7 +339,10 @@ const emulateCarePackage = async (method: string, payload: emulatePayload) => {
         oldCarePackage.id,
       ]);
 
-      const fieldMappings: FieldMapping[] = [
+      payload.employee_id =
+        payload.employee_id || (await getEmployeeIdByUserAuthId(payload.user_id as string)).rows[0].id;
+
+      const fieldMappings: FieldMapping<emulatePayload, CarePackages>[] = [
         { payloadKey: 'package_name', dbKey: 'care_package_name' },
         { payloadKey: 'package_remarks', dbKey: 'care_package_remarks' },
         { payloadKey: 'package_price', dbKey: 'care_package_price' },
@@ -348,8 +350,8 @@ const emulateCarePackage = async (method: string, payload: emulatePayload) => {
         { payloadKey: 'status_id', dbKey: 'status_id' },
         { payloadKey: 'created_at', dbKey: 'created_at' },
         { payloadKey: 'updated_at', dbKey: 'updated_at' },
-        { payloadKey: 'user_id', dbKey: 'created_by' },
-        { payloadKey: 'user_id', dbKey: 'last_updated_by' },
+        { payloadKey: 'employee_id', dbKey: 'created_by' },
+        { payloadKey: 'employee_id', dbKey: 'last_updated_by' },
       ];
 
       const updatedCpFields: Partial<CarePackages> = {};
@@ -365,22 +367,56 @@ const emulateCarePackage = async (method: string, payload: emulatePayload) => {
         }
       });
 
-      const newCp: CarePackages = {
-        ...oldCarePackage,
+      const newCp: Partial<CarePackages> = {
+        // ...oldCarePackage,
         ...updatedCpFields,
         updated_at: payload.updated_at || new Date().toISOString(), // Ensure updated_at is always fresh
       };
 
-      const newCpItemDetails: CarePackageItemDetails[] = (payload.services || []).map((servicePayload) => {
-        const existingItem = oldCpItemDetails.find((oldItem) => oldItem.service_id === servicePayload.id);
-        return {
-          id: existingItem ? existingItem.id : undefined, // Reuse DB ID if service matches, else undefined for new
-          care_package_id: oldCarePackage.id!, // non-null assertion
-          service_id: servicePayload.id,
-          care_package_item_details_quantity: servicePayload.quantity,
-          care_package_item_details_discount: servicePayload.discount,
-          care_package_item_details_price: servicePayload.price,
-        };
+      const newCpItemDetails: Partial<CarePackageItemDetails>[] = [];
+
+      const serviceItemMappings: FieldMapping<servicePayload, CarePackageItemDetails>[] = [
+        { payloadKey: 'quantity', dbKey: 'care_package_item_details_quantity' },
+        { payloadKey: 'discount', dbKey: 'care_package_item_details_discount' },
+        { payloadKey: 'finalPrice', dbKey: 'care_package_item_details_price' },
+      ];
+
+      (payload.services || []).forEach((servicePayloadItem) => {
+        const existingItem = oldCpItemDetails.find(
+          (oldItem) => oldItem.service_id === servicePayloadItem.id && oldItem.care_package_id === oldCarePackage.id!
+        );
+
+        if (!existingItem) {
+          newCpItemDetails.push({
+            care_package_id: oldCarePackage.id!,
+            service_id: servicePayloadItem.id,
+            care_package_item_details_quantity: servicePayloadItem.quantity,
+            care_package_item_details_discount: servicePayloadItem.discount,
+            care_package_item_details_price: servicePayloadItem.price,
+          });
+        } else {
+          const updatedDetailFields: Partial<CarePackageItemDetails> = {
+            id: existingItem.id,
+            care_package_id: oldCarePackage.id!,
+            service_id: servicePayloadItem.id,
+          };
+          let hasChanges = false;
+
+          serviceItemMappings.forEach((m) => {
+            // Ensure the keys exist on both objects before comparison
+            const payloadValue = servicePayloadItem[m.payloadKey];
+            const existingDbValue = existingItem[m.dbKey];
+
+            if (payloadValue !== undefined && payloadValue !== existingDbValue) {
+              (updatedDetailFields as any)[m.dbKey] = payloadValue;
+              hasChanges = true;
+            }
+          });
+
+          if (hasChanges) {
+            newCpItemDetails.push(updatedDetailFields);
+          }
+        }
       });
 
       return {
