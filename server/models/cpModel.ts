@@ -329,7 +329,41 @@ const updateCarePackageById = async (
   }
 };
 
-const deleteCarePackageById = async (id: string) => {};
+const deleteCarePackageById = async (carePackageId: string) => {
+  const client = await pool().connect();
+  try {
+    await client.query('BEGIN');
+
+    // delete care package item details first (foreign key constraint)
+    const d_cpid_sql = 'DELETE FROM care_package_item_details WHERE care_package_id = $1';
+    await client.query(d_cpid_sql, [carePackageId]);
+
+    // delete the care package
+    const d_cp_sql = 'DELETE FROM care_packages WHERE id = $1 RETURNING id';
+    const result = await client.query<{ id: string }>(d_cp_sql, [carePackageId]);
+
+    if (result.rowCount === 0) {
+      throw new Error(`Care package with ID ${carePackageId} does not exist.`);
+    }
+
+    await client.query('COMMIT');
+
+    return {
+      message: 'Care package deleted successfully.',
+      deletedCarePackageId: carePackageId
+    };
+
+  } catch (error) {
+    console.error('Error deleting care package:', error);
+    await client.query('ROLLBACK');
+    if (error instanceof Error) {
+      throw error;
+    }
+    throw new Error('An unexpected error occurred while deleting the care package.');
+  } finally {
+    client.release();
+  }
+};
 
 interface emulatePayload {
   id?: string;
