@@ -19,7 +19,11 @@ router.get('/pkg', controller.getAllMemberCarePackages);
 router.get('/pkg/:id', controller.getMemberCarePackageById);
 
 router.post('/c', controller.createMemberCarePackage);
+router.post('/s', controller.enableMemberCarePackage);
 
 router.put('/u', controller.updateMemberCarePackage);
+
+router.delete('/:id/r', controller.removeMemberCarePackage);
+router.delete('/:id/d', controller.deleteMemberCarePackage);
 
 export default router;

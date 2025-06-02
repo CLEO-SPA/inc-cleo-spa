@@ -1,7 +1,13 @@
 import { pool } from '../config/database.js';
-import { PaginatedOptions, PaginatedReturn } from '../types/common.types.js';
-import { Employees, MemberCarePackages, MemberCarePackagesDetails } from '../types/model.types.js';
+import { FieldMapping, PaginatedOptions, PaginatedReturn } from '../types/common.types.js';
+import {
+  Employees,
+  MemberCarePackages,
+  MemberCarePackagesDetails,
+  MemberCarePackageTransactionLogs,
+} from '../types/model.types.js';
 import { encodeCursor } from '../utils/cursorUtils.js';
+import { getEmployeeIdByUserAuthId } from './employeeModel.js';
 
 const getPaginatedMemberCarePackages = async (
   limit: number,
@@ -379,6 +385,125 @@ const updateMemberCarePackage = async (
   }
 };
 
+/**
+ * Permanent Deletion
+ * @param {string} id
+ */
+const deleteMemberCarePackage = async (id: string) => {
+  const client = await pool().connect();
+  try {
+    await client.query('BEGIN');
+
+    const d_mcp = 'DELETE FROM member_care_packages WHERE id = $1';
+    const result = client.query(d_mcp, [id]);
+
+    await client.query('COMMIT');
+
+    return result;
+  } catch (error) {
+    console.error('Error deleting member care package:', error);
+    await client.query('ROLLBACK');
+    if (error instanceof Error) {
+      throw error;
+    }
+    throw new Error('An unexpected error occurred while deleting the member care package.');
+  } finally {
+    client.release();
+  }
+};
+
+/**
+ * Soft Delete (status changed to DISABLED)
+ * @param {string} id
+ */
+const removeMemberCarePackage = async (id: string) => {
+  const client = await pool().connect();
+  try {
+    await client.query('BEGIN');
+
+    // Check if mcp exists
+    const results = await getMemberCarePackageById(id);
+    if (!results) {
+      throw new Error(`Member care package with id ${id} not found for remove.`);
+    }
+
+    const { rows: status_id } = await client.query<{ id: string }>('SELECT get_or_create_status($1) as id', [
+      'DISABLED',
+    ]);
+
+    const u_mcp_sql = 'UPDATE member_care_packages SET status_id = $1 WHERE id = $2';
+    const u_mcpd_sql = 'UPDATE member_care_package_details SET status_id = $1 WHERE member_care_package_id = $2';
+
+    const [mcp, mcpd] = await Promise.all([
+      client.query(u_mcp_sql, [status_id[0].id, id]),
+      client.query(u_mcpd_sql, [status_id[0].id, id]),
+    ]);
+
+    await client.query('COMMIT');
+
+    return { mcp, mcpd };
+  } catch (error) {
+    console.error('Error removing member care package:', error);
+    await client.query('ROLLBACK');
+    if (error instanceof Error) {
+      throw error;
+    }
+    throw new Error('An unexpected error occurred while removing the member care package.');
+  } finally {
+    client.release();
+  }
+};
+
+interface mcpServiceStatusPayload {
+  id: string;
+  status_name: string;
+}
+
+const enableMemberCarePackage = async (id: string, payload: mcpServiceStatusPayload[]) => {
+  const client = await pool().connect();
+  try {
+    await client.query('BEGIN');
+
+    // Check if mcp exists
+    const results = await getMemberCarePackageById(id);
+    if (!results) {
+      throw new Error(`Member care package with id ${id} not found for updating status.`);
+    }
+
+    const { rows: status_id } = await client.query<{ id: string }>('SELECT get_or_create_status($1) as id', [
+      'ENABLED',
+    ]);
+
+    const u_mcp_sql = 'UPDATE member_care_packages SET status_id = $1 WHERE id = $2';
+    const u_mcpd_sql = 'UPDATE member_care_package_details SET status_id = $1 WHERE id = $2';
+
+    const mcp = await client.query(u_mcp_sql, [status_id[0].id, id]);
+    const mcpd: any = [];
+    const servicePromise = payload.map(async (service) => {
+      const { rows: status_id } = await client.query<{ id: string }>('SELECT get_or_create_status($1) as id', [
+        service.status_name,
+      ]);
+      const results = await client.query(u_mcpd_sql, [status_id[0].id, service.id]);
+      mcpd.push(results);
+    });
+
+    await Promise.all(servicePromise);
+
+    await client.query('COMMIT');
+
+    return { mcp, mcpd };
+  } catch (error) {
+    console.error('Error changing member care package status:', error);
+    await client.query('ROLLBACK');
+    if (error instanceof Error) {
+      throw error;
+    }
+    throw new Error('An unexpected error occurred while changing the member care package status.');
+  } finally {
+    client.release();
+  }
+};
+
 const checkMcpUpdatable = async (id: string) => {
   try {
     const type = 'CONSUMPTION';
@@ -415,5 +540,9 @@ export default {
   getPaginatedMemberCarePackages,
   getMemberCarePackageById,
   createMemberCarePackage,
+  updateMemberCarePackage,
+  removeMemberCarePackage,
+  deleteMemberCarePackage,
+  enableMemberCarePackage,
   checkMcpUpdatable,
 };
