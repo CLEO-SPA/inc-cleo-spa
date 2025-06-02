@@ -281,6 +281,16 @@ const regenerateInvitationLink = async (req: Request, res: Response, next: NextF
   }
 };
 
+const getAllEmployeesForDropdown = async (req: Request, res: Response) => {
+  try {
+    const employees = await model.getAllEmployeesForDropdown();
+    res.status(200).json(employees);
+  } catch (error) {
+    console.error('Error in getAllEmployeesForDropdown:', error);
+    res.status(500).json({ message: 'Failed to fetch employees for dropdown' });
+  }
+};
+
 export default {
   defaultPassword,
   // createEmployee,
@@ -292,4 +302,5 @@ export default {
   updateEmployeePassword,
   // getAllEmployees,
   regenerateInvitationLink,
+  getAllEmployeesForDropdown
 };
