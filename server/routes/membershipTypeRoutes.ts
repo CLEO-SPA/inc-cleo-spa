@@ -10,10 +10,11 @@ import membershipType from '../controllers/membershipTypeController.js';
 // =========================
 // Public routes
 // =========================
-router.get('/get', router.get('/get', (req, res, next) => {
-  console.log('Route was ran');
-  next(); // pass control to the next middleware/handler
-}), membershipType.getAllMembershipType);
+// router.get('/get', router.get('/get', (req, res, next) => {
+//   console.log('Route was ran');
+//   next(); // pass control to the next middleware/handler
+// }), membershipType.getAllMembershipType);
+router.get('/get', membershipType.getAllMembershipType);
 
 // router.post('/create', membershipType.createMembershipType);
 // router.put('/update', membershipType.updateMembershipType);
