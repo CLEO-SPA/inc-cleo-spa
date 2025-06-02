@@ -1,5 +1,5 @@
 import * as React from 'react';
-import { Command, Users, CalendarDays, ShieldUser, Box, Wand, LayoutDashboard, Package, Tickets } from 'lucide-react';
+import { Command, Users, CalendarDays, ShieldUser, Box, Wand, LayoutDashboard, Package, Tickets, ChartColumnStacked } from 'lucide-react';
 import { NavMain } from '@/components/nav-main';
 import { NavUser } from '@/components/nav-user';
 import {
@@ -127,6 +127,21 @@ const data = {
         },
         {
           title: 'Add New Appointment',
+          url: '#',
+        },
+      ],
+    },
+    {
+      title: 'Statistics',
+      url: '#',
+      icon: ChartColumnStacked,
+      items: [
+        {
+          title: 'View Database Report',
+          url: '/dbcr',
+        },
+        {
+          title: 'View Monthly Revenue Report',
           url: '#',
         },
       ],
