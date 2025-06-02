@@ -50,7 +50,7 @@ const useMembershipTypeStore = create<UseMembershipTypeStore>((set, get) => ({
     },
 
     getMembershipTypeById: (id: number): MembershipType | undefined => {
-        return get().membershipTypeList.find(type => type.membership_type_id === id);
+        return get().membershipTypeList.find(type => type.id === id);
     },
 
     createMembershipType: async (data: NewMembershipType): Promise<{success: boolean, error?: string}> => {
@@ -58,7 +58,7 @@ const useMembershipTypeStore = create<UseMembershipTypeStore>((set, get) => ({
         set({ loading: true, success: false, error: false });
 
         try {
-            await api.post(`placeholder`, data);
+            await api.post(`/membership-type/create`, data);
             console.log("Membership created successfully");
 
             await get().fetchAllMembershipType();
@@ -79,7 +79,7 @@ const useMembershipTypeStore = create<UseMembershipTypeStore>((set, get) => ({
         set({ loading: true, success: false, error: false });
 
         try {
-            await api.put(`placeholder`, data);
+            await api.put(`/membership-type/update`, data);
             console.log("Membership updated successfully");
 
             await get().fetchAllMembershipType();
@@ -100,7 +100,7 @@ const useMembershipTypeStore = create<UseMembershipTypeStore>((set, get) => ({
         set({ loading: true, success: false, error: false });
 
         try {
-            await api.delete(`placeholder`, {data: id});
+            await api.put(`/membership-type/delete/${id}`);
             console.log("Membership deleted successfully");
 
             await get().fetchAllMembershipType();

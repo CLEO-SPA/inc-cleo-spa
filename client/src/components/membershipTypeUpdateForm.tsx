@@ -9,7 +9,7 @@ const MembershipTypeUpdateForm = () => {
 
     const [showConfirm, setShowConfirm] = useState<boolean>(false);
     const [formValues, setFormValues] = useState<UpdatedMembershipType>({
-        membership_type_id: -1,
+        id: -1,
         membership_type_name: '',
         default_percentage_discount_for_products: 0,
         default_percentage_discount_for_services: 0,
@@ -35,12 +35,12 @@ const MembershipTypeUpdateForm = () => {
         e.preventDefault();
         const formData = new FormData(e.currentTarget);
         const data: UpdatedMembershipType = {
-            membership_type_id: Number(formData.get('membership_type_id')),
+            id: Number(validatedSelectedMembershipType?.id),
             membership_type_name: formData.get('membership_type_name') as string,
-            default_percentage_discount_for_products: Number(formData.get('default_discount_percentage_for_service')),
-            default_percentage_discount_for_services: Number(formData.get('default_discount_for_products')),
-            created_by: Number(formData.get('membership_type_name')),
-            last_updated_by: Number(formData.get('membership_type_name'))
+            default_percentage_discount_for_products: Number(formData.get('default_percentage_discount_for_products')),
+            default_percentage_discount_for_services: Number(formData.get('default_percentage_discount_for_services')),
+            created_by: 14, // Number(formData.get('membership_type_name')), // Until Employees store is merged
+            last_updated_by: 14 // Number(formData.get('membership_type_name'))
         }
         console.log(data);
 
@@ -68,7 +68,7 @@ const MembershipTypeUpdateForm = () => {
     // Ensure that there is no null values displayed before the getMembershipTypeById is done
     if (!validatedSelectedMembershipType) {
         return (
-            <div className="fixed inset-0 bg-black bg-opacity-50 flex justify-center items-center">
+            <div className="fixed inset-0 flex justify-center items-center" style={{backgroundColor: 'rgba(0, 0, 0, 0.5)'}}>
                 <div className="bg-white p-6 rounded">
                     <p>Loading membership data...</p>
                     <button onClick={() => setIsUpdating(false)}>Cancel</button>
@@ -77,7 +77,7 @@ const MembershipTypeUpdateForm = () => {
         );
     }
     return (
-        <div className="fixed inset-0 bg-black bg-opacity-50 flex justify-center items-center">
+        <div className="fixed inset-0 flex justify-center items-center" style={{backgroundColor: 'rgba(0, 0, 0, 0.5)'}}>
             <div className="bg-white rounded-lg w-1/2 flex flex-col max-h-[90vh]">
                 <div className="p-6 border-b">
                     <h2 className="text-xl font-bold">Update Form</h2>
@@ -101,9 +101,9 @@ const MembershipTypeUpdateForm = () => {
                         <div>
                             <label className="block mb-2">Default Products Discount(%)</label>
                             <input
-                                id="default_percentage_products_discount"
+                                id="default_percentage_discount_for_products"
                                 type="number"
-                                name="default_discount_for_products"
+                                name="default_percentage_discount_for_products"
                                 defaultValue={validatedSelectedMembershipType.default_percentage_discount_for_products}
                                 className="w-full border rounded p-2"
                                 required
@@ -114,9 +114,9 @@ const MembershipTypeUpdateForm = () => {
                         <div>
                             <label className="block mb-2">Default Services Discount(%)</label>
                             <input
-                                id="default_percentage_services_discount"
+                                id="default_percentage_discount_for_services"
                                 type="number"
-                                name="default_discount_percentage_for_service"
+                                name="default_percentage_discount_for_services"
                                 defaultValue={validatedSelectedMembershipType.default_percentage_discount_for_services}
                                 className="w-full border rounded p-2"
                                 required

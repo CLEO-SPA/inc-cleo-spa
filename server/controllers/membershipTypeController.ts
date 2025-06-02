@@ -15,8 +15,12 @@ const getAllMembershipType = async (req: Request, res: Response): Promise<void> 
     console.log("Response on controller: ", response);
     res.status(200).json({ message: "Get Membership Types was successful.", data: response });
   } catch (error) {
-    throw new Error("Error: Get all Membership Types was not successful.");
-  };
+    console.error("Error getting membership types:", error);
+    res.status(500).json({ 
+      message: "Failed to retrieve membership types",
+      error: process.env.NODE_ENV === 'development' ? error : undefined
+    });
+  }
 };
 
 const createMembershipType = async (req: Request, res: Response): Promise<void> => {
@@ -36,7 +40,7 @@ const createMembershipType = async (req: Request, res: Response): Promise<void> 
   };
 
   if (!newMembershipTypeData) {
-    throw new Error("Missing new Membershi Type Body");
+    throw new Error("Missing new Membership Type Body");
   };
 
   for (let property in newMembershipTypeData) {
@@ -47,17 +51,22 @@ const createMembershipType = async (req: Request, res: Response): Promise<void> 
   };
 
   try {
-    const response = model.addMembershipType(newMembershipTypeData);
+    const response = await model.addMembershipType(newMembershipTypeData);
+
     res.status(201).json({ message: "Create new Membership Type was successful.", data: response });
   } catch (error) {
-    throw new Error("Error: Create new Membership Type was not successful.");
-  };
+        console.error("Error creating membership types:", error);
+    res.status(500).json({ 
+      message: "Failed to creating membership types",
+      error: process.env.NODE_ENV === 'development' ? error : undefined
+    });
+  }
 };
 
 const updateMembershipType = async (req: Request, res: Response): Promise<void> => {
 
   const {
-    membership_type_id,
+    id,
     membership_type_name,
     default_percentage_discount_for_products,
     default_percentage_discount_for_services,
@@ -66,7 +75,7 @@ const updateMembershipType = async (req: Request, res: Response): Promise<void> 
   } = req.body;
 
   const updatedMembershipTypeData: UpdatedMembershipType = {
-    membership_type_id,
+    id,
     membership_type_name,
     default_percentage_discount_for_products,
     default_percentage_discount_for_services,
@@ -74,32 +83,58 @@ const updateMembershipType = async (req: Request, res: Response): Promise<void> 
     last_updated_by
   };
 
+  if (!updatedMembershipTypeData.id) {
+    res.status(400).json({ errorMessage: "membership type id is required."});
+  };
+
   if (!updatedMembershipTypeData) {
-    throw new Error("Missing new Membershi Type Body");
+    res.status(400).json({ errorMessage: "membership type form is required."});
   };
 
   for (let property in updatedMembershipTypeData) {
     const value = updatedMembershipTypeData[property as keyof typeof updatedMembershipTypeData];
     if (value === null || value === undefined) {
-      throw new Error(`Property "${property}" is required.`);
+      res.status(400).json({ errorMessage: `Property "${property}" is required.`});
     }
   };
 
   try {
-    const response = model.setMembershipType(updatedMembershipTypeData);
+    const response = await model.setMembershipType(updatedMembershipTypeData);
+
+    console.log("Final log: ", response);
     res.status(201).json({ message: "Update Membership Type was successful.", data: response });
   } catch (error) {
-    throw new Error("Error: Update Membership Type was not successful.");
-  };
+    console.error("Error updating membership types:", error);
+    res.status(500).json({ 
+      message: "Failed to updating membership type",
+      error: process.env.NODE_ENV === 'development' ? error : undefined
+    });
+  }
 };
 
 const deleteMembershipType = async (req: Request, res: Response): Promise<void> => {
+  const {
+    id
+  } = req.params
+
+  console.log("1st log: ", id)
+
+  if(isNaN(Number(id))) {
+    throw new Error("id needs to be a integer");
+  }
+
+  const intId = parseInt(id);
+
   try {
-    const response = model.removeMembershipType(0); // testing
+    const response = await model.removeMembershipType(intId);
     res.status(200).json({ message: "Delete Membership Type was successful.", data: response });
   } catch (error) {
-    throw new Error("Error: Delete Membership Type was not successful.");
-  };
+    console.error("Error deleting membership types:", error);
+    res.status(500).json({ 
+      message: "Failed to delete membership type",
+      error: process.env.NODE_ENV === 'development' ? error : undefined
+    });
+  }
 };
 
 export default {

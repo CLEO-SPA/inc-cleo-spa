@@ -1,7 +1,7 @@
 import { Pagination } from "./pagination.js";
 
 export interface MembershipType {
-    membership_type_id: number;
+    id: number;
     membership_type_name: string;
     default_percentage_discount_for_products: number;
     default_percentage_discount_for_services: number;

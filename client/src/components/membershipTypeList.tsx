@@ -65,7 +65,7 @@ const MembershipTypeTable = () => {
                 </thead>
                 <tbody>
                     {membershipTypeList.map((type, index) => (
-                        <tr key={type.membership_type_id} className="hover:bg-gray-50">
+                        <tr key={type.id} className="hover:bg-gray-50">
                             <td className="p-3 border">{index + 1}</td>
                             <td className="p-3 border">{type.membership_type_name}</td>
                             <td className="p-3 border">{type.default_percentage_discount_for_services}%</td>
@@ -76,7 +76,8 @@ const MembershipTypeTable = () => {
                                 <div className="flex justify-center gap-2">
                                     <button
                                         onClick={() => {
-                                            setSelectedMembershipTypeId(type.membership_type_id);
+                                            console.log(membershipTypeList);
+                                            setSelectedMembershipTypeId(type.id);
                                             setIsUpdating(true);
                                         }}
                                         className="border border-gray-300 py-1 px-3 rounded text-sm hover:bg-gray-50"
@@ -86,7 +87,8 @@ const MembershipTypeTable = () => {
                                     <button
                                         className="bg-red-600 text-white py-1 px-3 rounded text-sm hover:bg-red-700"
                                         onClick={() => {
-                                            const value = getMembershipTypeById(type.membership_type_id)
+                                            const value = getMembershipTypeById(type.id);
+                                            setSelectedMembershipTypeId(type.id);
                                             handleDelete(value);
 
                                         }}
@@ -107,6 +109,7 @@ const MembershipTypeTable = () => {
                 body={confirmBody}
                 onCancel={() => setShowConfirm(false)}
                 onConfirm={() => {
+                    console.log(selectedMembershipTypeId);
                     setShowConfirm(false);
                     deleteMembershipType(selectedMembershipTypeId);
                 }}

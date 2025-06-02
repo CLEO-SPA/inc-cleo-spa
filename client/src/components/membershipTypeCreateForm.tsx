@@ -26,14 +26,14 @@ const MembershipTypeCreateForm = () => {
     const handleSubmit = async (e: React.FormEvent<HTMLFormElement>) => {
         e.preventDefault();
         const formData = new FormData(e.currentTarget);
+
         const data: NewMembershipType = {
             membership_type_name: formData.get('membership_type_name') as string,
             default_percentage_discount_for_products: Number(formData.get('default_percentage_discount_for_products')),
             default_percentage_discount_for_services: Number(formData.get('default_percentage_discount_for_services')),
-            created_by: Number(formData.get('created_by'))
+            created_by: 14 // Number(formData.get('created_by')) // Until Employees store is merged
         }
-        console.log(data);
-
+ 
         setFormValues(data);
         setShowConfirm(true);
     };
@@ -56,7 +56,7 @@ const MembershipTypeCreateForm = () => {
     if (!isCreating) return null;
 
     return (
-        <div className="fixed inset-0 bg-black bg-opacity-50 flex justify-center items-center">
+        <div className="fixed inset-0 flex items-center justify-center z-50" style={{backgroundColor: 'rgba(0, 0, 0, 0.5)'}}>
             <div className="bg-white rounded-lg w-1/2 flex flex-col max-h-[90vh]">
                 <div className="p-6 border-b">
                     <h2 className="text-xl font-bold">Create New Membership Type</h2>
@@ -79,9 +79,9 @@ const MembershipTypeCreateForm = () => {
                         <div>
                             <label className="block mb-2">Default Products Discount(%)</label>
                             <input
-                                id="default_percentage_products_discount"
+                                id="default_percentage_discount_for_products"
                                 type="number"
-                                name="default_discount_for_products"
+                                name="default_percentage_discount_for_products"
                                 className="w-full border rounded p-2"
                                 required
                                 disabled={loading}
@@ -91,9 +91,9 @@ const MembershipTypeCreateForm = () => {
                         <div>
                             <label className="block mb-2">Default Services Discount(%)</label>
                             <input
-                                id="default_percentage_services_discount"
+                                id="default_percentage_discount_for_services"
                                 type="number"
-                                name="default_discount_percentage_for_service"
+                                name="default_percentage_discount_for_services"
                                 className="w-full border rounded p-2"
                                 required
                                 disabled={loading}

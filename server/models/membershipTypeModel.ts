@@ -21,10 +21,11 @@ const getMembershipType = async (params: MembershipTypePaginationParameter = {})
     const query = `
   SELECT 
     COALESCE(json_agg(mt.*), '[]'::json) AS membershiptypelist,
-    (SELECT COUNT(*) FROM membership_types) AS total
+    (SELECT COUNT(*) FROM membership_types WHERE status = 'is_enabled') AS total
   FROM (
     SELECT * 
-    FROM membership_types 
+    FROM membership_types
+    WHERE status = 'is_enabled'
     ORDER BY id ASC
     LIMIT $1 OFFSET $2
   ) mt;
@@ -60,18 +61,135 @@ const getMembershipType = async (params: MembershipTypePaginationParameter = {})
 };
 
 const addMembershipType = async (data: NewMembershipType): Promise<{ success: boolean, message: string }> => {
+  const {
+    membership_type_name,
+    default_percentage_discount_for_products,
+    default_percentage_discount_for_services,
+    created_by
+  } = data;
 
-  return { success: true, message: "testing" };
-}
+  const last_updated_by = created_by;
 
-const setMembershipType = async (data: UpdatedMembershipType): Promise<{ success: boolean, message: string }> => {
+  const created_at = new Date();
 
-  return { success: true, message: "testing" };
+  const updated_at = created_at;
+
+  try {
+    const query = `
+    INSERT INTO membership_types (
+    membership_type_name,
+    default_percentage_discount_for_products,
+    default_percentage_discount_for_services,
+    created_at,
+    updated_at,
+    created_by,
+    last_updated_by,
+    status
+    )
+    VALUES (
+    $1, $2, $3, $4, $5, $6, $7, 'is_enabled'
+    )
+    `
+
+    const values = [
+      membership_type_name,
+      default_percentage_discount_for_products,
+      default_percentage_discount_for_services,
+      created_at,
+      updated_at,
+      created_by,
+      last_updated_by
+    ];
+
+    const result = await pool().query(query, values);
+
+    if (Number(result.rowCount) > 0) {
+      return { success: true, message: "The new Membership Type has been created." };
+    } else {
+       return { success: false, message: "Failed to create membership type - no rows affected." };
+    }
+
+  } catch (error) {
+    console.error('Error creating membership types:', error);
+    return { success: false, message: "Failed to create membership type due to database error." };
+  }
 };
 
-const removeMembershipType = async (data: number): Promise<{ success: boolean, message: string }> => {
+const setMembershipType = async (data: UpdatedMembershipType): Promise<{ success: boolean, message: string }> => {
+  const {
+    id,
+    membership_type_name,
+    default_percentage_discount_for_products,
+    default_percentage_discount_for_services,
+    created_by,
+    last_updated_by
+  } = data;
 
-  return { success: true, message: "testing" };
+  const updated_at = new Date();
+
+  try {
+    const query = `
+    UPDATE membership_types
+    SET
+    membership_type_name = $1,
+    default_percentage_discount_for_products = $2,
+    default_percentage_discount_for_services = $3,
+    updated_at = $4,
+    created_by = $5,
+    last_updated_by = $6
+    WHERE
+    id = $7
+    ;
+    `;
+
+    const values = [
+      membership_type_name,
+      default_percentage_discount_for_products,
+      default_percentage_discount_for_services,
+      updated_at,
+      created_by,
+      last_updated_by,
+      id
+    ];
+
+    const result = await pool().query(query, values);
+
+    if (Number(result.rowCount) > 0) {
+      return { success: true, message: "The Membership Type has been updated." };
+    } else {
+       return { success: false, message: "Failed to update membership type - no rows affected." };
+    }
+
+  } catch (error) {
+    console.error('Error updating membership types:', error);
+    return { success: false, message: "Failed to updating membership type due to database error." };
+  }
+};
+
+const removeMembershipType = async (id: number): Promise<{ success: boolean, message: string }> => {
+  try {
+    const query = `
+    UPDATE membership_types
+    SET 
+    status = 'disabled'
+    WHERE
+    id = $1
+    ;
+    `;
+
+    const result = await pool().query(query, [id]);
+    
+    console.log("2nd log: ", result);
+    if (Number(result.rowCount) > 0) {
+      return { success: true, message: "The Membership Type has been deleted." };
+    } else {
+       return { success: false, message: "Failed to delete membership type - no rows affected." };
+    }
+
+  } catch (error) {
+    console.error('Error updating membership types:', error);
+    return { success: false, message: "Failed to deleting membership type due to database error." };
+  }
 };
 export default {
   getMembershipType,

@@ -12,7 +12,7 @@ const ConfirmationPopUp: React.FC<ConfirmationPopUpProps> = ({
     if (!open) return null;
 
     return (
-        <div className="fixed inset-0 flex items-center justify-center bg-black bg-opacity-50 z-50">
+        <div className="fixed inset-0 flex items-center justify-center z-50" style={{backgroundColor: 'rgba(0, 0, 0, 0.5)'}}>
             <div className="bg-white p-6 rounded shadow-md w-[90%] max-w-lg">
                 <h2 className="text-lg font-semibold mb-4">
                     {title || 'Are you sure?'}
