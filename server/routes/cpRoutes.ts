@@ -15,10 +15,10 @@ import controller from '../controllers/cpController.js';
 // =========================
 router.use(isAuthenticated);
 
-router.get('/pkgs', controller.getAllCarePackages);
-router.get('/:id', controller.getCarePackageById);
-
 router.all('/e', roleMiddleware.hasRole(['data_admin', 'super_admin']), controller.emulateCarePackage);
+
+router.get('/pkg', controller.getAllCarePackages);
+router.get('/pkg/:id', controller.getCarePackageById);
 
 router.post('/c', controller.createCarePackage);
 

@@ -115,14 +115,21 @@ const getPaginatedCarePackages = async (
   }
 };
 
-const getCarePackageById = async (id: string) => {
-  try {
-    const query = `SELECT * FROM care_packages
-                  WHERE id = $1`;
-    const values = [id];
-    const { rows } = await pool().query<CarePackages>(query, values);
+interface FullCarePackage {
+  package: CarePackages;
+  details: CarePackageItemDetails[];
+}
 
-    return rows;
+const getCarePackageById = async (id: string): Promise<FullCarePackage | null> => {
+  try {
+    const cpSql = 'SELECT get_cp_by_id($1) as data';
+    const { rows } = await pool().query<{ data: FullCarePackage }>(cpSql, [id]);
+
+    if (rows.length === 0 || !rows[0].data) {
+      return null;
+    }
+
+    return rows[0].data;
   } catch (error) {
     console.error('Error in CarePackageModel.getCarePackageById:', error);
     throw new Error('Could not retrieve care package by id');
@@ -242,7 +249,7 @@ const updateCarePackageById = async (
     // validate that the care package exists
     const v_cp_sql = 'SELECT id FROM care_packages WHERE id = $1';
     const cpResult = await client.query(v_cp_sql, [care_package_id]);
-    
+
     if (cpResult.rowCount === 0) {
       throw new Error(`Care package with ID ${care_package_id} does not exist.`);
     }
@@ -276,7 +283,7 @@ const updateCarePackageById = async (
           updated_at = $7
       WHERE id = $8
     `;
-    
+
     await client.query(u_cp_sql, [
       package_name,
       package_remarks,
@@ -350,9 +357,8 @@ const deleteCarePackageById = async (carePackageId: string) => {
 
     return {
       message: 'Care package deleted successfully.',
-      deletedCarePackageId: carePackageId
+      deletedCarePackageId: carePackageId,
     };
-
   } catch (error) {
     console.error('Error deleting care package:', error);
     await client.query('ROLLBACK');

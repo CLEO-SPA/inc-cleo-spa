@@ -67,6 +67,11 @@ const getCarePackageById = async (req: Request, res: Response, next: NextFunctio
   try {
     const id = req.params.id;
 
+    if (!id) {
+      res.status(400).json({ message: 'Missing or invalid id' });
+      return;
+    }
+
     const results = await model.getCarePackageById(id);
 
     res.status(200).json(results);
@@ -205,15 +210,14 @@ const deleteCarePackageById = async (req: Request, res: Response, next: NextFunc
 
     const result = await model.deleteCarePackageById(id);
     res.status(200).json(result);
-    
   } catch (error) {
     console.error('Error in deleteCarePackageById controller:', error);
-    
+
     if (error instanceof Error && error.message.includes('does not exist')) {
       res.status(404).json({ message: error.message });
       return;
     }
-    
+
     next(error);
   }
 };
