@@ -31,8 +31,8 @@ const useMembershipTypeStore = create<UseMembershipTypeStore>((set, get) => ({
         set({ loading: true, success: false, error: false });
 
         try {
-            const response = await api.get(`placeholder`);
-            const membershipTypeList: MembershipType[] = response.data.data;
+            const response = await api.get(`/membership-type/get`);
+            const membershipTypeList: MembershipType[] = response.data.data.membershipTypeList;
 
             set((state) => ({
                 ...state,

@@ -65,7 +65,7 @@ export type UseMembershipTypeStore = MembershipTypeState & MembershipTypeFunctio
 export interface ConfirmationPopUpProps {
     open: boolean;
     title?: string;
-    body?: React.ReactNode;
+    body?: React.ReactNode | "-";
     onConfirm: () => void;
     onCancel: () => void;
 };

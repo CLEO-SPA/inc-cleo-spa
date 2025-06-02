@@ -6,8 +6,8 @@ import MembershipTypeList from '@/components/membershipTypeList';
 import CreateMembershipForm from '@/components/membershipTypeCreateForm';
 
 const MembershipTypePage = () => {
-  const { 
-    initialize, 
+  const {
+    initialize,
     error,
     loading,
     isCreating,
@@ -23,7 +23,7 @@ const MembershipTypePage = () => {
   return (
     <div>
       {/* <Navbar /> */}
-      
+
       {/* Header */}
       <div className="flex justify-between items-center m-6">
         <h1 className="text-2xl font-bold">Manage Membership Types</h1>
@@ -44,8 +44,9 @@ const MembershipTypePage = () => {
       )}
 
       {/* Main Table */}
-      <MembershipTypeList />
-
+      <div className="mx-6">
+        <MembershipTypeList />
+      </div>
       {/* Modals - Only render when needed */}
       {isCreating && <CreateMembershipForm />}
     </div>
