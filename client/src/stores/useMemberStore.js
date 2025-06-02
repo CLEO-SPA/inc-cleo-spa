@@ -24,6 +24,14 @@ const getInitialState = () => ({
   selectedMemberId: null,
 });
 
+function emptyStringToNull(obj) {
+  return Object.fromEntries(
+    Object.entries(obj).map(([key, value]) =>
+      value === "" ? [key, null] : [key, value]
+    )
+  );
+}
+
 const useMemberStore = create((set, get) => ({
   ...getInitialState(),
 
@@ -150,7 +158,9 @@ if (params.endDate_utc !== undefined) set({ endDate_utc: params.endDate_utc });
     set({ isCreating: true, error: false, errorMessage: null });
 
     try {
-      await api.post('/member', data);
+      const cleanedData = emptyStringToNull(data); // Clean here 👈
+
+      await api.post('/member', cleanedData);
       const { currentPage, currentLimit, searchTerm } = get();
       await get().fetchMembers({ page: currentPage, limit: currentLimit, search: searchTerm });
       set({ isCreating: false });

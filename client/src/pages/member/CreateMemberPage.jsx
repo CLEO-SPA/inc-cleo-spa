@@ -13,10 +13,21 @@ import { ArrowLeft } from 'lucide-react';
 import { useState } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import MembershipTypeSelect from './MembershipTypeSelect';
+import EmployeeSelect from '@/components/ui/forms/EmployeeSelect';
+import {
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+  DialogFooter,
+} from '@/components/ui/dialog';
 
 const CreateMembersPage = () => {
   const { createMember, isCreating } = useMemberStore();
   const [error, setError] = useState(null);
+  const [showSuccessDialog, setShowSuccessDialog] = useState(false);
+  const [createdMember, setCreatedMember] = useState(null);
+  const navigate = useNavigate();
   
   // Use only one useForm instance
   const methods = useForm({
@@ -58,10 +69,22 @@ const CreateMembersPage = () => {
     });
 
     if (result.success) {
+      setCreatedMember(data);
+      setShowSuccessDialog(true);
       reset();
     } else {
       setError(result.error);
     }
+  };
+
+  const handleCloseDialog = () => {
+    setShowSuccessDialog(false);
+    setCreatedMember(null);
+  };
+
+  const handleGoToMembers = () => {
+    setShowSuccessDialog(false);
+    navigate('/member');
   };
 
   return (
@@ -178,8 +201,8 @@ const CreateMembersPage = () => {
                               <SelectValue placeholder="Select gender" />
                             </SelectTrigger>
                             <SelectContent>
-                              <SelectItem value="male">Male</SelectItem>
-                              <SelectItem value="female">Female</SelectItem>
+                              <SelectItem value="Male">Male</SelectItem>
+                              <SelectItem value="Female">Female</SelectItem>
                               <SelectItem value="other">Other</SelectItem>
                             </SelectContent>
                           </Select>
@@ -227,19 +250,8 @@ const CreateMembersPage = () => {
 
                       {/* Created By */}
                       <div className="space-y-2">
-                        <Label htmlFor="created_by" className="text-sm font-medium text-gray-700">
-                          Created By *
-                        </Label>
-                        <Input
-                          id="created_by"
-                          placeholder="Enter creator name"
-                          {...register("created_by", { required: "Created by is required" })}
-                          className={errors.created_by ? "border-red-500" : ""}
-                        />
-                        {errors.created_by && (
-                          <p className="text-red-500 text-xs">{errors.created_by.message}</p>
-                        )}
-                      </div>
+                      <EmployeeSelect name="created_by" label="Created By *" />
+                       </div>
 
                       {/* Membership Type */}
                       <div className="space-y-2">
@@ -289,6 +301,71 @@ const CreateMembersPage = () => {
             </div>
           </SidebarInset>
         </div>
+
+        {/* Success Dialog */}
+        <Dialog open={showSuccessDialog} onOpenChange={setShowSuccessDialog}>
+          <DialogContent className="sm:max-w-md">
+            <DialogHeader>
+              <DialogTitle className="flex items-center gap-2 text-green-600">
+                <div className="w-6 h-6 rounded-full bg-green-100 flex items-center justify-center">
+                  <svg className="w-4 h-4 text-green-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
+                  </svg>
+                </div>
+                Member Created Successfully!
+              </DialogTitle>
+            </DialogHeader>
+            <div className="py-4">
+              <p className="text-sm text-gray-600 mb-4">
+                The member "{createdMember?.name}" has been created successfully and added to the system.
+              </p>
+              <div className="bg-gray-50 rounded-lg p-3 space-y-2">
+                <div className="flex justify-between text-sm">
+                  <span className="text-gray-600">Full Name:</span>
+                  <span className="font-medium text-gray-900">
+                    {createdMember?.name}
+                  </span>
+                </div>
+                <div className="flex justify-between text-sm">
+                  <span className="text-gray-600">Email:</span>
+                  <span className="font-medium text-gray-900">
+                    {createdMember?.email}
+                  </span>
+                </div>
+                <div className="flex justify-between text-sm">
+                  <span className="text-gray-600">Contact:</span>
+                  <span className="font-medium text-gray-900">
+                    {createdMember?.contact}
+                  </span>
+                </div>
+                {createdMember?.sex && (
+                  <div className="flex justify-between text-sm">
+                    <span className="text-gray-600">Gender:</span>
+                    <span className="font-medium text-gray-900">
+                      {createdMember?.sex}
+                    </span>
+                  </div>
+                )}
+                {createdMember?.dob && (
+                  <div className="flex justify-between text-sm">
+                    <span className="text-gray-600">Date of Birth:</span>
+                    <span className="font-medium text-gray-900">
+                      {new Date(createdMember?.dob).toLocaleDateString()}
+                    </span>
+                  </div>
+                )}
+              </div>
+            </div>
+            <DialogFooter className="flex gap-2">
+              <Button variant="outline" onClick={handleCloseDialog}>
+                Create Another Member
+              </Button>
+              <Button onClick={handleGoToMembers} className="bg-blue-600 hover:bg-blue-700">
+                View All Members
+              </Button>
+            </DialogFooter>
+          </DialogContent>
+        </Dialog>
       </SidebarProvider>
     </div>
   );
