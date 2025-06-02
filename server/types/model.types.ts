@@ -57,6 +57,19 @@ export interface MemberCarePackagesDetails {
   quantity: number;
 }
 
+export interface MemberCarePackageTransactionLogs {
+  id?: string;
+  type: 'PURCHASE' | 'CONSUMPTION';
+  description: string;
+  transaction_date: string;
+  transaction_amount: number;
+  amount_changed: number;
+  member_care_package_details_id: string;
+  employee_id: string;
+  service_id: string;
+  created_at: string;
+}
+
 export interface SystemParameters {
   id: string;
   start_date_utc: string;

@@ -59,7 +59,25 @@ const getAllMemberCarePackages = async (req: Request, res: Response, next: NextF
     res.status(200).json(results);
   } catch (error) {
     console.error('Error in CarePackageController.getCarePackages:', error);
-    res.status(500).json({ error: 'Failed to retrieve care packages.' });
+    next(error);
+  }
+};
+
+const getMemberCarePackageById = async (req: Request, res: Response, next: NextFunction): Promise<void> => {
+  try {
+    const id = req.params.id;
+
+    if (!id) {
+      res.status(400).json({ message: 'Missing or invalid id' });
+      return;
+    }
+
+    const results = await model.getMemberCarePackageById(id);
+
+    res.status(200).json(results);
+  } catch (error) {
+    console.error('Error getting member care package by id', error);
+    next(error);
   }
 };
 
@@ -108,11 +126,273 @@ const createMemberCarePackage = async (req: Request, res: Response, next: NextFu
     res.status(201).json(results);
   } catch (error) {
     console.error('Error creating member care package', error);
-    throw new Error('Error creating member care package');
+    next(error);
+  }
+};
+
+const updateMemberCarePackage = async (req: Request, res: Response, next: NextFunction): Promise<void> => {
+  try {
+    const { id, package_name, package_remarks, package_price, services, status_id, updated_at, employee_id } = req.body;
+
+    const requiredFieldsErrorMessages: string[] = [];
+    if (!package_name) requiredFieldsErrorMessages.push('package_name is required');
+    if (package_price === undefined) requiredFieldsErrorMessages.push('package_price is required');
+    if (!Array.isArray(services) || services.length === 0) {
+      requiredFieldsErrorMessages.push('services must be a non-empty array');
+    }
+    if (!status_id) requiredFieldsErrorMessages.push('status_id is required');
+    if (!updated_at) requiredFieldsErrorMessages.push('updated_at is required');
+
+    if (requiredFieldsErrorMessages.length > 0) {
+      res
+        .status(400)
+        .json({ message: 'Missing or invalid required fields: ' + requiredFieldsErrorMessages.join(', ') });
+      return;
+    }
+
+    const numericPackagePrice = parseFloat(package_price);
+    if (isNaN(numericPackagePrice)) {
+      res.status(400).json({ message: 'Invalid package_price format.' });
+      return;
+    }
+
+    const isValidService = services.every(
+      (s: any) =>
+        s &&
+        typeof s.id === 'string' &&
+        typeof s.name === 'string' &&
+        typeof s.quantity === 'number' &&
+        s.quantity > 0 &&
+        typeof s.price === 'number' &&
+        s.price >= 0 &&
+        typeof s.discount === 'number' &&
+        s.discount >= 0 &&
+        s.discount <= 1
+    );
+
+    if (!isValidService) {
+      res.status(400).json({ message: 'One or more service items have an invalid format or missing fields.' });
+      return;
+    }
+
+    const results = await model.updateMemberCarePackage(
+      id,
+      package_name,
+      package_remarks,
+      package_price,
+      services,
+      status_id,
+      employee_id,
+      req.session.user_id!,
+      updated_at
+    );
+    res.status(200).json({ success: true, results });
+  } catch (error) {
+    console.error('Error Updating member care package', error);
+    next(error);
+  }
+};
+
+// Permanent Delete
+const deleteMemberCarePackage = async (req: Request, res: Response, next: NextFunction): Promise<void> => {
+  try {
+    const id = req.params.id;
+
+    if (!id) {
+      res.status(400).json({ message: 'Missing or invalid id' });
+      return;
+    }
+
+    const results = await model.deleteMemberCarePackage(id);
+
+    res.status(200).json(results);
+  } catch (error) {
+    console.error('Error deleting member care package', error);
+    next(error);
+  }
+};
+
+// Soft delete
+const removeMemberCarePackage = async (req: Request, res: Response, next: NextFunction): Promise<void> => {
+  try {
+    const id = req.params.id;
+
+    if (!id) {
+      res.status(400).json({ message: 'Missing or invalid id' });
+      return;
+    }
+
+    const results = await model.removeMemberCarePackage(id);
+
+    res.status(200).json(results);
+  } catch (error) {
+    console.error('Error removing member care package', error);
+    next(error);
+  }
+};
+
+interface mcpServiceStatusPayload {
+  id: string;
+  status_name: string;
+}
+
+const enableMemberCarePackage = async (req: Request, res: Response, next: NextFunction): Promise<void> => {
+  try {
+    const { id, services } = req.body;
+
+    if (!id || !Array.isArray(services)) {
+      res.status(400).json({ message: 'Missing required fields or invalid data format' });
+      return;
+    }
+
+    const isValidService = services.every((s) => {
+      return typeof s.id === 'string' && typeof s.status_name === 'string';
+    });
+
+    if (!isValidService) {
+      res.status(400).json({ message: 'Missing required fields or invalid data format' });
+      return;
+    }
+
+    const results = await model.enableMemberCarePackage(id, services);
+
+    res.status(200).json(results);
+  } catch (error) {
+    console.error('Error enabling member care package', error);
+    next(error);
+  }
+};
+
+interface servicePayload {
+  id: string;
+  name: string;
+  quantity: number;
+  price: number;
+  finalPrice: number;
+  discount: number;
+}
+
+interface emulatePayload {
+  id?: string;
+  package_name: string;
+  member_id: string;
+  employee_id?: string;
+  user_id?: string;
+  package_remarks: string;
+  package_price: number;
+  services: servicePayload[];
+  status_id: string;
+  created_at: string;
+  updated_at: string;
+}
+
+const emulateMemberCarePackage = async (req: Request, res: Response, next: NextFunction): Promise<void> => {
+  try {
+    const method = req.method as string;
+    const user_id = req.session?.user_id;
+
+    if (method === 'GET') {
+      res.status(400).send('Cannot Emulate GET method');
+      return;
+    }
+
+    if (method === 'DELETE') {
+      const deleteId = req.query?.id;
+      if (!deleteId) {
+        res.status(400).json({ message: "Missing 'id' for DELETE operation (expected in body or params)." });
+        return;
+      }
+
+      const results = await model.emulateMemberCarePackage(method, { id: deleteId } as emulatePayload);
+      res.status(200).json(results);
+      return;
+    }
+
+    const {
+      id,
+      package_name,
+      package_remarks,
+      package_price,
+      services,
+      status_id,
+      created_at,
+      updated_at,
+      member_id,
+      employee_id,
+    } = req.body;
+
+    // --- Validations for POST and PUT ---
+    const requiredFieldsErrorMessages: string[] = [];
+    if (!package_name) requiredFieldsErrorMessages.push('package_name is required');
+    if (package_price === undefined) requiredFieldsErrorMessages.push('package_price is required');
+    if (!Array.isArray(services) || services.length === 0) {
+      requiredFieldsErrorMessages.push('services must be a non-empty array');
+    }
+    if (method === 'PUT') if (!status_id) requiredFieldsErrorMessages.push('status_id is required');
+    if (method === 'POST') if (!created_at) requiredFieldsErrorMessages.push('created_at is required');
+    if (!updated_at) requiredFieldsErrorMessages.push('updated_at is required');
+
+    if (requiredFieldsErrorMessages.length > 0) {
+      res
+        .status(400)
+        .json({ message: 'Missing or invalid required fields: ' + requiredFieldsErrorMessages.join(', ') });
+      return;
+    }
+
+    const numericPackagePrice = parseFloat(package_price);
+    if (isNaN(numericPackagePrice)) {
+      res.status(400).json({ message: 'Invalid package_price format.' });
+      return;
+    }
+
+    const isValidService = services.every(
+      (s: any) =>
+        s &&
+        typeof s.id === 'string' &&
+        typeof s.name === 'string' &&
+        typeof s.quantity === 'number' &&
+        s.quantity > 0 &&
+        typeof s.price === 'number' &&
+        s.price >= 0 &&
+        typeof s.discount === 'number' &&
+        s.discount >= 0 &&
+        s.discount <= 1
+    );
+
+    if (!isValidService) {
+      res.status(400).json({ message: 'One or more service items have an invalid format or missing fields.' });
+      return;
+    }
+
+    const modelPayload: Partial<emulatePayload> = {
+      id,
+      package_name,
+      package_remarks: package_remarks || '',
+      package_price: numericPackagePrice,
+      services,
+      status_id,
+      created_at,
+      updated_at,
+      employee_id,
+      user_id,
+      member_id,
+    };
+
+    const results = await model.emulateMemberCarePackage(method, modelPayload);
+    res.status(200).json(results);
+  } catch (error) {
+    console.error('Error emulating carePackage');
+    next(error);
   }
 };
 
 export default {
   getAllMemberCarePackages,
+  getMemberCarePackageById,
   createMemberCarePackage,
+  updateMemberCarePackage,
+  deleteMemberCarePackage,
+  removeMemberCarePackage,
+  enableMemberCarePackage,
+  emulateMemberCarePackage,
 };

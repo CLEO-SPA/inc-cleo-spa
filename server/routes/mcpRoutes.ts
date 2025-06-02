@@ -15,8 +15,17 @@ import controller from '../controllers/mcpController.js';
 // =========================
 router.use(isAuthenticated);
 
-router.get('/pkgs', controller.getAllMemberCarePackages);
+router.all('/e', roleMiddleware.hasRole(['data_admin', 'super_admin']), controller.emulateMemberCarePackage);
+
+router.get('/pkg', controller.getAllMemberCarePackages);
+router.get('/pkg/:id', controller.getMemberCarePackageById);
 
 router.post('/c', controller.createMemberCarePackage);
+router.post('/s', controller.enableMemberCarePackage);
+
+router.put('/u', controller.updateMemberCarePackage);
+
+router.delete('/:id/r', controller.removeMemberCarePackage);
+router.delete('/:id/d', controller.deleteMemberCarePackage);
 
 export default router;
