@@ -14,7 +14,8 @@ import NotFoundPage from '@/pages/404Page';
 import ManageMembershipTypePage from '@/pages/membership-type/ManageMembershipTypePage';
 import ManageCarePackagesPage from './pages/CarePackages/ManageCarePackagesPage';
 import ManageMembersPage from './pages/member/ManageMembersPage';
-import CreateMembersPage from './pages/member/CreateMemberPage';
+import CreateMemberPage from './pages/member/CreateMemberPage';
+import EditMemberPage from './pages/member/EditMemberPage';
 
 function App() {
   return (
@@ -26,8 +27,10 @@ function App() {
             <Route path='/' element={<ProtectedRoute />}>
               <Route index element={<HomePage />} />
               <Route path='/mcp' element={<ManageCarePackagesPage />} />
+              {/* Member Management */}
               <Route path='/member' element={<ManageMembersPage />} />
-              <Route path='/member/create' element={<CreateMembersPage />} />
+              <Route path='/member/create' element={<CreateMemberPage />} />
+              <Route path='/member/edit/:id' element={<EditMemberPage />} />
             </Route>
             <Route path='/login' element={<LoginPage />} />
 

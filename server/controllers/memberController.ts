@@ -81,9 +81,36 @@ const deleteMember = async (req: Request, res: Response, next: NextFunction) => 
   }
 };
 
+
+// Get a single member by ID
+const getMemberById = async (req: Request, res: Response): Promise<void> => {
+  try {
+    const id = parseInt(req.params.id, 10);
+
+    if (isNaN(id)) {
+      res.status(400).json({ message: 'Invalid member ID' });
+      return;
+    }
+
+    const member = await model.getMemberById(id);
+
+    if (!member) {
+      res.status(404).json({ message: 'Member not found' });
+      return;
+    }
+
+    res.status(200).json(member);
+  } catch (error) {
+    console.error('Error in getMemberById:', error);
+    res.status(500).json({ message: 'Failed to fetch member' });
+  }
+};
+
+
 // Export all handlers in the same pattern
 export default {
   getAllMembers,
+  getMemberById, 
   createMember,
   updateMember,
   deleteMember,

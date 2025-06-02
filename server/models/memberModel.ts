@@ -278,9 +278,48 @@ const deleteMember = async (memberId: number) => {
   }
 };
 
+const getMemberById = async (id: number) => {
+  try {
+    const query = `
+      SELECT 
+        m.*,
+        mt.membership_type_name as membership_type_name,
+        e.employee_name as created_by_name
+      FROM members m
+      LEFT JOIN membership_types mt ON m.membership_type_id::bigint = mt.id
+      LEFT JOIN employees e ON m.created_by = e.id
+      WHERE m.id = $1;
+    `;
+
+    const result = await pool().query(query, [id]);
+
+    if (result.rows.length === 0) {
+      throw new Error('Member not found');
+    }
+
+    const member = result.rows[0];
+
+    return {
+      ...member,
+      created_at: member.created_at
+        ? format(new Date(member.created_at), 'dd MMM yyyy, hh:mm a')
+        : null,
+      updated_at: member.updated_at
+        ? format(new Date(member.updated_at), 'dd MMM yyyy, hh:mm a')
+        : null,
+      dob: member.dob
+        ? format(new Date(member.dob), 'dd MMM yyyy')
+        : null,
+    };
+  } catch (error) {
+    console.error('Error fetching member by ID:', error);
+    throw new Error('Error fetching member by ID');
+  }
+};
 
 export default {
   getAllMembers,
+  getMemberById, 
   createMember,
   updateMember,
   deleteMember

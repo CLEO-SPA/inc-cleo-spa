@@ -158,7 +158,7 @@ if (params.endDate_utc !== undefined) set({ endDate_utc: params.endDate_utc });
     set({ isCreating: true, error: false, errorMessage: null });
 
     try {
-      const cleanedData = emptyStringToNull(data); // Clean here 👈
+      const cleanedData = emptyStringToNull(data); 
 
       await api.post('/member', cleanedData);
       const { currentPage, currentLimit, searchTerm } = get();
@@ -175,11 +175,35 @@ if (params.endDate_utc !== undefined) set({ endDate_utc: params.endDate_utc });
     }
   },
 
+  getMemberById: async (id) => {
+    set({ isFetchingSingle: true, error: false, errorMessage: null });
+
+    try {
+      const response = await api.get(`/member/${id}`);
+      set({
+        selectedMember: response.data,
+        selectedMemberId: id,
+        isFetchingSingle: false,
+      });
+      return { success: true };
+    } catch (error) {
+      console.error('Error fetching member by ID:', error);
+      set({
+        selectedMember: null,
+        isFetchingSingle: false,
+        error: true,
+        errorMessage: error.response?.data?.message || error.message || 'Failed to fetch member',
+      });
+      return { success: false, error: error.response?.data?.message || error.message };
+    }
+  },
+  
   updateMember: async (id, data) => {
     set({ isUpdating: true, error: false, errorMessage: null });
 
     try {
-      await api.put(`/member/${id}`, data);
+      const cleanedData = emptyStringToNull(data); 
+      await api.put(`/member/${id}`, cleanedData);
       const { currentPage, currentLimit, searchTerm } = get();
       await get().fetchMembers({ page: currentPage, limit: currentLimit, search: searchTerm });
       set({ isUpdating: false });

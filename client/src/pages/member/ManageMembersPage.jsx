@@ -160,7 +160,7 @@ useEffect(() => {
 
   const handleEdit = (id) => {
     setSelectedMemberId(id);
-    navigate(`/member/${id}/edit`); // Adjust route as needed
+    navigate(`/member/edit/${id}`); // Adjust route as needed
   };
 
   
