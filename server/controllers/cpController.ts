@@ -136,30 +136,43 @@ const createCarePackage = async (req: Request, res: Response, next: NextFunction
 
 const updateCarePackageById = async (req: Request, res: Response, next: NextFunction): Promise<void> => {
   try {
-    const { id, package_name, package_remarks, package_price, is_customizable, services, created_at, updated_at } =
-      req.body;
+    const {
+      care_package_id,
+      package_name,
+      package_remarks,
+      package_price,
+      is_customizable,
+      employee_id,
+      services,
+      updated_at,
+    } = req.body;
 
-    if (!!!is_customizable) {
-      res.status(401).json({ message: 'Package is not customizable' });
+    // validate required fields
+    if (!care_package_id) {
+      res.status(400).json({ message: 'Care package ID is required' });
       return;
     }
 
-    if (!id || !package_name || !package_price || !Array.isArray(services)) {
+    if (!package_name || !package_price || !Array.isArray(services)) {
       res.status(400).json({ message: 'Missing required fields or invalid data format' });
       return;
     }
 
+    // validate services array
     const isValidService = services.every((s) => {
       return (
-        typeof s.id === 'string' &&
-        typeof s.name === 'string' &&
-        typeof s.quantity === 'number' &&
-        s.quantity > 0 &&
-        typeof s.price === 'number' &&
-        s.price >= 0 &&
-        typeof s.discount === 'number' &&
-        s.discount >= 0 &&
-        s.discount <= 1
+        typeof s.id === 'string' ||
+        (typeof s.id === 'number' &&
+          typeof s.name === 'string' &&
+          typeof s.quantity === 'number' &&
+          s.quantity > 0 &&
+          typeof s.price === 'number' &&
+          s.price >= 0 &&
+          typeof s.finalPrice === 'number' &&
+          s.finalPrice >= 0 &&
+          typeof s.discount === 'number' &&
+          s.discount >= 0 &&
+          s.discount <= 1)
       );
     });
 
@@ -168,20 +181,20 @@ const updateCarePackageById = async (req: Request, res: Response, next: NextFunc
       return;
     }
 
-    // const results = await model.updateCarePackageById(
-    //   id,
-    //   package_name,
-    //   package_remarks,
-    //   package_price,
-    //   services,
-    //   is_customizable,
-    //   created_at,
-    //   updated_at
-    // );
+    const results = await model.updateCarePackageById(
+      care_package_id,
+      package_name,
+      package_remarks,
+      parseFloat(package_price),
+      services,
+      !!!is_customizable,
+      employee_id || req.session.user_id,
+      updated_at || new Date().toISOString()
+    );
 
-    // res.status(200).json(results);
+    res.status(200).json(results);
   } catch (error) {
-    console.error('Error updating carePackage By Id', error);
+    console.error('Error updating carePackage', error);
     next(error);
   }
 };

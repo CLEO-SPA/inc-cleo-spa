@@ -225,7 +225,109 @@ const createCarePackage = async (
   }
 };
 
-const updateCarePackageById = async (id: string) => {};
+const updateCarePackageById = async (
+  care_package_id: string,
+  package_name: string,
+  package_remarks: string,
+  package_price: number,
+  services: servicePayload[],
+  is_customizable: boolean,
+  employee_id: string,
+  updated_at: string
+) => {
+  const client = await pool().connect();
+  try {
+    await client.query('BEGIN');
+
+    // validate that the care package exists
+    const v_cp_sql = 'SELECT id FROM care_packages WHERE id = $1';
+    const cpResult = await client.query(v_cp_sql, [care_package_id]);
+    
+    if (cpResult.rowCount === 0) {
+      throw new Error(`Care package with ID ${care_package_id} does not exist.`);
+    }
+
+    // validate employee exists
+    const v_employee_sql = 'SELECT id FROM employees WHERE id = $1';
+    const v_status_sql = 'SELECT get_or_create_status($1) as id';
+
+    const [employeeResult, statusResult] = await Promise.all([
+      client.query<Employees>(v_employee_sql, [employee_id]),
+      client.query<{ id: string }>(v_status_sql, ['ENABLED']),
+    ]);
+
+    if (employeeResult.rowCount === 0) {
+      throw new Error(`Invalid employee_id: ${employee_id} does not exist.`);
+    }
+    if (!statusResult.rows || statusResult.rows.length === 0 || !statusResult.rows[0].id) {
+      throw new Error('Failed to get or create status ID.');
+    }
+    const statusId = statusResult.rows[0].id;
+
+    // update care package main details
+    const u_cp_sql = `
+      UPDATE care_packages 
+      SET care_package_name = $1, 
+          care_package_remarks = $2, 
+          care_package_price = $3, 
+          care_package_customizable = $4, 
+          status_id = $5, 
+          last_updated_by = $6, 
+          updated_at = $7
+      WHERE id = $8
+    `;
+    
+    await client.query(u_cp_sql, [
+      package_name,
+      package_remarks,
+      package_price,
+      is_customizable,
+      statusId,
+      employee_id,
+      updated_at,
+      care_package_id,
+    ]);
+
+    // delete existing care package item details
+    const d_cpid_sql = 'DELETE FROM care_package_item_details WHERE care_package_id = $1';
+    await client.query(d_cpid_sql, [care_package_id]);
+
+    // insert new care package item details
+    const i_cpid_sql = `
+      INSERT INTO care_package_item_details
+      (care_package_item_details_quantity, care_package_item_details_discount, care_package_item_details_price, service_id, care_package_id)
+      VALUES ($1, $2, $3, $4, $5) RETURNING id;
+    `;
+
+    const serviceProcessingPromise = services.map(async (service) => {
+      await client.query<{ id: string }>(i_cpid_sql, [
+        service.quantity,
+        service.discount,
+        service.finalPrice,
+        service.id,
+        care_package_id,
+      ]);
+    });
+
+    await Promise.all(serviceProcessingPromise);
+
+    await client.query('COMMIT');
+
+    return {
+      carePackageId: care_package_id,
+      message: 'Care package updated successfully',
+    };
+  } catch (error) {
+    console.error('Error updating care package:', error);
+    await client.query('ROLLBACK');
+    if (error instanceof Error) {
+      throw error;
+    }
+    throw new Error('An unexpected error occurred while updating the care package.');
+  } finally {
+    client.release();
+  }
+};
 
 const deleteCarePackageById = async (id: string) => {};
 
