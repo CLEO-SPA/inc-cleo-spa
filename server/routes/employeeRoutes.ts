@@ -17,7 +17,7 @@ import employeeController from '../controllers/employeeController.js';
 // =========================
 router.use(isAuthenticated);
 
-// router.get('/', employeeController.getAllEmployees);
+router.get('/dropdown', employeeController.getAllEmployeesForDropdown);
 
 // router.post(
 //   '/create',
