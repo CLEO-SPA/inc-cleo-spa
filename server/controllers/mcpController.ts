@@ -126,7 +126,70 @@ const createMemberCarePackage = async (req: Request, res: Response, next: NextFu
     res.status(201).json(results);
   } catch (error) {
     console.error('Error creating member care package', error);
-    throw new Error('Error creating member care package');
+    next(error);
+  }
+};
+
+const updateMemberCarePackage = async (req: Request, res: Response, next: NextFunction) => {
+  try {
+    const { id, package_name, package_remarks, package_price, services, status_id, updated_at, employee_id } = req.body;
+
+    const requiredFieldsErrorMessages: string[] = [];
+    if (!package_name) requiredFieldsErrorMessages.push('package_name is required');
+    if (package_price === undefined) requiredFieldsErrorMessages.push('package_price is required');
+    if (!Array.isArray(services) || services.length === 0) {
+      requiredFieldsErrorMessages.push('services must be a non-empty array');
+    }
+    if (!status_id) requiredFieldsErrorMessages.push('status_id is required');
+    if (!updated_at) requiredFieldsErrorMessages.push('updated_at is required');
+
+    if (requiredFieldsErrorMessages.length > 0) {
+      res
+        .status(400)
+        .json({ message: 'Missing or invalid required fields: ' + requiredFieldsErrorMessages.join(', ') });
+      return;
+    }
+
+    const numericPackagePrice = parseFloat(package_price);
+    if (isNaN(numericPackagePrice)) {
+      res.status(400).json({ message: 'Invalid package_price format.' });
+      return;
+    }
+
+    const isValidService = services.every(
+      (s: any) =>
+        s &&
+        typeof s.id === 'string' &&
+        typeof s.name === 'string' &&
+        typeof s.quantity === 'number' &&
+        s.quantity > 0 &&
+        typeof s.price === 'number' &&
+        s.price >= 0 &&
+        typeof s.discount === 'number' &&
+        s.discount >= 0 &&
+        s.discount <= 1
+    );
+
+    if (!isValidService) {
+      res.status(400).json({ message: 'One or more service items have an invalid format or missing fields.' });
+      return;
+    }
+
+    const results = await model.updateMemberCarePackage(
+      id,
+      package_name,
+      package_remarks,
+      package_price,
+      services,
+      status_id,
+      employee_id,
+      req.session.user_id!,
+      updated_at
+    );
+    res.status(200).json({ success: true, results });
+  } catch (error) {
+    console.error('Error Updating member care package', error);
+    next(error);
   }
 };
 
@@ -134,4 +197,5 @@ export default {
   getAllMemberCarePackages,
   getMemberCarePackageById,
   createMemberCarePackage,
+  updateMemberCarePackage,
 };

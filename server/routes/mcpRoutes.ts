@@ -20,4 +20,6 @@ router.get('/pkg/:id', controller.getMemberCarePackageById);
 
 router.post('/c', controller.createMemberCarePackage);
 
+router.put('/u', controller.updateMemberCarePackage);
+
 export default router;

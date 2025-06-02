@@ -261,6 +261,124 @@ const createMemberCarePackage = async (
   }
 };
 
+const updateMemberCarePackage = async (
+  id: string,
+  package_name: string,
+  package_remarks: string,
+  package_price: number,
+  services: servicePayload[],
+  status_id: string,
+  employee_id: string,
+  user_id: string,
+  updated_at: string
+) => {
+  const client = await pool().connect();
+  try {
+    if (!id) {
+      throw new Error('Payload must include an id for the member care package to update.');
+    }
+
+    await client.query('BEGIN');
+
+    // Validations
+    const mcpSql = 'SELECT * FROM member_care_packages WHERE id = $1';
+    const { rows: oldMcp } = await client.query<MemberCarePackages>(mcpSql, [id]);
+    if (oldMcp.length === 0) {
+      throw new Error(`Member care package with id ${id} not found for update.`);
+    }
+
+    // Check if the package is updatable
+    const is_updateable = await checkMcpUpdatable(id);
+    if (!is_updateable) {
+      throw new Error('Member Care Package not updatable');
+    }
+
+    // Check employee_id
+    if (!employee_id) {
+      employee_id = (await getEmployeeIdByUserAuthId(user_id)).rows[0].id;
+    }
+
+    const d_mcpd_sql = 'DELETE FROM member_care_package_details WHERE member_care_package_id = $1';
+    await client.query(d_mcpd_sql, [id]);
+
+    const u_mcp_sql = `
+      UPDATE member_care_packages SET
+        employee_id = $1,
+        package_name = $2,
+        package_remarks = $3,
+        total_price = $4,
+        status_id = $5,
+        updated_at = $6
+      WHERE
+        id = $7;
+      `;
+    const i_mcpd_sql = `
+      INSERT INTO member_care_package_details
+      (service_name, discount, price, member_care_package_id, service_id, status_id, quantity)
+      VALUES ($1, $2, $3, $4, $5, $6, $7) RETURNING id
+    `;
+    const i_mcptl_sql = `
+      INSERT INTO member_care_package_transaction_logs
+      (type, description, transaction_date, transaction_amount, amount_changed, member_care_package_details_id, employee_id, service_id, created_at)
+      VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9) RETURNING id
+    `;
+
+    const results = await client.query(u_mcp_sql, [
+      employee_id,
+      package_name,
+      package_remarks,
+      package_price,
+      status_id,
+      updated_at,
+      id,
+    ]);
+
+    const serviceProcessingPromises = services.map(async (service) => {
+      const { rows: mcpdRows } = await client.query<{ id: string }>(i_mcpd_sql, [
+        service.name,
+        service.discount,
+        service.price,
+        id,
+        service.id,
+        status_id,
+        service.quantity,
+      ]);
+
+      if (!mcpdRows || mcpdRows.length === 0 || !mcpdRows[0].id) {
+        throw new Error(`Failed to insert detail for service ${service.name} or retrieve its ID.`);
+      }
+      const memberCarePackageDetailId = mcpdRows[0].id;
+
+      await client.query<{ id: string }>(i_mcptl_sql, [
+        'PURCHASE',
+        package_name,
+        oldMcp[0].created_at,
+        service.finalPrice * service.quantity,
+        service.finalPrice * service.quantity,
+        memberCarePackageDetailId,
+        employee_id,
+        service.id,
+        updated_at,
+      ]);
+    });
+
+    await Promise.all(serviceProcessingPromises);
+
+    await client.query('COMMIT');
+
+    return results.rowCount;
+  } catch (error) {
+    console.error('Error updating member care package:', error);
+    await client.query('ROLLBACK');
+    if (error instanceof Error) {
+      throw error;
+    }
+    throw new Error('An unexpected error occurred while updating the member care package.');
+  } finally {
+    client.release();
+  }
+};
+
 const checkMcpUpdatable = async (id: string) => {
   try {
     const type = 'CONSUMPTION';
@@ -292,6 +410,7 @@ const checkMcpUpdatable = async (id: string) => {
     throw new Error('Error checking member care package updateable');
   }
 };
+
 export default {
   getPaginatedMemberCarePackages,
   getMemberCarePackageById,
