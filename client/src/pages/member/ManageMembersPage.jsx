@@ -5,7 +5,8 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
-import { Calendar } from 'lucide-react';
+import { Calendar, Plus,
+ } from 'lucide-react';
 import DateRangePicker from '@/components/date-range-picker';
 import { format } from 'date-fns';
 
@@ -162,6 +163,11 @@ useEffect(() => {
     navigate(`/member/${id}/edit`); // Adjust route as needed
   };
 
+  
+  const handleCreate = () => {
+    navigate('/member/create'); // Adjust route as needed
+  };
+
   const handleDelete = async (id) => {
     if (window.confirm('Are you sure you want to delete this member?')) {
       const result = await deleteMember(id);
@@ -176,6 +182,7 @@ useEffect(() => {
   // --- Role-based access ---
   const canEdit = user?.role === 'super_admin' || user?.role === 'data_admin';
   const canDelete = user?.role === 'super_admin';
+  const canCreate = user?.role === 'super_admin' || user?.role === 'data_admin';
 
   // --- Table headers for members ---
   const tableHeaders = [
@@ -215,12 +222,20 @@ useEffect(() => {
           <SidebarInset>
             <div className='container mx-auto p-4 space-y-6'>
               <Card>
-                <CardHeader>
+                <CardHeader className='flex flex-row items-center justify-between space-y-0 pb-4'>
+                  <div>
                   <CardTitle>Members Management</CardTitle>
                   {totalCount > 0 && (
                     <p className='text-sm text-muted-foreground'>
                       Showing {members.length} of {totalCount} members
                     </p>
+                  )}
+                  </div>
+                    {canCreate && (
+                    <Button onClick={handleCreate} className='gap-2'>
+                      <Plus className='h-4 w-4' />
+                      Add Member
+                    </Button>
                   )}
                 </CardHeader>
                 <CardContent className='space-y-4'>
