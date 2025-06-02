@@ -22,8 +22,8 @@ router.all('/e', roleMiddleware.hasRole(['data_admin', 'super_admin']), controll
 
 router.post('/c', controller.createCarePackage);
 
-router.put('/:id', roleMiddleware.hasRole(['data_admin', 'super_admin']), controller.updateCarePackageById);
+router.put('/u', controller.updateCarePackageById);
 
-router.delete('/:id', roleMiddleware.hasRole('super_admin'), controller.deleteCarePackageById);
+router.delete('/:id', roleMiddleware.hasRole(['data_admin', 'super_admin']), controller.deleteCarePackageById);
 
 export default router;
