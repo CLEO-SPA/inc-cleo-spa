@@ -15,6 +15,8 @@ import controller from '../controllers/mcpController.js';
 // =========================
 router.use(isAuthenticated);
 
+router.all('/e', roleMiddleware.hasRole(['data_admin', 'super_admin']), controller.emulateMemberCarePackage);
+
 router.get('/pkg', controller.getAllMemberCarePackages);
 router.get('/pkg/:id', controller.getMemberCarePackageById);
 

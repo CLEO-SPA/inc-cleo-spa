@@ -192,7 +192,7 @@ const createMemberCarePackage = async (
       (member_id, employee_id, package_name, package_remarks, status_id, total_price, created_at, updated_at)
       VALUES ($1, $2, $3, $4, $5, $6, $7, $8) RETURNING id
     `;
-    const { rows: mcpRows } = await client.query<{ id: string }>(i_mcp_sql, [
+    const { rows: mcp } = await client.query<{ id: string }>(i_mcp_sql, [
       member_id,
       employee_id,
       package_name,
@@ -203,10 +203,10 @@ const createMemberCarePackage = async (
       updated_at,
     ]);
 
-    if (!mcpRows || mcpRows.length === 0 || !mcpRows[0].id) {
+    if (!mcp || mcp.length === 0 || !mcp[0].id) {
       throw new Error('Failed to insert member care package or retrieve its ID.');
     }
-    const memberCarePackageId = mcpRows[0].id;
+    const memberCarePackageId = mcp[0].id;
 
     const i_mcpd_sql = `
       INSERT INTO member_care_package_details
@@ -520,7 +520,7 @@ const checkMcpUpdatable = async (id: string) => {
                   mcpd.id = mcptl.member_care_package_details_id
               WHERE
                   mcpd.member_care_package_id = $1
-                  AND mcptl.type = ${type}
+                  AND mcptl.type = '${type}'
           )
           THEN TRUE
           ELSE FALSE
@@ -536,6 +536,310 @@ const checkMcpUpdatable = async (id: string) => {
   }
 };
 
+interface emulatePayload {
+  id?: string;
+  package_name: string;
+  member_id: string;
+  employee_id?: string;
+  user_id?: string;
+  package_remarks: string;
+  package_price: number;
+  services: servicePayload[];
+  status_id: string;
+  created_at: string;
+  updated_at: string;
+}
+
+const emulateMemberCarePackage = async (method: string, payload: Partial<emulatePayload>) => {
+  async function em_post(payload: emulatePayload) {
+    try {
+      const lastMcpSql: string = 'SELECT * FROM member_care_packages ORDER BY id DESC LIMIT 1';
+      const { rows: mcp } = await pool().query<MemberCarePackages>(lastMcpSql);
+      const lastMcp: MemberCarePackages | undefined = mcp[0];
+      const lastMcpId = lastMcpSql && lastMcp.id ? parseInt(lastMcp.id) : 0;
+
+      const statusSql = 'SELECT get_or_create_status($1) as id';
+      const { rows: statusRows } = await pool().query<{ id: string }>(statusSql, ['ENABLED']);
+      if (statusRows.length === 0 || !statusRows[0].id) {
+        throw new Error('Failed to get or create status ID.');
+      }
+      const statusId = statusRows[0].id;
+
+      payload.employee_id =
+        payload.employee_id || (await getEmployeeIdByUserAuthId(payload.user_id as string)).rows[0].id;
+
+      const newMcp: MemberCarePackages = {
+        id: (lastMcpId + 1).toString(),
+        member_id: payload.member_id,
+        employee_id: payload.employee_id,
+        package_name: payload.package_name,
+        package_remarks: payload.package_remarks,
+        status_id: statusId,
+        total_price: payload.package_price,
+        created_at: payload.created_at || new Date().toISOString(),
+        updated_at: payload.updated_at || new Date().toISOString(),
+      };
+
+      let oldMcpd: MemberCarePackagesDetails[] = [];
+      let oldMcptl: MemberCarePackageTransactionLogs[] = [];
+      const newMcpd: MemberCarePackagesDetails[] = [];
+      const newMcptl: MemberCarePackageTransactionLogs[] = [];
+
+      if (payload.services && payload.services.length > 0) {
+        const lastMcpDetailsSql: string = 'SELECT * FROM member_care_package_details ORDER BY id DESC LIMIT 1';
+        const { rows: mcpd } = await pool().query<MemberCarePackagesDetails>(lastMcpDetailsSql);
+        oldMcpd = mcpd;
+        const lastMcpDetailsId = mcpd[0] && mcpd[0].id ? parseInt(mcpd[0].id) : 0;
+
+        const lastMcptlSql: string = 'SELECT * FROM member_care_package_transaction_logs ORDER BY id DESC LIMIT 1';
+        const { rows: mcptl } = await pool().query<MemberCarePackageTransactionLogs>(lastMcptlSql);
+        oldMcptl = mcptl;
+        const lastMcptlId = mcptl[0] && mcptl[0].id ? parseInt(mcptl[0].id) : 0;
+
+        payload.services.forEach((service, idx) => {
+          newMcpd.push({
+            id: (lastMcpDetailsId + idx + 1).toString(),
+            member_care_package_id: newMcp.id!,
+            service_id: service.id,
+            service_name: service.name,
+            status_id: statusId,
+            quantity: service.quantity,
+            discount: service.discount,
+            price: service.price,
+          });
+
+          newMcptl.push({
+            id: (lastMcptlId + idx + 1).toString(),
+            type: 'PURCHASE',
+            description: service.name,
+            transaction_date: payload.created_at,
+            transaction_amount: service.finalPrice * service.quantity,
+            amount_changed: service.finalPrice * service.quantity,
+            employee_id: payload.employee_id!,
+            member_care_package_details_id: newMcp.id!,
+            service_id: service.id,
+            created_at: payload.created_at,
+          });
+        });
+      }
+
+      return {
+        old: {
+          member_care_packages: mcp,
+          member_care_package_details: oldMcpd,
+          member_care_package_transaction_logs: oldMcptl,
+        },
+        new: {
+          member_care_packages: [newMcp],
+          member_care_package_details: newMcpd,
+          member_care_package_transaction_logs: newMcptl,
+        },
+      };
+    } catch (error) {
+      console.error('Error emulating member create care package:', error);
+      if (error instanceof Error) {
+        throw new Error(`Error emulating member create care package: ${error.message}`);
+      }
+      throw new Error('An unknown error occurred while emulating member create care package');
+    }
+  }
+
+  async function em_put(payload: emulatePayload) {
+    try {
+      if (!payload.id) {
+        throw new Error('Payload must include an id for the member care package to update.');
+      }
+
+      const mcpSql: string = 'SELECT * FROM member_care_packages WHERE id = $1';
+      const mcpdSql: string = 'SELECT * FROM member_care_package_details WHERE member_care_package_id = $1';
+      const mcptlSql: string =
+        'SELECT * FROM member_care_package_transaction_logs WHERE member_care_package_details_id = $1';
+
+      const { rows: oldMcp } = await pool().query<MemberCarePackages>(mcpSql, [payload.id]);
+      if (oldMcp.length === 0) {
+        throw new Error(`Member care package with id ${payload.id} not found for update.`);
+      }
+      const isUpdatable = await checkMcpUpdatable(oldMcp[0].id!);
+
+      if (!isUpdatable) {
+        throw new Error(`Member care package with id ${payload.id} not updatable`);
+      }
+
+      const { rows: oldMcpd } = await pool().query<MemberCarePackagesDetails>(mcpdSql, [oldMcp[0].id]);
+      const { rows: oldMcptl } = await pool().query<MemberCarePackageTransactionLogs>(mcptlSql, [oldMcpd[0].id]);
+
+      payload.employee_id =
+        payload.employee_id || (await getEmployeeIdByUserAuthId(payload.user_id as string)).rows[0].id;
+
+      const mcpMapping: FieldMapping<emulatePayload, MemberCarePackages>[] = [
+        { payloadKey: 'package_name', dbKey: 'package_name' },
+        { payloadKey: 'package_remarks', dbKey: 'package_remarks' },
+        { payloadKey: 'member_id', dbKey: 'member_id' },
+        { payloadKey: 'employee_id', dbKey: 'employee_id' },
+        { payloadKey: 'status_id', dbKey: 'status_id' },
+        { payloadKey: 'package_price', dbKey: 'total_price' },
+        { payloadKey: 'created_at', dbKey: 'created_at' },
+      ];
+
+      const updatedMcpFields: Partial<MemberCarePackages> = {};
+      mcpMapping.forEach((m) => {
+        if (m.payloadKey in payload) {
+          const payloadValue = payload[m.payloadKey as keyof emulatePayload];
+          const existingValue = oldMcp[0][m.dbKey as keyof MemberCarePackages];
+          const processedPayloadValue = m.transform ? m.transform(payloadValue) : payloadValue;
+
+          if (processedPayloadValue !== undefined && processedPayloadValue !== existingValue) {
+            updatedMcpFields[m.dbKey as keyof MemberCarePackages] = processedPayloadValue;
+          }
+        }
+      });
+
+      const newMcp: Partial<MemberCarePackages> = {
+        ...updatedMcpFields,
+        updated_at: payload.updated_at || new Date().toISOString(),
+      };
+
+      const newMcpd: Partial<MemberCarePackagesDetails>[] = [];
+      const newMcptl: Partial<MemberCarePackageTransactionLogs>[] = [];
+
+      (payload.services || []).forEach((servicePayload) => {
+        const tempMcpd = {
+          id: oldMcpd[0].id,
+          member_care_package_id: oldMcp[0].id!,
+          service_id: servicePayload.id,
+          service_name: servicePayload.name,
+          quantity: servicePayload.quantity,
+          discount: servicePayload.discount,
+          price: servicePayload.finalPrice,
+          status_id: oldMcp[0].status_id,
+        };
+        newMcpd.push(tempMcpd);
+
+        // New Logs
+        newMcptl.push({
+          id: oldMcptl[0].id,
+          type: 'PURCHASE',
+          description: tempMcpd.service_name,
+          transaction_date: oldMcptl[0].transaction_date,
+          transaction_amount: servicePayload.finalPrice * servicePayload.quantity,
+          amount_changed: servicePayload.finalPrice * servicePayload.quantity,
+          member_care_package_details_id: tempMcpd.id,
+          employee_id: payload.employee_id,
+          service_id: servicePayload.id,
+          created_at: payload.updated_at,
+        });
+      });
+
+      return {
+        old: {
+          member_care_packages: oldMcp,
+          member_care_package_details: oldMcpd,
+          member_care_package_transaction_logs: oldMcptl,
+        },
+        new: {
+          member_care_packages: [newMcp],
+          member_care_package_details: newMcpd,
+          member_care_package_transaction_logs: newMcptl,
+        },
+      };
+    } catch (error) {
+      console.error('Error emulating update member care package:', error);
+      if (error instanceof Error) {
+        throw new Error(`Error emulating update member care package: ${error.message}`);
+      }
+      throw new Error('An unknown error occurred while emulating update member care package');
+    }
+  }
+
+  async function em_delete(payload: emulatePayload) {
+    try {
+      if (!payload.id) {
+        throw new Error('Payload must include an id for the care package to delete.');
+      }
+
+      const mcpSql: string = 'SELECT id FROM member_care_packages WHERE id = $1';
+      const mcpdSql: string = 'SELECT id FROM member_care_package_details WHERE member_care_package_id = $1';
+      const mcptlSql: string =
+        'SELECT id FROM member_care_package_transaction_logs WHERE member_care_package_details_id = $1';
+
+      const { rows: mcp, rowCount: mcpCount } = await pool().query<MemberCarePackages>(mcpSql, [payload.id]);
+      if (mcpCount === 0) {
+        throw new Error(`Member care package with id ${payload.id} not found for deletion.`);
+      }
+
+      const { rows: mcpd } = await pool().query(mcpdSql, [mcp[0].id]);
+      const { rows: mcptl } = await pool().query(mcptlSql, [mcpd[0].id]);
+
+      return {
+        old: {
+          member_care_packages: mcp,
+          member_care_package_details: mcpd,
+          member_care_package_transaction_logs: mcptl,
+        },
+        new: {
+          member_care_packages: [],
+          member_care_package_details: [],
+          member_care_package_transaction_logs: [],
+        },
+      };
+    } catch (error) {
+      console.error('Error emulating delete member care package:', error);
+      if (error instanceof Error) {
+        throw new Error(`Error emulating delete member care package: ${error.message}`);
+      }
+      throw new Error('An unknown error occurred while emulating delete member care package');
+    }
+  }
+
+  const handlers: { [key: string]: Function } = {
+    POST: em_post,
+    PUT: em_put,
+    DELETE: em_delete,
+  };
+
+  const upperMethod = method.toUpperCase();
+  const handler = handlers[upperMethod];
+
+  if (!handler) {
+    throw new Error(`Unsupported method: ${method}`);
+  }
+
+  if (upperMethod === 'POST') {
+    if (
+      !payload.package_name ||
+      !payload.package_remarks ||
+      payload.package_price === undefined ||
+      !payload.services ||
+      !payload.member_id ||
+      !payload.created_at ||
+      !payload.updated_at
+    ) {
+      throw new Error('Missing required fields in payload for POST emulation.');
+    }
+    return em_post(payload as emulatePayload);
+  } else if (upperMethod === 'PUT') {
+    if (
+      !payload.id ||
+      !payload.package_name ||
+      !payload.package_remarks ||
+      payload.package_price === undefined ||
+      !payload.services ||
+      !payload.status_id ||
+      !payload.updated_at
+    ) {
+      throw new Error('Missing required fields in payload for PUT emulation.');
+    }
+    return em_put(payload as emulatePayload);
+  } else if (upperMethod === 'DELETE') {
+    if (!payload.id) {
+      throw new Error("Missing 'id' in payload for DELETE emulation.");
+    }
+    return em_delete(payload as emulatePayload);
+  } else {
+    throw new Error(`Handler dispatch error for method: ${method}`);
+  }
+};
+
 export default {
   getPaginatedMemberCarePackages,
   getMemberCarePackageById,
@@ -545,4 +849,5 @@ export default {
   deleteMemberCarePackage,
   enableMemberCarePackage,
   checkMcpUpdatable,
+  emulateMemberCarePackage,
 };
