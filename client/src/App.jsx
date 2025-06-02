@@ -11,6 +11,7 @@ import HomePage from '@/pages/HomePage';
 import LoginPage from '@/pages/LoginPage';
 import ResetPasswordPage from '@/pages/ResetPasswordPage';
 import NotFoundPage from '@/pages/404Page';
+import ManageMembershipTypePage from '@/pages/membership-type/ManageMembershipTypePage';
 import ManageCarePackagesPage from './pages/CarePackages/ManageCarePackagesPage';
 import ManageMembersPage from './pages/member/ManageMembersPage';
 import CreateMembersPage from './pages/member/CreateMemberPage';
@@ -34,7 +35,8 @@ function App() {
             {/* Invitation & Reset Password */}
             <Route path='/invites' element={<ResetPasswordPage />} />
             <Route path='/reset-password' element={<ResetPasswordPage />} />
-
+            
+            <Route path='/membership-type' element={<ManageMembershipTypePage/>} />
             {/* 404 Page */}
             <Route path='*' element={<NotFoundPage />} />
           </Routes>
