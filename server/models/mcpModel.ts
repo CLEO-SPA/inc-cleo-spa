@@ -239,7 +239,39 @@ const createMemberCarePackage = async (
   }
 };
 
+const checkMcpUpdatable = async (id: string) => {
+  try {
+    const type = 'CONSUMPTION';
+    const sql = `
+      SELECT
+      CASE
+          WHEN NOT EXISTS (
+              SELECT 1
+              FROM
+                  member_care_package_details mcpd
+              JOIN
+                  member_care_package_transaction_logs mcptl
+              ON
+                  mcpd.id = mcptl.member_care_package_details_id
+              WHERE
+                  mcpd.member_care_package_id = $1
+                  AND mcptl.type = ${type}
+          )
+          THEN TRUE
+          ELSE FALSE
+      END AS is_updateable;
+    `;
+
+    const { rows } = await pool().query<{ is_updateable: boolean }>(sql, [id]);
+
+    return rows[0].is_updateable;
+  } catch (error) {
+    console.error('Error checking member care package updateable');
+    throw new Error('Error checking member care package updateable');
+  }
+};
 export default {
   getPaginatedMemberCarePackages,
   createMemberCarePackage,
+  checkMcpUpdatable,
 };
