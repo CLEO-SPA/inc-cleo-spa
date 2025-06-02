@@ -59,7 +59,25 @@ const getAllMemberCarePackages = async (req: Request, res: Response, next: NextF
     res.status(200).json(results);
   } catch (error) {
     console.error('Error in CarePackageController.getCarePackages:', error);
-    res.status(500).json({ error: 'Failed to retrieve care packages.' });
+    next(error);
+  }
+};
+
+const getMemberCarePackageById = async (req: Request, res: Response, next: NextFunction): Promise<void> => {
+  try {
+    const id = req.params.id;
+
+    if (!id) {
+      res.status(400).json({ message: 'Missing or invalid id' });
+      return;
+    }
+
+    const results = await model.getMemberCarePackageById(id);
+
+    res.status(200).json(results);
+  } catch (error) {
+    console.error('Error getting member care package by id', error);
+    next(error);
   }
 };
 
@@ -114,5 +132,6 @@ const createMemberCarePackage = async (req: Request, res: Response, next: NextFu
 
 export default {
   getAllMemberCarePackages,
+  getMemberCarePackageById,
   createMemberCarePackage,
 };

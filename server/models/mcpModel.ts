@@ -114,6 +114,28 @@ const getPaginatedMemberCarePackages = async (
   }
 };
 
+interface FullMemberCarePackage {
+  package: MemberCarePackages;
+  details: MemberCarePackagesDetails[];
+  transactionLogs: MemberCarePackageTransactionLogs[];
+}
+
+const getMemberCarePackageById = async (id: string): Promise<FullMemberCarePackage | null> => {
+  try {
+    const mcpSql = 'SELECT get_mcp_by_id($1) as data';
+    const { rows } = await pool().query<{ data: FullMemberCarePackage }>(mcpSql, [id]);
+
+    if (rows.length === 0 || !rows[0].data) {
+      return null;
+    }
+
+    return rows[0].data;
+  } catch (error) {
+    console.error('Error getting member care package by id:', error);
+    throw new Error('Error getting member care package by id');
+  }
+};
+
 interface servicePayload {
   id: string;
   name: string;
@@ -272,6 +294,7 @@ const checkMcpUpdatable = async (id: string) => {
 };
 export default {
   getPaginatedMemberCarePackages,
+  getMemberCarePackageById,
   createMemberCarePackage,
   checkMcpUpdatable,
 };

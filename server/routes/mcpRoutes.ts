@@ -15,7 +15,8 @@ import controller from '../controllers/mcpController.js';
 // =========================
 router.use(isAuthenticated);
 
-router.get('/pkgs', controller.getAllMemberCarePackages);
+router.get('/pkg', controller.getAllMemberCarePackages);
+router.get('/pkg/:id', controller.getMemberCarePackageById);
 
 router.post('/c', controller.createMemberCarePackage);
 
