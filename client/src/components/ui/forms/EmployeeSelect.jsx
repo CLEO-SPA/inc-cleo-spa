@@ -11,7 +11,11 @@ import { Label } from "@/components/ui/label";
 import { Input } from "@/components/ui/input";
 import useEmployeeStore from "@/stores/useEmployeeStore";
 
-export function EmployeeSelect() {
+export function EmployeeSelect({
+  name = "employee_id",
+  label = "Assigned Employee *",
+  disabled: customDisabled = false,
+}) {
   const {
     control,
     formState: { errors },
@@ -25,7 +29,6 @@ export function EmployeeSelect() {
   const [searchTerm, setSearchTerm] = useState("");
   const [isOpen, setIsOpen] = useState(false);
 
-  // Filter employees based on search term
   const filteredEmployees = employees.filter((emp) =>
     emp.employee_name.toLowerCase().includes(searchTerm.toLowerCase())
   );
@@ -38,18 +41,18 @@ export function EmployeeSelect() {
 
   return (
     <div className="space-y-2">
-      <Label htmlFor="employee_id" className="text-sm font-medium text-gray-700">
-        Assigned Employee *
+      <Label htmlFor={name} className="text-sm font-medium text-gray-700">
+        {label}
       </Label>
 
       <Controller
-        name="employee_id"
+        name={name}
         control={control}
-        rules={{ required: "Employee is required" }}
+        rules={{ required: `${label} is required` }}
         render={({ field }) => (
           <div className="relative">
             <Select
-              disabled={loading || error}
+              disabled={loading || error || customDisabled}
               value={field.value?.toString() || ""}
               onValueChange={(val) => {
                 field.onChange(Number(val));
@@ -59,7 +62,7 @@ export function EmployeeSelect() {
               open={isOpen}
               onOpenChange={setIsOpen}
             >
-              <SelectTrigger className={errors.employee_id ? "border-red-500" : ""}>
+              <SelectTrigger className={errors[name] ? "border-red-500" : ""}>
                 <SelectValue
                   placeholder={
                     loading
@@ -71,7 +74,6 @@ export function EmployeeSelect() {
                 />
               </SelectTrigger>
               <SelectContent>
-                {/* Search input */}
                 <div className="p-2 border-b">
                   <Input
                     placeholder="Search employees..."
@@ -80,18 +82,12 @@ export function EmployeeSelect() {
                     className="h-8"
                   />
                 </div>
-                
-                {/* Show filtered results */}
+
                 <div className="max-h-48 overflow-y-auto">
                   {filteredEmployees.length > 0 ? (
                     filteredEmployees.map((emp) => (
                       <SelectItem key={emp.id} value={emp.id.toString()}>
                         {emp.employee_name}
-                        {emp.department && (
-                          <span className="text-gray-500 text-xs ml-2">
-                            ({emp.department})
-                          </span>
-                        )}
                       </SelectItem>
                     ))
                   ) : (
@@ -106,12 +102,9 @@ export function EmployeeSelect() {
         )}
       />
 
-      {/* Error message from form validation */}
-      {errors.employee_id && (
-        <p className="text-red-500 text-xs">{errors.employee_id.message}</p>
+      {errors[name] && (
+        <p className="text-red-500 text-xs">{errors[name].message}</p>
       )}
-
-      {/* Error message from store */}
       {error && (
         <p className="text-red-500 text-xs">Failed to load employees: {error}</p>
       )}
