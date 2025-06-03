@@ -11,6 +11,7 @@ import HomePage from '@/pages/HomePage';
 import LoginPage from '@/pages/LoginPage';
 import ResetPasswordPage from '@/pages/ResetPasswordPage';
 import NotFoundPage from '@/pages/404Page';
+import ManageServicePage from '@/pages/ManageServicePage'
 
 function App() {
   return (
@@ -20,7 +21,8 @@ function App() {
         <Router>
           <Routes>
             <Route path='/' element={<ProtectedRoute />}>
-              <Route index element={<HomePage />} />
+              <Route index element={<HomePage />} />              
+              
             </Route>
             <Route path='/login' element={<LoginPage />} />
 
@@ -30,6 +32,10 @@ function App() {
 
             {/* 404 Page */}
             <Route path='*' element={<NotFoundPage />} />
+
+            {/* Service Management */}
+            <Route path='/manage-service' element={<ManageServicePage />} />
+
           </Routes>
         </Router>
       </DateRangeProvider>

@@ -52,7 +52,7 @@ const data = {
         },
         {
           title: 'Manage Services',
-          url: '#',
+          url: 'manage-service',
         },
       ],
     },
