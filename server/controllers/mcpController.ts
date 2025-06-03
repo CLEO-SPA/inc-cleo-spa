@@ -231,6 +231,33 @@ const removeMemberCarePackage = async (req: Request, res: Response, next: NextFu
   }
 };
 
+const createConsumption = async (req: Request, res: Response, next: NextFunction): Promise<void> => {
+  try {
+    const { id, details, employee_id } = req.body;
+
+    if (!id || !Array.isArray(details)) {
+      res.status(400).json({ message: 'Missing or Invalid Required Field' });
+      return;
+    }
+
+    const isValidDetails = details.every((s) => {
+      return typeof s.id === 'string' && typeof s.quantity === 'number' && typeof s.date === 'string';
+    });
+
+    if (!isValidDetails) {
+      res.status(400).json({ message: 'Missing required fields or invalid data format' });
+      return;
+    }
+
+    await model.createConsumption(id, details, employee_id, req.session.user_id!);
+
+    res.status(200).json({ success: true });
+  } catch (error) {
+    console.error('Error creating consumption', error);
+    next(error);
+  }
+};
+
 interface mcpServiceStatusPayload {
   id: string;
   status_name: string;
@@ -392,6 +419,7 @@ export default {
   createMemberCarePackage,
   updateMemberCarePackage,
   deleteMemberCarePackage,
+  createConsumption,
   removeMemberCarePackage,
   enableMemberCarePackage,
   emulateMemberCarePackage,

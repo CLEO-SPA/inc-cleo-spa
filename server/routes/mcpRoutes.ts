@@ -20,12 +20,13 @@ router.all('/e', roleMiddleware.hasRole(['data_admin', 'super_admin']), controll
 router.get('/pkg', controller.getAllMemberCarePackages);
 router.get('/pkg/:id', controller.getMemberCarePackageById);
 
-router.post('/c', controller.createMemberCarePackage);
-router.post('/s', controller.enableMemberCarePackage);
+router.post('/create', controller.createMemberCarePackage);
+router.post('/enable', controller.enableMemberCarePackage);
+router.post('/consume', controller.createConsumption);
 
-router.put('/u', controller.updateMemberCarePackage);
+router.put('/update', controller.updateMemberCarePackage);
 
-router.delete('/:id/r', controller.removeMemberCarePackage);
-router.delete('/:id/d', controller.deleteMemberCarePackage);
+router.delete('/:id/rm', controller.removeMemberCarePackage);
+router.delete('/:id/del', controller.deleteMemberCarePackage);
 
 export default router;

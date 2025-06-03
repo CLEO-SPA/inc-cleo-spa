@@ -237,10 +237,10 @@ const createMemberCarePackage = async (
 
       await client.query<{ id: string }>(i_mcptl_sql, [
         'PURCHASE',
-        package_name,
+        service.name,
         created_at,
-        service.finalPrice,
-        service.finalPrice,
+        service.finalPrice * service.quantity,
+        service.finalPrice * service.quantity,
         memberCarePackageDetailId,
         employee_id,
         service.id,
@@ -357,7 +357,7 @@ const updateMemberCarePackage = async (
 
       await client.query<{ id: string }>(i_mcptl_sql, [
         'PURCHASE',
-        package_name,
+        service.name,
         oldMcp[0].created_at,
         service.finalPrice * service.quantity,
         service.finalPrice * service.quantity,
@@ -449,6 +449,92 @@ const removeMemberCarePackage = async (id: string) => {
       throw error;
     }
     throw new Error('An unexpected error occurred while removing the member care package.');
+  } finally {
+    client.release();
+  }
+};
+
+interface mcpConsumptionDetails {
+  id: string;
+  quantity: number;
+  date: string;
+}
+
+const createConsumption = async (
+  id: string,
+  details: mcpConsumptionDetails[],
+  employee_id: string,
+  user_id: string
+) => {
+  const client = await pool().connect();
+  try {
+    await client.query('BEGIN');
+
+    // Check if mcp exists
+    const results = await getMemberCarePackageById(id);
+    if (!results) {
+      throw new Error(`Member care package with id ${id} not found for updating status.`);
+    }
+
+    if (!employee_id) {
+      employee_id = (await getEmployeeIdByUserAuthId(user_id)).rows[0].id;
+    }
+
+    const g_mcpd_sql = `
+      SELECT * FROM member_care_package_details WHERE id = $1;
+    `;
+    const g_mcptl_sql = `
+      SELECT * FROM member_care_package_transaction_logs WHERE member_care_package_details_id = $1 AND transaction_date = $2;
+    `;
+    const i_mcptl_sql = `
+      INSERT INTO member_care_package_transaction_logs
+      (type, description, transaction_date, transaction_amount, amount_changed, member_care_package_details_id, employee_id, service_id, created_at)
+      VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9)
+    `;
+
+    const detailPromises = details.map(async (d) => {
+      const { rows: mcpdRows } = await client.query<MemberCarePackagesDetails>(g_mcpd_sql, [d.id]);
+      if (mcpdRows.length === 0) {
+        console.error(`[CONSUMPTION_ERROR] MemberCarePackagesDetails not found for id: ${d.id}`);
+        throw new Error(`Cannot process consumption: Detail record ${d.id} not found.`);
+      }
+      const mcpDetailToConsume = mcpdRows[0];
+
+      const { rows: baseLogRows } = await client.query<MemberCarePackageTransactionLogs>(g_mcptl_sql, [
+        d.id,
+        results.package.created_at,
+      ]);
+
+      const consumptionLogPromises = [];
+      for (let i = 0; i < d.quantity; i++) {
+        consumptionLogPromises.push(
+          client.query(i_mcptl_sql, [
+            'CONSUMPTION',
+            baseLogRows[0].description,
+            d.date,
+            baseLogRows[0].transaction_amount - mcpDetailToConsume.price,
+            -mcpDetailToConsume.price,
+            d.id,
+            employee_id,
+            mcpDetailToConsume.service_id,
+            d.date,
+          ])
+        );
+      }
+
+      await Promise.all(consumptionLogPromises);
+    });
+
+    await Promise.all(detailPromises);
+
+    await client.query('COMMIT');
+  } catch (error) {
+    console.error('Error creating member care package consumption:', error);
+    await client.query('ROLLBACK');
+    if (error instanceof Error) {
+      throw error;
+    }
+    throw new Error('An unexpected error occurred while creating the member care package consumption.');
   } finally {
     client.release();
   }
@@ -847,6 +933,7 @@ export default {
   updateMemberCarePackage,
   removeMemberCarePackage,
   deleteMemberCarePackage,
+  createConsumption,
   enableMemberCarePackage,
   checkMcpUpdatable,
   emulateMemberCarePackage,
