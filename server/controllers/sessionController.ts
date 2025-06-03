@@ -1,6 +1,6 @@
 import { Request, Response, NextFunction } from 'express';
 import validator from 'validator';
-import { getProdPool as pool } from '../config/database.js';
+import { getProdPool, pool } from '../config/database.js';
 import { addSseClient, testNotification } from '../services/sseService.js';
 import { SystemParameters } from '../types/model.types.js';
 
@@ -40,7 +40,7 @@ const setDateRange = (req: Request, res: Response, next: NextFunction): void => 
   });
 };
 
-const getDateRange = (req: Request, res: Response, next: NextFunction) => {
+const getDateRange = (req: Request, res: Response, next: NextFunction): void => {
   const { start_date_utc, end_date_utc } = req.session; // These are UTC ISO strings
   res.status(200).json({
     start_date_utc: start_date_utc || null,
@@ -60,7 +60,7 @@ const toggleSimulation = async (req: Request, res: Response, next: NextFunction)
     const funcQuery = `SELECT set_simulation($1, $2, $3)`;
     const values = [is_simulation, start_date_utc, end_date_utc];
 
-    const { rows, rowCount } = await pool().query(funcQuery, values);
+    const { rows, rowCount } = await getProdPool().query(funcQuery, values);
 
     // console.log('\n', typeof rows, rows);
 
@@ -87,7 +87,7 @@ const getSimulation = async (req: Request, res: Response, next: NextFunction): P
     const query = 'SELECT * FROM system_parameters WHERE id = $1';
     const values = [1];
 
-    const result = await pool().query<SystemParameters>(query, values);
+    const result = await getProdPool().query<SystemParameters>(query, values);
     if (result.rowCount === 0) {
       res.status(404).json({ message: 'Simulation state not found.' });
       return;
@@ -105,7 +105,7 @@ const getSimulation = async (req: Request, res: Response, next: NextFunction): P
 };
 
 // SSE Event
-const streamSimEvent = async (req: Request, res: Response, next: NextFunction) => {
+const streamSimEvent = async (req: Request, res: Response, next: NextFunction): Promise<void> => {
   res.setHeader('Content-Type', 'text/event-stream');
   res.setHeader('Cache-Control', 'no-cache');
   res.setHeader('Connection', 'keep-alive');
@@ -117,9 +117,37 @@ const streamSimEvent = async (req: Request, res: Response, next: NextFunction) =
   res.write('data: {"message": "SSE connection established"}\n\n');
 };
 
-const testSSE = async (req: Request, res: Response, next: NextFunction) => {
+const testSSE = async (req: Request, res: Response, next: NextFunction): Promise<void> => {
   await testNotification();
   res.json({ message: 'Test notification sent' });
+};
+
+const getAllStatus = async (req: Request, res: Response, next: NextFunction): Promise<void> => {
+  try {
+    const sql = 'SELECT * FROM statuses';
+    const { rows } = await pool().query(sql);
+
+    return rows[0];
+  } catch (error) {
+    next(error);
+  }
+};
+
+const getStatusNameById = async (req: Request, res: Response, next: NextFunction): Promise<void> => {
+  try {
+    const id = req.params.id;
+
+    if (!id) {
+      throw new Error('Missing or Invalid id');
+    }
+
+    const sql = 'SELECT * FROM statuses WHERE id = $1';
+    const { rows } = await pool().query(sql, [id]);
+
+    return rows[0];
+  } catch (error) {
+    next(error);
+  }
 };
 
 export default {
@@ -129,4 +157,6 @@ export default {
   getSimulation,
   streamSimEvent,
   testSSE,
+  getAllStatus,
+  getStatusNameById,
 };
