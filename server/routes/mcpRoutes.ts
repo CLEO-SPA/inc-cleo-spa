@@ -26,7 +26,7 @@ router.post('/consume', controller.createConsumption);
 
 router.put('/update', controller.updateMemberCarePackage);
 
-router.delete('/:id/rm', controller.removeMemberCarePackage);
-router.delete('/:id/del', controller.deleteMemberCarePackage);
+router.delete('/:id/rm', roleMiddleware.hasRole(['data_admin', 'super_admin']), controller.removeMemberCarePackage); // Soft Delete
+router.delete('/:id/del', roleMiddleware.hasRole(['data_admin', 'super_admin']), controller.deleteMemberCarePackage); // Hard Delete
 
 export default router;
