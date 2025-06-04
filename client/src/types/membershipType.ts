@@ -48,15 +48,18 @@ export type MembershipTypeState = {
 type MembershipTypeFunctions = {
     fetchAllMembershipType: () => Promise<void>;
     getMembershipTypeById: (id: number) => MembershipType | undefined;
-    createMembershipType: (data: NewMembershipType) => Promise<{success: boolean, error?: string}>;
-    updateMembershipType: (data: UpdatedMembershipType) => Promise<{success: boolean, error?: string}>;
-    deleteMembershipType: (id: number) => Promise<{success: boolean, error?: string}>;
+    createMembershipType: (data: NewMembershipType) => Promise<void>;
+    updateMembershipType: (data: UpdatedMembershipType) => Promise<void>;
+    deleteMembershipType: (id: number) => Promise<void>;
     setIsCreating: (value: boolean) => void;
     setIsUpdating: (value: boolean) => void;
     setIsConfirming: (value: boolean) => void;
-    setSelectedMembershipTypeId: (value: number) => void;
-    setIsDeleting: (value: boolean) => void;
+    setSelectedMembershipTypeId: (value: number) => boolean;
+    setError:  (value: boolean) => void;
+    setErrorMessage:  (value: string) => void;
     initialize: () => Promise<void>;
+    clearError: () => void;
+    setSuccessWithTimeout: () => void;
     reset: () => void;
 }   
 

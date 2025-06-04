@@ -3,17 +3,22 @@ import { MembershipType } from '@/types/membershipType';
 import ConfirmationPopUp from './confirmationPopUp';
 import MembershipTypeUpdateForm from './membershipTypeUpdateForm';
 import useMembershipTypeStore from '@/stores/useMembershipTypeStore';
+import ErrorAlert from './ui/errorAlert';
 
 const MembershipTypeTable = () => {
     const {
         membershipTypeList,
         loading,
         isUpdating,
+        selectedMembershipTypeId,
+        error,
+        errorMessage,
+
+        clearError,
         setSelectedMembershipTypeId,
         setIsUpdating,
         getMembershipTypeById,
-        deleteMembershipType,
-        selectedMembershipTypeId
+        deleteMembershipType
     } = useMembershipTypeStore();
 
     const [showConfirm, setShowConfirm] = useState(false);
@@ -50,6 +55,12 @@ const MembershipTypeTable = () => {
 
     return (
         <div className="overflow-x-auto">
+            {/* Error Alert */}
+            {error && <ErrorAlert
+                error={error}
+                errorMessage={errorMessage}
+                onClose={clearError}
+            />}
             <table className="w-full border-collapse">
                 <thead>
                     <tr className="bg-gray-50">
@@ -76,9 +87,11 @@ const MembershipTypeTable = () => {
                                 <div className="flex justify-center gap-2">
                                     <button
                                         onClick={() => {
-                                            console.log(membershipTypeList);
-                                            setSelectedMembershipTypeId(type.id);
-                                            setIsUpdating(true);
+                                            const id = type.id;
+                                            if (setSelectedMembershipTypeId(id)) {
+                                                setIsUpdating(true);
+                                            };
+
                                         }}
                                         className="border border-gray-300 py-1 px-3 rounded text-sm hover:bg-gray-50"
                                     >
@@ -87,10 +100,12 @@ const MembershipTypeTable = () => {
                                     <button
                                         className="bg-red-600 text-white py-1 px-3 rounded text-sm hover:bg-red-700"
                                         onClick={() => {
-                                            const value = getMembershipTypeById(type.id);
-                                            setSelectedMembershipTypeId(type.id);
-                                            handleDelete(value);
+                                            const id = type.id
+                                            const value = getMembershipTypeById(id);
 
+                                            if (setSelectedMembershipTypeId(id)) {
+                                                handleDelete(value);
+                                            };
                                         }}
                                     >
                                         Delete
@@ -109,7 +124,6 @@ const MembershipTypeTable = () => {
                 body={confirmBody}
                 onCancel={() => setShowConfirm(false)}
                 onConfirm={() => {
-                    console.log(selectedMembershipTypeId);
                     setShowConfirm(false);
                     deleteMembershipType(selectedMembershipTypeId);
                 }}

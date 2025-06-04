@@ -4,14 +4,17 @@ import useMembershipStore from '@/stores/useMembershipTypeStore';
 
 import MembershipTypeList from '@/components/membershipTypeList';
 import CreateMembershipForm from '@/components/membershipTypeCreateForm';
+import ErrorAlert from '@/components/ui/errorAlert';
 
 const MembershipTypePage = () => {
   const {
     initialize,
     error,
+    errorMessage,
     loading,
     isCreating,
 
+    clearError,
     setIsCreating
   } = useMembershipStore();
 
@@ -35,13 +38,6 @@ const MembershipTypePage = () => {
           Add new membership type
         </button>
       </div>
-
-      {/* Error Display */}
-      {error && (
-        <div className="mx-6 mb-4 p-4 bg-red-100 border border-red-400 text-red-700 rounded">
-          Error: {error}
-        </div>
-      )}
 
       {/* Main Table */}
       <div className="mx-6">

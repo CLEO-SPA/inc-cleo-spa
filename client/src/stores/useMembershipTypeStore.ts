@@ -1,11 +1,14 @@
 import { create } from 'zustand';
 import api from '@/services/api';
-import { 
+import {
     MembershipType,
-    NewMembershipType, 
-    UpdatedMembershipType, 
-    MembershipTypeState, 
-    UseMembershipTypeStore} from '../types/membershipType';
+    NewMembershipType,
+    UpdatedMembershipType,
+    MembershipTypeState,
+    UseMembershipTypeStore
+} from '../types/membershipType';
+import { handleApiError } from '@/utils/errorHandlingUtils';
+import { validateMembershipTypeId } from '@/utils/validationUtils';
 
 const getInitialState = (): MembershipTypeState => ({
     loading: false,
@@ -21,6 +24,11 @@ const getInitialState = (): MembershipTypeState => ({
     isUpdating: false,
     isDeleting: false,
 });
+
+// TO DO:
+// ADD VALIDATION
+// Proper status returns in backend and backend validation
+
 
 const useMembershipTypeStore = create<UseMembershipTypeStore>((set, get) => ({
 
@@ -42,9 +50,12 @@ const useMembershipTypeStore = create<UseMembershipTypeStore>((set, get) => ({
                 errorMessage: null,
                 membershipTypeList: membershipTypeList
             }));
+
+            get().setSuccessWithTimeout();
+
         } catch (error) {
-            console.error(`Error fetching membership type details: ${error}`);
-            const errorMessage = error instanceof Error ? error.message: "Unknown Error"; // Propery Type the error handling
+            // console.error(`Error fetching membership type details: ${error}`);
+            const errorMessage = handleApiError(error);
             set({ error: true, errorMessage: errorMessage, loading: false });
         }
     },
@@ -53,7 +64,12 @@ const useMembershipTypeStore = create<UseMembershipTypeStore>((set, get) => ({
         return get().membershipTypeList.find(type => type.id === id);
     },
 
-    createMembershipType: async (data: NewMembershipType): Promise<{success: boolean, error?: string}> => {
+    createMembershipType: async (data: NewMembershipType): Promise<void> => {
+
+        if (get().loading) {
+            set({ success: false, error: true, errorMessage: "Another process is running." });
+            return;
+        };
 
         set({ loading: true, success: false, error: false });
 
@@ -63,18 +79,23 @@ const useMembershipTypeStore = create<UseMembershipTypeStore>((set, get) => ({
 
             await get().fetchAllMembershipType();
 
-            set({ isConfirming: false, loading: false, success: true });
+            set({ isConfirming: false, isCreating: false, loading: false, success: true });
 
-            return { success: true };
+            get().setSuccessWithTimeout();
 
         } catch (error) {
-            console.error(`Error creating membership type: ${error}`);
-            const errorMessage = error instanceof Error ? error.message: "Unknown Error"; // Propery Type the error handling
+            // console.error(`Error creating membership type: ${error}`);
+            const errorMessage = handleApiError(error);
             set({ error: true, errorMessage: errorMessage, loading: false });
-            return { success: false, error: errorMessage };
         }
     },
-    updateMembershipType: async (data: UpdatedMembershipType): Promise<{success: boolean, error?: string}> => {
+
+    updateMembershipType: async (data: UpdatedMembershipType): Promise<void> => {
+
+        if (get().loading) {
+            set({ success: false, error: true, errorMessage: "Another process is running." });
+            return;
+        };
 
         set({ loading: true, success: false, error: false });
 
@@ -84,18 +105,22 @@ const useMembershipTypeStore = create<UseMembershipTypeStore>((set, get) => ({
 
             await get().fetchAllMembershipType();
 
-            set({ isConfirming: false, loading: false, success: true });
+            set({ isConfirming: false, isUpdating: false, loading: false, success: true });
 
-            return { success: true };
+            get().setSuccessWithTimeout();
 
         } catch (error) {
-            console.error(`Error updating membership type: ${error}`);
-            const errorMessage = error instanceof Error ? error.message: "Unknown Error"; // Propery Type the error handling
+            // console.error(`Error updating membership type: ${error}`);
+            const errorMessage = handleApiError(error);
             set({ error: true, errorMessage: errorMessage, loading: false });
-            return { success: false, error: errorMessage };
         }
     },
-    deleteMembershipType: async (id: number):Promise<{success: boolean, error?: string}> => {
+    deleteMembershipType: async (id: number): Promise<void> => {
+
+        if (get().loading) {
+            set({ success: false, error: true, errorMessage: "Another process is running." });
+            return;
+        };
 
         set({ loading: true, success: false, error: false });
 
@@ -107,24 +132,52 @@ const useMembershipTypeStore = create<UseMembershipTypeStore>((set, get) => ({
 
             set({ isConfirming: false, loading: false, success: true });
 
-            return { success: true };
+            get().setSuccessWithTimeout();
 
         } catch (error) {
-            console.error(`Error deleting membership type: ${error}`);
-            const errorMessage = error instanceof Error ? error.message: "Unknown Error"; // Propery Type the error handling
+            // console.error(`Error deleting membership type: ${error}`);
+            const errorMessage = handleApiError(error);
             set({ error: true, errorMessage: errorMessage, loading: false });
-            return { success: false, error: errorMessage };
         }
     },
 
     setIsCreating: (value: boolean): void => { set({ isCreating: value }) },
     setIsUpdating: (value: boolean): void => { set({ isUpdating: value }) },
     setIsConfirming: (value: boolean): void => { set({ isConfirming: value }) },
-    setSelectedMembershipTypeId: (value: number): void => { set({ selectedMembershipTypeId: value }) },
-    setIsDeleting: (value: boolean): void => { set({ isUpdating: value }) },
+    setSelectedMembershipTypeId: (id: number): boolean => {
+        const validation: { isValid: boolean, error: string} = validateMembershipTypeId(id);
+        if (validation.isValid) {
+            set({ selectedMembershipTypeId: id });
+            return true;
+        }
+
+        set({ error: true, errorMessage: validation.error });
+        return false;
+    },
+
+    setError:  (value: boolean): void => { set({ error: value }) },
+
+    setErrorMessage:  (value: string): void => { set({ errorMessage: value }) },
 
     initialize: async (): Promise<void> => {
         await get().fetchAllMembershipType();
+    },
+
+    clearError: (): void => {
+        set({ error: false, errorMessage: null })
+    },
+
+    // Helper function inside the store
+    setSuccessWithTimeout: (): void => {
+        set({ success: true, error: false, errorMessage: null });
+
+        // Auto-clear success message after 3 seconds (data stays)
+        setTimeout(() => {
+            set((state) => ({
+                ...state,
+                success: false  // Only clear the success flag, keep data
+            }));
+        }, 3000);
     },
 
     reset: (): void => set(getInitialState())

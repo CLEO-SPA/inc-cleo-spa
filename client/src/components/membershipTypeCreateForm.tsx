@@ -4,6 +4,8 @@ import React, { useState } from 'react';
 import { NewMembershipType } from '@/types/membershipType';
 import ConfirmationPopUp from './confirmationPopUp';
 import useMembershipTypeStore from '@/stores/useMembershipTypeStore';
+import ErrorAlert from './ui/errorAlert';
+import { validateNewMembershipTypeData } from '@/utils/validationUtils';
 
 const MembershipTypeCreateForm = () => {
 
@@ -18,6 +20,12 @@ const MembershipTypeCreateForm = () => {
     const {
         isCreating,
         loading,
+        error,
+        errorMessage,
+
+        setError,
+        setErrorMessage,
+        clearError,
         setIsCreating,
         createMembershipType
     } = useMembershipTypeStore();
@@ -26,6 +34,12 @@ const MembershipTypeCreateForm = () => {
     const handleSubmit = async (e: React.FormEvent<HTMLFormElement>) => {
         e.preventDefault();
         const formData = new FormData(e.currentTarget);
+        const validation = validateNewMembershipTypeData(Object.fromEntries(formData.entries()));
+        if (!validation.isValid) {
+            setError(true);
+            setErrorMessage(validation.error);
+            return;
+        };
 
         const data: NewMembershipType = {
             membership_type_name: formData.get('membership_type_name') as string,
@@ -33,7 +47,7 @@ const MembershipTypeCreateForm = () => {
             default_percentage_discount_for_services: Number(formData.get('default_percentage_discount_for_services')),
             created_by: 14 // Number(formData.get('created_by')) // Until Employees store is merged
         }
- 
+
         setFormValues(data);
         setShowConfirm(true);
     };
@@ -56,13 +70,20 @@ const MembershipTypeCreateForm = () => {
     if (!isCreating) return null;
 
     return (
-        <div className="fixed inset-0 flex items-center justify-center z-50" style={{backgroundColor: 'rgba(0, 0, 0, 0.5)'}}>
+        <div className="fixed inset-0 flex items-center justify-center z-50" style={{ backgroundColor: 'rgba(0, 0, 0, 0.5)' }}>
             <div className="bg-white rounded-lg w-1/2 flex flex-col max-h-[90vh]">
                 <div className="p-6 border-b">
                     <h2 className="text-xl font-bold">Create New Membership Type</h2>
                 </div>
 
                 <div className="p-6 overflow-y-auto flex-1">
+
+                    {/* Error Alert */}
+                    {error && <ErrorAlert
+                        error={error}
+                        errorMessage={errorMessage}
+                        onClose={clearError}
+                    />}
                     <form onSubmit={handleSubmit} className="space-y-4">
                         <div>
                             <label className="block mb-2">Membership Type Name</label>
@@ -143,7 +164,6 @@ const MembershipTypeCreateForm = () => {
                 onConfirm={() => {
                     setShowConfirm(false);
                     createMembershipType(formValues);
-                    setIsCreating(false);
                 }}
             />
         </div>
