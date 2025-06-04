@@ -68,7 +68,7 @@ export default function CreateConsumptionPage() {
   return (
     <div className='[--header-height:calc(theme(spacing.14))]'>
       <SidebarProvider className='flex flex-col'>
-        <SiteHeader /> {/* Assuming this is your existing navbar */}
+        <SiteHeader />
         <div className='flex flex-1'>
           <AppSidebar />
           <SidebarInset>
@@ -102,11 +102,10 @@ export default function CreateConsumptionPage() {
 
               {currentPackageInfo && (
                 <>
-                  {/* Main Service Consumption Card - Centered */}
+                  {/* Main Service Consumption Card */}
                   <Card className='max-w-3xl mx-auto'>
                     <CardHeader>
                       <CardTitle>Consume Package Service</CardTitle>
-                      {/* Displaying package name here for context is still useful */}
                       {currentPackageInfo.package && (
                         <p className='text-sm text-muted-foreground'>
                           Select a service from "<strong>{currentPackageInfo.package.package_name}</strong>" to consume.
@@ -114,7 +113,7 @@ export default function CreateConsumptionPage() {
                       )}
                     </CardHeader>
                     <CardContent>
-                      {error && ( // Display error related to consumption form actions here
+                      {error && (
                         <Alert variant='destructive' className='mb-4'>
                           <AlertTitle>Error</AlertTitle>
                           <AlertDescription>{error}</AlertDescription>
@@ -244,7 +243,7 @@ export default function CreateConsumptionPage() {
                     </CardContent>
                   </Card>
 
-                  {/* Optional: Recent Consumption Logs - also centered or matching width */}
+                  {/* Recent Consumption Logs */}
                   {currentPackageInfo.transactionLogs &&
                     currentPackageInfo.transactionLogs.filter((log) => log.type === 'CONSUMPTION').length > 0 && (
                       <Card className='mt-6 max-w-3xl mx-auto'>
