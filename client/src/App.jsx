@@ -23,6 +23,9 @@ function App() {
             <Route path='/' element={<ProtectedRoute />}>
               <Route index element={<HomePage />} />              
               
+              {/* Service Management */}
+            <Route path='/manage-service' element={<ManageServicePage />} />
+
             </Route>
             <Route path='/login' element={<LoginPage />} />
 
@@ -32,10 +35,7 @@ function App() {
 
             {/* 404 Page */}
             <Route path='*' element={<NotFoundPage />} />
-
-            {/* Service Management */}
-            <Route path='/manage-service' element={<ManageServicePage />} />
-
+            
           </Routes>
         </Router>
       </DateRangeProvider>

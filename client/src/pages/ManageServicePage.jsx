@@ -1,7 +1,8 @@
 import React, { useState, useEffect } from "react";
 import { Button } from '@/components/ui/button';
-import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
+import { ToggleSwitch } from '@/components/ui/switch';
 import { SearchForm } from '@/components/search-form';
+import { FilePenLine, PanelBottomClose, PanelBottomOpen } from 'lucide-react';
 import { AppSidebar } from '@/components/app-sidebar';
 import {
   Select,
@@ -22,6 +23,11 @@ export default function ManageService() {
 
   // For select status
   const [selectedStatus, setSelectedStatus] = useState('0');
+
+  const handleSwitchChange = (serviceId, service_is_enabled) => {
+    // Update the service's enabled status
+    console.log(`Change Status for ${serviceId}`);
+  }
   useEffect(() => {
     // Test data
     try {
@@ -33,10 +39,9 @@ export default function ManageService() {
           "service_remarks": "Signature facial treatment",
           "service_estimated_duration": "60",
           "service_default_price": "100",
-          "service_is_active": true,
+          "service_is_enabled": true,
           "service_created_at": "02/05/2024, 19:00:00",
           "service_updated_at": "02/05/2024, 19:00:00",
-          "service_outlet_id": "1",
           "service_category_id": "1",
           "service_sequence_no": 1,
           "cs_service_categories": {
@@ -51,10 +56,9 @@ export default function ManageService() {
           "service_remarks": "Ideal for acne-prone and oily skin.",
           "service_estimated_duration": "60",
           "service_default_price": "80",
-          "service_is_active": false,
+          "service_is_enabled": false,
           "service_created_at": "12/02/2025, 14:20:40",
           "service_updated_at": "12/02/2025, 14:20:40",
-          "service_outlet_id": "1",
           "service_category_id": "1",
           "service_sequence_no": 2,
           "cs_service_categories": {
@@ -69,10 +73,9 @@ export default function ManageService() {
           "service_remarks": "Suitable for dry and sensitive skin.",
           "service_estimated_duration": "45",
           "service_default_price": "95",
-          "service_is_active": true,
+          "service_is_enabled": true,
           "service_created_at": "12/02/2025, 15:28:48",
           "service_updated_at": "12/02/2025, 15:28:48",
-          "service_outlet_id": "1",
           "service_category_id": "1",
           "service_sequence_no": 3,
           "cs_service_categories": {
@@ -87,10 +90,9 @@ export default function ManageService() {
           "service_remarks": "Uses collagen-boosting serums and LED therapy.",
           "service_estimated_duration": "75",
           "service_default_price": "119",
-          "service_is_active": true,
+          "service_is_enabled": true,
           "service_created_at": "14/02/2025, 19:50:08",
           "service_updated_at": "14/02/2025, 19:50:08",
-          "service_outlet_id": "1",
           "service_category_id": "1",
           "service_sequence_no": 4,
           "cs_service_categories": {
@@ -105,10 +107,9 @@ export default function ManageService() {
           "service_remarks": "Includes a gold mask for extra glow",
           "service_estimated_duration": "60",
           "service_default_price": "100",
-          "service_is_active": true,
+          "service_is_enabled": true,
           "service_created_at": "01/02/2025, 00:00:00",
           "service_updated_at": "18/02/2025, 14:34:21",
-          "service_outlet_id": "1",
           "service_category_id": "1",
           "service_sequence_no": 10,
           "cs_service_categories": {
@@ -123,10 +124,9 @@ export default function ManageService() {
           "service_remarks": "Good",
           "service_estimated_duration": "58",
           "service_default_price": "110",
-          "service_is_active": true,
+          "service_is_enabled": true,
           "service_created_at": "01/02/2025, 16:26:00",
           "service_updated_at": "20/02/2025, 16:21:13",
-          "service_outlet_id": "1",
           "service_category_id": "1",
           "service_sequence_no": 13,
           "cs_service_categories": {
@@ -141,10 +141,9 @@ export default function ManageService() {
           "service_remarks": "NIL",
           "service_estimated_duration": "0",
           "service_default_price": "78",
-          "service_is_active": false,
+          "service_is_enabled": false,
           "service_created_at": "01/12/2023, 14:09:00",
           "service_updated_at": "16/04/2025, 14:12:17",
-          "service_outlet_id": "1",
           "service_category_id": "1",
           "service_sequence_no": 14,
           "cs_service_categories": {
@@ -159,10 +158,9 @@ export default function ManageService() {
           "service_remarks": "NIL",
           "service_estimated_duration": "0",
           "service_default_price": "78",
-          "service_is_active": false,
+          "service_is_enabled": false,
           "service_created_at": "01/12/2023, 14:09:00",
           "service_updated_at": "16/04/2025, 14:12:17",
-          "service_outlet_id": "1",
           "service_category_id": "1",
           "service_sequence_no": 14,
           "cs_service_categories": {
@@ -177,10 +175,9 @@ export default function ManageService() {
           "service_remarks": "NIL",
           "service_estimated_duration": "0",
           "service_default_price": "78",
-          "service_is_active": false,
+          "service_is_enabled": false,
           "service_created_at": "01/12/2023, 14:09:00",
           "service_updated_at": "16/04/2025, 14:12:17",
-          "service_outlet_id": "1",
           "service_category_id": "1",
           "service_sequence_no": 14,
           "cs_service_categories": {
@@ -195,10 +192,9 @@ export default function ManageService() {
           "service_remarks": "NIL",
           "service_estimated_duration": "0",
           "service_default_price": "78",
-          "service_is_active": false,
+          "service_is_enabled": false,
           "service_created_at": "01/12/2023, 14:09:00",
           "service_updated_at": "16/04/2025, 14:12:18",
-          "service_outlet_id": "1",
           "service_category_id": "1",
           "service_sequence_no": 15,
           "cs_service_categories": {
@@ -216,9 +212,10 @@ export default function ManageService() {
       <SidebarProvider className='flex flex-col'>
         <SiteHeader />
         <div className='flex flex-1'>
-          {/* <AppSidebar /> */}
+          <AppSidebar />
           <SidebarInset>
             <div className='flex flex-1 flex-col gap-4 p-4'>
+              {/*  */}
               <div class="flex space-x-4 p-4 bg-gray-100 rounded-lg">
                 <Button>Create Service</Button>
                 <Button>Reorder Service</Button>
@@ -226,7 +223,7 @@ export default function ManageService() {
                 <Button>Manage Categories</Button>
               </div>
               <div class="flex space-x-4 p-4 bg-gray-100 rounded-lg">
-                <SearchForm className="flex" />
+                <SearchForm className="w-[300px]" />
                 <Select value={selectedCategory} onValueChange={setSelectedCategory}>
                   <SelectTrigger className="w-[200px]">
                     <SelectValue placeholder="Select Category" />
@@ -253,13 +250,12 @@ export default function ManageService() {
                 <table className="w-full text-black border-collapse border border-gray-200">
                   <thead className="bg-gray-100">
                     <tr>
-                      <th className="px-2 py-2 text-left border border-gray-200 w-12">ID</th>
-                      <th className="px-3 py-2 text-left border border-gray-200 w-20">Category</th>
+                      <th className="px-2 py-2 text-left border border-gray-200 w-8">ID</th>
                       <th className="px-3 py-2 text-left border border-gray-200 w-32">Name</th>
-                      <th className="px-2 py-2 text-left border border-gray-200 w-16">Unit Price (SGD)</th>
-                      <th className="px-2 py-2 text-left border border-gray-200 w-16">Duration (Mins)</th>
-                      <th className="px-2 py-2 text-left border border-gray-200 w-12">Active</th>
-
+                      <th className="px-2 py-2 text-left border border-gray-200 w-12">Unit Price (SGD)</th>
+                      <th className="px-2 py-2 text-left border border-gray-200 w-12">Duration (Mins)</th>
+                      <th className="px-2 py-2 text-left border border-gray-200 w-20">Category</th>
+                      <th className="px-2 py-2 text-left border border-gray-200 w-10">Enabled</th>
                       <th className="px-4 py-2 text-left border border-gray-200 w-32">Actions</th>
                     </tr>
                   </thead>
@@ -268,24 +264,27 @@ export default function ManageService() {
                       services.map((service, index) => (
                         <tr key={service.service_id} className={index % 2 === 0 ? "bg-gray-50" : "bg-white"}>
                           <td className="px-2 py-1 border border-gray-200">{service.service_id}</td>
-                          <td className="px-2 py-1 border border-gray-200">{service.service_category_name}</td>
-                  
                           <td className="px-3 py-1 border border-gray-200">{service.service_name}</td>
                           <td className="px-2 py-1 border border-gray-200">{service.service_default_price}</td>
                           <td className="px-2 py-1 border border-gray-200">{service.service_estimated_duration}</td>
+                          <td className="px-2 py-1 border border-gray-200">{service.service_category_name}</td>
                           <td className="px-2 py-1 border border-gray-200">
-                            {/* <Badge bg={service.service_is_active ? "green.500" : "red.500"}>
-                              {service.service_is_active ? "Active" : "Inactive"}
-                            </Badge> */}
+                            <ToggleSwitch
+                              checked={service.service_is_enabled}
+                              onCheckedChange={handleSwitchChange}
+                            />
                           </td>
 
                           <td className="px-2 py-1 border border-gray-200">
-                            <div className="flex flex-col space-y-1">
-                              <Button className="px-2 py-1 bg-green-600 text-white text-sm font-medium rounded-md hover:bg-green-700">
-                                Update
+                            <div className="flex space-x-2 space-y-1">
+                              <Button className="px- py-1 bg-green-600 text-white text-sm font-medium rounded-xl hover:bg-green-700">
+                                <FilePenLine className="inline-block mr-1" />
                               </Button>
-                              <Button className="px-2 py-1 bg-gray-600 text-white text-sm font-medium rounded-md hover:bg-blue-700">
+                              <Button className="px-2 py-1 bg-gray-600 text-white text-sm font-medium rounded-xl hover:bg-blue-700">
                                 View Sales History
+                              </Button>
+                              <Button className="px-4 py-3 text-3xl text-black bg-transparent rounded-xl hover:bg-transparent hover:text-blue-700">
+                                <PanelBottomClose className="w-11 h-11"/>
                               </Button>
                             </div>
                           </td>
@@ -302,14 +301,6 @@ export default function ManageService() {
                 </table>
               </div>
             </div>
-            {/* <div className='flex flex-1 flex-col gap-4 p-4'>
-              <div className='grid auto-rows-min gap-4 md:grid-cols-3'>
-                <div className='aspect-video rounded-xl bg-muted/50' />
-                <div className='aspect-video rounded-xl bg-muted/50' />
-                <div className='aspect-video rounded-xl bg-muted/50' />
-              </div>
-              <div className='min-h-[100vh] flex-1 rounded-xl bg-muted/50 md:min-h-min' />
-            </div> */}
           </SidebarInset>
         </div>
       </SidebarProvider>
