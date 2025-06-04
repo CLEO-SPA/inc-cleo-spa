@@ -16,6 +16,7 @@ import ManageCarePackagesPage from './pages/CarePackages/ManageCarePackagesPage'
 import ManageMembersPage from './pages/member/ManageMembersPage';
 import CreateMemberPage from './pages/member/CreateMemberPage';
 import EditMemberPage from './pages/member/EditMemberPage';
+import ManageServicePage from '@/pages/ManageServicePage'
 
 function App() {
   return (
@@ -25,12 +26,13 @@ function App() {
         <Router>
           <Routes>
             <Route path='/' element={<ProtectedRoute />}>
-              <Route index element={<HomePage />} />
+              <Route index element={<HomePage />} />              
               <Route path='/mcp' element={<ManageCarePackagesPage />} />
               {/* Member Management */}
               <Route path='/member' element={<ManageMembersPage />} />
               <Route path='/member/create' element={<CreateMemberPage />} />
               <Route path='/member/edit/:id' element={<EditMemberPage />} />
+              
             </Route>
             <Route path='/login' element={<LoginPage />} />
 
@@ -42,6 +44,10 @@ function App() {
             <Route path='/membership-type' element={<ManageMembershipTypePage/>} />
             {/* 404 Page */}
             <Route path='*' element={<NotFoundPage />} />
+
+            {/* Service Management */}
+            <Route path='/manage-service' element={<ManageServicePage />} />
+
           </Routes>
         </Router>
       </DateRangeProvider>
