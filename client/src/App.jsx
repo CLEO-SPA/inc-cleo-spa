@@ -13,6 +13,7 @@ import ResetPasswordPage from '@/pages/ResetPasswordPage';
 import NotFoundPage from '@/pages/404Page';
 import ManageCarePackagesPage from '@/pages/CarePackages/ManageCarePackagesPage';
 import DatabaseReportPage from '@/pages/DatabaseReportPage';
+import CreateConsumptionPage from '@/pages/CarePackages/CreateConsumptionPage';
 
 function App() {
   return (
@@ -26,6 +27,7 @@ function App() {
 
               {/* care packages */}
               <Route path='/mcp' element={<ManageCarePackagesPage />} />
+              <Route path='/mcp/:packageId/consume' element={<CreateConsumptionPage />} />
 
               {/* statistics */}
               <Route path='/dbcr' element={<DatabaseReportPage />} />
