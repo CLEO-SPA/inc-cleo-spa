@@ -233,15 +233,15 @@ const removeMemberCarePackage = async (req: Request, res: Response, next: NextFu
 
 const createConsumption = async (req: Request, res: Response, next: NextFunction): Promise<void> => {
   try {
-    const { id, details, employee_id } = req.body;
+    const { mcp_id, mcp_details, employee_id } = req.body;
 
-    if (!id || !Array.isArray(details)) {
+    if (!mcp_id || !Array.isArray(mcp_details)) {
       res.status(400).json({ message: 'Missing or Invalid Required Field' });
       return;
     }
 
-    const isValidDetails = details.every((s) => {
-      return typeof s.id === 'string' && typeof s.quantity === 'number' && typeof s.date === 'string';
+    const isValidDetails = mcp_details.every((s) => {
+      return typeof s.mcpd_id === 'string' && typeof s.mcpd_quantity === 'number' && typeof s.mcpd_date === 'string';
     });
 
     if (!isValidDetails) {
@@ -249,7 +249,7 @@ const createConsumption = async (req: Request, res: Response, next: NextFunction
       return;
     }
 
-    await model.createConsumption(id, details, employee_id, req.session.user_id!);
+    await model.createConsumption(mcp_id, mcp_details, employee_id, req.session.user_id!);
 
     res.status(200).json({ success: true });
   } catch (error) {
