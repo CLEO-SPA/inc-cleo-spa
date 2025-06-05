@@ -217,14 +217,16 @@ export default function ManageService() {
             <div className='flex flex-1 flex-col gap-4 p-4'>
               {/* Buttons for other Functionalities */}
               <div class="flex space-x-4 p-4 bg-gray-100 rounded-lg">
-                <Button>Create Service</Button>
-                <Button>Reorder Service</Button>
-                <Button>View All Details</Button>
-                <Button>Manage Categories</Button>
+                <Button className="rounded-xl">Create Service</Button>
+                <Button className="rounded-xl">Reorder Service</Button>
+                <Button className="rounded-xl">View All Details</Button>
+                <Button className="rounded-xl">Manage Categories</Button>
               </div>
               {/* Filter */}
               <div class="flex space-x-4 p-4 bg-gray-100 rounded-lg">
-                <SearchForm className="w-[300px]" />
+                {/* Search bar */}
+                <SearchForm className="w-[300px]" placeholder="Search By Name" />
+                {/* Select Category */}
                 <Select value={selectedCategory} onValueChange={setSelectedCategory}>
                   <SelectTrigger className="w-[200px]">
                     <SelectValue placeholder="Select Category" />
@@ -234,9 +236,10 @@ export default function ManageService() {
                     <SelectItem value="1">Face Care</SelectItem>
                   </SelectContent>
                 </Select>
+                {/* Select Status */}
                 <Select value={selectedStatus} onValueChange={setSelectedStatus}>
                   <SelectTrigger className="w-[200px]">
-                    <SelectValue placeholder="Select Category" />
+                    <SelectValue placeholder="Select Status" />
                   </SelectTrigger>
                   <SelectContent>
                     <SelectItem value="0" selected>All</SelectItem>
@@ -244,13 +247,15 @@ export default function ManageService() {
                     <SelectItem value="False">Disabled</SelectItem>
                   </SelectContent>
                 </Select>
-                <Button>Search</Button>
+                {/* Search Button */}
+                <Button className="rounded-xl">Search</Button>
               </div>
               <div className="p-4 flex-1 rounded-xl bg-muted/50">
                 <div className="overflow-y-auto max-h-[55vh]">
                   {/* Table */}
-                  <table className="table-auto w-full text-black border-collapse border border-gray-200">
-                    <thead className="bg-gray-100 sticky top-0 z-10 shadow">
+                  <table className="table-auto w-full text-black border-collapse border border-gray-200 border-rounded-lg">
+                    {/* Table Header */}
+                    <thead className="bg-black text-white sticky top-0 z-10 shadow">
                       <tr>
                         <th className="px-2 py-2 text-left border border-gray-200">ID</th>
                         <th className="px-2 py-2 text-left border border-gray-200">Name</th>
@@ -261,10 +266,11 @@ export default function ManageService() {
                         <th className="px-4 py-2 text-left border border-gray-200">Actions</th>
                       </tr>
                     </thead>
+                    {/* Table body */}
                     <tbody>
                       {services.length > 0 ? (
-                        services.map((service, index) => (
-                          <tr key={service.service_id} className={index % 2 === 0 ? "bg-gray-50" : "bg-white"}>
+                        services.map((service) => (
+                          <tr key={service.service_id}>
                             <td className="px-2 py-2 border border-gray-200">{service.service_id}</td>
                             <td className="px-2 py-2 border border-gray-200">{service.service_name}</td>
                             <td className="px-2 py-2 border border-gray-200">{service.service_default_price}</td>
