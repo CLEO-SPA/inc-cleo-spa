@@ -179,7 +179,6 @@ export default function CreateAppointmentPage() {
           <AppSidebar />
           <SidebarInset>
             <div className='flex flex-1 flex-col gap-4 p-4'>
-              <div className='text-sm text-muted-foreground'>Home / Appointments / Create Appointment</div>
               <h1 className='text-2xl font-bold'>Create an appointment</h1>
 
               {error && <Alert className='border-red-200 bg-red-50'><AlertDescription className='text-red-800'>{error}</AlertDescription></Alert>}
