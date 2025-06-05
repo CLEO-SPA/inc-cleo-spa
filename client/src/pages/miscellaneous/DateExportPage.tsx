@@ -3,18 +3,21 @@
 import useDataExportStore from '@/stores/useDataExportStore';
 import SelectedTableColumnList from '@/components/selectedTableColumnList';
 import ExportDataButton from '@/components/exportDataButton';
+import ErrorAlert from '@/components/ui/errorAlert';
 
 const DataExport = () => {
 
     const {
         success,
         error,
+        errorMessage,
         selectedTable,
         exportFormat,
         timeInput,
         isSelectingUnusedMemberVoucher,
         isSelectingUnusedMemberCarePackage,
 
+        clearError,
         setSelectedTable,
         setTimeInput,
         setExportFormat
@@ -33,6 +36,11 @@ const DataExport = () => {
     return (
         <div>
             <div className="w-full m-6 mx-auto">
+                {error && <ErrorAlert
+                    error={error}
+                    errorMessage={errorMessage}
+                    onClose={clearError} />
+                }
                 <div className="p-6 border-b">
                     <div className=" flex items-center justify-between">
                         Data Export Form
@@ -84,7 +92,7 @@ const DataExport = () => {
                                     value={timeInput || 0}
                                     onChange={(e) => {
                                         const value = Number(e.target.value);
-                                        setTimeInput(isNaN(value) ? 0 : value);
+                                        setTimeInput(value);
                                     }}
                                     required
                                 />

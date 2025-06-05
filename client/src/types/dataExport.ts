@@ -51,13 +51,16 @@ type DataExportFunctions = {
     fetchMemberDetails: () => Promise<void>;
     fetchMinimumTimeSinceUsedOfMemberVoucher: (time: number) => Promise<void>;
     fetchMinimumTimeSinceUsedOfMemberCarePackage: (time: number) => Promise<void>;
-    getDataToExport: () => Promise<void>;
+    getDataToExport: () => Promise<boolean>;
     setSelectedTable: (value: string) => void;
-    setTimeInput: (value: number) => void;
+    setTimeInput: (value: number | undefined) => void;
     setExportFormat: (value: string) => void;
     setErrorMessage: (value: string) => void;
     setLoading: (value: boolean) => void;
     setColumns: (value: string[]) => void;
+    setError: (value: boolean) => void;
+    clearError: () => void;
+    setSuccessWithTimeout: () => void;
     reset: () => void;
 }
 

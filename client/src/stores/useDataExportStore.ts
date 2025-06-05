@@ -1,16 +1,19 @@
 import { create } from 'zustand';
 import api from '@/services/api';
 
-import { 
+import {
     DataToExportList,
     UnusedMemberVoucherData,
-    UnusedMemberCarePackageData, 
-    MemberDetailsData, 
-    DataExportState, 
-    UseDataExportStore 
+    UnusedMemberCarePackageData,
+    MemberDetailsData,
+    DataExportState,
+    UseDataExportStore
 } from '../types/dataExport';
 
-const getInitialState = (): DataExportState=> ({
+import { handleApiError } from '@/utils/errorHandlingUtils';
+import { validateTimeInput } from '@/utils/validationUtils';
+
+const getInitialState = (): DataExportState => ({
     loading: false,
     success: false,
     error: false,
@@ -30,6 +33,11 @@ const useDataExportStore = create<UseDataExportStore>((set, get) => ({
 
     fetchMemberDetails: async (): Promise<void> => {
 
+        if (get().loading) {
+            set({ error: true, errorMessage: "Another process is running." });
+            return;
+        };
+
         set({ loading: true, success: false, error: false })
 
         try {
@@ -44,15 +52,28 @@ const useDataExportStore = create<UseDataExportStore>((set, get) => ({
                 dataExportList: dataToExport
             });
 
+            get().setSuccessWithTimeout();
+
         } catch (error) {
-            console.error(`Error fetching Member Details: ${error}`);
-            const errorMessage = error instanceof Error ? error.message: "Unknown error";
+            // console.error(`Error fetching Member Details: ${error}`);
+            const errorMessage = handleApiError(error);
             set({ error: true, errorMessage: errorMessage, loading: false });
         }
 
     },
 
     fetchMinimumTimeSinceUsedOfMemberVoucher: async (time: number): Promise<void> => {
+
+        if (get().loading) {
+            set({ error: true, errorMessage: "Another process is running." });
+            return;
+        };
+
+        const validation = validateTimeInput(time);
+        if (!validation.isValid) {
+            set({ error: true, errorMessage: validation.error });
+            return;
+        }
 
         set({ loading: true, success: false, error: false })
 
@@ -68,15 +89,28 @@ const useDataExportStore = create<UseDataExportStore>((set, get) => ({
                 dataExportList: dataToExport
             });
 
+            get().setSuccessWithTimeout();
+
         } catch (error) {
-            console.error(`Error fetching Member Vouchers that were unused for the stated amount of time and its details: ${error}`);
-            const errorMessage = error instanceof Error ? error.message: "Unknown error";
+            // console.error(`Error fetching Member Vouchers that were unused for the stated amount of time and its details: ${error}`);
+            const errorMessage = handleApiError(error);
             set({ error: true, errorMessage: errorMessage, loading: false });
         }
 
     },
 
     fetchMinimumTimeSinceUsedOfMemberCarePackage: async (time: number): Promise<void> => {
+
+        if (get().loading) {
+            set({ error: true, errorMessage: "Another process is running." });
+            return;
+        };
+
+        const validation = validateTimeInput(time);
+        if (!validation.isValid) {
+            set({ error: true, errorMessage: validation.error });
+            return;
+        }
 
         set({ loading: true, success: false, error: false })
 
@@ -92,29 +126,40 @@ const useDataExportStore = create<UseDataExportStore>((set, get) => ({
                 dataExportList: dataToExport
             });
 
+            get().setSuccessWithTimeout();
+
         } catch (error) {
-            console.error(`Error fetching Member Care Packages that were unused for the stated amount of time and its details: ${error}`);
-            const errorMessage = error instanceof Error ? error.message: "Unknown error";
+            // console.error(`Error fetching Member Care Packages that were unused for the stated amount of time and its details: ${error}`);
+            const errorMessage = handleApiError(error);
             set({ error: true, errorMessage: errorMessage, loading: false });
         }
 
     },
 
-    getDataToExport: async (): Promise<void> => {
-        
-        const {selectedTable, timeInput} = get();
+    getDataToExport: async (): Promise<boolean> => {
 
-        if (selectedTable === 'member-details') {
-            await get().fetchMemberDetails();
+        const { selectedTable, timeInput } = get();
+        const validate = validateTimeInput(timeInput);
+
+        if (validate.isValid) {
+            if (selectedTable === 'member-details') {
+                await get().fetchMemberDetails();
+            }
+
+            if (selectedTable === "unused-member-voucher") {
+                await get().fetchMinimumTimeSinceUsedOfMemberVoucher(timeInput ? timeInput : 7);
+            }
+
+            if (selectedTable === "unused-member-care-package") {
+                await get().fetchMinimumTimeSinceUsedOfMemberCarePackage(timeInput ? timeInput : 7);
+            }
+
+            return true;
         }
 
-        if (selectedTable === "unused-member-voucher") {
-            await get().fetchMinimumTimeSinceUsedOfMemberVoucher(timeInput? timeInput : 7);
-        }
+        set({ error: true, errorMessage: validate.error });
 
-        if (selectedTable === "unused-member-care-package") {
-            await get().fetchMinimumTimeSinceUsedOfMemberCarePackage(timeInput? timeInput : 7);
-        }
+        return false;
     },
 
     setSelectedTable: (value: string): void => {
@@ -135,15 +180,32 @@ const useDataExportStore = create<UseDataExportStore>((set, get) => ({
         }
     },
 
-    setTimeInput: (value: number): void => set({ timeInput: value }),
+    setTimeInput: (value: number | undefined): void => set({ timeInput: value }),
 
     setExportFormat: (value: string): void => set({ exportFormat: value }),
 
-    setErrorMessage: (value: string): void=> set({ errorMessage: value }),
+    setErrorMessage: (value: string): void => set({ errorMessage: value }),
 
     setLoading: (value: boolean): void => set({ loading: value }),
 
-    setColumns: (value: string[]): void => set({ columns: value}),
+    setColumns: (value: string[]): void => set({ columns: value }),
+
+    setError: (value: boolean): void => set({ error: value }),
+
+    clearError: (): void => {
+        set({ error: false, errorMessage: null })
+    },
+
+    setSuccessWithTimeout: (): void => {
+        set({ success: true, error: false, errorMessage: null });
+
+        setTimeout(() => {
+            set((state) => ({
+                ...state,
+                success: false
+            }));
+        }, 3000);
+    },
 
     reset: (): void => (set(getInitialState))
 }));

@@ -7,12 +7,14 @@ import simulationMiddleware from '../middlewares/simulationMiddleware.js';
 import authRoutes from './authRoutes.js';
 import sessionRoutes from './sessionRoutes.js';
 // import employeeRoutes from './employeeRoutes.js';
+import dataExportRoutes from './dataExportRoutes.js';
 
 router.use(simulationMiddleware);
 
 router.use('/auth', authRoutes);
 router.use('/session', sessionRoutes);
 // router.use('/employee', employeeRoutes);
+router.use('/data-export', dataExportRoutes);
 
 // router.use('/sa', superAdminRoutes);
 
