@@ -1,4 +1,5 @@
 import React, { useState, useEffect } from "react";
+import { useNavigate } from "react-router-dom";
 import { Button } from '@/components/ui/button';
 import { ToggleSwitch } from '@/components/ui/switch';
 import { SearchForm } from '@/components/search-form';
@@ -23,7 +24,7 @@ export default function ManageService() {
 
   // For select status
   const [selectedStatus, setSelectedStatus] = useState('0');
-
+  const navigate = useNavigate();
   const handleSwitchChange = (serviceId, service_is_enabled) => {
     // Update the service's enabled status
     console.log(`Change Status for ${serviceId}`);
@@ -217,7 +218,7 @@ export default function ManageService() {
             <div className='flex flex-1 flex-col gap-4 p-4'>
               {/* Buttons for other Functionalities */}
               <div class="flex space-x-4 p-4 bg-gray-100 rounded-lg">
-                <Button className="rounded-xl">Create Service</Button>
+                <Button onClick={() => navigate("/create-service")} className="rounded-xl">Create Service</Button>
                 <Button className="rounded-xl">Reorder Service</Button>
                 <Button className="rounded-xl">View All Details</Button>
                 <Button className="rounded-xl">Manage Categories</Button>
@@ -260,7 +261,7 @@ export default function ManageService() {
                         <th className="px-2 py-2 text-left border border-gray-200">ID</th>
                         <th className="px-2 py-2 text-left border border-gray-200">Name</th>
                         <th className="px-2 py-2 text-left border border-gray-200">Unit Price (SGD)</th>
-                        <th className="px-2 py-2 text-left border border-gray-200">Duration (Mins)</th>
+                         <th className="px-2 py-2 text-left border border-gray-200">Date of Creation</th>
                         <th className="px-2 py-2 text-left border border-gray-200">Category</th>
                         <th className="px-2 py-2 text-left border border-gray-200">Status</th>
                         <th className="px-4 py-2 text-left border border-gray-200">Actions</th>
@@ -274,7 +275,7 @@ export default function ManageService() {
                             <td className="px-2 py-2 border border-gray-200">{service.service_id}</td>
                             <td className="px-2 py-2 border border-gray-200">{service.service_name}</td>
                             <td className="px-2 py-2 border border-gray-200">{service.service_default_price}</td>
-                            <td className="px-2 py-2 border border-gray-200">{service.service_estimated_duration}</td>
+                            <td className="px-2 py-2 border border-gray-200">{service.service_created_at}</td>
                             <td className="px-2 py-2 border border-gray-200">{service.service_category_name}</td>
                             {/* Enabled Row */}
                             <td className="px-2 py-2 border border-gray-200">
