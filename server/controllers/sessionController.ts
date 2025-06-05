@@ -127,7 +127,7 @@ const getAllStatus = async (req: Request, res: Response, next: NextFunction): Pr
     const sql = 'SELECT * FROM statuses';
     const { rows } = await pool().query(sql);
 
-    return rows[0];
+    res.status(200).json(rows);
   } catch (error) {
     next(error);
   }
@@ -144,7 +144,11 @@ const getStatusNameById = async (req: Request, res: Response, next: NextFunction
     const sql = 'SELECT * FROM statuses WHERE id = $1';
     const { rows } = await pool().query(sql, [id]);
 
-    return rows[0];
+    if (rows.length > 0) {
+      res.status(200).json(rows[0]);
+    } else {
+      res.status(404).json({ message: `Status with id ${id} not found` });
+    }
   } catch (error) {
     next(error);
   }
