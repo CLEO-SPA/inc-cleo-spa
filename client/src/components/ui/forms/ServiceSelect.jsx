@@ -10,12 +10,14 @@ import {
 import { Label } from "@/components/ui/label";
 import { Input } from "@/components/ui/input";
 import useServiceStore from "@/stores/useServiceStore";
+import { cn } from "@/lib/utils"; 
 
 export function ServiceSelect({
   name = "service_id",
   label = "Service *",
   disabled: customDisabled = false,
   onSelectFullDetails,
+  className = "", 
 }) {
   const {
     control,
@@ -52,15 +54,15 @@ export function ServiceSelect({
   const handleServiceSelect = async (serviceId) => {
     try {
       setSelectedServiceLoading(true);
-      
+
       // Check if we already have cached details
       let serviceDetails = getServiceDetails(serviceId);
-      
+
       if (!serviceDetails) {
         // Fetch full service details
         serviceDetails = await fetchServiceDetails(serviceId);
       }
-      
+
       // Call the callback with full service details
       if (onSelectFullDetails && serviceDetails) {
         onSelectFullDetails(serviceDetails);
@@ -75,7 +77,7 @@ export function ServiceSelect({
   const isDisabled = loading || error || customDisabled || selectedServiceLoading;
 
   return (
-    <div className="space-y-2">
+    <div className={cn("space-y-2", className)}>
       <Label htmlFor={name} className="text-sm font-medium text-gray-700">
         {label}
       </Label>
@@ -99,19 +101,25 @@ export function ServiceSelect({
               open={isOpen}
               onOpenChange={setIsOpen}
             >
-              <SelectTrigger className={errors[name] ? "border-red-500" : ""}>
+              <SelectTrigger
+                className={cn(
+                  "w-full",
+                  errors[name] ? "border-red-500" : ""
+                )}
+              >
                 <SelectValue
                   placeholder={
                     loading
                       ? "Loading services..."
                       : selectedServiceLoading
-                      ? "Loading service details..."
-                      : error
-                      ? "Error loading services"
-                      : "Select service"
+                        ? "Loading service details..."
+                        : error
+                          ? "Error loading services"
+                          : "Select service"
                   }
                 />
               </SelectTrigger>
+
               <SelectContent>
                 <div className="p-2 border-b">
                   <Input
