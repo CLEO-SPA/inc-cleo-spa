@@ -13,6 +13,7 @@ import ResetPasswordPage from '@/pages/ResetPasswordPage';
 import NotFoundPage from '@/pages/404Page';
 import ManageServicePage from '@/pages/ManageServicePage'
 import CreateServicePage from '@/pages/CreateServicePage';
+import UpdateServicePage from '@/pages/UpdateServicePage';
 
 function App() {
   return (
@@ -27,6 +28,7 @@ function App() {
               {/* Service Management */}
             <Route path='/manage-service' element={<ManageServicePage />} />
             <Route path='/create-service' element={<CreateServicePage />} />
+            <Route path='/update-service/:service_id' element={<UpdateServicePage />} />
 
             </Route>
             <Route path='/login' element={<LoginPage />} />
