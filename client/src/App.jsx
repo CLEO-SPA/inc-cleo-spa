@@ -30,7 +30,9 @@ function App() {
 
               {/* appointments */}
               <Route path='/appointments' element={<ManageAppointmentsPage />} />
+              
               <Route path="/appointments/create" element={<CreateAppointmentPage />} />
+              <Route path="/employees" element={<CreateAppointmentPage />} />
 
             </Route>
             <Route path='/login' element={<LoginPage />} />

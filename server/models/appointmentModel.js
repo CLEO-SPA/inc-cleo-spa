@@ -68,8 +68,21 @@ const getAppointmentsByDate = async (appointmentDate) => {
   }
 };
 
+const getAvailableTimeslotsByEmployee = async (appointmentDate, employeeId) => {
+  try {
+    const query = `SELECT * FROM get_available_timeslots($1, $2)`;
+    const values = [appointmentDate, employeeId];
+    const result = await pool().query(query, values);
+    return result.rows;
+  } catch (error) {
+    console.error('Error fetching available timeslots:', error);
+    throw new Error('Error fetching available timeslots');
+  }
+};
+
 export default {
  getAllAppointments,
-getAppointmentsByDate
+ getAppointmentsByDate,
+ getAvailableTimeslotsByEmployee
 };
  

@@ -11,4 +11,8 @@ import appointmentController from '../controllers/appointmentController.js';
 router.get('/', appointmentController.getAllAppointments);
 router.get('/date/:date', appointmentController.getAppointmentsByDate);
 
+// Get appointment timeslots by employee and appointment date
+router.get('/employee/:employeeId/date/:appointmentDate', appointmentController.getAvailableTimeslotsByEmployee);
+
+
 export default router;

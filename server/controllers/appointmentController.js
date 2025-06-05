@@ -48,7 +48,29 @@ const getAppointmentsByDate = async (req, res) => {
   }
 };
 
+
+const getAvailableTimeslotsByEmployee = async (req, res) => {
+  const { employeeId, appointmentDate } = req.params;
+
+  if (!appointmentDate || !/^\d{4}-\d{2}-\d{2}$/.test(appointmentDate)) {
+    return res.status(400).json({ message: 'Invalid or missing appointmentDate. Use format YYYY-MM-DD.' });
+  }
+
+  try {
+    const timeslots = await model.getAvailableTimeslotsByEmployee(employeeId, appointmentDate);
+    res.status(200).json({
+      employeeId,
+      appointmentDate,
+      availableTimeslots: timeslots,
+    });
+  } catch (error) {
+    console.log('Error getting available timeslots:', error);
+    res.status(500).json({ message: 'Error getting available timeslots', error: error.message });
+  }
+};
+
 export default {
   getAllAppointments,
   getAppointmentsByDate,
+  getAvailableTimeslotsByEmployee
 };
