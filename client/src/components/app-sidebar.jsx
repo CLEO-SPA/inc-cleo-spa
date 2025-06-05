@@ -97,7 +97,7 @@ const data = {
         },
         {
           title: 'Manage Care Packages',
-          url: '/mcp',
+          url: '/cp',
         },
       ],
     },

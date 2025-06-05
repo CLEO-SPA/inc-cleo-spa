@@ -15,6 +15,8 @@ import { useDatabaseReportStore } from '@/stores/useDatabaseReportStore';
 import { AppSidebar } from '@/components/app-sidebar';
 import { SiteHeader } from '@/components/site-header';
 import { SidebarInset, SidebarProvider } from '@/components/ui/sidebar';
+import { ErrorState } from '@/components/ErrorState';
+import { LoadingState } from '@/components/LoadingState';
 
 const DynamicDatabaseChangesReport = () => {
   const [expandedTables, setExpandedTables] = useState(new Set());
@@ -496,39 +498,14 @@ const DynamicDatabaseChangesReport = () => {
     // show loading during initial load or manual refresh
     if ((isLoading && !hasInitialLoad) || isManualLoading) {
       return (
-        <div className='max-w-full mx-auto p-6 bg-white min-h-screen'>
-          <div className='bg-white border border-gray-300 p-8'>
-            <div className='flex items-center justify-center space-x-3'>
-              <RefreshCw className='w-6 h-6 animate-spin' />
-              <span className='text-lg'>
-                {isManualLoading ? 'Refreshing database operations...' : 'Loading all database operations...'}
-              </span>
-            </div>
-          </div>
-        </div>
+        <LoadingState />
       );
     }
 
     // show error only if there is an issue when loading
     if (error) {
       return (
-        <div className='max-w-full mx-auto p-6 bg-white min-h-screen'>
-          <div className='bg-white border border-red-300 p-8'>
-            <div className='flex items-center justify-center space-x-3 text-red-600'>
-              <AlertCircle className='w-6 h-6' />
-              <span className='text-lg'>Error loading database changes: {error}</span>
-            </div>
-            <div className='mt-4 text-center'>
-              <button
-                onClick={() => fetchAllOperations()}
-                className='px-4 py-2 bg-black text-white border rounded-md border-black hover:bg-gray-800'
-              >
-                <RefreshCw className='w-4 h-4 inline mr-2' />
-                Try Again
-              </button>
-            </div>
-          </div>
-        </div>
+        <ErrorState />
       );
     }
 

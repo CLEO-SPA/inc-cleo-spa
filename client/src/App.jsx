@@ -12,6 +12,7 @@ import LoginPage from '@/pages/LoginPage';
 import ResetPasswordPage from '@/pages/ResetPasswordPage';
 import NotFoundPage from '@/pages/404Page';
 import ManageCarePackagesPage from '@/pages/CarePackages/ManageCarePackagesPage';
+import ViewCarePackageDetailsPage from '@/pages/CarePackages/ViewCarePackageDetailsPage';
 import DatabaseReportPage from '@/pages/DatabaseReportPage';
 
 function App() {
@@ -25,7 +26,8 @@ function App() {
               <Route index element={<HomePage />} />
 
               {/* care packages */}
-              <Route path='/mcp' element={<ManageCarePackagesPage />} />
+              <Route path='/cp' element={<ManageCarePackagesPage />} />
+              <Route path='/cp/:id' element={<ViewCarePackageDetailsPage />} />
 
               {/* statistics */}
               <Route path='/dbcr' element={<DatabaseReportPage />} />

@@ -117,7 +117,7 @@ function ManageCarePackagesPage() {
 
   // --- Action Handlers ---
   const handleView = (id) => {
-    navigate(`/care-packages/${id}`); // Adjust route as needed
+    navigate(`/cp/${id}`); // Adjust route as needed
   };
 
   const handleEdit = (id) => {
