@@ -455,14 +455,14 @@ const removeMemberCarePackage = async (id: string) => {
 };
 
 interface mcpConsumptionDetails {
-  id: string;
-  quantity: number;
-  date: string;
+  mcpd_id: string;
+  mcpd_quantity: number;
+  mcpd_date: string;
 }
 
 const createConsumption = async (
-  id: string,
-  details: mcpConsumptionDetails[],
+  mcp_id: string,
+  mcp_details: mcpConsumptionDetails[],
   employee_id: string,
   user_id: string
 ) => {
@@ -471,9 +471,9 @@ const createConsumption = async (
     await client.query('BEGIN');
 
     // Check if mcp exists
-    const results = await getMemberCarePackageById(id);
+    const results = await getMemberCarePackageById(mcp_id);
     if (!results) {
-      throw new Error(`Member care package with id ${id} not found for updating status.`);
+      throw new Error(`Member care package with id ${mcp_id} not found for updating status.`);
     }
 
     if (!employee_id) {
@@ -492,32 +492,32 @@ const createConsumption = async (
       VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9)
     `;
 
-    const detailPromises = details.map(async (d) => {
-      const { rows: mcpdRows } = await client.query<MemberCarePackagesDetails>(g_mcpd_sql, [d.id]);
+    const detailPromises = mcp_details.map(async (d) => {
+      const { rows: mcpdRows } = await client.query<MemberCarePackagesDetails>(g_mcpd_sql, [d.mcpd_id]);
       if (mcpdRows.length === 0) {
-        console.error(`[CONSUMPTION_ERROR] MemberCarePackagesDetails not found for id: ${d.id}`);
-        throw new Error(`Cannot process consumption: Detail record ${d.id} not found.`);
+        console.error(`[CONSUMPTION_ERROR] MemberCarePackagesDetails not found for id: ${d.mcpd_id}`);
+        throw new Error(`Cannot process consumption: Detail record ${d.mcpd_id} not found.`);
       }
       const mcpDetailToConsume = mcpdRows[0];
 
       const { rows: baseLogRows } = await client.query<MemberCarePackageTransactionLogs>(g_mcptl_sql, [
-        d.id,
+        d.mcpd_id,
         results.package.created_at,
       ]);
 
       const consumptionLogPromises = [];
-      for (let i = 0; i < d.quantity; i++) {
+      for (let i = 0; i < d.mcpd_quantity; i++) {
         consumptionLogPromises.push(
           client.query(i_mcptl_sql, [
             'CONSUMPTION',
             baseLogRows[0].description,
-            d.date,
+            d.mcpd_date,
             baseLogRows[0].transaction_amount - mcpDetailToConsume.price,
             -mcpDetailToConsume.price,
-            d.id,
+            d.mcpd_id,
             employee_id,
             mcpDetailToConsume.service_id,
-            d.date,
+            d.mcpd_date,
           ])
         );
       }

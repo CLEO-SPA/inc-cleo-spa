@@ -14,6 +14,7 @@ import NotFoundPage from '@/pages/404Page';
 import ManageCarePackagesPage from '@/pages/CarePackages/ManageCarePackagesPage';
 import ViewCarePackageDetailsPage from '@/pages/CarePackages/ViewCarePackageDetailsPage';
 import DatabaseReportPage from '@/pages/DatabaseReportPage';
+import CreateConsumptionPage from '@/pages/CarePackages/CreateConsumptionPage';
 
 function App() {
   return (
@@ -28,6 +29,9 @@ function App() {
               {/* care packages */}
               <Route path='/cp' element={<ManageCarePackagesPage />} />
               <Route path='/cp/:id' element={<ViewCarePackageDetailsPage />} />
+
+              {/* member care package */}
+              <Route path='/mcp/:packageId/consume' element={<CreateConsumptionPage />} />
 
               {/* statistics */}
               <Route path='/dbcr' element={<DatabaseReportPage />} />
