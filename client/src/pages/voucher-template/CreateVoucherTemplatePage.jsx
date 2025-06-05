@@ -40,6 +40,8 @@ const CreateVoucherTemplatePage = () => {
     updateServiceInTemplate,
     fetchServiceOptions,
     createVoucherTemplate,
+    validationErrors,
+    clearValidationErrors,
     resetMainForm,
     clearError,
   } = useVoucherTemplateFormStore();
@@ -49,7 +51,7 @@ const CreateVoucherTemplatePage = () => {
   const [createdTemplate, setCreatedTemplate] = useState(null);
   const [editingServiceIndex, setEditingServiceIndex] = useState(null);
   const [serviceSelectKey, setServiceSelectKey] = useState(0);
-  
+
   const navigate = useNavigate();
 
   // Service store
@@ -90,14 +92,14 @@ const CreateVoucherTemplatePage = () => {
 
   const handleServiceFieldChange = useCallback((index, field, value) => {
     const updatedData = { [field]: value };
-    
+
     if (field === 'custom_price' || field === 'discount') {
       const service = mainFormData.details[index];
       const customPrice = field === 'custom_price' ? value : service.custom_price;
       const discount = field === 'discount' ? value : service.discount;
       updatedData.final_price = customPrice - (customPrice * discount / 100);
     }
-    
+
     updateServiceInTemplate(index, updatedData);
   }, [mainFormData.details, updateServiceInTemplate]);
 
@@ -107,8 +109,8 @@ const CreateVoucherTemplatePage = () => {
 
   const handleFieldChange = useCallback((field, value) => {
     updateMainField(field, value);
-    console.log(`Field ${field} updated to:`, value);
   }, [updateMainField]);
+
 
   const handleServiceFormFieldChange = useCallback((field, value) => {
     updateServiceFormField(field, value);
@@ -128,18 +130,13 @@ const CreateVoucherTemplatePage = () => {
   // Form submission
   const onSubmit = useCallback(async (data) => {
     clearError();
-      const createdAtIso = new Date(data.created_at).toISOString();
+    const createdAtIso = new Date(data.created_at).toISOString();
 
-    if (mainFormData.details.length === 0) {
-      alert('Please add at least one service to the voucher template.');
-      return;
-    }
     console.log('Submitting voucher template with data:', data);
     const templateData = {
       ...data,
-      default_total_price: mainFormData.default_total_price,
-          created_at: createdAtIso,
-    updated_at: new Date().toISOString(),
+      created_at: createdAtIso,
+      updated_at: new Date().toISOString(),
       details: mainFormData.details.map(detail => ({
         service_id: detail.service_id,
         service_name: detail.service_name,
@@ -151,12 +148,10 @@ const CreateVoucherTemplatePage = () => {
         service_category_id: detail.service_category_id,
       })),
     };
-    console.log('Template data to be created:', templateData);
-
     const result = await createVoucherTemplate(templateData);
 
     if (result.success) {
-      setCreatedTemplate(templateData);
+      setCreatedTemplate(result.data);
       setShowSuccessDialog(true);
       reset();
       resetMainForm();
@@ -181,44 +176,118 @@ const CreateVoucherTemplatePage = () => {
         <div className='flex flex-1'>
           <AppSidebar />
           <SidebarInset>
-            <div className="w-full max-w-none p-6">
+            <div className="w-full max-w-none p-4">
               {/* Header Section */}
-              <div className="flex items-center gap-3 mb-6">
+              <div className="flex items-center gap-3 mb-1">
                 <Link to="/voucher-templates">
                   <Button variant="ghost" size="sm" className="p-2">
                     <ArrowLeft className="h-4 w-4" />
                   </Button>
                 </Link>
                 <div>
-                  <h1 className="text-2xl font-semibold text-gray-900">
+                  <h1 className="text-xl font-semibold text-gray-900">
                     Create Voucher Template
                   </h1>
-                  <p className="text-sm text-gray-600 mt-1">
+                  <p className="text-sm text-gray-600">
                     Create a new voucher template with services
                   </p>
                 </div>
               </div>
 
               <FormProvider {...methods}>
-                <form onSubmit={handleSubmit(onSubmit)} className="space-y-6">
+                <form onSubmit={handleSubmit(onSubmit)} className="container mx-auto p-4 space-y-6">
                   {/* Basic Information Card */}
                   <Card>
-                    <CardHeader>
-                      <CardTitle className="text-lg font-medium">
-                        Template Information
-                      </CardTitle>
-                    </CardHeader>
-                    <CardContent className="space-y-4">
-                      <TemplateInfoForm
-                        register={register}
-                        errors={errors}
-                        mainFormData={mainFormData}
-                        onFieldChange={handleFieldChange}
-                      />
 
-                      {/* Additional fields */}
-                      <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                        <div className="space-y-2">
+                    <CardContent className="space-y-6">
+                      {/* Main template fields in 4 columns */}
+                      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
+                        <div className="space-y-1">
+                          <Label htmlFor="voucher_template_name" className="text-sm font-medium text-gray-700">
+                            Template Name *
+                          </Label>
+                          <Input
+                            id="voucher_template_name"
+                            placeholder="Enter template name"
+                            {...register("voucher_template_name", { required: "Template name is required" })}
+                            onChange={(e) => handleFieldChange('voucher_template_name', e.target.value)}
+                            className={`h-9 ${errors.voucher_template_name ? "border-red-500" : ""}`}
+                          />
+                          {errors.voucher_template_name && (
+                            <p className="text-red-500 text-xs">{errors.voucher_template_name.message}</p>
+                          )}
+                        </div>
+
+                        <div className="space-y-1">
+                          <Label htmlFor="created_at" className="text-sm font-medium text-gray-700">
+                            Creation Date & Time *
+                          </Label>
+                          <Input
+                            id="created_at"
+                            type="datetime-local"
+                            {...register("created_at", { required: "Creation datetime is required" })}
+                            onChange={(e) => handleFieldChange('created_at', e.target.value)}
+                            className={`h-9 ${errors.created_at ? "border-red-500" : ""}`}
+                          />
+                          {errors.created_at && (
+                            <p className="text-red-500 text-xs">{errors.created_at.message}</p>
+                          )}
+                        </div>
+
+                        <div className="space-y-1">
+                          <Label htmlFor="default_starting_balance" className="text-sm font-medium text-gray-700">
+                            Starting Balance
+                          </Label>
+                          <Input
+                            id="default_starting_balance"
+                            type="number"
+                            step="0.01"
+                            placeholder="0.00"
+                            {...register("default_starting_balance", { valueAsNumber: true })}
+                            onChange={(e) => handleFieldChange('default_starting_balance', parseFloat(e.target.value) || 0)}
+                            className="h-9"
+                          />
+                        </div>
+
+                        <div className="space-y-1">
+                          <Label htmlFor="default_free_of_charge" className="text-sm font-medium text-gray-700">
+                            Free of Charge Amount
+                          </Label>
+                          <Input
+                            id="default_free_of_charge"
+                            type="number"
+                            step="0.01"
+                            placeholder="0.00"
+                            max={mainFormData.default_starting_balance}
+                            value={mainFormData.default_free_of_charge}
+                            {...register("default_free_of_charge", { valueAsNumber: true })}
+                            onChange={(e) => handleFieldChange('default_free_of_charge', parseFloat(e.target.value) || 0)}
+                            className="h-9"
+                          />
+                        </div>
+                      </div>
+
+                      {/* Second row with remaining fields */}
+                      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
+                        <div className="space-y-1">
+                          <Label htmlFor="default_total_price" className="text-sm font-medium text-gray-700">
+                            Total Price
+                          </Label>
+                          <Input
+                            id="default_total_price"
+                            type="number"
+                            step="0.01"
+                            placeholder="0.00"
+                            value={mainFormData.default_total_price}
+                            readOnly
+                            className="bg-gray-50 h-9"
+                          />
+                          <p className="text-xs text-gray-500">
+                            Auto-calculated: Starting Balance - Free Charge
+                          </p>
+                        </div>
+
+                        <div className="space-y-1">
                           <Label className="text-sm font-medium text-gray-700">
                             Status
                           </Label>
@@ -226,7 +295,7 @@ const CreateVoucherTemplatePage = () => {
                             onValueChange={(val) => handleFieldChange('status', val)}
                             defaultValue="is_enabled"
                           >
-                            <SelectTrigger>
+                            <SelectTrigger className="w-full h-9">
                               <SelectValue placeholder="Select status" />
                             </SelectTrigger>
                             <SelectContent>
@@ -236,12 +305,11 @@ const CreateVoucherTemplatePage = () => {
                           </Select>
                         </div>
 
-                        <div className="space-y-2">
+                        <div className="space-y-1">
                           <EmployeeSelect name="created_by" label="Created By *" />
                         </div>
                       </div>
-
-                      <div className="space-y-2">
+                      <div className="space-y-2 col-span-2">
                         <Label htmlFor="remarks" className="text-sm font-medium text-gray-700">
                           Remarks
                         </Label>
@@ -250,23 +318,25 @@ const CreateVoucherTemplatePage = () => {
                           placeholder="Enter any additional remarks"
                           {...register("remarks")}
                           onChange={(e) => handleFieldChange('remarks', e.target.value)}
-                          rows={3}
+                          rows={2}
+                          className="min-h-[60px] w-full"
                         />
                       </div>
+
                     </CardContent>
                   </Card>
 
                   {/* Services Section */}
                   <Card>
-                    <CardHeader>
+                    <CardHeader className="pb-3">
                       <CardTitle className="text-lg font-medium">
                         Template Services
                       </CardTitle>
-                      <p className="text-sm text-gray-600 mt-1">
-                        Note that the services added here only acts as system driven remarks and does not affect the actual service data.
+                      <p className="text-xs text-gray-600">
+                        Note: Services added here only act as system driven remarks and do not affect actual service data.
                       </p>
                     </CardHeader>
-                    <CardContent className="space-y-4">
+                    <CardContent className="space-y-3">
                       <AddServiceForm
                         serviceForm={serviceForm}
                         serviceOptions={serviceOptions}
@@ -291,20 +361,20 @@ const CreateVoucherTemplatePage = () => {
 
                   {/* Error Display */}
                   {error && (
-                    <div className="bg-red-50 border border-red-200 rounded-md p-4">
+                    <div className="bg-red-50 border border-red-200 rounded-md p-3">
                       <p className="text-red-800 text-sm">{error}</p>
                     </div>
                   )}
 
                   {/* Submit Button */}
-                  <div className="flex justify-between items-center pt-6 border-t">
-                    <div className="text-sm text-gray-500">
+                  <div className="flex justify-between items-center pt-3 border-t">
+                    <div className="text-xs text-gray-500">
                       All fields marked with * are required
                     </div>
                     <Button
                       type="submit"
                       disabled={isCreating || servicesLoading}
-                      className="px-12 py-3 bg-blue-600 hover:bg-blue-700 text-white font-medium text-base disabled:opacity-50"
+                      className="px-8 py-2 bg-blue-600 hover:bg-blue-700 text-white font-medium text-sm disabled:opacity-50"
                     >
                       {isCreating ? (
                         <>

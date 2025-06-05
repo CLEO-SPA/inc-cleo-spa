@@ -24,7 +24,19 @@ export const ServiceRow = ({
 
     return (
         <tr className="border-b border-gray-200 hover:bg-gray-50">
-            <td className="px-4 py-3 font-medium">{service.service_name}</td>
+            <td className="px-4 py-3 font-medium">
+                {isEditing ? (
+                    <Input
+                        type="text"
+                        value={service.service_name}
+                        onChange={(e) => onFieldChange(index, 'service_name', e.target.value)}
+                        className="w-32"
+                        placeholder="Service name"
+                    />
+                ) : (
+                    service.service_name
+                )}
+            </td>
             <td className="px-4 py-3">${service.original_price.toFixed(2)}</td>
             <td className="px-4 py-3">
                 {isEditing ? (
@@ -53,7 +65,23 @@ export const ServiceRow = ({
                 )}
             </td>
             <td className="px-4 py-3 font-medium">${service.final_price.toFixed(2)}</td>
-            <td className="px-4 py-3">{service.duration} min</td>
+            <td className="px-4 py-3">
+                {isEditing ? (
+                    <div className="flex items-center gap-1">
+                        <Input
+                            type="number"
+                            step="1"
+                            min="0"
+                            value={service.duration}
+                            onChange={(e) => onFieldChange(index, 'duration', parseInt(e.target.value) || 0)}
+                            className="w-16"
+                        />
+                        <span className="text-sm text-gray-500">min</span>
+                    </div>
+                ) : (
+                    `${service.duration} min`
+                )}
+            </td>
             <td className="px-4 py-3">
                 <div className="flex items-center gap-2">
                     <Button
@@ -231,7 +259,7 @@ export const AddServiceForm = ({
                 <Input
                     value={serviceForm.service_name}
                     placeholder="Selected service name"
-                    onChange={(e) => onFieldChange( 'service_name', e.target.value)}
+                    onChange={(e) => onFieldChange('service_name', e.target.value)}
 
                 />
             </div>
@@ -364,31 +392,31 @@ export const SuccessDialog = ({
             </DialogHeader>
             <div className="py-4">
                 <p className="text-sm text-gray-600 mb-4">
-                    The voucher template "{createdTemplate?.voucher_template_name}" has been created successfully.
+                    The voucher template "{createdTemplate?.template.voucher_template_name}" has been created successfully.
                 </p>
                 <div className="bg-gray-50 rounded-lg p-3 space-y-2">
                     <div className="flex justify-between text-sm">
                         <span className="text-gray-600">Template Name:</span>
                         <span className="font-medium text-gray-900">
-                            {createdTemplate?.voucher_template_name}
+                            {createdTemplate?.template.voucher_template_name }
                         </span>
                     </div>
                     <div className="flex justify-between text-sm">
                         <span className="text-gray-600">Starting Balance:</span>
                         <span className="font-medium text-gray-900">
-                            ${createdTemplate?.default_starting_balance?.toFixed(2) || mainFormData.default_starting_balance.toFixed(2)}
+                            ${createdTemplate?.template.default_starting_balance || mainFormData.default_starting_balance.toFixed(2)}
                         </span>
                     </div>
                     <div className="flex justify-between text-sm">
                         <span className="text-gray-600">Free of Charge:</span>
                         <span className="font-medium text-gray-900">
-                            ${createdTemplate?.default_free_of_charge?.toFixed(2) || mainFormData.default_free_of_charge.toFixed(2)}
+                            ${createdTemplate?.template.default_free_of_charge || mainFormData.default_free_of_charge.toFixed(2)}
                         </span>
                     </div>
                     <div className="flex justify-between text-sm border-t pt-2">
                         <span className="text-gray-600 font-medium">Total Price:</span>
                         <span className="font-semibold text-gray-900">
-                            ${createdTemplate?.default_total_price?.toFixed(2) || mainFormData.default_total_price.toFixed(2)}
+                            ${createdTemplate?.template.default_total_price|| mainFormData.default_total_price.toFixed(2)}
                         </span>
                     </div>
                     <div className="flex justify-between text-sm">

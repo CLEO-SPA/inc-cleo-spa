@@ -22,23 +22,23 @@ export const useVoucherTemplateFormStore = create(
       remarks: '',
       status: 'is_enabled',
       created_by: '',
-      created_at: null, 
+      created_at: null,
       details: [],
     },
-  // Remove the function-based selectors and make them reactive
-  serviceOptions: [],
-  servicesLoading: false,
-  servicesError: null,
+    // Remove the function-based selectors and make them reactive
+    serviceOptions: [],
+    servicesLoading: false,
+    servicesError: null,
 
-  // Sync with service store
-  syncWithServiceStore: () => {
-    const serviceState = useServiceStore.getState();
-    set({
-      serviceOptions: serviceState.services || [],
-      servicesLoading: serviceState.loading,
-      servicesError: serviceState.error
-    });
-  },
+    // Sync with service store
+    syncWithServiceStore: () => {
+      const serviceState = useServiceStore.getState();
+      set({
+        serviceOptions: serviceState.services || [],
+        servicesLoading: serviceState.loading,
+        servicesError: serviceState.error
+      });
+    },
     // Service form for adding individual services to template
     serviceForm: {
       id: '',
@@ -61,35 +61,42 @@ export const useVoucherTemplateFormStore = create(
     currentTemplateId: null,
     isEditMode: false,
 
-updateMainField: (field, value) =>
-  set((state) => {
-    const updatedForm = {
-      ...state.mainFormData,
-      [field]: value,
-    };
-    let starting = updatedForm.default_starting_balance;
-    let free = updatedForm.default_free_of_charge;
 
-    if (field === 'default_starting_balance') {
-      starting = value;
-    } else if (field === 'default_free_of_charge') {
-      free = value;
-    }
+    updateMainField: (field, value) =>
+      set((state) => {
+        const updatedForm = {
+          ...state.mainFormData,
+          [field]: value,
+        };
 
-    // Validate: FOC must not exceed starting balance
-    if (free > starting) {
-      console.warn("Free of charge cannot exceed starting balance");
-      console.log('Validation failed - returning unchanged state');
-      return state;
-    }
+        // Convert to numbers, defaulting to 0 for invalid values
+        let starting = Number(updatedForm.default_starting_balance) || 0;
+        let free = Number(updatedForm.default_free_of_charge) || 0;
 
-    updatedForm.default_total_price = starting - free;
+        if (field === 'default_starting_balance') {
+          starting = Number(value) || 0;
+        } else if (field === 'default_free_of_charge') {
+          free = Number(value) || 0;
+        }
 
-    const newState = {
-      mainFormData: updatedForm,
-    };
-    return newState;
-  }, false, `updateMainField/${field}`),
+        // Validate: FOC must not exceed starting balance
+        if (free > starting) {
+          console.warn("Free of charge cannot exceed starting balance");
+
+          const fixedForm = {
+            ...updatedForm,
+            default_free_of_charge: 0, // Set to 0 instead of empty string
+            default_total_price: starting, // Keep as number
+          };
+
+          return { mainFormData: fixedForm };
+        }
+        // Calculate total price and keep as number
+        updatedForm.default_total_price = starting - free;
+        return { mainFormData: updatedForm };
+      }, false, `updateMainField/${field}`),
+
+
 
     // Load template data for editing
     loadTemplateForEdit: (templateData) => {
@@ -126,7 +133,7 @@ updateMainField: (field, value) =>
             remarks: '',
             status: 'active',
             created_by: '',
-            created_at: null, 
+            created_at: null,
             details: [],
           },
           currentTemplateId: null,
@@ -138,81 +145,81 @@ updateMainField: (field, value) =>
 
     // Update service form fields
     updateServiceFormField: (field, value) =>
-  set(
-    (state) => {
-      let updatedServiceForm = {
-        ...state.serviceForm,
-        [field]: value,
-      };
+      set(
+        (state) => {
+          let updatedServiceForm = {
+            ...state.serviceForm,
+            [field]: value,
+          };
 
-      let customPrice = updatedServiceForm.custom_price;
-      let discount = updatedServiceForm.discount;
+          let customPrice = updatedServiceForm.custom_price;
+          let discount = updatedServiceForm.discount;
 
-      // Ensure numeric fields are not more than 2 decimal places
-      const roundTo2Dp = (num) => Math.round(num * 100) / 100;
+          // Ensure numeric fields are not more than 2 decimal places
+          const roundTo2Dp = (num) => Math.round(num * 100) / 100;
 
-      if (field === 'discount') {
-        if (value > 1) {
-          console.warn("Discount cannot be more than 1");
-          discount = 1;
-        } else {
-          discount = roundTo2Dp(value);
-        }
-        updatedServiceForm.discount = discount;
-      }
+          if (field === 'discount') {
+            if (value > 1) {
+              console.warn("Discount cannot be more than 1");
+              discount = 1;
+            } else {
+              discount = roundTo2Dp(value);
+            }
+            updatedServiceForm.discount = discount;
+          }
 
-      if (field === 'custom_price') {
-        customPrice = roundTo2Dp(value);
-        updatedServiceForm.custom_price = customPrice;
-      }
+          if (field === 'custom_price') {
+            customPrice = roundTo2Dp(value);
+            updatedServiceForm.custom_price = customPrice;
+          }
 
-      if (field === 'custom_price' || field === 'discount') {
-        updatedServiceForm.final_price = roundTo2Dp(customPrice * discount);
-      }
+          if (field === 'custom_price' || field === 'discount') {
+            updatedServiceForm.final_price = roundTo2Dp(customPrice * discount);
+          }
 
-      return {
-        serviceForm: updatedServiceForm,
-      };
-    },
-    false,
-    `updateServiceFormField/${field}`
-  ),
+          return {
+            serviceForm: updatedServiceForm,
+          };
+        },
+        false,
+        `updateServiceFormField/${field}`
+      ),
 
 
     // Select service from dropdown and fetch its details
-   selectService: async (serviceData) => {
-  try {
-    const serviceStore = useServiceStore.getState();
+    selectService: async (serviceData) => {
+      try {
+        const serviceStore = useServiceStore.getState();
 
-    // If essential details are missing, fetch full service
-    let fullServiceData = serviceData;
-    if (!serviceData.duration || !serviceData.service_price) {
-      const serviceId = serviceData.id || serviceData.value;
-      fullServiceData = await serviceStore.fetchServiceDetails(serviceId);
+        // If essential details are missing, fetch full service
+        let fullServiceData = serviceData;
+        if (!serviceData.duration || !serviceData.service_price) {
+          const serviceId = serviceData.id || serviceData.value;
+          fullServiceData = await serviceStore.fetchServiceDetails(serviceId);
+        }
+
+        const originalPrice = parseFloat(fullServiceData.service_price) || 0;
+        const duration = parseInt(fullServiceData.service_duration) || 0;
+
+        set({
+          serviceForm: {
+            ...get().serviceForm,
+            id: fullServiceData.id,
+            service_id: fullServiceData.id,
+            service_name: fullServiceData.service_name,
+            original_price: originalPrice,
+            custom_price: originalPrice,
+            final_price: originalPrice,
+            duration: duration,
+            service_category_id: fullServiceData.service_category_id || '',
+            discount: 1,
+          },
+        }, false, `selectService/${fullServiceData.id}`);
+      } catch (error) {
+        console.error('Error selecting service:', error);
+        set({ error: 'Failed to load service details' }, false, 'selectService/error');
+      }
     }
-
-    const originalPrice = parseFloat(fullServiceData.service_price) || 0;
-    const duration = parseInt(fullServiceData.service_duration) || 0;
-
-    set({
-      serviceForm: {
-        ...get().serviceForm,
-        id: fullServiceData.id,
-        service_id: fullServiceData.id,
-        service_name: fullServiceData.service_name,
-        original_price: originalPrice,
-        custom_price: originalPrice,
-        final_price: originalPrice,
-        duration: duration,
-        service_category_id: fullServiceData.service_category_id || '',
-        discount: 1,
-      },
-    }, false, `selectService/${fullServiceData.id}`);
-  } catch (error) {
-    console.error('Error selecting service:', error);
-    set({ error: 'Failed to load service details' }, false, 'selectService/error');
-  }
-}
     ,
 
     // Reset service form
@@ -244,28 +251,18 @@ updateMainField: (field, value) =>
         return;
       }
 
-      // Check if service already exists in template
-      const existingServiceIndex = get().mainFormData.details.findIndex(
-        service => service.id === currentServiceForm.id
-      );
-
-      if (existingServiceIndex !== -1) {
-        console.warn('This service is already added to the template.');
-        return;
-      }
-
       set(
-    (state) => ({
-      mainFormData: {
-        ...state.mainFormData,
-        details: [...state.mainFormData.details, { ...currentServiceForm }],
-      },
-    }),
-    false,
-    'addServiceToTemplate'
+        (state) => ({
+          mainFormData: {
+            ...state.mainFormData,
+            details: [...state.mainFormData.details, { ...currentServiceForm }],
+          },
+        }),
+        false,
+        'addServiceToTemplate'
       );
 
-        get().resetServiceForm();
+      get().resetServiceForm();
 
     },
 
@@ -274,7 +271,7 @@ updateMainField: (field, value) =>
       set(
         (state) => {
           const newDetails = state.mainFormData.details.filter((_, index) => index !== serviceIndexToRemove);
-              
+
           return {
             mainFormData: {
               ...state.mainFormData,
@@ -294,7 +291,7 @@ updateMainField: (field, value) =>
           const newDetails = [...state.mainFormData.details];
           if (newDetails[index]) {
             newDetails[index] = { ...newDetails[index], ...updatedServiceData };
-            
+
             // Recalculate final price for this service
             const service = newDetails[index];
             service.final_price = service.custom_price - (service.custom_price * service.discount / 100);
@@ -346,8 +343,17 @@ updateMainField: (field, value) =>
       set({ isCreating: true, error: null }, false, 'createVoucherTemplate/pending');
       try {
         const dataToSubmit = templateData || get().mainFormData;
-        const cleanedData = emptyStringToNull(dataToSubmit);
-        
+
+        const starting = Number(dataToSubmit.default_starting_balance) || 0;
+        const free = Number(dataToSubmit.default_free_of_charge) || 0;
+        const total = Math.max(starting - free, 0);
+
+        const cleanedData = emptyStringToNull({
+          ...dataToSubmit,
+          default_total_price: total,
+        });
+
+
         const payload = {
           ...cleanedData,
         };
@@ -359,7 +365,7 @@ updateMainField: (field, value) =>
         }), false, 'setCreatedAt');
 
         const response = await api.post('/voucher-template', payload);
-        
+
         set({ isCreating: false }, false, 'createVoucherTemplate/fulfilled');
         return { success: true, data: response.data };
       } catch (error) {
@@ -377,7 +383,7 @@ updateMainField: (field, value) =>
         const templateId = id || get().currentTemplateId;
         const dataToSubmit = templateData || get().mainFormData;
         const cleanedData = emptyStringToNull(dataToSubmit);
-        
+
         const timestamp = new Date().toISOString();
         const payload = {
           ...cleanedData,
@@ -386,7 +392,7 @@ updateMainField: (field, value) =>
         };
 
         const response = await api.put(`/voucher-templates/${templateId}`, payload);
-        
+
         set({ isUpdating: false }, false, 'updateVoucherTemplate/fulfilled');
         return { success: true, data: response.data };
       } catch (error) {
@@ -400,7 +406,7 @@ updateMainField: (field, value) =>
     // Save template (create or update based on mode)
     saveVoucherTemplate: async (templateData = null) => {
       const { isEditMode, currentTemplateId } = get();
-      
+
       if (isEditMode && currentTemplateId) {
         return await get().updateVoucherTemplate(currentTemplateId, templateData);
       } else {
