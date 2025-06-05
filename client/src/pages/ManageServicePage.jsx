@@ -2,7 +2,7 @@ import React, { useState, useEffect } from "react";
 import { Button } from '@/components/ui/button';
 import { ToggleSwitch } from '@/components/ui/switch';
 import { SearchForm } from '@/components/search-form';
-import { FilePenLine, PanelBottomClose, PanelBottomOpen } from 'lucide-react';
+import { ChevronDownCircle, ChevronUpCircle, FilePenLine } from 'lucide-react';
 import { AppSidebar } from '@/components/app-sidebar';
 import {
   Select,
@@ -215,13 +215,14 @@ export default function ManageService() {
           <AppSidebar />
           <SidebarInset>
             <div className='flex flex-1 flex-col gap-4 p-4'>
-              {/*  */}
+              {/* Buttons for other Functionalities */}
               <div class="flex space-x-4 p-4 bg-gray-100 rounded-lg">
                 <Button>Create Service</Button>
                 <Button>Reorder Service</Button>
                 <Button>View All Details</Button>
                 <Button>Manage Categories</Button>
               </div>
+              {/* Filter */}
               <div class="flex space-x-4 p-4 bg-gray-100 rounded-lg">
                 <SearchForm className="w-[300px]" />
                 <Select value={selectedCategory} onValueChange={setSelectedCategory}>
@@ -245,60 +246,63 @@ export default function ManageService() {
                 </Select>
                 <Button>Search</Button>
               </div>
-              <div className='min-h-[100vh] p-4 flex-1 rounded-xl bg-muted/50 md:min-h-min'>
-                {/* Table */}
-                <table className="w-full text-black border-collapse border border-gray-200">
-                  <thead className="bg-gray-100">
-                    <tr>
-                      <th className="px-2 py-2 text-left border border-gray-200 w-8">ID</th>
-                      <th className="px-3 py-2 text-left border border-gray-200 w-32">Name</th>
-                      <th className="px-2 py-2 text-left border border-gray-200 w-12">Unit Price (SGD)</th>
-                      <th className="px-2 py-2 text-left border border-gray-200 w-12">Duration (Mins)</th>
-                      <th className="px-2 py-2 text-left border border-gray-200 w-20">Category</th>
-                      <th className="px-2 py-2 text-left border border-gray-200 w-10">Enabled</th>
-                      <th className="px-4 py-2 text-left border border-gray-200 w-32">Actions</th>
-                    </tr>
-                  </thead>
-                  <tbody>
-                    {services.length > 0 ? (
-                      services.map((service, index) => (
-                        <tr key={service.service_id} className={index % 2 === 0 ? "bg-gray-50" : "bg-white"}>
-                          <td className="px-2 py-1 border border-gray-200">{service.service_id}</td>
-                          <td className="px-3 py-1 border border-gray-200">{service.service_name}</td>
-                          <td className="px-2 py-1 border border-gray-200">{service.service_default_price}</td>
-                          <td className="px-2 py-1 border border-gray-200">{service.service_estimated_duration}</td>
-                          <td className="px-2 py-1 border border-gray-200">{service.service_category_name}</td>
-                          <td className="px-2 py-1 border border-gray-200">
-                            <ToggleSwitch
-                              checked={service.service_is_enabled}
-                              onCheckedChange={handleSwitchChange}
-                            />
-                          </td>
-
-                          <td className="px-2 py-1 border border-gray-200">
-                            <div className="flex space-x-2 space-y-1">
-                              <Button className="px- py-1 bg-green-600 text-white text-sm font-medium rounded-xl hover:bg-green-700">
-                                <FilePenLine className="inline-block mr-1" />
-                              </Button>
-                              <Button className="px-2 py-1 bg-gray-600 text-white text-sm font-medium rounded-xl hover:bg-blue-700">
-                                View Sales History
-                              </Button>
-                              <Button className="px-4 py-3 text-3xl text-black bg-transparent rounded-xl hover:bg-transparent hover:text-blue-700">
-                                <PanelBottomClose className="w-11 h-11"/>
-                              </Button>
-                            </div>
+              <div className="p-4 flex-1 rounded-xl bg-muted/50">
+                <div className="overflow-y-auto max-h-[55vh]">
+                  {/* Table */}
+                  <table className="table-auto w-full text-black border-collapse border border-gray-200">
+                    <thead className="bg-gray-100 sticky top-0 z-10 shadow">
+                      <tr>
+                        <th className="px-2 py-2 text-left border border-gray-200">ID</th>
+                        <th className="px-2 py-2 text-left border border-gray-200">Name</th>
+                        <th className="px-2 py-2 text-left border border-gray-200">Unit Price (SGD)</th>
+                        <th className="px-2 py-2 text-left border border-gray-200">Duration (Mins)</th>
+                        <th className="px-2 py-2 text-left border border-gray-200">Category</th>
+                        <th className="px-2 py-2 text-left border border-gray-200">Status</th>
+                        <th className="px-4 py-2 text-left border border-gray-200">Actions</th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {services.length > 0 ? (
+                        services.map((service, index) => (
+                          <tr key={service.service_id} className={index % 2 === 0 ? "bg-gray-50" : "bg-white"}>
+                            <td className="px-2 py-2 border border-gray-200">{service.service_id}</td>
+                            <td className="px-2 py-2 border border-gray-200">{service.service_name}</td>
+                            <td className="px-2 py-2 border border-gray-200">{service.service_default_price}</td>
+                            <td className="px-2 py-2 border border-gray-200">{service.service_estimated_duration}</td>
+                            <td className="px-2 py-2 border border-gray-200">{service.service_category_name}</td>
+                            {/* Enabled Row */}
+                            <td className="px-2 py-2 border border-gray-200">
+                              <ToggleSwitch
+                                checked={service.service_is_enabled}
+                                onCheckedChange={handleSwitchChange}
+                              />
+                            </td>
+                            {/* Action Row */}
+                            <td className="px-4 py-2 border border-gray-200">
+                              <div className="flex space-x-2 space-y-1">
+                                <Button className="p-1 bg-green-600 text-white text-sm font-medium rounded-xl hover:bg-green-700">
+                                  <FilePenLine className="inline-block mr-1" />
+                                </Button>
+                                <Button className="px-2 py-1 bg-gray-600 text-white text-sm font-medium rounded-xl hover:bg-blue-700">
+                                  View Sales History
+                                </Button>
+                                <button className="p-1 text-3xl text-black bg-transparent rounded-xl hover:bg-transparent hover:text-blue-700">
+                                  <ChevronDownCircle />
+                                </button>
+                              </div>
+                            </td>
+                          </tr>
+                        ))
+                      ) : (
+                        <tr>
+                          <td colSpan="13" className="px-4 py-2 text-center text-gray-500 border border-gray-200">
+                            No services found.
                           </td>
                         </tr>
-                      ))
-                    ) : (
-                      <tr>
-                        <td colSpan="13" className="px-4 py-2 text-center text-gray-500 border border-gray-200">
-                          No services found.
-                        </td>
-                      </tr>
-                    )}
-                  </tbody>
-                </table>
+                      )}
+                    </tbody>
+                  </table>
+                </div>
               </div>
             </div>
           </SidebarInset>
