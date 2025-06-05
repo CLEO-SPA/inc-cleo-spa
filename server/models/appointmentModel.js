@@ -1,7 +1,9 @@
+import e from 'express';
 import { pool, getProdPool as prodPool } from '../config/database.js';
 
 const getAllAppointments = async (offset, limit, startDate_utc, endDate_utc) => {
   try {
+    const effectiveEndDate = endDate_utc || new Date();
     const query = `
       SELECT 
         a.*,
@@ -16,16 +18,17 @@ const getAllAppointments = async (offset, limit, startDate_utc, endDate_utc) => 
       ORDER BY a.appointment_date DESC, a.start_time ASC
       LIMIT $1 OFFSET $2
     `;
-    const values = [limit, offset, startDate_utc, endDate_utc];
+    const values = [limit, offset, startDate_utc, effectiveEndDate];
     const result = await pool().query(query, values);
 
     const totalQuery = `
       SELECT COUNT(*) FROM appointments
+
       WHERE created_at BETWEEN
         COALESCE($1, '0001-01-01'::timestamp with time zone)
         AND $2
     `;
-    const totalValues = [startDate_utc, endDate_utc];
+    const totalValues = [startDate_utc, effectiveEndDate];
     const totalResult = await pool().query(totalQuery, totalValues);
     const totalPages = Math.ceil(totalResult.rows[0].count / limit);
 
