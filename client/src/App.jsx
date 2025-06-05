@@ -12,6 +12,7 @@ import LoginPage from '@/pages/LoginPage';
 import ResetPasswordPage from '@/pages/ResetPasswordPage';
 import NotFoundPage from '@/pages/404Page';
 import ManageServicePage from '@/pages/ManageServicePage'
+import CreateServicePage from '@/pages/CreateServicePage';
 
 function App() {
   return (
@@ -25,6 +26,7 @@ function App() {
               
               {/* Service Management */}
             <Route path='/manage-service' element={<ManageServicePage />} />
+            <Route path='/create-service' element={<CreateServicePage />} />
 
             </Route>
             <Route path='/login' element={<LoginPage />} />
