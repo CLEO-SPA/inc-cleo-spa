@@ -13,6 +13,7 @@ import ResetPasswordPage from '@/pages/ResetPasswordPage';
 import NotFoundPage from '@/pages/404Page';
 import ManageCarePackagesPage from '@/pages/CarePackages/ManageCarePackagesPage';
 import ViewCarePackageDetailsPage from '@/pages/CarePackages/ViewCarePackageDetailsPage';
+import CreateCarePackageFormPage from '@/pages/CarePackages/CreateCarePackageFormPage';
 import DatabaseReportPage from '@/pages/DatabaseReportPage';
 import CreateConsumptionPage from '@/pages/CarePackages/CreateConsumptionPage';
 
@@ -29,6 +30,7 @@ function App() {
               {/* care packages */}
               <Route path='/cp' element={<ManageCarePackagesPage />} />
               <Route path='/cp/:id' element={<ViewCarePackageDetailsPage />} />
+              <Route path='/cp/c' element={<CreateCarePackageFormPage />} />
 
               {/* member care package */}
               <Route path='/mcp/:packageId/consume' element={<CreateConsumptionPage />} />
