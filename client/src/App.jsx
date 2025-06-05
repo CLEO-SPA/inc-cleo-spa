@@ -14,6 +14,7 @@ import NotFoundPage from '@/pages/404Page';
 
 // Appointments
 import ManageAppointmentsPage from '@/pages/ManageAppointmentsPage';
+import CreateAppointmentPage from './pages/CreateAppointmentPage';
 
 
 function App() {
@@ -29,7 +30,7 @@ function App() {
 
               {/* appointments */}
               <Route path='/appointments' element={<ManageAppointmentsPage />} />
-
+              <Route path="/appointments/create" element={<CreateAppointmentPage />} />
 
             </Route>
             <Route path='/login' element={<LoginPage />} />
