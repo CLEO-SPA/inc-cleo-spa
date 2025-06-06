@@ -235,6 +235,13 @@ const getUserCount = async () => {
   }
 };
 
+export const getEmployeeIdByUserAuthId = async (id: string) => {
+  const employee_sql = 'SELECT id FROM employees WHERE user_auth_id = $1';
+  const params = [id];
+
+  return await pool().query<{ id: string }>(employee_sql, params);
+};
+
 export default {
   // createEmployee,
   checkEmployeeCodeExists,
@@ -244,4 +251,5 @@ export default {
   createSuperUser,
   getUserCount,
   getUserData,
+  getEmployeeIdByUserAuthId,
 };
