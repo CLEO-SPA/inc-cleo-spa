@@ -242,26 +242,26 @@ const updateEmployeePassword = async (req: Request, res: Response, next: NextFun
   }
 };
 
-// const getAllEmployees = async (req: Request, res: Response, next: NextFunction) => {
-//   const page = parseInt(req.query.page) || 1;
-//   const limit = parseInt(req.query.limit) || 10;
-//   const offset = (page - 1) * limit;
-//   const { startDate_utc, endDate_utc } = req.session;
+const getAllEmployees = async (req: Request, res: Response, next: NextFunction) => {
+  const page = parseInt(req.query.page as string) || 1;
+  const limit = parseInt(req.query.limit as string) || 10;
+  const offset = (page - 1) * limit;
+  const { start_date_utc, end_date_utc } = req.session;
 
-//   try {
-//     const { employees, totalPages } = await model.getAllEmployees(offset, limit, startDate_utc, endDate_utc);
+  try {
+    const { employees, totalPages } = await model.getAllEmployees(offset, limit, start_date_utc!, end_date_utc!);
 
-//     res.status(200).json({
-//       currentPage: page,
-//       totalPages: totalPages,
-//       pageSize: limit,
-//       data: employees,
-//     });
-//   } catch (error) {
-//     console.log('Error getting employees:', error);
-//     res.status(500).json({ message: 'Error getting employees', error: error.message });
-//   }
-// };
+    res.status(200).json({
+      currentPage: page,
+      totalPages: totalPages,
+      pageSize: limit,
+      data: employees,
+    });
+  } catch (error) {
+    console.log('Error getting employees:', error);
+    res.status(500).json({ message: 'Error getting employees', error: error });
+  }
+};
 
 const regenerateInvitationLink = async (req: Request, res: Response, next: NextFunction) => {
   const employeeEmail = req.body;
@@ -281,6 +281,17 @@ const regenerateInvitationLink = async (req: Request, res: Response, next: NextF
   }
 };
 
+const getAllEmployeesForDropdown = async (req: Request, res: Response, next: NextFunction) => {
+  console.log('Fetching all employees for dropdown');
+  try {
+    const employees = await model.getAllEmployeesForDropdown();
+    res.status(200).json(employees);
+  } catch (error) {
+    console.error('Error in getAllEmployeesForDropdown:', error);
+    res.status(500).json({ message: 'Failed to fetch employees for dropdown' });
+  }
+};
+
 export default {
   defaultPassword,
   // createEmployee,
@@ -290,6 +301,7 @@ export default {
   // inviteEmployee,
   acceptInvitation,
   updateEmployeePassword,
-  // getAllEmployees,
+  getAllEmployees,
   regenerateInvitationLink,
+  getAllEmployeesForDropdown,
 };

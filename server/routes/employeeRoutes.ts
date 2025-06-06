@@ -19,6 +19,9 @@ router.use(isAuthenticated);
 
 // router.get('/', employeeController.getAllEmployees);
 
+router.get('/', employeeController.getAllEmployees);
+router.get('/dropdown', employeeController.getAllEmployeesForDropdown);
+
 // router.post(
 //   '/create',
 //   employeeController.defaultPassword,
