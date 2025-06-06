@@ -1,11 +1,13 @@
+import { Request, Response, NextFunction } from 'express';
 import roleModel from '../models/roleModel.js';
 
-const hasRole = (requiredRoles) => {
-  return async (req, res, next) => {
+const hasRole = (requiredRoles: string | string[]) => {
+  return async (req: Request, res: Response, next: NextFunction): Promise<void> => {
     try {
       // Check if user is authenticated
       if (!req.session || !req.session.user_id) {
-        return res.status(401).json({ message: 'Unauthorized - Please log in' });
+        res.status(401).json({ message: 'Unauthorized - Please log in' });
+        return;
       }
 
       const userId = req.session.user_id;
@@ -23,11 +25,12 @@ const hasRole = (requiredRoles) => {
       const hasRequiredRole = roles.some((role) => userRoles.includes(role));
 
       if (!hasRequiredRole) {
-        return res.status(403).json({
+        res.status(403).json({
           message: 'Forbidden - You do not have permission to access this resource',
           requiredRoles: roles,
           yourRoles: userRoles,
         });
+        return;
       }
 
       // If user has the required role, proceed

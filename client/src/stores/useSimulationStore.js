@@ -15,11 +15,11 @@ export const useSimulationStore = create((set, get) => ({
     set({ isLoadingSimulation: true, errorSimulation: null });
     try {
       const response = await api.get('/session/sim');
-      // Assuming interceptor converts startDate_utc and endDate_utc to Date objects
-      const { is_simulation, startDate_utc, endDate_utc } = response.data;
+      // Assuming interceptor converts start_date_utc and end_date_utc to Date objects
+      const { is_simulation, start_date_utc, end_date_utc } = response.data;
 
-      const startDate = startDate_utc instanceof Date && isValid(startDate_utc) ? startDate_utc : null;
-      const endDate = endDate_utc instanceof Date && isValid(endDate_utc) ? endDate_utc : null;
+      const startDate = start_date_utc instanceof Date && isValid(start_date_utc) ? start_date_utc : null;
+      const endDate = end_date_utc instanceof Date && isValid(end_date_utc) ? end_date_utc : null;
 
       set({
         isSimulationActive: !!is_simulation,
@@ -43,8 +43,8 @@ export const useSimulationStore = create((set, get) => ({
     try {
       const payload = {
         is_simulation: isActive,
-        startDate_utc: isActive && startDate instanceof Date && isValid(startDate) ? startDate : null,
-        endDate_utc: isActive && endDate instanceof Date && isValid(endDate) ? endDate : null,
+        start_date_utc: isActive && startDate instanceof Date && isValid(startDate) ? startDate : null,
+        end_date_utc: isActive && endDate instanceof Date && isValid(endDate) ? endDate : null,
       };
       await api.post('/session/sim', payload);
 

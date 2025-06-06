@@ -1,6 +1,6 @@
 import { pool, getProdPool as prodPool } from '../config/database.js';
 
-const checkEmployeeCodeExists = async (employee_code) => {
+const checkEmployeeCodeExists = async (employee_code: number) => {
   try {
     const query = `SELECT * FROM employees WHERE employee_code = $1`;
     const values = [employee_code];
@@ -8,11 +8,11 @@ const checkEmployeeCodeExists = async (employee_code) => {
 
     return result.rows.length > 0;
   } catch (error) {
-    throw new Error('Error checking employee code existence', error);
+    throw new Error('Error checking employee code existence');
   }
 };
 
-const getAllEmployees = async (offset, limit, startDate_utc, endDate_utc) => {
+const getAllEmployees = async (offset: number, limit: number, startDate_utc: string, endDate_utc: string) => {
   try {
     const query = `
       SELECT * FROM employees
@@ -45,22 +45,7 @@ const getAllEmployees = async (offset, limit, startDate_utc, endDate_utc) => {
   }
 };
 
-const getAllEmployeesForDropdown = async () => {
-  try {
-    const query = `
-      SELECT id, employee_name FROM employees
-      ORDER BY employee_name ASC
-    `;
-    const result = await pool().query(query);
-    return result.rows;
-  } catch (error) {
-    console.error('Error fetching employee list:', error);
-    throw new Error('Error fetching employee list');
-  }
-};
-
-
-const createSuperUser = async (email, password_hash) => {
+const createSuperUser = async (email: string, password_hash: string) => {
   try {
     const query = `CALL create_temp_su($1, $2)`;
     const values = [email, password_hash];
@@ -78,7 +63,7 @@ const createSuperUser = async (email, password_hash) => {
  * @param {"email || phone_no"} identity
  * @returns
  */
-const getAuthUser = async (identity) => {
+const getAuthUser = async (identity: string | number) => {
   try {
     const query = `
       SELECT 
@@ -109,11 +94,11 @@ const getAuthUser = async (identity) => {
 
     return result.rows[0];
   } catch (error) {
-    throw new Error('Error fetching employee data', error);
+    throw new Error('Error fetching employee data');
   }
 };
 
-const getUserData = async (identity) => {
+const getUserData = async (identity: string | number) => {
   try {
     const query = `
       SELECT 
@@ -144,75 +129,75 @@ const getUserData = async (identity) => {
 
     return result.rows[0];
   } catch (error) {
-    throw new Error('Error fetching employee data', error);
+    throw new Error('Error fetching employee data');
   }
 };
 
-const createEmployee = async ({
-  employee_code,
-  department_id,
-  employee_contact,
-  employee_email,
-  employeeIsActive, // TODO: recheck with team
-  employee_name,
-  position_id,
-  commission_percentage,
-  password_hash,
-  created_at,
-  updated_at,
-}) => {
-  const client = await pool().connect();
+// const createEmployee = async ({
+//   employee_code,
+//   department_id,
+//   employee_contact,
+//   employee_email,
+//   employeeIsActive, // TODO: recheck with team
+//   employee_name,
+//   position_id,
+//   commission_percentage,
+//   password_hash,
+//   created_at,
+//   updated_at,
+// }) => {
+//   const client = await pool().connect();
 
-  try {
-    // Start a transaction
-    await client.query('BEGIN');
+//   try {
+//     // Start a transaction
+//     await client.query('BEGIN');
 
-    const insertAuthQuery = `
-      INSERT INTO user_auth (email ,password, created_at, updated_at)
-      VALUES ($1, $2, $3, $4)
-      RETURNING *;
-    `;
-    const authValues = [employee_email, password_hash, created_at, updated_at];
-    const authResult = await client.query(insertAuthQuery, authValues);
-    const newAuth = authResult.rows[0];
+//     const insertAuthQuery = `
+//       INSERT INTO user_auth (email ,password, created_at, updated_at)
+//       VALUES ($1, $2, $3, $4)
+//       RETURNING *;
+//     `;
+//     const authValues = [employee_email, password_hash, created_at, updated_at];
+//     const authResult = await client.query(insertAuthQuery, authValues);
+//     const newAuth = authResult.rows[0];
 
-    const insertEmployeeQuery = `
-      INSERT INTO employees (employee_code, department_id, employee_contact, employee_email, employee_is_active, employee_name, position_id, commission_percentage, created_at, updated_at, user_auth_id)
-      VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11)
-      RETURNING *;
-    `;
-    const values = [
-      employee_code,
-      parseInt(department_id, 10),
-      employee_contact,
-      employee_email,
-      employeeIsActive || true,
-      employee_name,
-      parseInt(position_id, 10) || null,
-      parseFloat(commission_percentage) || 0.0,
-      created_at,
-      updated_at,
-      newAuth.id,
-    ];
+//     const insertEmployeeQuery = `
+//       INSERT INTO employees (employee_code, department_id, employee_contact, employee_email, employee_is_active, employee_name, position_id, commission_percentage, created_at, updated_at, user_auth_id)
+//       VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11)
+//       RETURNING *;
+//     `;
+//     const values = [
+//       employee_code,
+//       parseInt(department_id, 10),
+//       employee_contact,
+//       employee_email,
+//       employeeIsActive || true,
+//       employee_name,
+//       parseInt(position_id, 10) || null,
+//       parseFloat(commission_percentage) || 0.0,
+//       created_at,
+//       updated_at,
+//       newAuth.id,
+//     ];
 
-    const result = await client.query(insertEmployeeQuery, values);
-    const newEmployee = result.rows[0];
+//     const result = await client.query(insertEmployeeQuery, values);
+//     const newEmployee = result.rows[0];
 
-    await client.query('COMMIT');
-    return {
-      employee: newEmployee,
-      auth: newAuth,
-    };
-  } catch (error) {
-    console.error('Error creating employee:', error);
-    await client.query('ROLLBACK');
-    throw new Error('Error creating employee');
-  } finally {
-    client.release(); // Release the client back to the pool
-  }
-};
+//     await client.query('COMMIT');
+//     return {
+//       employee: newEmployee,
+//       auth: newAuth,
+//     };
+//   } catch (error) {
+//     console.error('Error creating employee:', error);
+//     await client.query('ROLLBACK');
+//     throw new Error('Error creating employee');
+//   } finally {
+//     client.release(); // Release the client back to the pool
+//   }
+// };
 
-const updateEmployeePassword = async (email, password_hash) => {
+const updateEmployeePassword = async (email: string, password_hash: string) => {
   const client = await pool().connect();
 
   try {
@@ -251,7 +236,7 @@ const getUserCount = async () => {
 };
 
 export default {
-  createEmployee,
+  // createEmployee,
   checkEmployeeCodeExists,
   getAuthUser,
   updateEmployeePassword,
