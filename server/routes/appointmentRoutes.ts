@@ -1,7 +1,8 @@
 import express from 'express';
-const router = express.Router();
 import isAuthenticated from '../middlewares/authMiddleware.js';
 import appointmentController from '../controllers/appointmentController.js';
+
+const router = express.Router();
 
 // =========================
 // Private routes

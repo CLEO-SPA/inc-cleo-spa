@@ -1,13 +1,22 @@
+import { Request, Response, NextFunction } from 'express';
 import model from '../models/appointmentModel.js';
 
-const getAllAppointments = async (req, res) => {
-  const page = parseInt(req.query.page) || 1;
-  const limit = parseInt(req.query.limit) || 10;
+const getAllAppointments = async (req: Request, res: Response) => {
+  const page = parseInt(req.query.page as string || '1', 10);
+  const limit = parseInt(req.query.limit as string || '10', 10);
   const offset = (page - 1) * limit;
-  const { startDate_utc, endDate_utc } = req.session;
+  const { startDate_utc, endDate_utc } = req.session as typeof req.session & {
+    startDate_utc?: string;
+    endDate_utc?: string;
+  };
 
   try {
-    const { appointments, totalPages } = await model.getAllAppointments(offset, limit, startDate_utc, endDate_utc);
+    const { appointments, totalPages } = await model.getAllAppointments(
+      offset,
+      limit,
+      startDate_utc ?? null,
+      endDate_utc ?? null
+    );
 
     res.status(200).json({
       currentPage: page,
@@ -17,11 +26,12 @@ const getAllAppointments = async (req, res) => {
     });
   } catch (error) {
     console.log('Error getting appointments:', error);
-    res.status(500).json({ message: 'Error getting appointments', error: error.message });
+    const errorMessage = error instanceof Error ? error.message : String(error);
+    res.status(500).json({ message: 'Error getting appointments', error: errorMessage });
   }
 };
 
-const getAppointmentsByDate = async (req, res) => {
+const getAppointmentsByDate = async (req: Request, res: Response) => {
   const { date } = req.params;
 
   if (!date) {
@@ -44,12 +54,13 @@ const getAppointmentsByDate = async (req, res) => {
     });
   } catch (error) {
     console.log('Error getting appointments by date:', error);
-    res.status(500).json({ message: 'Error getting appointments by date', error: error.message });
+    const errorMessage = error instanceof Error ? error.message : String(error);
+    res.status(500).json({ message: 'Error getting appointments by date', error: errorMessage });
   }
 };
 
 
-const getAvailableTimeslotsByEmployee = async (req, res) => {
+const getAvailableTimeslotsByEmployee = async (req: Request, res: Response) => {
   const { employeeId, appointmentDate } = req.params;
 
   if (!appointmentDate || !/^\d{4}-\d{2}-\d{2}$/.test(appointmentDate)) {
@@ -65,7 +76,8 @@ const getAvailableTimeslotsByEmployee = async (req, res) => {
     });
   } catch (error) {
     console.log('Error getting available timeslots:', error);
-    res.status(500).json({ message: 'Error getting available timeslots', error: error.message });
+    const errorMessage = error instanceof Error ? error.message : String(error);
+    res.status(500).json({ message: 'Error getting available timeslots', error: errorMessage });
   }
 };
 

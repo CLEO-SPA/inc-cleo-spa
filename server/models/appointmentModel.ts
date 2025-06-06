@@ -1,7 +1,11 @@
-import e from 'express';
 import { pool, getProdPool as prodPool } from '../config/database.js';
 
-const getAllAppointments = async (offset, limit, startDate_utc, endDate_utc) => {
+const getAllAppointments = async (
+  offset: number,
+  limit: number,
+  startDate_utc: Date | string | null,
+  endDate_utc?: Date | string | null
+) => {
   try {
     const effectiveEndDate = endDate_utc || new Date();
     const query = `
@@ -42,7 +46,7 @@ const getAllAppointments = async (offset, limit, startDate_utc, endDate_utc) => 
   }
 };
 
-const getAppointmentsByDate = async (appointmentDate) => {
+const getAppointmentsByDate = async (appointmentDate: Date | string) => {
   try {
     const query = `
       SELECT 
@@ -68,7 +72,10 @@ const getAppointmentsByDate = async (appointmentDate) => {
   }
 };
 
-const getAvailableTimeslotsByEmployee = async (appointmentDate, employeeId) => {
+const getAvailableTimeslotsByEmployee = async (
+  appointmentDate: Date | string,
+  employeeId: number | string
+) => {
   try {
     const query = `SELECT * FROM get_available_timeslots($1, $2)`;
     const values = [appointmentDate, employeeId];
