@@ -8,6 +8,7 @@
     "build": "tsc",
     "clean": "rm -rf build",
     "start": "node ./dist/index.js",
+    "dev": "tsx watch index.ts",
     "lint": "eslint ."
   },
   "keywords": [],
@@ -43,6 +44,7 @@
     "eslint": "^9.26.0",
     "globals": "^16.1.0",
     "ts-node": "^10.9.2",
+    "tsx": "^4.19.4",
     "typescript": "^5.8.3"
   },
   "description": ""

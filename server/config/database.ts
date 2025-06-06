@@ -13,6 +13,12 @@ function createNamedPool(EnvConfig: string, poolName: string): pg.Pool {
     max: dbConfig.maxConnections || parseInt(process.env.DB_MAX_CONNECTIONS || '10', 10) || 10,
   });
 
+  // Customize schema based on pool name
+  const schemaName = poolName === 'SIMULATION' ? 'Test_ET_UI' : 'Test_ET_UI';
+
+  pool.on('connect', (client) => {
+    client.query(`SET search_path TO "${schemaName}"`);
+  });
   // const oldQuery = pool.query;
 
   // (pool as any).query = function <T extends pg.QueryResultRow = any>(
