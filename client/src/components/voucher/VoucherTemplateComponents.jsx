@@ -37,20 +37,29 @@ export const ServiceRow = ({
                     service.service_name
                 )}
             </td>
-            <td className="px-4 py-3">${service.original_price.toFixed(2)}</td>
+            <td className="px-4 py-3">
+                {typeof service.original_price === 'number'
+                    ? `$${service.original_price.toFixed(2)}`
+                    : 'N/A'}
+            </td>
             <td className="px-4 py-3">
                 {isEditing ? (
                     <Input
                         type="number"
                         step="0.01"
                         value={service.custom_price}
-                        onChange={(e) => onFieldChange(index, 'custom_price', parseFloat(e.target.value) || 0)}
+                        onChange={(e) =>
+                            onFieldChange(index, 'custom_price', parseFloat(e.target.value) || 0)
+                        }
                         className="w-24"
                     />
                 ) : (
-                    `$${service.custom_price.toFixed(2)}`
+                    typeof service.custom_price === 'number'
+                        ? `$${service.custom_price.toFixed(2)}`
+                        : 'N/A'
                 )}
             </td>
+
             <td className="px-4 py-3">
                 {isEditing ? (
                     <Input
@@ -61,10 +70,16 @@ export const ServiceRow = ({
                         className="w-20"
                     />
                 ) : (
-                    `${service.discount.toFixed(1)}`
+                     typeof service.discount === 'number'
+                        ? `$${service.discount.toFixed(2)}`
+                        : 'N/A'
                 )}
             </td>
-            <td className="px-4 py-3 font-medium">${service.final_price.toFixed(2)}</td>
+            <td className="px-4 py-3">
+                {typeof service.final_price === 'number'
+                    ? `$${service.final_price.toFixed(2)}`
+                    : 'N/A'}
+            </td>
             <td className="px-4 py-3">
                 {isEditing ? (
                     <div className="flex items-center gap-1">
@@ -377,65 +392,70 @@ export const SuccessDialog = ({
     mainFormData
 }) => {
 
+    const formatMoney = (val) => {
+        const num = parseFloat(val);
+        return isNaN(num) ? '0.00' : num.toFixed(2);
+    };
 
-    return (<Dialog open={isOpen} onOpenChange={onClose}>
-        <DialogContent className="sm:max-w-md">
-            <DialogHeader>
-                <DialogTitle className="flex items-center gap-2 text-green-600">
-                    <div className="w-6 h-6 rounded-full bg-green-100 flex items-center justify-center">
-                        <svg className="w-4 h-4 text-green-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
-                        </svg>
-                    </div>
-                    Voucher Template Created Successfully!
-                </DialogTitle>
-            </DialogHeader>
-            <div className="py-4">
-                <p className="text-sm text-gray-600 mb-4">
-                    The voucher template "{createdTemplate?.template.voucher_template_name}" has been created successfully.
-                </p>
-                <div className="bg-gray-50 rounded-lg p-3 space-y-2">
-                    <div className="flex justify-between text-sm">
-                        <span className="text-gray-600">Template Name:</span>
-                        <span className="font-medium text-gray-900">
-                            {createdTemplate?.template.voucher_template_name }
-                        </span>
-                    </div>
-                    <div className="flex justify-between text-sm">
-                        <span className="text-gray-600">Starting Balance:</span>
-                        <span className="font-medium text-gray-900">
-                            ${createdTemplate?.template.default_starting_balance || mainFormData.default_starting_balance.toFixed(2)}
-                        </span>
-                    </div>
-                    <div className="flex justify-between text-sm">
-                        <span className="text-gray-600">Free of Charge:</span>
-                        <span className="font-medium text-gray-900">
-                            ${createdTemplate?.template.default_free_of_charge || mainFormData.default_free_of_charge.toFixed(2)}
-                        </span>
-                    </div>
-                    <div className="flex justify-between text-sm border-t pt-2">
-                        <span className="text-gray-600 font-medium">Total Price:</span>
-                        <span className="font-semibold text-gray-900">
-                            ${createdTemplate?.template.default_total_price|| mainFormData.default_total_price.toFixed(2)}
-                        </span>
-                    </div>
-                    <div className="flex justify-between text-sm">
-                        <span className="text-gray-600">Services Count:</span>
-                        <span className="font-medium text-gray-900">
-                            {createdTemplate?.details?.length || mainFormData.details.length}
-                        </span>
+    return (
+        <Dialog open={isOpen} onOpenChange={onClose}>
+            <DialogContent className="sm:max-w-md">
+                <DialogHeader>
+                    <DialogTitle className="flex items-center gap-2 text-green-600">
+                        <div className="w-6 h-6 rounded-full bg-green-100 flex items-center justify-center">
+                            <svg className="w-4 h-4 text-green-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
+                            </svg>
+                        </div>
+                        Voucher Template Created Successfully!
+                    </DialogTitle>
+                </DialogHeader>
+                <div className="py-4">
+                    <p className="text-sm text-gray-600 mb-4">
+                        The voucher template "{createdTemplate?.template.voucher_template_name}" has been created successfully.
+                    </p>
+                    <div className="bg-gray-50 rounded-lg p-3 space-y-2">
+                        <div className="flex justify-between text-sm">
+                            <span className="text-gray-600">Template Name:</span>
+                            <span className="font-medium text-gray-900">
+                                {createdTemplate?.template.voucher_template_name}
+                            </span>
+                        </div>
+                        <div className="flex justify-between text-sm">
+                            <span className="text-gray-600">Starting Balance:</span>
+                            <span className="font-medium text-gray-900">
+                                ${formatMoney(createdTemplate?.template.default_starting_balance ?? mainFormData.default_starting_balance)}
+                            </span>
+                        </div>
+                        <div className="flex justify-between text-sm">
+                            <span className="text-gray-600">Free of Charge:</span>
+                            <span className="font-medium text-gray-900">
+                                ${formatMoney(createdTemplate?.template.default_free_of_charge ?? mainFormData.default_free_of_charge)}
+                            </span>
+                        </div>
+                        <div className="flex justify-between text-sm border-t pt-2">
+                            <span className="text-gray-600 font-medium">Total Price:</span>
+                            <span className="font-semibold text-gray-900">
+                                ${formatMoney(createdTemplate?.template.default_total_price ?? mainFormData.default_total_price)}
+                            </span>
+                        </div>
+                        <div className="flex justify-between text-sm">
+                            <span className="text-gray-600">Services Count:</span>
+                            <span className="font-medium text-gray-900">
+                                {createdTemplate?.details?.length ?? mainFormData.details.length}
+                            </span>
+                        </div>
                     </div>
                 </div>
-            </div>
-            <DialogFooter className="flex gap-2">
-                <Button variant="outline" onClick={onClose}>
-                    Create Another Template
-                </Button>
-                <Button onClick={onGoToTemplates} className="bg-blue-600 hover:bg-blue-700">
-                    View All Templates
-                </Button>
-            </DialogFooter>
-        </DialogContent>
-    </Dialog>
+                <DialogFooter className="flex gap-2">
+                    <Button variant="outline" onClick={onClose}>
+                        Create Another Template
+                    </Button>
+                    <Button onClick={onGoToTemplates} className="bg-blue-600 hover:bg-blue-700">
+                        View All Templates
+                    </Button>
+                </DialogFooter>
+            </DialogContent>
+        </Dialog>
     );
-}
+};

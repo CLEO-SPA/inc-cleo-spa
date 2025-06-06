@@ -382,16 +382,21 @@ export const useVoucherTemplateFormStore = create(
       try {
         const templateId = id || get().currentTemplateId;
         const dataToSubmit = templateData || get().mainFormData;
-        const cleanedData = emptyStringToNull(dataToSubmit);
+        const starting = Number(dataToSubmit.default_starting_balance) || 0;
+        const free = Number(dataToSubmit.default_free_of_charge) || 0;
+        const total = Math.max(starting - free, 0);
 
-        const timestamp = new Date().toISOString();
+        const cleanedData = emptyStringToNull({
+          ...dataToSubmit,
+          default_total_price: total,
+        });
+
+
         const payload = {
           ...cleanedData,
-          updated_at: timestamp,
-          // Don't update created_at for updates - keep original
         };
 
-        const response = await api.put(`/voucher-templates/${templateId}`, payload);
+        const response = await api.put(`/voucher-template/${templateId}`, payload);
 
         set({ isUpdating: false }, false, 'updateVoucherTemplate/fulfilled');
         return { success: true, data: response.data };

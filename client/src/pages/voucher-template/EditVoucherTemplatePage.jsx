@@ -1,4 +1,4 @@
-// pages/CreateVoucherTemplatePage.jsx
+// pages/UpdateVoucherTemplatePage.jsx
 import { useForm, FormProvider } from 'react-hook-form';
 import { useVoucherTemplateFormStore } from '@/stores/useVoucherTemplateFormStore';
 import { Input } from '@/components/ui/input';
@@ -12,9 +12,10 @@ import { SiteHeader } from '@/components/site-header';
 import { SidebarInset, SidebarProvider } from '@/components/ui/sidebar';
 import { ArrowLeft, Loader2 } from 'lucide-react';
 import { useState, useEffect, useCallback, useMemo } from 'react';
-import { Link, useNavigate } from 'react-router-dom';
+import { Link, useNavigate, useParams } from 'react-router-dom';
 import EmployeeSelect from '@/components/ui/forms/EmployeeSelect';
 import useServiceStore from '@/stores/useServiceStore';
+import api from '@/services/api';
 
 // Import extracted components
 import {
@@ -25,13 +26,19 @@ import {
   SuccessDialog
 } from '@/components/voucher/VoucherTemplateComponents';
 
-const CreateVoucherTemplatePage = () => {
+const UpdateVoucherTemplatePage = () => {
+  // URL params
+  const { id } = useParams();
+  const navigate = useNavigate();
+
   // Store hooks
   const {
     mainFormData,
     serviceForm,
-    isCreating,
+    isUpdating,
     error,
+    currentTemplateId,
+    isEditMode,
     updateMainField,
     updateServiceFormField,
     selectService,
@@ -39,7 +46,8 @@ const CreateVoucherTemplatePage = () => {
     removeServiceFromTemplate,
     updateServiceInTemplate,
     fetchServiceOptions,
-    createVoucherTemplate,
+    updateVoucherTemplate,
+    loadTemplateForEdit,
     validationErrors,
     clearValidationErrors,
     resetMainForm,
@@ -48,11 +56,11 @@ const CreateVoucherTemplatePage = () => {
 
   // Local state
   const [showSuccessDialog, setShowSuccessDialog] = useState(false);
-  const [createdTemplate, setCreatedTemplate] = useState(null);
+  const [updatedTemplate, setUpdatedTemplate] = useState(null);
   const [editingServiceIndex, setEditingServiceIndex] = useState(null);
   const [serviceSelectKey, setServiceSelectKey] = useState(0);
-
-  const navigate = useNavigate();
+  const [isLoadingTemplate, setIsLoadingTemplate] = useState(true);
+  const [loadError, setLoadError] = useState(null);
 
   // Service store
   const { services: serviceOptions, loading: servicesLoading, error: servicesError } = useServiceStore();
@@ -67,11 +75,51 @@ const CreateVoucherTemplatePage = () => {
     remarks: '',
     status: 'is_enabled',
     created_by: '',
-    created_at: '',
   }), []);
 
   const methods = useForm({ defaultValues });
-  const { register, handleSubmit, reset, formState: { errors } } = methods;
+  const { register, handleSubmit, reset, setValue, formState: { errors } } = methods;
+
+  // Load template data
+  const loadTemplate = useCallback(async () => {
+    if (!id) {
+      setLoadError('No template ID provided');
+      setIsLoadingTemplate(false);
+      return;
+    }
+
+    try {
+      setIsLoadingTemplate(true);
+      const response = await api.get(`/voucher-template/${id}`);
+      const templateData = response.data;
+
+      // Load template into store
+      loadTemplateForEdit(templateData);
+
+      // Format created_at for datetime-local input
+      let formattedCreatedAt = '';
+      if (templateData.created_at) {
+        const date = new Date(templateData.created_at);
+        formattedCreatedAt = date.toISOString().slice(0, 16);
+      }
+
+      // Set form values
+      setValue('voucher_template_name', templateData.voucher_template_name || '');
+      setValue('created_at', formattedCreatedAt);
+      setValue('default_starting_balance', templateData.default_starting_balance || 0);
+      setValue('default_free_of_charge', templateData.default_free_of_charge || 0);
+      setValue('default_total_price', templateData.default_total_price || 0);
+      setValue('remarks', templateData.remarks || '');
+      setValue('status', templateData.status || 'is_enabled');
+      setValue('created_by', templateData.created_by || '');
+
+      setIsLoadingTemplate(false);
+    } catch (error) {
+      console.error('Error loading template:', error);
+      setLoadError(error.response?.data?.message || 'Failed to load template');
+      setIsLoadingTemplate(false);
+    }
+  }, [id, loadTemplateForEdit, setValue]);
 
   // Event handlers
   const handleServiceSelect = useCallback(async (serviceData) => {
@@ -111,12 +159,15 @@ const CreateVoucherTemplatePage = () => {
     updateMainField(field, value);
   }, [updateMainField]);
 
-
   const handleServiceFormFieldChange = useCallback((field, value) => {
     updateServiceFormField(field, value);
   }, [updateServiceFormField]);
 
   // Effects
+  useEffect(() => {
+    loadTemplate();
+  }, [loadTemplate]);
+
   useEffect(() => {
     fetchServiceOptions();
   }, [fetchServiceOptions]);
@@ -132,7 +183,7 @@ const CreateVoucherTemplatePage = () => {
     clearError();
     const createdAtIso = new Date(data.created_at).toISOString();
 
-    console.log('Submitting voucher template with data:', data);
+    console.log('Updating voucher template with data:', data);
     const templateData = {
       ...data,
       created_at: createdAtIso,
@@ -148,26 +199,90 @@ const CreateVoucherTemplatePage = () => {
         service_category_id: detail.service_category_id,
       })),
     };
-    const result = await createVoucherTemplate(templateData);
+
+    const result = await updateVoucherTemplate(id, templateData);
 
     if (result.success) {
-      setCreatedTemplate(result.data);
+      setUpdatedTemplate(result.data);
       setShowSuccessDialog(true);
-      reset();
-      resetMainForm();
     }
-  }, [mainFormData.details, clearError, createVoucherTemplate, reset, resetMainForm]);
+  }, [mainFormData.details, clearError, updateVoucherTemplate, id]);
 
   // Dialog handlers
   const handleCloseDialog = useCallback(() => {
     setShowSuccessDialog(false);
-    setCreatedTemplate(null);
+    setUpdatedTemplate(null);
   }, []);
 
   const handleGoToTemplates = useCallback(() => {
     setShowSuccessDialog(false);
     navigate('/voucher-template');
   }, [navigate]);
+
+  // Loading state
+  if (isLoadingTemplate) {
+    return (
+      <div className='[--header-height:calc(theme(spacing.14))]'>
+        <SidebarProvider className='flex flex-col'>
+          <SiteHeader />
+          <div className='flex flex-1'>
+            <AppSidebar />
+            <SidebarInset>
+              <div className="w-full max-w-none p-4">
+                <div className="flex items-center justify-center min-h-[400px]">
+                  <div className="text-center">
+                    <Loader2 className="h-8 w-8 animate-spin mx-auto mb-4" />
+                    <p className="text-gray-600">Loading template...</p>
+                  </div>
+                </div>
+              </div>
+            </SidebarInset>
+          </div>
+        </SidebarProvider>
+      </div>
+    );
+  }
+
+  // Error state
+  if (loadError) {
+    return (
+      <div className='[--header-height:calc(theme(spacing.14))]'>
+        <SidebarProvider className='flex flex-col'>
+          <SiteHeader />
+          <div className='flex flex-1'>
+            <AppSidebar />
+            <SidebarInset>
+              <div className="w-full max-w-none p-4">
+                <div className="flex items-center gap-3 mb-6">
+                  <Link to="/voucher-template">
+                    <Button variant="ghost" size="sm" className="p-2">
+                      <ArrowLeft className="h-4 w-4" />
+                    </Button>
+                  </Link>
+                  <div>
+                    <h1 className="text-xl font-semibold text-gray-900">
+                      Update Voucher Template
+                    </h1>
+                  </div>
+                </div>
+                <div className="bg-red-50 border border-red-200 rounded-md p-4">
+                  <p className="text-red-800">{loadError}</p>
+                  <Button 
+                    onClick={loadTemplate} 
+                    variant="outline" 
+                    size="sm" 
+                    className="mt-3"
+                  >
+                    Try Again
+                  </Button>
+                </div>
+              </div>
+            </SidebarInset>
+          </div>
+        </SidebarProvider>
+      </div>
+    );
+  }
 
   return (
     <div className='[--header-height:calc(theme(spacing.14))]'>
@@ -186,10 +301,10 @@ const CreateVoucherTemplatePage = () => {
                 </Link>
                 <div>
                   <h1 className="text-xl font-semibold text-gray-900">
-                    Create Voucher Template
+                    Update Voucher Template
                   </h1>
                   <p className="text-sm text-gray-600">
-                    Create a new voucher template with services
+                    Modify voucher template and its services
                   </p>
                 </div>
               </div>
@@ -198,7 +313,6 @@ const CreateVoucherTemplatePage = () => {
                 <form onSubmit={handleSubmit(onSubmit)} className="container mx-auto p-4 space-y-6">
                   {/* Basic Information Card */}
                   <Card>
-
                     <CardContent className="space-y-6">
                       {/* Main template fields in 4 columns */}
                       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
@@ -293,7 +407,7 @@ const CreateVoucherTemplatePage = () => {
                           </Label>
                           <Select
                             onValueChange={(val) => handleFieldChange('status', val)}
-                            defaultValue="is_enabled"
+                            value={mainFormData.status}
                           >
                             <SelectTrigger className="w-full h-9">
                               <SelectValue placeholder="Select status" />
@@ -306,9 +420,14 @@ const CreateVoucherTemplatePage = () => {
                         </div>
 
                         <div className="space-y-1">
-                          <EmployeeSelect name="created_by" label="Created By *" />
+                          <EmployeeSelect 
+                            name="created_by" 
+                            label="Created By *" 
+                            defaultValue={mainFormData.created_by}
+                          />
                         </div>
                       </div>
+                      
                       <div className="space-y-2 col-span-2">
                         <Label htmlFor="remarks" className="text-sm font-medium text-gray-700">
                           Remarks
@@ -322,7 +441,6 @@ const CreateVoucherTemplatePage = () => {
                           className="min-h-[60px] w-full"
                         />
                       </div>
-
                     </CardContent>
                   </Card>
 
@@ -373,16 +491,16 @@ const CreateVoucherTemplatePage = () => {
                     </div>
                     <Button
                       type="submit"
-                      disabled={isCreating || servicesLoading}
+                      disabled={isUpdating || servicesLoading}
                       className="px-8 py-2 bg-blue-600 hover:bg-blue-700 text-white font-medium text-sm disabled:opacity-50"
                     >
-                      {isCreating ? (
+                      {isUpdating ? (
                         <>
                           <Loader2 className="h-4 w-4 animate-spin mr-2" />
-                          Creating Template...
+                          Updating Template...
                         </>
                       ) : (
-                        "Create Template"
+                        "Update Template"
                       )}
                     </Button>
                   </div>
@@ -397,12 +515,13 @@ const CreateVoucherTemplatePage = () => {
           isOpen={showSuccessDialog}
           onClose={handleCloseDialog}
           onGoToTemplates={handleGoToTemplates}
-          createdTemplate={createdTemplate}
+          createdTemplate={updatedTemplate}
           mainFormData={mainFormData}
+          isUpdate={true}
         />
       </SidebarProvider>
     </div>
   );
 };
 
-export default CreateVoucherTemplatePage;
+export default UpdateVoucherTemplatePage;

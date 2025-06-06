@@ -63,7 +63,7 @@ export const useVoucherTemplateListStore = create(
       if (params.status !== undefined) set({ status: params.status });
 
       try {
-        const response = await api.get('/voucher-templates', { params: queryParams });
+        const response = await api.get('/voucher-template', { params: queryParams });
         
         // Handle the structured response from your updated controller
         const { data, pageInfo } = response.data;
@@ -184,7 +184,7 @@ export const useVoucherTemplateListStore = create(
       set({ isFetchingSingle: true, error: false, errorMessage: null });
 
       try {
-        const response = await api.get(`/voucher-templates/${id}`);
+        const response = await api.get(`/voucher-template/${id}`);
         set({
           selectedVoucherTemplate: response.data,
           selectedVoucherTemplateId: id,
@@ -208,7 +208,7 @@ export const useVoucherTemplateListStore = create(
       set({ isDeleting: true, error: false, errorMessage: null });
 
       try {
-        await api.delete(`/voucher-templates/${id}`);
+        await api.delete(`/voucher-template/${id}`);
         const { currentPage, currentLimit, searchTerm, voucherTemplates } = get();
 
         // If this was the last item on the current page and we're not on page 1,

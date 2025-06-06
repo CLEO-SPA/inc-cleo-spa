@@ -19,6 +19,8 @@ import CreateMemberPage from './pages/member/CreateMemberPage';
 import EditMemberPage from './pages/member/EditMemberPage';
 // Voucher Template
 import CreateVoucherTemplatesPage from './pages/voucher-template/CreateVoucherTemplatePage';
+import ManageVoucherTemplatesPage from './pages/voucher-template/ManageVoucherTemplatesPage';
+import EditVouhcerTemplatePage from './pages/voucher-template/EditVoucherTemplatePage';
 // Service Management
 import ManageServicePage from '@/pages/ManageServicePage'
 
@@ -39,6 +41,8 @@ function App() {
               <Route path='/member/:id' element={<EditMemberPage />} />
               {/* Voucher Template */}
               <Route path='/voucher-template/create' element={<CreateVoucherTemplatesPage />} />
+              <Route path='/voucher-template' element={<ManageVoucherTemplatesPage />} />
+              <Route path='/voucher-template/edit/:id' element={<EditVouhcerTemplatePage />} />
             </Route>
             <Route path='/login' element={<LoginPage />} />
 
