@@ -1,10 +1,62 @@
-import pg from 'pg';
+import pg, { Pool } from 'pg';
 import 'dotenv/config';
 import { parseConnectionString } from '../utils/dbConnectionParser.js';
 
+function LoggingProxy(actualPool: Pool, poolName: string, filter: string[] = []): Pool {
+  return new Proxy(actualPool, {
+    get: (target, propKey, receiver) => {
+      const originalValue = target[propKey as keyof Pool];
+
+      if (propKey === 'query' && typeof originalValue === 'function') {
+        return function (this: Pool, ...args: any[]) {
+          let sql: string = 'N/A';
+          let params: any[] | undefined;
+
+          const queryTextOrConfig = args[0];
+          const valuesOrCallback = args[1];
+
+          if (typeof queryTextOrConfig === 'string') {
+            sql = queryTextOrConfig;
+            if (typeof valuesOrCallback === 'function' || args.length === 1) {
+              params = undefined;
+            } else {
+              // query(text, values, ...)
+              params = valuesOrCallback as any[];
+            }
+          } else if (typeof queryTextOrConfig === 'object' && queryTextOrConfig !== null && queryTextOrConfig.text) {
+            sql = queryTextOrConfig.text;
+            params = queryTextOrConfig.values;
+          }
+
+          const lowerSql = sql.toLowerCase();
+          const shouldLog = !filter.some((t) => {
+            return lowerSql.includes(t.toLowerCase());
+          });
+
+          if (shouldLog) {
+            console.log(
+              `\n${poolName} | EXECUTING QUERY (Proxy) | Query: ${sql} | Parameters: ${
+                params ? JSON.stringify(params) : 'None'
+              }`
+            );
+          }
+          return (originalValue as Function).apply(target, args);
+        };
+      }
+
+      if (typeof originalValue === 'function') {
+        return function (...args: any[]) {
+          return (originalValue as Function).apply(target, args);
+        };
+      }
+      return originalValue;
+    },
+  });
+}
+
 let isSimulationMode: boolean = false;
 
-function createNamedPool(EnvConfig: string, poolName: string): pg.Pool {
+function createNamedPool(EnvConfig: string, poolName: string, filter: string[] = []): pg.Pool {
   const connectionString = EnvConfig;
   const dbConfig = parseConnectionString(connectionString);
 
@@ -20,27 +72,19 @@ function createNamedPool(EnvConfig: string, poolName: string): pg.Pool {
     client.query(`SET search_path TO "${schemaName}"`);
   });
   // const oldQuery = pool.query;
+  pool.on('error', (err: Error) => {
+    console.error(`${poolName} | Actual Pool Idle client error:`, err.message, err.stack);
+  });
 
-  // (pool as any).query = function <T extends pg.QueryResultRow = any>(
-  //   this: pg.Pool,
-  //   sql: string,
-  //   params: any[]
-  // ): Promise<pg.QueryResult<T>> {
-  //   const queryTextToLog = typeof sql === 'string' ? sql : '';
-  //   const paramsToLog = params;
-
-  //   console.log(
-  //     `${poolName} | Executing query: ${queryTextToLog} | Parameters: ${
-  //       paramsToLog ? JSON.stringify(paramsToLog) : 'None'
-  //     }`
-  //   );
-  //   return oldQuery.apply(this, [sql, params]) as unknown as Promise<pg.QueryResult<T>>;
-  // };
-  return pool;
+  // Attach to proxy
+  const proxiedPool = LoggingProxy(pool, poolName, filter);
+  return proxiedPool;
 }
 
-const prodPool: pg.Pool = createNamedPool(process.env.PROD_DB_URL as string, 'PRODUCTION');
-const simPool: pg.Pool = createNamedPool(process.env.SIM_DB_URL as string, 'SIMULATION');
+const tablesToExcludeFromLogging: string[] = ['sessions', 'system_parameters'];
+
+const prodPool: pg.Pool = createNamedPool(process.env.PROD_DB_URL as string, 'PRODUCTION', tablesToExcludeFromLogging);
+const simPool: pg.Pool = createNamedPool(process.env.SIM_DB_URL as string, 'SIMULATION', tablesToExcludeFromLogging);
 
 export function setSimulation(simulationEnabled: boolean) {
   isSimulationMode = !!simulationEnabled;
