@@ -128,7 +128,7 @@ const createMember = async ({
 
     // 1. Insert into user_auth
     const insertUserAuthQuery = `
-      INSERT INTO user_auth (email, password, created_at, updated_at, mobile_number)
+      INSERT INTO user_auth (email, password, created_at, updated_at, phone)
       VALUES ($1, $2, $3, $4, $5)
       RETURNING *;
     `;
@@ -205,8 +205,27 @@ const updateMember = async ({
   const client = await pool().connect();
 
   try {
+    await client.query('BEGIN');
 
-      const updateMemberQuery = `
+    const getAuthIdQuery = `SELECT user_auth_id FROM members WHERE id = $1;`;
+    const authIdResult = await client.query(getAuthIdQuery, [id]);
+
+    if (authIdResult.rows.length === 0) {
+      throw new Error(`Member with ID ${id} not found`);
+    }
+
+    const userAuthId = authIdResult.rows[0].user_auth_id;
+
+    // 2. Update user_auth with new email and phone
+    const updateAuthQuery = `
+      UPDATE user_auth
+      SET email = $1, phone = $2, updated_at = $3
+      WHERE id = $4;
+    `;
+    await client.query(updateAuthQuery, [email, contact, updated_at, userAuthId]);
+
+    // 3. Update the members table
+    const updateMemberQuery = `
       UPDATE members
       SET
         name = $1,
@@ -237,15 +256,20 @@ const updateMember = async ({
       id,
     ];
 
-    const result = await client.query(updateMemberQuery, values);
-    return result.rows[0];
+    const memberResult = await client.query(updateMemberQuery, values);
+
+    await client.query('COMMIT');
+    return memberResult.rows[0];
   } catch (error) {
     console.error('Error updating member:', error);
+    await client.query('ROLLBACK');
     throw new Error('Could not update member');
   } finally {
     client.release();
   }
 };
+
+
 const deleteMember = async (memberId: number) => {
   const client = await pool().connect();
 
