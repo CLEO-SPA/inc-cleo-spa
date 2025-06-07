@@ -74,7 +74,7 @@ const getAppointmentsByDate = async (appointmentDate: Date | string) => {
 
 const getAvailableTimeslotsByEmployee = async (
   appointmentDate: Date | string,
-  employeeId: number | string
+  employeeId: number | null
 ) => {
   try {
     const query = `SELECT * FROM get_available_timeslots($1, $2)`;

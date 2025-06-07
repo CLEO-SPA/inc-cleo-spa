@@ -13,6 +13,7 @@ import { Alert, AlertDescription } from '@/components/ui/alert';
 import { Calendar, CheckCircle, Plus, Trash2 } from 'lucide-react';
 import EmployeeSelect from '@/components/ui/forms/EmployeeSelect';
 import MemberSelect from '@/components/ui/forms/MemberSelect';
+import AppointmentDateTimeSelect from '@/components/ui/forms/AppointmentDateTimeSelect';
 
 export default function CreateAppointmentPage() {
   const methods = useForm({
@@ -54,7 +55,7 @@ export default function CreateAppointmentPage() {
     return slots;
   };
 
-  
+
   const timeSlots = generateTimeSlots();
 
   const handleInputChange = (field, value) => {
@@ -121,7 +122,7 @@ export default function CreateAppointmentPage() {
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({
             member_id: parseInt(data.member_id),
-            servicing_employee_id: parseInt(appointment.created_by),
+            servicing_employee_id: parseInt(appointment.created_by), // Using created_by as the servicing employee ID
             appointment_date: appointment.appointment_date,
             start_time: appointment.start_time,
             end_time: appointment.end_time,
@@ -224,49 +225,61 @@ export default function CreateAppointmentPage() {
                         }
                       </CardHeader>
                       <CardContent className='space-y-4'>
-                        <div className='grid grid-cols-1 md:grid-cols-3 gap-4'>
-                          <div className='space-y-2'>
-                            <Label>Appointment Date</Label>
+                        {/* First row: Employee Selection */}
+                        <div className="space-y-2">
+                          <EmployeeSelect
+                            name={`appointments.${index}.created_by`}
+                            label="Servicing Employee *"
+                            customOptions={[
+                              { id: 999, employee_name: "Any Available Staff" }
+                            ]}
+                          />
+                        </div>
+
+                        {/* Second row: Date and Time Selection */}
+                        <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                          {/* 1. Date picker */}
+                          <div className="space-y-2">
+                            <Label>Appointment Date *</Label>
                             <Input
-                              type='date'
+                              type="date"
                               min={today}
                               value={appointment.appointment_date || ''}
-                              onChange={(e) => handleAppointmentChange(index, 'appointment_date', e.target.value)}
-                              className='h-12'
+                              onChange={(e) =>
+                                handleAppointmentChange(index, 'appointment_date', e.target.value)
+                              }
+                              className="h-12"
                             />
                           </div>
-                          <div className='space-y-2'>
-                            <Label>Start Time</Label>
-                            <Select
-                              value={appointment.start_time || ''}
-                              onValueChange={(value) => handleAppointmentChange(index, 'start_time', value)}
-                            >
-                              <SelectTrigger className='h-12'><SelectValue placeholder='Start time' /></SelectTrigger>
-                              <SelectContent>{timeSlots.map(time => <SelectItem key={time} value={time}>{time}</SelectItem>)}</SelectContent>
-                            </Select>
-                          </div>
-                          <div className='space-y-2'>
-                            <Label>End Time</Label>
-                            <Select
-                              value={appointment.end_time || ''}
-                              onValueChange={(value) => handleAppointmentChange(index, 'end_time', value)}
-                            >
-                              <SelectTrigger className='h-12'><SelectValue placeholder='End time' /></SelectTrigger>
-                              <SelectContent>{timeSlots.map(time => <SelectItem key={time} value={time}>{time}</SelectItem>)}</SelectContent>
-                            </Select>
-                          </div>
-                          <div className="space-y-2">
-                            <EmployeeSelect
-                              name={`appointments.${index}.created_by`}
-                              label="Servicing Employee *"
-                              customOptions={[
-                                { id: 999, employee_name: "Any Available Staff" }
-                              ]}
-                            />
-                          </div>
+
+                          {/* 2. Start time select with cross-validation */}
+                          <AppointmentDateTimeSelect
+                            label="Start Time *"
+                            employeeId={appointment.created_by}
+                            appointmentDate={appointment.appointment_date}
+                            value={appointment.start_time}
+                            onChange={(value) => handleAppointmentChange(index, 'start_time', value)}
+                            placeholder="Select start time"
+                            isStartTime={true}
+                            otherTimeValue={appointment.end_time} // Pass end time for filtering
+                          />
+
+                          {/* 3. End time select with cross-validation */}
+                          <AppointmentDateTimeSelect
+                            label="End Time *"
+                            employeeId={appointment.created_by}
+                            appointmentDate={appointment.appointment_date}
+                            value={appointment.end_time}
+                            onChange={(value) => handleAppointmentChange(index, 'end_time', value)}
+                            placeholder="Select end time"
+                            isStartTime={false}
+                            otherTimeValue={appointment.start_time} // Pass start time for filtering
+                          />
                         </div>
+
+                        {/* Third row: Remarks */}
                         <div className='space-y-2'>
-                          <Label>Remarks<span className="text-sm text-gray-500">(include service name & duration)</span> </Label>
+                          <Label>Remarks <span className="text-sm text-gray-500">(include service name & duration)</span></Label>
                           <Textarea
                             placeholder='Type your message here. (e.g., REFRESHING CICA (2 Hours))'
                             value={appointment.remarks || ''}
