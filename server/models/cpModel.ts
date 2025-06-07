@@ -115,6 +115,55 @@ const getPaginatedCarePackages = async (
   }
 };
 
+const getAllCarePackages = async (): Promise<FullCarePackage[]> => {
+  try {
+    const sql = `
+      SELECT
+        json_build_object(
+          'package', json_build_object(
+            'id', cp.id::text,
+            'care_package_name', cp.care_package_name,
+            'care_package_remarks', cp.care_package_remarks,
+            'care_package_price', cp.care_package_price,
+            'care_package_customizable', cp.care_package_customizable,
+            'status_id', cp.status_id::text,
+            'created_by', cp.created_by::text,
+            'last_updated_by', cp.last_updated_by::text,
+            'created_at', cp.created_at::text,
+            'updated_at', cp.updated_at::text
+          ),
+          'details', COALESCE(
+            (
+              SELECT json_agg(
+                json_build_object(
+                  'id', cpid.id::text,
+                  'care_package_item_details_quantity', cpid.care_package_item_details_quantity,
+                  'care_package_item_details_discount', cpid.care_package_item_details_discount,
+                  'care_package_item_details_price', cpid.care_package_item_details_price,
+                  'service_id', cpid.service_id::text,
+                  'care_package_id', cpid.care_package_id::text
+                ) ORDER BY cpid.id
+              )
+              FROM care_package_item_details cpid
+              WHERE cpid.care_package_id = cp.id
+            ),
+            '[]'::jsonb
+          )
+        ) AS care_package_data
+      FROM care_packages cp
+      WHERE cp.status_id = (SELECT get_or_create_status('ENABLED'))
+      ORDER BY cp.created_at DESC;
+    `;
+
+    const { rows } = await pool().query<{ care_package_data: FullCarePackage }>(sql);
+
+    return rows.map((row) => row.care_package_data);
+  } catch (error) {
+    console.error('Error in cpModel.getAllCarePackages (with details):', error);
+    throw new Error('Could not retrieve all care packages with details');
+  }
+};
+
 interface FullCarePackage {
   package: CarePackages;
   details: CarePackageItemDetails[];
@@ -136,6 +185,7 @@ const getCarePackageById = async (id: string): Promise<FullCarePackage | null> =
   }
 };
 
+// NOTE: price is original price of service, finalPrice is price x discount
 interface servicePayload {
   id: string;
   name: string;
@@ -663,6 +713,7 @@ const emulateCarePackage = async (method: string, payload: Partial<emulatePayloa
 
 export default {
   getPaginatedCarePackages,
+  getAllCarePackages,
   getCarePackageById,
   createCarePackage,
   updateCarePackageById,
