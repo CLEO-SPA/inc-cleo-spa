@@ -7,13 +7,13 @@ import { SiteHeader } from '@/components/site-header';
 import { SidebarInset, SidebarProvider } from '@/components/ui/sidebar';
 import { Label } from '@/components/ui/label';
 import { Button } from '@/components/ui/button';
-import { Input } from '@/components/ui/input';
 
 import EmployeeSelect from '@/components/ui/forms/EmployeeSelect';
 import TimetableDisplay from '@/components/employee-timetable/TimetableDisplay';
 import DateTimePicker from '@/components/employee-timetable/DateTimePicker';
 import RestDaySelect from '@/components/employee-timetable/RestDaySelect';
-import CurrentDateDisplay from '@/components/employee-timetable/CurrentDateDisplay';
+import CurrentDateDisplay, { getCurrentSimulationDate } from '@/components/employee-timetable/CurrentDateDisplay';
+import TimetableConfirmDialog from '@/components/employee-timetable/TimetableConfirmDialog';
 
 import useTimetableStore from '@/stores/useTimetableStore';
 
@@ -30,12 +30,11 @@ export default function CreateEmployeeTimetablePage() {
   const [createdAtDate, setCreatedAtDate] = useState(null);
   const [createdAtTime, setCreatedAtTime] = useState('');
   const [createdAt, setCreatedAt] = useState(null);
+  const [showPreviewModal, setShowPreviewModal] = useState(false);
 
   const createTimetable = useTimetableStore((state) => state.createTimetable);
   const isSubmitting = useTimetableStore((state) => state.isSubmitting);
   const submitError = useTimetableStore((state) => state.submitError);
-
-  const timetableData = useTimetableStore((state) => state.mockTimetables); // Static mock for now
 
   const updateCreatedAt = (date, timeStr) => {
     if (date && timeStr) {
@@ -48,19 +47,31 @@ export default function CreateEmployeeTimetablePage() {
     }
   };
 
-  const onSubmit = async (data) => {
+  const handleFinalSubmit = async () => {
+    const now = format(getCurrentSimulationDate(), 'yyyy-MM-dd'); // Get current system time (or simulation time if needed)
+
+    // Helper to convert "Monday" → 1, "Sunday" → 7
+    const getRestDayNumber = (dayName) => {
+      const days = ['Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday', 'Sunday'];
+      return days.indexOf(dayName) + 1;
+    };
+
     const payload = {
-      employee_id: data.employee_id,
-      created_by: data.created_by,
-      rest_day: newRestDay,
+      employee_id: selectedEmployee,
+      created_by: createdBy,
+      rest_day_number: getRestDayNumber(newRestDay), // convert to number (1 = Mon)
       effective_start_date: startDate,
       effective_end_date: endDate,
       created_at: createdAt,
+      current_date: now
     };
+
+    console.log('Submitting payload:', payload);
 
     try {
       await createTimetable(payload);
       alert('Timetable created successfully!');
+      setShowPreviewModal(false);
     } catch (err) {
       console.error('Error creating timetable:', err);
     }
@@ -81,7 +92,7 @@ export default function CreateEmployeeTimetablePage() {
                 </div>
 
                 <FormProvider {...methods}>
-                  <form onSubmit={handleSubmit(onSubmit)} className='space-y-6'>
+                  <form className='space-y-6'>
                     {/* Row 1: Date + Employee */}
                     <div className='grid grid-cols-2 gap-8'>
                       <CurrentDateDisplay />
@@ -94,7 +105,7 @@ export default function CreateEmployeeTimetablePage() {
                     </div>
 
                     {/* Timetable Preview */}
-                    <TimetableDisplay employeeId={selectedEmployee} timetableData={timetableData} />
+                    <TimetableDisplay employeeId={selectedEmployee} />
 
                     {/* Row 2: Rest Day + Created By */}
                     <div className='grid grid-cols-2 gap-6'>
@@ -126,22 +137,38 @@ export default function CreateEmployeeTimetablePage() {
                     </div>
 
                     {/* Row 4: End Date */}
-                    <DateTimePicker label='Effective End Date' date={endDate} onDateChange={setEndDate} optional />
-                    <p className='text-xs text-muted-foreground'>
-                      (Optional – Leave blank if timetable remains in effect)
-                    </p>
+                    <div className='grid grid-cols-2 gap-6'>
+                      <div className='col-start-1'>
+                        <DateTimePicker label='Effective End Date' date={endDate} onDateChange={setEndDate} optional />
+                        <p className='text-xs text-muted-foreground mt-1'>
+                          (Optional – Leave blank if timetable remains in effect)
+                        </p>
+                      </div>
+                    </div>
 
                     {/* Buttons */}
                     <div className='flex justify-end gap-4 pt-6'>
                       <Button type='button' variant='outline'>
                         Cancel
                       </Button>
-                      <Button type='submit' disabled={isSubmitting}>
+                      <Button type='button' onClick={() => setShowPreviewModal(true)} disabled={isSubmitting}>
                         {isSubmitting ? 'Submitting...' : 'Confirm'}
                       </Button>
                     </div>
 
                     {submitError && <p className='text-red-500 text-sm text-right'>{submitError}</p>}
+
+                    <TimetableConfirmDialog
+                      open={showPreviewModal}
+                      onClose={() => setShowPreviewModal(false)}
+                      onSubmit={handleFinalSubmit}
+                      employeeName={'Jasmine Low'} // Replace with dynamic lookup if needed
+                      restDay={newRestDay}
+                      startDate={startDate}
+                      endDate={endDate}
+                      createdBy={'Amy'} // Replace with dynamic lookup if needed
+                      createdAt={createdAt}
+                    />
                   </form>
                 </FormProvider>
               </div>

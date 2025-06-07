@@ -11,4 +11,6 @@ import timetableController from '../controllers/timetableController.js';
 // GET /api/et/current-and-upcoming/:employeeId?currentDate=YYYY-MM-DD
 router.get('/current-and-upcoming/:employeeId', timetableController.getCurrentAndUpcomingTimetables);
 
+router.post('/create-employee-timetable', timetableController.createTimetable);
+
 export default router;

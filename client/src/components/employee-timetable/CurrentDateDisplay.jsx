@@ -3,12 +3,15 @@ import { Input } from '@/components/ui/input';
 import { useSimulationStore } from '@/stores/useSimulationStore';
 import { format } from 'date-fns';
 
-const CurrentDateDisplay = () => {
-  const { isSimulationActive, simulationStartDate } = useSimulationStore();
+// Utility function to get simulation-aware current date
+export const getCurrentSimulationDate = () => {
+  const { isSimulationActive, simulationStartDate } = useSimulationStore.getState();
+  return isSimulationActive && simulationStartDate ? new Date(simulationStartDate) : new Date();
+};
 
-  const displayDate = isSimulationActive && simulationStartDate
-    ? format(new Date(simulationStartDate), 'yyyy-MM-dd')
-    : format(new Date(), 'yyyy-MM-dd');
+// Component to display current date
+const CurrentDateDisplay = () => {
+  const displayDate = format(getCurrentSimulationDate(), 'yyyy-MM-dd');
 
   return (
     <div className='grid grid-cols-4 items-center gap-4'>

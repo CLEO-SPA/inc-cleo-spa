@@ -1,17 +1,28 @@
 import React, { useEffect } from 'react';
 import useTimetableStore from '@/stores/useTimetableStore';
+import { useSimulationStore } from '@/stores/useSimulationStore';
+import { format } from 'date-fns-tz';
 
-const getRestDayName = (num) =>
-  ['Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday', 'Sunday'][num - 1];
+const getRestDayName = (num) => ['Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday', 'Sunday'][num - 1];
 
-export default function TimetableDisplay({ employeeId }) {
+const formatToSingaporeDate = (dateString) => {
+  return format(new Date(dateString), 'yyyy-MM-dd', { timeZone: 'Asia/Singapore' });
+};
+
+const TimetableDisplay = ({ employeeId }) => {
+  const { isSimulationActive, simulationStartDate } = useSimulationStore();
   const { timetables, isLoading, error, fetchTimetablesByEmployee } = useTimetableStore();
+
+  const currentDate =
+    isSimulationActive && simulationStartDate
+      ? format(new Date(simulationStartDate), 'yyyy-MM-dd')
+      : format(new Date(), 'yyyy-MM-dd');
 
   useEffect(() => {
     if (employeeId) {
-      fetchTimetablesByEmployee(employeeId);
+      fetchTimetablesByEmployee(employeeId, currentDate);
     }
-  }, [employeeId, fetchTimetablesByEmployee]);
+  }, [employeeId, currentDate, fetchTimetablesByEmployee]);
 
   if (!employeeId) {
     return (
@@ -47,8 +58,10 @@ export default function TimetableDisplay({ employeeId }) {
           {data.map((t) => (
             <tr key={t.timetable_id} className='text-center'>
               <td className='border px-4 py-2'>{getRestDayName(t.restday_number)}</td>
-              <td className='border px-4 py-2'>{t.effective_startdate?.split('T')[0]}</td>
-              <td className='border px-4 py-2'>{t.effective_enddate?.split('T')[0] || '--'}</td>
+              <td className='border px-4 py-2'>{formatToSingaporeDate(t.effective_startdate)}</td>
+              <td className='border px-4 py-2'>
+                {t.effective_enddate ? formatToSingaporeDate(t.effective_enddate) : '--'}
+              </td>
               <td className='border px-4 py-2 font-semibold'>{status}</td>
             </tr>
           ))}
@@ -71,4 +84,6 @@ export default function TimetableDisplay({ employeeId }) {
       {upcoming_timetables.length > 0 && renderTable(upcoming_timetables, 'Upcoming Timetable', 'Upcoming')}
     </div>
   );
-}
+};
+
+export default TimetableDisplay;
