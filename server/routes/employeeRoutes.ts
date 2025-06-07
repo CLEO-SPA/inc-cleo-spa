@@ -23,6 +23,8 @@ router.get('/basic-details', employeeController.getBasicEmployeeDetails);
 // GET /api/employees/positions - for position dropdown
 router.get('/positions', employeeController.getAllActivePositions);
 
+router.get('/dropdown', employeeController.getAllEmployeesForDropdown);
+
 // router.get('/', employeeController.getAllEmployees);
 
 // router.post(

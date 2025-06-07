@@ -12,6 +12,9 @@ import LoginPage from '@/pages/LoginPage';
 import ResetPasswordPage from '@/pages/ResetPasswordPage';
 import NotFoundPage from '@/pages/404Page';
 
+// Employee Timetable Pages
+import CreateEmployeeTimetablePage from '@/pages/EmployeeTimetable/CreateEmployeeTimetablePage'
+
 function App() {
   return (
     <AuthProvider>
@@ -21,6 +24,8 @@ function App() {
           <Routes>
             <Route path='/' element={<ProtectedRoute />}>
               <Route index element={<HomePage />} />
+              {/* employee timetable */}
+              <Route path='/et/create-employee-timetable' element={<CreateEmployeeTimetablePage />} />
             </Route>
             <Route path='/login' element={<LoginPage />} />
 
