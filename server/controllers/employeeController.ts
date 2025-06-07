@@ -281,6 +281,22 @@ const regenerateInvitationLink = async (req: Request, res: Response, next: NextF
   }
 };
 
+/** 
+ * GET api/em/basic-details
+ * Purpose: Get basic employee details for search functionality
+ * Returns: Array of employee objects with id, name, and email
+ */
+
+const getBasicEmployeeDetails = async (req: Request, res: Response, next: NextFunction) => {
+  try{
+    const employees = await model.getBasicEmployeeDetails();
+    res.status(200).json({
+      success: true,
+      data: result
+    });
+  }
+}
+
 export default {
   defaultPassword,
   // createEmployee,
