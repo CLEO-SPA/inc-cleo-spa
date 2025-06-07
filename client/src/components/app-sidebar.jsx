@@ -95,6 +95,10 @@ const data = {
           title: 'Manage Member',
           url: '/member',
         },
+        {
+          title: 'Create Member',
+          url: '/member/create',
+        },
       ],
     },
     {

@@ -9,6 +9,7 @@ import {
 } from "@/components/ui/select";
 import { Label } from "@/components/ui/label";
 import useMembershipTypeStore from "@/stores/useMembershipTypeStore";
+import { cn } from "@/lib/utils"; 
 
 export function MembershipTypeSelect() {
   const { 
@@ -47,7 +48,7 @@ export function MembershipTypeSelect() {
             value={field.value?.toString() || ""}
             onValueChange={(val) => field.onChange(Number(val))}
           >
-            <SelectTrigger className={errors.membership_type_id ? "border-red-500" : ""}>
+            <SelectTrigger className={cn("w-full",errors.membership_type_id ? "border-red-500" : "")}>
               <SelectValue placeholder={
                 loading 
                   ? "Loading membership types..." 
