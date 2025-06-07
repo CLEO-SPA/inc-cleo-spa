@@ -13,8 +13,8 @@ import ResetPasswordPage from '@/pages/ResetPasswordPage';
 import NotFoundPage from '@/pages/404Page';
 
 // Appointments
-import ManageAppointmentsPage from '@/pages/ManageAppointmentsPage';
-import CreateAppointmentPage from './pages/CreateAppointmentPage';
+import ManageAppointmentsPage from '@/pages/ab/ManageAppointmentsPage';
+import CreateAppointmentPage from './pages/ab/CreateAppointmentPage';
 
 
 function App() {
