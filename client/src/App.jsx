@@ -16,6 +16,10 @@ import ViewCarePackageDetailsPage from '@/pages/CarePackages/ViewCarePackageDeta
 import CreateCarePackageFormPage from '@/pages/CarePackages/CreateCarePackageFormPage';
 import DatabaseReportPage from '@/pages/DatabaseReportPage';
 import CreateConsumptionPage from '@/pages/CarePackages/CreateConsumptionPage';
+import ManageServicePage from '@/pages/ManageServicePage';
+import CreateServicePage from '@/pages/CreateServicePage';
+import UpdateServicePage from '@/pages/UpdateServicePage';
+import ReorderServicePage from '@/pages/ReorderServicePage';
 
 function App() {
   return (
@@ -37,6 +41,12 @@ function App() {
 
               {/* statistics */}
               <Route path='/dbcr' element={<DatabaseReportPage />} />
+
+              {/* Service Management */}
+              <Route path='/manage-service' element={<ManageServicePage />} />
+              <Route path='/create-service' element={<CreateServicePage />} />
+              <Route path='/update-service/:service_id' element={<UpdateServicePage />} />
+              <Route path='/reorder-service' element={<ReorderServicePage />} />
             </Route>
             <Route path='/login' element={<LoginPage />} />
 
