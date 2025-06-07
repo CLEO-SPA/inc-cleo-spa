@@ -294,7 +294,7 @@ const getAllActivePositions = async (): Promise<EmployeePosition[]> => {
       id, 
       position_name 
     FROM positions p 
-    WHERE p.postion_is_active = true 
+    WHERE p.position_is_active = true 
     ORDER BY position_name ASC`;
   try {
     const result = await pool().query(query);
