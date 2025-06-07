@@ -76,3 +76,21 @@ export interface SystemParameters {
   end_date_utc: string;
   is_simulation: boolean;
 }
+
+export interface MemberVouchers {
+  id?: number;
+  member_voucher_name: string;
+  voucher_template_id: number;
+  member_id: number;
+  current_balance: number;
+  starting_balance: number;
+  free_of_charge: number;
+  default_total_price: number;
+  status: string;
+  remarks: string
+  created_by: number;
+  handled_by: number;
+  last_updated_by: number;
+  created_at: string;
+  updated_at: string;
+}

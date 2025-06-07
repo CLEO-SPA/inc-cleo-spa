@@ -7,6 +7,7 @@ import authRoutes from './authRoutes.js';
 import sessionRoutes from './sessionRoutes.js';
 import carePackageRoutes from './cpRoutes.js';
 import memberCarePackageRoutes from './mcpRoutes.js';
+import memberVoucherRoutes from './memberVoucherRoutes.js';
 // import employeeRoutes from './employeeRoutes.js';
 
 router.use(simulationMiddleware);
@@ -15,6 +16,7 @@ router.use('/auth', authRoutes);
 router.use('/session', sessionRoutes);
 router.use('/cp', carePackageRoutes);
 router.use('/mcp', memberCarePackageRoutes);
+router.use('/mv', memberVoucherRoutes);
 // router.use('/employee', employeeRoutes);
 
 // router.use('/sa', superAdminRoutes);

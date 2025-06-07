@@ -12,6 +12,7 @@ import LoginPage from '@/pages/LoginPage';
 import ResetPasswordPage from '@/pages/ResetPasswordPage';
 import NotFoundPage from '@/pages/404Page';
 import ManageCarePackagesPage from '@/pages/CarePackages/ManageCarePackagesPage';
+import ManageVouchersPage from './pages/MemberVoucher/ManageVoucherPage';
 import DatabaseReportPage from '@/pages/DatabaseReportPage';
 import CreateConsumptionPage from '@/pages/CarePackages/CreateConsumptionPage';
 
@@ -28,6 +29,9 @@ function App() {
               {/* care packages */}
               <Route path='/mcp' element={<ManageCarePackagesPage />} />
               <Route path='/mcp/:packageId/consume' element={<CreateConsumptionPage />} />
+
+              {/* vouchers */}
+              <Route path="/mv" element={<ManageVouchersPage />} />
 
               {/* statistics */}
               <Route path='/dbcr' element={<DatabaseReportPage />} />
