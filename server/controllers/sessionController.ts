@@ -122,6 +122,38 @@ const testSSE = async (req: Request, res: Response, next: NextFunction) => {
   res.json({ message: 'Test notification sent' });
 };
 
+const getAllStatus = async (req: Request, res: Response, next: NextFunction): Promise<void> => {
+  try {
+    const sql = 'SELECT * FROM statuses';
+    const { rows } = await pool().query(sql);
+
+    res.status(200).json(rows);
+  } catch (error) {
+    next(error);
+  }
+};
+
+const getStatusNameById = async (req: Request, res: Response, next: NextFunction): Promise<void> => {
+  try {
+    const id = req.params.id;
+
+    if (!id) {
+      throw new Error('Missing or Invalid id');
+    }
+
+    const sql = 'SELECT * FROM statuses WHERE id = $1';
+    const { rows } = await pool().query(sql, [id]);
+
+    if (rows.length > 0) {
+      res.status(200).json(rows[0]);
+    } else {
+      res.status(404).json({ message: `Status with id ${id} not found` });
+    }
+  } catch (error) {
+    next(error);
+  }
+};
+
 export default {
   setDateRange,
   getDateRange,
