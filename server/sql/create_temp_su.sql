@@ -37,7 +37,7 @@ BEGIN
 
     -- Add the user to the role
     INSERT INTO user_to_role (
-        user_id,
+        user_auth_id,
         role_id,
         created_at,
         updated_at
