@@ -15,6 +15,7 @@ import ManageCarePackagesPage from '@/pages/CarePackages/ManageCarePackagesPage'
 import ManageVouchersPage from './pages/MemberVoucher/ManageVoucherPage';
 import DatabaseReportPage from '@/pages/DatabaseReportPage';
 import CreateConsumptionPage from '@/pages/CarePackages/CreateConsumptionPage';
+import CreateMemberVoucherConsumptionPage from '@/pages/MemberVoucher/CreateConsumptionPage';
 
 function App() {
   return (
@@ -30,8 +31,9 @@ function App() {
               <Route path='/mcp' element={<ManageCarePackagesPage />} />
               <Route path='/mcp/:packageId/consume' element={<CreateConsumptionPage />} />
 
-              {/* vouchers */}
+              {/* member vouchers */}
               <Route path="/mv" element={<ManageVouchersPage />} />
+              <Route path="/mv/:memberId/consume" element={<CreateMemberVoucherConsumptionPage />} />
 
               {/* statistics */}
               <Route path='/dbcr' element={<DatabaseReportPage />} />
@@ -41,7 +43,7 @@ function App() {
             {/* Invitation & Reset Password */}
             <Route path='/invites' element={<ResetPasswordPage />} />
             <Route path='/reset-password' element={<ResetPasswordPage />} />
-
+            
             {/* 404 Page */}
             <Route path='*' element={<NotFoundPage />} />
           </Routes>

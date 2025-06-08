@@ -22,7 +22,8 @@ import {
   ChevronsLeft,
   ChevronsRight,
 } from 'lucide-react';
-import { useVoucherPaginationStore } from '@/stores/useVoucherPaginationStore';
+import { useVoucherPaginationStore } from '@/stores/MemberVoucher/useVoucherPaginationStore';
+import useMemberVoucherTransactionStore from '@/stores/MemberVoucher/useMemberVoucherTransactionStore';
 import { Card, CardContent, CardHeader, CardTitle, CardFooter } from '@/components/ui/card';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { AppSidebar } from '@/components/app-sidebar';
@@ -32,6 +33,11 @@ import { SidebarInset, SidebarProvider } from '@/components/ui/sidebar';
 function ManageVouchersPage() {
   const { user } = useAuth();
   const navigate = useNavigate();
+
+  const {
+    setSelectedMemberVoucherTypeId
+  } = useMemberVoucherTransactionStore();
+
   const {
     vouchers,
     currentPage,
@@ -117,7 +123,7 @@ function ManageVouchersPage() {
 
   // --- Action Handlers ---
   const handleView = (id) => {
-    navigate(`/care-packages/${id}`); // Adjust route as needed
+    navigate(`/mv/${id}/consume`); // Adjust route as needed
   };
 
   const handleEdit = (id) => {
@@ -246,8 +252,8 @@ function ManageVouchersPage() {
                           </TableRow>
                         )}
                         {!isLoading &&
-                          vouchers.map((pkg) => (
-                            <TableRow key={pkg.id}>
+                          vouchers.map((voucher) => (
+                            <TableRow key={voucher.id}>
                               {tableHeaders.map((header) => {
                                 if (header.key === 'actions') {
                                   return (
@@ -260,12 +266,16 @@ function ManageVouchersPage() {
                                           </Button>
                                         </DropdownMenuTrigger>
                                         <DropdownMenuContent align='end'>
-                                          <DropdownMenuItem onClick={() => handleView(pkg.id)}>
+                                          <DropdownMenuItem onClick={() => {
+                                            const id = voucher.id;
+                                            setSelectedMemberVoucherTypeId(id);
+                                            handleView(id);
+                                            }}>
                                             <Eye className='mr-2 h-4 w-4' />
                                             View
                                           </DropdownMenuItem>
                                           {canEdit && (
-                                            <DropdownMenuItem onClick={() => handleEdit(pkg.id)}>
+                                            <DropdownMenuItem onClick={() => handleEdit(voucher.id)}>
                                               <Edit className='mr-2 h-4 w-4' />
                                               Edit
                                             </DropdownMenuItem>
@@ -274,7 +284,7 @@ function ManageVouchersPage() {
                                             <>
                                               <DropdownMenuSeparator />
                                               <DropdownMenuItem
-                                                onClick={() => handleDelete(pkg.id)}
+                                                onClick={() => handleDelete(voucher.id)}
                                                 className='text-destructive focus:text-destructive focus:bg-destructive/10'
                                               >
                                                 <Trash2 className='mr-2 h-4 w-4' />
@@ -288,12 +298,12 @@ function ManageVouchersPage() {
                                   );
                                 }
                                 if (header.key === 'updated_at' || header.key === 'created_at') {
-                                  return <TableCell key={header.key}>{pkg[header.key].toUTCString()}</TableCell>;
+                                  return <TableCell key={header.key}>{voucher[header.key].toUTCString()}</TableCell>;
                                 }
                                 if (header.key === 'care_package_price') {
-                                  return <TableCell key={header.key}>${pkg[header.key]}</TableCell>;
+                                  return <TableCell key={header.key}>${voucher[header.key]}</TableCell>;
                                 }
-                                return <TableCell key={header.key}>{pkg[header.key] || 'N/A'}</TableCell>;
+                                return <TableCell key={header.key}>{voucher[header.key] || 'N/A'}</TableCell>;
                               })}
                             </TableRow>
                           ))}

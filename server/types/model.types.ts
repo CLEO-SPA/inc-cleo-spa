@@ -1,3 +1,6 @@
+import pg from "pg";
+import { pool } from "../config/database.js";
+
 /* eslint-disable @typescript-eslint/no-explicit-any */
 export interface Employees {
   id?: string;
@@ -94,3 +97,43 @@ export interface MemberVouchers {
   created_at: string;
   updated_at: string;
 }
+
+export interface MemberVoucherServices {
+  id?: number;
+  service_name: string;
+  original_price: number;
+  custom_price: number;
+  discount: number;
+  duration: number;
+}
+
+export interface MemberVoucherTransactionLogs {
+    id?: number;
+    member_voucher_id: number;
+    service_description: string;
+    service_date: string;
+    current_balance: number;
+    amount_change: number;
+    serviced_by: number;
+    type: string;
+    created_by: number;
+    updated_by: number;
+    created_at: string;
+    updated_at: string;
+}
+
+// generalised function for simple statements that changes the database
+export async function withTransaction<T>(callback: (client: pg.PoolClient) => Promise<T>): Promise<T> {
+  const client = await pool().connect();
+  try {
+    await client.query('BEGIN');
+    const result = await callback(client);
+    await client.query('COMMIT');
+    return result;
+  } catch (error) {
+    await client.query('ROLLBACK');
+    throw error;
+  } finally {
+    client.release();
+  }
+};
