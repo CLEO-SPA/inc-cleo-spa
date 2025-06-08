@@ -377,5 +377,9 @@ export default {
   createSuperUser,
   getUserCount,
   getUserData,
-  getAllEmployeesForDropdown
+  getAllEmployeesForDropdown,
+  getBasicEmployeeDetails,
+  getAllActivePositions,
+  getEmployeeById,
+  employeeExists
 };
