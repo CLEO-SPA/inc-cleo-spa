@@ -1,8 +1,8 @@
 import React, { useState, useEffect } from "react";
+import { useNavigate, useParams } from "react-router-dom";
 import { Button } from '@/components/ui/button';
 import { Input } from "@/components/ui/input";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
-import { ToggleSwitch } from '@/components/ui/switch';
 import DatePicker from "@/components/date-picker";
 import { AppSidebar } from '@/components/app-sidebar';
 import {
@@ -16,6 +16,12 @@ import { SiteHeader } from '@/components/site-header';
 import { SidebarInset, SidebarProvider } from '@/components/ui/sidebar';
 
 export default function UpdateService() {
+  // Get Service Id from Params
+  const { id } = useParams();
+
+  // for navigation
+  const navigate = useNavigate();
+  
   // For select categories
   const [selectedCategory, setSelectedCategory] = useState('0');
 
@@ -185,7 +191,7 @@ export default function UpdateService() {
                       <Button type="submit" className="bg-blue-600 rounded-md hover:bg-blue-500">
                         Create Service
                       </Button>
-                      <Button className="rounded-md hover:bg-gray-500">
+                      <Button onClick={() => navigate(-1)} className="rounded-md hover:bg-gray-500">
                         Cancel
                       </Button>
                     </div>
