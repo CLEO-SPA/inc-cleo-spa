@@ -20,6 +20,7 @@ import ManageServicePage from '@/pages/ManageServicePage';
 import CreateServicePage from '@/pages/CreateServicePage';
 import UpdateServicePage from '@/pages/UpdateServicePage';
 import ReorderServicePage from '@/pages/ReorderServicePage';
+import CreateMemberCarePackageFormPage from '@/pages/CarePackages/CreateMemberCarePackageFormPage';
 
 function App() {
   return (
@@ -37,7 +38,8 @@ function App() {
               <Route path='/cp/c' element={<CreateCarePackageFormPage />} />
 
               {/* member care package */}
-              <Route path='/mcp/:packageId/consume' element={<CreateConsumptionPage />} />
+              <Route path='/mcp/:id/consume' element={<CreateConsumptionPage />} />
+              <Route path='/mcp/c' element={<CreateMemberCarePackageFormPage />} />
 
               {/* statistics */}
               <Route path='/dbcr' element={<DatabaseReportPage />} />
