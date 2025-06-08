@@ -405,7 +405,7 @@ CREATE TABLE "translations" (
 -- CreateTable
 CREATE TABLE "user_to_role" (
     "id" BIGSERIAL NOT NULL,
-    "user_id" BIGINT NOT NULL,
+    "user_auth_id" BIGINT NOT NULL,
     "role_id" BIGINT NOT NULL,
     "created_at" TIMESTAMPTZ(6) NOT NULL,
     "updated_at" TIMESTAMPTZ(6) NOT NULL,
@@ -600,7 +600,7 @@ CREATE TABLE "system_parameters" (
 -- CreateTable
 CREATE TABLE "user_auth" (
     "id" BIGSERIAL NOT NULL,
-    "password" VARCHAR(72) NOT NULL,
+    "password" VARCHAR(72),
     "created_at" TIMESTAMPTZ(6) NOT NULL,
     "updated_at" TIMESTAMPTZ(6) NOT NULL,
     "email" VARCHAR(50),
@@ -678,4 +678,4 @@ ALTER TABLE "membership_accounts" ADD CONSTRAINT "membership_accounts_status_id_
 
 -- Foreign Keys for table "user_to_role"
 ALTER TABLE "user_to_role" ADD CONSTRAINT "user_to_role_role_id_fkey" FOREIGN KEY ("role_id") REFERENCES "roles"("id") ON DELETE RESTRICT ON UPDATE CASCADE;
-ALTER TABLE "user_to_role" ADD CONSTRAINT "user_to_role_user_id_fkey" FOREIGN KEY ("user_id") REFERENCES "user_auth"("id") ON DELETE RESTRICT ON UPDATE CASCADE;
+ALTER TABLE "user_to_role" ADD CONSTRAINT "user_to_role_user_id_fkey" FOREIGN KEY ("user_auth_id") REFERENCES "user_auth"("id") ON DELETE RESTRICT ON UPDATE CASCADE;
