@@ -291,6 +291,102 @@ const getAllEmployeesForDropdown = async (req: Request, res: Response) => {
   }
 };
 
+/**
+ * Get /api/em/basic-details
+ * This endpoint retrieves basic employee details for search functionality.
+ */
+const getBasicEmployeeDetails = async (req: Request, res: Response) => {
+  try {
+    console.log('Fetching basic employee details for search');
+    const employees = await model.getBasicEmployeeDetails();
+    console.log(`Found ${employees.length} active employees`);
+    res.status(200).json({
+      success: true,
+      data: employees,
+      total: employees.length,
+    });
+  } catch (error) {
+    console.error('Controller error in getBasicEmployeeDetails:', error);
+    res.status(500).json({ 
+      success: false, 
+      error: {
+        code: 'INTERNAL_SERVER_ERROR',
+        message: 'Failed to fetch basic employee details for search',
+      }
+    });
+  } 
+};
+
+/**
+ * Get /api/em/basic-details/:employeeId
+ * This endpoint retrieves basic employee details by ID for search functionality.
+ */
+const getEmployeeById = async (req: Request, res: Response) => {
+  try{
+    const employeeId = req.params.employeeId;
+
+    // Validate employeeId
+    if (!employeeId || isNaN(employeeId)) {
+      return res.status(400).json({ 
+        success: false, 
+        error: { code: 'INVALID_ID', message: 'Invalid employee ID provided' } 
+      });
+    }
+
+    const employeeIdNum = parseInt(employeeId, 10);
+    console.log(`Fetching details for employee ID: ${req.params.employeeId}`);
+
+    const employee = await model.getEmployeeById(employeeIdNum);
+    if (!employee) {
+      console.log(`Employee with ID ${employeeId} not found`);
+      return res.status(404).json({ 
+        success: false, 
+        error: { code: 'NOT_FOUND', message: 'No active employee found with the given ID' } 
+      });
+    }
+    console.log(`Found employee: ${employee.employee_name}`);
+    res.status(200).json({
+      success: true,
+      data: employee
+    });
+  } catch (error) {
+    console.error('Controller error in getEmployeeById:', error);
+    res.status(500).json({ 
+      success: false, 
+      error: {
+        code: 'INTERNAL_SERVER_ERROR',
+        message: 'Failed to fetch employee details by given ID',
+      }
+    });
+  }
+}
+
+/**
+ * Get /api/em/positions
+ * This endpoint retrieves all employee positions for dropdown selection.
+ */
+const getAllActivePositions = async (req: Request, res: Response) => {
+  try{
+    console.log('Fetching all employee positions for dropdown');
+    const positions = await model.getAllActivePositions();
+    console.log(`Found ${positions.length} active positions`);
+    res.status(200).json({
+      success: true,
+      data: positions,
+      total: positions.length
+    });
+  } catch (error) {
+    console.error('Controller error in getAllActivePositions:', error);
+    res.status(500).json({ 
+      success: false, 
+      error: {
+        code: 'INTERNAL_SERVER_ERROR',
+        message: 'Failed to fetch employee positions for dropdown',
+      }
+    });
+  }
+}
+
 export default {
   defaultPassword,
   // createEmployee,
@@ -302,5 +398,8 @@ export default {
   updateEmployeePassword,
   // getAllEmployees,
   regenerateInvitationLink,
-  getAllEmployeesForDropdown
+  getAllEmployeesForDropdown,
+  getBasicEmployeeDetails,
+  getEmployeeById,
+  getAllActivePositions
 };
