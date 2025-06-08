@@ -13,6 +13,7 @@ router.use(simulationMiddleware);
 
 router.use('/auth', authRoutes);
 router.use('/session', sessionRoutes);
+
 router.use('/service', serviceRoutes);
 // router.use('/employee', employeeRoutes);
 
