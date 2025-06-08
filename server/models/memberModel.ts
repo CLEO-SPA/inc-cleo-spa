@@ -119,24 +119,31 @@ const createMember = async ({
   created_at,
   updated_at,
   created_by,
-  role_id = 4,
-}: CreateMemberInput) => {
+  role_name = 'member',
+}: CreateMemberInput & { role_name?: string }) => {
   const client = await pool().connect();
 
   try {
     await client.query('BEGIN');
 
-    // 1. Insert into user_auth
+    // 1. Call the get_or_create_roles function
+    const getRoleQuery = `
+      SELECT get_or_create_roles($1) AS role_id;
+    `;
+    const roleResult = await client.query(getRoleQuery, [role_name]);
+    const role_id = roleResult.rows[0].role_id;
+
+    // 2. Insert into user_auth
     const insertUserAuthQuery = `
       INSERT INTO user_auth (email, password, created_at, updated_at, phone)
       VALUES ($1, $2, $3, $4, $5)
       RETURNING *;
     `;
-    const userAuthValues = [email, null , created_at, updated_at, contact];
+    const userAuthValues = [email, null, created_at, updated_at, contact];
     const authResult = await client.query(insertUserAuthQuery, userAuthValues);
     const newAuth = authResult.rows[0];
 
-    // 2. Insert into members
+    // 3. Insert into members
     const insertMemberQuery = `
       INSERT INTO members (
         name, email, contact, dob, sex, remarks, address, nric,
@@ -163,15 +170,15 @@ const createMember = async ({
     const memberResult = await client.query(insertMemberQuery, memberValues);
     const newMember = memberResult.rows[0];
 
-    // 3. Insert into user_roles
+    // 4. Insert into user_roles
     const insertUserRoleQuery = `
       INSERT INTO user_to_role (user_auth_id, role_id, created_at, updated_at)
       VALUES ($1, $2, $3, $4)
       RETURNING *;
     `;
     const roleValues = [newAuth.id, role_id, created_at, updated_at];
-    const roleResult = await client.query(insertUserRoleQuery, roleValues);
-    const newUserRole = roleResult.rows[0];
+    const userRoleResult = await client.query(insertUserRoleQuery, roleValues);
+    const newUserRole = userRoleResult.rows[0];
 
     await client.query('COMMIT');
 
