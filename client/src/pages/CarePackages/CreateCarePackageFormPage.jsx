@@ -1,11 +1,13 @@
 import React, { useState, useEffect } from 'react';
-import { Plus, Trash2, Edit3, Save, X, Package, DollarSign, FileText, Search, ChevronDown, ArrowLeft } from 'lucide-react';
+import { Plus, Trash2, Edit3, Save, X, Package, DollarSign, Search, ChevronDown, ArrowLeft } from 'lucide-react';
 import { AppSidebar } from '@/components/app-sidebar';
 import { SiteHeader } from '@/components/site-header';
 import { SidebarInset, SidebarProvider } from '@/components/ui/sidebar';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
+import { Input } from '@/components/ui/input';
 import { Button } from '@/components/ui/button';
 import { useCpFormStore } from '@/stores/useCpFormStore';
+import { Textarea } from '@/components/ui/textarea';
 
 const CarePackageCreateForm = () => {
   const {
@@ -42,7 +44,9 @@ const CarePackageCreateForm = () => {
   // calculate total package price
   const calculateTotalPrice = () => {
     return mainFormData.services.reduce((total, service) => {
-      const serviceTotal = service.price * service.quantity - service.discount;
+      const finalPrice = parseFloat(service.finalPrice) || 0;
+      const quantity = parseInt(service.quantity, 10) || 0;
+      const serviceTotal = finalPrice * quantity;
       return total + serviceTotal;
     }, 0);
   };
@@ -95,8 +99,8 @@ const CarePackageCreateForm = () => {
         <div className='bg-white border-b border-gray-200 px-4 py-3'>
           <div className='flex items-center justify-between'>
             <div className='flex items-center space-x-3'>
-              <Button 
-                variant="ghost"
+              <Button
+                variant='ghost'
                 onClick={() => window.history.back()}
                 className='flex items-center text-gray-600 hover:text-gray-900 hover:bg-gray-100 px-2 py-1'
               >
@@ -106,11 +110,7 @@ const CarePackageCreateForm = () => {
               <h1 className='text-lg font-semibold text-gray-900'>Create Care Package</h1>
             </div>
             <div className='flex space-x-2'>
-              <Button
-                onClick={handleReset}
-                variant="outline"
-                className='flex items-center text-sm px-3 py-2'
-              >
+              <Button onClick={handleReset} variant='outline' className='flex items-center text-sm px-3 py-2'>
                 <X className='w-4 h-4 mr-1' />
                 Reset
               </Button>
@@ -149,7 +149,7 @@ const CarePackageCreateForm = () => {
                 <div className='grid grid-cols-1 md:grid-cols-4 gap-4'>
                   <div className='md:col-span-2'>
                     <label className='block text-xs font-medium text-gray-600 mb-1'>PACKAGE NAME *</label>
-                    <input
+                    <Input
                       type='text'
                       value={mainFormData.package_name}
                       onChange={(e) => updateMainField('package_name', e.target.value)}
@@ -163,14 +163,12 @@ const CarePackageCreateForm = () => {
                     <label className='block text-xs font-medium text-gray-600 mb-1'>PACKAGE PRICE</label>
                     <div className='relative'>
                       <DollarSign className='h-4 w-4 text-gray-400 absolute left-2 top-1/2 transform -translate-y-1/2' />
-                      <input
+                      <Input
                         type='number'
                         value={mainFormData.package_price}
                         onChange={(e) => updateMainField('package_price', parseFloat(e.target.value) || 0)}
                         className='w-full pl-7 pr-2 py-1 border border-gray-200 rounded text-sm focus:outline-none focus:ring-2 focus:ring-gray-500 focus:border-transparent'
                         placeholder='0.00'
-                        min='0'
-                        step='0.01'
                       />
                     </div>
                   </div>
@@ -212,7 +210,7 @@ const CarePackageCreateForm = () => {
                 {mainFormData.package_remarks && (
                   <div className='mt-4'>
                     <label className='block text-xs font-medium text-gray-600 mb-1'>PACKAGE REMARKS</label>
-                    <textarea
+                    <Textarea
                       value={mainFormData.package_remarks}
                       onChange={(e) => updateMainField('package_remarks', e.target.value)}
                       rows={3}
@@ -257,7 +255,7 @@ const CarePackageCreateForm = () => {
                                 value={serviceSearch}
                                 onChange={(e) => setServiceSearch(e.target.value)}
                                 placeholder='Search services...'
-                                className='w-full pl-7 pr-2 py-1 border border-gray-200 rounded text-xs focus:outline-none focus:ring-1 focus:ring-gray-500'
+                                className='w-full pl-7 pr-2 py-1 border border-gray-200 rounded text-sm focus:outline-none focus:ring-2 focus:ring-gray-500 focus:border-transparent'
                               />
                             </div>
                           </div>
@@ -270,7 +268,6 @@ const CarePackageCreateForm = () => {
                                 className='w-full px-3 py-2 text-left hover:bg-gray-50 focus:bg-gray-50 focus:outline-none text-xs'
                               >
                                 <div className='font-medium text-gray-900'>{option.label}</div>
-                                <div className='text-gray-500'>${option.price}</div>
                               </button>
                             ))}
                             {filteredServiceOptions.length === 0 && (
@@ -285,7 +282,7 @@ const CarePackageCreateForm = () => {
                   {/* quantity */}
                   <div>
                     <label className='block text-xs font-medium text-gray-600 mb-1'>QUANTITY</label>
-                    <input
+                    <Input
                       type='number'
                       value={serviceForm.quantity}
                       onChange={(e) => updateServiceFormField('quantity', parseInt(e.target.value) || 1)}
@@ -299,7 +296,7 @@ const CarePackageCreateForm = () => {
                     <label className='block text-xs font-medium text-gray-600 mb-1'>PRICE PER UNIT</label>
                     <div className='relative'>
                       <DollarSign className='h-4 w-4 text-gray-400 absolute left-2 top-1/2 transform -translate-y-1/2' />
-                      <input
+                      <Input
                         type='number'
                         value={serviceForm.price}
                         onChange={(e) => updateServiceFormField('price', parseFloat(e.target.value) || 0)}
@@ -315,7 +312,7 @@ const CarePackageCreateForm = () => {
                     <label className='block text-xs font-medium text-gray-600 mb-1'>DISCOUNT</label>
                     <div className='relative'>
                       <DollarSign className='h-4 w-4 text-gray-400 absolute left-2 top-1/2 transform -translate-y-1/2' />
-                      <input
+                      <Input
                         type='number'
                         value={serviceForm.discount}
                         onChange={(e) => updateServiceFormField('discount', parseFloat(e.target.value) || 0)}
@@ -338,12 +335,7 @@ const CarePackageCreateForm = () => {
                     Add Service
                   </Button>
 
-                  <Button
-                    type='button'
-                    onClick={resetServiceForm}
-                    variant="outline"
-                    className='text-sm px-3 py-1'
-                  >
+                  <Button type='button' onClick={resetServiceForm} variant='outline' className='text-sm px-3 py-1'>
                     <X className='h-4 w-4 mr-1' />
                     Clear
                   </Button>
@@ -387,21 +379,18 @@ const CarePackageCreateForm = () => {
         <SiteHeader />
         <div className='flex flex-1'>
           <AppSidebar />
-          <SidebarInset>
-            {renderMainContent()}
-          </SidebarInset>
+          <SidebarInset>{renderMainContent()}</SidebarInset>
         </div>
       </SidebarProvider>
     </div>
   );
 };
 
-// service item component for displaying and editing services in the package
 const ServiceItem = ({ service, index, isEditing, onEdit, onSave, onCancel, onRemove }) => {
   const [editData, setEditData] = useState({
     quantity: service.quantity,
-    price: service.price,
-    discount: service.discount,
+    price: service.price, // User can customize this
+    discount: service.discount, // User can customize this (it's the factor)
   });
 
   const handleSave = () => {
@@ -417,15 +406,25 @@ const ServiceItem = ({ service, index, isEditing, onEdit, onSave, onCancel, onRe
     onCancel();
   };
 
-  const subtotal = editData.price * editData.quantity - editData.discount;
+  // Calculate subtotal for edit mode based on current editData
+  const priceInEdit = parseFloat(editData.price) || 0;
+  const discountFactorInEdit = parseFloat(editData.discount) || 0; // This is the factor
+  const quantityInEdit = parseInt(editData.quantity, 10) || 0;
+  const finalUnitPriceInEdit = priceInEdit * discountFactorInEdit;
+  const subtotalInEditMode = finalUnitPriceInEdit * quantityInEdit;
+
+  // Calculate subtotal for display mode (using service data from props, which has pre-calculated finalPrice from store)
+  const finalPriceInDisplay = parseFloat(service.finalPrice) || 0;
+  const quantityInDisplay = parseInt(service.quantity, 10) || 0;
+  const subtotalInDisplayMode = finalPriceInDisplay * quantityInDisplay;
 
   return (
     <div className='border border-gray-200 rounded p-3 bg-gray-50/30'>
       <div className='flex items-center justify-between mb-3'>
-        <h4 className='text-sm font-semibold text-gray-900'>Service {index + 1}: {service.name}</h4>
-        <span className='text-xs text-gray-500 bg-white px-2 py-1 rounded border'>
-          ID: {service.id}
-        </span>
+        <h4 className='text-sm font-semibold text-gray-900'>
+          Service {index + 1}: {service.name}
+        </h4>
+        <span className='text-xs text-gray-500 bg-white px-2 py-1 rounded border'>ID: {service.id}</span>
       </div>
 
       {isEditing ? (
@@ -436,36 +435,39 @@ const ServiceItem = ({ service, index, isEditing, onEdit, onSave, onCancel, onRe
               type='number'
               value={editData.quantity}
               onChange={(e) => setEditData({ ...editData, quantity: parseInt(e.target.value) || 1 })}
-              className='w-full px-2 py-1 text-sm border border-gray-200 rounded bg-white focus:outline-none focus:ring-1 focus:ring-gray-500'
+              className='w-full px-2 py-1 border border-gray-200 rounded text-sm focus:outline-none focus:ring-2 focus:ring-gray-500 focus:border-transparent'
               min='1'
             />
           </div>
           <div>
-            <label className='block text-xs font-medium text-gray-600 mb-1'>PRICE</label>
+            <label className='block text-xs font-medium text-gray-600 mb-1'>PRICE (PER UNIT)</label>
             <input
               type='number'
               value={editData.price}
               onChange={(e) => setEditData({ ...editData, price: parseFloat(e.target.value) || 0 })}
-              className='w-full px-2 py-1 text-sm border border-gray-200 rounded bg-white focus:outline-none focus:ring-1 focus:ring-gray-500'
+              className='w-full px-2 py-1 border border-gray-200 rounded text-sm focus:outline-none focus:ring-2 focus:ring-gray-500 focus:border-transparent'
               min='0'
               step='0.01'
             />
           </div>
           <div>
-            <label className='block text-xs font-medium text-gray-600 mb-1'>DISCOUNT</label>
+            {/* Ensure this label and input reflect that 'discount' is a factor */}
+            <label className='block text-xs font-medium text-gray-600 mb-1'>DISCOUNT FACTOR</label>
             <input
               type='number'
               value={editData.discount}
-              onChange={(e) => setEditData({ ...editData, discount: parseFloat(e.target.value) || 0 })}
-              className='w-full px-2 py-1 text-sm border border-gray-200 rounded bg-white focus:outline-none focus:ring-1 focus:ring-gray-500'
-              min='0'
+              onChange={(e) => setEditData({ ...editData, discount: parseFloat(e.target.value) || 1 })}
+              className='w-full px-2 py-1 border border-gray-200 rounded text-sm focus:outline-none focus:ring-2 focus:ring-gray-500 focus:border-transparent'
+              min='0' // e.g., 0 for 100% discount
+              max='1' // e.g., 1 for 0% discount (pays 100%)
               step='0.01'
+              placeholder='e.g., 0.9 (pays 90%)'
             />
           </div>
           <div>
             <label className='block text-xs font-medium text-gray-600 mb-1'>SUBTOTAL</label>
             <div className='text-gray-900 font-semibold px-2 py-1 bg-white rounded border text-sm'>
-              ${subtotal.toFixed(2)}
+              ${subtotalInEditMode.toFixed(2)}
             </div>
           </div>
         </div>
@@ -473,26 +475,24 @@ const ServiceItem = ({ service, index, isEditing, onEdit, onSave, onCancel, onRe
         <div className='grid grid-cols-2 md:grid-cols-4 gap-3'>
           <div>
             <label className='block text-xs font-medium text-gray-600 mb-1'>QUANTITY</label>
+            <div className='text-gray-900 px-2 py-1 bg-white rounded border text-sm'>{service.quantity}</div>
+          </div>
+          <div>
+            <label className='block text-xs font-medium text-gray-600 mb-1'>ORIGINAL PRICE</label>
             <div className='text-gray-900 px-2 py-1 bg-white rounded border text-sm'>
-              {service.quantity}
+              ${(parseFloat(service.price) || 0).toFixed(2)}
             </div>
           </div>
           <div>
-            <label className='block text-xs font-medium text-gray-600 mb-1'>PRICE</label>
-            <div className='text-gray-900 font-semibold px-2 py-1 bg-white rounded border text-sm'>
-              ${service.price.toFixed(2)}
-            </div>
-          </div>
-          <div>
-            <label className='block text-xs font-medium text-gray-600 mb-1'>DISCOUNT</label>
+            <label className='block text-xs font-medium text-gray-600 mb-1'>DISCOUNT FACTOR</label>
             <div className='text-gray-900 px-2 py-1 bg-white rounded border text-sm'>
-              ${service.discount.toFixed(2)}
+              {(parseFloat(service.discount) || 0).toFixed(2)}
             </div>
           </div>
           <div>
             <label className='block text-xs font-medium text-gray-600 mb-1'>SUBTOTAL</label>
             <div className='text-gray-900 font-semibold px-2 py-1 bg-white rounded border text-sm'>
-              ${(service.price * service.quantity - service.discount).toFixed(2)}
+              ${subtotalInDisplayMode.toFixed(2)}
             </div>
           </div>
         </div>
