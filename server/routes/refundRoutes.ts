@@ -1,7 +1,6 @@
 import express from 'express';
 const router = express.Router();
 
-import roleMiddleware from '../middlewares/roleMiddleware.js';
 import isAuthenticated from '../middlewares/authMiddleware.js';
 
 import controller from '../controllers/refundController.js';
@@ -15,6 +14,7 @@ import controller from '../controllers/refundController.js';
 // =========================
 router.use(isAuthenticated);
 
-
+// - /api/refunds/all
+router.get('/all', controller.viewAllRefundSaleTransactionRecords);
 
 export default router;
