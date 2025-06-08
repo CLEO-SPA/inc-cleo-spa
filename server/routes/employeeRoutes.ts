@@ -20,8 +20,11 @@ router.use(isAuthenticated);
 // GET /api/em/basic-details - for search functionality
 router.get('/basic-details', employeeController.getBasicEmployeeDetails);
 
-// GET /api/employees/positions - for position dropdown
+// GET /api/em/positions - for position dropdown
 router.get('/positions', employeeController.getAllActivePositions);
+
+// GET /api/em/:employeeId - for employee details
+router.get('/:employeeId', employeeController.getEmployeeById);
 
 router.get('/dropdown', employeeController.getAllEmployeesForDropdown);
 

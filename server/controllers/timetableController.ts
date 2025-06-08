@@ -292,5 +292,6 @@ export default {
   createTimetable,
   getActiveRestDays,
   getActiveRestDaysByEmployee,
+  getActiveRestDaysByPosition
 };
 
