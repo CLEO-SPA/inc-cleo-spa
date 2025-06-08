@@ -121,7 +121,7 @@ function ManageCarePackagesPage() {
   };
 
   const handleEdit = (id) => {
-    navigate(`/care-packages/${id}/edit`); // Adjust route as needed
+    navigate(`/cp/${id}/edit`); // Adjust route as needed
   };
 
   const handleDelete = async (id) => {

@@ -1,19 +1,19 @@
 import { create } from 'zustand';
 import api from '@/services/api';
 
-const useCpSpecificStore = create((set, get) => ({
-  // State
+export const useCpSpecificStore = create((set, get) => ({
+  // state
   currentPackage: null,
   isLoading: false,
   error: null,
 
-  // Actions
+  // actions
   setLoading: (loading) => set({ isLoading: loading }),
   setError: (error) => set({ error }),
   clearError: () => set({ error: null }),
   clearCurrentPackage: () => set({ currentPackage: null }),
 
-  // Fetch single package by ID
+  // fetch single package by ID
   fetchPackageById: async (id) => {
     set({ isLoading: true, error: null });
     
@@ -38,14 +38,14 @@ const useCpSpecificStore = create((set, get) => ({
     }
   },
 
-  // Update existing package
+  // update existing package
   updatePackage: async (id, packageData) => {
     set({ isLoading: true, error: null });
     
     try {
-      const response = await api.put(`/cp/pkg/${id}`, packageData);
+      const response = await api.put(`/cp/pkg/u`, packageData);
       
-      // Update current package with the response data
+      // update current package with the response data
       set({ 
         currentPackage: response.data, 
         isLoading: false,
@@ -64,14 +64,14 @@ const useCpSpecificStore = create((set, get) => ({
     }
   },
 
-  // Delete package
+  // delete package
   deletePackage: async (id) => {
     set({ isLoading: true, error: null });
     
     try {
-      await api.delete(`/cp/pkg/${id}`);
+      await api.delete(`/cp/${id}/del`);
       
-      // Clear current package if it's the one being deleted
+      // clear current package if it's the one being deleted
       set((state) => ({
         currentPackage: state.currentPackage?.id === id ? null : state.currentPackage,
         isLoading: false,
@@ -90,5 +90,3 @@ const useCpSpecificStore = create((set, get) => ({
     }
   }
 }));
-
-export default useCpSpecificStore;

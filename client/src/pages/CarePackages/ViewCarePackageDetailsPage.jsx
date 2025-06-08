@@ -1,6 +1,7 @@
+"use client";
 import React, { useEffect } from 'react';
 import { useParams } from 'react-router-dom';
-import { ArrowLeft, Edit, Trash2, Package, Calendar, AlertCircle, Loader2 } from 'lucide-react';
+import { ArrowLeft, Edit, Trash2, Package } from 'lucide-react';
 import { AppSidebar } from '@/components/app-sidebar';
 import { SiteHeader } from '@/components/site-header';
 import { SidebarInset, SidebarProvider } from '@/components/ui/sidebar';
@@ -9,7 +10,7 @@ import { Button } from '@/components/ui/button';
 import { ErrorState } from '@/components/ErrorState';
 import { LoadingState } from '@/components/LoadingState';
 import { NotFoundState } from '@/components/NotFoundState';
-import useCpSpecificStore from '@/stores/useCpSpecificStore';
+import { useCpSpecificStore } from '@/stores/useCpSpecificStore';
 
 const ViewCarePackageDetailsPage = () => {
   const { id } = useParams();
@@ -75,7 +76,7 @@ const ViewCarePackageDetailsPage = () => {
 
     return (
       <div className='min-h-screen bg-gray-50'>
-        {/* Header */}
+        {/* header */}
         <div className='bg-white border-b border-gray-200 px-4 py-3'>
           <div className='flex items-center justify-between'>
             <div className='flex items-center space-x-3'>
@@ -138,7 +139,7 @@ const ViewCarePackageDetailsPage = () => {
                   <div>
                     <label className='block text-xs font-medium text-gray-600 mb-1'>STATUS</label>
                     <span className={`inline-flex px-2 py-1 rounded text-xs font-medium ${getStatusColor(packageData.status_id?.status_name)}`}>
-                      {packageData.status_id?.status_name || 'Unknown'}
+                      {packageData.status_id || 'Unknown'}
                     </span>
                   </div>
                 </div>
