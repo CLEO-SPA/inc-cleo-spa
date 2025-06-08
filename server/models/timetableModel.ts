@@ -365,9 +365,10 @@ const getActiveRestDaysByPosition = async (
   return getActiveRestDays(month, page, limit, positionId);
 }
 
-
-
 export default {
   getCurrentAndUpcomingTimetables,
-  createEmployeeTimetable
+  createEmployeeTimetable,
+  getActiveRestDays,
+  getActiveRestDaysByEmployee,
+  getActiveRestDaysByPosition
 };

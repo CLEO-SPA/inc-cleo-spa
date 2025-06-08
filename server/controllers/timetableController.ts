@@ -54,8 +54,243 @@ const createTimetable = async (req: Request, res: Response) => {
   }
 };
 
+/**
+ * GET /api/et/timetables?month=YYYY-MM&page=1&limit=20
+ * This endpoint retrieves the paginated list of employee timetables for a specific month.
+ */
+const getActiveRestDays = async (req: Request, res: Response) => {
+  try{
+    const { month, page = 1, limit = 20, position_id } = req.query;
+
+    // Validate month parameter
+    if (!month || typeof month !== 'string') {
+      return res.status(400).json({
+        success: false,
+        error: {
+          code: 'INVALID_MONTH',
+          message: 'Month parameter is required and must be a string in the format YYYY-MM.',
+        }
+      });
+    }
+
+    // Parse page and limit parameters
+    const pageNum = parseInt(page as string, 10);
+    const limitNum = parseInt(limit as string, 10);
+    const positionId = position_id ? parseInt(position_id as string, 10) : undefined;
+
+    // Validate page and limit parameters
+    if (isNaN(pageNum) || pageNum < 1 || isNaN(limitNum) || limitNum < 1 || limitNum > 100) {
+      return res.status(400).json({
+        success: false,
+        error: {
+          code: 'INVALID_PAGINATION',
+          message: 'Page and limit parameters must be positive integers.',
+        }
+      });
+    }
+
+    if(positionId && isNaN(positionId)) {
+      return res.status(400).json({
+        success: false,
+        error: {
+          code: 'INVALID_POSITION_ID',
+          message: 'Position ID must be a valid integer.',
+        }
+      });
+    }
+
+    console.log(`Fetching timetables for month: ${month}, page: ${pageNum}, limit: ${limitNum}, position_id: ${positionId}`);
+    const result = await timetableModel.getActiveRestDays(month as string, pageNum, limitNum, positionId);
+    console.log(`Fetched ${result.data.length} timetables for month: ${month}`);
+
+    res.status(200).json({
+      success: true,
+      data: result.data,
+      pagination: result.pagination
+    });
+  } catch (error: any) {
+    console.error('Controller error in fetching active rest days:', error);
+
+    if(error.message.includes('Invalid month format.')) {
+      return res.status(400).json({
+        success: false,
+        error: {
+          code: 'INVALID_MONTH_FORMAT',
+          message: 'Month parameter must be in the format YYYY-MM.',
+        }
+      });
+    }
+
+    res.status(500).json({
+      success: false,
+      error: {
+        code: 'INTERNAL_SERVER_ERROR',
+        message: 'An error occurred while fetching active rest days.',
+      }
+    });
+  }
+}
+
+/**
+ * GET /api/et/employee/:employeeId?month=YYYY-MM
+ * This endpoint retrieves a specific employee's timetable for a given month.
+ */
+const getActiveRestDaysByEmployee = async (req: Request, res: Response) => {
+  try{
+    const { employeeId } = req.params;
+    const { month } = req.query;
+
+    // Validate employeeId and month parameters
+    if (!employeeId || isNaN(parseInt(employeeId as string, 10))) {
+      return res.status(400).json({
+        success: false,
+        error: {
+          code: 'INVALID_EMPLOYEE_ID',
+          message: 'Employee ID must be a valid integer.',
+        }
+      });
+    }
+
+    if (!month || typeof month !== 'string') {
+      return res.status(400).json({
+        success: false,
+        error: {
+          code: 'INVALID_MONTH',
+          message: 'Month parameter is required and must be a string in the format YYYY-MM.',
+        }
+      });
+    }
+
+    const employeeIdNum = parseInt(employeeId as string, 10);
+    console.log(`Fetching timetable for employee ID: ${employeeIdNum}, month: ${month}`);
+
+    const employeeTimetable = await timetableModel.getActiveRestDaysByEmployee(employeeIdNum, month as string);
+
+    /**
+     * Tweak this to show no rest days found meaning the employee has no rest days
+     */
+    if(employeeTimetable == null){
+      console.log(`No timetable found for employee ID: ${employeeIdNum} in month: ${month}`);
+      return res.status(404).json({
+        success: false,
+        error: {
+          code: 'TIMETABLE_NOT_FOUND',
+          message: `No timetable found for employee ID: ${employeeIdNum} in month: ${month}`,
+        }
+      });
+    }
+
+    console.log(`Found timetables for ${employeeTimetable.employee_name} with ${employeeTimetable.rest_days.length} rest days in month: ${month}`);
+
+    res.status(200).json({
+      success: true,
+      data: employeeTimetable,
+    });
+  } catch (error: any) {
+    console.error('Controller error in fetching active rest days by employee:', error);
+
+    if (error.message.includes('Invalid month format.')) {
+      return res.status(400).json({
+        success: false,
+        error: {
+          code: 'INVALID_MONTH_FORMAT',
+          message: 'Month parameter must be in the format YYYY-MM.',
+        }
+      });
+    }
+
+    res.status(500).json({
+      success: false,
+      error: {
+        code: 'INTERNAL_SERVER_ERROR',
+        message: 'An error occurred while fetching active rest days by employee.',
+      }
+    });
+  }
+}
+
+/**
+ * GET /api/et/position/:positionId?month=YYYY-MM&page=1&limit=20
+ * This endpoint retrieves the paginated list of employee timetables for a specific position in a given month.
+ */
+const getActiveRestDaysByPosition = async (req: Request, res: Response) => {
+  try{
+    const { positionId } = req.params;
+    const { month, page = 1, limit = 20 } = req.query;
+
+    // Validate positionId and month parameters
+    if (!positionId || isNaN(parseInt(positionId as string, 10))) {
+      return res.status(400).json({
+        success: false,
+        error: {
+          code: 'INVALID_POSITION_ID',
+          message: 'Position ID must be a valid integer.',
+        }
+      });
+    }
+
+    if (!month || typeof month !== 'string') {
+      return res.status(400).json({
+        success: false,
+        error: {
+          code: 'INVALID_MONTH',
+          message: 'Month parameter is required and must be a string in the format YYYY-MM.',
+        }
+      });
+    }
+
+    const positionIdNum = parseInt(positionId as string, 10);
+    const pageNum = parseInt(page as string, 10);
+    const limitNum = parseInt(limit as string, 10);
+
+    // Validate page and limit parameters
+        // Validate page and limit parameters
+    if (isNaN(pageNum) || pageNum < 1 || isNaN(limitNum) || limitNum < 1 || limitNum > 100) {
+      return res.status(400).json({
+        success: false,
+        error: {
+          code: 'INVALID_PAGINATION',
+          message: 'Page and limit parameters must be positive integers.',
+        }
+      });
+    }
+
+    console.log(`Fetching timetables for position ID: ${positionIdNum}, month: ${month}, page: ${pageNum}, limit: ${limitNum}`);
+    const result = await timetableModel.getActiveRestDaysByPosition(positionIdNum, month as string, pageNum, limitNum);
+    console.log(`Fetched ${result.data.length} timetables for position ID: ${positionIdNum} in month: ${month}`);
+
+    res.status(200).json({
+      success: true,
+      data: result.data,
+      pagination: result.pagination
+    });
+  } catch (error: any) {
+    console.error('Controller error in fetching active rest days by position:', error);
+
+    if (error.message.includes('Invalid month format.')) {
+      return res.status(400).json({
+        success: false,
+        error: {
+          code: 'INVALID_MONTH_FORMAT',
+          message: 'Month parameter must be in the format YYYY-MM.',
+        }
+      });
+    }
+
+    res.status(500).json({
+      success: false,
+      error: {
+        code: 'INTERNAL_SERVER_ERROR',
+        message: 'An error occurred while fetching active rest days by position.',
+      }
+    });
+  } 
+}
+
 export default {
   getCurrentAndUpcomingTimetables,
   createTimetable,
+  getActiveRestDays,
+  getActiveRestDaysByEmployee,
 };
 
