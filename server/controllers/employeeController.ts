@@ -398,5 +398,8 @@ export default {
   updateEmployeePassword,
   // getAllEmployees,
   regenerateInvitationLink,
-  getAllEmployeesForDropdown
+  getAllEmployeesForDropdown,
+  getBasicEmployeeDetails,
+  getEmployeeById,
+  getAllActivePositions
 };
