@@ -60,36 +60,89 @@ const getAppointmentsByDate = async (req: Request, res: Response) => {
 };
 
 
+// const getAvailableTimeslotsByEmployee = async (req: Request, res: Response) => {
+//   const { employeeId, appointmentDate } = req.params;
+
+//   // Default to null if employeeId is 'null', 'undefined', or 'anyAvailableStaff'
+//   const parsedEmployeeId = employeeId === 'null' || employeeId === 'undefined' || employeeId === 'anyAvailableStaff'
+//     ? null
+//     : parseInt(employeeId, 10);
+
+//   if (!appointmentDate || !/^\d{4}-\d{2}-\d{2}$/.test(appointmentDate)) {
+//     return res.status(400).json({ message: 'Invalid or missing appointmentDate. Use format YYYY-MM-DD.' });
+//   }
+
+//   try {
+//     const timeslots = await model.getAvailableTimeslotsByEmployee(
+//       appointmentDate,
+//       parsedEmployeeId
+//     );
+//     // Strip trailing seconds
+//     const formatted = timeslots.map(({ timeslot }) => ({
+//       timeslot: timeslot.slice(0, 5),
+//     }));
+
+//     res.status(200).json({
+//       employeeId,
+//       appointmentDate,
+//       availableTimeslots: formatted,
+//     });
+//   } catch (error) {
+//     console.log('Error getting available timeslots:', error);
+//     const errorMessage = error instanceof Error ? error.message : String(error);
+//     res.status(500).json({
+//       message: 'Error getting available timeslots',
+//       error: errorMessage,
+//     });
+//   }
+// };
+
+
 const getAvailableTimeslotsByEmployee = async (req: Request, res: Response) => {
   const { employeeId, appointmentDate } = req.params;
 
-  const parsedEmployeeId = employeeId === 'null' || employeeId === 'undefined' ? null : parseInt(employeeId, 10);
+  // parse employeeId
+  const parsedEmployeeId = 
+    employeeId === 'null' ||
+    employeeId === 'undefined' ||
+    employeeId === 'anyAvailableStaff'
+      ? null
+      : parseInt(employeeId, 10);
 
-  if (!appointmentDate || !/^\d{4}-\d{2}-\d{2}$/.test(appointmentDate)) {
-    return res.status(400).json({ message: 'Invalid or missing appointmentDate. Use format YYYY-MM-DD.' });
+  if (!/^\d{4}-\d{2}-\d{2}$/.test(appointmentDate)) {
+    return res
+      .status(400)
+      .json({ message: 'Invalid appointmentDate. Use format YYYY-MM-DD.' });
   }
 
   try {
+    // 1) fetch timeslots
     const timeslots = await model.getAvailableTimeslotsByEmployee(
       appointmentDate,
       parsedEmployeeId
     );
-    // Strip trailing seconds
-    const formatted = timeslots.map(({ timeslot }) => ({
+    const formattedSlots = timeslots.map(({ timeslot }) => ({
       timeslot: timeslot.slice(0, 5),
     }));
 
+    // 2) fetch warning
+    const warning = await model.checkRestdayConflict(
+      parsedEmployeeId,
+      appointmentDate
+    );
+
     res.status(200).json({
-      employeeId,
+      employeeId: parsedEmployeeId,
       appointmentDate,
-      availableTimeslots: formatted,
+      availableTimeslots: formattedSlots,
+      warning,   // either the warning string or null
     });
   } catch (error) {
-    console.log('Error getting available timeslots:', error);
-    const errorMessage = error instanceof Error ? error.message : String(error);
+    console.error('Error getting available timeslots or warning:', error);
+    const msg = error instanceof Error ? error.message : String(error);
     res.status(500).json({
-      message: 'Error getting available timeslots',
-      error: errorMessage,
+      message: 'Error fetching available timeslots or restday warning',
+      error: msg,
     });
   }
 };

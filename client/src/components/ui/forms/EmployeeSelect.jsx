@@ -25,7 +25,8 @@ export function EmployeeSelect({
   name = "employee_id",
   label = "Assigned Employee *",
   disabled: customDisabled = false,
-  customOptions = [], // New prop for custom options
+  customOptions = [], // Prop for custom options
+  onValueChange, // Add onValueChange prop to handle external changes
 }) {
   const {
     control,
@@ -58,14 +59,17 @@ export function EmployeeSelect({
       <Controller
         name={name}
         control={control}
-        rules={{ required: `${label} is required` }}
         render={({ field }) => (
           <div className="relative">
             <Select
               disabled={loading || error || customDisabled}
               value={field.value?.toString() || ""}
               onValueChange={(val) => {
-                field.onChange(Number(val));
+                field.onChange(val);
+             // Call external onValueChange if provided
+                if (onValueChange) {
+                  onValueChange(val);
+                }
                 setIsOpen(false);
                 setSearchTerm("");
               }}

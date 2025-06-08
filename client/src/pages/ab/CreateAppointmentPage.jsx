@@ -14,6 +14,7 @@ import { Calendar, CheckCircle, Plus, Trash2 } from 'lucide-react';
 import EmployeeSelect from '@/components/ui/forms/EmployeeSelect';
 import MemberSelect from '@/components/ui/forms/MemberSelect';
 import AppointmentDateTimeSelect from '@/components/ui/forms/AppointmentDateTimeSelect';
+import useAppointmentDateTimeStore from '@/stores/useAppointmentDateTimeStore';
 
 export default function CreateAppointmentPage() {
   const methods = useForm({
@@ -40,23 +41,8 @@ export default function CreateAppointmentPage() {
   const [success, setSuccess] = useState(false);
   const [error, setError] = useState('');
 
-  const generateTimeSlots = () => {
-    const slots = [];
-    const start = new Date();
-    start.setHours(10, 0, 0, 0);
-    const end = new Date();
-    end.setHours(17, 0, 0, 0);
-    while (start < end) {
-      const hours = start.getHours().toString().padStart(2, '0');
-      const minutes = start.getMinutes().toString().padStart(2, '0');
-      slots.push(`${hours}:${minutes}`);
-      start.setMinutes(start.getMinutes() + 30);
-    }
-    return slots;
-  };
-
-
-  const timeSlots = generateTimeSlots();
+  // Get warning and reset function from store
+  const { warning, reset: resetStore } = useAppointmentDateTimeStore();
 
   const handleInputChange = (field, value) => {
     setValue(field, value);
@@ -65,13 +51,37 @@ export default function CreateAppointmentPage() {
   };
 
   const handleAppointmentChange = (appointmentIndex, field, value) => {
+    // set the changed field
+    setValue(`appointments.${appointmentIndex}.${field}`, value)
+
+    if (error) setError('')
+    if (success) setSuccess(false)
+  }
+
+  // New function to handle employee change with time reset
+  const handleEmployeeChange = (appointmentIndex, field, value) => {
+    // Get current appointment data
+    const currentAppointment = formData.appointments[appointmentIndex];
+
+    // Set the employee field
     setValue(`appointments.${appointmentIndex}.${field}`, value);
+
+    // Reset start and end times when employee changes
+    if (field === 'servicing_employee_id') {
+      setValue(`appointments.${appointmentIndex}.start_time`, '');
+      setValue(`appointments.${appointmentIndex}.end_time`, '');
+
+      // Reset the store to clear cached timeslots
+      resetStore();
+    }
+
     if (error) setError('');
     if (success) setSuccess(false);
   };
 
+
   const addAppointment = () => {
-    const currentAppointments = formData.appointments || [];
+    const currentAppointments = formData.appointments;
     const newId = Math.max(...currentAppointments.map(apt => apt.id), 0) + 1;
     const newAppointments = [...currentAppointments, {
       id: newId,
@@ -95,14 +105,20 @@ export default function CreateAppointmentPage() {
 
   const validateForm = (data) => {
     if (!data.member_id) return 'Please select a member';
+    if (!data.created_at) return 'Please select creation date and time';
+    if (!data.created_by) return 'Please select a creator';
     for (let i = 0; i < data.appointments.length; i++) {
       const apt = data.appointments[i];
       const aptNum = i + 1;
-      if (!apt.created_by) return `Please select a servicing employee for Appointment ${aptNum}`;
+      if (!apt.servicing_employee_id) return `Please select a servicing employee for Appointment ${aptNum}`;
       if (!apt.appointment_date) return `Please select a date for Appointment ${aptNum}`;
-      if (!apt.start_time) return `Please select a start time for Appointment ${aptNum}`;
-      if (!apt.end_time) return `Please select an end time for Appointment ${aptNum}`;
+      // matches null or undefined for start_time and end_time
+      if (apt.start_time == null || apt.start_time.trim() === '')
+        return `Please select a start time for Appointment ${aptNum}`
+      if (apt.end_time == null || apt.end_time.trim() === '')
+        return `Please select an end time for Appointment ${aptNum}`
       if (apt.start_time >= apt.end_time) return `End time must be after start time for Appointment ${aptNum}`;
+      if (!apt.remarks) return `Please enter your remarks for Appointment ${aptNum}`;
     }
     return null;
   };
@@ -122,7 +138,7 @@ export default function CreateAppointmentPage() {
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({
             member_id: parseInt(data.member_id),
-            servicing_employee_id: parseInt(appointment.created_by), // Using created_by as the servicing employee ID
+            servicing_employee_id: parseInt(appointment.servicing_employee_id),
             appointment_date: appointment.appointment_date,
             start_time: appointment.start_time,
             end_time: appointment.end_time,
@@ -196,7 +212,7 @@ export default function CreateAppointmentPage() {
                       <Input
                         id="created_at"
                         type="datetime-local"
-                        value={formData.created_at || ''}
+                        value={formData.created_at}
                         onChange={(e) => handleInputChange('created_at', e.target.value)}
                         className="h-12"
                       />
@@ -228,11 +244,12 @@ export default function CreateAppointmentPage() {
                         {/* First row: Employee Selection */}
                         <div className="space-y-2">
                           <EmployeeSelect
-                            name={`appointments.${index}.created_by`}
+                            name={`appointments.${index}.servicing_employee_id`}
                             label="Servicing Employee *"
                             customOptions={[
-                              { id: 999, employee_name: "Any Available Staff" }
+                              { id: 'anyAvailableStaff', employee_name: "Any Available Staff" }
                             ]}
+                            onValueChange={(value) => handleEmployeeChange(index, 'servicing_employee_id', value)}
                           />
                         </div>
 
@@ -250,30 +267,38 @@ export default function CreateAppointmentPage() {
                               }
                               className="h-12"
                             />
+                            {/* Display warning message below date picker if warning exists */}
+                            {warning && (
+                              <p className="text-red-500 text-xs mt-1">
+                                {warning}
+                              </p>
+                            )}
                           </div>
 
                           {/* 2. Start time select with cross-validation */}
                           <AppointmentDateTimeSelect
                             label="Start Time *"
-                            employeeId={appointment.created_by}
+                            employeeId={appointment.servicing_employee_id}
                             appointmentDate={appointment.appointment_date}
                             value={appointment.start_time}
                             onChange={(value) => handleAppointmentChange(index, 'start_time', value)}
                             placeholder="Select start time"
                             isStartTime={true}
                             otherTimeValue={appointment.end_time} // Pass end time for filtering
+                            appointmentIndex={index} // Pass unique index for each appointment
                           />
 
                           {/* 3. End time select with cross-validation */}
                           <AppointmentDateTimeSelect
                             label="End Time *"
-                            employeeId={appointment.created_by}
+                            employeeId={appointment.servicing_employee_id}
                             appointmentDate={appointment.appointment_date}
                             value={appointment.end_time}
                             onChange={(value) => handleAppointmentChange(index, 'end_time', value)}
                             placeholder="Select end time"
                             isStartTime={false}
                             otherTimeValue={appointment.start_time} // Pass start time for filtering
+                            appointmentIndex={index} // Pass unique index for each appointment
                           />
                         </div>
 

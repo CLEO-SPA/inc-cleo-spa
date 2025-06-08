@@ -87,9 +87,28 @@ const getAvailableTimeslotsByEmployee = async (
   }
 };
 
+const checkRestdayConflict = async (
+  employeeId: number | null,
+  appointmentDate: Date | string,
+) => {
+  try {
+    const query = `
+      SELECT check_restday_conflict($1, $2) AS warning
+    `;
+    const values = [employeeId, appointmentDate];
+    const { rows } = await pool().query(query, values);
+    // rows[0].warning will be either the warning string or null
+    return rows[0].warning;
+  } catch (error) {
+    console.error('Error checking restday conflict:', error);
+    throw new Error('Error checking restday conflict');
+  }
+};
+
 export default {
  getAllAppointments,
  getAppointmentsByDate,
- getAvailableTimeslotsByEmployee
+ getAvailableTimeslotsByEmployee,
+ checkRestdayConflict
 };
  

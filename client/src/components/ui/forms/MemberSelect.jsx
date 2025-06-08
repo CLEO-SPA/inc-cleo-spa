@@ -136,7 +136,6 @@ export function MemberSelect({
       <Controller
         name={name}
         control={control}
-        rules={{ required: `${label} is required` }}
         render={({ field }) => (
           <div className="relative">
             <Select

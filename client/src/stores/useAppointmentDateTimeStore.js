@@ -8,6 +8,7 @@ const getInitialState = () => ({
   isFetching: false,
   error: false,
   errorMessage: null,
+  warning: null, // Add warning field
 });
 
 // Generate evening time slots (5:30pm to 9:00pm)
@@ -44,6 +45,7 @@ const useAppointmentDateTimeStore = create((set) => ({
       set({
         timeslots: baseTimeslots, // Original slots for start time
         endTimeSlots: allEndTimeSlots, // Extended slots for end time
+          warning: response.data.warning || null, // Store warning from API response
         isFetching: false,
       });
     } catch (err) {

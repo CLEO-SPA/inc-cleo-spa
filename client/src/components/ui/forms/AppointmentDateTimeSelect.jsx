@@ -1,5 +1,5 @@
 // src/components/AppointmentDateTimeSelect.jsx
-import { useEffect, useMemo } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import {
   Select,
   SelectTrigger,
@@ -20,6 +20,7 @@ export function AppointmentDateTimeSelect({
   // New props for cross-validation
   isStartTime = true, // true for start time, false for end time
   otherTimeValue = null, // the value of the other time field (end time if this is start, start time if this is end)
+  appointmentIndex = 0, // Add unique identifier for each appointment
 }) {
   const {
     timeslots,
@@ -27,26 +28,58 @@ export function AppointmentDateTimeSelect({
     isFetching,
     error,
     errorMessage,
+    warning,
     fetchTimeslots,
     reset,
   } = useAppointmentDateTimeStore();
 
-  // Use appropriate timeslots based on whether this is start time or end time
-  const availableSlots = isStartTime ? timeslots : endTimeSlots;
+  // Local state to track the last fetched data for this specific appointment
+  const [localTimeslots, setLocalTimeslots] = useState([]);
+  const [localEndTimeSlots, setLocalEndTimeSlots] = useState([]);
+  const [lastFetchKey, setLastFetchKey] = useState('');
 
-  // Check if we have a valid appointment date
+  // Use appropriate timeslots based on whether this is start time or end time
+  const availableSlots = isStartTime ? localTimeslots : localEndTimeSlots;
+
+  // Check if we have a valid appointment date and employee
   const hasValidDate = appointmentDate && appointmentDate.trim() !== '';
+  const hasValidEmployee = employeeId && employeeId.trim() !== '';
+
+  // Create a unique key for this appointment's fetch
+  const currentFetchKey = `${employeeId}-${appointmentDate}`;
 
   // Re-fetch whenever date or employee changes
   useEffect(() => {
-    if (hasValidDate) {
-      console.log('Fetching timeslots for:', { employeeId, appointmentDate });
+    if (hasValidDate && hasValidEmployee && currentFetchKey !== lastFetchKey) {
+      console.log('Fetching timeslots for appointment', appointmentIndex, ':', { employeeId, appointmentDate });
       fetchTimeslots({ employeeId, appointmentDate });
-    } else {
-      console.log('Resetting timeslots - no valid date');
-      reset();
+    } else if (!hasValidDate || !hasValidEmployee) {
+      console.log('Resetting timeslots for appointment', appointmentIndex, '- invalid date or employee');
+      setLocalTimeslots([]);
+      setLocalEndTimeSlots([]);
+      setLastFetchKey('');
     }
-  }, [appointmentDate, employeeId, fetchTimeslots, reset, hasValidDate]);
+  }, [appointmentDate, employeeId, fetchTimeslots, hasValidDate, hasValidEmployee, currentFetchKey, lastFetchKey, appointmentIndex]);
+
+  // Update local timeslots when global store updates and it matches our fetch key
+  useEffect(() => {
+    if (hasValidDate && hasValidEmployee && currentFetchKey === `${employeeId}-${appointmentDate}` && !isFetching && !error) {
+      setLocalTimeslots(timeslots);
+      setLocalEndTimeSlots(endTimeSlots);
+      setLastFetchKey(currentFetchKey);
+    }
+  }, [timeslots, endTimeSlots, isFetching, error, employeeId, appointmentDate, hasValidDate, hasValidEmployee, currentFetchKey]);
+
+  // Clear local state when employee changes but store hasn't been reset yet
+  useEffect(() => {
+    // If we have a new employee but the timeslots are for a different employee/date combination
+    if (hasValidEmployee && hasValidDate && lastFetchKey && !lastFetchKey.startsWith(`${employeeId}-`)) {
+      console.log('Employee changed, clearing local timeslots for appointment', appointmentIndex);
+      setLocalTimeslots([]);
+      setLocalEndTimeSlots([]);
+      setLastFetchKey('');
+    }
+  }, [employeeId, appointmentDate, lastFetchKey, hasValidEmployee, hasValidDate, appointmentIndex]);
 
   // Helper function to convert time string to minutes for comparison
   const timeToMinutes = (timeString) => {
@@ -78,19 +111,43 @@ export function AppointmentDateTimeSelect({
     });
   }, [availableSlots, otherTimeValue, isStartTime]);
 
-  // Determine if Select should be disabled
-  const isDisabled = !hasValidDate || isFetching || error;
+  // Check if the current value is still valid in the filtered timeslots
+  const isCurrentValueValid = useMemo(() => {
+    if (!value || !filteredTimeslots.length) return true;
+    return filteredTimeslots.includes(value);
+  }, [value, filteredTimeslots]);
 
-  console.log('Select state:', {
+  // Clear the value if it's no longer valid
+  useEffect(() => {
+    if (value && !isCurrentValueValid) {
+      console.log('Clearing invalid time value for appointment', appointmentIndex, ':', value);
+      onChange('');
+    }
+  }, [value, isCurrentValueValid, onChange, appointmentIndex]);
+
+  // Determine if Select should be disabled
+  const isDisabled = !hasValidDate || !hasValidEmployee || isFetching || error;
+
+  // Check if this appointment's data is currently being fetched
+  const isCurrentlyFetching = isFetching && currentFetchKey === `${employeeId}-${appointmentDate}`;
+
+  console.log('Select state for appointment', appointmentIndex, ':', {
     appointmentDate,
+    employeeId,
     hasValidDate,
+    hasValidEmployee,
     isDisabled,
-    isFetching,
+    isFetching: isCurrentlyFetching,
     error,
+    warning,
     availableSlotsCount: availableSlots.length,
     filteredCount: filteredTimeslots.length,
     isStartTime,
-    otherTimeValue
+    otherTimeValue,
+    currentValue: value,
+    isCurrentValueValid,
+    currentFetchKey,
+    lastFetchKey
   });
 
   return (
@@ -106,22 +163,25 @@ export function AppointmentDateTimeSelect({
             placeholder={
               !hasValidDate
                 ? 'Select date first'
-                : isFetching
-                  ? 'Loading…'
-                  : error
-                    ? `Error: ${errorMessage || 'Failed to load'}`
-                    : filteredTimeslots.length === 0
-                      ? otherTimeValue
-                        ? `No ${isStartTime ? 'earlier' : 'later'} times available`
-                        : 'No times available'
-                      : placeholder
+                : !hasValidEmployee
+                  ? 'Select employee first'
+                  : isCurrentlyFetching
+                    ? 'Loading…'
+                    : error
+                      ? `Error: ${errorMessage || 'Failed to load'}`
+                      : filteredTimeslots.length === 0
+                        ? otherTimeValue
+                          ? `No ${isStartTime ? 'earlier' : 'later'} times available`
+                          : 'No times available'
+                        : placeholder
             }
           />
         </SelectTrigger>
         <SelectContent>
           {hasValidDate &&
+            hasValidEmployee &&
             !error &&
-            !isFetching &&
+            !isCurrentlyFetching &&
             filteredTimeslots.map((time) => (
               <SelectItem key={time} value={time}>
                 {time}
@@ -132,6 +192,12 @@ export function AppointmentDateTimeSelect({
       {error && errorMessage && (
         <p className="text-red-500 text-xs mt-1">
           {errorMessage}
+        </p>
+      )}
+      {/* Only show warning for start time of the first appointment to avoid duplication */}
+      {warning && isStartTime && appointmentIndex === 0 && (
+        <p className="text-red-500 text-xs mt-1">
+          {warning}
         </p>
       )}
     </div>
