@@ -326,7 +326,7 @@ const getEmployeeById = async (req: Request, res: Response) => {
     const employeeId = req.params.employeeId;
 
     // Validate employeeId
-    if (!employeeId || isNaN(employeeId)) {
+    if (!employeeId || isNaN(parseInt(employeeId, 10))) {
       return res.status(400).json({ 
         success: false, 
         error: { code: 'INVALID_ID', message: 'Invalid employee ID provided' } 

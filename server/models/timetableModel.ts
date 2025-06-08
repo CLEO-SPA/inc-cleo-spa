@@ -196,11 +196,11 @@ const getActiveRestDays = async(
     const offset = (page - 1) * limit;
     const query = `
       WITH filtered_employees AS (
-        SELECT e.id AS employee_id, e.name AS employee_name
+        SELECT e.id AS employee_id, e.employee_name AS employee_name
         FROM employees e
         WHERE e.employee_is_active = true
         ${positionId ? 'AND e.position_id = $3' : ''}
-        ORDER BY e.name
+        ORDER BY e.employee_name
         LIMIT $1 OFFSET $2
       ),
       total_count AS (
@@ -208,7 +208,7 @@ const getActiveRestDays = async(
         FROM employees e
         WHERE e.employee_is_active = true
         ${positionId ? 'AND e.position_id = $3' : ''}
-      ),
+      )
       SELECT 
         fe.employee_id,
         fe.employee_name,
@@ -227,8 +227,8 @@ const getActiveRestDays = async(
       FROM filtered_employees fe
       CROSS JOIN total_count tc
       LEFT JOIN timetables t ON fe.employee_id = t.employee_id
-        AND t.effective_startdate <= $4::timestamptz
-        AND (t.effective_enddate IS NULL OR t.effective_enddate <= $5::timestamptz)
+        AND t.effective_startdate <= $${positionId ? 4 : 3}::timestamptz
+        AND (t.effective_enddate IS NULL OR t.effective_enddate <= $${positionId ? 5 : 4}::timestamptz)
       ORDER BY fe.employee_name, t.effective_startdate;
     `;
 
@@ -301,7 +301,7 @@ const getActiveRestDaysByEmployee = async (
     const query = `
       SELECT 
         e.id AS employee_id,
-        e.name AS employee_name,
+        e.employee_name AS employee_name,
         t.restday_number,
         CASE t.restday_number
           WHEN 1 THEN 'Monday'
@@ -317,7 +317,7 @@ const getActiveRestDaysByEmployee = async (
       FROM employees e
       LEFT JOIN timetables t ON e.id = t.employee_id
         AND t.effective_startdate <= $2::timestamptz
-        AND (t.effective_enddate IS NULL OR t.effective_enddate >= $1::timestamptz)
+        AND (t.effective_enddate IS NULL OR t.effective_enddate >= $3::timestamptz)
       WHERE e.id = $1 AND e.employee_is_active = true
       ORDER BY t.effective_startdate;
     `;
