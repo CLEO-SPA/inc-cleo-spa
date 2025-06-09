@@ -20,6 +20,7 @@ router.all('/e', roleMiddleware.hasRole(['data_admin', 'super_admin']), controll
 router.get('/dropdown', controller.getCarePackagesForDropDown);
 router.get('/pkg', controller.getAllCarePackages);
 router.get('/pkg/:id', controller.getCarePackageById);
+router.get('/pkgpc' , controller.getCarePackagePurchaseCount);
 
 router.post('/create', controller.createCarePackage);
 
