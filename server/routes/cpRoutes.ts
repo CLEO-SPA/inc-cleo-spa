@@ -17,6 +17,7 @@ router.use(isAuthenticated);
 
 router.all('/e', roleMiddleware.hasRole(['data_admin', 'super_admin']), controller.emulateCarePackage);
 
+router.get('/dropdown', controller.getCarePackagesForDropDown);
 router.get('/pkg', controller.getAllCarePackages);
 router.get('/pkg/:id', controller.getCarePackageById);
 

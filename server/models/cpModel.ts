@@ -115,6 +115,24 @@ const getPaginatedCarePackages = async (
   }
 };
 
+const getCarePackagesForDropdown = async (): Promise<FullCarePackage[]> => {
+  try {
+    const sql = `
+      SELECT cp.id, cp.care_package_name
+      FROM care_packages cp
+      WHERE cp.status_id = (SELECT get_or_create_status('ENABLED'))
+      ORDER BY cp.created_at DESC;
+    `;
+
+    const { rows } = await pool().query<{ care_package_data: FullCarePackage }>(sql);
+
+    return rows.map((row) => row.care_package_data);
+  } catch (error) {
+    console.error('Error in cpModel.getAllCarePackages (with details):', error);
+    throw new Error('Could not retrieve all care packages with details');
+  }
+};
+
 interface FullCarePackage {
   package: CarePackages;
   details: CarePackageItemDetails[];
@@ -136,6 +154,7 @@ const getCarePackageById = async (id: string): Promise<FullCarePackage | null> =
   }
 };
 
+// NOTE: price is original price of service, finalPrice is price x discount
 interface servicePayload {
   id: string;
   name: string;
@@ -663,6 +682,7 @@ const emulateCarePackage = async (method: string, payload: Partial<emulatePayloa
 
 export default {
   getPaginatedCarePackages,
+  getCarePackagesForDropdown,
   getCarePackageById,
   createCarePackage,
   updateCarePackageById,

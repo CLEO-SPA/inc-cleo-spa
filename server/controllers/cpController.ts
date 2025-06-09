@@ -63,6 +63,17 @@ const getAllCarePackages = async (req: Request, res: Response, next: NextFunctio
   }
 };
 
+const getCarePackagesForDropDown = async (req: Request, res: Response, next: NextFunction): Promise<void> => {
+  try {
+    const results = await model.getCarePackagesForDropdown();
+
+    res.status(200).json(results);
+  } catch (error) {
+    console.error('Error in CarePackageController.getAllCarePackagesV2', error);
+    next(error);
+  }
+};
+
 const getCarePackageById = async (req: Request, res: Response, next: NextFunction): Promise<void> => {
   try {
     const id = req.params.id;
@@ -348,6 +359,7 @@ const emulateCarePackage = async (req: Request, res: Response, next: NextFunctio
 
 export default {
   getAllCarePackages,
+  getCarePackagesForDropDown,
   getCarePackageById,
   createCarePackage,
   updateCarePackageById,
