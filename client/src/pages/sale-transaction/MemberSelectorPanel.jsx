@@ -1,5 +1,5 @@
 import { useState, useCallback } from 'react';
-import useSalesTransactionStore from '@/stores/useSalesTransactionStore';
+import useSelectedMemberStore from '@/stores/useSelectedMemberStore';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { Button } from '@/components/ui/button';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
@@ -10,43 +10,40 @@ export default function MemberSelectorPanel() {
   const [searchInput, setSearchInput] = useState('');
   const [notFound, setNotFound] = useState(false);
   const [selectedTab, setSelectedTab] = useState('info');
-  
-  // Local search states
-  const [packagesSearch, setPackagesSearch] = useState('');
-  const [vouchersSearch, setVouchersSearch] = useState('');
 
-  // Store state and actions
+  // Store state and actions - Updated to match new store structure
   const {
     currentMember,
     memberCarePackages,
     memberVouchers,
     memberSearchLoading,
-    memberCarePackagesLoading,
-    memberVouchersLoading,
+    packagesisFetching,
+    vouchersisFetching,
     error,
+    errorMessage,
     searchMember,
-    
-    // Pagination states
+
+    // Pagination states - Updated property names
     packagesCurrentPage,
     packagesTotalPages,
-    packagesTotalItems,
-    packagesItemsPerPage,
+    packagesTotalCount,
+    packagesCurrentLimit,
     packagesSearchTerm,
-    
+
     vouchersCurrentPage,
     vouchersTotalPages,
-    vouchersTotalItems,
-    vouchersItemsPerPage,
+    vouchersTotalCount,
+    vouchersCurrentLimit,
     vouchersSearchTerm,
-    
-    // Pagination actions
-    setPackagesPage,
-    setPackagesItemsPerPage,
-    searchPackages,
-    setVouchersPage,
-    setVouchersItemsPerPage,
-    searchVouchers
-  } = useSalesTransactionStore();
+
+    // Pagination actions - Updated method names
+    goToPackagesPage,
+    setPackagesLimit,
+    setPackagesSearchTerm,
+    goToVouchersPage,
+    setVouchersLimit,
+    setVouchersSearchTerm
+  } = useSelectedMemberStore();
 
   const handleSearch = async () => {
     if (!searchInput.trim()) return;
@@ -66,28 +63,20 @@ export default function MemberSelectorPanel() {
     }
   };
 
-  const handleKeyPress = (e) => {
-    if (e.key === 'Enter') {
-      handleSearch();
-    }
-  };
-
-  // Debounced search handlers
+  // Debounced search handlers - Updated to use new method names
   const handlePackagesSearch = useCallback((searchTerm) => {
-    setPackagesSearch(searchTerm);
-    searchPackages(searchTerm);
-  }, [searchPackages]);
+    setPackagesSearchTerm(searchTerm);
+  }, [setPackagesSearchTerm]);
 
   const handleVouchersSearch = useCallback((searchTerm) => {
-    setVouchersSearch(searchTerm);
-    searchVouchers(searchTerm);
-  }, [searchVouchers]);
+    setVouchersSearchTerm(searchTerm);
+  }, [setVouchersSearchTerm]);
 
   // Generate page numbers for pagination
   const generatePageNumbers = (currentPage, totalPages) => {
-    const maxPagesToShow = 5;
+    const maxPagesToShow = 3;
     let startPage, endPage;
-    
+
     if (totalPages <= maxPagesToShow) {
       startPage = 1;
       endPage = totalPages;
@@ -103,12 +92,12 @@ export default function MemberSelectorPanel() {
         endPage = currentPage + Math.floor(maxPagesToShow / 2);
       }
     }
-    
+
     const pageNumbers = [];
     for (let i = startPage; i <= endPage; i++) {
       pageNumbers.push(i);
     }
-    
+
     return pageNumbers;
   };
 
@@ -126,21 +115,23 @@ export default function MemberSelectorPanel() {
   };
 
   // Enhanced Pagination component
-  const PaginationControls = ({ 
-    currentPage, 
-    totalPages, 
+  const PaginationControls = ({
+    currentPage,
+    totalPages,
     totalItems,
     itemsPerPage,
-    onPageChange, 
+    onPageChange,
     onLimitChange,
     searchTerm,
     onSearch,
     searchPlaceholder = "Search...",
-    disabled = false
+    disabled = false,
+    hideSearch = false,
+    hidePaginationControls = false, 
   }) => {
     const [targetPageInput, setTargetPageInput] = useState('');
     const [localSearch, setLocalSearch] = useState(searchTerm || '');
-    
+
     const pageNumbers = generatePageNumbers(currentPage, totalPages);
     const hasNextPage = currentPage < totalPages;
     const hasPreviousPage = currentPage > 1;
@@ -166,45 +157,46 @@ export default function MemberSelectorPanel() {
     return (
       <div className="space-y-4">
         {/* Search Bar */}
-        <form onSubmit={handleSearchSubmit} className="flex gap-2 items-center">
-          <div className="relative flex-1">
-            <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400 h-4 w-4" />
-            <Input
-              type="text"
-              placeholder={searchPlaceholder}
-              value={localSearch}
-              onChange={(e) => setLocalSearch(e.target.value)}
-              className="pl-10"
-            />
-          </div>
-          <Button type="submit" size="sm">
-            Search
-          </Button>
-        </form>
+        {!hideSearch && (
+          <form onSubmit={handleSearchSubmit} className="flex gap-2 items-center">
+            <div className="relative flex-1 max-w-md">
+              <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400 h-4 w-4" />
+              <Input
+                type="text"
+                placeholder={searchPlaceholder}
+                value={localSearch}
+                onChange={(e) => setLocalSearch(e.target.value)}
+                className="pl-10"
+              />
+            </div>
+            <Button type="submit" size="sm">
+              Search
+            </Button>
+          </form>
+        )}
 
         {/* Pagination Controls */}
-        {totalPages > 1 && (
-          <div className="flex flex-col sm:flex-row items-center justify-between gap-4 p-4 border-t">
+        {!hidePaginationControls && (
+          <div className="flex flex-col sm:flex-row items-center justify-between gap-4 border-t">
             <div className="flex items-center gap-4">
               <div className="text-sm text-gray-600">
                 Page {currentPage} of {totalPages} ({totalItems} items)
               </div>
               <div className="flex items-center gap-2">
                 <span className="text-sm">Items per page:</span>
-                <Select value={itemsPerPage.toString()} onValueChange={onLimitChange}>
+                <Select value={(itemsPerPage ?? 10).toString()} onValueChange={onLimitChange}>
                   <SelectTrigger className="w-[70px] h-8">
                     <SelectValue />
                   </SelectTrigger>
                   <SelectContent>
+                    <SelectItem value="2">2</SelectItem>
                     <SelectItem value="3">3</SelectItem>
                     <SelectItem value="5">5</SelectItem>
-                    <SelectItem value="10">10</SelectItem>
-                    <SelectItem value="20">20</SelectItem>
                   </SelectContent>
                 </Select>
               </div>
             </div>
-            
+
             <div className="flex items-center gap-2">
               <Button
                 variant="outline"
@@ -212,17 +204,18 @@ export default function MemberSelectorPanel() {
                 onClick={() => onPageChange(1)}
                 disabled={!hasPreviousPage}
               >
-                <ChevronsLeft className="h-4 w-4" />
+                <ChevronLeft className="h-4 w-4" />
               </Button>
               <Button
                 variant="outline"
                 size="sm"
-                onClick={() => onPageChange(currentPage - 1)}
-                disabled={!hasPreviousPage}
+                onClick={() => onPageChange(1)}
+                disabled={currentPage === 1}
               >
-                <ChevronLeft className="h-4 w-4" />
+                <ChevronsLeft className="h-4 w-4" />
               </Button>
-              
+
+
               {pageNumbers.map((page) => (
                 <Button
                   key={page}
@@ -233,7 +226,7 @@ export default function MemberSelectorPanel() {
                   {page}
                 </Button>
               ))}
-              
+
               <Button
                 variant="outline"
                 size="sm"
@@ -251,7 +244,7 @@ export default function MemberSelectorPanel() {
                 <ChevronsRight className="h-4 w-4" />
               </Button>
             </div>
-            
+
             <form onSubmit={handleGoToPage} className="flex items-center gap-2">
               <Input
                 type="number"
@@ -272,6 +265,7 @@ export default function MemberSelectorPanel() {
     );
   };
 
+
   return (
     <div className="space-y-4">
       {/* Member Search Bar */}
@@ -282,7 +276,6 @@ export default function MemberSelectorPanel() {
           placeholder="Search name or phone"
           value={searchInput}
           onChange={(e) => setSearchInput(e.target.value)}
-          onKeyPress={handleKeyPress}
           disabled={memberSearchLoading}
         />
         <button
@@ -294,9 +287,9 @@ export default function MemberSelectorPanel() {
         </button>
       </div>
 
-      {/* Error Message */}
+      {/* Error Message - Updated to use new error structure */}
       {error && (
-        <p className="text-sm text-red-500">Error: {error}</p>
+        <p className="text-sm text-red-500">Error: {errorMessage || 'An error occurred'}</p>
       )}
 
       {/* Not Found */}
@@ -307,21 +300,20 @@ export default function MemberSelectorPanel() {
       {/* Member Info Panel */}
       <div className="bg-gray-50 rounded shadow p-0 min-h-[250px]">
         {/* Tabs */}
-        <div className="flex mb-4 gap-2">
+        <div className="flex gap-2">
           {['info', 'packages', 'vouchers'].map((tab) => (
             <button
               key={tab}
               onClick={() => setSelectedTab(tab)}
               disabled={!currentMember}
-              className={`min-w-[120px] px-4 py-2 rounded text-sm text-center ${
-                selectedTab === tab ? 'bg-blue-600 text-white' : 'bg-gray-200 text-gray-800'
-              } ${!currentMember ? 'opacity-50 cursor-not-allowed' : 'hover:opacity-80'}`}
+              className={`min-w-[120px] px-4 py-2 rounded text-sm text-center ${selectedTab === tab ? 'bg-blue-600 text-white' : 'bg-gray-200 text-gray-800'
+                } ${!currentMember ? 'opacity-50 cursor-not-allowed' : 'hover:opacity-80'}`}
             >
               {tab === 'info' && 'Info'}
               {tab === 'packages' &&
-                `Packages ( || 0})`}
+                `Packages (${currentMember?.member_care_package_count || 0})`}
               {tab === 'vouchers' &&
-                `Vouchers ( || 0})`}
+                `Vouchers (${currentMember?.voucher_count || 0})`}
             </button>
           ))}
         </div>
@@ -391,38 +383,78 @@ export default function MemberSelectorPanel() {
             )}
 
             {selectedTab === 'packages' && (
-              <div className="text-sm p-2">
-                <PaginationControls
-                  currentPage={packagesCurrentPage}
-                  totalPages={packagesTotalPages}
-                  totalItems={packagesTotalItems}
-                  itemsPerPage={packagesItemsPerPage}
-                  onPageChange={setPackagesPage}
-                  onLimitChange={(value) => setPackagesItemsPerPage(parseInt(value, 10))}
-                  searchTerm={packagesSearchTerm}
-                  onSearch={handlePackagesSearch}
-                  searchPlaceholder="Search packages..."
-                  disabled={memberCarePackagesLoading}
-                />
-                
-                {memberCarePackagesLoading ? (
-                  <div className="flex items-center justify-center py-8">
+              <div className="p-2 flex flex-col h-full">
+                {packagesisFetching ? (
+                  <div className="flex items-center justify-center flex-grow py-8">
                     <p className="text-gray-500">Loading packages...</p>
                   </div>
                 ) : memberCarePackages.length > 0 ? (
-                  <div className="space-y-2 mt-4">
-                    {memberCarePackages.map((pkg) => (
-                      <div key={pkg.id} className="border p-3 rounded bg-white">
-                        <p className="font-medium">{pkg.name}</p>
-                        <p className="text-gray-600">Remaining: {pkg.remaining_sessions || pkg.remaining || 0}</p>
-                        {pkg.expiry_date && (
-                          <p className="text-gray-500 text-xs">Expires: {pkg.expiry_date}</p>
-                        )}
-                      </div>
-                    ))}
+                  <div className="flex flex-col h-full">
+                    <div className="overflow-x-auto flex-grow">
+                      <PaginationControls
+                        searchTerm={packagesSearchTerm}
+                        onSearch={handlePackagesSearch}
+                        searchPlaceholder="Search packages..."
+                        disabled={packagesisFetching}
+                        hidePaginationControls
+                      />
+                      <Table>
+                        <TableHeader>
+                          <TableRow>
+                            <TableHead>Name</TableHead>
+                            <TableHead>Total Price</TableHead>
+                            <TableHead>Status</TableHead>
+                            <TableHead>Remarks</TableHead>
+                            <TableHead>Actions</TableHead>
+                          </TableRow>
+                        </TableHeader>
+                        <TableBody>
+                          {memberCarePackages.map((mcp) => (
+                            <TableRow key={mcp.id}>
+                              <TableCell>{mcp.package_name}</TableCell>
+                              <TableCell>${mcp.total_price}</TableCell>
+                              <TableCell>{mcp.status}</TableCell>
+                              <TableCell>{mcp.package_remarks}</TableCell>
+                              <TableCell className="space-x-2">
+                                <button
+                                  onClick={() => handleViewDetails(mcp)}
+                                  className="text-blue-600 hover:underline"
+                                >
+                                  View
+                                </button>
+                                <button
+                                  onClick={() => handleRefund(mcp)}
+                                  className="text-red-600 hover:underline"
+                                >
+                                  Refund
+                                </button>
+                                <button
+                                  onClick={() => handleConsume(mcp)}
+                                  className="text-green-600 hover:underline"
+                                >
+                                  Consume
+                                </button>
+                              </TableCell>
+                            </TableRow>
+                          ))}
+                        </TableBody>
+                      </Table>
+                    </div>
+                    <div className="flex justify-end mt-4">
+                      <PaginationControls
+                        currentPage={packagesCurrentPage}
+                        totalPages={packagesTotalPages}
+                        totalItems={packagesTotalCount}
+                        itemsPerPage={packagesCurrentLimit}
+                        onPageChange={goToPackagesPage}
+                        onLimitChange={(value) => setPackagesLimit(parseInt(value, 10))}
+                        disabled={packagesisFetching}
+                        hideSearch
+                      />
+                    </div>
                   </div>
                 ) : (
-                  <div className="flex items-center justify-center py-8">
+                  <div className="flex items-center justify-center flex-grow py-8">
                     <p className="text-gray-500">No packages found.</p>
                   </div>
                 )}
@@ -430,27 +462,21 @@ export default function MemberSelectorPanel() {
             )}
 
             {selectedTab === 'vouchers' && (
-              <div className="p-2">
-                <PaginationControls
-                  currentPage={vouchersCurrentPage}
-                  totalPages={vouchersTotalPages}
-                  totalItems={vouchersTotalItems}
-                  itemsPerPage={vouchersItemsPerPage}
-                  onPageChange={setVouchersPage}
-                  onLimitChange={(value) => setVouchersItemsPerPage(parseInt(value, 10))}
-                  searchTerm={vouchersSearchTerm}
-                  onSearch={handleVouchersSearch}
-                  searchPlaceholder="Search vouchers..."
-                  disabled={memberVouchersLoading}
-                />
-                
-                {memberVouchersLoading ? (
-                  <div className="flex items-center justify-center py-8">
+              <div className="p-2 flex flex-col h-full">
+                {vouchersisFetching ? (
+                  <div className="flex items-center justify-center flex-grow py-8">
                     <p className="text-gray-500">Loading vouchers...</p>
                   </div>
                 ) : memberVouchers.length > 0 ? (
-                  <div className="mt-4">
-                    <div className="overflow-x-auto">
+                  <div className="flex flex-col h-full">
+                    <div className="overflow-x-auto flex-grow">
+                      <PaginationControls
+                        searchTerm={vouchersSearchTerm}
+                        onSearch={handleVouchersSearch}
+                        searchPlaceholder="Search vouchers..."
+                        disabled={vouchersisFetching}
+                        hidePaginationControls
+                      />
                       <Table>
                         <TableHeader>
                           <TableRow>
@@ -499,9 +525,21 @@ export default function MemberSelectorPanel() {
                         </TableBody>
                       </Table>
                     </div>
+                    <div className="flex justify-end mt-4">
+                      <PaginationControls
+                        currentPage={vouchersCurrentPage}
+                        totalPages={vouchersTotalPages}
+                        totalItems={vouchersTotalCount}
+                        itemsPerPage={vouchersCurrentLimit}
+                        onPageChange={goToVouchersPage}
+                        onLimitChange={(value) => setVouchersLimit(parseInt(value, 10))}
+                        disabled={vouchersisFetching}
+                        hideSearch
+                      />
+                    </div>
                   </div>
                 ) : (
-                  <div className="flex items-center justify-center py-8">
+                  <div className="flex items-center justify-center flex-grow py-8">
                     <p className="text-gray-500">No vouchers found.</p>
                   </div>
                 )}

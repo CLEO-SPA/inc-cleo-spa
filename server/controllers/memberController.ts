@@ -30,7 +30,7 @@ const getAllMembers = async (req: Request, res: Response, next: NextFunction) =>
       pageInfo: {
         currentPage: parseInt(page as string),
         totalPages: result.totalPages,
-        totalCount: result.members.length, // You might want to add this to your model
+        totalCount: result.totalCount, 
         limit: pageLimit
       }
     });  } catch (error) {
@@ -124,10 +124,11 @@ const searchMemberByNameOrPhone = async (req: Request, res: Response): Promise<v
   }
 };
 
+
 const getMemberVouchers = async (req: Request, res: Response): Promise<void> => {
   try {
     const memberId = parseInt(req.params.memberId, 10);
-    const offset = parseInt(req.query.offset as string, 10) || 0;
+    const page = parseInt(req.query.page as string, 10) || 1;
     const limit = parseInt(req.query.limit as string, 10) || 10;
     const searchTerm = (req.query.searchTerm as string)?.trim() || undefined;
 
@@ -136,9 +137,24 @@ const getMemberVouchers = async (req: Request, res: Response): Promise<void> => 
       return;
     }
 
-    const { vouchers, totalPages } = await model.getMemberVouchers(memberId, offset, limit, searchTerm);
+    const offset = (page - 1) * limit;
 
-    res.status(200).json({ vouchers, totalPages });
+    const { vouchers, totalPages, totalCount } = await model.getMemberVouchers(
+      memberId,
+      offset,
+      limit,
+      searchTerm
+    );
+
+    res.status(200).json({
+      data: vouchers,
+      pageInfo: {
+        currentPage: page,
+        totalPages,
+        totalCount,
+        limit
+      }
+    });
   } catch (error) {
     console.error('Error in getMemberVouchers:', error);
     res.status(500).json({ message: 'Failed to fetch member vouchers' });
@@ -149,7 +165,7 @@ const getMemberVouchers = async (req: Request, res: Response): Promise<void> => 
 const getMemberCarePackages = async (req: Request, res: Response): Promise<void> => {
   try {
     const memberId = parseInt(req.params.memberId, 10);
-    const offset = parseInt(req.query.offset as string, 10) || 0;
+    const page = parseInt(req.query.page as string, 10) || 1;
     const limit = parseInt(req.query.limit as string, 10) || 10;
     const searchTerm = (req.query.searchTerm as string)?.trim() || undefined;
 
@@ -158,9 +174,24 @@ const getMemberCarePackages = async (req: Request, res: Response): Promise<void>
       return;
     }
 
-    const { carePackages, totalPages } = await model.getMemberCarePackages(memberId, offset, limit, searchTerm);
+    const offset = (page - 1) * limit;
 
-    res.status(200).json({ carePackages, totalPages });
+    const { carePackages, totalPages, totalCount } = await model.getMemberCarePackages(
+      memberId,
+      offset,
+      limit,
+      searchTerm
+    );
+
+    res.status(200).json({
+      data: carePackages,
+      pageInfo: {
+        currentPage: page,
+        totalPages,
+        totalCount,
+        limit
+      }
+    });
   } catch (error) {
     console.error('Error in getMemberCarePackages:', error);
     res.status(500).json({ message: 'Failed to fetch member care packages' });

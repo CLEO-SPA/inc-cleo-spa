@@ -73,7 +73,8 @@ const getAllMembers = async (
       ${whereClause};
     `;
     const totalResult = await pool().query(totalQuery, countValues);
-    const totalPages = Math.ceil(Number(totalResult.rows[0].count) / limit);
+    const totalCount = Number(totalResult.rows[0].count);
+    const totalPages = Math.ceil(totalCount / limit);
 
     // Get outstanding balances
     const outstandingMap = await getMemberOutstandingAmounts();
@@ -99,7 +100,9 @@ const getAllMembers = async (
     return {
       members: enrichedMembers,
       totalPages,
+      totalCount,
     };
+
   } catch (error) {
     console.error('Error fetching members:', error);
     throw new Error('Error fetching members');
@@ -411,7 +414,7 @@ const getMemberVouchers = async (
 ) => {
   try {
     const hasSearch = !!searchTerm;
-    
+
     // Build SQL dynamically
     const baseQuery = `
       SELECT *
@@ -440,11 +443,13 @@ const getMemberVouchers = async (
       : [memberId];
 
     const countResult = await pool().query(countQuery, countValues);
-    const totalPages = Math.ceil(Number(countResult.rows[0].count) / limit);
+    const totalCount = Number(countResult.rows[0].count);
+    const totalPages = Math.ceil(totalCount / limit);
 
     return {
       vouchers: result.rows,
       totalPages,
+      totalCount,
     };
   } catch (error) {
     console.error('Error fetching member vouchers:', error);
@@ -489,8 +494,8 @@ const getMemberCarePackages = async (
       : [memberId];
 
     const countResult = await pool().query(countQuery, countValues);
-    const totalPages = Math.ceil(Number(countResult.rows[0].count) / limit);
-
+    const totalCount = Number(countResult.rows[0].count);
+    const totalPages = Math.ceil(totalCount / limit);
     const formatted = result.rows.map((row) => ({
       ...row,
       created_at: row.created_at
@@ -501,6 +506,7 @@ const getMemberCarePackages = async (
     return {
       carePackages: formatted,
       totalPages,
+      totalCount,
     };
   } catch (error) {
     console.error('Error fetching member care packages:', error);

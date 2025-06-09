@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import useSalesTransactionStore from '@/stores/useSalesTransactionStore';
+import useSalesTransactionStore from '@/stores/useSelectedMemberStore';
 
 export default function FormSelectorPanel() {
   const [selectedTab, setSelectedTab] = useState('services');
