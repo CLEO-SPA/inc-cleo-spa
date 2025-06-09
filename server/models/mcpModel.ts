@@ -507,12 +507,14 @@ const createConsumption = async (
 
       const consumptionLogPromises = [];
       for (let i = 0; i < d.mcpd_quantity; i++) {
+        baseLogRows[0].transaction_amount -= mcpDetailToConsume.price;
+
         consumptionLogPromises.push(
           client.query(i_mcptl_sql, [
             'CONSUMPTION',
             baseLogRows[0].description,
             d.mcpd_date,
-            baseLogRows[0].transaction_amount - mcpDetailToConsume.price,
+            baseLogRows[0].transaction_amount,
             -mcpDetailToConsume.price,
             d.mcpd_id,
             employee_id,
