@@ -28,6 +28,8 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import { AppSidebar } from '@/components/app-sidebar';
 import { SiteHeader } from '@/components/site-header';
 import { SidebarInset, SidebarProvider } from '@/components/ui/sidebar';
+import { ErrorState } from '@/components/ErrorState';
+import { LoadingState } from '@/components/LoadingState';
 
 function ManageCarePackagesPage() {
   const { user, statuses } = useAuth();
@@ -154,23 +156,19 @@ function ManageCarePackagesPage() {
   const tableHeaders = [
     { key: 'id', label: 'ID' },
     { key: 'care_package_name', label: 'Package Name' },
-    { key: 'care_package_price', label: 'Package Price' },
+    { key: 'care_package_price', label: 'Price' },
     { key: 'care_package_status', label: 'Status' },
+    { key: 'is_member_package', label: 'Member Package Count' },
     { key: 'updated_at', label: 'Last Updated' },
     { key: 'actions', label: 'Actions' },
   ];
 
   if (isLoading && !carePackages.length) {
-    // Show loading only if no data is present yet
-    return <div className='flex justify-center items-center h-screen'>Loading care packages...</div>;
+    return <LoadingState />;
   }
 
   if (error) {
-    return (
-      <div className='text-red-500 text-center mt-10'>
-        Error loading care packages: {error.message || 'Unknown error'}
-      </div>
-    );
+    return <ErrorState />;
   }
 
   return (
