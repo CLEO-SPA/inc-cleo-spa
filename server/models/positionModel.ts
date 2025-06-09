@@ -1,4 +1,5 @@
 import { pool, getProdPool as prodPool } from '../config/database.js';
+import { Positions } from '../types/model.types.js';
 
 const checkPositionNameExists = async (position_name: string) => {
   try {
@@ -22,7 +23,7 @@ const getAllPositions = async (offset: number, limit: number, startDate_utc: str
       LIMIT $1 OFFSET $2
     `;
     const values = [limit, offset, startDate_utc, endDate_utc];
-    const result = await pool().query(query, values);
+    const result = await pool().query <Positions>(query, values);
 
     const totalQuery = `
       SELECT COUNT(*) FROM positions
@@ -74,7 +75,7 @@ const createPosition = async ({
       position_updated_at,
     ];
 
-    const result = await client.query(insertPositionQuery, values);
+    const result = await client.query<Positions>(insertPositionQuery, values);
     const newPosition = result.rows[0];
 
     await client.query('COMMIT');
@@ -171,7 +172,7 @@ const getPositionById = async (id: number) => {
   try {
     const query = `SELECT * FROM positions WHERE id = $1`;
     const values = [id];
-    const result = await pool().query(query, values);
+    const result = await pool().query<Positions>(query, values);
     
     if (result.rows.length === 0) {
       return null;
@@ -191,7 +192,7 @@ const getAllPositionsForDropdown = async () => {
       WHERE position_is_active = true
       ORDER BY position_name ASC
     `;
-    const result = await pool().query(query);
+    const result = await pool().query<Partial<Positions>>(query);
     return result.rows;
   } catch (error) {
     console.error('Error fetching position list:', error);
@@ -202,7 +203,7 @@ const getAllPositionsForDropdown = async () => {
 const getPositionCount = async () => {
   try {
     const query = `SELECT COUNT(*) FROM positions`;
-    const result = await pool().query(query);
+    const result = await pool().query<{count:string}>(query);
     const count = parseInt(result.rows[0].count, 10);
     return count;
   } catch (error) {
@@ -225,7 +226,7 @@ const togglePositionStatus = async (id: number, position_updated_at: string) => 
       RETURNING *;
     `;
     const values = [id, position_updated_at];
-    const result = await client.query(toggleQuery, values);
+    const result = await client.query<Positions>(toggleQuery, values);
 
     if (result.rows.length === 0) {
       throw new Error('Position not found');
