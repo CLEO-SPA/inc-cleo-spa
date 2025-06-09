@@ -76,3 +76,12 @@ export interface SystemParameters {
   end_date_utc: string;
   is_simulation: boolean;
 }
+
+export interface Positions {
+  id?: string;
+  position_name: string;
+  position_description: string;
+  position_is_active: boolean;
+  position_created_at: string;
+  position_updated_at: string;
+}
