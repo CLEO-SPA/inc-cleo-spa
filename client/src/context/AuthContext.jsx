@@ -6,12 +6,39 @@ const AuthContext = createContext();
 export const useAuth = () => useContext(AuthContext);
 
 export const AuthProvider = ({ children }) => {
+  // Auth
   const [user, setUser] = useState(null);
   const [isAuthenticated, setIsAuthenticated] = useState(false);
   const [isLoading, setIsLoading] = useState(true);
+  // SSE Events
   const [sseEventSource, setSseEventSource] = useState(null);
   const [showReloadTimer, setShowReloadTimer] = useState(false);
   const [timerSeconds, setTimerSeconds] = useState(5);
+  // Status
+  const [statuses, setStatuses] = useState([]);
+  const [statusesLoading, setStatusesLoading] = useState(false);
+  const [statusesError, setStatusesError] = useState(null);
+  const [statusesFetched, setStatusesFetched] = useState(false);
+
+  const fetchStatuses = useCallback(async () => {
+    if (statusesLoading) return;
+    console.log('AuthContext: Fetching statuses...');
+    setStatusesLoading(true);
+    setStatusesError(null);
+    try {
+      const response = await api.get('/session/status');
+      setStatuses(response.data || []);
+      setStatusesFetched(true);
+      console.log('AuthContext: Statuses fetched and stored in context:', response.data);
+    } catch (error) {
+      const errorMessage = error.response?.data?.message || error.message || 'Failed to fetch statuses';
+      console.error('AuthContext: Error fetching statuses:', errorMessage);
+      setStatusesError(errorMessage);
+      setStatusesFetched(true); // Still mark as fetched to avoid rapid re-fetches on error
+    } finally {
+      setStatusesLoading(false);
+    }
+  }, [statusesLoading]);
 
   const checkAuthStatus = useCallback(async () => {
     setIsLoading(true);
@@ -21,13 +48,20 @@ export const AuthProvider = ({ children }) => {
         setUser(response.data.user);
         setIsAuthenticated(true);
         console.log('is authenticated');
+        if (!statusesFetched) {
+          fetchStatuses();
+        }
       } else {
         setUser(null);
         setIsAuthenticated(false);
+        setStatuses([]);
+        setStatusesFetched(false);
       }
     } catch (error) {
       setUser(null);
       setIsAuthenticated(false);
+      setStatuses([]);
+      setStatusesFetched(false);
       if (error.response && error.response.status !== 401) {
         console.error('AuthContext: Failed to check auth status:', error);
       }
@@ -43,6 +77,8 @@ export const AuthProvider = ({ children }) => {
       console.log('AuthContext: Received Error 401. Logging out.');
       setUser(null);
       setIsAuthenticated(false);
+      setStatuses([]);
+      setStatusesFetched(false);
     };
 
     window.addEventListener('auth-error-401', handleAuthError);
@@ -56,12 +92,8 @@ export const AuthProvider = ({ children }) => {
     let eventSource = null;
 
     const connectToSse = () => {
-      if (sseEventSource) {
-        sseEventSource.close();
-      }
-      if (eventSource) {
-        eventSource.close();
-      }
+      if (sseEventSource) sseEventSource.close();
+      if (eventSource) eventSource.close();
 
       console.log('AuthContext: Attempting to connect to SSE...');
       const sseUrl = import.meta.env.VITE_API_URL + '/api/session/events';
@@ -73,9 +105,24 @@ export const AuthProvider = ({ children }) => {
 
       eventSource.addEventListener('db_change', (event) => {
         console.log('AuthContext: Received db_change event:', event.data);
-        // You can parse event.data if it's JSON: const data = JSON.parse(event.data);
-        setShowReloadTimer(true);
-        setTimerSeconds(5);
+        try {
+          const eventData = JSON.parse(event.data);
+          // Check if the change is related to the 'statuses' table
+          if (eventData && eventData.table === 'statuses') {
+            console.log('AuthContext: Statuses table changed via SSE. Refreshing statuses cache.');
+            fetchStatuses(); // Refresh statuses from the store
+          } else if (eventData && eventData.table === 'system_parameters') {
+            // For other db changes, use the reload timer
+            console.log('AuthContext: A general DB change detected. Initiating reload timer.');
+            setShowReloadTimer(true);
+            setTimerSeconds(5); // Reset timer
+          }
+        } catch (e) {
+          console.error('AuthContext: Error parsing db_change event data or processing it:', e);
+          // Fallback to reload timer if parsing fails
+          setShowReloadTimer(true);
+          setTimerSeconds(5);
+        }
       });
 
       eventSource.onerror = (error) => {
@@ -101,6 +148,9 @@ export const AuthProvider = ({ children }) => {
     };
 
     if (isAuthenticated) {
+      if (!statusesFetched && !statusesLoading) {
+        fetchStatuses();
+      }
       connectToSse();
     } else {
       closeSseConnection();
@@ -140,6 +190,7 @@ export const AuthProvider = ({ children }) => {
       if (response.data && response.data.user) {
         setUser(response.data.user);
         setIsAuthenticated(true);
+        await fetchStatuses();
         setIsLoading(false);
         return true;
       }
@@ -147,6 +198,8 @@ export const AuthProvider = ({ children }) => {
       console.error('AuthContext: Login failed:', error.response?.data?.message || error.message);
       setUser(null);
       setIsAuthenticated(false);
+      setStatuses([]);
+      setStatusesFetched(false);
       setIsLoading(false);
       throw error;
     }
@@ -163,9 +216,19 @@ export const AuthProvider = ({ children }) => {
     } finally {
       setUser(null);
       setIsAuthenticated(false);
+      setStatuses([]);
+      setStatusesFetched(false);
       setIsLoading(false);
     }
   };
+
+  const getStatusNameById = useCallback(
+    (id) => {
+      const status = statuses.find((s) => String(s.id) === String(id));
+      return status ? status.status_name : 'Unknown';
+    },
+    [statuses]
+  );
 
   return (
     <AuthContext.Provider
@@ -180,6 +243,13 @@ export const AuthProvider = ({ children }) => {
         timerSeconds,
         setShowReloadTimer,
         setTimerSeconds,
+        // Statuses
+        statuses,
+        statusesLoading,
+        statusesError,
+        statusesFetched,
+        fetchStatuses,
+        getStatusNameById,
       }}
     >
       {children}
