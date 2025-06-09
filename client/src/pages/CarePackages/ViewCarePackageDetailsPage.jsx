@@ -10,7 +10,7 @@ import { ErrorState } from '@/components/ErrorState';
 import { LoadingState } from '@/components/LoadingState';
 import { NotFoundState } from '@/components/NotFoundState';
 import { useCpSpecificStore } from '@/stores/useCpSpecificStore';
-import { useAuth } from '@/context/AuthContext';
+import useAuth from '@/hooks/useAuth';
 
 const ViewCarePackageDetailsPage = () => {
   const { id } = useParams();
