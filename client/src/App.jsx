@@ -16,7 +16,7 @@ import ManageCarePackagesPage from './pages/CarePackages/ManageCarePackagesPage'
 import ManageMembersPage from './pages/member/ManageMembersPage';
 import CreateMemberPage from './pages/member/CreateMemberPage';
 import EditMemberPage from './pages/member/EditMemberPage';
-
+import MockSalesTransactionPage from './pages/sale-transaction/mockSaleTransactionPage';
 function App() {
   return (
     <AuthProvider>
@@ -31,6 +31,8 @@ function App() {
               <Route path='/member' element={<ManageMembersPage />} />
               <Route path='/member/create' element={<CreateMemberPage />} />
               <Route path='/member/edit/:id' element={<EditMemberPage />} />
+              <Route path='/cart-test' element={<MockSalesTransactionPage/>} />
+
             </Route>
             <Route path='/login' element={<LoginPage />} />
 

@@ -80,21 +80,21 @@ const getAllMembers = async (
     const lastVisitedMap = await getLastVisitedDatesForMembers();
 
     const enrichedMembers = result.rows.map((member: any) => ({
-  ...member,
-  total_amount_owed: outstandingMap[member.id] || 0,
-  last_visit_date: lastVisitedMap[member.id]
-    ? format(new Date(lastVisitedMap[member.id]), 'dd MMM yyyy, hh:mm a')
-    : null,
-  created_at: member.created_at
-    ? format(new Date(member.created_at), 'dd MMM yyyy, hh:mm a')
-    : null,
-  updated_at: member.updated_at
-    ? format(new Date(member.updated_at), 'dd MMM yyyy, hh:mm a')
-    : null,
-  dob: member.dob
-    ? format(new Date(member.dob), 'dd MMM yyyy')
-    : null,
-}));
+      ...member,
+      total_amount_owed: outstandingMap[member.id] || 0,
+      last_visit_date: lastVisitedMap[member.id]
+        ? format(new Date(lastVisitedMap[member.id]), 'dd MMM yyyy, hh:mm a')
+        : null,
+      created_at: member.created_at
+        ? format(new Date(member.created_at), 'dd MMM yyyy, hh:mm a')
+        : null,
+      updated_at: member.updated_at
+        ? format(new Date(member.updated_at), 'dd MMM yyyy, hh:mm a')
+        : null,
+      dob: member.dob
+        ? format(new Date(member.dob), 'dd MMM yyyy')
+        : null,
+    }));
 
     return {
       members: enrichedMembers,
@@ -348,10 +348,175 @@ const getMemberById = async (id: number) => {
   }
 };
 
+const searchMemberByNameOrPhone = async (searchTerm: string) => {
+  try {
+    const query = `
+      SELECT 
+        m.*,
+        mt.membership_type_name AS membership_type_name,
+        e.employee_name AS created_by_name,
+        (
+          SELECT COUNT(*) FROM member_vouchers mv
+          WHERE mv.member_id = m.id
+        ) AS voucher_count,
+        (
+          SELECT COUNT(*) FROM member_care_packages mcp
+          WHERE mcp.member_id = m.id
+        ) AS member_care_package_count
+      FROM members m
+      LEFT JOIN membership_types mt ON m.membership_type_id::bigint = mt.id
+      LEFT JOIN employees e ON m.created_by = e.id
+      WHERE m.name ILIKE $1 OR m.contact ILIKE $1;
+    `;
+
+    const result = await pool().query(query, [`%${searchTerm}%`]);
+
+    // Get enrichment maps
+    const outstandingMap = await getMemberOutstandingAmounts();
+    const lastVisitedMap = await getLastVisitedDatesForMembers();
+
+    // Format & enrich each member
+    const enrichedMembers = result.rows.map((member: any) => ({
+      ...member,
+      total_amount_owed: outstandingMap[member.id] || 0,
+      last_visit_date: lastVisitedMap[member.id]
+        ? format(new Date(lastVisitedMap[member.id]), 'dd MMM yyyy, hh:mm a')
+        : null,
+      created_at: member.created_at
+        ? format(new Date(member.created_at), 'dd MMM yyyy, hh:mm a')
+        : null,
+      updated_at: member.updated_at
+        ? format(new Date(member.updated_at), 'dd MMM yyyy, hh:mm a')
+        : null,
+      dob: member.dob
+        ? format(new Date(member.dob), 'dd MMM yyyy')
+        : null,
+    }));
+
+    return {
+      members: enrichedMembers,
+    };
+  } catch (error) {
+    console.error('Error searching member by name or phone:', error);
+    throw new Error('Error searching member by name or phone');
+  }
+};
+
+
+const getMemberVouchers = async (
+  memberId: number,
+  offset: number,
+  limit: number,
+  searchTerm?: string
+) => {
+  try {
+    const hasSearch = !!searchTerm;
+    
+    // Build SQL dynamically
+    const baseQuery = `
+      SELECT *
+      FROM member_vouchers
+      WHERE member_id = $1
+      ${hasSearch ? `AND member_voucher_name ILIKE $2` : ''}
+      ORDER BY created_at DESC
+      LIMIT ${hasSearch ? '$3' : '$2'} OFFSET ${hasSearch ? '$4' : '$3'};
+    `;
+
+    const baseValues = hasSearch
+      ? [memberId, `%${searchTerm}%`, limit, offset]
+      : [memberId, limit, offset];
+
+    const result = await pool().query(baseQuery, baseValues);
+
+    // Count query
+    const countQuery = `
+      SELECT COUNT(*)
+      FROM member_vouchers
+      WHERE member_id = $1
+      ${hasSearch ? `AND member_voucher_name ILIKE $2` : ''};
+    `;
+    const countValues = hasSearch
+      ? [memberId, `%${searchTerm}%`]
+      : [memberId];
+
+    const countResult = await pool().query(countQuery, countValues);
+    const totalPages = Math.ceil(Number(countResult.rows[0].count) / limit);
+
+    return {
+      vouchers: result.rows,
+      totalPages,
+    };
+  } catch (error) {
+    console.error('Error fetching member vouchers:', error);
+    throw new Error('Error fetching member vouchers');
+  }
+};
+
+
+const getMemberCarePackages = async (
+  memberId: number,
+  offset: number,
+  limit: number,
+  searchTerm?: string
+) => {
+  try {
+    const hasSearch = !!searchTerm;
+
+    const baseQuery = `
+      SELECT mcp.*
+      FROM member_care_packages mcp
+      WHERE mcp.member_id = $1
+      ${hasSearch ? `AND mcp.package_name ILIKE $2` : ''}
+      ORDER BY mcp.created_at DESC
+      LIMIT ${hasSearch ? '$3' : '$2'} OFFSET ${hasSearch ? '$4' : '$3'};
+    `;
+
+    const baseValues = hasSearch
+      ? [memberId, `%${searchTerm}%`, limit, offset]
+      : [memberId, limit, offset];
+
+    const result = await pool().query(baseQuery, baseValues);
+
+    // Count query
+    const countQuery = `
+      SELECT COUNT(*) FROM member_care_packages mcp
+      WHERE mcp.member_id = $1
+      ${hasSearch ? `AND mcp.package_name ILIKE $2` : ''};
+    `;
+
+    const countValues = hasSearch
+      ? [memberId, `%${searchTerm}%`]
+      : [memberId];
+
+    const countResult = await pool().query(countQuery, countValues);
+    const totalPages = Math.ceil(Number(countResult.rows[0].count) / limit);
+
+    const formatted = result.rows.map((row) => ({
+      ...row,
+      created_at: row.created_at
+        ? format(new Date(row.created_at), 'dd MMM yyyy, hh:mm a')
+        : null,
+    }));
+
+    return {
+      carePackages: formatted,
+      totalPages,
+    };
+  } catch (error) {
+    console.error('Error fetching member care packages:', error);
+    throw new Error('Error fetching member care packages');
+  }
+};
+
+
+
 export default {
   getAllMembers,
-  getMemberById, 
+  getMemberById,
   createMember,
   updateMember,
-  deleteMember
+  deleteMember,
+  searchMemberByNameOrPhone,
+  getMemberVouchers,
+  getMemberCarePackages,
 };

@@ -106,6 +106,67 @@ const getMemberById = async (req: Request, res: Response): Promise<void> => {
   }
 };
 
+const searchMemberByNameOrPhone = async (req: Request, res: Response): Promise<void> => {
+  try {
+    const searchTerm = req.query.q as string;
+
+    if (!searchTerm || searchTerm.trim() === '') {
+      res.status(400).json({ message: 'Search term is required' });
+      return;
+    }
+
+    const result = await model.searchMemberByNameOrPhone(searchTerm);
+
+    res.status(200).json(result);
+  } catch (error) {
+    console.error('Error in searchMemberByNameOrPhone:', error);
+    res.status(500).json({ message: 'Failed to search members' });
+  }
+};
+
+const getMemberVouchers = async (req: Request, res: Response): Promise<void> => {
+  try {
+    const memberId = parseInt(req.params.memberId, 10);
+    const offset = parseInt(req.query.offset as string, 10) || 0;
+    const limit = parseInt(req.query.limit as string, 10) || 10;
+    const searchTerm = (req.query.searchTerm as string)?.trim() || undefined;
+
+    if (isNaN(memberId)) {
+      res.status(400).json({ message: 'Invalid member ID' });
+      return;
+    }
+
+    const { vouchers, totalPages } = await model.getMemberVouchers(memberId, offset, limit, searchTerm);
+
+    res.status(200).json({ vouchers, totalPages });
+  } catch (error) {
+    console.error('Error in getMemberVouchers:', error);
+    res.status(500).json({ message: 'Failed to fetch member vouchers' });
+  }
+};
+
+
+const getMemberCarePackages = async (req: Request, res: Response): Promise<void> => {
+  try {
+    const memberId = parseInt(req.params.memberId, 10);
+    const offset = parseInt(req.query.offset as string, 10) || 0;
+    const limit = parseInt(req.query.limit as string, 10) || 10;
+    const searchTerm = (req.query.searchTerm as string)?.trim() || undefined;
+
+    if (isNaN(memberId)) {
+      res.status(400).json({ message: 'Invalid member ID' });
+      return;
+    }
+
+    const { carePackages, totalPages } = await model.getMemberCarePackages(memberId, offset, limit, searchTerm);
+
+    res.status(200).json({ carePackages, totalPages });
+  } catch (error) {
+    console.error('Error in getMemberCarePackages:', error);
+    res.status(500).json({ message: 'Failed to fetch member care packages' });
+  }
+};
+
 
 // Export all handlers in the same pattern
 export default {
@@ -114,4 +175,7 @@ export default {
   createMember,
   updateMember,
   deleteMember,
+  searchMemberByNameOrPhone,
+  getMemberVouchers,  
+  getMemberCarePackages
 };
