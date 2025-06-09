@@ -1,6 +1,6 @@
 import React, { useState, useEffect, useMemo } from 'react';
 import { useNavigate } from 'react-router-dom';
-import useAuth from '@/hooks/useAuth';
+import { useAuth } from '@/context/AuthContext';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow, TableCaption } from '@/components/ui/table';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -30,8 +30,9 @@ import { SiteHeader } from '@/components/site-header';
 import { SidebarInset, SidebarProvider } from '@/components/ui/sidebar';
 
 function ManageCarePackagesPage() {
-  const { user } = useAuth();
+  const { user, statuses } = useAuth();
   const navigate = useNavigate();
+
   const {
     carePackages,
     currentPage,
@@ -86,6 +87,12 @@ function ManageCarePackagesPage() {
   };
 
   const totalPages = totalCount ? Math.ceil(totalCount / currentLimit) : 0;
+
+  const getStatusNameById = (id) => {
+    if (!statuses || statuses.length === 0) return 'Unknown';
+    const status = statuses.find((s) => s.id == id);
+    return status ? status.status_name : 'Unknown';
+  };
 
   const pageNumbers = useMemo(() => {
     if (!totalPages) return [];
@@ -285,10 +292,20 @@ function ManageCarePackagesPage() {
                                   );
                                 }
                                 if (header.key === 'updated_at' || header.key === 'created_at') {
-                                  return <TableCell key={header.key}>{pkg[header.key].toUTCString()}</TableCell>;
+                                  return (
+                                    <TableCell key={header.key}>{new Date(pkg[header.key]).toLocaleString()}</TableCell>
+                                  );
                                 }
                                 if (header.key === 'care_package_price') {
-                                  return <TableCell key={header.key}>${pkg[header.key]}</TableCell>;
+                                  return (
+                                    <TableCell key={header.key}>
+                                      ${pkg[header.key] != null ? parseFloat(pkg[header.key]).toFixed(2) : '0.00'}
+                                    </TableCell>
+                                  );
+                                }
+                                if (header.key === 'care_package_status') {
+                                  // Matches the key in tableHeaders
+                                  return <TableCell key={header.key}>{getStatusNameById(pkg.status_id)}</TableCell>;
                                 }
                                 return <TableCell key={header.key}>{pkg[header.key] || 'N/A'}</TableCell>;
                               })}

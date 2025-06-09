@@ -247,7 +247,6 @@ const EditCarePackagePage = () => {
       // update original data to reflect the saved state
       setOriginalData(JSON.parse(JSON.stringify(updatedPackage)));
       setHasUnsavedChanges(false);
-
     } catch (error) {
       console.error('Error updating package:', error);
     }
@@ -276,22 +275,16 @@ const EditCarePackagePage = () => {
 
   // show error if no packageId is found
   if (!packageId) {
-    return (
-      <NotFoundState />
-    );
+    return <NotFoundState />;
   }
 
   const renderMainContent = () => {
     if (isLoading && !currentPackage) {
-      return (
-        <LoadingState />
-      );
+      return <LoadingState />;
     }
 
     if (error && !currentPackage) {
-      return (
-        <ErrorState />
-      );
+      return <ErrorState />;
     }
 
     return (
