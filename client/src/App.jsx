@@ -11,6 +11,7 @@ import HomePage from '@/pages/HomePage';
 import LoginPage from '@/pages/LoginPage';
 import ResetPasswordPage from '@/pages/ResetPasswordPage';
 import NotFoundPage from '@/pages/404Page';
+import RevenueReportPage from './pages/RevenueReportPage';
 
 function App() {
   return (
@@ -28,6 +29,10 @@ function App() {
             <Route path='/invites' element={<ResetPasswordPage />} />
             <Route path='/reset-password' element={<ResetPasswordPage />} />
 
+            {/* Revenue Report Page */}
+            <Route path='/rr' element={<ProtectedRoute />}>
+              <Route index element={<RevenueReportPage />} />
+            </Route>
             {/* 404 Page */}
             <Route path='*' element={<NotFoundPage />} />
           </Routes>

@@ -1,5 +1,5 @@
 import * as React from 'react';
-import { Command, Users, CalendarDays, ShieldUser, Box, Wand, LayoutDashboard } from 'lucide-react';
+import { Command, Users, CalendarDays, ShieldUser, Box, Wand, LayoutDashboard, DollarSign } from 'lucide-react';
 import { NavMain } from '@/components/nav-main';
 import { NavUser } from '@/components/nav-user';
 import {
@@ -40,6 +40,12 @@ const data = {
           url: '#',
         },
       ],
+    },
+    {
+      title: 'Revenue Report',
+      url: '/rr',
+      icon: DollarSign,
+      isActive: true,
     },
     {
       title: 'Services',
