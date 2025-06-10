@@ -109,7 +109,7 @@ const getTotalCount = async (search: string | null, category: number | null, sta
 const getAllServicesForDropdown = async () => {
   try {
     const query = `
-      SELECT id, service_name FROM services
+      SELECT id, service_name, service_price FROM services
       WHERE service_is_enabled = true
       ORDER BY service_name ASC
     `;
