@@ -4,7 +4,7 @@ import api from '@/services/api';
 import { Button } from '@/components/ui/button';
 import { ToggleSwitch } from '@/components/ui/switch';
 import { SearchForm } from '@/components/search-form';
-import { ChevronDownCircle, ChevronUpCircle, FilePenLine } from 'lucide-react';
+import { ChevronDownCircle, ChevronUpCircle, FilePenLine, ChevronLeft, ChevronsLeft, ChevronRight, ChevronsRight } from 'lucide-react';
 import { AppSidebar } from '@/components/app-sidebar';
 import {
   Select,
@@ -15,6 +15,7 @@ import {
 } from "@/components/ui/select";
 import { SiteHeader } from '@/components/site-header';
 import { SidebarInset, SidebarProvider } from '@/components/ui/sidebar';
+import { set } from "date-fns";
 
 export default function ManageService() {
   const [services, setServices] = useState([]);
@@ -106,9 +107,11 @@ export default function ManageService() {
     }
   }
 
-  const handleFilteredService = () => {
-    console.log("Search Query: ", searchQuery);
-    getServices();
+  const handleReset = () => {
+    setSearchQuery('');
+    setSelectedCategory('0');
+    setSelectedStatus('0');
+    setCurrentPage(1);
   }
 
   useEffect(() => {
@@ -120,6 +123,15 @@ export default function ManageService() {
       console.error('Error fetching services:' + err);
     }
   }, [])
+
+  useEffect(() => {
+    // Test data
+    try {
+      getServices();
+    } catch (err) {
+      console.error('Error fetching services:' + err);
+    }
+  }, [searchQuery, selectedCategory, selectedStatus, currentPage, itemsPerPage]);
 
   return (
     <div className='[--header-height:calc(theme(spacing.14))]'>
@@ -133,19 +145,22 @@ export default function ManageService() {
               <div class="flex space-x-4 p-4 bg-muted/50 rounded-lg">
                 <Button onClick={() => navigate("/create-service")} className="rounded-xl">Create Service</Button>
                 <Button onClick={() => navigate("/reorder-service")} className="rounded-xl">Reorder Service</Button>
-                <Button onClick={handleViewAllDetails} className="rounded-xl">View All Details</Button>
                 <Button className="rounded-xl">Manage Categories</Button>
               </div>
               {/* Filter */}
               <div class="flex space-x-4 p-4 bg-muted/50 rounded-lg">
                 {/* Search bar */}
-                <SearchForm
+                <input
                   type="text"
                   name="search"
                   placeholder="Search by name..."
+                  value={searchQuery}
                   onChange={(e) => setSearchQuery(e.target.value)}
-                  className="w-[300px]"
+                  className="w-[300px] p-2 border rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
                 />
+                {/* Search Button */}
+                {/* <Button onClick={() => getServices()} className="rounded-xl">Search</Button> */}
+
                 {/* Select Category */}
                 <Select value={selectedCategory} onValueChange={setSelectedCategory}>
                   <SelectTrigger className="w-[200px]">
@@ -171,11 +186,13 @@ export default function ManageService() {
                     <SelectItem value="false">Disabled</SelectItem>
                   </SelectContent>
                 </Select>
-                {/* Search Button */}
-                <Button type="submit" onClick={() => handleFilteredService()} className="rounded-xl">Search</Button>
+                {/* Reset Button */}
+                <Button onClick={() => handleReset()} className="rounded-xl">Clear</Button>
+                {/* View all details */}
+                <Button onClick={handleViewAllDetails} className="rounded-xl">View All Details</Button>
               </div>
-              <div className="p-4 flex-1 rounded-xl bg-muted/50">
-                <div className="overflow-y-auto max-h-[55vh]">
+              <div className="p-4 h-[60vh] flex flex-col rounded-xl bg-muted/50">
+                <div className="overflow-y-auto flex-1">
                   {/* Table */}
                   <table className="table-auto w-full text-black border-collapse border border-gray-200 border-rounded-lg">
                     {/* Table Header */}
@@ -275,6 +292,64 @@ export default function ManageService() {
                       )}
                     </tbody>
                   </table>
+                </div>
+                {/* Pagination */}
+                <div className="flex justify-between items-center mt-2 space-x-4 flex-shrink-0">
+                  <div className="flex items-center space-x-2">
+                    <label htmlFor="itemsPerPage" className="text-sm">Items per page:</label>
+                    <select
+                      id="itemsPerPage"
+                      value={itemsPerPage}
+                      onChange={(e) => {
+                        setItemsPerPage(Number(e.target.value));
+                      setCurrentPage(1);}
+                    }
+                      className="border rounded p-1"
+                    >
+                      {[5, 10, 20, 25, 50, 100].map((num) => (
+                        <option key={num} value={num}>{num}</option>
+                      ))}
+                    </select>
+                  </div>
+                  {totalPages > 1 && (
+
+                    <div className="flex items-center space-x-2">
+                      <Button
+                        variant="outline"
+                        size="icon"
+                        disabled={currentPage === 1}
+                        onClick={() => setCurrentPage(1)}
+                      >
+                        <ChevronsLeft />
+                      </Button>
+                      <Button
+                        variant="outline"
+                        size="icon"
+                        disabled={currentPage === 1}
+                        onClick={() => setCurrentPage(currentPage - 1)}
+                      >
+                        <ChevronLeft />
+                      </Button>
+                      <span>Page {currentPage} of {totalPages}</span>
+                      <Button
+                        variant="outline"
+                        size="icon"
+                        disabled={currentPage === totalPages}
+                        onClick={() => setCurrentPage(currentPage + 1)}
+                      >
+                        <ChevronRight />
+                      </Button>
+                      <Button
+                        variant="outline"
+                        size="icon"
+                        disabled={currentPage === totalPages}
+                        onClick={() => setCurrentPage(totalPages)}
+                      >
+                        <ChevronsRight />
+                      </Button>
+                    </div>
+
+                  )}
                 </div>
               </div>
             </div>
