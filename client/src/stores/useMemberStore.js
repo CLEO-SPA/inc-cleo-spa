@@ -1,4 +1,4 @@
-// src/stores/memberStore.ts
+// src/stores/useMemberStore.js
 import { create } from 'zustand';
 import api from '@/services/api';
 

@@ -41,8 +41,16 @@ export default function CreateAppointmentPage() {
   const [success, setSuccess] = useState(false);
   const [error, setError] = useState('');
 
-  // Get warning and reset function from store
-  const { warning, reset: resetStore } = useAppointmentDateTimeStore();
+  // Get store functions and data
+  const {
+    appointmentWarnings,
+    reset: resetStore,
+    clearWarningForAppointment,
+    shiftAppointmentWarnings,
+    clearTimeslots,
+    shouldBlockAppointmentCreation,
+    getRestDayConflictMessage,
+  } = useAppointmentDateTimeStore();
 
   const handleInputChange = (field, value) => {
     setValue(field, value);
@@ -54,11 +62,17 @@ export default function CreateAppointmentPage() {
     // set the changed field
     setValue(`appointments.${appointmentIndex}.${field}`, value)
 
+    // Clear warning for this specific appointment when date changes
+    if (field === 'appointment_date') {
+      clearWarningForAppointment(appointmentIndex);
+    }
+
+
     if (error) setError('')
     if (success) setSuccess(false)
   }
 
-  // New function to handle employee change with time reset
+  // Updated function
   const handleEmployeeChange = (appointmentIndex, field, value) => {
     // Get current appointment data
     const currentAppointment = formData.appointments[appointmentIndex];
@@ -71,8 +85,11 @@ export default function CreateAppointmentPage() {
       setValue(`appointments.${appointmentIndex}.start_time`, '');
       setValue(`appointments.${appointmentIndex}.end_time`, '');
 
-      // Reset the store to clear cached timeslots
-      resetStore();
+      // Clear warning for this specific appointment when employee changes
+      clearWarningForAppointment(appointmentIndex);
+
+      // Clear only timeslots, preserve warnings for other appointments
+      clearTimeslots(appointmentIndex);
     }
 
     if (error) setError('');
@@ -101,12 +118,23 @@ export default function CreateAppointmentPage() {
       const newAppointments = currentAppointments.filter((_, index) => index !== appointmentIndex);
       setValue('appointments', newAppointments);
     }
+
+    // Shift appointment warnings when an appointment is removed
+    shiftAppointmentWarnings(appointmentIndex);
   };
 
   const validateForm = (data) => {
     if (!data.member_id) return 'Please select a member';
     if (!data.created_at) return 'Please select creation date and time';
     if (!data.created_by) return 'Please select a creator';
+
+    // Check for rest day conflict - only block if single appointment
+    const appointmentCount = data.appointments.length;
+    const restDayConflictMessage = getRestDayConflictMessage(appointmentCount);
+    if (restDayConflictMessage) {
+      return restDayConflictMessage;
+    }
+    
     for (let i = 0; i < data.appointments.length; i++) {
       const apt = data.appointments[i];
       const aptNum = i + 1;
@@ -125,6 +153,7 @@ export default function CreateAppointmentPage() {
 
   const onSubmit = async (data) => {
     const validationError = validateForm(data);
+
     if (validationError) {
       setError(validationError);
       return;
@@ -168,6 +197,7 @@ export default function CreateAppointmentPage() {
           }]
         });
         setSuccess(false);
+        resetStore(); // This will clear all warnings
       }, 3000);
     } catch (err) {
       setError(err.message || 'An error occurred while creating appointments');
@@ -188,8 +218,14 @@ export default function CreateAppointmentPage() {
             <div className='flex flex-1 flex-col gap-4 p-4'>
               <h1 className='text-2xl font-bold'>Create an appointment</h1>
 
-              {error && <Alert className='border-red-200 bg-red-50'><AlertDescription className='text-red-800'>{error}</AlertDescription></Alert>}
-              {success && <Alert className='border-green-200 bg-green-50'><CheckCircle className='h-4 w-4 text-green-600' /><AlertDescription className='text-green-800'>Appointments created successfully!</AlertDescription></Alert>}
+              {success && (
+                <Alert className='border-green-200 bg-green-50'>
+                  <CheckCircle className='h-4 w-4 text-green-600' />
+                  <AlertDescription className='text-green-800'>
+                    Appointments created successfully!
+                  </AlertDescription>
+                </Alert>
+              )}
 
               <FormProvider {...methods}>
                 <form onSubmit={handleSubmit(onSubmit)}>
@@ -267,10 +303,10 @@ export default function CreateAppointmentPage() {
                               }
                               className="h-12"
                             />
-                            {/* Display warning message below date picker if warning exists */}
-                            {warning && (
+                            {/* Display warning message only for this specific appointment */}
+                            {appointmentWarnings[index] && (
                               <p className="text-red-500 text-xs mt-1">
-                                {warning}
+                                {appointmentWarnings[index]}
                               </p>
                             )}
                           </div>
@@ -324,6 +360,15 @@ export default function CreateAppointmentPage() {
                   >
                     <Plus className='mr-2 h-4 w-4' />Add more appointment
                   </Button>
+
+                  {/* Red bg error message - directly above Create button */}
+                  {error && (
+                    <Alert className='border-red-200 bg-red-50 mb-4'>
+                      <AlertDescription className='text-red-800'>
+                        {error}
+                      </AlertDescription>
+                    </Alert>
+                  )}
 
                   <Button
                     type="submit"

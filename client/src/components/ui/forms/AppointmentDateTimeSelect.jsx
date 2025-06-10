@@ -10,6 +10,8 @@ import {
 import { Label } from '@/components/ui/label';
 import useAppointmentDateTimeStore from '@/stores/useAppointmentDateTimeStore';
 
+// Updated AppointmentDateTimeSelect.jsx to use indexed timeslots
+
 export function AppointmentDateTimeSelect({
   label = 'Start Time *',
   employeeId,
@@ -17,14 +19,15 @@ export function AppointmentDateTimeSelect({
   value,
   onChange,
   placeholder = 'Select time',
-  // New props for cross-validation
-  isStartTime = true, // true for start time, false for end time
-  otherTimeValue = null, // the value of the other time field (end time if this is start, start time if this is end)
-  appointmentIndex = 0, // Add unique identifier for each appointment
+  isStartTime = true,
+  otherTimeValue = null,
+  appointmentIndex = 0,
 }) {
   const {
     timeslots,
     endTimeSlots,
+    timeslotsByAppointment, // Add indexed timeslots
+    endTimeSlotsByAppointment, // Add indexed end time slots
     isFetching,
     error,
     errorMessage,
@@ -34,12 +37,14 @@ export function AppointmentDateTimeSelect({
   } = useAppointmentDateTimeStore();
 
   // Local state to track the last fetched data for this specific appointment
-  const [localTimeslots, setLocalTimeslots] = useState([]);
-  const [localEndTimeSlots, setLocalEndTimeSlots] = useState([]);
   const [lastFetchKey, setLastFetchKey] = useState('');
 
+  // Use indexed timeslots for this specific appointment, fallback to global if not available
+  const appointmentTimeslots = timeslotsByAppointment[appointmentIndex] || timeslots || [];
+  const appointmentEndTimeSlots = endTimeSlotsByAppointment[appointmentIndex] || endTimeSlots || [];
+
   // Use appropriate timeslots based on whether this is start time or end time
-  const availableSlots = isStartTime ? localTimeslots : localEndTimeSlots;
+  const availableSlots = isStartTime ? appointmentTimeslots : appointmentEndTimeSlots;
 
   // Check if we have a valid appointment date and employee
   const hasValidDate = appointmentDate && appointmentDate.trim() !== '';
@@ -52,34 +57,13 @@ export function AppointmentDateTimeSelect({
   useEffect(() => {
     if (hasValidDate && hasValidEmployee && currentFetchKey !== lastFetchKey) {
       console.log('Fetching timeslots for appointment', appointmentIndex, ':', { employeeId, appointmentDate });
-      fetchTimeslots({ employeeId, appointmentDate });
+      fetchTimeslots({ employeeId, appointmentDate, appointmentIndex });
+      setLastFetchKey(currentFetchKey);
     } else if (!hasValidDate || !hasValidEmployee) {
       console.log('Resetting timeslots for appointment', appointmentIndex, '- invalid date or employee');
-      setLocalTimeslots([]);
-      setLocalEndTimeSlots([]);
       setLastFetchKey('');
     }
   }, [appointmentDate, employeeId, fetchTimeslots, hasValidDate, hasValidEmployee, currentFetchKey, lastFetchKey, appointmentIndex]);
-
-  // Update local timeslots when global store updates and it matches our fetch key
-  useEffect(() => {
-    if (hasValidDate && hasValidEmployee && currentFetchKey === `${employeeId}-${appointmentDate}` && !isFetching && !error) {
-      setLocalTimeslots(timeslots);
-      setLocalEndTimeSlots(endTimeSlots);
-      setLastFetchKey(currentFetchKey);
-    }
-  }, [timeslots, endTimeSlots, isFetching, error, employeeId, appointmentDate, hasValidDate, hasValidEmployee, currentFetchKey]);
-
-  // Clear local state when employee changes but store hasn't been reset yet
-  useEffect(() => {
-    // If we have a new employee but the timeslots are for a different employee/date combination
-    if (hasValidEmployee && hasValidDate && lastFetchKey && !lastFetchKey.startsWith(`${employeeId}-`)) {
-      console.log('Employee changed, clearing local timeslots for appointment', appointmentIndex);
-      setLocalTimeslots([]);
-      setLocalEndTimeSlots([]);
-      setLastFetchKey('');
-    }
-  }, [employeeId, appointmentDate, lastFetchKey, hasValidEmployee, hasValidDate, appointmentIndex]);
 
   // Helper function to convert time string to minutes for comparison
   const timeToMinutes = (timeString) => {
@@ -131,25 +115,7 @@ export function AppointmentDateTimeSelect({
   // Check if this appointment's data is currently being fetched
   const isCurrentlyFetching = isFetching && currentFetchKey === `${employeeId}-${appointmentDate}`;
 
-  console.log('Select state for appointment', appointmentIndex, ':', {
-    appointmentDate,
-    employeeId,
-    hasValidDate,
-    hasValidEmployee,
-    isDisabled,
-    isFetching: isCurrentlyFetching,
-    error,
-    warning,
-    availableSlotsCount: availableSlots.length,
-    filteredCount: filteredTimeslots.length,
-    isStartTime,
-    otherTimeValue,
-    currentValue: value,
-    isCurrentValueValid,
-    currentFetchKey,
-    lastFetchKey
-  });
-
+  // Rest of the component remains the same...
   return (
     <div className="space-y-2">
       <Label>{label}</Label>
@@ -192,12 +158,6 @@ export function AppointmentDateTimeSelect({
       {error && errorMessage && (
         <p className="text-red-500 text-xs mt-1">
           {errorMessage}
-        </p>
-      )}
-      {/* Only show warning for start time of the first appointment to avoid duplication */}
-      {warning && isStartTime && appointmentIndex === 0 && (
-        <p className="text-red-500 text-xs mt-1">
-          {warning}
         </p>
       )}
     </div>
