@@ -43,7 +43,7 @@ export const useCpSpecificStore = create((set, get) => ({
     set({ isLoading: true, error: null });
 
     try {
-      const response = await api.put(`/cp/pkg/u`, packageData);
+      const response = await api.put(`/cp/u`, packageData);
 
       // update current package with the response data
       set({
