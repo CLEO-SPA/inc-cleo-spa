@@ -136,24 +136,24 @@ const createEmployeeTimetable = async (input: CreateTimetableInput) => {
 
   const client = await pool().connect();
   try {
-    const query = `
-      CALL create_employee_timetable(
+    const result = await client.query(
+      `SELECT * FROM create_employee_timetable(
         $1::BIGINT, $2::TIMESTAMPTZ, $3::SMALLINT,
         $4::TIMESTAMPTZ, $5::TIMESTAMPTZ,
-        $6::BIGINT, $7::TIMESTAMPTZ, NULL::JSONB
-      );
-    `;
-    const values = [
-      employee_id,
-      current_date,
-      rest_day_number,
-      effective_start_date,
-      effective_end_date,
-      created_by,
-      created_at,
-    ];
+        $6::BIGINT, $7::TIMESTAMPTZ
+      );`,
+      [
+        employee_id,
+        current_date,
+        rest_day_number,
+        effective_start_date,
+        effective_end_date,
+        created_by,
+        created_at,
+      ]
+    );
 
-    await client.query(query, values);
+    return result.rows[0];
   } finally {
     client.release();
   }
