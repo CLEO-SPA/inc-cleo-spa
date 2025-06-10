@@ -20,6 +20,8 @@ export default function ManageService() {
   const [services, setServices] = useState([]);
   const [categories, setCategories] = useState([]);
 
+  // For search bar
+  const [searchQuery, setSearchQuery] = useState('');
   // For select categories
   const [selectedCategory, setSelectedCategory] = useState('0');
   // For select status
@@ -33,36 +35,46 @@ export default function ManageService() {
   const [itemsPerPage, setItemsPerPage] = useState(10); // Number of services per page
 
   const getServices = async () => {
-    try{
+    try {
       let queryParams = new URLSearchParams({
         page: currentPage,
         limit: itemsPerPage
       });
-      const response = await api.get(`/service/all-page-filter?${queryParams.toString()}`);
-      if (response.status === 200) {
-        setServices(response.data.services);
-        setTotalPages(response.data.totalPages);
-      } else {
-        console.error('Failed to fetch services:', response.statusText);
+
+      if (searchQuery != '') {
+        queryParams.append('search', searchQuery);
       }
+
+      if (selectedCategory != '0') {
+        queryParams.append('category', selectedCategory);
+      }
+
+      if (selectedStatus != '0') {
+        queryParams.append('status', selectedStatus);
+      }
+
+      const response = await api.get(`/service/all-page-filter?${queryParams.toString()}`);
+      setServices(response.data.services);
+      setTotalPages(response.data.totalPages);
     } catch (err) {
       console.error('Error fetching services:', err);
     }
   }
 
   const getCategories = async () => {
-    try{
+    try {
       const response = await api.get('/service/service-cat');
       if (response.status === 200) {
         setCategories(response.data);
       } else {
         console.error('Failed to fetch service categories:', response.statusText);
       }
-    }catch (err) {
+    } catch (err) {
       console.error('Error fetching service categories:', err);
     }
   }
 
+  //for enabled and disabled service
   const handleSwitchChange = (serviceId, service_is_enabled) => {
     // Update the service's enabled status
     console.log(`Change Status for ${serviceId}`);
@@ -85,13 +97,18 @@ export default function ManageService() {
   };
 
   const handleViewAllDetails = () => {
-    if(expandedRows.length === services.length){
+    if (expandedRows.length === services.length) {
       // Collapse all rows if all are expanded
       setExpandedRows([]);
       return;
     } else {
-    setExpandedRows(services.map((_, index) => index));
+      setExpandedRows(services.map((_, index) => index));
     }
+  }
+
+  const handleFilteredService = () => {
+    console.log("Search Query: ", searchQuery);
+    getServices();
   }
 
   useEffect(() => {
@@ -103,6 +120,7 @@ export default function ManageService() {
       console.error('Error fetching services:' + err);
     }
   }, [])
+
   return (
     <div className='[--header-height:calc(theme(spacing.14))]'>
       <SidebarProvider className='flex flex-col'>
@@ -121,14 +139,20 @@ export default function ManageService() {
               {/* Filter */}
               <div class="flex space-x-4 p-4 bg-muted/50 rounded-lg">
                 {/* Search bar */}
-                <SearchForm className="w-[300px]" placeholder="Search By Name" />
+                <SearchForm
+                  type="text"
+                  name="search"
+                  placeholder="Search by name..."
+                  onChange={(e) => setSearchQuery(e.target.value)}
+                  className="w-[300px]"
+                />
                 {/* Select Category */}
                 <Select value={selectedCategory} onValueChange={setSelectedCategory}>
                   <SelectTrigger className="w-[200px]">
                     <SelectValue placeholder="Select Category" />
                   </SelectTrigger>
                   <SelectContent>
-                    <SelectItem value="0" selected>All Categories</SelectItem>
+                    <SelectItem value="0">All Categories</SelectItem>
                     {categories.map((category) => (
                       <SelectItem key={category.id} value={category.id}>
                         {category.service_category_name}
@@ -142,13 +166,13 @@ export default function ManageService() {
                     <SelectValue placeholder="Select Status" />
                   </SelectTrigger>
                   <SelectContent>
-                    <SelectItem value="0" selected>All</SelectItem>
+                    <SelectItem value="0">All</SelectItem>
                     <SelectItem value="true">Enabled</SelectItem>
                     <SelectItem value="false">Disabled</SelectItem>
                   </SelectContent>
                 </Select>
                 {/* Search Button */}
-                <Button className="rounded-xl">Search</Button>
+                <Button type="submit" onClick={() => handleFilteredService()} className="rounded-xl">Search</Button>
               </div>
               <div className="p-4 flex-1 rounded-xl bg-muted/50">
                 <div className="overflow-y-auto max-h-[55vh]">

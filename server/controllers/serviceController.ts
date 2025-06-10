@@ -70,17 +70,8 @@ console.log('status:', status, typeof status);
 
     console.log(data);
     const totalCount = await serviceModel.getTotalCount(data.search, data.category, data.status);
-    console.log('Total Count:', totalCount);
     const totalPages = Math.ceil(totalCount / data.limit);
-    if (data.page < 1 || data.page > totalPages) {
-      res.status(400).json({ message: 'Invalid page number' });
-      return;
-    }
     const services = await serviceModel.getServicesPaginationFilter(data.page, data.limit, data.search, data.category, data.status);
-    if (!services || services.length === 0) {
-      res.status(404).json({ message: 'Services not found' });
-      return;
-    }
     res.status(200).json({totalPages, services});
   }catch(error){
     console.error('Error in getAllServices:', error);
