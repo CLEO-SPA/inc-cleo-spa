@@ -1,15 +1,86 @@
 import { Request, Response, NextFunction } from 'express';
+import validator from "validator";
 import serviceModel from '../models/serviceModel.js';
 
 // Get all services
 const getAllServices = async (req: Request, res: Response, next: NextFunction) => {
   try{
     const services = await serviceModel.getAllServices();
-    res.status(200).json(services);
+    
     if (!services || services.length === 0) {
       res.status(404).json({ message: 'Services not found' });
       return;
     }
+    res.status(200).json(services);
+  }catch(error){
+    console.error('Error in getAllServices:', error);
+    res.status(500).json({ message: 'Failed to fetch services' });
+  }
+}
+
+function isSafeInput(input: string) {
+  // Allow only letters, numbers, spaces, and a few symbols
+  return /^[\w\s\-.&+_()]+$/.test(input);
+}
+
+// Get services with pagination and filter
+const getServicesPaginationFilter = async (req: Request, res: Response, next: NextFunction) => {
+  console.log("query:");
+  console.log(req.query);
+  const {page, limit, search, category, status} = req.query;
+  try{
+    console.log('page:', page, typeof page);
+console.log('limit:', limit, typeof limit);
+console.log('search:', search, typeof search);
+console.log('category:', category, typeof category);
+console.log('status:', status, typeof status);
+
+    const data: { [key: string]: any } = {}
+
+    if (typeof page === 'string' && validator.isInt(page)) {
+      data.page = parseInt(page, 10);
+    } else {
+      data.page = 1;
+    }
+
+    if (typeof limit === 'string' && validator.isInt(limit)) {
+      data.limit = parseInt(limit, 10);
+    } else {
+      data.limit = 10;
+    }
+
+    if (typeof search === 'string') {
+      data.search = search;
+    } else {
+      data.search = null;
+    }
+
+    if (typeof category === 'string' && validator.isInt(category) && parseInt(category, 10) != 0) {
+      data.category = parseInt(category, 10);
+    } else {
+      data.category = null;
+    }
+
+    if (typeof status === 'string' && validator.isBoolean(status)) {
+      data.status = status.toLowerCase() === 'true'; // convert to boolean
+    } else {
+      data.status = null;
+    }    
+
+    console.log(data);
+    const totalCount = await serviceModel.getTotalCount(data.search, data.category, data.status);
+    console.log('Total Count:', totalCount);
+    const totalPages = Math.ceil(totalCount / data.limit);
+    if (data.page < 1 || data.page > totalPages) {
+      res.status(400).json({ message: 'Invalid page number' });
+      return;
+    }
+    const services = await serviceModel.getServicesPaginationFilter(data.page, data.limit, data.search, data.category, data.status);
+    if (!services || services.length === 0) {
+      res.status(404).json({ message: 'Services not found' });
+      return;
+    }
+    res.status(200).json({totalPages, services});
   }catch(error){
     console.error('Error in getAllServices:', error);
     res.status(500).json({ message: 'Failed to fetch services' });
@@ -77,6 +148,7 @@ const getEnabledServiceById = async (req: Request, res: Response, next: NextFunc
 
 export default {
   getAllServices,
+  getServicesPaginationFilter,
   getAllServicesForDropdown,
   getServiceById,
   getEnabledServiceById,
