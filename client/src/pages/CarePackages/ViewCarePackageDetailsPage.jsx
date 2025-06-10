@@ -1,5 +1,5 @@
 import React, { useEffect } from 'react';
-import { useParams } from 'react-router-dom';
+import { useParams, useNavigate } from 'react-router-dom';
 import { ArrowLeft, Edit, Trash2, Package } from 'lucide-react';
 import { AppSidebar } from '@/components/app-sidebar';
 import { SiteHeader } from '@/components/site-header';
@@ -16,9 +16,11 @@ const ViewCarePackageDetailsPage = () => {
   const { id } = useParams();
   const { currentPackage, isLoading, error, fetchPackageById, clearCurrentPackage, clearError } = useCpSpecificStore();
   const { statuses } = useAuth();
+  const navigate = useNavigate();
 
   useEffect(() => {
     if (id) {
+      console.log(`Fetching care package with ID: ${id}`);
       fetchPackageById(id);
     }
 
@@ -28,8 +30,8 @@ const ViewCarePackageDetailsPage = () => {
     };
   }, [id, fetchPackageById, clearCurrentPackage, clearError]);
 
-  const handleEdit = () => {
-    console.log('Edit functionality to be implemented');
+  const handleEdit = (id) => {
+    navigate(`/cp/${id}/edit`);
   };
 
   const handleDelete = () => {
@@ -93,7 +95,7 @@ const ViewCarePackageDetailsPage = () => {
             </div>
             <div className='flex space-x-2'>
               <Button
-                onClick={handleEdit}
+                onClick={() => handleEdit(packageData.id)} // ← Pass the actual ID
                 className='flex items-center bg-gray-900 hover:bg-black text-white text-sm px-3 py-2'
               >
                 <Edit className='w-4 h-4 mr-1' />
