@@ -152,6 +152,7 @@ const createEmployeeTimetable = async (input: CreateTimetableInput) => {
         created_at,
       ]
     );
+    console.log(result.rows[0])
 
     return result.rows[0];
   } finally {

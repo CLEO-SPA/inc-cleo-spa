@@ -354,6 +354,7 @@ const employeeExists = async (employeeId: number): Promise<boolean> => {
     throw new Error('Failed to check employee existence in database');
   }
 }
+
 const getAllEmployeesForDropdown = async () => {
   try {
     const query = `
@@ -365,6 +366,23 @@ const getAllEmployeesForDropdown = async () => {
   } catch (error) {
     console.error('Error fetching employee list:', error);
     throw new Error('Error fetching employee list');
+  }
+};
+
+const getEmployeeNameByEmployeeById = async (employeeId: number): Promise<DetailedEmployee | null> => {
+  const query = `
+    SELECT
+      id,
+      employee_name
+    FROM employees
+    WHERE id = $1
+  `;
+  try {
+    const result = await pool().query(query, [employeeId]);
+    return result.rows.length > 0 ? result.rows[0] : null;
+  } catch (error) {
+    console.error('Database error in getEmployeeById: ', error);
+    throw new Error('Failed to fetch employee details from database');
   }
 };
 
@@ -381,5 +399,6 @@ export default {
   getBasicEmployeeDetails,
   getAllActivePositions,
   getEmployeeById,
-  employeeExists
+  employeeExists,
+  getEmployeeNameByEmployeeById
 };
