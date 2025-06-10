@@ -1,4 +1,4 @@
-DROP FUNCTION get_services_with_pagination(integer,integer,text,bigint,boolean);
+DROP FUNCTION get_services_with_pagination(integer,integer,text,bigint,boolean) IF EXISTS;
 
 CREATE OR REPLACE FUNCTION get_services_with_pagination(
     p_page INT DEFAULT 1,
@@ -31,7 +31,7 @@ BEGIN
     SELECT 
         s.id, s.service_name, s.service_description, s.service_remarks,
         s.service_duration, s.service_price, s.service_is_enabled,
-        s.service_created_at, s.service_updated_at,
+        s.created_at, s.updated_at,
 		em_c.employee_name AS created_by, em_u.employee_name AS updated_by,
 		s.service_category_id, s.service_sequence_no, sc.service_category_name,
 		get_total_sale_transactions(s.service_name) AS total_sale_transactions,
@@ -52,5 +52,4 @@ BEGIN
 	s.service_sequence_no
     LIMIT p_page_size
     OFFSET (p_page - 1) * p_page_size;
-END;
-$$ LANGUAGE plpgsql;
+END;$$ LANGUAGE plpgsql;

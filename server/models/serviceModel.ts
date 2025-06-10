@@ -12,8 +12,8 @@ const getAllServices = async () => {
           s.service_duration,
           s.service_price,
           s.service_is_enabled,
-          s.service_created_at,
-          s.service_updated_at,
+          s.created_at,
+          s.updated_at,
           em_c.employee_name AS created_by,
           em_u.employee_name AS updated_by,
           s.service_category_id,
@@ -40,6 +40,71 @@ const getAllServices = async () => {
   }
 };
 
+const getServicesPaginationFilter = async (
+  page: number,
+  limit: number,
+  search: string | null,
+  category: number | null,
+  status: boolean | null
+) => {
+  try {
+    const query = `
+      SELECT * FROM get_services_with_pagination(
+      $1::INT, 
+      $2::INT,
+      $3::TEXT,
+      $4::BIGINT,
+      $5::BOOLEAN
+      );`;
+    const params = [page, limit, search, category, status];
+    // console.log(query, params);
+    const result = await prodPool().query(query, params);
+    return result.rows;
+  } catch (error) {
+    console.error('Error in getServicesPaginationFilter:', error);
+    throw new Error('Error fetching services with pagination and filter');
+  }
+};
+
+// get total pages for pagination
+const getTotalCount = async (search: string | null, category: number | null, status: boolean | null) => {
+  try {
+    let query = `SELECT COUNT(*) AS total_count FROM services`;
+    const conditions: string[] = [];
+    const params: any[] = [];
+
+    if (search != null) {
+      params.push(search);
+      conditions.push(`service_name ILIKE '%' || $${params.length}::TEXT || '%'`);
+    }
+
+    if (category != null) {
+      params.push(category);
+      conditions.push(`service_category_id = $${params.length}::BIGINT`);
+    }
+
+    if (status != null) {
+      params.push(status);
+      conditions.push(`service_is_enabled = $${params.length}::BOOLEAN`);
+    }
+
+    if (conditions.length > 0) {
+      query += ` WHERE ` + conditions.join(' AND ');
+    }
+
+    const result =
+      search || category || status !== null ? await prodPool().query(query, params) : await prodPool().query(query);
+    if (result.rows.length === 0) {
+      return 0; // No services found
+    }
+
+    return result.rows[0].total_count;
+  } catch (error) {
+    console.error('Error in getTotalPages:', error);
+    throw new Error('Error fetching total number of pages');
+  }
+};
+
 // get id, service_name for dropdown, sorted by service_name
 const getAllServicesForDropdown = async () => {
   try {
@@ -58,7 +123,6 @@ const getAllServicesForDropdown = async () => {
 
 // get service by id, include both enabled and disabled services
 const getServiceById = async (id: number) => {
-
   try {
     const query = `
         SELECT 
@@ -69,8 +133,8 @@ const getServiceById = async (id: number) => {
             s.service_duration,
             s.service_price,
             s.service_is_enabled,
-            s.service_created_at,
-            s.service_updated_at,
+            s.created_at,
+            s.updated_at,
             s.service_category_id,
             s.service_sequence_no,
             s.created_by,
@@ -111,8 +175,8 @@ const getEnabledServiceById = async (id: number) => {
             s.service_duration,
             s.service_price,
             s.service_is_enabled,
-            s.service_created_at,
-            s.service_updated_at,
+            s.created_at,
+            s.updated_at,
             s.service_category_id,
             s.service_sequence_no,
             s.created_by,
@@ -144,6 +208,8 @@ const getEnabledServiceById = async (id: number) => {
 
 export default {
   getAllServices,
+  getServicesPaginationFilter,
+  getTotalCount,
   getAllServicesForDropdown,
   getServiceById,
   getEnabledServiceById,
