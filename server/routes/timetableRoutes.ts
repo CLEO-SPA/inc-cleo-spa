@@ -13,7 +13,7 @@ router.get('/current-and-upcoming/:employeeId', timetableController.getCurrentAn
 router.post('/create-employee-timetable', timetableController.createTimetable);
 
 // GET /api/et/timetables?month=2025-02&page=1&limit=20
-router.get('/', timetableController.getActiveRestDays);
+router.get('/timetables', timetableController.getActiveRestDays);
 
 // GET /api/et/employee/:employeeId?month=2025-02  
 router.get('/employee/:employeeId', timetableController.getActiveRestDaysByEmployee);
