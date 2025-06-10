@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { Plus, Trash2, Edit3, Save, X, Package, DollarSign, Search, ChevronDown, ArrowLeft } from 'lucide-react';
+import { Plus, Save, X, Package, DollarSign, Search, ChevronDown, ArrowLeft } from 'lucide-react';
 import { AppSidebar } from '@/components/app-sidebar';
 import { SiteHeader } from '@/components/site-header';
 import { SidebarInset, SidebarProvider } from '@/components/ui/sidebar';
@@ -8,6 +8,7 @@ import { Input } from '@/components/ui/input';
 import { Button } from '@/components/ui/button';
 import { useCpFormStore } from '@/stores/useCpFormStore';
 import { Textarea } from '@/components/ui/textarea';
+import ServiceItem from '@/pages/CarePackages/ServiceItem';
 
 const CarePackageCreateForm = () => {
   const {
@@ -25,11 +26,13 @@ const CarePackageCreateForm = () => {
     removeServiceFromPackage,
     updateServiceInPackage,
     fetchServiceOptions,
+    submitPackage, 
   } = useCpFormStore();
 
   const [editingService, setEditingService] = useState(null);
   const [showServiceDropdown, setShowServiceDropdown] = useState(false);
   const [serviceSearch, setServiceSearch] = useState('');
+  const [isSubmitting, setIsSubmitting] = useState(false);
 
   // fetch services
   useEffect(() => {
@@ -41,14 +44,33 @@ const CarePackageCreateForm = () => {
     option.label.toLowerCase().includes(serviceSearch.toLowerCase())
   );
 
-  // calculate total package price
+  // calculate total package price using decimal discount
   const calculateTotalPrice = () => {
     return mainFormData.services.reduce((total, service) => {
-      const finalPrice = parseFloat(service.finalPrice) || 0;
+      const price = parseFloat(service.price) || 0;
+      const discountDecimal = parseFloat(service.discount) || 0; // Already a decimal (0.153 for 15.3%)
       const quantity = parseInt(service.quantity, 10) || 0;
-      const serviceTotal = finalPrice * quantity;
+      
+      // apply discount formula: Final Price = Quantity × (1 - Discount) × Service Price
+      // where discount is already in decimal form
+      const discountedUnitPrice = price * (1 - discountDecimal);
+      const serviceTotal = quantity * discountedUnitPrice;
+      
       return total + serviceTotal;
     }, 0);
+  };
+
+  // calculate the current service total in the form
+  const calculateCurrentServiceTotal = () => {
+    const price = parseFloat(serviceForm.price) || 0;
+    const discountDecimal = parseFloat(serviceForm.discount) || 0; // Already a decimal
+    const quantity = parseInt(serviceForm.quantity, 10) || 0;
+    
+    // apply discount formula with decimal discount
+    const discountedUnitPrice = price * (1 - discountDecimal);
+    const serviceTotal = quantity * discountedUnitPrice;
+    
+    return serviceTotal;
   };
 
   // handle service selection from dropdown
@@ -76,13 +98,39 @@ const CarePackageCreateForm = () => {
     setEditingService(null);
   };
 
-  // handle form submission
-  const handleSubmit = (e) => {
+  // handle form submission 
+  const handleSubmit = async (e) => {
     e.preventDefault();
-    console.log('Submitting package:', {
-      ...mainFormData,
-      total_price: calculateTotalPrice(),
-    });
+    setIsSubmitting(true);
+
+    try {
+      const payload = {
+        package_name: mainFormData.package_name,
+        package_remarks: mainFormData.package_remarks || '',
+        package_price: mainFormData.package_price > 0 ? mainFormData.package_price : calculateTotalPrice(),
+        customizable: mainFormData.customizable,
+        employee_id: mainFormData.employee_id || null,
+        services: mainFormData.services.map(service => ({
+          service_id: service.id,
+          quantity: parseInt(service.quantity, 10),
+          price: parseFloat(service.price),
+          discount_percentage: parseFloat(service.discount), // Store as decimal
+          final_price: parseFloat(service.price) * (1 - parseFloat(service.discount))
+        })),
+        total_price: mainFormData.package_price > 0 ? mainFormData.package_price : calculateTotalPrice(),
+      };
+      console.log('Submitting package payload:', payload);
+
+      if (submitPackage) {
+        await submitPackage(payload);
+      } 
+      handleReset();
+      
+    } catch (error) {
+      console.error('Error submitting package:', error);
+    } finally {
+      setIsSubmitting(false);
+    }
   };
 
   // handle form reset
@@ -116,17 +164,17 @@ const CarePackageCreateForm = () => {
               </Button>
               <Button
                 onClick={handleSubmit}
-                disabled={!mainFormData.package_name || mainFormData.services.length === 0}
-                className='flex items-center bg-gray-900 hover:bg-black text-white text-sm px-3 py-2'
+                disabled={!mainFormData.package_name || mainFormData.services.length === 0 || isSubmitting}
+                className='flex items-center bg-gray-900 hover:bg-black text-white text-sm px-3 py-2 disabled:bg-gray-300 disabled:cursor-not-allowed'
               >
                 <Save className='w-4 h-4 mr-1' />
-                Create Package
+                {isSubmitting ? 'Creating...' : 'Create Package'}
               </Button>
             </div>
           </div>
         </div>
 
-        {/* error display still loading the form */}
+        {/* error display */}
         {error && (
           <div className='max-w-7xl mx-auto px-4 py-2'>
             <div className='bg-red-50 border border-red-200 rounded-lg p-4'>
@@ -169,6 +217,7 @@ const CarePackageCreateForm = () => {
                         onChange={(e) => updateMainField('package_price', parseFloat(e.target.value) || 0)}
                         className='w-full pl-7 pr-2 py-1 border border-gray-200 rounded text-sm focus:outline-none focus:ring-2 focus:ring-gray-500 focus:border-transparent'
                         placeholder='0.00'
+                        step='0.01'
                       />
                     </div>
                   </div>
@@ -207,18 +256,16 @@ const CarePackageCreateForm = () => {
                   </div>
                 )}
 
-                {mainFormData.package_remarks && (
-                  <div className='mt-4'>
-                    <label className='block text-xs font-medium text-gray-600 mb-1'>PACKAGE REMARKS</label>
-                    <Textarea
-                      value={mainFormData.package_remarks}
-                      onChange={(e) => updateMainField('package_remarks', e.target.value)}
-                      rows={3}
-                      className='w-full px-2 py-2 border border-gray-200 rounded text-sm focus:outline-none focus:ring-2 focus:ring-gray-500 focus:border-transparent'
-                      placeholder='Add any additional notes or remarks about this package...'
-                    />
-                  </div>
-                )}
+                <div className='mt-4'>
+                  <label className='block text-xs font-medium text-gray-600 mb-1'>PACKAGE REMARKS</label>
+                  <Textarea
+                    value={mainFormData.package_remarks || ''}
+                    onChange={(e) => updateMainField('package_remarks', e.target.value)}
+                    rows={3}
+                    className='w-full px-2 py-2 border border-gray-200 rounded text-sm focus:outline-none focus:ring-2 focus:ring-gray-500 focus:border-transparent'
+                    placeholder='Add any additional notes or remarks about this package...'
+                  />
+                </div>
               </CardContent>
             </Card>
 
@@ -228,7 +275,7 @@ const CarePackageCreateForm = () => {
                 <CardTitle className='text-gray-900 text-base font-semibold'>Add Services</CardTitle>
               </CardHeader>
               <CardContent className='p-3'>
-                <div className='grid grid-cols-1 md:grid-cols-4 gap-4 mb-4'>
+                <div className='grid grid-cols-1 md:grid-cols-5 gap-4 mb-4'>
                   {/* dropdown */}
                   <div className='relative'>
                     <label className='block text-xs font-medium text-gray-600 mb-1'>SELECT SERVICE *</label>
@@ -262,7 +309,7 @@ const CarePackageCreateForm = () => {
                           <div className='max-h-40 overflow-y-auto'>
                             {filteredServiceOptions.map((option) => (
                               <button
-                                key={option.value}
+                                key={option.id}
                                 type='button'
                                 onClick={() => handleServiceSelect(option)}
                                 className='w-full px-3 py-2 text-left hover:bg-gray-50 focus:bg-gray-50 focus:outline-none text-xs'
@@ -309,17 +356,29 @@ const CarePackageCreateForm = () => {
 
                   {/* discount */}
                   <div>
-                    <label className='block text-xs font-medium text-gray-600 mb-1'>DISCOUNT</label>
+                    <label className='block text-xs font-medium text-gray-600 mb-1'>DISCOUNT (DECIMAL)</label>
                     <div className='relative'>
-                      <DollarSign className='h-4 w-4 text-gray-400 absolute left-2 top-1/2 transform -translate-y-1/2' />
                       <Input
                         type='number'
                         value={serviceForm.discount}
                         onChange={(e) => updateServiceFormField('discount', parseFloat(e.target.value) || 0)}
-                        className='w-full pl-7 pr-2 py-1 border border-gray-200 rounded text-sm focus:outline-none focus:ring-2 focus:ring-gray-500 focus:border-transparent'
+                        className='w-full px-2 py-1 border border-gray-200 rounded text-sm focus:outline-none focus:ring-2 focus:ring-gray-500 focus:border-transparent'
                         min='0'
-                        step='0.01'
+                        max='1'
+                        step='0.001'
+                        placeholder='0.153'
                       />
+                    </div>
+                    <div className='text-xs text-gray-500 mt-1'>
+                      Enter as decimal (e.g., 0.50 for 50% discount)
+                    </div>
+                  </div>
+
+                  {/* service total preview */}
+                  <div>
+                    <label className='block text-xs font-medium text-gray-600 mb-1'>SERVICE TOTAL</label>
+                    <div className='text-gray-900 font-semibold px-2 py-1 bg-blue-50 border border-blue-200 rounded text-sm'>
+                      ${calculateCurrentServiceTotal().toFixed(2)}
                     </div>
                   </div>
                 </div>
@@ -382,143 +441,6 @@ const CarePackageCreateForm = () => {
           <SidebarInset>{renderMainContent()}</SidebarInset>
         </div>
       </SidebarProvider>
-    </div>
-  );
-};
-
-const ServiceItem = ({ service, index, isEditing, onEdit, onSave, onCancel, onRemove }) => {
-  const [editData, setEditData] = useState({
-    quantity: service.quantity,
-    price: service.price, // User can customize this
-    discount: service.discount, // User can customize this (it's the factor)
-  });
-
-  const handleSave = () => {
-    onSave(editData);
-  };
-
-  const handleCancel = () => {
-    setEditData({
-      quantity: service.quantity,
-      price: service.price,
-      discount: service.discount,
-    });
-    onCancel();
-  };
-
-  // Calculate subtotal for edit mode based on current editData
-  const priceInEdit = parseFloat(editData.price) || 0;
-  const discountFactorInEdit = parseFloat(editData.discount) || 0; // This is the factor
-  const quantityInEdit = parseInt(editData.quantity, 10) || 0;
-  const finalUnitPriceInEdit = priceInEdit * discountFactorInEdit;
-  const subtotalInEditMode = finalUnitPriceInEdit * quantityInEdit;
-
-  // Calculate subtotal for display mode (using service data from props, which has pre-calculated finalPrice from store)
-  const finalPriceInDisplay = parseFloat(service.finalPrice) || 0;
-  const quantityInDisplay = parseInt(service.quantity, 10) || 0;
-  const subtotalInDisplayMode = finalPriceInDisplay * quantityInDisplay;
-
-  return (
-    <div className='border border-gray-200 rounded p-3 bg-gray-50/30'>
-      <div className='flex items-center justify-between mb-3'>
-        <h4 className='text-sm font-semibold text-gray-900'>
-          Service {index + 1}: {service.name}
-        </h4>
-        <span className='text-xs text-gray-500 bg-white px-2 py-1 rounded border'>ID: {service.id}</span>
-      </div>
-
-      {isEditing ? (
-        <div className='grid grid-cols-2 md:grid-cols-4 gap-3'>
-          <div>
-            <label className='block text-xs font-medium text-gray-600 mb-1'>QUANTITY</label>
-            <input
-              type='number'
-              value={editData.quantity}
-              onChange={(e) => setEditData({ ...editData, quantity: parseInt(e.target.value) || 1 })}
-              className='w-full px-2 py-1 border border-gray-200 rounded text-sm focus:outline-none focus:ring-2 focus:ring-gray-500 focus:border-transparent'
-              min='1'
-            />
-          </div>
-          <div>
-            <label className='block text-xs font-medium text-gray-600 mb-1'>PRICE (PER UNIT)</label>
-            <input
-              type='number'
-              value={editData.price}
-              onChange={(e) => setEditData({ ...editData, price: parseFloat(e.target.value) || 0 })}
-              className='w-full px-2 py-1 border border-gray-200 rounded text-sm focus:outline-none focus:ring-2 focus:ring-gray-500 focus:border-transparent'
-              min='0'
-              step='0.01'
-            />
-          </div>
-          <div>
-            {/* Ensure this label and input reflect that 'discount' is a factor */}
-            <label className='block text-xs font-medium text-gray-600 mb-1'>DISCOUNT FACTOR</label>
-            <input
-              type='number'
-              value={editData.discount}
-              onChange={(e) => setEditData({ ...editData, discount: parseFloat(e.target.value) || 1 })}
-              className='w-full px-2 py-1 border border-gray-200 rounded text-sm focus:outline-none focus:ring-2 focus:ring-gray-500 focus:border-transparent'
-              min='0' // e.g., 0 for 100% discount
-              max='1' // e.g., 1 for 0% discount (pays 100%)
-              step='0.01'
-              placeholder='e.g., 0.9 (pays 90%)'
-            />
-          </div>
-          <div>
-            <label className='block text-xs font-medium text-gray-600 mb-1'>SUBTOTAL</label>
-            <div className='text-gray-900 font-semibold px-2 py-1 bg-white rounded border text-sm'>
-              ${subtotalInEditMode.toFixed(2)}
-            </div>
-          </div>
-        </div>
-      ) : (
-        <div className='grid grid-cols-2 md:grid-cols-4 gap-3'>
-          <div>
-            <label className='block text-xs font-medium text-gray-600 mb-1'>QUANTITY</label>
-            <div className='text-gray-900 px-2 py-1 bg-white rounded border text-sm'>{service.quantity}</div>
-          </div>
-          <div>
-            <label className='block text-xs font-medium text-gray-600 mb-1'>ORIGINAL PRICE</label>
-            <div className='text-gray-900 px-2 py-1 bg-white rounded border text-sm'>
-              ${(parseFloat(service.price) || 0).toFixed(2)}
-            </div>
-          </div>
-          <div>
-            <label className='block text-xs font-medium text-gray-600 mb-1'>DISCOUNT FACTOR</label>
-            <div className='text-gray-900 px-2 py-1 bg-white rounded border text-sm'>
-              {(parseFloat(service.discount) || 0).toFixed(2)}
-            </div>
-          </div>
-          <div>
-            <label className='block text-xs font-medium text-gray-600 mb-1'>SUBTOTAL</label>
-            <div className='text-gray-900 font-semibold px-2 py-1 bg-white rounded border text-sm'>
-              ${subtotalInDisplayMode.toFixed(2)}
-            </div>
-          </div>
-        </div>
-      )}
-
-      <div className='flex justify-end space-x-1 mt-3'>
-        {isEditing ? (
-          <>
-            <button onClick={handleSave} className='p-1 text-green-600 hover:text-green-800 focus:outline-none'>
-              <Save className='h-4 w-4' />
-            </button>
-            <button onClick={handleCancel} className='p-1 text-gray-600 hover:text-gray-800 focus:outline-none'>
-              <X className='h-4 w-4' />
-            </button>
-          </>
-        ) : (
-          <>
-            <button onClick={onEdit} className='p-1 text-gray-600 hover:text-gray-800 focus:outline-none'>
-              <Edit3 className='h-4 w-4' />
-            </button>
-            <button onClick={onRemove} className='p-1 text-red-600 hover:text-red-800 focus:outline-none'>
-              <Trash2 className='h-4 w-4' />
-            </button>
-          </>
-        )}
-      </div>
     </div>
   );
 };

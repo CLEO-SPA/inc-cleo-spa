@@ -8,6 +8,8 @@ export const useCpFormStore = create(
       package_name: '',
       package_remarks: '',
       package_price: 0, // SUM(service.finalPrice * service.quantity)
+      is_customizable: true, 
+      employee_id: '', 
       services: [],
     },
     serviceForm: {
@@ -16,7 +18,7 @@ export const useCpFormStore = create(
       quantity: 1,
       price: 0,
       finalPrice: 0, // price * discount
-      discount: 1,
+      discount: 0,
     },
     serviceOptions: [],
     isLoading: false,
@@ -41,6 +43,8 @@ export const useCpFormStore = create(
             package_name: '',
             package_remarks: '',
             package_price: 0,
+            is_customizable: true,
+            employee_id: '',
             services: [],
           },
         },
@@ -109,7 +113,7 @@ export const useCpFormStore = create(
             name: '',
             quantity: 1,
             price: 0,
-            discount: 1, // Factor
+            discount: 0, // Factor
             finalPrice: 0, // 0 * 0 = 0
           },
         },
@@ -140,7 +144,7 @@ export const useCpFormStore = create(
             name: '',
             quantity: 1,
             price: 0,
-            discount: 1,
+            discount: 0,
             finalPrice: 0,
           },
         }),

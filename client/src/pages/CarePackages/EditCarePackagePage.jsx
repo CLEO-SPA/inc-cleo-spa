@@ -23,6 +23,7 @@ import { useCpSpecificStore } from '@/stores/useCpSpecificStore';
 import { NotFoundState } from '@/components/NotFoundState';
 import { ErrorState } from '@/components/ErrorState';
 import { LoadingState } from '@/components/LoadingState';
+import ServiceItem from '@/pages/CarePackages/ServiceItem';
 
 const EditCarePackagePage = () => {
   const { id: packageId } = useParams();
@@ -84,10 +85,10 @@ const EditCarePackagePage = () => {
           name: `Service ${detail.service_id}`,
           quantity: parseInt(detail.care_package_item_details_quantity) || 1,
           price: parseFloat(detail.care_package_item_details_price) || 0,
-          discount: parseFloat(detail.care_package_item_details_discount) || 0,
+          discount: parseFloat(detail.care_package_item_details_discount) || 0, // Keep as decimal
           finalPrice:
-            (parseFloat(detail.care_package_item_details_price) || 0) -
-            (parseFloat(detail.care_package_item_details_discount) || 0),
+            (parseFloat(detail.care_package_item_details_price) || 0) *
+            (1 - (parseFloat(detail.care_package_item_details_discount) || 0)), // Calculate using decimal discount
           remarks: detail.care_package_item_details_remarks || '',
         };
       });
@@ -174,8 +175,8 @@ const EditCarePackagePage = () => {
           price: parseFloat(detail.care_package_item_details_price) || 0,
           discount: parseFloat(detail.care_package_item_details_discount) || 0,
           finalPrice:
-            (parseFloat(detail.care_package_item_details_price) || 0) -
-            (parseFloat(detail.care_package_item_details_discount) || 0),
+            (parseFloat(detail.care_package_item_details_price) || 0) *
+            (1 - (parseFloat(detail.care_package_item_details_discount) || 0)),
         })),
       };
 
@@ -189,12 +190,33 @@ const EditCarePackagePage = () => {
     option.label.toLowerCase().includes(serviceSearch.toLowerCase())
   );
 
-  // calculate total package price
+  // calculate total package price using decimal discount
   const calculateTotalPrice = () => {
     return mainFormData.services.reduce((total, service) => {
-      const serviceTotal = service.price * service.quantity - service.discount;
+      const price = parseFloat(service.price) || 0;
+      const discountDecimal = parseFloat(service.discount) || 0; // Already a decimal (0.153 for 15.3%)
+      const quantity = parseInt(service.quantity, 10) || 0;
+      
+      // apply discount formula: Final Price = Quantity × (1 - Discount) × Service Price
+      // where discount is already in decimal form
+      const discountedUnitPrice = price * (1 - discountDecimal);
+      const serviceTotal = quantity * discountedUnitPrice;
+      
       return total + serviceTotal;
     }, 0);
+  };
+
+  // calculate the current service total in the form
+  const calculateCurrentServiceTotal = () => {
+    const price = parseFloat(serviceForm.price) || 0;
+    const discountDecimal = parseFloat(serviceForm.discount) || 0; // Already a decimal
+    const quantity = parseInt(serviceForm.quantity, 10) || 0;
+    
+    // apply discount formula with decimal discount
+    const discountedUnitPrice = price * (1 - discountDecimal);
+    const serviceTotal = quantity * discountedUnitPrice;
+    
+    return serviceTotal;
   };
 
   // handle service selection from dropdown
@@ -236,7 +258,7 @@ const EditCarePackagePage = () => {
         services: mainFormData.services.map((service) => ({
           service_id: service.id,
           care_package_item_details_price: service.price,
-          care_package_item_details_discount: service.discount,
+          care_package_item_details_discount: service.discount, // Store as decimal
           care_package_item_details_quantity: service.quantity,
           care_package_item_details_remarks: service.remarks || '',
         })),
@@ -435,7 +457,7 @@ const EditCarePackagePage = () => {
                 <CardTitle className='text-gray-900 text-base font-semibold'>Add Services</CardTitle>
               </CardHeader>
               <CardContent className='p-3'>
-                <div className='grid grid-cols-1 md:grid-cols-4 gap-4 mb-4'>
+                <div className='grid grid-cols-1 md:grid-cols-5 gap-4 mb-4'>
                   <div className='relative'>
                     <label className='block text-xs font-medium text-gray-600 mb-1'>SELECT SERVICE *</label>
                     <div className='relative'>
@@ -513,17 +535,28 @@ const EditCarePackagePage = () => {
                   </div>
 
                   <div>
-                    <label className='block text-xs font-medium text-gray-600 mb-1'>DISCOUNT</label>
+                    <label className='block text-xs font-medium text-gray-600 mb-1'>DISCOUNT (DECIMAL)</label>
                     <div className='relative'>
-                      <DollarSign className='h-4 w-4 text-gray-400 absolute left-2 top-1/2 transform -translate-y-1/2' />
                       <input
                         type='number'
                         value={serviceForm.discount}
                         onChange={(e) => updateServiceFormField('discount', parseFloat(e.target.value) || 0)}
-                        className='w-full pl-7 pr-2 py-1 border border-gray-200 rounded text-sm focus:outline-none focus:ring-2 focus:ring-gray-500 focus:border-transparent'
+                        className='w-full px-2 py-1 border border-gray-200 rounded text-sm focus:outline-none focus:ring-2 focus:ring-gray-500 focus:border-transparent'
                         min='0'
-                        step='0.01'
+                        max='1'
+                        step='0.001'
+                        placeholder='0.153'
                       />
+                    </div>
+                    <div className='text-xs text-gray-500 mt-1'>
+                      Enter as decimal (e.g., 0.50 for 50% discount)
+                    </div>
+                  </div>
+
+                  <div>
+                    <label className='block text-xs font-medium text-gray-600 mb-1'>SERVICE TOTAL</label>
+                    <div className='text-gray-900 font-semibold px-2 py-1 bg-blue-50 border border-blue-200 rounded text-sm'>
+                      ${calculateCurrentServiceTotal().toFixed(2)}
                     </div>
                   </div>
                 </div>
@@ -589,151 +622,6 @@ const EditCarePackagePage = () => {
           <SidebarInset>{renderMainContent()}</SidebarInset>
         </div>
       </SidebarProvider>
-    </div>
-  );
-};
-
-// service item component for displaying and editing services in the package
-const ServiceItem = ({ service, index, isEditing, onEdit, onSave, onCancel, onRemove }) => {
-  const [editData, setEditData] = useState({
-    quantity: service.quantity,
-    price: service.price,
-    discount: service.discount,
-  });
-
-  useEffect(() => {
-    // reset edit data when service changes or editing starts
-    setEditData({
-      quantity: service.quantity,
-      price: service.price,
-      discount: service.discount,
-    });
-  }, [service, isEditing]);
-
-  const handleSave = () => {
-    onSave(editData);
-  };
-
-  const handleCancel = () => {
-    setEditData({
-      quantity: service.quantity,
-      price: service.price,
-      discount: service.discount,
-    });
-    onCancel();
-  };
-
-  const subtotal =
-    (isEditing ? editData : service).price * (isEditing ? editData : service).quantity -
-    (isEditing ? editData : service).discount;
-
-  return (
-    <div className='border border-gray-200 rounded p-3 bg-gray-50/30'>
-      <div className='flex items-center justify-between mb-3'>
-        <h4 className='text-sm font-semibold text-gray-900'>
-          Service {index + 1}: {service.name}
-        </h4>
-        <span className='text-xs text-gray-500 bg-white px-2 py-1 rounded border'>ID: {service.id}</span>
-      </div>
-
-      {isEditing ? (
-        <div className='grid grid-cols-2 md:grid-cols-4 gap-3'>
-          <div>
-            <label className='block text-xs font-medium text-gray-600 mb-1'>QUANTITY</label>
-            <input
-              type='number'
-              value={editData.quantity}
-              onChange={(e) => setEditData({ ...editData, quantity: parseInt(e.target.value) || 1 })}
-              className='w-full px-2 py-1 text-sm border border-gray-200 rounded bg-white focus:outline-none focus:ring-1 focus:ring-gray-500'
-              min='1'
-            />
-          </div>
-          <div>
-            <label className='block text-xs font-medium text-gray-600 mb-1'>PRICE</label>
-            <input
-              type='number'
-              value={editData.price}
-              onChange={(e) => setEditData({ ...editData, price: parseFloat(e.target.value) || 0 })}
-              className='w-full px-2 py-1 text-sm border border-gray-200 rounded bg-white focus:outline-none focus:ring-1 focus:ring-gray-500'
-              min='0'
-              step='0.01'
-            />
-          </div>
-          <div>
-            <label className='block text-xs font-medium text-gray-600 mb-1'>DISCOUNT</label>
-            <input
-              type='number'
-              value={editData.discount}
-              onChange={(e) => setEditData({ ...editData, discount: parseFloat(e.target.value) || 0 })}
-              className='w-full px-2 py-1 text-sm border border-gray-200 rounded bg-white focus:outline-none focus:ring-1 focus:ring-gray-500'
-              min='0'
-              step='0.01'
-            />
-          </div>
-          <div>
-            <label className='block text-xs font-medium text-gray-600 mb-1'>SUBTOTAL</label>
-            <div className='text-gray-900 font-semibold px-2 py-1 bg-white rounded border text-sm'>
-              ${subtotal.toFixed(2)}
-            </div>
-          </div>
-        </div>
-      ) : (
-        <div className='grid grid-cols-2 md:grid-cols-4 gap-3 text-sm'>
-          <div>
-            <span className='text-xs text-gray-500'>Quantity:</span>
-            <div className='font-medium text-gray-900'>{service.quantity}</div>
-          </div>
-          <div>
-            <span className='text-xs text-gray-500'>Price:</span>
-            <div className='font-medium text-gray-900'>${service.price.toFixed(2)}</div>
-          </div>
-          <div>
-            <span className='text-xs text-gray-500'>Discount:</span>
-            <div className='font-medium text-gray-900'>${service.discount.toFixed(2)}</div>
-          </div>
-          <div>
-            <span className='text-xs text-gray-500'>Subtotal:</span>
-            <div className='font-semibold text-gray-900'>${subtotal.toFixed(2)}</div>
-          </div>
-        </div>
-      )}
-
-      {service.remarks && (
-        <div className='mt-3 pt-3 border-t border-gray-200'>
-          <span className='text-xs text-gray-500'>Remarks:</span>
-          <p className='text-sm text-gray-700 mt-1'>{service.remarks}</p>
-        </div>
-      )}
-
-      <div className='flex justify-end space-x-2 mt-3'>
-        {isEditing ? (
-          <>
-            <Button onClick={handleSave} className='bg-green-600 hover:bg-green-700 text-white text-xs px-2 py-1'>
-              <Save className='h-3 w-3 mr-1' />
-              Save
-            </Button>
-            <Button onClick={handleCancel} variant='outline' className='text-xs px-2 py-1'>
-              <X className='h-3 w-3 mr-1' />
-              Cancel
-            </Button>
-          </>
-        ) : (
-          <>
-            <Button onClick={onEdit} variant='outline' className='text-xs px-2 py-1'>
-              <Edit3 className='h-3 w-3 mr-1' />
-              Edit
-            </Button>
-            <Button
-              onClick={onRemove}
-              variant='outline'
-              className='text-red-600 hover:bg-red-50 border-red-200 text-xs px-2 py-1'
-            >
-              <Trash2 className='h-3 w-3 mr-1' />
-              Remove
-            </Button>
-          </>
-        )}
-      </div>
     </div>
   );
 };
