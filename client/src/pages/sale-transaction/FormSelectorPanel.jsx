@@ -1,5 +1,6 @@
 import { useState } from 'react';
 import useSalesTransactionStore from '@/stores/useSelectedMemberStore';
+import { Button } from '@/components/ui/button';
 
 export default function FormSelectorPanel() {
   const [selectedTab, setSelectedTab] = useState('services');
@@ -52,15 +53,15 @@ export default function FormSelectorPanel() {
       {/* Tabs */}
       <div className="flex flex-wrap gap-2 pt-2 shrink-0">
         {tabs.map((tab) => (
-          <button
+          <Button
             key={tab.key}
             onClick={() => setSelectedTab(tab.key)}
             className={`px-4 py-2 rounded text-sm text-center ${
-              selectedTab === tab.key ? 'bg-blue-600 text-white' : 'bg-gray-200 text-gray-800'
+              selectedTab === tab.key ? '' : 'bg-gray-300 text-gray-800 hover:bg-gray-400'
             }`}
           >
             {tab.label}
-          </button>
+          </Button>
         ))}
       </div>
 
