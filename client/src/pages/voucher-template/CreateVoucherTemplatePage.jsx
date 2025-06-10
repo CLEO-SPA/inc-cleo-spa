@@ -235,6 +235,30 @@ const CreateVoucherTemplatePage = () => {
                         </div>
 
                         <div className="space-y-1">
+                          <Label className="text-sm font-medium text-gray-700">
+                            Status
+                          </Label>
+                          <Select
+                            onValueChange={(val) => handleFieldChange('status', val)}
+                            defaultValue="is_enabled"
+                          >
+                            <SelectTrigger className="w-full h-9">
+                              <SelectValue placeholder="Select status" />
+                            </SelectTrigger>
+                            <SelectContent>
+                              <SelectItem value="is_enabled">Enabled</SelectItem>
+                              <SelectItem value="disabled">Disabled</SelectItem>
+                            </SelectContent>
+                          </Select>
+                        </div>
+                        <div className="space-y-1">
+                          <EmployeeSelect name="created_by" label="Created By *" />
+                        </div>
+                      </div>
+
+                      {/* Second row with remaining fields */}
+                      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
+                        <div className="space-y-1">
                           <Label htmlFor="default_starting_balance" className="text-sm font-medium text-gray-700">
                             Starting Balance
                           </Label>
@@ -265,10 +289,7 @@ const CreateVoucherTemplatePage = () => {
                             className="h-9"
                           />
                         </div>
-                      </div>
 
-                      {/* Second row with remaining fields */}
-                      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
                         <div className="space-y-1">
                           <Label htmlFor="default_total_price" className="text-sm font-medium text-gray-700">
                             Total Price
@@ -285,28 +306,6 @@ const CreateVoucherTemplatePage = () => {
                           <p className="text-xs text-gray-500">
                             Auto-calculated: Starting Balance - Free Charge
                           </p>
-                        </div>
-
-                        <div className="space-y-1">
-                          <Label className="text-sm font-medium text-gray-700">
-                            Status
-                          </Label>
-                          <Select
-                            onValueChange={(val) => handleFieldChange('status', val)}
-                            defaultValue="is_enabled"
-                          >
-                            <SelectTrigger className="w-full h-9">
-                              <SelectValue placeholder="Select status" />
-                            </SelectTrigger>
-                            <SelectContent>
-                              <SelectItem value="is_enabled">Enabled</SelectItem>
-                              <SelectItem value="disabled">Disabled</SelectItem>
-                            </SelectContent>
-                          </Select>
-                        </div>
-
-                        <div className="space-y-1">
-                          <EmployeeSelect name="created_by" label="Created By *" />
                         </div>
                       </div>
                       <div className="space-y-2 col-span-2">
