@@ -268,7 +268,6 @@ function ManageVouchersPage() {
                                         <DropdownMenuContent align='end'>
                                           <DropdownMenuItem onClick={() => {
                                             const id = voucher.id;
-                                            setSelectedMemberVoucherTypeId(id);
                                             handleView(id);
                                             }}>
                                             <Eye className='mr-2 h-4 w-4' />
@@ -300,8 +299,8 @@ function ManageVouchersPage() {
                                 if (header.key === 'updated_at' || header.key === 'created_at') {
                                   return <TableCell key={header.key}>{voucher[header.key].toUTCString()}</TableCell>;
                                 }
-                                if (header.key === 'care_package_price') {
-                                  return <TableCell key={header.key}>${voucher[header.key]}</TableCell>;
+                                if (header.key === 'current_balance') {
+                                  return <TableCell key={header.key}>{voucher[header.key] || '0'}</TableCell>;
                                 }
                                 return <TableCell key={header.key}>{voucher[header.key] || 'N/A'}</TableCell>;
                               })}

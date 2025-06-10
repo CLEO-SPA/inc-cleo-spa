@@ -1,7 +1,4 @@
-import * as React from 'react';
-import { ConfirmationPopUpProps } from '../types/membershipType';
-
-const ConfirmationPopUp: React.FC<ConfirmationPopUpProps> = ({ 
+const ConfirmationPopUp = ({ 
     open, 
     title, 
     body, 

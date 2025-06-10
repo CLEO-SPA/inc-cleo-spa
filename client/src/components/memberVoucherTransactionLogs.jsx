@@ -43,33 +43,6 @@ const MemberVoucherTransactionLogs = () => {
     } = useMemberVoucherTransactionStore();
 
     const [targetPageInput, setTargetPageInput] = useState('');
-    // const [showConfirm, setShowConfirm] = useState(false);
-    // const [formValues, setFormValues] = useState({});
-
-    // const handleDelete = async (data) => {
-    //     console.log("Delete Data: " + data);
-
-    //     if (!data) {
-    //         throw new Error("The membership type has no id");
-    //     }
-
-    //     setFormValues(data);
-    //     setShowConfirm(true);
-    // };
-
-    // const confirmBody = (
-    //     <div>
-    //         {Object.entries(formValues).map(([key, value]) => (
-    //             <div key={key} className="flex justify-between border-b py-1">
-    //                 <span className="font-medium">{key}</span>
-    //                 <span>
-    //                     {value instanceof Date
-    //                         ? value.toLocaleString()
-    //                         : value?.toString() ?? ''}</span>
-    //             </div>
-    //         ))}
-    //     </div>
-    // );
 
     const canEdit = user?.role === 'super_admin' || user?.role === 'data_admin';
     const canDelete = user?.role === 'super_admin';

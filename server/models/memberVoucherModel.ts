@@ -1,6 +1,6 @@
 import { pool } from '../config/database.js';
 import { PaginatedOptions, PaginatedReturn } from '../types/common.types.js';
-import { MemberVouchers, MemberVoucherServices, MemberVoucherTransactionLogs } from '../types/model.types.js';
+import { MemberVouchers, MemberVoucherServices, MemberVoucherTransactionLogs, MemberVoucherTransactionLogCreateData, MemberName } from '../types/model.types.js';
 import { encodeCursor } from '../utils/cursorUtils.js';
 
 
@@ -110,7 +110,7 @@ const getPaginatedVouchers = async (
         totalCount,
       },
     };
-  } catch (error: unknown) {
+  } catch (error) {
     console.error('Error in memberVoucherModel.getPaginatedVouchers (with PG function):', error);
     throw new Error('Could not retrieve paginated vouchers.');
   }
@@ -130,14 +130,14 @@ const getServicesOfMemberVoucherById = async (id: number): Promise<{ success: bo
     ORDER BY id ASC;
     `;
 
-    const response = await client.query(query, [id]);
+    const results = await client.query(query, [id]);
 
-    if (response.rows.length > 0) {
-      return { success: true, data: response.rows, message: "Get Services of Member Voucher By Id was successful" };
+    if (results.rows.length > 0) {
+      return { success: true, data: results.rows, message: "Get Services of Member Voucher By Id was successful" };
     } else {
-      return { success: false, data: [], message: "The input Id of Member Voucher does not exist" };
+      return { success: false, data: [], message: "Error 400: The input Id of Member Voucher does not exist" };
     }
-  } catch (error: unknown) {
+  } catch (error) {
     console.error('Error retrieving paginated services of member voucher:', error);
 
     console.error('Full error details:', {
@@ -194,14 +194,14 @@ const getPaginatedMemberVoucherTransactionLogs = async (
     const { rows: resultRows } = await pool().query(sqlFunctionQuery, params);
 
     if (!resultRows[0] || !resultRows[0].result) {
-      const errorMessage = 'Invalid response from SQL function get_member_voucher_transaction_logs_paginated_json';
+      const errorMessage = 'Error 400: Invalid response from SQL function get_member_voucher_transaction_logs_paginated_json';
       return { success: false, data: [], message: errorMessage };
     }
 
     const result = resultRows[0].result;
 
     if (result.error) {
-      const errorMessage = 'Error reported by SQL function get_member_voucher_transaction_logs_paginated_json:' + result.error;
+      const errorMessage = 'Error 400: Error reported by SQL function get_member_voucher_transaction_logs_paginated_json:' + result.error;
       return { success: false, data: [], message: errorMessage };
     }
 
@@ -264,7 +264,7 @@ const getPaginatedMemberVoucherTransactionLogs = async (
     };
 
     return { success: true, data: data, message: "Successfully retrieved paginated transaction logs." }
-  } catch (error: unknown) {
+  } catch (error) {
     console.error('Error retrieving paginated transaction logs:', error);
 
     console.error('Full error details:', {
@@ -282,64 +282,268 @@ const getPaginatedMemberVoucherTransactionLogs = async (
   }
 };
 
-// const addMembershipType = async (data: NewMembershipType): Promise<{ success: boolean, message: string }> => {
-//   const {
-//     membership_type_name,
-//     default_percentage_discount_for_products,
-//     default_percentage_discount_for_services,
-//     created_by
-//   } = data;
+const addTransactionLogsByMemberVoucherId = async (data: MemberVoucherTransactionLogCreateData): Promise<{ success: boolean, message: string }> => {
+  const {
+    id,
+    consumptionValue,
+    remarks,
+    date,
+    time,
+    type,
+    createdBy,
+    handledBy,
+    current_balance
+  } = data;
 
-//   const last_updated_by = created_by;
+  const currentBalanceAfterDeduction = current_balance + consumptionValue;
 
-//   const created_at = new Date();
+  const service_date = new Date(`${date}T${time}`);
 
-//   const updated_at = created_at;
+  const last_updated_by = createdBy;
 
-//   try {
-//     const result = await withTransaction(async (client) => { // create the callback for the transaction
-//       const query = `
-//         INSERT INTO membership_types (
-//         membership_type_name,
-//         default_percentage_discount_for_products,
-//         default_percentage_discount_for_services,
-//         created_at,
-//         updated_at,
-//         created_by,
-//         last_updated_by,
-//         status
-//         )
-//         VALUES (
-//         $1, $2, $3, $4, $5, $6, $7, 'is_enabled'
-//         )
-//         `;
-//       const values = [
-//         membership_type_name,
-//         default_percentage_discount_for_products,
-//         default_percentage_discount_for_services,
-//         created_at,
-//         updated_at,
-//         created_by,
-//         last_updated_by
-//       ];
+  const created_at = new Date();
 
-//       return await client.query(query, values);
-//     });
+  const updated_at = created_at;
 
-//     if (Number(result.rowCount) > 0) {
-//       return { success: true, message: "The new Membership Type has been created." };
-//     } else {
-//       return { success: false, message: "Failed to create membership type - no rows affected." };
-//     }
+  const client = await pool().connect();
 
-//   } catch (error) {
-//     console.error('Error creating membership types:', error);
-//     return { success: false, message: "Failed to create membership type due to database error." };
-//   }
-// };
+  try {
+
+    const insertQuery = `
+        INSERT INTO member_voucher_transaction_logs (
+          member_voucher_id, service_description, service_date, current_balance, amount_change, serviced_by, type, created_by, last_updated_by, created_at, updated_at)
+          VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11);
+        `;
+
+    const insertValues = [
+      id,
+      remarks,
+      service_date,
+      currentBalanceAfterDeduction,
+      consumptionValue,
+      handledBy,
+      type,
+      createdBy,
+      last_updated_by,
+      created_at,
+      updated_at
+    ];
+    await client.query('BEGIN');
+
+    const insertResult = await client.query(insertQuery, insertValues);
+
+    const updateQuery = `
+    UPDATE member_vouchers 
+    SET current_balance = $1 
+    WHERE id = $2
+  `;
+
+    const updateValues = [
+      currentBalanceAfterDeduction,
+      id
+    ];
+
+    const updateResult = await client.query(updateQuery, updateValues);
+
+    if ((insertResult.rowCount ?? 0) > 0 && (updateResult.rowCount ?? 0) > 0) {
+      await client.query('COMMIT');
+
+      return {
+        success: true,
+        message: "Member Voucher transaction log created and balance updated successfully.",
+      };
+    } else {
+      // Rollback if any operation failed
+      await client.query('ROLLBACK');
+
+      return {
+        success: false,
+        message: "Transaction failed - no rows affected in one or more operations."
+      };
+    }
+
+  } catch (error) {
+    // Rollback on any error
+    try {
+      await client.query('ROLLBACK');
+    } catch (rollbackError) {
+      console.error('Error during rollback:', rollbackError);
+    }
+
+    console.error('Error creating Transaction Log by Member Voucher Id:', error);
+
+    console.error('Full error details:', {
+      error: error instanceof Error ? error.message : 'Unknown error',
+      stack: error instanceof Error ? error.stack : undefined
+    });
+
+    // Return user-friendly message but also throw for critical errors
+    if (error instanceof Error && error.message.includes('connection')) {
+      throw new Error('Database connection failed. Please try again later.');
+    };
+
+    return { success: false, message: "Failed to create Transaction Log by Member Voucher Id due to database error." };
+
+  } finally {
+    client.release();
+  }
+};
+
+const getMemberVoucherCurrentBalance = async (id: number, consumptionValue: number): Promise<{ success: boolean, message?: string }> => {
+  if (!Number(id)) {
+    return { success: false, message: "Error 400: id must be an integer" };
+  };
+
+  if (isNaN(Number(consumptionValue))) {
+    return { success: false, message: "Error 400: consumption value must be an integer" };
+  };
+
+  const client = await pool().connect();
+  try {
+    const query = `
+    SELECT current_balance
+    FROM member_vouchers
+    WHERE id = $1;
+    `;
+
+    const results = await client.query(query, [id]);
+
+    if (Number.isNaN(Number(results.rows[0].current_balance))) {
+      return { success: false, message: "Error 400: This Member Voucher does not exist" };
+    }
+
+    const balanceAfterDeduction = parseFloat(results.rows[0].current_balance) + consumptionValue;
+
+    if (balanceAfterDeduction < 0) {
+      return { success: false, message: "Error 400: The Consumption Value is greater than the Current balance." };
+    } else {
+      return { success: true };
+    }
+  } catch (error) {
+    console.error('Error retrieving current balance by Member Voucher Id:', error);
+
+    console.error('Full error details:', {
+      error: error instanceof Error ? error.message : 'Unknown error',
+      stack: error instanceof Error ? error.stack : undefined
+    });
+
+    // Return user-friendly message but also throw for critical errors
+    if (error instanceof Error && error.message.includes('connection')) {
+      // Critical database errors should bubble up
+      throw new Error('Database connection failed. Please try again later.');
+    }
+
+    return { success: false, message: "Failed to current balance by Member Voucher Id due to database error." };
+  }
+};
+
+const getMemberVoucherPaidCurrentBalance = async (id: number, consumptionValue: number): Promise<{ success: boolean, data?: number, message?: string }> => {
+  if (!Number(id)) {
+    return { success: false, message: "Error 400: id must be an integer" };
+  };
+
+  if (isNaN(Number(consumptionValue))) {
+    return { success: false, message: "Error 400: consumption value must be an integer" };
+  };
+
+  const client = await pool().connect();
+  try {
+    const query = `
+    SELECT st.outstanding_total_payment_amount, mv.current_balance, mv.free_of_charge
+    FROM sale_transactions st
+    JOIN sale_transaction_items sti ON st.id = sti.sale_transactions_id
+    JOIN member_vouchers mv ON sti.member_voucher_id = mv.id
+    WHERE sti.member_voucher_id = $1
+    ORDER BY sti.sale_transactions_id DESC
+    LIMIT 1;
+    `;
+
+    const results = await client.query(query, [id]);
+    console.log(results);
+
+    if (results.rowCount === 0) {
+      return { success: false, message: "Error 400: This Member Voucher does not exist" };
+    }
+
+    const current_balance = parseFloat(results.rows[0].current_balance);
+    const outstanding_total_payment_amount = parseFloat(results.rows[0].outstanding_total_payment_amount);
+    const free_of_charge = parseFloat(results.rows[0].free_of_charge);
+
+    if (outstanding_total_payment_amount === 0) {
+      return { success: true, data: current_balance };
+    }
+
+    const paidBalance = current_balance - outstanding_total_payment_amount - free_of_charge;
+
+    const paidbalanceAfterDeduction = paidBalance + consumptionValue;
+
+    if (paidbalanceAfterDeduction < 0) {
+      return { success: false, message: "Error 400: The Consumption Value is greater than the Paid Current balance." };
+    } else {
+      return { success: true, data: current_balance };
+    }
+  } catch (error) {
+    console.error('Error retrieving paid current balance by Member Voucher Id:', error);
+
+    console.error('Full error details:', {
+      error: error instanceof Error ? error.message : 'Unknown error',
+      stack: error instanceof Error ? error.stack : undefined
+    });
+
+    if (error instanceof Error && error.message.includes('connection')) {
+      throw new Error('Database connection failed. Please try again later.');
+    }
+
+    return { success: false, message: "Failed to get paid current balance by Member Voucher Id due to database error." };
+  }
+};
+
+const getMemberNameByMemberVoucherId = async (id: number): Promise<{ success: boolean, data: MemberName | null, message: string }> => {
+  if (!Number(id)) {
+    return { success: false, data: null, message: "Error 400: id must be an integer" };
+  }
+
+  const client = await pool().connect();
+  try {
+    const query = `
+    SELECT m.id, m.name
+    FROM members m
+    JOIN member_vouchers mv
+    ON m.id = mv.member_id
+    WHERE mv.id = $1
+    `;
+
+    const results = await client.query(query, [id]);
+
+    if (results.rows.length > 0) {
+      return { success: true, data: results.rows[0], message: "Get Member Name By Member Voucher Id was successful" };
+    } else {
+      return { success: false, data: null, message: "Error 400: The input Id of Member Voucher does not exist" };
+    }
+  } catch (error) {
+    console.error('Error retrieving Member Name By Member Voucher Id:', error);
+
+    console.error('Full error details:', {
+      error: error instanceof Error ? error.message : 'Unknown error',
+      stack: error instanceof Error ? error.stack : undefined
+    });
+
+    // Return user-friendly message but also throw for critical errors
+    if (error instanceof Error && error.message.includes('connection')) {
+      // Critical database errors should bubble up
+      throw new Error('Database connection failed. Please try again later.');
+    }
+
+    return { success: false, data: null, message: "Failed to Member Name By Member Voucher Id due to database error." };
+  }
+};
 
 export default {
   getPaginatedVouchers,
   getServicesOfMemberVoucherById,
-  getPaginatedMemberVoucherTransactionLogs
+  getPaginatedMemberVoucherTransactionLogs,
+  addTransactionLogsByMemberVoucherId,
+  getMemberVoucherCurrentBalance,
+  getMemberVoucherPaidCurrentBalance,
+  getMemberNameByMemberVoucherId
 }

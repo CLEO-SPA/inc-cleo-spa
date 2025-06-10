@@ -2,7 +2,7 @@ import { create } from 'zustand';
 import api from '@/services/api';
 
 import { handleApiError } from '@/utils/errorHandlingUtils';
-import { validateMemberVoucherId } from '@/utils/validationUtils';
+import { validateMemberVoucherId, validateMemberVoucherConsumptionCreateData } from '@/utils/validationUtils';
 
 const getInitialState = () => ({
     loading: false,
@@ -12,7 +12,19 @@ const getInitialState = () => ({
 
     memberVoucherServiceList: [],
     memberVoucherTransactionLogs: [],
+    employeeList: null,
+    memberName: null,
     selectedMemberVoucherId: -1,
+    formData: [], // form Data is validate data while formFieldData is user input
+    formFieldData: {
+        consumptionValue: '',
+        remarks: '',
+        date: '',
+        time: '12:00',
+        type: '',
+        createdBy: '',
+        handledBy: ''
+    },
 
     currentPage: 1,
     currentLimit: 10,
@@ -25,7 +37,9 @@ const getInitialState = () => ({
     lastAction: null,
 
     isConfirming: false,
+    isCreating: false,
     isUpdating: false,
+    isDeleting: false
 });
 
 const useMemberVoucherTransactionStore = create((set, get) => ({
@@ -62,8 +76,77 @@ const useMemberVoucherTransactionStore = create((set, get) => ({
         };
     },
 
+    fetchMemberNameByMemberVoucherId: async () => {
+        if (get().loading) {
+            set({ success: false, error: true, errorMessage: "Another process is running." });
+            return;
+        };
+
+        set({ loading: true, success: false, error: false });
+
+        try {
+            const state = get(); // Single call
+            const {
+                selectedMemberVoucherId
+            } = state;
+
+            const response = await api.get(`/mv/${selectedMemberVoucherId}/mn`);
+
+            const memberName = response.data.data;
+            console.log(memberName);
+
+            set({
+                success: true,
+                error: false,
+                errorMessage: null,
+                loading: false,
+                memberName: memberName
+            })
+
+            get().setSuccessWithTimeout();
+
+        } catch (err) {
+            console.error('Failed to fetch member name:', err);
+            set({ error: err.message || 'An unexpected error occurred', loading: false });
+        }
+    },
+
+    fetchEmployeeBasicDetails: async () => {
+        if (get().loading) {
+            set({ success: false, error: true, errorMessage: "Another process is running." });
+            return;
+        };
+
+        set({ loading: true, success: false, error: false });
+
+        try {
+            const response = await api.get(`/em/basic-details`);
+
+            const employeeList = response.data.data;
+
+            const empMap = new Map();
+            employeeList.forEach(emp => {
+                empMap.set(emp.employee_name.toLowerCase(), emp.id);
+            });
+
+            set({
+                loading: false,
+                error: false,
+                success: true,
+                errorMessage: null,
+
+                employeeList: empMap,
+            });
+
+            get().setSuccessWithTimeout();
+
+        } catch (err) {
+            console.error('Failed to fetch employee data:', err);
+            set({ error: err.message || 'An unexpected error occurred', loading: false });
+        }
+    },
+
     fetchTransactionLogsOfMemberVoucher: async () => {
-        console.log(get().loading);
         if (get().loading) {
             set({ success: false, error: true, errorMessage: "Another process is running." });
             return;
@@ -72,7 +155,7 @@ const useMemberVoucherTransactionStore = create((set, get) => ({
         set({ loading: true, success: false, error: false });
 
         const state = get(); // Get the current state
-        const { currentPage, currentLimit, startCursor, endCursor, isOffsetMode, lastAction } = state;
+        const { currentPage, currentLimit, startCursor, endCursor, isOffsetMode, lastAction, selectedMemberVoucherId, totalCount } = state;
 
         const queryParams = {
             limit: currentLimit,
@@ -97,11 +180,8 @@ const useMemberVoucherTransactionStore = create((set, get) => ({
 
         try {
 
-            const state = get();
-            const { selectedMemberVoucherId, totalCount } = state;
-
             const response = await api.get(`/mv/${selectedMemberVoucherId}/t`, { params: queryParams });
-            
+
             console.log(response);
 
             const transactionList = response.data.data.data;
@@ -112,7 +192,7 @@ const useMemberVoucherTransactionStore = create((set, get) => ({
             set({
                 loading: false,
                 error: false,
-                success: true,  
+                success: true,
                 errorMessage: null,
 
                 memberVoucherTransactionLogs: transactionList,
@@ -127,13 +207,13 @@ const useMemberVoucherTransactionStore = create((set, get) => ({
 
             get().setSuccessWithTimeout();
 
-        } catch (err) {
-            console.error('Failed to fetch member voucher transaction logs:', err);
-            set({ error: err.message || 'An unexpected error occurred', loading: false });
+        } catch (error) {
+            const errorMessage = handleApiError(error);
+            set({ error: true, errorMessage: errorMessage, loading: false });
         }
     },
 
-    createMemberVoucherTransactionLog: async (data) => {
+    createMemberVoucherTransactionLog: async () => {
         if (get().loading) {
             set({ success: false, error: true, errorMessage: "Another process is running." });
             return;
@@ -142,17 +222,43 @@ const useMemberVoucherTransactionStore = create((set, get) => ({
         set({ loading: true, success: false, error: false });
 
         try {
-            await api.post(`/mv/${selectedMemberVoucherId}/t/create`, data);
+            const state = get();
+            const { selectedMemberVoucherId, formData, employeeList } = state;
+
+            const formDataWithEmployeeId = {
+                ...formData,
+                createdBy: employeeList.get(formData.createdBy.toLowerCase()),
+                handledBy: employeeList.get(formData.handledBy.toLowerCase())
+            };
+
+            console.log("fetch function form data: ");
+            console.log(formDataWithEmployeeId);
+            await api.post(`/mv/${selectedMemberVoucherId}/t/create`, formDataWithEmployeeId);
 
             await get().initialize();
 
-            set({ isConfirming: false, loading: false, success: true });
+            set({
+                isConfirming: false,
+                isCreating: false,
+                loading: false,
+                success: true,
+                formData: [],
+                formFieldData: {
+                    consumptionValue: '',
+                    remarks: '',
+                    date: '',
+                    time: '12:00',
+                    type: '',
+                    createdBy: '',
+                    handledBy: ''
+                },
+            });
 
             get().setSuccessWithTimeout();
 
         } catch (error) {
             const errorMessage = handleApiError(error);
-            set({ error: true, errorMessage: errorMessage, loading: false });
+            set({ isConfirming: false, isCreating: false, error: true, errorMessage: errorMessage, loading: false });
         };
     },
 
@@ -247,7 +353,45 @@ const useMemberVoucherTransactionStore = create((set, get) => ({
         get().fetchTransactionLogsOfMemberVoucher(); // Trigger fetch
     },
 
+    setStoreFormData: (formFieldData) => {
+        const state = get();
+        const { employeeList } = state;
+        const validate = validateMemberVoucherConsumptionCreateData(formFieldData);
+
+        if (!validate.isValid) {
+
+            console.log(validate.error);
+            set({
+                error: true,
+                errorMessage: validate.error
+            });
+            return false;
+        };
+
+        const validateCreatedBy = employeeList.get(formFieldData.createdBy.toLowerCase());
+        const validatehandledBy = employeeList.get(formFieldData.handledBy.toLowerCase());
+
+        if (!validateCreatedBy || !validatehandledBy) {
+            set({
+                error: true,
+                errorMessage: "This Employee does not exist. Please try again."
+            });
+            return false;
+        };
+
+        // No error
+        console.log("Set Form Success");
+        set({
+            formData: formFieldData
+        });
+        return true;
+    },
+
+    setIsCreating: (value) => { set({ isCreating: value }) },
+
     setIsUpdating: (value) => { set({ isUpdating: value }) },
+
+    setIsDeleting: (value) => { set({ isDeleting: value }) },
 
     setIsConfirming: (value) => { set({ isConfirming: value }) },
 
@@ -255,27 +399,30 @@ const useMemberVoucherTransactionStore = create((set, get) => ({
         const validation = validateMemberVoucherId(id);
         if (validation.isValid) {
             set({ selectedMemberVoucherId: id });
-            return true;
+            return;
         }
 
         set({ error: true, errorMessage: validation.error });
-        return false;
+        return;
     },
 
     setError: (value) => { set({ error: value }) },
 
     setErrorMessage: (value) => { set({ errorMessage: value }) },
 
-    initialize: async () => {
+    initialize: async (id) => {
+        get().setSelectedMemberVoucherTypeId(id);
+
+        await get().fetchMemberNameByMemberVoucherId();
         await get().fetchServiceOfMemberVoucher();
         await get().fetchTransactionLogsOfMemberVoucher();
+        await get().fetchEmployeeBasicDetails();
     },
 
     clearError: () => {
         set({ error: false, errorMessage: null })
     },
 
-    // Helper function inside the store
     setSuccessWithTimeout: () => {
         set({ success: true, error: false, errorMessage: null });
 
@@ -288,6 +435,29 @@ const useMemberVoucherTransactionStore = create((set, get) => ({
         }, 3000);
     },
 
+    setFormData: (newFormData) => {
+        set({ formData: newFormData });
+    },
+
+    updateFormField: (field, value) => {
+        set((state) => ({
+            formFieldData: { ...state.formFieldData, [field]: value }
+        }));
+    },
+
+    clearFormData: () => {
+        set({
+            formFieldData: {
+                consumptionValue: '',
+                remarks: '',
+                date: '',
+                time: '12:00',
+                type: '',
+                createdBy: '',
+                handledBy: ''
+            }
+        });
+    },
     reset: () => set(getInitialState())
 }));
 

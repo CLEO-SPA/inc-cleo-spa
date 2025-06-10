@@ -56,7 +56,7 @@ BEGIN
     IF p_page IS NOT NULL AND p_page > 0 THEN
         -- Offset-based pagination
         v_offset := (p_page - 1) * p_limit;
-        v_order_by := 'ORDER BY mv.created_at ASC, mv.id ASC';
+        v_order_by := 'ORDER BY mv.id ASC';
         v_data_query := format('SELECT %s %s %s %s OFFSET %s LIMIT %s',
                             v_select_list, v_base_query_from, v_final_where_clause, v_order_by, v_offset, p_limit);
     ELSE
@@ -76,7 +76,7 @@ BEGIN
                        p_before_created_at, p_before_created_at, p_before_id)
             );
         ELSE
-             v_order_by := 'ORDER BY mv.created_at ASC, mv.id ASC'; -- Default order
+             v_order_by := 'ORDER BY mv.id ASC'; -- Default order
         END IF;
 
         IF array_length(v_cursor_conditions, 1) > 0 THEN
@@ -100,7 +100,7 @@ BEGIN
         
         IF p_page IS NOT NULL AND p_page > 0 THEN -- Offset pagination
             EXECUTE format(
-                'SELECT COALESCE(json_agg(row_to_json(t.*) ORDER BY t.created_at ASC, t.id ASC), ''[]''::JSON) FROM (SELECT * FROM %I) t', -- MODIFIED: ::JSON
+                'SELECT COALESCE(json_agg(row_to_json(t.*) ORDER BY t.id ASC), ''[]''::JSON) FROM (SELECT * FROM %I) t', -- MODIFIED: ::JSON
                 temp_table_name
             ) INTO v_fetched_rows;
         ELSIF p_before_created_at IS NOT NULL THEN -- Cursor 'before'
@@ -114,7 +114,7 @@ BEGIN
             ) INTO v_fetched_rows;
         ELSE -- Cursor 'after' or initial load (no cursor)
             EXECUTE format(
-                'SELECT COALESCE(json_agg(row_to_json(t.*) ORDER BY t.created_at ASC, t.id ASC), ''[]''::JSON) FROM (SELECT * FROM %I LIMIT %L) t', -- MODIFIED: ::JSON
+                'SELECT COALESCE(json_agg(row_to_json(t.*) ORDER BY t.id ASC), ''[]''::JSON) FROM (SELECT * FROM %I LIMIT %L) t', -- MODIFIED: ::JSON
                 temp_table_name, p_limit
             ) INTO v_fetched_rows;
         END IF;

@@ -1,7 +1,3 @@
-import React, { useState } from 'react';
-import { ChevronDownIcon } from 'lucide-react';
-
-// Import your UI components (assuming they're available)
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Button } from '@/components/ui/button';
@@ -12,37 +8,31 @@ import {
   SelectTrigger,
   SelectValue,
 } from '@/components/ui/select';
+import useMemberVoucherTransactionStore from '@/stores/MemberVoucher/useMemberVoucherTransactionStore';
 
 const MemberVoucherConsumptionForm = () => {
-  const [formData, setFormData] = useState({
-    consumptionValue: '',
-    remarks: '',
-    date: '',
-    time: '12:00',
-    type: '',
-    createdBy: '',
-    handledBy: ''
-  });
+  const {
+    formFieldData,
+    updateFormField,
+    clearFormData,
+    setStoreFormData,
+    setIsCreating,
+    setIsConfirming
+  } = useMemberVoucherTransactionStore();
 
   const handleInputChange = (field, value) => {
-    setFormData(prev => ({ ...prev, [field]: value }));
+    updateFormField(field, value);
   };
 
   const handleSubmit = () => {
-    console.log('Form submitted:', formData);
-    // Add your submit logic here
+    if (setStoreFormData(formFieldData)) {
+      setIsCreating(true);
+      setIsConfirming(true);
+    };
   };
 
   const handleClear = () => {
-    setFormData({
-      consumptionValue: '',
-      remarks: '',
-      date: '',
-      time: '12:00',
-      type: '',
-      createdBy: '',
-      handledBy: ''
-    });
+    clearFormData();
   };
 
   return (
@@ -52,7 +42,8 @@ const MemberVoucherConsumptionForm = () => {
           <Label htmlFor="consumptionValue" className="block mb-2">Consumption value</Label>
           <Input
             id="consumptionValue"
-            value={formData.consumptionValue}
+            type={"number"}
+            value={formFieldData.consumptionValue}
             onChange={(e) => handleInputChange('consumptionValue', e.target.value)}
             placeholder="Enter consumption value"
           />
@@ -63,7 +54,7 @@ const MemberVoucherConsumptionForm = () => {
           <textarea
             id="remarks"
             className="flex min-h-[60px] w-full rounded-md border border-input bg-transparent px-3 py-2 text-sm shadow-xs placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-[3px] focus-visible:ring-ring/50 focus-visible:border-ring disabled:cursor-not-allowed disabled:opacity-50 resize-none"
-            value={formData.remarks}
+            value={formFieldData.remarks}
             onChange={(e) => handleInputChange('remarks', e.target.value)}
             placeholder="Enter remarks"
           />
@@ -75,7 +66,7 @@ const MemberVoucherConsumptionForm = () => {
             <Input
               id="date"
               type="date"
-              value={formData.date}
+              value={formFieldData.date}
               onChange={(e) => handleInputChange('date', e.target.value)}
             />
           </div>
@@ -84,7 +75,7 @@ const MemberVoucherConsumptionForm = () => {
             <Input
               id="time"
               type="time"
-              value={formData.time}
+              value={formFieldData.time}
               onChange={(e) => handleInputChange('time', e.target.value)}
               className="w-full"
             />
@@ -94,16 +85,15 @@ const MemberVoucherConsumptionForm = () => {
         <div>
           <Label htmlFor="type" className="block mb-2">Type</Label>
           <Select
-            value={formData.type}
+            value={formFieldData.type}
             onValueChange={(value) => handleInputChange('type', value)}
           >
             <SelectTrigger>
               <SelectValue placeholder="Select type" />
             </SelectTrigger>
             <SelectContent>
-              <SelectItem value="consumption">Consumption</SelectItem>
-              <SelectItem value="refund">Refund</SelectItem>
-              <SelectItem value="adjustment">Adjustment</SelectItem>
+              <SelectItem value="CONSUMPTION">Consumption</SelectItem>
+              <SelectItem value="FOC">Free Of Charge</SelectItem>
             </SelectContent>
           </Select>
         </div>
@@ -112,7 +102,7 @@ const MemberVoucherConsumptionForm = () => {
           <Label htmlFor="createdBy" className="block mb-2">Created By</Label>
           <Input
             id="createdBy"
-            value={formData.createdBy}
+            value={formFieldData.createdBy}
             onChange={(e) => handleInputChange('createdBy', e.target.value)}
             placeholder="Enter creator name"
           />
@@ -122,7 +112,7 @@ const MemberVoucherConsumptionForm = () => {
           <Label htmlFor="handledBy" className="block mb-2">Handled By</Label>
           <Input
             id="handledBy"
-            value={formData.handledBy}
+            value={formFieldData.handledBy}
             onChange={(e) => handleInputChange('handledBy', e.target.value)}
             placeholder="Enter handler name"
           />

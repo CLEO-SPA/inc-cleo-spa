@@ -1,6 +1,6 @@
 import { ArrowLeft } from "lucide-react";
 
-const BackButtonHeader = ({ name, onBack }) => {
+const BackButtonHeader = ({ name="Customer", onBack }) => {
   return (
     <div className="flex items-center gap-3 p-4 bg-white">
       {/* Back Button */}

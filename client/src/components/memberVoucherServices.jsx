@@ -20,7 +20,7 @@ const MemberVoucherServices = () => {
     ];
 
     return (
-        <Card className="mx-5">
+        <Card className="mx-5 mb-1">
             <CardHeader>
                 <CardTitle>Voucher Management</CardTitle>
             </CardHeader>

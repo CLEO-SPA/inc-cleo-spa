@@ -2,6 +2,7 @@ import { Request, Response, NextFunction } from 'express';
 import model from '../models/memberVoucherModel.js';
 import { decodeCursor } from '../utils/cursorUtils.js';
 import { PaginatedOptions, CursorPayload } from '../types/common.types.js';
+import { MemberVoucherTransactionLogCreateData } from '../types/model.types.js';
 
 const getAllMemberVouchers = async (req: Request, res: Response, next: NextFunction): Promise<void> => {
   const { start_date_utc, end_date_utc } = req.session;
@@ -14,11 +15,11 @@ const getAllMemberVouchers = async (req: Request, res: Response, next: NextFunct
   // console.log(`\n${startDate_utc} || ${endDate_utc} \n`);
 
   if (limit <= 0) {
-    res.status(400).json({ error: 'Limit must be a positive integer.' });
+    res.status(400).json({ error: 'Error 400: Limit must be a positive integer.' });
     return;
   }
   if (page && (isNaN(page) || page <= 0)) {
-    res.status(400).json({ error: 'Page must be a positive integer.' });
+    res.status(400).json({ error: 'Error 400: Page must be a positive integer.' });
     return;
   }
 
@@ -26,7 +27,7 @@ const getAllMemberVouchers = async (req: Request, res: Response, next: NextFunct
   if (afterCursor) {
     after = decodeCursor(afterCursor);
     if (!after) {
-      res.status(400).json({ error: 'Invalid "after" cursor.' });
+      res.status(400).json({ error: 'Error 400: Invalid "after" cursor.' });
       return;
     }
   }
@@ -35,7 +36,7 @@ const getAllMemberVouchers = async (req: Request, res: Response, next: NextFunct
   if (beforeCursor) {
     before = decodeCursor(beforeCursor);
     if (!before) {
-      res.status(400).json({ error: 'Invalid "before" cursor.' });
+      res.status(400).json({ error: 'Error 400: Invalid "before" cursor.' });
       return;
     }
   }
@@ -64,10 +65,6 @@ const getAllMemberVouchers = async (req: Request, res: Response, next: NextFunct
 };
 
 const getAllServicesOfMemberVoucherById = async (req: Request, res: Response, next: NextFunction): Promise<void> => {
-  // Testing
-  // const id = null;
-  // const id = "1@"
-  // const id = "A"
   const { id } = req.params;
 
   try {
@@ -75,24 +72,28 @@ const getAllServicesOfMemberVoucherById = async (req: Request, res: Response, ne
 
     if (Number.isNaN(intId)) {
       res.status(400).json({
-        message: "Invalid ID: must be a valid number"
+        message: "Error 400: Invalid ID: must be a valid number"
       });
       return;
     };
 
-    const response = await model.getServicesOfMemberVoucherById(intId);
-    res.status(200).json({ message: "Get Services of Member Voucher By Id was successful.", data: response });
+    const results = await model.getServicesOfMemberVoucherById(intId);
+    if (results.success) {
+      res.status(200).json({ message: "Get Services of Member Voucher By Id was successful.", data: results });
+    } else {
+      res.status(400).json({ message: results.message });
+      throw new Error(results.message);
+    }
   } catch (error) {
     console.error("Error getting Services of Member Voucher:", error);
-    res.status(500).json({
-      message: "Failed to get Services of Member Voucher",
-      error: process.env.NODE_ENV === 'development' ? error : undefined
-    });
+    next(error);
   }
-}
+};
 
 const getAllTransactionLogsOfMemberVoucherById = async (req: Request, res: Response, next: NextFunction): Promise<void> => {
-  const { start_date_utc, end_date_utc } = req.session;
+  // const { start_date_utc, end_date_utc } = req.session; // Uncomment once sim is fixed
+  const start_date_utc = "";
+  const end_date_utc = "";
   const id: number = parseInt(req.params.id, 10);
   const limit: number = parseInt((req.query.limit as string) || '10');
   const afterCursor: string = req.query.after as string;
@@ -103,17 +104,17 @@ const getAllTransactionLogsOfMemberVoucherById = async (req: Request, res: Respo
 
   if (Number.isNaN(id)) {
     res.status(400).json({
-      message: "Invalid ID: must be a valid number"
+      message: "Error 400: Invalid ID: must be a valid number"
     });
     return;
   };
 
   if (limit <= 0) {
-    res.status(400).json({ error: 'Limit must be a positive integer.' });
+    res.status(400).json({ error: 'Error 400: Limit must be a positive integer.' });
     return;
   }
   if (page && (isNaN(page) || page <= 0)) {
-    res.status(400).json({ error: 'Page must be a positive integer.' });
+    res.status(400).json({ error: 'Error 400: Page must be a positive integer.' });
     return;
   }
 
@@ -121,7 +122,7 @@ const getAllTransactionLogsOfMemberVoucherById = async (req: Request, res: Respo
   if (afterCursor) {
     after = decodeCursor(afterCursor);
     if (!after) {
-      res.status(400).json({ error: 'Invalid "after" cursor.' });
+      res.status(400).json({ error: 'Error 400: Invalid "after" cursor.' });
       return;
     }
   }
@@ -130,7 +131,7 @@ const getAllTransactionLogsOfMemberVoucherById = async (req: Request, res: Respo
   if (beforeCursor) {
     before = decodeCursor(beforeCursor);
     if (!before) {
-      res.status(400).json({ error: 'Invalid "before" cursor.' });
+      res.status(400).json({ error: 'Error 400: Invalid "before" cursor.' });
       return;
     }
   }
@@ -150,59 +151,226 @@ const getAllTransactionLogsOfMemberVoucherById = async (req: Request, res: Respo
 
   try {
     const results = await model.getPaginatedMemberVoucherTransactionLogs(id, limit, options, start_date_utc, end_date_utc as string);
-    // console.log(results);
-    res.status(200).json(results);
+    if (results.success) {
+      res.status(200).json(results);
+    } else {
+      res.status(400).json({ message: results.message });
+      throw new Error(results.message);
+    }
+
   } catch (error) {
     console.error('Error in memberVoucherController.getAllTransactionLogsOfMemberVoucherById:', error);
     next(error);
   }
 };
 
-// const createMembershipType = async (req: Request, res: Response): Promise<void> => {
+const createTransactionLogsByMemberVoucherId = async (req: Request, res: Response, next: NextFunction): Promise<void> => {
 
-//   const {
-//     membership_type_name,
-//     default_percentage_discount_for_products,
-//     default_percentage_discount_for_services,
-//     created_by
-//   } = req.body;
+  const {
+    consumptionValue,
+    remarks,
+    date,
+    time,
+    type,
+    createdBy,
+    handledBy,
+    current_balance
+  } = req.body;
 
-//   const newMembershipTypeData: NewMembershipType = {
-//     membership_type_name,
-//     default_percentage_discount_for_products,
-//     default_percentage_discount_for_services,
-//     created_by
-//   };
+  const {
+    id
+  } = req.params;
 
-//   if (!newMembershipTypeData) {
-//     throw new Error("Missing new Membership Type Body");
-//   };
+  try {
+    const newMemberVoucherTransactionLogData: MemberVoucherTransactionLogCreateData = {
+      id: parseInt(id, 10),
+      consumptionValue: parseFloat(consumptionValue),
+      remarks: remarks,
+      date: date,
+      time: time,
+      type: type,
+      createdBy: parseInt(createdBy, 10),
+      handledBy: parseInt(handledBy, 10),
+      current_balance: parseFloat(current_balance)
+    };
 
-//   for (let property in newMembershipTypeData) {
-//     const value = newMembershipTypeData[property as keyof typeof newMembershipTypeData];
-//     if (value === null || value === undefined) {
-//       throw new Error(`Property "${property}" is required.`);
-//     }
-//   };
+    console.log(newMemberVoucherTransactionLogData);
 
-//   try {
-//     const response = await model.addMembershipType(newMembershipTypeData);
-//     if (response.success) {
-//       res.status(201).json({ message: "Create new Membership Type was successful." });
-//     } else {
-//       res.status(400).json({ message: response.message });
-//     };
-//   } catch (error) {
-//     console.error("Error creating membership types:", error);
-//     res.status(500).json({
-//       message: "Failed to creating membership types",
-//       error: process.env.NODE_ENV === 'development' ? error : undefined
-//     });
-//   }
-// };
+    /*const newMemberVoucherTransactionLogData: MemberVoucherTransactionLogCreateData = {
+      id: NaN,
+      consumptionValue: NaN,
+      remarks: remarks,
+      date: "10-06-25",
+      time: 14:59,
+      type: "CONSUMPTION",
+      createdBy: NaN,
+      handledBy: NaN,
+      current_balance: NaN
+    };
+    */
+
+    if (!newMemberVoucherTransactionLogData) {
+      res.status(400).json({ message: "Error 400: Missing new Member Voucher Transaction Log Body" });
+      return;
+    };
+
+    for (let property in newMemberVoucherTransactionLogData) {
+      const key = property as keyof MemberVoucherTransactionLogCreateData;
+      const value = newMemberVoucherTransactionLogData[key];
+      if (key !== "remarks" && (value === null || value === undefined)) {
+        res.status(400).json({ message: `Error 400: Property "${property}" is required.` });
+        return;
+      }
+    };
+
+    if (isNaN(Number(newMemberVoucherTransactionLogData.consumptionValue))) {
+      res.status(400).json({ message: "Error 400: Consumption value is invalid" });
+      return;
+    }
+    if (newMemberVoucherTransactionLogData.remarks.length > 500) {
+      res.status(400).json({ message: "Error 400: Remarks input is too long" });
+      return;
+    }
+    if (!/^\d{4}-\d{2}-\d{2}$/.test(newMemberVoucherTransactionLogData.date)) {
+      res.status(400).json({ message: "Error 400: Date input is invalid" });
+      return;
+    }
+
+    const regex = /^([01]\d|2[0-3]):([0-5]\d)$/;
+    if (!regex.test(newMemberVoucherTransactionLogData.time)) {
+      res.status(400).json({ message: "Error 400: Time input is invalid." });
+      return;
+    }
+
+    if (!(typeof newMemberVoucherTransactionLogData.createdBy === 'number')) {
+      res.status(400).json({ message: "Error 400: Created By Employee id is invalid." });
+      return;
+    }
+    if (!(typeof newMemberVoucherTransactionLogData.handledBy === 'number')) {
+      res.status(400).json({ message: "Error 400: Handled By Employee id is invalid" });
+      return;
+    }
+    if (!(typeof newMemberVoucherTransactionLogData.current_balance === 'number')) {
+      res.status(400).json({ message: "Error 400: Current Balance is invalid" });
+      return;
+    }
+
+    const results = await model.addTransactionLogsByMemberVoucherId(newMemberVoucherTransactionLogData);
+    if (results.success) {
+      res.status(201).json({ message: results.message });
+    } else {
+      res.status(400).json({ message: results.message });
+      throw new Error(results.message);
+    };
+  } catch (error) {
+    console.error('Error in memberVoucherController.createTransactionLogsByMemberVoucherId:', error);
+    next(error);
+  }
+};
+
+const checkCurrentBalance = async (req: Request, res: Response, next: NextFunction): Promise<void> => {
+  const { id } = req.params;
+  const { consumptionValue } = req.body;
+
+  try {
+    if (!consumptionValue || isNaN(Number(consumptionValue))) {
+      res.status(400).json({ message: "Error 400: Consumption value is invalid or missing" });
+      return;
+    };
+
+    const intId = parseInt(id, 10);
+    const numericConsumptionValue = parseFloat(consumptionValue);
+    if (Number.isNaN(intId)) {
+      res.status(400).json({
+        message: "Error 400: Invalid ID: must be a valid number"
+      });
+      return;
+    };
+
+    const results = await model.getMemberVoucherCurrentBalance(intId, numericConsumptionValue);
+    if (results.success) {
+      next();
+    } else {
+      res.status(400).json({ message: results.message });
+      return;
+    }
+  } catch (error) {
+    console.error("Error getting current balance by Member Voucher Id:", error);
+    res.status(500).json({ message: "Internal server error" });
+    return;
+  }
+};
+
+const checkPaidCurrentBalance = async (req: Request, res: Response, next: NextFunction): Promise<void> => {
+  const { id } = req.params;
+  const { consumptionValue } = req.body;
+
+  try {
+    if (!consumptionValue || isNaN(Number(consumptionValue))) {
+      res.status(400).json({ message: "Error 400: Consumption value is invalid or missing" });
+      return;
+    };
+
+    const intId = parseInt(id, 10);
+    const numericConsumptionValue = parseFloat(consumptionValue);
+
+    if (Number.isNaN(intId)) {
+      res.status(400).json({
+        message: "Error 400: Invalid ID: must be a valid number"
+      });
+      return;
+    };
+
+    const results = await model.getMemberVoucherPaidCurrentBalance(intId, numericConsumptionValue);
+    if (results.success) {
+      req.body.current_balance = results.data;
+      console.log(req.body.current_balance);
+      next();
+    } else {
+      res.status(400).json({ message: results.message });
+      return;
+    }
+  } catch (error) {
+    console.error("Error getting paid current balance by Member Voucher Id:", error);
+    res.status(500).json({ message: "Internal server error" });
+    return;
+  }
+};
+
+const getMemberNameByMemberVoucherId = async (req: Request, res: Response, next: NextFunction): Promise<void> => {
+  const { id } = req.params;
+
+  try {
+
+    const intId = parseInt(id, 10);
+
+    if (Number.isNaN(intId)) {
+      res.status(400).json({
+        message: "Error 400: Invalid ID: must be a valid number"
+      });
+      return;
+    };
+
+    const results = await model.getMemberNameByMemberVoucherId(intId);
+    if (results.success) {
+      res.status(200).json({ message: results.message, data: results.data });
+    } else {
+      res.status(400).json({ message: results.message });
+      return;
+    }
+  } catch (error) {
+    console.error("Error getting paid current balance by Member Voucher Id:", error);
+    res.status(500).json({ message: "Internal server error" });
+    return;
+  }
+};
 
 export default {
   getAllMemberVouchers,
   getAllServicesOfMemberVoucherById,
-  getAllTransactionLogsOfMemberVoucherById
+  getAllTransactionLogsOfMemberVoucherById,
+  createTransactionLogsByMemberVoucherId,
+  checkCurrentBalance,
+  checkPaidCurrentBalance,
+  getMemberNameByMemberVoucherId
 }

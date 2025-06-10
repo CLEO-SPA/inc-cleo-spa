@@ -1,4 +1,5 @@
 import { pool, getProdPool as prodPool } from '../config/database.js';
+import { Employee } from '../types/model.types.js';
 
 const checkEmployeeCodeExists = async (employee_code: number) => {
   try {
@@ -242,6 +243,28 @@ export const getEmployeeIdByUserAuthId = async (id: string) => {
   return await pool().query<{ id: string }>(employee_sql, params);
 };
 
+const getBasicEmployeeDetails = async (): Promise<Employee[]> => {
+  const query = `
+    SELECT 
+      id, 
+      employee_name, 
+      position_id 
+    FROM employees e 
+    WHERE employee_is_active = true 
+    ORDER BY employee_name ASC`;
+  try {
+    const result = await pool().query(query);
+    return result.rows.map((row: any) => ({
+      id: row.id,
+      employee_name: row.employee_name,
+      position_id: row.position_id,
+    }));
+  } catch (error) {
+    console.error('Database error in getBasicEmployeeDetails: ', error);
+    throw new Error('Failed to fetch basic employee details from database');
+  }
+};
+
 export default {
   // createEmployee,
   checkEmployeeCodeExists,
@@ -252,4 +275,5 @@ export default {
   getUserCount,
   getUserData,
   getEmployeeIdByUserAuthId,
+  getBasicEmployeeDetails
 };

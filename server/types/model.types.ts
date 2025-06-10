@@ -108,18 +108,18 @@ export interface MemberVoucherServices {
 }
 
 export interface MemberVoucherTransactionLogs {
-    id?: number;
-    member_voucher_id: number;
-    service_description: string;
-    service_date: string;
-    current_balance: number;
-    amount_change: number;
-    serviced_by: number;
-    type: string;
-    created_by: number;
-    updated_by: number;
-    created_at: string;
-    updated_at: string;
+  id?: number;
+  member_voucher_id: number;
+  service_description: string;
+  service_date: string;
+  current_balance: number;
+  amount_change: number;
+  serviced_by: number;
+  type: string;
+  created_by: number;
+  updated_by: number;
+  created_at: string;
+  updated_at: string;
 }
 
 // generalised function for simple statements that changes the database
@@ -137,3 +137,26 @@ export async function withTransaction<T>(callback: (client: pg.PoolClient) => Pr
     client.release();
   }
 };
+
+export interface Employee {
+  id: number;
+  employee_name: string;
+  position_id: number | null;
+};
+
+export interface MemberVoucherTransactionLogCreateData {
+  id: number,
+  consumptionValue: number;
+  remarks: string;
+  date: string;
+  time: string;
+  type: string;
+  createdBy: number;
+  handledBy: number;
+  current_balance: number;
+}
+
+export interface MemberName {
+  id?: number,
+  member_name: string
+}

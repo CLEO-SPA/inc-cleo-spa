@@ -281,6 +281,28 @@ const regenerateInvitationLink = async (req: Request, res: Response, next: NextF
   }
 };
 
+const getBasicEmployeeDetails = async (req: Request, res: Response) => {
+  try {
+    console.log('Fetching basic employee details for search');
+    const employees = await model.getBasicEmployeeDetails();
+    console.log(`Found ${employees.length} active employees`);
+    res.status(200).json({
+      success: true,
+      data: employees,
+      total: employees.length,
+    });
+  } catch (error) {
+    console.error('Controller error in getBasicEmployeeDetails:', error);
+    res.status(500).json({ 
+      success: false, 
+      error: {
+        code: 'INTERNAL_SERVER_ERROR',
+        message: 'Failed to fetch basic employee details for search',
+      }
+    });
+  } 
+};
+
 export default {
   defaultPassword,
   // createEmployee,
@@ -292,4 +314,5 @@ export default {
   updateEmployeePassword,
   // getAllEmployees,
   regenerateInvitationLink,
+  getBasicEmployeeDetails
 };
