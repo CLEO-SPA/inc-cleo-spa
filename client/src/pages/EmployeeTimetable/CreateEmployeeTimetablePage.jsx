@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { useForm, FormProvider } from 'react-hook-form';
 import { format } from 'date-fns';
 
@@ -17,6 +17,7 @@ import TimetableReview from '@/components/employee-timetable/TimetableReview';
 import CreateConfirmation from '@/components/employee-timetable/CreateConfirmation';
 
 import useTimetableStore from '@/stores/useTimetableStore';
+import useEmployeeStore from '@/stores/useEmployeeStore';
 
 export default function CreateEmployeeTimetablePage() {
   const methods = useForm();
@@ -32,7 +33,7 @@ export default function CreateEmployeeTimetablePage() {
   const [createdAtTime, setCreatedAtTime] = useState('');
   const [createdAt, setCreatedAt] = useState(null);
   const [isReviewing, setIsReviewing] = useState(false);
-  const [timetableResult, setTimetableResult] = useState(null); // for confirmation view
+  const [timetableResult, setTimetableResult] = useState(null); 
 
   const createTimetable = useTimetableStore((state) => state.createTimetable);
   const isSubmitting = useTimetableStore((state) => state.isSubmitting);
@@ -48,6 +49,41 @@ export default function CreateEmployeeTimetablePage() {
       setCreatedAt(null);
     }
   };
+
+  const [employeeName, setEmployeeName] = useState('');
+  const [createdByName, setCreatedByName] = useState('');
+
+  const fetchEmployeeNameById = useEmployeeStore((state) => state.fetchEmployeeNameById);
+
+  useEffect(() => {
+    if (selectedEmployee) {
+      const fetchEmployeeDetails = async () => {
+        try {
+          const employeeData = await fetchEmployeeNameById(selectedEmployee);
+          setEmployeeName(employeeData.data.employee_name);
+        } catch (error) {
+          console.error('Error fetching employee data:', error);
+        }
+      };
+
+      fetchEmployeeDetails();
+    }
+  }, [selectedEmployee, fetchEmployeeNameById]); 
+
+  useEffect(() => {
+    if (createdBy) {
+      const fetchCreatedByDetails = async () => {
+        try {
+          const createdByData = await fetchEmployeeNameById(createdBy);
+          setCreatedByName(createdByData.data.employee_name);
+        } catch (error) {
+          console.error('Error fetching createdBy data:', error);
+        }
+      };
+
+      fetchCreatedByDetails();
+    }
+  }, [createdBy, fetchEmployeeNameById]);
 
   const handleFinalSubmit = async () => {
     const now = format(getCurrentSimulationDate(), 'yyyy-MM-dd');
@@ -95,9 +131,12 @@ export default function CreateEmployeeTimetablePage() {
 
                 {timetableResult && (
                   <CreateConfirmation
-                    employeeName={timetableResult.timetable_details.employee_id}
-                    createdByName={timetableResult.timetable_details.created_by}
+                    employeeName={employeeName}
+                    createdByName={createdByName}
                     timetableDetails={timetableResult.timetable_details}
+                    conflictDetails={timetableResult.conflict_details}
+                    updatedPreviousTimetable={timetableResult.updated_previous_timetable}
+                    updatedNewTimetableEffectiveEndDate={timetableResult.updated_new_timetable_effective_enddate}
                     onViewTimetable={() => {
                       alert('Redirect to view timetable');
                     }}
@@ -116,11 +155,11 @@ export default function CreateEmployeeTimetablePage() {
 
                 {!timetableResult && isReviewing && (
                   <TimetableReview
-                    employeeName={selectedEmployee}
+                    employeeName={employeeName}
                     restDay={newRestDay}
                     startDate={startDate}
                     endDate={endDate}
-                    createdBy={createdBy}
+                    createdByName={createdByName}
                     createdAt={createdAt}
                     isSubmitting={isSubmitting}
                     submitError={submitError}
@@ -137,7 +176,7 @@ export default function CreateEmployeeTimetablePage() {
                         <div className='grid grid-cols-4 items-center gap-2'>
                           <Label className='col-span-1'>Employee*</Label>
                           <div className='col-span-3'>
-                            <EmployeeSelect name='employee_id' label='' />
+                            <EmployeeSelect name='employee_id' label='' rules={{ required: 'Employee is required' }} />
                           </div>
                         </div>
                       </div>
@@ -149,15 +188,21 @@ export default function CreateEmployeeTimetablePage() {
                         <div className='grid grid-cols-4 items-center gap-2'>
                           <Label className='col-span-1'>Created By*</Label>
                           <div className='col-span-3'>
-                            <EmployeeSelect name='created_by' label='' />
+                            <EmployeeSelect name='created_by' label='' rules={{ required: 'Created By is required' }} />
                           </div>
                         </div>
                       </div>
 
                       <div className='grid grid-cols-2 gap-6'>
-                        <DateTimePicker label='Effective Start Date*' date={startDate} onDateChange={setStartDate} />
+                        <DateTimePicker
+                          label='Effective Start Date*'
+                          name='start_date'
+                          date={startDate}
+                          onDateChange={(date) => setStartDate(date)}
+                        />
                         <DateTimePicker
                           label='Created At*'
+                          name='created_at'
                           date={createdAtDate}
                           time={createdAtTime}
                           onDateChange={(date) => {
@@ -175,6 +220,7 @@ export default function CreateEmployeeTimetablePage() {
                         <div className='col-start-1'>
                           <DateTimePicker
                             label='Effective End Date'
+                            name='end_date'
                             date={endDate}
                             onDateChange={setEndDate}
                             optional
@@ -189,7 +235,7 @@ export default function CreateEmployeeTimetablePage() {
                         <Button type='button' variant='outline'>
                           Cancel
                         </Button>
-                        <Button type='button' onClick={() => setIsReviewing(true)}>
+                        <Button type='submit' onClick={methods.handleSubmit(() => setIsReviewing(true))}>
                           Confirm
                         </Button>
                       </div>

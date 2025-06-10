@@ -6,7 +6,7 @@ const TimetableReview = ({
   restDay,
   startDate,
   endDate,
-  createdBy,
+  createdByName,
   createdAt,
   isSubmitting,
   submitError,
@@ -19,27 +19,43 @@ const TimetableReview = ({
         <p className='text-sm text-muted-foreground'>Please confirm the details before submission.</p>
       </div>
 
-      <div className='space-y-2 text-sm'>
-        <p>
-          <strong>Employee:</strong> {employeeName}
-        </p>
-        <p>
-          <strong>Rest Day:</strong> {restDay}
-        </p>
-        <p>
-          <strong>Effective Start Date:</strong> {startDate?.toLocaleDateString()}
-        </p>
-        <p>
-          <strong>Effective End Date:</strong> {endDate ? endDate.toLocaleDateString() : '—'}{' '}
-          {!endDate && <span className='text-muted-foreground text-xs'>(timetable remains active indefinitely)</span>}
-        </p>
-        <p>
-          <strong>Created By:</strong> {createdBy}
-        </p>
-        <p>
-          <strong>Created At:</strong> {createdAt?.toLocaleString()}
-        </p>
-      </div>
+      <table className='min-w-full table-auto'>
+        <thead>
+          <tr>
+            <th className='px-4 py-2 text-left'>Field</th>
+            <th className='px-4 py-2 text-left'>Details</th>
+          </tr>
+        </thead>
+        <tbody>
+          <tr>
+            <td className='px-4 py-2'><strong>Employee</strong></td>
+            <td className='px-4 py-2'>{employeeName}</td>
+          </tr>
+          <tr>
+            <td className='px-4 py-2'><strong>Rest Day</strong></td>
+            <td className='px-4 py-2'>{restDay}</td>
+          </tr>
+          <tr>
+            <td className='px-4 py-2'><strong>Effective Start Date</strong></td>
+            <td className='px-4 py-2'>{startDate?.toLocaleDateString()}</td>
+          </tr>
+          <tr>
+            <td className='px-4 py-2'><strong>Effective End Date</strong></td>
+            <td className='px-4 py-2'>
+              {endDate ? endDate.toLocaleDateString() : '—'}
+              {!endDate && <span className='text-muted-foreground'>  (timetable remains active indefinitely)</span>}
+            </td>
+          </tr>
+          <tr>
+            <td className='px-4 py-2'><strong>Created By</strong></td>
+            <td className='px-4 py-2'>{createdByName}</td>
+          </tr>
+          <tr>
+            <td className='px-4 py-2'><strong>Created At</strong></td>
+            <td className='px-4 py-2'>{createdAt?.toLocaleString()}</td>
+          </tr>
+        </tbody>
+      </table>
 
       <div className='flex justify-end gap-4 pt-4'>
         <Button variant='outline' onClick={onBack}>

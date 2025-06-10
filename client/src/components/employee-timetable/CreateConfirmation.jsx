@@ -7,51 +7,114 @@ const CreateConfirmation = ({
   employeeName,
   createdByName,
   timetableDetails,
+  conflictDetails = [],
+  updatedPreviousTimetable,
+  updatedNewTimetableEffectiveEndDate,
   onViewTimetable,
   onCreateAnother,
+  onCheckAppointments,
 }) => {
-  const {
-    restday_number,
-    effective_startdate,
-    effective_enddate,
-    created_at,
-  } = timetableDetails;
+  const { restday_number, effective_startdate, effective_enddate, created_at } = timetableDetails;
 
-  console.log(effective_startdate);
+  const hasConflicts = conflictDetails.length > 0;
+
+  let previousTimetableMessage = '';
+  if (updatedPreviousTimetable) {
+    previousTimetableMessage = `The timetable with rest day ${dayNames[updatedPreviousTimetable.restday_number - 1]} and effective start date from ${updatedPreviousTimetable.effective_startdate.split('T')[0]} has been updated to end on ${updatedPreviousTimetable.effective_enddate.split('T')[0]}.`;
+  }
+
+  let newTimetableMessage = '';
+  if (updatedNewTimetableEffectiveEndDate) {
+    newTimetableMessage = `The new timetable has been updated to end on ${updatedNewTimetableEffectiveEndDate.split('T')[0]}.`;
+  }
 
   return (
-    <div className="space-y-6">
+    <div className='space-y-6'>
       <div>
-        <h2 className="text-2xl font-bold">Timetable Successfully Created</h2>
-        <p className="text-sm text-muted-foreground">
-          The new timetable has been saved to the system.
-        </p>
+        <h2 className='text-2xl font-bold'>Timetable Successfully Created</h2>
+        <p className='text-sm text-muted-foreground'>The new timetable has been saved to the system.</p>
       </div>
 
-      <div className="space-y-2 text-sm">
-        <p><strong>Employee:</strong> {employeeName}</p>
-        <p><strong>Rest Day:</strong> {dayNames[restday_number - 1]}</p>
-        <p><strong>Effective Start Date:</strong> {effective_startdate?.split('T')[0] || '—'}</p>
-        <p>
-          <strong>Effective End Date:</strong>{' '}
-          {effective_enddate?.split('T')[0] || '—'}
-          {!effective_enddate && (
-            <span className="text-muted-foreground text-xs">
-              {' '} (timetable remains active indefinitely)
-            </span>
-          )}
-        </p>
-        <p><strong>Created By:</strong> {createdByName}</p>
-        <p><strong>Created At:</strong> {new Date(created_at).toLocaleString()}</p>
+      <div className='space-y-2 text-sm'>
+        <table className='min-w-full table-auto'>
+          <thead>
+            <tr>
+              <th className='px-4 py-2 text-left'>Field</th>
+              <th className='px-4 py-2 text-left'>Details</th>
+            </tr>
+          </thead>
+          <tbody>
+            <tr>
+              <td className='px-4 py-2'><strong>Employee</strong></td>
+              <td className='px-4 py-2'>{employeeName}</td>
+            </tr>
+            <tr>
+              <td className='px-4 py-2'><strong>Rest Day</strong></td>
+              <td className='px-4 py-2'>{dayNames[restday_number - 1]}</td>
+            </tr>
+            <tr>
+              <td className='px-4 py-2'><strong>Effective Start Date</strong></td>
+              <td className='px-4 py-2'>{effective_startdate?.split('T')[0] || '—'}</td>
+            </tr>
+            <tr>
+              <td className='px-4 py-2'><strong>Effective End Date</strong></td>
+              <td className='px-4 py-2'>
+                {effective_enddate?.split('T')[0] || '—'}
+                {!effective_enddate && (
+                  <span className='text-muted-foreground'> (timetable remains active indefinitely)</span>
+                )}
+              </td>
+            </tr>
+            <tr>
+              <td className='px-4 py-2'><strong>Created By</strong></td>
+              <td className='px-4 py-2'>{createdByName}</td>
+            </tr>
+            <tr>
+              <td className='px-4 py-2'><strong>Created At</strong></td>
+              <td className='px-4 py-2'>{new Date(created_at).toLocaleString()}</td>
+            </tr>
+          </tbody>
+        </table>
       </div>
 
-      <div className="flex justify-end gap-4 pt-4">
-        <Button variant="outline" onClick={onViewTimetable}>
+      {previousTimetableMessage && (
+        <div className='bg-gray-100 border border-gray-300 p-4 rounded'>
+          <p className='font-semibold'>Updated Existing Timetable:</p>
+          <p>{previousTimetableMessage}</p>
+        </div>
+      )}
+
+      {newTimetableMessage && (
+        <div className='bg-gray-100 border border-gray-300 p-4 rounded'>
+          <p className='font-semibold'>Updated New Timetable:</p>
+          <p>{newTimetableMessage}</p>
+        </div>
+      )}
+
+      {hasConflicts && (
+        <div className='bg-gray-100 border border-gray-300 p-4 rounded'>
+          <p className='font-semibold mb-2'>Warning: Appointment Conflicts Detected</p>
+          <ul className='list-disc pl-6'>
+            {conflictDetails.map(({ rest_day_date, conflicted_count }, index) => {
+              const dateObj = new Date(rest_day_date);
+              const dayName = dayNames[dateObj.getDay()];
+              return (
+                <li key={index}>
+                  {conflicted_count} appointment{conflicted_count > 1 ? 's' : ''} scheduled on {rest_day_date} (
+                  {dayName})
+                </li>
+              );
+            })}
+          </ul>
+        </div>
+      )}
+
+      <div className='flex justify-end gap-4 pt-4'>
+        <Button variant='outline' onClick={onViewTimetable}>
           View Timetable
         </Button>
-        <Button onClick={onCreateAnother}>
-          Create Another Timetable
-        </Button>
+        {hasConflicts && <Button onClick={onCheckAppointments}>Check Appointments</Button>}
+        {!hasConflicts && <Button onClick={onCreateAnother}>Create Another Timetable</Button>}
       </div>
     </div>
   );

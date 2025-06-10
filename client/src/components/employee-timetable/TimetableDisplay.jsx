@@ -49,14 +49,14 @@ const TimetableDisplay = ({ employeeId }) => {
         <thead>
           <tr className='bg-gray-100'>
             <th className='border px-4 py-2'>Rest Day</th>
-            <th className='border px-4 py-2'>Start</th>
-            <th className='border px-4 py-2'>End</th>
+            <th className='border px-4 py-2'>Effective Start Date</th>
+            <th className='border px-4 py-2'>Effective End Date</th>
             <th className='border px-4 py-2'>Status</th>
           </tr>
         </thead>
         <tbody>
-          {data.map((t) => (
-            <tr key={t.timetable_id} className='text-center'>
+          {data.map((t, index) => (
+            <tr key={t.timetable_id || index} className='text-center'>
               <td className='border px-4 py-2'>{getRestDayName(t.restday_number)}</td>
               <td className='border px-4 py-2'>{formatToSingaporeDate(t.effective_startdate)}</td>
               <td className='border px-4 py-2'>
