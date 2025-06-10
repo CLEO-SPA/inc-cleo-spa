@@ -4,6 +4,7 @@ import { parseConnectionString } from '../utils/dbConnectionParser.js';
 
 function LoggingProxy(actualPool: Pool, poolName: string, filter: string[] = []): Pool {
   return new Proxy(actualPool, {
+    // eslint-disable-next-line @typescript-eslint/no-unused-vars
     get: (target, propKey, receiver) => {
       const originalValue = target[propKey as keyof Pool];
 
@@ -40,12 +41,14 @@ function LoggingProxy(actualPool: Pool, poolName: string, filter: string[] = [])
               }`
             );
           }
+          // eslint-disable-next-line @typescript-eslint/no-unsafe-function-type
           return (originalValue as Function).apply(target, args);
         };
       }
 
       if (typeof originalValue === 'function') {
         return function (...args: any[]) {
+          // eslint-disable-next-line @typescript-eslint/no-unsafe-function-type
           return (originalValue as Function).apply(target, args);
         };
       }
@@ -94,4 +97,8 @@ export function pool(): pg.Pool {
 
 export function getProdPool(): pg.Pool {
   return prodPool;
+}
+
+export function getSimPool(): pg.Pool {
+  return simPool;
 }
