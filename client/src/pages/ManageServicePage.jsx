@@ -18,7 +18,7 @@ import { SidebarInset, SidebarProvider } from '@/components/ui/sidebar';
 
 export default function ManageService() {
   const [services, setServices] = useState([]);
-  // const [categories, setCategories] = useState([]);
+  const [categories, setCategories] = useState([]);
 
   // For select categories
   const [selectedCategory, setSelectedCategory] = useState('0');
@@ -47,6 +47,19 @@ export default function ManageService() {
       }
     } catch (err) {
       console.error('Error fetching services:', err);
+    }
+  }
+
+  const getCategories = async () => {
+    try{
+      const response = await api.get('/service/service-cat');
+      if (response.status === 200) {
+        setCategories(response.data);
+      } else {
+        console.error('Failed to fetch service categories:', response.statusText);
+      }
+    }catch (err) {
+      console.error('Error fetching service categories:', err);
     }
   }
 
@@ -85,6 +98,7 @@ export default function ManageService() {
     // Test data
     try {
       getServices();
+      getCategories();
     } catch (err) {
       console.error('Error fetching services:' + err);
     }
@@ -98,14 +112,14 @@ export default function ManageService() {
           <SidebarInset>
             <div className='flex flex-1 flex-col gap-4 p-4'>
               {/* Buttons for other Functionalities */}
-              <div class="flex space-x-4 p-4 bg-gray-100 rounded-lg">
+              <div class="flex space-x-4 p-4 bg-muted/50 rounded-lg">
                 <Button onClick={() => navigate("/create-service")} className="rounded-xl">Create Service</Button>
                 <Button onClick={() => navigate("/reorder-service")} className="rounded-xl">Reorder Service</Button>
                 <Button onClick={handleViewAllDetails} className="rounded-xl">View All Details</Button>
                 <Button className="rounded-xl">Manage Categories</Button>
               </div>
               {/* Filter */}
-              <div class="flex space-x-4 p-4 bg-gray-100 rounded-lg">
+              <div class="flex space-x-4 p-4 bg-muted/50 rounded-lg">
                 {/* Search bar */}
                 <SearchForm className="w-[300px]" placeholder="Search By Name" />
                 {/* Select Category */}
@@ -115,7 +129,11 @@ export default function ManageService() {
                   </SelectTrigger>
                   <SelectContent>
                     <SelectItem value="0" selected>All Categories</SelectItem>
-                    <SelectItem value="1">Face Care</SelectItem>
+                    {categories.map((category) => (
+                      <SelectItem key={category.id} value={category.id}>
+                        {category.service_category_name}
+                      </SelectItem>
+                    ))}
                   </SelectContent>
                 </Select>
                 {/* Select Status */}
@@ -125,8 +143,8 @@ export default function ManageService() {
                   </SelectTrigger>
                   <SelectContent>
                     <SelectItem value="0" selected>All</SelectItem>
-                    <SelectItem value="True">Enabled</SelectItem>
-                    <SelectItem value="False">Disabled</SelectItem>
+                    <SelectItem value="true">Enabled</SelectItem>
+                    <SelectItem value="false">Disabled</SelectItem>
                   </SelectContent>
                 </Select>
                 {/* Search Button */}
@@ -158,14 +176,14 @@ export default function ManageService() {
                               <td className="px-2 py-2 border border-gray-200">{service.service_name}</td>
                               <td className="px-2 py-2 border border-gray-200">{service.service_price}</td>
                               <td className="px-2 py-2 border border-gray-200">
-                                place holder
+                                {new Date(service.created_at).toLocaleDateString()}
                               </td>
                               <td className="px-2 py-2 border border-gray-200">{service.service_category_name}</td>
                               {/* Enabled Row */}
                               <td className="px-2 py-2 border border-gray-200">
                                 <ToggleSwitch
                                   checked={service.service_is_enabled}
-                                  onCheckedChange={handleSwitchChange(service.service_id, service.service_is_enabled)}
+                                  onCheckedChange={handleSwitchChange(service.id, service.service_is_enabled)}
                                 />
                               </td>
                               {/* Action Row */}
@@ -191,31 +209,31 @@ export default function ManageService() {
                                     {/* More Details */}
                                     <div>
                                       <div>
-                                        <strong>Duration:</strong> {service.service_estimated_duration} mins
+                                        <strong>Duration:</strong> {service.service_duration} mins
                                       </div>
                                       <div>
-                                        <strong>Description:</strong> {service.service_description}
+                                        <strong>Description:</strong> {service.service_description ? service.service_description : 'No description available.'}
                                       </div>
                                       <div>
-                                        <strong>Number of Care Packages with Service:</strong>
+                                        <strong>Number of Care Packages with Service:</strong> {service.total_care_packages}
                                       </div>
                                       <div>
-                                        <strong>Number of Sales Transactions:</strong>
+                                        <strong>Number of Sales Transactions:</strong> {service.total_sale_transactions}
                                       </div>
                                     </div>
                                     {/* Created and Updated details */}
                                     <div>
                                       <div>
-                                        <strong>Created By:</strong>
+                                        <strong>Created By:</strong> {service.created_by}
                                       </div>
                                       <div>
-                                        <strong>Remarks:</strong> {service.service_remarks}
+                                        <strong>Remarks:</strong> {service.service_remarks ? service.service_remarks : 'No remarks available.'}
                                       </div>
                                       <div>
-                                        <strong>Last Updated At:</strong>
+                                        <strong>Last Updated At:</strong> {new Date(service.updated_at).toLocaleDateString()}
                                       </div>
                                       <div>
-                                        <strong>Last Updated By:</strong>
+                                        <strong>Last Updated By:</strong> {service.updated_by}
                                       </div>
                                     </div>
                                   </div>

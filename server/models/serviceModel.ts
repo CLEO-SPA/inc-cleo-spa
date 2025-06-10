@@ -206,6 +206,19 @@ const getEnabledServiceById = async (id: number) => {
   }
 };
 
+const getServiceCategories = async () => {
+  try{
+    const query = `
+    SELECT * FROM service_categories
+    ORDER BY service_category_sequence_no;`;
+    const result = await pool().query(query);
+    return result.rows;
+  }catch(error){
+    console.error('Error fetching service categories:', error);
+    throw new Error('Error fetching service categories');
+  }
+}
+
 export default {
   getAllServices,
   getServicesPaginationFilter,
@@ -213,4 +226,5 @@ export default {
   getAllServicesForDropdown,
   getServiceById,
   getEnabledServiceById,
+  getServiceCategories
 };

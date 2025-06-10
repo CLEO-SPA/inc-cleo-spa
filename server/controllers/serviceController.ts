@@ -1,6 +1,7 @@
 import { Request, Response, NextFunction } from 'express';
 import validator from "validator";
 import serviceModel from '../models/serviceModel.js';
+import { get } from 'http';
 
 // Get all services
 const getAllServices = async (req: Request, res: Response, next: NextFunction) => {
@@ -49,7 +50,7 @@ console.log('status:', status, typeof status);
       data.limit = 10;
     }
 
-    if (typeof search === 'string') {
+    if (typeof search === 'string' && isSafeInput(search)) {
       data.search = search;
     } else {
       data.search = null;
@@ -135,7 +136,7 @@ const getEnabledServiceById = async (req: Request, res: Response, next: NextFunc
     const service = await serviceModel.getEnabledServiceById(id);
 
     if (!service || service.length === 0) {
-      res.status(404).json({ message: 'Service not found or not active' });
+      res.status(404).json({ message: 'Service not found or not enabled' });
       return;
     }
 
@@ -146,10 +147,28 @@ const getEnabledServiceById = async (req: Request, res: Response, next: NextFunc
   }
 };
 
+const getServiceCategories = async (req: Request, res: Response, next: NextFunction) => {
+  try {
+
+    const serviceCategories = await serviceModel.getServiceCategories();
+
+    if (!serviceCategories || serviceCategories.length === 0) {
+      res.status(404).json({ message: 'Service categories not found' });
+      return;
+    }
+
+    res.status(200).json(serviceCategories); 
+  } catch (error) {
+    console.error('Error in getServiceCategories:', error);
+    res.status(500).json({ message: 'Failed to fetch service categories' });
+  }
+};
+
 export default {
   getAllServices,
   getServicesPaginationFilter,
   getAllServicesForDropdown,
   getServiceById,
   getEnabledServiceById,
+  getServiceCategories
 };
