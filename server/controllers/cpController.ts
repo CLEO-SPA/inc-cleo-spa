@@ -226,6 +226,35 @@ const updateCarePackageById = async (req: Request, res: Response, next: NextFunc
   }
 };
 
+const updateCarePackageStatusById = async (req: Request, res: Response, next: NextFunction): Promise<void> => {
+  try {
+    const { care_package_id, status_id, employee_id } = req.body;
+
+    // validate required fields
+    if (!care_package_id) {
+      res.status(400).json({ message: 'Care package ID is required' });
+      return;
+    }
+
+    if (!status_id) {
+      res.status(400).json({ message: 'Status ID is required' });
+      return;
+    }
+
+    const results = await model.updateCarePackageStatusById(
+      care_package_id,
+      status_id,
+      employee_id || req.session.user_id,
+      new Date().toISOString()
+    );
+
+    res.status(200).json(results);
+  } catch (error) {
+    console.error('Error updating care package status:', error);
+    next(error);
+  }
+};
+
 const deleteCarePackageById = async (req: Request, res: Response, next: NextFunction): Promise<void> => {
   try {
     const { id } = req.params;
@@ -375,6 +404,7 @@ export default {
   getCarePackagePurchaseCount,
   createCarePackage,
   updateCarePackageById,
+  updateCarePackageStatusById,
   emulateCarePackage,
   deleteCarePackageById,
 };

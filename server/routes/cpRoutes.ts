@@ -24,7 +24,8 @@ router.get('/pkgpc' , controller.getCarePackagePurchaseCount);
 
 router.post('/create', controller.createCarePackage);
 
-router.put('/update', controller.updateCarePackageById);
+router.put('/u', controller.updateCarePackageById);
+router.put('/u/s', controller.updateCarePackageStatusById);
 
 router.delete('/:id/del', roleMiddleware.hasRole(['data_admin', 'super_admin']), controller.deleteCarePackageById);
 
