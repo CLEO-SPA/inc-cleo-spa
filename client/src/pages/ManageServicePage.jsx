@@ -29,6 +29,33 @@ export default function ManageService() {
     // Update the service's enabled status
     console.log(`Change Status for ${serviceId}`);
   }
+
+  // For expanding rows
+  // const [expandedIndex, setExpandedIndex] = useState(null);
+  const [expandedRows, setExpandedRows] = useState([]);
+
+  const toggleRow = async (index) => {
+    //Toggled details of one row at a time
+    // setExpandedIndex(prev => (prev === index ? null : index));
+
+    //Toggle multiple rows
+    if (expandedRows.includes(index)) {
+      setExpandedRows(expandedRows.filter(rowIndex => rowIndex !== index));
+    } else {
+      setExpandedRows([...expandedRows, index]);
+    }
+  };
+
+  const handleViewAllDetails = () => {
+    if(expandedRows.length === services.length){
+      // Collapse all rows if all are expanded
+      setExpandedRows([]);
+      return;
+    } else {
+    setExpandedRows(services.map((_, index) => index));
+    }
+  }
+
   useEffect(() => {
     // Test data
     try {
@@ -219,8 +246,8 @@ export default function ManageService() {
               {/* Buttons for other Functionalities */}
               <div class="flex space-x-4 p-4 bg-gray-100 rounded-lg">
                 <Button onClick={() => navigate("/create-service")} className="rounded-xl">Create Service</Button>
-                <Button className="rounded-xl">Reorder Service</Button>
-                <Button className="rounded-xl">View All Details</Button>
+                <Button onClick={() => navigate("/reorder-service")} className="rounded-xl">Reorder Service</Button>
+                <Button onClick={handleViewAllDetails} className="rounded-xl">View All Details</Button>
                 <Button className="rounded-xl">Manage Categories</Button>
               </div>
               {/* Filter */}
@@ -261,7 +288,7 @@ export default function ManageService() {
                         <th className="px-2 py-2 text-left border border-gray-200">ID</th>
                         <th className="px-2 py-2 text-left border border-gray-200">Name</th>
                         <th className="px-2 py-2 text-left border border-gray-200">Unit Price (SGD)</th>
-                         <th className="px-2 py-2 text-left border border-gray-200">Date of Creation</th>
+                        <th className="px-2 py-2 text-left border border-gray-200">Date of Creation</th>
                         <th className="px-2 py-2 text-left border border-gray-200">Category</th>
                         <th className="px-2 py-2 text-left border border-gray-200">Status</th>
                         <th className="px-4 py-2 text-left border border-gray-200">Actions</th>
@@ -270,35 +297,76 @@ export default function ManageService() {
                     {/* Table body */}
                     <tbody>
                       {services.length > 0 ? (
-                        services.map((service) => (
-                          <tr key={service.service_id}>
-                            <td className="px-2 py-2 border border-gray-200">{service.service_id}</td>
-                            <td className="px-2 py-2 border border-gray-200">{service.service_name}</td>
-                            <td className="px-2 py-2 border border-gray-200">{service.service_default_price}</td>
-                            <td className="px-2 py-2 border border-gray-200">{service.service_created_at}</td>
-                            <td className="px-2 py-2 border border-gray-200">{service.service_category_name}</td>
-                            {/* Enabled Row */}
-                            <td className="px-2 py-2 border border-gray-200">
-                              <ToggleSwitch
-                                checked={service.service_is_enabled}
-                                onCheckedChange={handleSwitchChange}
-                              />
-                            </td>
-                            {/* Action Row */}
-                            <td className="px-4 py-2 border border-gray-200">
-                              <div className="flex space-x-2 space-y-1">
-                                <Button className="p-1 bg-green-600 text-white text-sm font-medium rounded-xl hover:bg-green-700">
-                                  <FilePenLine className="inline-block mr-1" />
-                                </Button>
-                                <Button className="px-2 py-1 bg-gray-600 text-white text-sm font-medium rounded-xl hover:bg-blue-700">
-                                  View Sales History
-                                </Button>
-                                <button className="p-1 text-3xl text-black bg-transparent rounded-xl hover:bg-transparent hover:text-blue-700">
-                                  <ChevronDownCircle />
-                                </button>
-                              </div>
-                            </td>
-                          </tr>
+                        services.map((service, index) => (
+                          <>
+                            <tr key={service.service_id}>
+                              <td className="px-2 py-2 border border-gray-200">{service.service_id}</td>
+                              <td className="px-2 py-2 border border-gray-200">{service.service_name}</td>
+                              <td className="px-2 py-2 border border-gray-200">{service.service_default_price}</td>
+                              <td className="px-2 py-2 border border-gray-200">{service.service_created_at}</td>
+                              <td className="px-2 py-2 border border-gray-200">{service.service_category_name}</td>
+                              {/* Enabled Row */}
+                              <td className="px-2 py-2 border border-gray-200">
+                                <ToggleSwitch
+                                  checked={service.service_is_enabled}
+                                  onCheckedChange={handleSwitchChange(service.service_id, service.service_is_enabled)}
+                                />
+                              </td>
+                              {/* Action Row */}
+                              <td className="px-4 py-2 border border-gray-200">
+                                <div className="flex space-x-2 space-y-1">
+                                  <Button className="p-1 bg-green-600 text-white text-sm font-medium rounded-xl hover:bg-green-700">
+                                    <FilePenLine className="inline-block mr-1" />
+                                  </Button>
+                                  <Button className="px-2 py-1 bg-gray-600 text-white text-sm font-medium rounded-xl hover:bg-blue-700">
+                                    View Sales History
+                                  </Button>
+                                  <Button className="p-1 text-3xl text-black bg-transparent rounded-xl hover:bg-transparent hover:text-blue-700" onClick={() => toggleRow(index)}>
+                                    {expandedRows.includes(index) ? <ChevronUpCircle /> : <ChevronDownCircle />}
+                                  </Button>
+                                </div>
+                              </td>
+                            </tr>
+
+                            {expandedRows.includes(index) && (
+                              <tr className="bg-gray-100">
+                                <td colSpan="100%" className="px-4 py-2 border border-gray-200">
+                                  <div className="grid grid-cols-2 gap-4">
+                                    {/* More Details */}
+                                    <div>
+                                      <div>
+                                        <strong>Duration:</strong> {service.service_estimated_duration} mins
+                                      </div>
+                                      <div>
+                                        <strong>Description:</strong> {service.service_description}
+                                      </div>
+                                      <div>
+                                        <strong>Number of Care Packages with Service:</strong>
+                                      </div>
+                                      <div>
+                                        <strong>Number of Sales Transactions:</strong>
+                                      </div>
+                                    </div>
+                                    {/* Created and Updated details */}
+                                    <div>
+                                      <div>
+                                        <strong>Created By:</strong>
+                                      </div>
+                                      <div>
+                                        <strong>Remarks:</strong> {service.service_remarks}
+                                      </div>
+                                      <div>
+                                        <strong>Last Updated At:</strong>
+                                      </div>
+                                      <div>
+                                        <strong>Last Updated By:</strong>
+                                      </div>
+                                    </div>
+                                  </div>
+                                </td>
+                              </tr>
+                            )}
+                          </>
                         ))
                       ) : (
                         <tr>
