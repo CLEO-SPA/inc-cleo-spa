@@ -5,8 +5,9 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
-import { Calendar, Plus,
- } from 'lucide-react';
+import {
+  Calendar, Plus,
+} from 'lucide-react';
 import DateRangePicker from '@/components/date-range-picker';
 import { format } from 'date-fns';
 
@@ -37,32 +38,32 @@ import { SidebarInset, SidebarProvider } from '@/components/ui/sidebar';
 function ManageMembersPage() {
   const { user } = useAuth();
   const navigate = useNavigate();
-  
-const {
-  members,
-  currentPage,
-  currentLimit,
-  totalPages,
-  totalCount,
-  searchTerm,
-  createdBy,
-  startDate_utc,
-  endDate_utc,
-  isFetching,
-  isDeleting,
-  error,
-  errorMessage,
-  fetchMembers,
-  deleteMember,
-  setSelectedMemberId,
-  goToPage,
-  goToNextPage,
-  goToPreviousPage,
-  setLimit,
-  setDateRange,
-  setCreatedBy,
-  setSearchTerm,
-} = useMemberStore();
+
+  const {
+    members,
+    currentPage,
+    currentLimit,
+    totalPages,
+    totalCount,
+    searchTerm,
+    createdBy,
+    startDate_utc,
+    endDate_utc,
+    isFetching,
+    isDeleting,
+    error,
+    errorMessage,
+    fetchMembers,
+    deleteMember,
+    setSelectedMemberId,
+    goToPage,
+    goToNextPage,
+    goToPreviousPage,
+    setLimit,
+    setDateRange,
+    setCreatedBy,
+    setSearchTerm,
+  } = useMemberStore();
 
 
   // Local state for form inputs only
@@ -76,14 +77,14 @@ const {
   const [targetPageInput, setTargetPageInput] = useState('');
 
   // Initialize search input with store value
-useEffect(() => {
-  setInputSearchTerm(searchTerm || '');
-  setInputCreatedBy(createdBy || '');
-  setCreatedDateRange({
-    from: startDate_utc ? new Date(startDate_utc) : undefined,
-    to: endDate_utc ? new Date(endDate_utc) : undefined
-  });
-}, [searchTerm, createdBy, startDate_utc, endDate_utc]);
+  useEffect(() => {
+    setInputSearchTerm(searchTerm || '');
+    setInputCreatedBy(createdBy || '');
+    setCreatedDateRange({
+      from: startDate_utc ? new Date(startDate_utc) : undefined,
+      to: endDate_utc ? new Date(endDate_utc) : undefined
+    });
+  }, [searchTerm, createdBy, startDate_utc, endDate_utc]);
 
 
   // Fetch members on component mount
@@ -94,8 +95,8 @@ useEffect(() => {
   const handleSearchSubmit = (e) => {
     e.preventDefault();
 
-  const startDateString = createdDateRange.from ? format(createdDateRange.from, 'yyyy-MM-dd') : '';
-  const endDateString = createdDateRange.to ? format(createdDateRange.to, 'yyyy-MM-dd') : '';
+    const startDateString = createdDateRange.from ? format(createdDateRange.from, 'yyyy-MM-dd') : '';
+    const endDateString = createdDateRange.to ? format(createdDateRange.to, 'yyyy-MM-dd') : '';
     setSearchTerm(inputSearchTerm);
     setCreatedBy(inputCreatedBy);
     setDateRange(startDateString, endDateString);
@@ -163,7 +164,7 @@ useEffect(() => {
     navigate(`/member/edit/${id}`); // Adjust route as needed
   };
 
-  
+
   const handleCreate = () => {
     navigate('/member/create'); // Adjust route as needed
   };
@@ -224,14 +225,14 @@ useEffect(() => {
               <Card>
                 <CardHeader className='flex flex-row items-center justify-between space-y-0 pb-4'>
                   <div>
-                  <CardTitle>Members Management</CardTitle>
-                  {totalCount > 0 && (
-                    <p className='text-sm text-muted-foreground'>
-                      Showing {members.length} of {totalCount} members
-                    </p>
-                  )}
+                    <CardTitle className={'text-sm'}>Members Management</CardTitle>
+                    {totalCount > 0 && (
+                      <p className='text-xs text-muted-foreground'>
+                        Showing {members.length} of {totalCount} members
+                      </p>
+                    )}
                   </div>
-                    {canCreate && (
+                  {canCreate && (
                     <Button onClick={handleCreate} className='gap-2'>
                       <Plus className='h-4 w-4' />
                       Add Member
@@ -239,53 +240,53 @@ useEffect(() => {
                   )}
                 </CardHeader>
                 <CardContent className='space-y-4'>
-                {/* Search and Limit Controls */}
-                <div className='flex flex-col sm:flex-row gap-4 items-end'>
+                  {/* Search and Limit Controls */}
+                  <div className='flex flex-col sm:flex-row gap-4 items-end'>
 
-              <form onSubmit={handleSearchSubmit} className='flex-grow sm:flex-grow-0 sm:w-5/8'>
-                <div className='flex items-center gap-2'>
-                  <Input
-                    id='search'
-                    type='text'
-                    placeholder='Search by Name or Contact'
-                    value={inputSearchTerm}
-                    onChange={(e) => setInputSearchTerm(e.target.value)}
-                    className='w-55'
-                  />
-                  
-                  <Input
-                    id="createdBy"
-                    type="text"
-                    placeholder="Created By"
-                    value={inputCreatedBy}
-                    onChange={(e) => setInputCreatedBy(e.target.value)}
-                    className='w-40'
-                  />
-                  
-                  <div className='flex items-center gap-1'>
-                    <Calendar className='h-4 w-4 text-gray-500' />
-                    <span className='text-sm text-gray-600 whitespace-nowrap'>Created:</span>
-                    <DateRangePicker
-                      value={createdDateRange}
-                      onValueChange={setCreatedDateRange}
-                    />
-                  </div>
+                    <form onSubmit={handleSearchSubmit} className='flex-grow sm:flex-grow-0 sm:w-5/8'>
+                      <div className='flex items-center gap-2'>
+                        <Input
+                          id='search'
+                          type='text'
+                          placeholder='Search by Name or Contact'
+                          value={inputSearchTerm}
+                          onChange={(e) => setInputSearchTerm(e.target.value)}
+                          className='w-55'
+                        />
 
-                  
-                  <Button type='submit'
-                    className='w-25'
-                    disabled={isFetching}>
-                    Search
-                  </Button>
-                </div>
-              </form>
+                        <Input
+                          id="createdBy"
+                          type="text"
+                          placeholder="Created By"
+                          value={inputCreatedBy}
+                          onChange={(e) => setInputCreatedBy(e.target.value)}
+                          className='w-40'
+                        />
 
-              <div className='flex items-end gap-2'>
+                        <div className='flex items-center gap-1'>
+                          <Calendar className='h-4 w-4 text-gray-500' />
+                          <span className='text-sm text-gray-600 whitespace-nowrap'>Created:</span>
+                          <DateRangePicker
+                            value={createdDateRange}
+                            onValueChange={setCreatedDateRange}
+                          />
+                        </div>
+
+
+                        <Button type='submit'
+                          className='w-25'
+                          disabled={isFetching}>
+                          Search
+                        </Button>
+                      </div>
+                    </form>
+
+                    <div className='flex items-end gap-2'>
                       <Label htmlFor='limit' className='mb-2'>
                         Items per page:
                       </Label>
-                      <Select 
-                        value={currentLimit.toString()} 
+                      <Select
+                        value={currentLimit.toString()}
                         onValueChange={handleLimitChange}
                         disabled={isFetching}
                       >
@@ -303,12 +304,24 @@ useEffect(() => {
                   </div>
 
                   {/* Table */}
-                  <div className='rounded-md border'>
-                    <Table>
+                  <div className='rounded-md border overflow-x-auto'>
+                    <Table className='w-full table-fixed text-xs'>
                       <TableHeader>
                         <TableRow>
                           {tableHeaders.map((header) => (
-                            <TableHead key={header.key} className={header.key === 'actions' ? 'text-right' : ''}>
+                            <TableHead
+                              key={header.key}
+                              className={`
+                                    ${header.key === 'actions' ? 'text-right w-20' : ''} 
+                                    ${header.key === 'id' ? 'w-16' : ''}
+                                    ${header.key === 'name' ? 'w-32' : ''}
+                                    ${header.key === 'email' ? 'w-48 hidden sm:table-cell' : ''}
+                                    ${header.key === 'total_amount_owed' ? 'w-24' : ''}
+                                    ${header.key === 'created_at' ? 'w-24 hidden md:table-cell' : ''}
+                                    ${header.key === 'updated_at' ? 'w-24 hidden lg:table-cell' : ''}
+                                    truncate
+                                  `}
+                            >
                               {header.label}
                             </TableHead>
                           ))}
@@ -335,7 +348,7 @@ useEffect(() => {
                               {tableHeaders.map((header) => {
                                 if (header.key === 'actions') {
                                   return (
-                                    <TableCell key={header.key} className='text-right'>
+                                    <TableCell key={header.key} className='text-right w-20 px-1 py-1'>
                                       <DropdownMenu>
                                         <DropdownMenuTrigger asChild>
                                           <Button variant='ghost' className='h-8 w-8 p-0'>
@@ -375,7 +388,13 @@ useEffect(() => {
                                 if (header.key === 'created_at' || header.key === 'updated_at') {
                                   const date = member[header.key];
                                   return (
-                                    <TableCell key={header.key}>
+                                    <TableCell
+                                      key={header.key}
+                                      className={`
+                      ${header.key === 'created_at' ? 'hidden md:table-cell' : 'hidden lg:table-cell'}
+                      w-24 truncate
+                    `}
+                                    >
                                       {date ? new Date(date).toLocaleDateString('en-GB') : 'N/A'}
                                     </TableCell>
                                   );
@@ -384,13 +403,32 @@ useEffect(() => {
                                 if (header.key === 'total_amount_owed') {
                                   const amount = member[header.key];
                                   return (
-                                    <TableCell key={header.key}>
+                                    <TableCell key={header.key} className='w-24 truncate'>
                                       {amount != null ? `$${parseFloat(amount).toFixed(2)}` : '$0.00'}
                                     </TableCell>
                                   );
                                 }
 
-                                return <TableCell key={header.key}>{member[header.key] || 'N/A'}</TableCell>;
+                                if (header.key === 'email') {
+                                  return (
+                                    <TableCell key={header.key} className='w-48 truncate hidden sm:table-cell' title={member[header.key]}>
+                                      {member[header.key] || 'N/A'}
+                                    </TableCell>
+                                  );
+                                }
+
+                                return (
+                                  <TableCell
+                                    key={header.key}
+                                    className={`
+                    ${header.key === 'name' ? 'w-32' : header.key === 'id' ? 'w-16' : ''}
+                    truncate
+                  `}
+                                    title={member[header.key]} // Shows full text on hover
+                                  >
+                                    {member[header.key] || 'N/A'}
+                                  </TableCell>
+                                );
                               })}
                             </TableRow>
                           ))}
@@ -434,10 +472,10 @@ useEffect(() => {
                             {page}
                           </Button>
                         ))}
-                        <Button 
-                          variant='outline' 
-                          size='sm' 
-                          onClick={goToNextPage} 
+                        <Button
+                          variant='outline'
+                          size='sm'
+                          onClick={goToNextPage}
                           disabled={!hasNextPage || isFetching}
                         >
                           Next
