@@ -28,10 +28,13 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import { AppSidebar } from '@/components/app-sidebar';
 import { SiteHeader } from '@/components/site-header';
 import { SidebarInset, SidebarProvider } from '@/components/ui/sidebar';
+import { ErrorState } from '@/components/ErrorState';
+import { LoadingState } from '@/components/LoadingState';
 
 function ManageCarePackagesPage() {
-  const { user } = useAuth();
+  const { user, statuses } = useAuth();
   const navigate = useNavigate();
+
   const {
     carePackages,
     currentPage,
@@ -48,6 +51,10 @@ function ManageCarePackagesPage() {
     goToPage,
     setSearchTerm,
     setLimit,
+    purchaseCountData,
+    isPurchaseCountLoading,
+    purchaseCountError,
+    fetchPurchaseCount,
   } = useCpPaginationStore();
 
   const [inputSearchTerm, setInputSearchTerm] = useState(searchTerm);
@@ -56,7 +63,9 @@ function ManageCarePackagesPage() {
   useEffect(() => {
     // Initialize with a default limit and empty search term if not already set
     initializePagination(currentLimit || 10, searchTerm || '');
-  }, [initializePagination, currentLimit, searchTerm]);
+    // Fetch purchase count data when component mounts
+    fetchPurchaseCount();
+  }, [initializePagination, currentLimit, searchTerm, fetchPurchaseCount]);
 
   const handleSearchSubmit = (e) => {
     e.preventDefault();
@@ -86,6 +95,20 @@ function ManageCarePackagesPage() {
   };
 
   const totalPages = totalCount ? Math.ceil(totalCount / currentLimit) : 0;
+
+  const getStatusNameById = (id) => {
+    if (!statuses || statuses.length === 0) return 'Unknown';
+    const status = statuses.find((s) => s.id == id);
+    return status ? status.status_name : 'Unknown';
+  };
+
+  // helper function to get purchase count for a package
+  const getPurchaseCountForPackage = (packageId) => {
+    if (!purchaseCountData || !purchaseCountData[packageId]) {
+      return { purchase_count: 0, is_purchased: false };
+    }
+    return purchaseCountData[packageId];
+  };
 
   const pageNumbers = useMemo(() => {
     if (!totalPages) return [];
@@ -121,7 +144,7 @@ function ManageCarePackagesPage() {
   };
 
   const handleEdit = (id) => {
-    navigate(`/care-packages/${id}/edit`); // Adjust route as needed
+    navigate(`/cp/${id}/edit`); // Adjust route as needed
   };
 
   const handleDelete = async (id) => {
@@ -131,7 +154,8 @@ function ManageCarePackagesPage() {
         // await api.delete(`/care-packages/${id}`); // Replace with your actual API call
         alert(`Care package ${id} deleted (simulated).`);
         // Optionally, re-fetch data or update store
-        initializePagination(currentLimit, searchTerm); // Re-initialize to refresh data
+        initializePagination(currentLimit, searchTerm);
+        fetchPurchaseCount(); 
       } catch (err) {
         console.error('Failed to delete care package:', err);
         alert('Failed to delete care package.');
@@ -143,27 +167,23 @@ function ManageCarePackagesPage() {
   const canEdit = user?.role === 'super_admin' || user?.role === 'data_admin';
   const canDelete = user?.role === 'super_admin';
 
-  // --- Placeholder for care package fields ---
+  // --- Updated table headers to include purchase count ---
   const tableHeaders = [
     { key: 'id', label: 'ID' },
     { key: 'care_package_name', label: 'Package Name' },
-    { key: 'care_package_price', label: 'Package Price' },
+    { key: 'care_package_price', label: 'Price' },
     { key: 'care_package_status', label: 'Status' },
+    { key: 'purchase_count', label: 'Purchase Count' },
     { key: 'updated_at', label: 'Last Updated' },
     { key: 'actions', label: 'Actions' },
   ];
 
   if (isLoading && !carePackages.length) {
-    // Show loading only if no data is present yet
-    return <div className='flex justify-center items-center h-screen'>Loading care packages...</div>;
+    return <LoadingState />;
   }
 
   if (error) {
-    return (
-      <div className='text-red-500 text-center mt-10'>
-        Error loading care packages: {error.message || 'Unknown error'}
-      </div>
-    );
+    return <ErrorState />;
   }
 
   return (
@@ -177,6 +197,12 @@ function ManageCarePackagesPage() {
               <Card>
                 <CardHeader>
                   <CardTitle>Care Packages Management</CardTitle>
+                  {isPurchaseCountLoading && (
+                    <div className='text-sm text-muted-foreground'>Loading purchase data...</div>
+                  )}
+                  {purchaseCountError && (
+                    <div className='text-sm text-red-600'>Error loading purchase data: {purchaseCountError}</div>
+                  )}
                 </CardHeader>
                 <CardContent className='space-y-4'>
                   {/* Search and Limit Controls */}
@@ -243,57 +269,84 @@ function ManageCarePackagesPage() {
                           </TableRow>
                         )}
                         {!isLoading &&
-                          carePackages.map((pkg) => (
-                            <TableRow key={pkg.id}>
-                              {tableHeaders.map((header) => {
-                                if (header.key === 'actions') {
-                                  return (
-                                    <TableCell key={header.key} className='text-right'>
-                                      <DropdownMenu>
-                                        <DropdownMenuTrigger asChild>
-                                          <Button variant='ghost' className='h-8 w-8 p-0'>
-                                            <span className='sr-only'>Open menu</span>
-                                            <MoreHorizontal className='h-4 w-4' />
-                                          </Button>
-                                        </DropdownMenuTrigger>
-                                        <DropdownMenuContent align='end'>
-                                          <DropdownMenuItem onClick={() => handleView(pkg.id)}>
-                                            <Eye className='mr-2 h-4 w-4' />
-                                            View
-                                          </DropdownMenuItem>
-                                          {canEdit && (
-                                            <DropdownMenuItem onClick={() => handleEdit(pkg.id)}>
-                                              <Edit className='mr-2 h-4 w-4' />
-                                              Edit
+                          carePackages.map((pkg) => {
+                            const purchaseData = getPurchaseCountForPackage(pkg.id);
+
+                            return (
+                              <TableRow key={pkg.id}>
+                                {tableHeaders.map((header) => {
+                                  if (header.key === 'actions') {
+                                    return (
+                                      <TableCell key={header.key} className='text-right'>
+                                        <DropdownMenu>
+                                          <DropdownMenuTrigger asChild>
+                                            <Button variant='ghost' className='h-8 w-8 p-0'>
+                                              <span className='sr-only'>Open menu</span>
+                                              <MoreHorizontal className='h-4 w-4' />
+                                            </Button>
+                                          </DropdownMenuTrigger>
+                                          <DropdownMenuContent align='end'>
+                                            <DropdownMenuItem onClick={() => handleView(pkg.id)}>
+                                              <Eye className='mr-2 h-4 w-4' />
+                                              View
                                             </DropdownMenuItem>
-                                          )}
-                                          {canDelete && (
-                                            <>
-                                              <DropdownMenuSeparator />
-                                              <DropdownMenuItem
-                                                onClick={() => handleDelete(pkg.id)}
-                                                className='text-destructive focus:text-destructive focus:bg-destructive/10'
-                                              >
-                                                <Trash2 className='mr-2 h-4 w-4' />
-                                                Delete
+                                            {canEdit && (
+                                              <DropdownMenuItem onClick={() => handleEdit(pkg.id)}>
+                                                <Edit className='mr-2 h-4 w-4' />
+                                                Edit
                                               </DropdownMenuItem>
-                                            </>
-                                          )}
-                                        </DropdownMenuContent>
-                                      </DropdownMenu>
-                                    </TableCell>
-                                  );
-                                }
-                                if (header.key === 'updated_at' || header.key === 'created_at') {
-                                  return <TableCell key={header.key}>{pkg[header.key].toUTCString()}</TableCell>;
-                                }
-                                if (header.key === 'care_package_price') {
-                                  return <TableCell key={header.key}>${pkg[header.key]}</TableCell>;
-                                }
-                                return <TableCell key={header.key}>{pkg[header.key] || 'N/A'}</TableCell>;
-                              })}
-                            </TableRow>
-                          ))}
+                                            )}
+                                            {canDelete && (
+                                              <>
+                                                <DropdownMenuSeparator />
+                                                <DropdownMenuItem
+                                                  onClick={() => handleDelete(pkg.id)}
+                                                  className='text-destructive focus:text-destructive focus:bg-destructive/10'
+                                                >
+                                                  <Trash2 className='mr-2 h-4 w-4' />
+                                                  Delete
+                                                </DropdownMenuItem>
+                                              </>
+                                            )}
+                                          </DropdownMenuContent>
+                                        </DropdownMenu>
+                                      </TableCell>
+                                    );
+                                  }
+                                  if (header.key === 'care_package_price') {
+                                    return (
+                                      <TableCell key={header.key}>
+                                        ${pkg[header.key] != null ? parseFloat(pkg[header.key]).toFixed(2) : '0.00'}
+                                      </TableCell>
+                                    );
+                                  }
+                                  if (header.key === 'care_package_status') {
+                                    // matches the key in tableHeaders
+                                    return <TableCell key={header.key}>{getStatusNameById(pkg.status_id)}</TableCell>;
+                                  }
+                                  if (header.key === 'purchase_count') {
+                                    return (
+                                      <TableCell key={header.key}>
+                                        {isPurchaseCountLoading ? (
+                                          <span className='text-muted-foreground'>Loading...</span>
+                                        ) : (
+                                          <span>{purchaseData.purchase_count}</span>
+                                        )}
+                                      </TableCell>
+                                    );
+                                  }
+                                  if (header.key === 'updated_at' || header.key === 'created_at') {
+                                    return (
+                                      <TableCell key={header.key}>
+                                        {new Date(pkg[header.key]).toLocaleString()}
+                                      </TableCell>
+                                    );
+                                  }
+                                  return <TableCell key={header.key}>{pkg[header.key] || 'N/A'}</TableCell>;
+                                })}
+                              </TableRow>
+                            );
+                          })}
                       </TableBody>
                     </Table>
                   </div>

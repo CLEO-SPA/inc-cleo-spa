@@ -133,6 +133,36 @@ const getCarePackagesForDropdown = async (): Promise<FullCarePackage[]> => {
   }
 };
 
+interface CarePackagePurchaseCount {
+  care_package_id: string;
+  care_package_name: string;
+  purchase_count: string;  
+  is_purchased: string;
+}
+
+const getCarePackagePurchaseCount = async (): Promise<Record<number, { purchase_count: number; is_purchased: string }>> => {
+  try {
+    const sql = `SELECT * FROM get_cp_purchase_counts();`;
+
+    const { rows } = await pool().query<CarePackagePurchaseCount>(sql);
+    const purchaseCountsMap: Record<number, { purchase_count: number; is_purchased: string }> = {};
+    
+    rows.forEach((row) => {
+      const id = parseInt(row.care_package_id.toString());
+      
+      purchaseCountsMap[id] = {
+        purchase_count: parseInt(row.purchase_count.toString()),
+        is_purchased: row.is_purchased
+      };
+    });
+
+    return purchaseCountsMap;
+  } catch (error) {
+    console.error('Error in getCarePackagePurchaseCounts:', error);
+    throw new Error('Could not retrieve care package purchase counts');
+  }
+};
+
 interface FullCarePackage {
   package: CarePackages;
   details: CarePackageItemDetails[];
@@ -684,6 +714,7 @@ export default {
   getPaginatedCarePackages,
   getCarePackagesForDropdown,
   getCarePackageById,
+  getCarePackagePurchaseCount,
   createCarePackage,
   updateCarePackageById,
   deleteCarePackageById,

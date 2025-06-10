@@ -14,13 +14,14 @@ import NotFoundPage from '@/pages/404Page';
 import ManageCarePackagesPage from '@/pages/CarePackages/ManageCarePackagesPage';
 import ViewCarePackageDetailsPage from '@/pages/CarePackages/ViewCarePackageDetailsPage';
 import CreateCarePackageFormPage from '@/pages/CarePackages/CreateCarePackageFormPage';
+import EditCarePackagePage from './pages/CarePackages/EditCarePackagePage';
 import DatabaseReportPage from '@/pages/DatabaseReportPage';
 import CreateConsumptionPage from '@/pages/CarePackages/CreateConsumptionPage';
 import ManageServicePage from '@/pages/ManageServicePage';
 import CreateServicePage from '@/pages/CreateServicePage';
 import UpdateServicePage from '@/pages/UpdateServicePage';
 import ReorderServicePage from '@/pages/ReorderServicePage';
-import CreateMemberCarePackageFormPage from '@/pages/CarePackages/CreateMemberCarePackageFormPage';
+// import CreateMemberCarePackageFormPage from '@/pages/CarePackages/CreateMemberCarePackageFormPage';
 
 function App() {
   return (
@@ -36,10 +37,11 @@ function App() {
               <Route path='/cp' element={<ManageCarePackagesPage />} />
               <Route path='/cp/:id' element={<ViewCarePackageDetailsPage />} />
               <Route path='/cp/c' element={<CreateCarePackageFormPage />} />
+              <Route path='/cp/:id/edit' element={<EditCarePackagePage />} />
 
               {/* member care package */}
               <Route path='/mcp/:id/consume' element={<CreateConsumptionPage />} />
-              <Route path='/mcp/c' element={<CreateMemberCarePackageFormPage />} />
+              {/* <Route path='/mcp/c' element={<CreateMemberCarePackageFormPage />} /> */}
 
               {/* statistics */}
               <Route path='/dbcr' element={<DatabaseReportPage />} />

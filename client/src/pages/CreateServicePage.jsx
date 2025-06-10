@@ -173,7 +173,7 @@ export default function CreateService() {
                       <Button type="submit" className="bg-blue-600 rounded-md hover:bg-blue-500">
                         Create Service
                       </Button>
-                      <Button onClick={() => navigate("/manage-service")} className="rounded-md hover:bg-gray-500">
+                      <Button onClick={() => navigate(-1)} className="rounded-md hover:bg-gray-500">
                         Cancel
                       </Button>
                     </div>

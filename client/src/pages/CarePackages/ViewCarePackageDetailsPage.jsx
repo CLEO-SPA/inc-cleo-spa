@@ -1,6 +1,6 @@
 import React, { useEffect } from 'react';
-import { useParams } from 'react-router-dom';
-import { ArrowLeft, Edit, Trash2, Package, Calendar, AlertCircle, Loader2 } from 'lucide-react';
+import { useParams, useNavigate } from 'react-router-dom';
+import { ArrowLeft, Edit, Trash2, Package } from 'lucide-react';
 import { AppSidebar } from '@/components/app-sidebar';
 import { SiteHeader } from '@/components/site-header';
 import { SidebarInset, SidebarProvider } from '@/components/ui/sidebar';
@@ -9,21 +9,18 @@ import { Button } from '@/components/ui/button';
 import { ErrorState } from '@/components/ErrorState';
 import { LoadingState } from '@/components/LoadingState';
 import { NotFoundState } from '@/components/NotFoundState';
-import useCpSpecificStore from '@/stores/useCpSpecificStore';
+import { useCpSpecificStore } from '@/stores/useCpSpecificStore';
+import useAuth from '@/hooks/useAuth';
 
 const ViewCarePackageDetailsPage = () => {
   const { id } = useParams();
-  const {
-    currentPackage,
-    isLoading,
-    error,
-    fetchPackageById,
-    clearCurrentPackage,
-    clearError
-  } = useCpSpecificStore();
+  const { currentPackage, isLoading, error, fetchPackageById, clearCurrentPackage, clearError } = useCpSpecificStore();
+  const { statuses } = useAuth();
+  const navigate = useNavigate();
 
   useEffect(() => {
     if (id) {
+      console.log(`Fetching care package with ID: ${id}`);
       fetchPackageById(id);
     }
 
@@ -33,8 +30,8 @@ const ViewCarePackageDetailsPage = () => {
     };
   }, [id, fetchPackageById, clearCurrentPackage, clearError]);
 
-  const handleEdit = () => {
-    console.log('Edit functionality to be implemented');
+  const handleEdit = (id) => {
+    navigate(`/cp/${id}/edit`);
   };
 
   const handleDelete = () => {
@@ -73,14 +70,21 @@ const ViewCarePackageDetailsPage = () => {
     const packageData = currentPackage.package;
     const packageDetails = currentPackage.details || [];
 
+    const getStatusById = (id) => {
+      if (!statuses || statuses.length === 0) return null;
+      return statuses.find((status) => status.id == id);
+    };
+
+    const currentStatus = getStatusById(packageData.status_id);
+
     return (
       <div className='min-h-screen bg-gray-50'>
-        {/* Header */}
+        {/* header */}
         <div className='bg-white border-b border-gray-200 px-4 py-3'>
           <div className='flex items-center justify-between'>
             <div className='flex items-center space-x-3'>
-              <Button 
-                variant="ghost"
+              <Button
+                variant='ghost'
                 onClick={() => window.history.back()}
                 className='flex items-center text-gray-600 hover:text-gray-900 hover:bg-gray-100 px-2 py-1'
               >
@@ -91,17 +95,13 @@ const ViewCarePackageDetailsPage = () => {
             </div>
             <div className='flex space-x-2'>
               <Button
-                onClick={handleEdit}
+                onClick={() => handleEdit(packageData.id)} // ← Pass the actual ID
                 className='flex items-center bg-gray-900 hover:bg-black text-white text-sm px-3 py-2'
               >
                 <Edit className='w-4 h-4 mr-1' />
                 Edit
               </Button>
-              <Button
-                onClick={handleDelete}
-                variant="outline"
-                className='flex items-center text-sm px-3 py-2'
-              >
+              <Button onClick={handleDelete} variant='outline' className='flex items-center text-sm px-3 py-2'>
                 <Trash2 className='w-4 h-4 mr-1' />
                 Delete
               </Button>
@@ -137,8 +137,12 @@ const ViewCarePackageDetailsPage = () => {
 
                   <div>
                     <label className='block text-xs font-medium text-gray-600 mb-1'>STATUS</label>
-                    <span className={`inline-flex px-2 py-1 rounded text-xs font-medium ${getStatusColor(packageData.status_id?.status_name)}`}>
-                      {packageData.status_id?.status_name || 'Unknown'}
+                    <span
+                      className={`inline-flex px-2 py-1 rounded text-xs font-medium ${getStatusColor(
+                        currentStatus?.status_name
+                      )}`}
+                    >
+                      {currentStatus?.status_name || 'Unknown'}
                     </span>
                   </div>
                 </div>
@@ -186,20 +190,14 @@ const ViewCarePackageDetailsPage = () => {
                   <div>
                     <label className='block text-xs font-medium text-gray-600 mb-1'>CREATED AT</label>
                     <div className='text-gray-600 text-sm px-2 py-1 bg-gray-50 rounded border border-gray-200'>
-                      {packageData.created_at 
-                        ? new Date(packageData.created_at).toLocaleString()
-                        : 'N/A'
-                      }
+                      {packageData.created_at ? new Date(packageData.created_at).toLocaleString() : 'N/A'}
                     </div>
                   </div>
 
                   <div>
                     <label className='block text-xs font-medium text-gray-600 mb-1'>UPDATED AT</label>
                     <div className='text-gray-600 text-sm px-2 py-1 bg-gray-50 rounded border border-gray-200'>
-                      {packageData.updated_at 
-                        ? new Date(packageData.updated_at).toLocaleString()
-                        : 'N/A'
-                      }
+                      {packageData.updated_at ? new Date(packageData.updated_at).toLocaleString() : 'N/A'}
                     </div>
                   </div>
                 </div>
@@ -278,9 +276,7 @@ const ViewCarePackageDetailsPage = () => {
         <SiteHeader />
         <div className='flex flex-1'>
           <AppSidebar />
-          <SidebarInset>
-            {renderMainContent()}
-          </SidebarInset>
+          <SidebarInset>{renderMainContent()}</SidebarInset>
         </div>
       </SidebarProvider>
     </div>

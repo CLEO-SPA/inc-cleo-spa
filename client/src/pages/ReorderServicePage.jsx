@@ -247,8 +247,12 @@ export default function ManageService() {
           <AppSidebar />
           <SidebarInset>
             <div className='flex flex-1 flex-col gap-4 p-4'>
-              {/* Filter */}
+              {/* Select row */}
               <div class="flex space-x-4 p-4 bg-gray-100 rounded-lg">
+                {/* Back button */}
+                <Button variant="outline" onClick={() => navigate(-1)} className="rounded-xl">
+                  Back
+                </Button>
                 {/* Select Category */}
                 <Select value={selectedCategory} onValueChange={setSelectedCategory}>
                   <SelectTrigger className="w-[200px]">
