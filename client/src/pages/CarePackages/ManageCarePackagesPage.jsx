@@ -23,6 +23,7 @@ import {
   ChevronsRight,
 } from 'lucide-react';
 import { useCpPaginationStore } from '@/stores/useCpPaginationStore';
+import { useCpSpecificStore } from '@/stores/useCpSpecificStore';
 import { Card, CardContent, CardHeader, CardTitle, CardFooter } from '@/components/ui/card';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { AppSidebar } from '@/components/app-sidebar';
@@ -56,9 +57,11 @@ function ManageCarePackagesPage() {
     purchaseCountError,
     fetchPurchaseCount,
   } = useCpPaginationStore();
+  const { updatePackageStatus } = useCpSpecificStore();
 
   const [inputSearchTerm, setInputSearchTerm] = useState(searchTerm);
   const [targetPageInput, setTargetPageInput] = useState('');
+  const [updatingPackages, setUpdatingPackages] = useState(new Set());
 
   useEffect(() => {
     // Initialize with a default limit and empty search term if not already set
@@ -95,12 +98,6 @@ function ManageCarePackagesPage() {
   };
 
   const totalPages = totalCount ? Math.ceil(totalCount / currentLimit) : 0;
-
-  const getStatusNameById = (id) => {
-    if (!statuses || statuses.length === 0) return 'Unknown';
-    const status = statuses.find((s) => s.id == id);
-    return status ? status.status_name : 'Unknown';
-  };
 
   // helper function to get purchase count for a package
   const getPurchaseCountForPackage = (packageId) => {
@@ -140,11 +137,41 @@ function ManageCarePackagesPage() {
 
   // --- Action Handlers ---
   const handleView = (id) => {
-    navigate(`/cp/${id}`); // Adjust route as needed
+    navigate(`/cp/${id}`);
   };
 
   const handleEdit = (id) => {
-    navigate(`/cp/${id}/edit`); // Adjust route as needed
+    navigate(`/cp/${id}/edit`);
+  };
+
+  // helper functions to determine if a package is enabled based on status
+  const isPackageEnabled = (pkg) => {
+    return pkg.status_id === 1;
+  };
+
+  const getStatusIdForToggle = (enabled) => {
+    return enabled ? 1 : 2;
+  };
+
+  const handleToggleStatus = async (pkg, newEnabledState) => {
+    const packageId = pkg.id;
+    setUpdatingPackages((prev) => new Set(prev).add(packageId));
+
+    try {
+      const newStatusId = getStatusIdForToggle(newEnabledState);
+      await updatePackageStatus(packageId, newStatusId);
+
+      initializePagination(currentLimit, searchTerm);
+    } catch (err) {
+      console.error('Failed to update package status:', err);
+      alert(`Failed to ${newEnabledState ? 'enable' : 'disable'} package: ${err.message}`);
+    } finally {
+      setUpdatingPackages((prev) => {
+        const newSet = new Set(prev);
+        newSet.delete(packageId);
+        return newSet;
+      });
+    }
   };
 
   const handleDelete = async (id) => {
@@ -155,7 +182,7 @@ function ManageCarePackagesPage() {
         alert(`Care package ${id} deleted (simulated).`);
         // Optionally, re-fetch data or update store
         initializePagination(currentLimit, searchTerm);
-        fetchPurchaseCount(); 
+        fetchPurchaseCount();
       } catch (err) {
         console.error('Failed to delete care package:', err);
         alert('Failed to delete care package.');
@@ -166,8 +193,9 @@ function ManageCarePackagesPage() {
   // --- Role-based access ---
   const canEdit = user?.role === 'super_admin' || user?.role === 'data_admin';
   const canDelete = user?.role === 'super_admin';
+  const canToggleStatus = user?.role === 'super_admin' || user?.role === 'data_admin';
 
-  // --- Updated table headers to include purchase count ---
+  // --- Table Headers ---
   const tableHeaders = [
     { key: 'id', label: 'ID' },
     { key: 'care_package_name', label: 'Package Name' },
@@ -271,6 +299,8 @@ function ManageCarePackagesPage() {
                         {!isLoading &&
                           carePackages.map((pkg) => {
                             const purchaseData = getPurchaseCountForPackage(pkg.id);
+                            const isEnabled = isPackageEnabled(pkg);
+                            const isUpdatingThis = updatingPackages.has(pkg.id);
 
                             return (
                               <TableRow key={pkg.id}>
@@ -320,9 +350,63 @@ function ManageCarePackagesPage() {
                                       </TableCell>
                                     );
                                   }
+                                  // matches the key in tableHeaders
                                   if (header.key === 'care_package_status') {
-                                    // matches the key in tableHeaders
-                                    return <TableCell key={header.key}>{getStatusNameById(pkg.status_id)}</TableCell>;
+                                    return (
+                                      <TableCell key={header.key}>
+                                        <div className='flex flex-col gap-2'>
+                                          {/* Toggle switch under status */}
+                                          <div className='flex items-center gap-2'>
+                                            {canToggleStatus ? (
+                                              <button
+                                                onClick={() => handleToggleStatus(pkg, !isEnabled)}
+                                                disabled={isUpdatingThis}
+                                                className={`
+                                                  relative inline-flex h-5 w-9 items-center rounded-full transition-colors
+                                                  ${
+                                                    isEnabled
+                                                      ? 'bg-gray-700 dark:bg-gray-100'
+                                                      : 'bg-gray-300 dark:bg-gray-600'
+                                                  }
+                                                  ${isUpdatingThis ? 'opacity-50 cursor-not-allowed' : 'cursor-pointer'}
+                                                  focus:outline-none focus:ring-2 focus:ring-gray-500 focus:ring-offset-2
+                                                `}
+                                              >
+                                                <span
+                                                  className={`
+                                                    inline-block h-4 w-4 transform rounded-full bg-white transition-transform
+                                                    ${isEnabled ? 'translate-x-4' : 'translate-x-0.5'}
+                                                  `}
+                                                />
+                                              </button>
+                                            ) : (
+                                              <button
+                                                disabled={true}
+                                                className={`
+                                                  relative inline-flex h-5 w-9 items-center rounded-full
+                                                  ${
+                                                    isEnabled
+                                                      ? 'bg-gray-700 dark:bg-gray-100'
+                                                      : 'bg-gray-300 dark:bg-gray-600'
+                                                  }
+                                                  opacity-50 cursor-not-allowed
+                                                `}
+                                              >
+                                                <span
+                                                  className={`
+                                                    inline-block h-4 w-4 transform rounded-full bg-white transition-transform
+                                                    ${isEnabled ? 'translate-x-4' : 'translate-x-0.5'}
+                                                  `}
+                                                />
+                                              </button>
+                                            )}
+                                            <span className='text-xs text-muted-foreground'>
+                                              {isUpdatingThis ? 'Updating...' : isEnabled ? 'ENABLED' : 'DISABLED'}
+                                            </span>
+                                          </div>
+                                        </div>
+                                      </TableCell>
+                                    );
                                   }
                                   if (header.key === 'purchase_count') {
                                     return (
