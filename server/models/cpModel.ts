@@ -385,6 +385,67 @@ const updateCarePackageById = async (
   }
 };
 
+const updateCarePackageStatusById = async (
+  care_package_id: string,
+  status_id: string,
+  employee_id: string,
+  updated_at: string
+) => {
+  const client = await pool().connect();
+  try {
+    await client.query('BEGIN');
+
+    // validate that the care package exists
+    const v_cp_sql = 'SELECT id FROM care_packages WHERE id = $1';
+    const cpResult = await client.query(v_cp_sql, [care_package_id]);
+
+    if (cpResult.rowCount === 0) {
+      throw new Error(`Care package with ID ${care_package_id} does not exist.`);
+    }
+
+    // validate employee exists
+    const v_employee_sql = 'SELECT id FROM employees WHERE id = $1';
+    const employeeResult = await client.query(v_employee_sql, [employee_id]);
+
+    if (employeeResult.rowCount === 0) {
+      throw new Error(`Invalid employee_id: ${employee_id} does not exist.`);
+    }
+
+    // update only the status and tracking fields
+    const u_status_sql = `
+      UPDATE care_packages 
+      SET status_id = $1, 
+          last_updated_by = $2, 
+          updated_at = $3
+      WHERE id = $4
+    `;
+
+    await client.query(u_status_sql, [
+      status_id,
+      employee_id,
+      updated_at,
+      care_package_id,
+    ]);
+
+    await client.query('COMMIT');
+
+    return {
+      carePackageId: care_package_id,
+      message: 'Care package status updated successfully',
+      status_id: status_id,
+    };
+  } catch (error) {
+    console.error('Error updating care package status:', error);
+    await client.query('ROLLBACK');
+    if (error instanceof Error) {
+      throw error;
+    }
+    throw new Error('An unexpected error occurred while updating the care package status.');
+  } finally {
+    client.release();
+  }
+};
+
 const deleteCarePackageById = async (carePackageId: string) => {
   const client = await pool().connect();
   try {
@@ -717,6 +778,7 @@ export default {
   getCarePackagePurchaseCount,
   createCarePackage,
   updateCarePackageById,
+  updateCarePackageStatusById,
   deleteCarePackageById,
   emulateCarePackage,
 };
