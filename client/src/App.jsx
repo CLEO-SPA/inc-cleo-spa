@@ -11,6 +11,7 @@ import HomePage from '@/pages/HomePage';
 import LoginPage from '@/pages/LoginPage';
 import ResetPasswordPage from '@/pages/ResetPasswordPage';
 import NotFoundPage from '@/pages/404Page';
+import EmployeeTimetablePage from './pages/EmployeeTimetable/EmployeeTimetabel';
 
 // Employee Timetable Pages
 import CreateEmployeeTimetablePage from '@/pages/EmployeeTimetable/CreateEmployeeTimetablePage'
@@ -35,6 +36,7 @@ function App() {
 
             {/* 404 Page */}
             <Route path='*' element={<NotFoundPage />} />
+            <Route path='/tt' element={<EmployeeTimetablePage />} />
           </Routes>
         </Router>
       </DateRangeProvider>
