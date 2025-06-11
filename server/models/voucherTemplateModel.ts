@@ -392,10 +392,31 @@ const getVoucherTemplateById = async (id: number) => {
   }
 };
 
+const getAllVoucherTemplatesForDropdown = async () => {
+  try {
+    const query = `
+      SELECT 
+        id,
+        voucher_template_name,
+        default_starting_balance
+      FROM voucher_templates
+      ORDER BY voucher_template_name;
+    `;
+
+    const result = await pool().query(query);
+
+    return result.rows;
+  } catch (error) {
+    console.error('Error fetching all voucher templates:', error);
+    throw new Error('Error fetching all voucher templates');
+  }
+};
+
 export default {
   getAllVoucherTemplates,
   getVoucherTemplateById,
   createVoucherTemplate,
   updateVoucherTemplate,
   deleteVoucherTemplate,
+  getAllVoucherTemplatesForDropdown
 };
