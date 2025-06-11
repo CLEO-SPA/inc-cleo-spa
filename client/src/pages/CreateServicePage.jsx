@@ -25,14 +25,28 @@ export default function CreateService() {
     service_name: "",
     service_description: "",
     remarks: "",
-    service_duration: "",
-    service_default_price: "",
-    service_is_active: false,
+    service_duration: "0",
+    service_price: "",
+    service_is_enabled: true,
     service_category_id: "",
-    service_created_at: new Date()
+    created_at: new Date(),
+    created_by: ""
   });
 
   const navigate = useNavigate();
+
+  const getCategories = async () => {
+    try {
+      const response = await api.get('/service/service-cat');
+      if (response.status === 200) {
+        setCategories(response.data);
+      } else {
+        console.error('Failed to fetch service categories:', response.statusText);
+      }
+    } catch (err) {
+      console.error('Error fetching service categories:', err);
+    }
+  }
 
   const handleChange = (e) => {
     const { name, value } = e.target;
@@ -43,6 +57,14 @@ export default function CreateService() {
     e.preventDefault();
     console.log("Form Submitted!")
   };
+
+  useEffect(()=>{
+    try {
+      getCategories();
+    } catch (err) {
+      console.error('Error fetching data:' + err);
+    }
+  },[])
 
   return (
     <div className='[--header-height:calc(theme(spacing.14))]'>
@@ -62,13 +84,13 @@ export default function CreateService() {
                       {/* Date of Creation */}
                       <div>
                         <label className="block text-md font-medium">Date of Creation*</label>
-                        <DatePicker />
+                        <DatePicker required />
                       </div>
 
                       {/* Created By */}
                       <div>
                         <label className="block text-md font-medium">Created By*</label>
-                        <Select value={selectedCategory} onValueChange={setSelectedCategory}>
+                        <Select value={selectedCategory} onValueChange={setSelectedCategory} required>
                           <SelectTrigger className="w-[200px]">
                             <SelectValue placeholder="Select Employee" />
                           </SelectTrigger>
@@ -96,7 +118,7 @@ export default function CreateService() {
                       {/* Service Category */}
                       <div>
                         <label className="block text-md font-medium">Service Category*</label>
-                        <Select value={selectedCategory} onValueChange={setSelectedCategory}>
+                        <Select value={selectedCategory} onValueChange={setSelectedCategory} required>
                           <SelectTrigger className="w-[200px]">
                             <SelectValue placeholder="Select Category" />
                           </SelectTrigger>
@@ -138,7 +160,7 @@ export default function CreateService() {
                       {/* Status */}
                       <div className="flex my-2 space-x-3">
                         <label className="block text-md font-medium ">Enabled</label>
-                        <ToggleSwitch />
+                        <ToggleSwitch checked={formData.service_is_enabled} required />
                       </div>
 
                     </div>
@@ -151,7 +173,6 @@ export default function CreateService() {
                         onChange={handleChange}
                         className="w-full p-2 border rounded-md"
                         placeholder="Enter service description"
-                        required
                       />
                     </div>
 
@@ -164,7 +185,6 @@ export default function CreateService() {
                         onChange={handleChange}
                         className="w-full p-2 border rounded-md"
                         placeholder="Enter remarks"
-                        required
                       />
                     </div>
 
