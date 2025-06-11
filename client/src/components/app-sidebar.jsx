@@ -12,6 +12,8 @@ import {
   SidebarMenuItem,
 } from '@/components/ui/sidebar';
 import useAuth from '@/hooks/useAuth';
+import { useSimulationStore } from '@/stores/useSimulationStore';
+import { cn } from '@/lib/utils';
 
 const data = {
   navMain: [
@@ -104,11 +106,20 @@ const data = {
   ],
 };
 
-export function AppSidebar({ ...props }) {
+export function AppSidebar({ className: propsClassName, ...props }) {
   const { user } = useAuth();
+  const { isSimulationActive } = useSimulationStore();
+
+  const topClass = isSimulationActive
+    ? 'top-[calc(var(--header-height)+var(--sim-bar-height))]'
+    : 'top-[var(--header-height)]';
+
+  const heightClass = isSimulationActive
+    ? 'h-[calc(100svh-var(--header-height)-var(--sim-bar-height))]!'
+    : 'h-[calc(100svh-var(--header-height))]!';
 
   return (
-    <Sidebar className='top-(--header-height) h-[calc(100svh-var(--header-height))]!' {...props}>
+    <Sidebar className={cn(topClass, heightClass, propsClassName)} {...props}>
       <SidebarHeader>
         <SidebarMenu>
           <SidebarMenuItem>
