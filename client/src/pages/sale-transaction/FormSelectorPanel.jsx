@@ -55,6 +55,7 @@ export default function FormSelectorPanel() {
         {tabs.map((tab) => (
           <Button
             key={tab.key}
+            size="sm"
             onClick={() => setSelectedTab(tab.key)}
             className={`px-4 py-2 rounded text-sm text-center ${
               selectedTab === tab.key ? '' : 'bg-gray-300 text-gray-800 hover:bg-gray-400'

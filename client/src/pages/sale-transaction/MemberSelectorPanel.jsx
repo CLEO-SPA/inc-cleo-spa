@@ -114,7 +114,6 @@ export default function MemberSelectorPanel() {
     console.log('Consume voucher:', voucher);
   };
 
-  // Enhanced Pagination component
   const PaginationControls = ({
     currentPage,
     totalPages,
@@ -155,21 +154,21 @@ export default function MemberSelectorPanel() {
     if (disabled) return null;
 
     return (
-      <div className="space-y-4">
+      <div className="space-y-3 text-xs">
         {/* Search Bar */}
         {!hideSearch && (
           <form onSubmit={handleSearchSubmit} className="flex gap-2 items-center max-w-sm">
             <div className="relative flex-1 max-w-md">
-              <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400 h-4 w-4" />
+              <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400 h-3.5 w-3.5" />
               <Input
                 type="text"
                 placeholder={searchPlaceholder}
                 value={localSearch}
                 onChange={(e) => setLocalSearch(e.target.value)}
-                className="pl-10"
+                className="pl-9 h-7 text-xs"
               />
             </div>
-            <Button type="submit" size="sm">
+            <Button type="submit" size="sm" className="h-7 px-3 text-xs">
               Search
             </Button>
           </form>
@@ -177,50 +176,52 @@ export default function MemberSelectorPanel() {
 
         {/* Pagination Controls */}
         {!hidePaginationControls && (
-          <div className="flex flex-col sm:flex-row items-center justify-between gap-4 border-t">
-            <div className="flex items-center gap-4">
-              <div className="text-sm text-gray-600">
+          <div className="flex flex-col sm:flex-row items-center justify-between gap-3 border-t pt-2 text-xs">
+            <div className="flex items-center gap-3">
+              <div className="text-gray-600 text-xs">
                 Page {currentPage} of {totalPages} ({totalItems} items)
               </div>
               <div className="flex items-center gap-2">
-                <span className="text-sm">Items per page:</span>
+                <span className="text-xs">Items per page:</span>
                 <Select value={(itemsPerPage ?? 10).toString()} onValueChange={onLimitChange}>
-                  <SelectTrigger className="w-[70px] h-8">
+                  <SelectTrigger className="w-[70px] h-20 text-xs">
                     <SelectValue />
                   </SelectTrigger>
                   <SelectContent>
-                    <SelectItem value="2">2</SelectItem>
-                    <SelectItem value="3">3</SelectItem>
-                    <SelectItem value="5">5</SelectItem>
+                    <SelectItem value="2" className="text-xs">2</SelectItem>
+                    <SelectItem value="3" className="text-xs">3</SelectItem>
+                    <SelectItem value="5" className="text-xs">5</SelectItem>
                   </SelectContent>
                 </Select>
               </div>
             </div>
 
-            <div className="flex items-center gap-2">
+            <div className="flex items-center gap-1">
               <Button
                 variant="outline"
                 size="sm"
+                className="h-7 w-7 p-0"
                 onClick={() => onPageChange(1)}
                 disabled={!hasPreviousPage}
               >
-                <ChevronLeft className="h-4 w-4" />
+                <ChevronLeft className="h-3.5 w-3.5" />
               </Button>
               <Button
                 variant="outline"
                 size="sm"
+                className="h-7 w-7 p-0"
                 onClick={() => onPageChange(1)}
                 disabled={currentPage === 1}
               >
-                <ChevronsLeft className="h-4 w-4" />
+                <ChevronsLeft className="h-3.5 w-3.5" />
               </Button>
-
 
               {pageNumbers.map((page) => (
                 <Button
                   key={page}
                   variant={currentPage === page ? "default" : "outline"}
                   size="sm"
+                  className="h-7 w-7 p-0 text-xs"
                   onClick={() => onPageChange(page)}
                 >
                   {page}
@@ -230,18 +231,20 @@ export default function MemberSelectorPanel() {
               <Button
                 variant="outline"
                 size="sm"
+                className="h-7 w-7 p-0"
                 onClick={() => onPageChange(currentPage + 1)}
                 disabled={!hasNextPage}
               >
-                <ChevronRight className="h-4 w-4" />
+                <ChevronRight className="h-3.5 w-3.5" />
               </Button>
               <Button
                 variant="outline"
                 size="sm"
+                className="h-7 w-7 p-0"
                 onClick={() => onPageChange(totalPages)}
                 disabled={!hasNextPage}
               >
-                <ChevronsRight className="h-4 w-4" />
+                <ChevronsRight className="h-3.5 w-3.5" />
               </Button>
             </div>
 
@@ -253,9 +256,9 @@ export default function MemberSelectorPanel() {
                 placeholder="Page #"
                 value={targetPageInput}
                 onChange={(e) => setTargetPageInput(e.target.value)}
-                className="w-20 h-8"
+                className="w-20 h-7 text-xs"
               />
-              <Button type="submit" variant="outline" size="sm">
+              <Button type="submit" variant="outline" size="sm" className="h-7 px-3 text-xs">
                 Go
               </Button>
             </form>
@@ -266,6 +269,7 @@ export default function MemberSelectorPanel() {
   };
 
 
+
   return (
     <div className="space y-4 ">
       {/* Member Search Bar */}
@@ -274,7 +278,7 @@ export default function MemberSelectorPanel() {
           <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400 h-4 w-4" />
           <Input
             type="text"
-            className="pl-10"
+            className="pl-9 h-7 text-xs"
             placeholder="Search name or phone"
             value={searchInput}
             onChange={(e) => setSearchInput(e.target.value)}
@@ -284,6 +288,7 @@ export default function MemberSelectorPanel() {
 
         <Button
           type="button"
+          className="h-7 px-3 text-xs"
           size="sm"
           onClick={handleSearch}
           disabled={memberSearchLoading || !searchInput.trim()}
@@ -296,23 +301,19 @@ export default function MemberSelectorPanel() {
         <p className="text-sm text-red-500">Error: {errorMessage || 'An error occurred'}</p>
       )}
 
-      {/* Not Found */}
-      {notFound && !memberSearchLoading && (
-        <p className="text-sm text-red-500">No matching member found.</p>
-      )}
-
       {/* Member Info Panel */}
-      <div className="bg-gray-50 rounded shadow p-0 min-h-[250px]">
+      <div className="bg-gray-50 rounded shadow ">
         {/* Tabs */}
-        <div className="flex gap-2">
+        <div className="flex gap-1">
           {['info', 'packages', 'vouchers'].map((tab) => (
             <Button
               key={tab}
               onClick={() => setSelectedTab(tab)}
               disabled={!currentMember}
-              className={`min-w-[120px] px-4 py-2 rounded text-sm text-center 
-    ${selectedTab === tab ? '' : 'bg-gray-300 text-gray-800 hover:bg-gray-400'} 
-    ${!currentMember ? 'opacity-50 cursor-not-allowed' : 'hover:opacity-80'}`}
+              size="xs"
+              className={`min-w-[90px] px-2 py-1 rounded text-xs text-center gap-2
+        ${selectedTab === tab ? '' : 'bg-gray-300 text-gray-800 hover:bg-gray-400'} 
+        ${!currentMember ? 'opacity-50 cursor-not-allowed' : 'hover:opacity-80'}`}
             >
               {tab === 'info' && 'Info'}
               {tab === 'packages' &&
@@ -320,73 +321,76 @@ export default function MemberSelectorPanel() {
               {tab === 'vouchers' &&
                 `Vouchers (${currentMember?.voucher_count || 0})`}
             </Button>
-
           ))}
         </div>
+
 
         {/* Tab Content */}
         {!currentMember ? (
           <div className="text-sm text-gray-600 h-full flex items-center justify-center p-8">
-            {memberSearchLoading ? 'Searching for member...' : 'Please search and select a member first.'}
+            {memberSearchLoading ? 'Searching for member...' :
+              notFound ? 'No matching member found.' :
+                'Please search and select a member first.'}
           </div>
         ) : (
           <>
             {selectedTab === 'info' && (
-              <div className="grid grid-cols-3 gap-0 text-sm border-collapse">
-                <div className="flex border border-gray-300 p-2">
+              <div className="grid grid-cols-3 gap-0 text-xs border-collapse">
+                <div className="flex border border-gray-300 p-1">
                   <span className="font-medium text-gray-700 w-20 flex-shrink-0">Name:</span>
                   <span className="text-gray-900 font-medium">{currentMember.name}</span>
                 </div>
-                <div className="flex border border-gray-300 border-l-0 p-2">
+                <div className="flex border border-gray-300 border-l-0 p-1">
                   <span className="font-medium text-gray-700 w-20 flex-shrink-0">NRIC:</span>
                   <span className="text-gray-600">{currentMember.nric}</span>
                 </div>
-                <div className="flex border border-gray-300 border-l-0 p-2">
+                <div className="flex border border-gray-300 border-l-0 p-1">
                   <span className="font-medium text-gray-700 w-20 flex-shrink-0">Contact:</span>
                   <span className="text-gray-600">{currentMember.contact}</span>
                 </div>
 
-                <div className="flex border border-gray-300 border-t-0 p-2">
+                <div className="flex border border-gray-300 border-t-0 p-1">
                   <span className="font-medium text-gray-700 w-20 flex-shrink-0">Email:</span>
                   <span className="text-gray-600 truncate">{currentMember.email}</span>
                 </div>
-                <div className="flex border border-gray-300 border-t-0 border-l-0 p-2">
+                <div className="flex border border-gray-300 border-t-0 border-l-0 p-1">
                   <span className="font-medium text-gray-700 w-20 flex-shrink-0">Sex:</span>
                   <span className="text-gray-600">{currentMember.sex}</span>
                 </div>
-                <div className="flex border border-gray-300 border-t-0 border-l-0 p-2">
+                <div className="flex border border-gray-300 border-t-0 border-l-0 p-1">
                   <span className="font-medium text-gray-700 w-20 flex-shrink-0">DOB:</span>
                   <span className="text-gray-600">{currentMember.dob}</span>
                 </div>
 
-                <div className="flex border border-gray-300 border-t-0 p-2">
+                <div className="flex border border-gray-300 border-t-0 p-1">
                   <span className="font-medium text-gray-700 w-20 flex-shrink-0">Member:</span>
                   <span className="text-gray-600">{currentMember.membership_type_name}</span>
                 </div>
-                <div className="flex border border-gray-300 border-t-0 border-l-0 p-2">
+                <div className="flex border border-gray-300 border-t-0 border-l-0 p-1">
                   <span className="font-medium text-gray-700 w-20 flex-shrink-0">Created:</span>
                   <span className="text-gray-600">{currentMember.created_at}</span>
                 </div>
-                <div className="flex border border-gray-300 border-t-0 border-l-0 p-2">
+                <div className="flex border border-gray-300 border-t-0 border-l-0 p-1">
                   <span className="font-medium text-gray-700 w-20 flex-shrink-0">By:</span>
                   <span className="text-gray-600">{currentMember.created_by_name}</span>
                 </div>
 
-                <div className="flex border border-gray-300 border-t-0 p-2">
+                <div className="flex border border-gray-300 border-t-0 p-1">
                   <span className="font-medium text-gray-700 w-20 flex-shrink-0">Owed:</span>
                   <span className="text-gray-600">${currentMember.total_amount_owed}</span>
                 </div>
-                <div className="flex col-span-2 border border-gray-300 border-t-0 border-l-0 p-3">
+                <div className="flex col-span-2 border border-gray-300 border-t-0 border-l-0 p-1">
                   <span className="font-medium text-gray-700 w-20 flex-shrink-0">Address:</span>
                   <span className="text-gray-600">{currentMember.address || '—'}</span>
                 </div>
 
-                <div className="flex col-span-3 border border-gray-300 border-t-0 p-2">
+                <div className="flex col-span-3 border border-gray-300 border-t-0 p-1">
                   <span className="font-medium text-gray-700 w-20 flex-shrink-0">Remarks:</span>
                   <span className="text-gray-600">{currentMember.remarks || '—'}</span>
                 </div>
               </div>
             )}
+
 
             {selectedTab === 'packages' && (
               <div className="p-2 flex flex-col h-full">
@@ -404,49 +408,41 @@ export default function MemberSelectorPanel() {
                         disabled={packagesisFetching}
                         hidePaginationControls
                       />
-                      <Table>
+                    <Table className="table-fixed w-full [&_td]:p-1 [&_th]:h-8">
                         <TableHeader>
                           <TableRow>
-                            <TableHead>Name</TableHead>
-                            <TableHead>Total Price</TableHead>
-                            <TableHead>Status</TableHead>
-                            <TableHead>Remarks</TableHead>
-                            <TableHead>Actions</TableHead>
+                            <TableHead className="text-xs">Name</TableHead>
+                            <TableHead className="text-xs">Total Price</TableHead>
+                            <TableHead className="text-xs">Status</TableHead>
+                            <TableHead className="text-xs">Remarks</TableHead>
+                            <TableHead className="text-xs">Actions</TableHead>
                           </TableRow>
                         </TableHeader>
                         <TableBody>
                           {memberCarePackages.map((mcp) => (
                             <TableRow key={mcp.id}>
-                              <TableCell>{mcp.package_name}</TableCell>
-                              <TableCell>${mcp.total_price}</TableCell>
-                              <TableCell>{mcp.status}</TableCell>
-                              <TableCell>{mcp.package_remarks}</TableCell>
-                              <TableCell className="space-x-2">
-                                <button
-                                  onClick={() => handleViewDetails(mcp)}
-                                  className="text-blue-600 hover:underline"
-                                >
+                              <TableCell className="text-xs">{mcp.package_name}</TableCell>
+                              <TableCell className="text-xs">${mcp.total_price}</TableCell>
+                              <TableCell className="text-xs">{mcp.status}</TableCell>
+                              <TableCell className="text-xs">{mcp.package_remarks}</TableCell>
+                              <TableCell className="text-xs space-x-2">
+                                <button onClick={() => handleViewDetails(mcp)} className="text-blue-600 hover:underline">
                                   View
                                 </button>
-                                <button
-                                  onClick={() => handleRefund(mcp)}
-                                  className="text-red-600 hover:underline"
-                                >
+                                <button onClick={() => handleRefund(mcp)} className="text-red-600 hover:underline">
                                   Refund
                                 </button>
-                                <button
-                                  onClick={() => handleConsume(mcp)}
-                                  className="text-green-600 hover:underline"
-                                >
+                                <button onClick={() => handleConsume(mcp)} className="text-green-600 hover:underline">
                                   Consume
                                 </button>
                               </TableCell>
                             </TableRow>
                           ))}
                         </TableBody>
+
                       </Table>
                     </div>
-                    <div className="flex justify-end mt-4">
+                    <div className="flex justify-end mt-2">
                       <PaginationControls
                         currentPage={packagesCurrentPage}
                         totalPages={packagesTotalPages}
@@ -483,46 +479,40 @@ export default function MemberSelectorPanel() {
                         disabled={vouchersisFetching}
                         hidePaginationControls
                       />
-                      <Table>
+                    <Table className="table-fixed w-full [&_td]:p-1 [&_th]:h-8">
                         <TableHeader>
                           <TableRow>
-                            <TableHead>Name</TableHead>
-                            <TableHead>Current Balance</TableHead>
-                            <TableHead>Starting Balance</TableHead>
-                            <TableHead>Free of Charge</TableHead>
-                            <TableHead>Default Price</TableHead>
-                            <TableHead>Status</TableHead>
-                            <TableHead>Remarks</TableHead>
-                            <TableHead>Actions</TableHead>
+                            <TableHead className="w-[120px] text-xs">Name</TableHead>
+                            <TableHead className="w-[100px] text-xs">Current Balance</TableHead>
+                            <TableHead className="w-[110px] text-xs">Starting Balance</TableHead>
+                            <TableHead className="w-[110px] text-xs">Free of Charge</TableHead>
+                            <TableHead className="w-[110px] text-xs">Default Price</TableHead>
+                            <TableHead className="w-[80px] text-xs">Status</TableHead>
+                            <TableHead className="w-[150px] text-xs">Remarks</TableHead>
+                            <TableHead className="w-[120px] text-xs">Actions</TableHead>
                           </TableRow>
                         </TableHeader>
+
                         <TableBody>
                           {memberVouchers.map((voucher) => (
                             <TableRow key={voucher.id}>
-                              <TableCell>{voucher.member_voucher_name}</TableCell>
-                              <TableCell>${voucher.current_balance}</TableCell>
-                              <TableCell>${voucher.starting_balance}</TableCell>
-                              <TableCell>${voucher.free_of_charge}</TableCell>
-                              <TableCell>${voucher.default_total_price}</TableCell>
-                              <TableCell>{voucher.status}</TableCell>
-                              <TableCell>{voucher.remarks}</TableCell>
-                              <TableCell className="space-x-2">
-                                <button
-                                  onClick={() => handleViewDetails(voucher)}
-                                  className="text-blue-600 hover:underline"
-                                >
+                              <TableCell className="text-xs truncate">{voucher.member_voucher_name}</TableCell>
+                              <TableCell className="text-xs">${voucher.current_balance}</TableCell>
+                              <TableCell className="text-xs">${voucher.starting_balance}</TableCell>
+                              <TableCell className="text-xs">${voucher.free_of_charge}</TableCell>
+                              <TableCell className="text-xs">${voucher.default_total_price}</TableCell>
+                              <TableCell className="text-xs">{voucher.status}</TableCell>
+                              <TableCell className="text-xs truncate" title={voucher.remarks}>
+                                {voucher.remarks}
+                              </TableCell>
+                              <TableCell className="text-xs space-x-2 whitespace-nowrap">
+                                <button onClick={() => handleViewDetails(voucher)} className="text-blue-600 hover:underline">
                                   View
                                 </button>
-                                <button
-                                  onClick={() => handleRefund(voucher)}
-                                  className="text-red-600 hover:underline"
-                                >
+                                <button onClick={() => handleRefund(voucher)} className="text-red-600 hover:underline">
                                   Refund
                                 </button>
-                                <button
-                                  onClick={() => handleConsume(voucher)}
-                                  className="text-green-600 hover:underline"
-                                >
+                                <button onClick={() => handleConsume(voucher)} className="text-green-600 hover:underline">
                                   Consume
                                 </button>
                               </TableCell>
@@ -530,8 +520,9 @@ export default function MemberSelectorPanel() {
                           ))}
                         </TableBody>
                       </Table>
+
                     </div>
-                    <div className="flex justify-end mt-4">
+                    <div className="flex justify-end mt-2">
                       <PaginationControls
                         currentPage={vouchersCurrentPage}
                         totalPages={vouchersTotalPages}
