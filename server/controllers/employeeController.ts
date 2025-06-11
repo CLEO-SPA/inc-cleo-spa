@@ -281,6 +281,7 @@ const regenerateInvitationLink = async (req: Request, res: Response, next: NextF
   }
 };
 
+
 const getAllEmployeesForDropdown = async (req: Request, res: Response, next: NextFunction) => {
   try {
     const employees = await model.getAllEmployeesForDropdown();
