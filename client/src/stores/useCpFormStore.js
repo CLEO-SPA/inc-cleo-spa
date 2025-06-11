@@ -8,9 +8,10 @@ export const useCpFormStore = create(
       package_name: '',
       package_remarks: '',
       package_price: 0, // SUM(service.finalPrice * service.quantity)
-      is_customizable: true, 
-      employee_id: '', 
+      is_customizable: true,
+      employee_id: '',
       services: [],
+      created_at: '',
     },
     serviceForm: {
       id: '',
@@ -46,6 +47,7 @@ export const useCpFormStore = create(
             is_customizable: true,
             employee_id: '',
             services: [],
+            created_at: '',
           },
         },
         false,
@@ -57,10 +59,21 @@ export const useCpFormStore = create(
         (state) => {
           const updatedServiceForm = {
             ...state.serviceForm,
-            [field]: value,
+            [field]: value, 
           };
 
-          // Recalculate finalPrice if price or discount changes
+          if (field === 'quantity') {
+            const parsedValue = parseInt(value, 10);
+            if (!isNaN(parsedValue) && parsedValue > 0) {
+              updatedServiceForm[field] = parsedValue;
+            } else if (value === '' || value === null) {
+              updatedServiceForm[field] = '';
+            } else {
+              updatedServiceForm[field] = state.serviceForm[field];
+            }
+          }
+
+          // recalculate finalPrice if price or discount changes
           const price = parseFloat(updatedServiceForm.price) || 0;
           const discountFactor = parseFloat(updatedServiceForm.discount) || 0;
 
@@ -211,6 +224,19 @@ export const useCpFormStore = create(
         const errorMessage = error.response?.data?.message || error.message || 'An unknown error occurred';
         set({ error: errorMessage, isLoading: false }, false, 'fetchServiceOptions/rejected');
         console.error('Error fetching service options:', error);
+      }
+    },
+
+    submitPackage: async (packageData) => {
+      set({ isLoading: true, error: null });
+      try {
+        const response = await api.post('/cp/c', packageData);
+        set({ isLoading: false });
+        return response.data;
+      } catch (error) {
+        const errorMessage = error.response?.data?.message || error.message || 'Failed to create package';
+        set({ error: errorMessage, isLoading: false });
+        throw error;
       }
     },
   }))

@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { Plus, Save, X, Package, DollarSign, Search, ChevronDown, ArrowLeft } from 'lucide-react';
+import { Plus, Save, X, Package, DollarSign, Search, ChevronDown, ArrowLeft, User, Calendar } from 'lucide-react';
 import { AppSidebar } from '@/components/app-sidebar';
 import { SiteHeader } from '@/components/site-header';
 import { SidebarInset, SidebarProvider } from '@/components/ui/sidebar';
@@ -9,6 +9,8 @@ import { Button } from '@/components/ui/button';
 import { useCpFormStore } from '@/stores/useCpFormStore';
 import { Textarea } from '@/components/ui/textarea';
 import ServiceItem from '@/pages/CarePackages/ServiceItem';
+import EmployeeSelect from '@/components/ui/forms/EmployeeSelect';
+import { FormProvider, useForm } from 'react-hook-form';
 
 const CarePackageCreateForm = () => {
   const {
@@ -33,6 +35,36 @@ const CarePackageCreateForm = () => {
   const [showServiceDropdown, setShowServiceDropdown] = useState(false);
   const [serviceSearch, setServiceSearch] = useState('');
   const [isSubmitting, setIsSubmitting] = useState(false);
+  const [submitStatus, setSubmitStatus] = useState({ type: '', message: '' });
+
+  const methods = useForm({
+    defaultValues: {
+      employee_id: mainFormData.employee_id || '',
+    },
+  });
+
+  useEffect(() => {
+    const subscription = methods.watch((value, { name }) => {
+      if (name === 'employee_id') {
+        updateMainField('employee_id', value.employee_id);
+      }
+    });
+    return () => subscription.unsubscribe();
+  }, [methods, updateMainField]);
+
+  // update form when store data changes
+  useEffect(() => {
+    methods.setValue('employee_id', mainFormData.employee_id || '');
+  }, [mainFormData.employee_id, methods]);
+
+  // initialize created_at with current datetime if not set
+  useEffect(() => {
+    if (!mainFormData.created_at) {
+      const now = new Date();
+      const localISOTime = new Date(now.getTime() - now.getTimezoneOffset() * 60000).toISOString().slice(0, 16);
+      updateMainField('created_at', localISOTime);
+    }
+  }, [mainFormData.created_at, updateMainField]);
 
   // fetch services
   useEffect(() => {
@@ -143,31 +175,47 @@ const CarePackageCreateForm = () => {
   const handleSubmit = async (e) => {
     e.preventDefault();
     setIsSubmitting(true);
+    setSubmitStatus({ type: '', message: '' });
 
     try {
       const payload = {
         package_name: mainFormData.package_name,
         package_remarks: mainFormData.package_remarks || '',
         package_price: mainFormData.package_price > 0 ? mainFormData.package_price : calculateTotalPrice(),
-        customizable: mainFormData.customizable,
+        is_customizable: mainFormData.customizable,
         employee_id: mainFormData.employee_id || null,
+        created_at: mainFormData.created_at,
+        updated_at: mainFormData.created_at,
         services: mainFormData.services.map((service) => ({
-          service_id: service.id,
+          id: service.id,
+          name: service.name,
           quantity: parseInt(service.quantity, 10),
           price: parseFloat(service.price),
-          discount_factor: parseFloat(service.discount), // Store as discount factor
-          final_price: parseFloat(service.price) * parseFloat(service.discount),
+          finalPrice: parseFloat(service.price) * parseFloat(service.discount),
+          discount: parseFloat(service.discount),
         })),
-        total_price: mainFormData.package_price > 0 ? mainFormData.package_price : calculateTotalPrice(),
       };
       console.log('Submitting package payload:', payload);
 
       if (submitPackage) {
         await submitPackage(payload);
+        setSubmitStatus({
+          type: 'success',
+          message: 'Care package created successfully!',
+        });
+
+        // reset form after a brief delay to show the success message
+        setTimeout(() => {
+          handleReset();
+          setSubmitStatus({ type: '', message: '' });
+        }, 2000); // 2 second delay
       }
-      handleReset();
     } catch (error) {
       console.error('Error submitting package:', error);
+      setSubmitStatus({
+        type: 'error',
+        message: 'Failed to create care package. Please try again.',
+      });
     } finally {
       setIsSubmitting(false);
     }
@@ -178,6 +226,12 @@ const CarePackageCreateForm = () => {
     resetMainForm();
     resetServiceForm();
     setEditingService(null);
+    // reset created_at to current time
+    const now = new Date();
+    const localISOTime = new Date(now.getTime() - now.getTimezoneOffset() * 60000).toISOString().slice(0, 16);
+    updateMainField('created_at', localISOTime);
+    // reset form context
+    methods.reset({ employee_id: '' });
   };
 
   const renderMainContent = () => {
@@ -223,6 +277,23 @@ const CarePackageCreateForm = () => {
           </div>
         )}
 
+        {/* submit status display */}
+        {submitStatus.message && (
+          <div className='max-w-7xl mx-auto px-4 py-2'>
+            <div
+              className={`border rounded-lg p-4 ${
+                submitStatus.type === 'success' ? 'bg-green-50 border-green-200' : 'bg-red-50 border-red-200'
+              }`}
+            >
+              <p
+                className={`text-sm font-medium ${submitStatus.type === 'success' ? 'text-green-800' : 'text-red-800'}`}
+              >
+                {submitStatus.message}
+              </p>
+            </div>
+          </div>
+        )}
+
         {/* main content */}
         <div className='max-w-7xl mx-auto px-4 py-2'>
           <div className='space-y-3'>
@@ -233,29 +304,55 @@ const CarePackageCreateForm = () => {
                   Package Information
                 </CardTitle>
               </CardHeader>
-              <CardContent className='p-3'>
-                <div className='grid grid-cols-1 md:grid-cols-4 gap-4'>
+              <CardContent className='p-6'>
+                <div className='grid grid-cols-1 md:grid-cols-2 gap-6'>
+                  <div>
+                    <label className='block text-sm font-medium text-gray-600 mb-2 flex items-center'>
+                      <Calendar className='w-4 h-4 mr-2' />
+                      CREATION DATE & TIME *
+                    </label>
+                    <Input
+                      type='datetime-local'
+                      value={mainFormData.created_at || ''}
+                      onChange={(e) => updateMainField('created_at', e.target.value)}
+                      className='w-full px-3 py-2 border border-gray-200 rounded text-sm focus:outline-none focus:ring-2 focus:ring-gray-500 focus:border-transparent'
+                      required
+                    />
+                  </div>
+
+                  <div>
+                    <label className='block text-sm font-medium text-gray-600 mb-2 flex items-center'>
+                      <User className='w-4 h-4 mr-2' />
+                      ASSIGNED EMPLOYEE *
+                    </label>
+                    <FormProvider {...methods}>
+                      <EmployeeSelect name='employee_id' label='' />
+                    </FormProvider>
+                  </div>
+                </div>
+
+                <div className='grid grid-cols-1 md:grid-cols-4 gap-6 mt-6'>
                   <div className='md:col-span-2'>
-                    <label className='block text-xs font-medium text-gray-600 mb-1'>PACKAGE NAME *</label>
+                    <label className='block text-sm font-medium text-gray-600 mb-2'>PACKAGE NAME *</label>
                     <Input
                       type='text'
                       value={mainFormData.package_name}
                       onChange={(e) => updateMainField('package_name', e.target.value)}
-                      className='w-full px-2 py-1 border border-gray-200 rounded text-sm focus:outline-none focus:ring-2 focus:ring-gray-500 focus:border-transparent'
+                      className='w-full px-3 py-2 border border-gray-200 rounded text-sm focus:outline-none focus:ring-2 focus:ring-gray-500 focus:border-transparent'
                       placeholder='Enter package name'
                       required
                     />
                   </div>
 
                   <div>
-                    <label className='block text-xs font-medium text-gray-600 mb-1'>PACKAGE PRICE</label>
+                    <label className='block text-sm font-medium text-gray-600 mb-2'>PACKAGE PRICE</label>
                     <div className='relative'>
-                      <DollarSign className='h-4 w-4 text-gray-400 absolute left-2 top-1/2 transform -translate-y-1/2' />
+                      <DollarSign className='h-4 w-4 text-gray-400 absolute left-3 top-1/2 transform -translate-y-1/2' />
                       <Input
                         type='number'
                         value={mainFormData.package_price}
                         onChange={(e) => updateMainField('package_price', parseFloat(e.target.value) || 0)}
-                        className='w-full pl-7 pr-2 py-1 border border-gray-200 rounded text-sm focus:outline-none focus:ring-2 focus:ring-gray-500 focus:border-transparent'
+                        className='w-full pl-10 pr-3 py-2 border border-gray-200 rounded text-sm focus:outline-none focus:ring-2 focus:ring-gray-500 focus:border-transparent'
                         placeholder='0.00'
                         step='0.01'
                       />
@@ -263,11 +360,11 @@ const CarePackageCreateForm = () => {
                   </div>
 
                   <div>
-                    <label className='block text-xs font-medium text-gray-600 mb-1'>CUSTOMIZABLE</label>
+                    <label className='block text-sm font-medium text-gray-600 mb-2'>CUSTOMIZABLE</label>
                     <select
                       value={mainFormData.customizable ? 'yes' : 'no'}
                       onChange={(e) => updateMainField('customizable', e.target.value === 'yes')}
-                      className='w-full px-2 py-1 border border-gray-200 rounded text-sm focus:outline-none focus:ring-2 focus:ring-gray-500 focus:border-transparent'
+                      className='w-full px-3 py-2 border border-gray-200 rounded text-sm focus:outline-none focus:ring-2 focus:ring-gray-500 focus:border-transparent'
                     >
                       <option value='no'>No</option>
                       <option value='yes'>Yes</option>
@@ -275,19 +372,20 @@ const CarePackageCreateForm = () => {
                   </div>
                 </div>
 
+                {/* service */}
                 {mainFormData.services.length > 0 && (
-                  <div className='mt-4 pt-4 border-t border-gray-200'>
-                    <div className='grid grid-cols-1 md:grid-cols-2 gap-4'>
+                  <div className='mt-6 pt-6 border-t border-gray-200'>
+                    <div className='grid grid-cols-1 md:grid-cols-2 gap-6'>
                       <div>
-                        <label className='block text-xs font-medium text-gray-600 mb-1'>CALCULATED TOTAL</label>
-                        <div className='text-gray-900 font-semibold px-2 py-1 bg-green-50 border border-green-200 rounded text-sm'>
+                        <label className='block text-sm font-medium text-gray-600 mb-2'>CALCULATED TOTAL</label>
+                        <div className='text-gray-900 font-semibold px-3 py-2 bg-green-50 border border-green-200 rounded text-sm'>
                           ${calculateTotalPrice().toFixed(2)}
                         </div>
                       </div>
                       {mainFormData.package_price > 0 && mainFormData.package_price !== calculateTotalPrice() && (
                         <div>
-                          <label className='block text-xs font-medium text-gray-600 mb-1'>PRICE OVERRIDE</label>
-                          <div className='text-gray-700 px-2 py-1 bg-yellow-50 border border-yellow-200 rounded text-xs'>
+                          <label className='block text-sm font-medium text-gray-600 mb-2'>PRICE OVERRIDE</label>
+                          <div className='text-gray-700 px-3 py-2 bg-yellow-50 border border-yellow-200 rounded text-sm'>
                             Override: ${mainFormData.package_price.toFixed(2)}
                           </div>
                         </div>
@@ -296,13 +394,14 @@ const CarePackageCreateForm = () => {
                   </div>
                 )}
 
-                <div className='mt-4'>
-                  <label className='block text-xs font-medium text-gray-600 mb-1'>PACKAGE REMARKS</label>
+                {/* package remarks */}
+                <div className='mt-6'>
+                  <label className='block text-sm font-medium text-gray-600 mb-2'>PACKAGE REMARKS</label>
                   <Textarea
                     value={mainFormData.package_remarks || ''}
                     onChange={(e) => updateMainField('package_remarks', e.target.value)}
                     rows={3}
-                    className='w-full px-2 py-2 border border-gray-200 rounded text-sm focus:outline-none focus:ring-2 focus:ring-gray-500 focus:border-transparent'
+                    className='w-full px-3 py-2 border border-gray-200 rounded text-sm focus:outline-none focus:ring-2 focus:ring-gray-500 focus:border-transparent'
                     placeholder='Add any additional notes or remarks about this package...'
                   />
                 </div>
@@ -372,7 +471,19 @@ const CarePackageCreateForm = () => {
                     <Input
                       type='number'
                       value={serviceForm.quantity}
-                      onChange={(e) => updateServiceFormField('quantity', parseInt(e.target.value) || 1)}
+                      onChange={(e) => {
+                        const value = e.target.value;
+                        if (value === '' || (!isNaN(value) && parseInt(value, 10) >= 0)) {
+                          updateServiceFormField('quantity', value === '' ? '' : parseInt(value, 10) || 1);
+                        }
+                      }}
+                      onBlur={(e) => {
+                        // ensure we have a valid quantity when user leaves the field
+                        const value = e.target.value;
+                        if (value === '' || parseInt(value, 10) <= 0) {
+                          updateServiceFormField('quantity', 1);
+                        }
+                      }}
                       className='w-full px-2 py-1 border border-gray-200 rounded text-sm focus:outline-none focus:ring-2 focus:ring-gray-500 focus:border-transparent'
                       min='1'
                     />
