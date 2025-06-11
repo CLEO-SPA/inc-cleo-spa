@@ -53,20 +53,22 @@ const createPosition = async (req: Request, res: Response, next: NextFunction): 
 };
 
 const getAllPositions = async (req: Request, res: Response, next: NextFunction) => {
-    
   const page = parseInt(req.query.page as string) || 1;
   const limit = parseInt(req.query.limit as string) || 10;
   const offset = (page - 1) * limit;
   const { start_date_utc, end_date_utc } = req.session;
 
-
-
   try {
-    const { positions, totalPages } = await model.getAllPositions(offset, limit, start_date_utc!, end_date_utc!);
+    const {
+      positions,
+      totalPages,
+      totalCount, 
+    } = await model.getAllPositions(offset, limit, start_date_utc!, end_date_utc!);
 
     res.status(200).json({
       currentPage: page,
-      totalPages: totalPages,
+      totalPages,
+      totalCount,
       pageSize: limit,
       data: positions,
     });

@@ -12,7 +12,12 @@ const checkPositionNameExists = async (position_name: string) => {
   }
 };
 
-const getAllPositions = async (offset: number, limit: number, startDate_utc: string, endDate_utc: string) => {
+const getAllPositions = async (
+  offset: number,
+  limit: number,
+  startDate_utc: string,
+  endDate_utc: string
+) => {
   try {
     const query = `
       SELECT * FROM positions
@@ -23,7 +28,7 @@ const getAllPositions = async (offset: number, limit: number, startDate_utc: str
       LIMIT $1 OFFSET $2
     `;
     const values = [limit, offset, startDate_utc, endDate_utc];
-    const result = await pool().query <Positions>(query, values);
+    const result = await pool().query<Positions>(query, values);
 
     const totalQuery = `
       SELECT COUNT(*) FROM positions
@@ -33,18 +38,22 @@ const getAllPositions = async (offset: number, limit: number, startDate_utc: str
     `;
     const totalValues = [startDate_utc, endDate_utc];
     const totalResult = await pool().query(totalQuery, totalValues);
-    const totalPages = Math.ceil(totalResult.rows[0].count / limit);
+    const totalFiltered = parseInt(totalResult.rows[0].count, 10);
+    const totalPages = Math.ceil(totalFiltered / limit);
+
+    const allCountResult = await pool().query(`SELECT COUNT(*) FROM positions`);
+    const totalCount = parseInt(allCountResult.rows[0].count, 10);
 
     return {
       positions: result.rows,
       totalPages,
+      totalCount,
     };
   } catch (error) {
     console.error('Error fetching positions:', error);
     throw new Error('Error fetching positions');
   }
 };
-
 const createPosition = async ({
   position_name,
   position_description,
