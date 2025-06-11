@@ -9,6 +9,7 @@ import { Button } from '@/components/ui/button';
 import { useCpFormStore } from '@/stores/useCpFormStore';
 import { Textarea } from '@/components/ui/textarea';
 import ServiceItem from '@/pages/CarePackages/ServiceItem';
+import ServiceSelection from '@/pages/CarePackages/ServiceSelection';
 import EmployeeSelect from '@/components/ui/forms/EmployeeSelect';
 import { FormProvider, useForm } from 'react-hook-form';
 
@@ -414,150 +415,20 @@ const CarePackageCreateForm = () => {
                 <CardTitle className='text-gray-900 text-base font-semibold'>Add Services</CardTitle>
               </CardHeader>
               <CardContent className='p-3'>
-                <div className='grid grid-cols-1 md:grid-cols-5 gap-4 mb-4'>
-                  {/* dropdown */}
-                  <div className='relative'>
-                    <label className='block text-xs font-medium text-gray-600 mb-1'>SELECT SERVICE *</label>
-                    <div className='relative'>
-                      <button
-                        type='button'
-                        onClick={() => setShowServiceDropdown(!showServiceDropdown)}
-                        className='w-full px-2 py-1 border border-gray-200 rounded bg-white text-left focus:outline-none focus:ring-2 focus:ring-gray-500 focus:border-transparent flex items-center justify-between text-sm'
-                        disabled={isLoading}
-                      >
-                        <span className={serviceForm.name ? 'text-gray-900' : 'text-gray-400'}>
-                          {serviceForm.name || 'Choose a service...'}
-                        </span>
-                        <ChevronDown className='h-4 w-4 text-gray-400' />
-                      </button>
-
-                      {showServiceDropdown && (
-                        <div className='absolute z-10 w-full mt-1 bg-white border border-gray-300 rounded shadow-lg'>
-                          <div className='p-2'>
-                            <div className='relative'>
-                              <Search className='h-4 w-4 text-gray-400 absolute left-2 top-1/2 transform -translate-y-1/2' />
-                              <input
-                                type='text'
-                                value={serviceSearch}
-                                onChange={(e) => setServiceSearch(e.target.value)}
-                                placeholder='Search services...'
-                                className='w-full pl-7 pr-2 py-1 border border-gray-200 rounded text-sm focus:outline-none focus:ring-2 focus:ring-gray-500 focus:border-transparent'
-                              />
-                            </div>
-                          </div>
-                          <div className='max-h-40 overflow-y-auto'>
-                            {filteredServiceOptions.map((option) => (
-                              <button
-                                key={option.id}
-                                type='button'
-                                onClick={() => handleServiceSelect(option)}
-                                className='w-full px-3 py-2 text-left hover:bg-gray-50 focus:bg-gray-50 focus:outline-none text-xs'
-                              >
-                                <div className='font-medium text-gray-900'>{option.label}</div>
-                              </button>
-                            ))}
-                            {filteredServiceOptions.length === 0 && (
-                              <div className='px-3 py-2 text-xs text-gray-500'>No services found</div>
-                            )}
-                          </div>
-                        </div>
-                      )}
-                    </div>
-                  </div>
-
-                  {/* quantity */}
-                  <div>
-                    <label className='block text-xs font-medium text-gray-600 mb-1'>QUANTITY</label>
-                    <Input
-                      type='number'
-                      value={serviceForm.quantity}
-                      onChange={(e) => {
-                        const value = e.target.value;
-                        if (value === '' || (!isNaN(value) && parseInt(value, 10) >= 0)) {
-                          updateServiceFormField('quantity', value === '' ? '' : parseInt(value, 10) || 1);
-                        }
-                      }}
-                      onBlur={(e) => {
-                        // ensure we have a valid quantity when user leaves the field
-                        const value = e.target.value;
-                        if (value === '' || parseInt(value, 10) <= 0) {
-                          updateServiceFormField('quantity', 1);
-                        }
-                      }}
-                      className='w-full px-2 py-1 border border-gray-200 rounded text-sm focus:outline-none focus:ring-2 focus:ring-gray-500 focus:border-transparent'
-                      min='1'
-                    />
-                  </div>
-
-                  {/* price */}
-                  <div>
-                    <label className='block text-xs font-medium text-gray-600 mb-1'>PRICE PER UNIT</label>
-                    <div className='relative'>
-                      <DollarSign className='h-4 w-4 text-gray-400 absolute left-2 top-1/2 transform -translate-y-1/2' />
-                      <Input
-                        type='number'
-                        value={serviceForm.price}
-                        onChange={(e) => updateServiceFormField('price', parseFloat(e.target.value) || 0)}
-                        className='w-full pl-7 pr-2 py-1 border border-gray-200 rounded text-sm focus:outline-none focus:ring-2 focus:ring-gray-500 focus:border-transparent'
-                        min='0'
-                        step='0.01'
-                      />
-                    </div>
-                  </div>
-
-                  {/* discount factor */}
-                  <div>
-                    <label className='block text-xs font-medium text-gray-600 mb-1'>DISCOUNT FACTOR</label>
-                    <div className='relative'>
-                      <Input
-                        type='number'
-                        value={serviceForm.discount}
-                        onChange={(e) => {
-                          // Allow the raw value to be set directly for better typing experience
-                          updateServiceFormField('discount', e.target.value);
-                        }}
-                        className='w-full px-2 py-1 border border-gray-200 rounded text-sm focus:outline-none focus:ring-2 focus:ring-gray-500 focus:border-transparent'
-                        min='0'
-                        max='1'
-                        step='0.01'
-                        placeholder='1.0'
-                      />
-                    </div>
-                    <div className='text-xs text-gray-500 mt-1'>
-                      {serviceForm.discount && serviceForm.discount !== ''
-                        ? `${getDiscountPercentage(serviceForm.discount)}% off`
-                        : 'Enter factor (1.0 = full price, 0.5 = half price)'}
-                    </div>
-                  </div>
-
-                  {/* service total preview */}
-                  <div>
-                    <label className='block text-xs font-medium text-gray-600 mb-1'>SERVICE TOTAL</label>
-                    <div className='text-gray-900 font-semibold px-2 py-1 bg-blue-50 border border-blue-200 rounded text-sm'>
-                      ${calculateCurrentServiceTotal().toFixed(2)}
-                    </div>
-                  </div>
-                </div>
-
-                <div className='flex space-x-2'>
-                  <Button
-                    type='button'
-                    onClick={handleAddService}
-                    disabled={!serviceForm.id || !serviceForm.name || serviceForm.quantity <= 0}
-                    className='bg-gray-900 hover:bg-black text-white text-sm px-3 py-1 disabled:bg-gray-300 disabled:cursor-not-allowed'
-                  >
-                    <Plus className='h-4 w-4 mr-1' />
-                    Add Service
-                  </Button>
-
-                  <Button type='button' onClick={resetServiceForm} variant='outline' className='text-sm px-3 py-1'>
-                    <X className='h-4 w-4 mr-1' />
-                    Clear
-                  </Button>
-                </div>
+                <ServiceSelection
+                  serviceForm={serviceForm}
+                  serviceOptions={serviceOptions}
+                  isLoading={isLoading}
+                  onServiceSelect={handleServiceSelect}
+                  onFieldUpdate={updateServiceFormField}
+                  onAddService={handleAddService}
+                  onClearForm={resetServiceForm}
+                  calculateServiceTotal={calculateCurrentServiceTotal}
+                  getDiscountPercentage={getDiscountPercentage}
+                />
               </CardContent>
             </Card>
-
+            
             {/* services list*/}
             {mainFormData.services.length > 0 && (
               <Card className='border-gray-200 shadow-sm'>

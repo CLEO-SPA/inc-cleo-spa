@@ -59,7 +59,7 @@ export const useCpFormStore = create(
         (state) => {
           const updatedServiceForm = {
             ...state.serviceForm,
-            [field]: value, 
+            [field]: value,
           };
 
           if (field === 'quantity') {

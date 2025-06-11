@@ -24,6 +24,7 @@ import { NotFoundState } from '@/components/NotFoundState';
 import { ErrorState } from '@/components/ErrorState';
 import { LoadingState } from '@/components/LoadingState';
 import ServiceItem from '@/pages/CarePackages/ServiceItem';
+import ServiceSelection from '@pages/CarePackages/ServiceSelection';
 
 const EditCarePackagePage = () => {
   const { id: packageId } = useParams();
@@ -66,7 +67,25 @@ const EditCarePackagePage = () => {
   const isLoading = formLoading || packageLoading;
   const error = formError || packageError;
 
-  // Helper function to populate form with package data
+  // enhanced function to get service names for display
+  const getServiceDisplayName = useCallback(
+    (serviceId) => {
+      const service = serviceOptions.find((opt) => opt.id === serviceId);
+      return service ? service.label : `Service ${serviceId}`;
+    },
+    [serviceOptions]
+  );
+
+  // get original service price helper
+  const getOriginalServicePrice = useCallback(
+    (serviceId) => {
+      const service = serviceOptions.find((opt) => opt.id === serviceId);
+      return service ? service.price : 0;
+    },
+    [serviceOptions]
+  );
+
+  // helper function to populate form with package data
   const populateFormWithPackageData = useCallback(
     (packageData) => {
       const pkg = packageData.package;
@@ -80,15 +99,20 @@ const EditCarePackagePage = () => {
 
       // transform package details to match the form store structure
       const transformedServices = details.map((detail) => {
+        const serviceName = getServiceDisplayName(detail.service_id);
+        const originalPrice = getOriginalServicePrice(detail.service_id);
+
         return {
           id: detail.service_id,
-          name: `Service ${detail.service_id}`,
+          name: serviceName,
           quantity: parseInt(detail.care_package_item_details_quantity) || 1,
           price: parseFloat(detail.care_package_item_details_price) || 0,
-          discount: parseFloat(detail.care_package_item_details_discount) || 0, // Keep as decimal
+          originalPrice: originalPrice,
+          lastUpdatedPrice: parseFloat(detail.care_package_item_details_price) || 0,
+          discount: parseFloat(detail.care_package_item_details_discount) || 0,
           finalPrice:
             (parseFloat(detail.care_package_item_details_price) || 0) *
-            (1 - (parseFloat(detail.care_package_item_details_discount) || 0)), // Calculate using decimal discount
+            (1 - (parseFloat(detail.care_package_item_details_discount) || 0)),
           remarks: detail.care_package_item_details_remarks || '',
         };
       });
@@ -96,7 +120,7 @@ const EditCarePackagePage = () => {
       // update services array
       updateMainField('services', transformedServices);
     },
-    [updateMainField]
+    [updateMainField, getServiceDisplayName, getOriginalServicePrice]
   );
 
   // load package data and service options on component mount
@@ -106,32 +130,40 @@ const EditCarePackagePage = () => {
     const loadData = async () => {
       try {
         clearError();
+
+        // First fetch service options
         await fetchServiceOptions();
 
+        // Then fetch package data if we have a packageId and haven't initialized yet
         if (packageId && !isInitialized && isMounted) {
           const packageData = await fetchPackageById(packageId);
 
           if (packageData && isMounted) {
             setOriginalData(JSON.parse(JSON.stringify(packageData)));
-            populateFormWithPackageData(packageData);
+            // Set a flag to populate form after service options are loaded
             setIsInitialized(true);
           } else {
             console.log('No package data returned');
           }
-        } else {
-          if (!packageId) console.log('   - No packageId provided');
-          if (isInitialized) console.log('   - Already initialized');
         }
       } catch (error) {
         console.error('Error in loadData:', error);
       }
     };
+
     loadData();
 
     return () => {
       isMounted = false;
     };
-  }, [packageId, fetchServiceOptions, fetchPackageById, clearError, populateFormWithPackageData, isInitialized]);
+  }, [packageId, fetchServiceOptions, fetchPackageById, clearError, isInitialized]);
+
+  // Separate effect to populate form data after both package data and service options are loaded
+  useEffect(() => {
+    if (originalData && serviceOptions.length > 0 && isInitialized) {
+      populateFormWithPackageData(originalData);
+    }
+  }, [originalData, serviceOptions, isInitialized, populateFormWithPackageData]);
 
   useEffect(() => {
     return () => {
@@ -140,18 +172,9 @@ const EditCarePackagePage = () => {
     };
   }, [clearCurrentPackage, resetMainForm]);
 
-  // enhanced function to get service names for display
-  const getServiceDisplayName = useCallback(
-    (serviceId) => {
-      const service = serviceOptions.find((opt) => opt.id === serviceId);
-      return service ? service.label : `Service ${serviceId}`;
-    },
-    [serviceOptions]
-  );
-
   // track changes to detect unsaved modifications
   useEffect(() => {
-    if (originalData && currentPackage && isInitialized) {
+    if (originalData && currentPackage && isInitialized && serviceOptions.length > 0) {
       const currentFormData = {
         package_name: mainFormData.package_name,
         package_price: mainFormData.package_price,
@@ -183,7 +206,7 @@ const EditCarePackagePage = () => {
       const hasChanges = JSON.stringify(currentFormData) !== JSON.stringify(originalFormData);
       setHasUnsavedChanges(hasChanges);
     }
-  }, [mainFormData, originalData, currentPackage, isInitialized, getServiceDisplayName]);
+  }, [mainFormData, originalData, currentPackage, isInitialized, getServiceDisplayName, serviceOptions.length]);
 
   // filter service options based on search input
   const filteredServiceOptions = serviceOptions.filter((option) =>
@@ -194,14 +217,12 @@ const EditCarePackagePage = () => {
   const calculateTotalPrice = () => {
     return mainFormData.services.reduce((total, service) => {
       const price = parseFloat(service.price) || 0;
-      const discountDecimal = parseFloat(service.discount) || 0; // Already a decimal (0.153 for 15.3%)
+      const discountDecimal = parseFloat(service.discount) || 0;
       const quantity = parseInt(service.quantity, 10) || 0;
-      
-      // apply discount formula: Final Price = Quantity × (1 - Discount) × Service Price
-      // where discount is already in decimal form
+
       const discountedUnitPrice = price * (1 - discountDecimal);
       const serviceTotal = quantity * discountedUnitPrice;
-      
+
       return total + serviceTotal;
     }, 0);
   };
@@ -209,19 +230,26 @@ const EditCarePackagePage = () => {
   // calculate the current service total in the form
   const calculateCurrentServiceTotal = () => {
     const price = parseFloat(serviceForm.price) || 0;
-    const discountDecimal = parseFloat(serviceForm.discount) || 0; // Already a decimal
+    const discountDecimal = parseFloat(serviceForm.discount) || 0;
     const quantity = parseInt(serviceForm.quantity, 10) || 0;
-    
-    // apply discount formula with decimal discount
+
     const discountedUnitPrice = price * (1 - discountDecimal);
     const serviceTotal = quantity * discountedUnitPrice;
-    
+
     return serviceTotal;
   };
 
   // handle service selection from dropdown
   const handleServiceSelect = (service) => {
-    selectService(service);
+    selectService({
+      id: service.id,
+      name: service.label || service.name,
+      price: service.price,
+      originalPrice: service.price,
+      quantity: 1,
+      discount: 1,
+      finalPrice: service.price,
+    });
     setShowServiceDropdown(false);
     setServiceSearch('');
   };
@@ -229,7 +257,18 @@ const EditCarePackagePage = () => {
   // handle adding service to package
   const handleAddService = () => {
     if (serviceForm.id && serviceForm.name && serviceForm.quantity > 0) {
-      addServiceToPackage();
+      const serviceToAdd = {
+        id: serviceForm.id,
+        name: serviceForm.name,
+        quantity: parseInt(serviceForm.quantity, 10),
+        price: parseFloat(serviceForm.price),
+        originalPrice: serviceForm.originalPrice || parseFloat(serviceForm.price),
+        discount: parseFloat(serviceForm.discount) || 1,
+        finalPrice: parseFloat(serviceForm.price) * (parseFloat(serviceForm.discount) || 1),
+        remarks: serviceForm.remarks || '',
+      };
+
+      addServiceToPackage(serviceToAdd);
     }
   };
 
@@ -258,7 +297,7 @@ const EditCarePackagePage = () => {
         services: mainFormData.services.map((service) => ({
           service_id: service.id,
           care_package_item_details_price: service.price,
-          care_package_item_details_discount: service.discount, // Store as decimal
+          care_package_item_details_discount: service.discount,
           care_package_item_details_quantity: service.quantity,
           care_package_item_details_remarks: service.remarks || '',
         })),
@@ -457,126 +496,17 @@ const EditCarePackagePage = () => {
                 <CardTitle className='text-gray-900 text-base font-semibold'>Add Services</CardTitle>
               </CardHeader>
               <CardContent className='p-3'>
-                <div className='grid grid-cols-1 md:grid-cols-5 gap-4 mb-4'>
-                  <div className='relative'>
-                    <label className='block text-xs font-medium text-gray-600 mb-1'>SELECT SERVICE *</label>
-                    <div className='relative'>
-                      <button
-                        type='button'
-                        onClick={() => setShowServiceDropdown(!showServiceDropdown)}
-                        className='w-full px-2 py-1 border border-gray-200 rounded bg-white text-left focus:outline-none focus:ring-2 focus:ring-gray-500 focus:border-transparent flex items-center justify-between text-sm'
-                        disabled={isLoading}
-                      >
-                        <span className={serviceForm.name ? 'text-gray-900' : 'text-gray-400'}>
-                          {serviceForm.name || 'Choose a service...'}
-                        </span>
-                        <ChevronDown className='h-4 w-4 text-gray-400' />
-                      </button>
-
-                      {showServiceDropdown && (
-                        <div className='absolute z-10 w-full mt-1 bg-white border border-gray-300 rounded shadow-lg'>
-                          <div className='p-2'>
-                            <div className='relative'>
-                              <Search className='h-4 w-4 text-gray-400 absolute left-2 top-1/2 transform -translate-y-1/2' />
-                              <input
-                                type='text'
-                                value={serviceSearch}
-                                onChange={(e) => setServiceSearch(e.target.value)}
-                                placeholder='Search services...'
-                                className='w-full pl-7 pr-2 py-1 border border-gray-200 rounded text-xs focus:outline-none focus:ring-1 focus:ring-gray-500'
-                              />
-                            </div>
-                          </div>
-                          <div className='max-h-40 overflow-y-auto'>
-                            {filteredServiceOptions.map((option) => (
-                              <button
-                                key={option.id}
-                                type='button'
-                                onClick={() => handleServiceSelect(option)}
-                                className='w-full px-3 py-2 text-left hover:bg-gray-50 focus:bg-gray-50 focus:outline-none text-xs'
-                              >
-                                <div className='font-medium text-gray-900'>{option.label}</div>
-                                <div className='text-gray-500'>ID: {option.id}</div>
-                              </button>
-                            ))}
-                            {filteredServiceOptions.length === 0 && (
-                              <div className='px-3 py-2 text-xs text-gray-500'>No services found</div>
-                            )}
-                          </div>
-                        </div>
-                      )}
-                    </div>
-                  </div>
-
-                  <div>
-                    <label className='block text-xs font-medium text-gray-600 mb-1'>QUANTITY</label>
-                    <input
-                      type='number'
-                      value={serviceForm.quantity}
-                      onChange={(e) => updateServiceFormField('quantity', parseInt(e.target.value) || 1)}
-                      className='w-full px-2 py-1 border border-gray-200 rounded text-sm focus:outline-none focus:ring-2 focus:ring-gray-500 focus:border-transparent'
-                      min='1'
-                    />
-                  </div>
-
-                  <div>
-                    <label className='block text-xs font-medium text-gray-600 mb-1'>PRICE PER UNIT</label>
-                    <div className='relative'>
-                      <DollarSign className='h-4 w-4 text-gray-400 absolute left-2 top-1/2 transform -translate-y-1/2' />
-                      <input
-                        type='number'
-                        value={serviceForm.price}
-                        onChange={(e) => updateServiceFormField('price', parseFloat(e.target.value) || 0)}
-                        className='w-full pl-7 pr-2 py-1 border border-gray-200 rounded text-sm focus:outline-none focus:ring-2 focus:ring-gray-500 focus:border-transparent'
-                        min='0'
-                        step='0.01'
-                      />
-                    </div>
-                  </div>
-
-                  <div>
-                    <label className='block text-xs font-medium text-gray-600 mb-1'>DISCOUNT (DECIMAL)</label>
-                    <div className='relative'>
-                      <input
-                        type='number'
-                        value={serviceForm.discount}
-                        onChange={(e) => updateServiceFormField('discount', parseFloat(e.target.value) || 0)}
-                        className='w-full px-2 py-1 border border-gray-200 rounded text-sm focus:outline-none focus:ring-2 focus:ring-gray-500 focus:border-transparent'
-                        min='0'
-                        max='1'
-                        step='0.001'
-                        placeholder='0.153'
-                      />
-                    </div>
-                    <div className='text-xs text-gray-500 mt-1'>
-                      Enter as decimal (e.g., 0.50 for 50% discount)
-                    </div>
-                  </div>
-
-                  <div>
-                    <label className='block text-xs font-medium text-gray-600 mb-1'>SERVICE TOTAL</label>
-                    <div className='text-gray-900 font-semibold px-2 py-1 bg-blue-50 border border-blue-200 rounded text-sm'>
-                      ${calculateCurrentServiceTotal().toFixed(2)}
-                    </div>
-                  </div>
-                </div>
-
-                <div className='flex space-x-2'>
-                  <Button
-                    type='button'
-                    onClick={handleAddService}
-                    disabled={!serviceForm.id || !serviceForm.name || serviceForm.quantity <= 0}
-                    className='bg-gray-900 hover:bg-black text-white text-sm px-3 py-1 disabled:bg-gray-300 disabled:cursor-not-allowed'
-                  >
-                    <Plus className='h-4 w-4 mr-1' />
-                    Add Service
-                  </Button>
-
-                  <Button type='button' onClick={resetServiceForm} variant='outline' className='text-sm px-3 py-1'>
-                    <X className='h-4 w-4 mr-1' />
-                    Clear
-                  </Button>
-                </div>
+                <ServiceSelection
+                  serviceForm={serviceForm}
+                  serviceOptions={serviceOptions}
+                  isLoading={isLoading}
+                  onServiceSelect={handleServiceSelect}
+                  onFieldUpdate={updateServiceFormField}
+                  onAddService={handleAddService}
+                  onClearForm={resetServiceForm}
+                  calculateServiceTotal={calculateCurrentServiceTotal}
+                  showOriginalPrice={true}
+                />
               </CardContent>
             </Card>
 

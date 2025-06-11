@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { Trash2, Edit3, Save, X } from 'lucide-react';
 import ServiceSelect from '@/components/ui/forms/ServiceSelect';
 import { FormProvider, useForm } from 'react-hook-form';
@@ -6,10 +6,14 @@ import { FormProvider, useForm } from 'react-hook-form';
 const ServiceItem = ({ service, index, isEditing, onEdit, onSave, onCancel, onRemove }) => {
   const [editData, setEditData] = useState({
     quantity: service.quantity,
-    price: service.price,
+    price: service.price, // This is the custom price for this care package
     discount: service.discount,
     service_id: service.id,
   });
+
+  // Original price should come from the service data and never be modified
+  // This represents the service's base price from the database
+  const originalServicePrice = service.originalPrice || service.price;
 
   // form methods for ServiceSelect
   const methods = useForm({
@@ -18,18 +22,33 @@ const ServiceItem = ({ service, index, isEditing, onEdit, onSave, onCancel, onRe
     },
   });
 
+  // Reset editData when service prop changes or when starting to edit
+  useEffect(() => {
+    if (isEditing) {
+      setEditData({
+        quantity: service.quantity,
+        price: service.price, // Custom price for this care package
+        discount: service.discount,
+        service_id: service.id,
+      });
+      methods.reset({ service_id: service.id });
+    }
+  }, [isEditing, service, methods]);
+
   const handleSave = () => {
     const formData = methods.getValues();
     onSave({
       ...editData,
       service_id: formData.service_id,
+      // Preserve the original price reference
+      originalPrice: originalServicePrice,
     });
   };
 
   const handleCancel = () => {
     setEditData({
       quantity: service.quantity,
-      price: service.price,
+      price: service.price, // Reset to current custom price
       discount: service.discount,
       service_id: service.id,
     });
@@ -40,26 +59,56 @@ const ServiceItem = ({ service, index, isEditing, onEdit, onSave, onCancel, onRe
   // handle service selection from ServiceSelect
   const handleServiceSelect = (serviceDetails) => {
     if (serviceDetails) {
+      // When a new service is selected, use its original price as the default custom price
+      // But DO NOT modify the originalServicePrice - it should remain readonly
       setEditData((prev) => ({
         ...prev,
-        price: serviceDetails.price || prev.price,
+        price: serviceDetails.price || prev.price, // Set custom price to service's default price
+        service_id: serviceDetails.id,
       }));
     }
   };
 
-  // calculate subtotal for edit mode based on current editData
-  const priceInEdit = parseFloat(editData.price) || 0;
-  const discountDecimal = parseFloat(editData.discount) || 0;
+  // Handle input changes with proper type conversion
+  const handleEditDataChange = (field, value) => {
+    let processedValue = value;
+    
+    if (field === 'quantity') {
+      processedValue = parseInt(value) || 1;
+    } else if (field === 'price' || field === 'discount') {
+      processedValue = parseFloat(value) || 0;
+    }
+    
+    setEditData(prev => ({
+      ...prev,
+      [field]: processedValue
+    }));
+  };
 
-  // apply discount formula where discount represents the remaining percentage
-  // final Price = Service Price × Discount (where 0.3 = 30% remaining = 70% discount)
-  const discountedUnitPrice = priceInEdit * discountDecimal;
+  // calculate subtotal for edit mode based on current editData
+  const customPriceInEdit = parseFloat(editData.price) || 0;
+  const discountFactor = parseFloat(editData.discount) || 1; // Default to 1 if empty
+  const quantityInEdit = parseInt(editData.quantity) || 0;
+
+  // Apply discount formula: Final Price = Quantity × Custom Price × Discount Factor
+  const discountedUnitPrice = customPriceInEdit * discountFactor;
+  const totalInEdit = quantityInEdit * discountedUnitPrice;
 
   // calculate subtotal for display mode
-  const priceInDisplay = parseFloat(service.price) || 0;
-  const discountDecimalDisplay = parseFloat(service.discount) || 0;
+  const customPriceInDisplay = parseFloat(service.price) || 0;
+  const discountFactorDisplay = parseFloat(service.discount) || 1;
   const quantityInDisplay = parseInt(service.quantity, 10) || 0;
-  const discountedUnitPriceDisplay = priceInDisplay * discountDecimalDisplay;
+  const discountedUnitPriceDisplay = customPriceInDisplay * discountFactorDisplay;
+  const totalInDisplay = quantityInDisplay * discountedUnitPriceDisplay;
+
+  // Helper function to calculate discount percentage for display
+  const getDiscountPercentage = (discountFactor) => {
+    if (!discountFactor || discountFactor === '') return '0';
+    const factor = parseFloat(discountFactor);
+    if (isNaN(factor)) return '0';
+    const discountPercent = (1 - factor) * 100;
+    return Math.max(0, discountPercent).toFixed(1);
+  };
 
   return (
     <FormProvider {...methods}>
@@ -78,12 +127,14 @@ const ServiceItem = ({ service, index, isEditing, onEdit, onSave, onCancel, onRe
                 <button
                   onClick={handleSave}
                   className='p-2 text-green-600 hover:text-green-800 hover:bg-green-50 rounded-md transition-colors focus:outline-none focus:ring-2 focus:ring-green-500'
+                  title="Save changes"
                 >
                   <Save className='h-4 w-4' />
                 </button>
                 <button
                   onClick={handleCancel}
                   className='p-2 text-gray-600 hover:text-gray-800 hover:bg-gray-50 rounded-md transition-colors focus:outline-none focus:ring-2 focus:ring-gray-500'
+                  title="Cancel editing"
                 >
                   <X className='h-4 w-4' />
                 </button>
@@ -93,12 +144,14 @@ const ServiceItem = ({ service, index, isEditing, onEdit, onSave, onCancel, onRe
                 <button
                   onClick={onEdit}
                   className='p-2 text-gray-600 hover:text-gray-800 hover:bg-gray-50 rounded-md transition-colors focus:outline-none focus:ring-2 focus:ring-gray-500'
+                  title="Edit service"
                 >
                   <Edit3 className='h-4 w-4' />
                 </button>
                 <button
                   onClick={onRemove}
                   className='p-2 text-red-600 hover:text-red-800 hover:bg-red-50 rounded-md transition-colors focus:outline-none focus:ring-2 focus:ring-red-500'
+                  title="Remove service"
                 >
                   <Trash2 className='h-4 w-4' />
                 </button>
@@ -114,41 +167,50 @@ const ServiceItem = ({ service, index, isEditing, onEdit, onSave, onCancel, onRe
               <ServiceSelect name='service_id' label='Service *' onSelectFullDetails={handleServiceSelect} />
             </div>
 
-            {/* original price (read-only) */}
+            {/* original price (read-only - this is the service's base price from database) */}
             <div>
-              <label className='block text-xs font-medium text-gray-600 mb-1'>Original Price</label>
-              <div className='w-full px-3 py-2 border border-gray-300 rounded-md text-sm bg-gray-50 text-gray-700'>
-                ${priceInEdit.toFixed(2)}
+              <label className='block text-xs font-medium text-gray-600 mb-1'>
+                Original Price 
+                <span className='text-xs text-gray-400 ml-1'>(from service)</span>
+              </label>
+              <div className='w-full px-3 py-2 border border-gray-300 rounded-md text-sm bg-gray-100 text-gray-700'>
+                ${originalServicePrice.toFixed(2)}
               </div>
             </div>
 
-            {/* custom price (editable) */}
+            {/* custom price (editable - this is specific to this care package) */}
             <div>
-              <label className='block text-xs font-medium text-gray-600 mb-1'>Custom Price</label>
+              <label className='block text-xs font-medium text-gray-600 mb-1'>
+                Custom Price 
+                <span className='text-xs text-gray-400 ml-1'>(package-specific)</span>
+              </label>
               <input
                 type='number'
                 value={editData.price}
-                onChange={(e) => setEditData({ ...editData, price: parseFloat(e.target.value) || 0 })}
+                onChange={(e) => handleEditDataChange('price', e.target.value)}
                 className='w-full px-3 py-2 border border-gray-300 rounded-md text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent'
                 min='0'
                 step='0.01'
+                placeholder='Enter custom price for this package'
               />
             </div>
 
-            {/* discount */}
+            {/* discount factor */}
             <div>
-              <label className='block text-xs font-medium text-gray-600 mb-1'>Discount</label>
+              <label className='block text-xs font-medium text-gray-600 mb-1'>Discount Factor</label>
               <input
                 type='number'
                 value={editData.discount}
-                onChange={(e) => setEditData({ ...editData, discount: parseFloat(e.target.value) || 0 })}
+                onChange={(e) => handleEditDataChange('discount', e.target.value)}
                 className='w-full px-3 py-2 border border-gray-300 rounded-md text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent'
                 min='0'
-                max='5'
-                step='0.001'
-                placeholder='0.3'
+                max='1'
+                step='0.01'
+                placeholder='1.0'
               />
-              <div className='text-xs text-gray-500 mt-1'>e.g., 0.3 = 70% discount</div>
+              <div className='text-xs text-gray-500 mt-1'>
+                {editData.discount ? `${getDiscountPercentage(editData.discount)}% off` : '1.0 = full price, 0.5 = half price'}
+              </div>
             </div>
 
             {/* quantity */}
@@ -157,7 +219,7 @@ const ServiceItem = ({ service, index, isEditing, onEdit, onSave, onCancel, onRe
               <input
                 type='number'
                 value={editData.quantity}
-                onChange={(e) => setEditData({ ...editData, quantity: parseInt(e.target.value) || 1 })}
+                onChange={(e) => handleEditDataChange('quantity', e.target.value)}
                 className='w-full px-3 py-2 border border-gray-300 rounded-md text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent'
                 min='1'
               />
@@ -167,33 +229,39 @@ const ServiceItem = ({ service, index, isEditing, onEdit, onSave, onCancel, onRe
           <div className='grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-6 gap-4'>
             {/* service name (read-only) */}
             <div className='xl:col-span-2'>
-              <label className='block text-xs font-medium text-gray-600 mb-1'>Service *</label>
+              <label className='block text-xs font-medium text-gray-600 mb-1'>Service</label>
               <div className='w-full px-3 py-2 border border-gray-300 rounded-md text-sm bg-gray-50 text-gray-700'>
                 {service.name}
               </div>
             </div>
 
-            {/* original price */}
+            {/* original price (read-only) */}
             <div>
-              <label className='block text-xs font-medium text-gray-600 mb-1'>Original Price</label>
-              <div className='w-full px-3 py-2 border border-gray-300 rounded-md text-sm bg-gray-50 text-gray-700'>
-                ${priceInDisplay.toFixed(2)}
+              <label className='block text-xs font-medium text-gray-600 mb-1'>
+                Original Price
+                <span className='text-xs text-gray-400 ml-1'>(from service)</span>
+              </label>
+              <div className='w-full px-3 py-2 border border-gray-300 rounded-md text-sm bg-gray-100 text-gray-700'>
+                ${originalServicePrice.toFixed(2)}
               </div>
             </div>
 
-            {/* custom price */}
+            {/* custom price (read-only) */}
             <div>
-              <label className='block text-xs font-medium text-gray-600 mb-1'>Custom Price</label>
+              <label className='block text-xs font-medium text-gray-600 mb-1'>
+                Custom Price
+                <span className='text-xs text-gray-400 ml-1'>(package-specific)</span>
+              </label>
               <div className='w-full px-3 py-2 border border-gray-300 rounded-md text-sm bg-gray-50 text-gray-700'>
-                ${priceInDisplay.toFixed(2)}
+                ${customPriceInDisplay.toFixed(2)}
               </div>
             </div>
 
-            {/* discount */}
+            {/* discount factor */}
             <div>
-              <label className='block text-xs font-medium text-gray-600 mb-1'>Discount</label>
+              <label className='block text-xs font-medium text-gray-600 mb-1'>Discount Factor</label>
               <div className='w-full px-3 py-2 border border-gray-300 rounded-md text-sm bg-gray-50 text-gray-700'>
-                {discountDecimal}
+                {discountFactorDisplay} ({getDiscountPercentage(discountFactorDisplay)}% off)
               </div>
             </div>
 
@@ -208,11 +276,18 @@ const ServiceItem = ({ service, index, isEditing, onEdit, onSave, onCancel, onRe
         )}
 
         {/* summary */}
-        <div className='grid grid-cols-1 md:grid-cols-3 gap-4 mt-4 pt-4 border-t border-gray-200'>
+        <div className='grid grid-cols-1 md:grid-cols-4 gap-4 mt-4 pt-4 border-t border-gray-200'>
           <div>
-            <label className='block text-xs font-medium text-gray-600 mb-1'>Final Price</label>
+            <label className='block text-xs font-medium text-gray-600 mb-1'>Final Unit Price</label>
             <div className='w-full px-3 py-2 bg-blue-50 border border-blue-200 rounded-md text-sm font-medium text-blue-700'>
               ${isEditing ? discountedUnitPrice.toFixed(2) : discountedUnitPriceDisplay.toFixed(2)}
+            </div>
+          </div>
+
+          <div>
+            <label className='block text-xs font-medium text-gray-600 mb-1'>Total Line Amount</label>
+            <div className='w-full px-3 py-2 bg-green-50 border border-green-200 rounded-md text-sm font-medium text-green-700'>
+              ${isEditing ? totalInEdit.toFixed(2) : totalInDisplay.toFixed(2)}
             </div>
           </div>
 
@@ -224,9 +299,9 @@ const ServiceItem = ({ service, index, isEditing, onEdit, onSave, onCancel, onRe
           </div>
 
           <div>
-            <label className='block text-xs font-medium text-gray-600 mb-1'>Service Name</label>
+            <label className='block text-xs font-medium text-gray-600 mb-1'>Pricing Model</label>
             <div className='w-full px-3 py-2 border border-gray-300 rounded-md text-sm bg-gray-50 text-gray-700'>
-              {service.name}
+              {customPriceInDisplay !== originalServicePrice ? 'Custom' : 'Standard'}
             </div>
           </div>
         </div>
