@@ -186,12 +186,14 @@ const validateServiceData = async (req: Request, res: Response, next: NextFuncti
     !service_category_id ||
     !created_at
   ) {
-    return res.status(400).json({ message: 'Data missing from required fields.' });
+    res.status(400).json({ message: 'Data missing from required fields.' });
+    return;
   }
 
   if (service_name) {
     if (!isSafeInput(service_name.trim())) {
-      return res.status(400).json({ message: 'Invalid data type' });
+      res.status(400).json({ message: 'Invalid data type' });
+      return;
     } else {
       const service = await serviceModel.getServiceByName(serviceData.service_name);
       if (service && service.length > 0) {
@@ -202,11 +204,13 @@ const validateServiceData = async (req: Request, res: Response, next: NextFuncti
   }
 
   if (service_description && !isSafeInput(service_description.trim())) {
-    return res.status(400).json({ message: 'Invalid data type' });
+    res.status(400).json({ message: 'Invalid data type' });
+    return;
   }
 
   if (remarks && !isSafeInput(remarks.trim())) {
-    return res.status(400).json({ message: 'Invalid data type' });
+    res.status(400).json({ message: 'Invalid data type' });
+    return;
   }
 
   if (
@@ -215,11 +219,13 @@ const validateServiceData = async (req: Request, res: Response, next: NextFuncti
     !validator.isInt(service_category_id) ||
     !validator.isInt(created_by)
   ) {
-    return res.status(400).json({ message: 'Invalid data type' });
+    res.status(400).json({ message: 'Invalid data type' });
+    return;
   }
 
   if (!validator.isBoolean(service_is_enabled.toString())) {
-    return res.status(400).json({ message: 'Invalid data type' });
+    res.status(400).json({ message: 'Invalid data type' });
+    return;
   }
 
   if (!validator.isISO8601(created_at)) {
@@ -247,9 +253,9 @@ const createService = async (req: Request, res: Response, next: NextFunction) =>
     const newService = await serviceModel.createService(serviceData);
 
     if(newService){
-      return res.status(201).json({ message: 'Service created successfully'});
+      res.status(201).json({ message: 'Service created successfully'});
     } else {
-      return res.status(400).json({ message: 'Failed to create service' });
+      res.status(400).json({ message: 'Failed to create service' });
     }
   } catch (error) {
     console.error('Error in getServiceCategories:', error);
