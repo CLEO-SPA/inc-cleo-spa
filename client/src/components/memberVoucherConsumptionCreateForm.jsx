@@ -12,27 +12,28 @@ import useMemberVoucherTransactionStore from '@/stores/MemberVoucher/useMemberVo
 
 const MemberVoucherConsumptionForm = () => {
   const {
-    formFieldData,
-    updateFormField,
-    clearFormData,
+    createFormFieldData,
+
+    updateCreateFormField,
+    clearCreateFormData,
     setStoreFormData,
     setIsCreating,
     setIsConfirming
   } = useMemberVoucherTransactionStore();
 
   const handleInputChange = (field, value) => {
-    updateFormField(field, value);
+    updateCreateFormField(field, value);
   };
 
   const handleSubmit = () => {
-    if (setStoreFormData(formFieldData)) {
+    if (setStoreFormData(createFormFieldData)) {
       setIsCreating(true);
       setIsConfirming(true);
     };
   };
 
   const handleClear = () => {
-    clearFormData();
+    clearCreateFormData();
   };
 
   return (
@@ -43,7 +44,7 @@ const MemberVoucherConsumptionForm = () => {
           <Input
             id="consumptionValue"
             type={"number"}
-            value={formFieldData.consumptionValue}
+            value={createFormFieldData.consumptionValue}
             onChange={(e) => handleInputChange('consumptionValue', e.target.value)}
             placeholder="Enter consumption value"
           />
@@ -54,7 +55,7 @@ const MemberVoucherConsumptionForm = () => {
           <textarea
             id="remarks"
             className="flex min-h-[60px] w-full rounded-md border border-input bg-transparent px-3 py-2 text-sm shadow-xs placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-[3px] focus-visible:ring-ring/50 focus-visible:border-ring disabled:cursor-not-allowed disabled:opacity-50 resize-none"
-            value={formFieldData.remarks}
+            value={createFormFieldData.remarks}
             onChange={(e) => handleInputChange('remarks', e.target.value)}
             placeholder="Enter remarks"
           />
@@ -66,7 +67,7 @@ const MemberVoucherConsumptionForm = () => {
             <Input
               id="date"
               type="date"
-              value={formFieldData.date}
+              value={createFormFieldData.date}
               onChange={(e) => handleInputChange('date', e.target.value)}
             />
           </div>
@@ -75,7 +76,7 @@ const MemberVoucherConsumptionForm = () => {
             <Input
               id="time"
               type="time"
-              value={formFieldData.time}
+              value={createFormFieldData.time}
               onChange={(e) => handleInputChange('time', e.target.value)}
               className="w-full"
             />
@@ -85,7 +86,7 @@ const MemberVoucherConsumptionForm = () => {
         <div>
           <Label htmlFor="type" className="block mb-2">Type</Label>
           <Select
-            value={formFieldData.type}
+            value={createFormFieldData.type}
             onValueChange={(value) => handleInputChange('type', value)}
           >
             <SelectTrigger>
@@ -102,7 +103,7 @@ const MemberVoucherConsumptionForm = () => {
           <Label htmlFor="createdBy" className="block mb-2">Created By</Label>
           <Input
             id="createdBy"
-            value={formFieldData.createdBy}
+            value={createFormFieldData.createdBy}
             onChange={(e) => handleInputChange('createdBy', e.target.value)}
             placeholder="Enter creator name"
           />
@@ -112,7 +113,7 @@ const MemberVoucherConsumptionForm = () => {
           <Label htmlFor="handledBy" className="block mb-2">Handled By</Label>
           <Input
             id="handledBy"
-            value={formFieldData.handledBy}
+            value={createFormFieldData.handledBy}
             onChange={(e) => handleInputChange('handledBy', e.target.value)}
             placeholder="Enter handler name"
           />

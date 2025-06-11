@@ -23,7 +23,6 @@ import {
   ChevronsRight,
 } from 'lucide-react';
 import { useVoucherPaginationStore } from '@/stores/MemberVoucher/useVoucherPaginationStore';
-import useMemberVoucherTransactionStore from '@/stores/MemberVoucher/useMemberVoucherTransactionStore';
 import { Card, CardContent, CardHeader, CardTitle, CardFooter } from '@/components/ui/card';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { AppSidebar } from '@/components/app-sidebar';
@@ -33,10 +32,6 @@ import { SidebarInset, SidebarProvider } from '@/components/ui/sidebar';
 function ManageVouchersPage() {
   const { user } = useAuth();
   const navigate = useNavigate();
-
-  const {
-    setSelectedMemberVoucherTypeId
-  } = useMemberVoucherTransactionStore();
 
   const {
     vouchers,

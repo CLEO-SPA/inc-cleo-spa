@@ -2,7 +2,7 @@ import { Request, Response, NextFunction } from 'express';
 import model from '../models/memberVoucherModel.js';
 import { decodeCursor } from '../utils/cursorUtils.js';
 import { PaginatedOptions, CursorPayload } from '../types/common.types.js';
-import { MemberVoucherTransactionLogCreateData } from '../types/model.types.js';
+import { MemberVoucherTransactionLogCreateData, MemberVoucherTransactionLogUpdateData } from '../types/model.types.js';
 
 const getAllMemberVouchers = async (req: Request, res: Response, next: NextFunction): Promise<void> => {
   const { start_date_utc, end_date_utc } = req.session;
@@ -196,19 +196,6 @@ const createTransactionLogsByMemberVoucherId = async (req: Request, res: Respons
 
     console.log(newMemberVoucherTransactionLogData);
 
-    /*const newMemberVoucherTransactionLogData: MemberVoucherTransactionLogCreateData = {
-      id: NaN,
-      consumptionValue: NaN,
-      remarks: remarks,
-      date: "10-06-25",
-      time: 14:59,
-      type: "CONSUMPTION",
-      createdBy: NaN,
-      handledBy: NaN,
-      current_balance: NaN
-    };
-    */
-
     if (!newMemberVoucherTransactionLogData) {
       res.status(400).json({ message: "Error 400: Missing new Member Voucher Transaction Log Body" });
       return;
@@ -242,15 +229,15 @@ const createTransactionLogsByMemberVoucherId = async (req: Request, res: Respons
       return;
     }
 
-    if (!(typeof newMemberVoucherTransactionLogData.createdBy === 'number')) {
+    if (Number.isNaN(newMemberVoucherTransactionLogData.createdBy)) {
       res.status(400).json({ message: "Error 400: Created By Employee id is invalid." });
       return;
     }
-    if (!(typeof newMemberVoucherTransactionLogData.handledBy === 'number')) {
+    if (Number.isNaN(newMemberVoucherTransactionLogData.handledBy)) {
       res.status(400).json({ message: "Error 400: Handled By Employee id is invalid" });
       return;
     }
-    if (!(typeof newMemberVoucherTransactionLogData.current_balance === 'number')) {
+    if (Number.isNaN(newMemberVoucherTransactionLogData.current_balance)) {
       res.status(400).json({ message: "Error 400: Current Balance is invalid" });
       return;
     }
@@ -365,6 +352,105 @@ const getMemberNameByMemberVoucherId = async (req: Request, res: Response, next:
   }
 };
 
+const updateTransactionLogsAndCurrentBalanceByLogId = async (req: Request, res: Response, next: NextFunction): Promise<void> => {
+
+  const {
+    transaction_log_id,
+    consumptionValue,
+    remarks,
+    date,
+    time,
+    type,
+    createdBy,
+    handledBy,
+    lastUpdatedBy
+  } = req.body;
+
+  const {
+    id
+  } = req.params;
+
+  try {
+    const updatedMemberVoucherTransactionLogData: MemberVoucherTransactionLogUpdateData = {
+      transaction_log_id: parseInt(transaction_log_id, 10),
+      member_voucher_id: parseInt(id, 10),
+      consumptionValue: parseFloat(consumptionValue),
+      remarks: remarks,
+      date: date,
+      time: time,
+      type: type,
+      createdBy: parseInt(createdBy, 10),
+      handledBy: parseInt(handledBy, 10),
+      lastUpdatedBy: parseInt(lastUpdatedBy, 10)
+    };
+
+    console.log(updatedMemberVoucherTransactionLogData);
+
+    if (!updatedMemberVoucherTransactionLogData) {
+      res.status(400).json({ message: "Error 400: Missing new Member Voucher Transaction Log Body" });
+      return;
+    };
+
+    for (let property in updatedMemberVoucherTransactionLogData) {
+      const key = property as keyof MemberVoucherTransactionLogUpdateData;
+      const value = updatedMemberVoucherTransactionLogData[key];
+      if (key !== "remarks" && (value === null || value === undefined)) {
+        res.status(400).json({ message: `Error 400: Property "${property}" is required.` });
+        return;
+      }
+    };
+
+    if (isNaN(Number(updatedMemberVoucherTransactionLogData.consumptionValue))) {
+      res.status(400).json({ message: "Error 400: Consumption value is invalid" });
+      return;
+    };
+    if (updatedMemberVoucherTransactionLogData.remarks.length > 500) {
+      res.status(400).json({ message: "Error 400: Remarks input is too long" });
+      return;
+    };
+    if (!/^\d{4}-\d{2}-\d{2}$/.test(updatedMemberVoucherTransactionLogData.date)) {
+      res.status(400).json({ message: "Error 400: Date input is invalid" });
+      return;
+    };
+    const regex = /^([01]\d|2[0-3]):([0-5]\d)$/;
+    if (!regex.test(updatedMemberVoucherTransactionLogData.time)) {
+      res.status(400).json({ message: "Error 400: Time input is invalid." });
+      return;
+    };
+    if (Number.isNaN(updatedMemberVoucherTransactionLogData.createdBy)) {
+      res.status(400).json({ message: "Error 400: Created By Employee id is invalid." });
+      return;
+    };
+    if (Number.isNaN(updatedMemberVoucherTransactionLogData.handledBy)) {
+      res.status(400).json({ message: "Error 400: Handled By Employee id is invalid" });
+      return;
+    };
+    if (Number.isNaN(updatedMemberVoucherTransactionLogData.lastUpdatedBy)) {
+      res.status(400).json({ message: "Error 400: Last Updated By Employee id is invalid." });
+      return;
+    };
+    if (Number.isNaN(updatedMemberVoucherTransactionLogData.member_voucher_id)) {
+      res.status(400).json({ message: "Error 400: Member Voucher is invalid." });
+      return;
+    };
+    if (Number.isNaN(updatedMemberVoucherTransactionLogData.transaction_log_id)) {
+      res.status(400).json({ message: "Error 400: Transaction Log is invalid." });
+      return;
+    };
+
+    const results = await model.setTransactionLogsAndCurrentBalanceByLogId(updatedMemberVoucherTransactionLogData);
+    if (results.success) {
+      res.status(201).json({ message: results.message });
+    } else {
+      res.status(400).json({ message: results.message });
+      throw new Error(results.message);
+    };
+  } catch (error) {
+    console.error('Error in memberVoucherController.updatedMemberVoucherTransactionLogData:', error);
+    next(error);
+  }
+};
+
 export default {
   getAllMemberVouchers,
   getAllServicesOfMemberVoucherById,
@@ -372,5 +458,6 @@ export default {
   createTransactionLogsByMemberVoucherId,
   checkCurrentBalance,
   checkPaidCurrentBalance,
-  getMemberNameByMemberVoucherId
+  getMemberNameByMemberVoucherId,
+  updateTransactionLogsAndCurrentBalanceByLogId
 }

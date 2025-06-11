@@ -17,6 +17,7 @@ import MemberVoucherServices from '@/components/memberVoucherServices';
 import MemberVoucherTransactionLogs from '@/components/memberVoucherTransactionLogs';
 import MemberVoucherConsumptionForm from '@/components/memberVoucherConsumptionCreateForm';
 import ErrorAlert from '@/components/ui/errorAlert';
+import TransactionLogUpdateForm from '@/components/memberVoucherConsumptionUpdateForm';
 
 const CreateMemberVoucherConsumptionPage = () => {
     const navigate = useNavigate();
@@ -50,7 +51,9 @@ const CreateMemberVoucherConsumptionPage = () => {
         updateMemberVoucherTransactionLog,
         deletingMemberVoucherTransactionLog,
         setIsConfirming,
-        setIsCreating
+        setIsCreating,
+        setIsUpdating,
+        setIsDeleting
     } = useMemberVoucherTransactionStore();
 
     useEffect(() => {
@@ -92,7 +95,7 @@ const CreateMemberVoucherConsumptionPage = () => {
                         </div>
                         <MemberVoucherServices />
                         {/* Error Alert */}
-                        {error && <ErrorAlert error={error}
+                        {!isUpdating && error && <ErrorAlert error={error}
                             errorMessage={errorMessage}
                             onClose={clearError}
                         />}
@@ -107,6 +110,8 @@ const CreateMemberVoucherConsumptionPage = () => {
                     </SidebarInset>
                 </div>
             </SidebarProvider>
+            {/* Update Transaction Log Form */}
+            {isUpdating && <TransactionLogUpdateForm />}
 
             {/* Create Confirmation Pop Up */}
             {isCreating && <ConfirmationPopUp
@@ -119,8 +124,7 @@ const CreateMemberVoucherConsumptionPage = () => {
                 onCancel={() => {
                     setIsCreating(false);
                     setIsConfirming(false);
-                }
-                }
+                }}
             />}
 
             {/* Updating Confirmation Pop Up */}
@@ -129,13 +133,12 @@ const CreateMemberVoucherConsumptionPage = () => {
                 title="Please confirm the following details"
                 body={confirmBody}
                 onConfirm={() => {
-                    createMemberVoucherTransactionLog();
+                    updateMemberVoucherTransactionLog();
                 }}
                 onCancel={() => {
-                    setIsCreating(false);
+                    setIsUpdating(false);
                     setIsConfirming(false);
-                }
-                }
+                }}
             />}
             {/* Deleting Confirmation Pop Up */}
             {isDeleting && <ConfirmationPopUp
@@ -143,13 +146,12 @@ const CreateMemberVoucherConsumptionPage = () => {
                 title="Please confirm the following details"
                 body={confirmBody}
                 onConfirm={() => {
-                    createMemberVoucherTransactionLog();
+                    deletingMemberVoucherTransactionLog();
                 }}
                 onCancel={() => {
-                    setIsCreating(false);
+                    setIsDeleting(false);
                     setIsConfirming(false);
-                }
-                }
+                }}
             />}
 
         </div>

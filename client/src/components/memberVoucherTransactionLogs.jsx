@@ -40,6 +40,11 @@ const MemberVoucherTransactionLogs = () => {
         goToPreviousPage,
         goToPage,
         setLimit,
+
+        isUpdating,
+        setSelectedTransactionLogId,
+        setIsUpdating,
+        setUpdateFormData
     } = useMemberVoucherTransactionStore();
 
     const [targetPageInput, setTargetPageInput] = useState('');
@@ -176,7 +181,10 @@ const MemberVoucherTransactionLogs = () => {
                                                             <DropdownMenuContent align='end'>
                                                                 {canEdit && (
                                                                     <DropdownMenuItem onClick={() => {
-                                                                        // setIsUpdating(true);
+                                                                        const id = transaction.id;
+                                                                        setSelectedTransactionLogId(id);
+                                                                        setUpdateFormData();
+                                                                        setIsUpdating(true);
                                                                     }}>
                                                                         <Edit className='mr-2 h-4 w-4' />
                                                                         Update

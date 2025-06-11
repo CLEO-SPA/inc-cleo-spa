@@ -1,6 +1,6 @@
 import { pool } from '../config/database.js';
 import { PaginatedOptions, PaginatedReturn } from '../types/common.types.js';
-import { MemberVouchers, MemberVoucherServices, MemberVoucherTransactionLogs, MemberVoucherTransactionLogCreateData, MemberName } from '../types/model.types.js';
+import { MemberVouchers, MemberVoucherServices, MemberVoucherTransactionLogs, MemberVoucherTransactionLogCreateData, MemberName, MemberVoucherTransactionLogUpdateData } from '../types/model.types.js';
 import { encodeCursor } from '../utils/cursorUtils.js';
 
 
@@ -295,6 +295,8 @@ const addTransactionLogsByMemberVoucherId = async (data: MemberVoucherTransactio
     current_balance
   } = data;
 
+  console.log(current_balance);
+
   const currentBalanceAfterDeduction = current_balance + consumptionValue;
 
   const service_date = new Date(`${date}T${time}`);
@@ -538,6 +540,144 @@ const getMemberNameByMemberVoucherId = async (id: number): Promise<{ success: bo
   }
 };
 
+const setTransactionLogsAndCurrentBalanceByLogId = async (data: MemberVoucherTransactionLogUpdateData): Promise<{ success: boolean, message: string }> => {
+  const {
+    member_voucher_id,
+    transaction_log_id,
+    consumptionValue,
+    remarks,
+    date,
+    time,
+    type,
+    createdBy,
+    handledBy,
+    lastUpdatedBy
+  } = data;
+
+  const service_date = new Date(`${date}T${time}`);
+
+  const updated_at = new Date();
+
+  const client = await pool().connect();
+
+  try {
+    // To get the current amount_change value which will be used to find the current_balance value before the respective log deduction
+    const getAmountChangeQuery = `
+        SELECT amount_change
+        FROM member_voucher_transaction_logs
+        WHERE id = $1;
+    `;
+
+    const getAmountChangeValue = [
+      transaction_log_id
+    ];
+
+    const updateMemberVoucherQuery = `
+        UPDATE member_vouchers
+        SET current_balance = current_balance - $1 + $2
+        WHERE id = $3;
+        `;
+
+    const updateCurrentBalanceOfTransactionLogsQuery = `
+        UPDATE member_voucher_transaction_logs
+        SET current_balance = current_balance - $1 + $2
+        WHERE id >= $3 AND member_voucher_id = $4;
+        `;
+
+    const updateTransactionLogQuery = `
+        UPDATE member_voucher_transaction_logs
+        SET service_description = $1,
+            service_date = $2,
+            amount_change = $3,
+            serviced_by = $4,
+            type = $5,
+            created_by = $6,
+            last_updated_by = $7,
+            updated_at = $8
+        WHERE id = $9;
+        `;
+
+    const updateTransactionLogValue = [
+      remarks,
+      service_date,
+      consumptionValue,
+      handledBy,
+      type,
+      createdBy,
+      lastUpdatedBy,
+      updated_at,
+      transaction_log_id
+    ];
+
+    await client.query('BEGIN');
+
+    const getAmountChangeResult = await client.query(getAmountChangeQuery, getAmountChangeValue);
+
+    console.log("getAmountChangeResult.rows[0].amount_change: " + getAmountChangeResult.rows[0].amount_change);
+
+    const updateMemberVoucherValues = [
+      getAmountChangeResult.rows[0].amount_change,
+      consumptionValue,
+      member_voucher_id
+    ];
+
+    const updateCurrentBalanceOfTransactionLogsValue = [
+      getAmountChangeResult.rows[0].amount_change,
+      consumptionValue,
+      transaction_log_id,
+      member_voucher_id
+    ];
+
+    const updateMemberVoucherResults = await client.query(updateMemberVoucherQuery, updateMemberVoucherValues);
+
+    const updateTransactionLogsResults = await client.query(updateCurrentBalanceOfTransactionLogsQuery, updateCurrentBalanceOfTransactionLogsValue);
+
+    const updateTransactionLogByIdResults = await client.query(updateTransactionLogQuery, updateTransactionLogValue);
+
+    if ((updateMemberVoucherResults.rowCount ?? 0) > 0 && (updateTransactionLogsResults.rowCount ?? 0) > 0 && (updateTransactionLogByIdResults.rowCount ?? 0) > 0) {
+      await client.query('COMMIT');
+
+      return {
+        success: true,
+        message: "Member Voucher transaction log and Member Voucher balance has been updated successfully.",
+      };
+    } else {
+      // Rollback if any operation failed
+      await client.query('ROLLBACK');
+
+      return {
+        success: false,
+        message: "Transaction failed - no rows affected in one or more operations."
+      };
+    }
+
+  } catch (error) {
+    // Rollback on any error
+    try {
+      await client.query('ROLLBACK');
+    } catch (rollbackError) {
+      console.error('Error during rollback:', rollbackError);
+    }
+
+    console.error('Error updating Member Voucher transaction log and Member Voucher balance by Transation Log Id:', error);
+
+    console.error('Full error details:', {
+      error: error instanceof Error ? error.message : 'Unknown error',
+      stack: error instanceof Error ? error.stack : undefined
+    });
+
+    // Return user-friendly message but also throw for critical errors
+    if (error instanceof Error && error.message.includes('connection')) {
+      throw new Error('Database connection failed. Please try again later.');
+    };
+
+    return { success: false, message: "Failed to update Member Voucher transaction log and Member Voucher balance Transation Log Id due to database error." };
+
+  } finally {
+    client.release();
+  }
+};
+
 export default {
   getPaginatedVouchers,
   getServicesOfMemberVoucherById,
@@ -545,5 +685,6 @@ export default {
   addTransactionLogsByMemberVoucherId,
   getMemberVoucherCurrentBalance,
   getMemberVoucherPaidCurrentBalance,
-  getMemberNameByMemberVoucherId
+  getMemberNameByMemberVoucherId,
+  setTransactionLogsAndCurrentBalanceByLogId
 }

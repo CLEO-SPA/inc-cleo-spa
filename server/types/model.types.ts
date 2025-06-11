@@ -13,7 +13,7 @@ export interface Employees {
   employee_name: string;
   created_at: string;
   updated_at: string;
-}
+};
 
 export interface CarePackages {
   id?: string;
@@ -26,7 +26,7 @@ export interface CarePackages {
   last_updated_by: string;
   created_at: string;
   updated_at: string;
-}
+};
 
 export interface CarePackageItemDetails {
   id?: string;
@@ -35,7 +35,7 @@ export interface CarePackageItemDetails {
   care_package_item_details_price: number;
   service_id: string;
   care_package_id: string;
-}
+};
 
 export interface MemberCarePackages {
   id?: string;
@@ -47,7 +47,7 @@ export interface MemberCarePackages {
   created_at: string;
   updated_at: string;
   package_remarks: string;
-}
+};
 
 export interface MemberCarePackagesDetails {
   id?: string;
@@ -58,7 +58,7 @@ export interface MemberCarePackagesDetails {
   service_id: string;
   status_id: string;
   quantity: number;
-}
+};
 
 export interface MemberCarePackageTransactionLogs {
   id?: string;
@@ -71,14 +71,14 @@ export interface MemberCarePackageTransactionLogs {
   employee_id: string;
   service_id: string;
   created_at: string;
-}
+};
 
 export interface SystemParameters {
   id: string;
   start_date_utc: string;
   end_date_utc: string;
   is_simulation: boolean;
-}
+};
 
 export interface MemberVouchers {
   id?: number;
@@ -96,7 +96,7 @@ export interface MemberVouchers {
   last_updated_by: number;
   created_at: string;
   updated_at: string;
-}
+};
 
 export interface MemberVoucherServices {
   id?: number;
@@ -105,7 +105,7 @@ export interface MemberVoucherServices {
   custom_price: number;
   discount: number;
   duration: number;
-}
+};
 
 export interface MemberVoucherTransactionLogs {
   id?: number;
@@ -120,7 +120,7 @@ export interface MemberVoucherTransactionLogs {
   updated_by: number;
   created_at: string;
   updated_at: string;
-}
+};
 
 // generalised function for simple statements that changes the database
 export async function withTransaction<T>(callback: (client: pg.PoolClient) => Promise<T>): Promise<T> {
@@ -154,9 +154,22 @@ export interface MemberVoucherTransactionLogCreateData {
   createdBy: number;
   handledBy: number;
   current_balance: number;
-}
+};
 
 export interface MemberName {
   id?: number,
   member_name: string
-}
+};
+
+export interface MemberVoucherTransactionLogUpdateData {
+  member_voucher_id: number;
+  transaction_log_id: number;
+  consumptionValue: number;
+  remarks: string;
+  date: string;
+  time: string;
+  type: string;
+  createdBy: number;
+  handledBy: number;
+  lastUpdatedBy: number;
+};

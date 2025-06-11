@@ -24,4 +24,6 @@ router.get('/:id/t', controller.getAllTransactionLogsOfMemberVoucherById);
 
 router.post('/:id/t/create', controller.checkCurrentBalance, controller.checkPaidCurrentBalance ,controller.createTransactionLogsByMemberVoucherId);
 
+router.put('/:id/t/update', controller.updateTransactionLogsAndCurrentBalanceByLogId);
+
 export default router;

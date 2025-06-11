@@ -2,7 +2,7 @@ import { create } from 'zustand';
 import api from '@/services/api';
 
 import { handleApiError } from '@/utils/errorHandlingUtils';
-import { validateMemberVoucherId, validateMemberVoucherConsumptionCreateData } from '@/utils/validationUtils';
+import { validateMemberVoucherId, validateMemberVoucherConsumptionCreateData, validateTransactionLogId } from '@/utils/validationUtils';
 
 const getInitialState = () => ({
     loading: false,
@@ -10,13 +10,26 @@ const getInitialState = () => ({
     error: false,
     errorMessage: null,
 
+    // View
     memberVoucherServiceList: [],
     memberVoucherTransactionLogs: [],
     employeeList: null,
     memberName: null,
     selectedMemberVoucherId: -1,
+    selectedTransactionLogId: -1,
+
+    // Create and Update
     formData: [], // form Data is validate data while formFieldData is user input
-    formFieldData: {
+    createFormFieldData: {
+        consumptionValue: '',
+        remarks: '',
+        date: '',
+        time: '12:00',
+        type: '',
+        createdBy: '',
+        handledBy: ''
+    },
+    updateFormFieldData: {
         consumptionValue: '',
         remarks: '',
         date: '',
@@ -26,6 +39,7 @@ const getInitialState = () => ({
         handledBy: ''
     },
 
+    // Pagination
     currentPage: 1,
     currentLimit: 10,
     startCursor: null,
@@ -41,6 +55,15 @@ const getInitialState = () => ({
     isUpdating: false,
     isDeleting: false
 });
+
+function getNameById(empMap, id) {
+    for (let [name, empId] of empMap) {
+        if (empId === id) {
+            return name;
+        }
+    }
+    return null;
+}
 
 const useMemberVoucherTransactionStore = create((set, get) => ({
 
@@ -235,15 +258,13 @@ const useMemberVoucherTransactionStore = create((set, get) => ({
             console.log(formDataWithEmployeeId);
             await api.post(`/mv/${selectedMemberVoucherId}/t/create`, formDataWithEmployeeId);
 
-            await get().initialize();
-
             set({
                 isConfirming: false,
                 isCreating: false,
                 loading: false,
                 success: true,
                 formData: [],
-                formFieldData: {
+                createFormFieldData: {
                     consumptionValue: '',
                     remarks: '',
                     date: '',
@@ -254,6 +275,8 @@ const useMemberVoucherTransactionStore = create((set, get) => ({
                 },
             });
 
+            await get().initialize();
+
             get().setSuccessWithTimeout();
 
         } catch (error) {
@@ -262,7 +285,7 @@ const useMemberVoucherTransactionStore = create((set, get) => ({
         };
     },
 
-    updateMemberVoucherTransactionLog: async (data) => {
+    updateMemberVoucherTransactionLog: async () => {
         if (get().loading) {
             set({ success: false, error: true, errorMessage: "Another process is running." });
             return;
@@ -271,17 +294,44 @@ const useMemberVoucherTransactionStore = create((set, get) => ({
         set({ loading: true, success: false, error: false });
 
         try {
-            await api.put(`/mv/${selectedMemberVoucherId}/t/update`, data);
+            const state = get();
+            const { selectedMemberVoucherId, formData, employeeList, selectedTransactionLogId } = state;
+
+            const formDataWithEmployeeId = {
+                ...formData,
+                createdBy: employeeList.get(formData.createdBy.toLowerCase()),
+                handledBy: employeeList.get(formData.handledBy.toLowerCase()),
+                lastUpdatedBy: employeeList.get(formData.lastUpdatedBy.toLowerCase()),
+                transaction_log_id: selectedTransactionLogId
+            };
+
+
+            await api.put(`/mv/${selectedMemberVoucherId}/t/update`, formDataWithEmployeeId);
+
+            set({
+                isConfirming: false,
+                isUpdating: false,
+                loading: false,
+                success: true,
+                formData: [],
+                updateFormFieldData: {
+                    consumptionValue: '',
+                    remarks: '',
+                    date: '',
+                    time: '12:00',
+                    type: '',
+                    createdBy: '',
+                    handledBy: ''
+                },
+            });
 
             await get().initialize();
-
-            set({ isConfirming: false, isUpdating: false, loading: false, success: true });
 
             get().setSuccessWithTimeout();
 
         } catch (error) {
             const errorMessage = handleApiError(error);
-            set({ error: true, errorMessage: errorMessage, loading: false });
+            set({ isConfirming: false, error: true, errorMessage: errorMessage, loading: false });
         };
     },
 
@@ -379,6 +429,18 @@ const useMemberVoucherTransactionStore = create((set, get) => ({
             return false;
         };
 
+        if (formFieldData.lastUpdatedBy) {
+            const validateLastUpdatedBy = employeeList.get(formFieldData.lastUpdatedBy.toLowerCase());
+
+            if (!validateLastUpdatedBy) {
+                set({
+                    error: true,
+                    errorMessage: "This Employee does not exist. Please try again."
+                });
+                return false;
+            };
+        };
+
         // No error
         console.log("Set Form Success");
         set({
@@ -395,10 +457,21 @@ const useMemberVoucherTransactionStore = create((set, get) => ({
 
     setIsConfirming: (value) => { set({ isConfirming: value }) },
 
-    setSelectedMemberVoucherTypeId: (id) => {
+    setSelectedMemberVoucherId: (id) => {
         const validation = validateMemberVoucherId(id);
         if (validation.isValid) {
             set({ selectedMemberVoucherId: id });
+            return;
+        }
+
+        set({ error: true, errorMessage: validation.error });
+        return;
+    },
+
+    setSelectedTransactionLogId: (id) => {
+        const validation = validateTransactionLogId(id);
+        if (validation.isValid) {
+            set({ selectedTransactionLogId: id });
             return;
         }
 
@@ -411,7 +484,7 @@ const useMemberVoucherTransactionStore = create((set, get) => ({
     setErrorMessage: (value) => { set({ errorMessage: value }) },
 
     initialize: async (id) => {
-        get().setSelectedMemberVoucherTypeId(id);
+        get().setSelectedMemberVoucherId(id);
 
         await get().fetchMemberNameByMemberVoucherId();
         await get().fetchServiceOfMemberVoucher();
@@ -435,19 +508,15 @@ const useMemberVoucherTransactionStore = create((set, get) => ({
         }, 3000);
     },
 
-    setFormData: (newFormData) => {
-        set({ formData: newFormData });
-    },
-
-    updateFormField: (field, value) => {
+    updateCreateFormField: (field, value) => {
         set((state) => ({
-            formFieldData: { ...state.formFieldData, [field]: value }
+            createFormFieldData: { ...state.createFormFieldData, [field]: value }
         }));
     },
 
-    clearFormData: () => {
+    clearCreateFormData: () => {
         set({
-            formFieldData: {
+            createFormFieldData: {
                 consumptionValue: '',
                 remarks: '',
                 date: '',
@@ -458,6 +527,60 @@ const useMemberVoucherTransactionStore = create((set, get) => ({
             }
         });
     },
+
+    updateUpdateFormField: (field, value) => {
+        set((state) => ({
+            updateFormFieldData: { ...state.updateFormFieldData, [field]: value }
+        }));
+    },
+
+    clearUpdateFormData: () => {
+        set({
+            updateFormFieldData: {
+                consumptionValue: '',
+                remarks: '',
+                date: '',
+                time: '12:00',
+                type: '',
+                createdBy: '',
+                handledBy: '',
+                lastUpdatedBy: ''
+            }
+        });
+    },
+
+    setUpdateFormData: () => {
+        const state = get();
+        const { memberVoucherTransactionLogs, employeeList, selectedTransactionLogId } = state;
+        const memberVoucherTransactionLog = memberVoucherTransactionLogs.find(log => log.id === selectedTransactionLogId);
+
+        const dateStr = memberVoucherTransactionLog.service_date;
+        const date = new Date(dateStr);
+
+        const month = String(date.getMonth() + 1).padStart(2, '0');
+        const day = String(date.getDate()).padStart(2, '0');
+        const year = String(date.getFullYear());
+        const dateFormatted = `${year}-${month}-${day}`;
+        const timeFormatted = `${String(date.getHours()).padStart(2, '0')}:${String(date.getMinutes()).padStart(2, '0')}`;
+
+        const createdByEmpName = getNameById(employeeList, String(memberVoucherTransactionLog.created_by));
+        const handledByEmpName = getNameById(employeeList, String(memberVoucherTransactionLog.serviced_by));
+        const lastUpdatedByEmpName = getNameById(employeeList, String(memberVoucherTransactionLog.last_updated_by));
+
+        set({
+            updateFormFieldData: {
+                consumptionValue: memberVoucherTransactionLog.amount_change,
+                remarks: memberVoucherTransactionLog.service_description,
+                date: dateFormatted,
+                time: timeFormatted,
+                type: memberVoucherTransactionLog.type,
+                createdBy: createdByEmpName,
+                handledBy: handledByEmpName,
+                lastUpdatedBy: lastUpdatedByEmpName
+            }
+        });
+    },
+
     reset: () => set(getInitialState())
 }));
 
