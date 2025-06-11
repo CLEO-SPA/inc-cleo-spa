@@ -14,15 +14,43 @@ interface HierarchyInterface {
 }
 
 const hierarchy: HierarchyInterface[] = [
-  { id: 1, table: 'employees', dependencies: [9] },
+  { id: 1, table: 'employees', dependencies: [9, 37, 16] },
   { id: 2, table: 'care_packages', dependencies: [1] },
   { id: 3, table: 'care_package_item_details', dependencies: [2] },
   { id: 4, table: 'member_care_packages', dependencies: [1] },
   { id: 5, table: 'member_care_package_details', dependencies: [4, 7] },
-  { id: 6, table: 'member_care_package_transaction_logs', dependencies: [5, 7] },
+  { id: 6, table: 'member_care_package_transaction_logs', dependencies: [1, 5, 7] },
   { id: 7, table: 'services', dependencies: [8] },
   { id: 8, table: 'service_categories', dependencies: [] },
   { id: 9, table: 'positions', dependencies: [] },
+  { id: 10, table: 'serving_employee_to_invoice_items', dependencies: [1, 13] },
+  { id: 11, table: 'refunds', dependencies: [1, 15] },
+  { id: 12, table: 'refund_items', dependencies: [11, 13] },
+  { id: 13, table: 'invoice_items', dependencies: [15] },
+  { id: 14, table: 'invoice_payments', dependencies: [15, 1, 20] },
+  { id: 15, table: 'invoices', dependencies: [1, 16, 17] },
+  { id: 16, table: 'statuses', dependencies: [] },
+  { id: 17, table: 'members', dependencies: [37] },
+  { id: 18, table: 'membership_accounts', dependencies: [] },
+  { id: 19, table: 'membership_types', dependencies: [] },
+  { id: 20, table: 'payment_methods', dependencies: [] },
+  { id: 21, table: 'product_categories', dependencies: [] },
+  { id: 22, table: 'products', dependencies: [] },
+  { id: 23, table: 'roles', dependencies: [] },
+  { id: 24, table: 'translations', dependencies: [] },
+  { id: 25, table: 'user_to_role', dependencies: [23, 37] },
+  { id: 26, table: 'appointments', dependencies: [] },
+  { id: 27, table: 'member_voucher_details', dependencies: [] },
+  { id: 28, table: 'member_voucher_transaction_logs', dependencies: [] },
+  { id: 29, table: 'member_vouchers', dependencies: [] },
+  { id: 30, table: 'payment_to_sale_transactions', dependencies: [] },
+  { id: 31, table: 'sale_transaction_items', dependencies: [] },
+  { id: 32, table: 'sale_transactions', dependencies: [] },
+  { id: 33, table: 'timetables', dependencies: [] },
+  { id: 34, table: 'voucher_template_details', dependencies: [] },
+  { id: 35, table: 'voucher_templates', dependencies: [] },
+  { id: 36, table: 'system_parameters', dependencies: [] },
+  { id: 37, table: 'user_auth', dependencies: [] },
 ];
 
 const csvFolderPath = path.join(__dirname, '..', '..', 'seed');
@@ -264,21 +292,21 @@ interface AllTableData {
   [tableName: string]: CsvRow[];
 }
 
-async function performDbInserts(orderedTables: string[], allTableData: AllTableData) {
+async function performDbInserts(tablesToTruncate: string[], orderedTables: string[], allTableData: AllTableData) {
   const client = await pool().connect();
   try {
     await client.query('BEGIN');
 
-    const truncationOrder = [...orderedTables].reverse();
+    await client.query('SET CONSTRAINTS ALL DEFERRED;'); // Crucial for PostgreSQL FK handling with TRUNCATE
 
-    for (const tableName of truncationOrder) {
+    for (const tableName of tablesToTruncate) {
       try {
         await client.query(`TRUNCATE TABLE "${tableName}" RESTART IDENTITY;`);
         console.log(`  Truncated table: "${tableName}"`);
       } catch (error: any) {
         console.error(`Error truncating table "${tableName}": ${error.message}`);
         throw new Error(
-          `Failed to truncate table "${tableName}". Check foreign key constraints. Error: ${error.message}`
+          `Failed to truncate table "${tableName}". Check foreign key constraints or ensure tables are DEFERRABLE. Error: ${error.message}`
         );
       }
     }
@@ -328,69 +356,125 @@ function getAncestors(targetTableId: number, fullHierarchy: HierarchyInterface[]
   return ancestors;
 }
 
+function getDescendants(startNodeId: number, fullHierarchy: HierarchyInterface[]): Set<number> {
+  const descendants = new Set<number>();
+  const queue: number[] = [startNodeId];
+
+  const parentToChildrenMap = new Map<number, number[]>();
+  fullHierarchy.forEach((childTableInfo) => {
+    childTableInfo.dependencies.forEach((parentId) => {
+      if (!parentToChildrenMap.has(parentId)) {
+        parentToChildrenMap.set(parentId, []);
+      }
+      parentToChildrenMap.get(parentId)!.push(childTableInfo.id);
+    });
+  });
+
+  while (queue.length > 0) {
+    const currentId = queue.shift()!;
+    if (!descendants.has(currentId)) {
+      descendants.add(currentId); // Add the current node itself
+      const children = parentToChildrenMap.get(currentId) || [];
+      children.forEach((childId) => {
+        queue.push(childId);
+      });
+    }
+  }
+  return descendants;
+}
+
 const insertPreDataModel = async (tableName: string) => {
   try {
-    const targetTableId = hierarchy.find((f) => f.table === tableName)?.id;
+    const targetTableInfo = hierarchy.find((f) => f.table === tableName);
 
-    if (!targetTableId) {
-      throw new Error('No valid target tables found in hierarchy. Exiting seeding process.');
+    if (!targetTableInfo) {
+      throw new Error(`No valid target table "${tableName}" found in hierarchy. Exiting seeding process.`);
     }
 
-    const requiredTableIds = getAncestors(targetTableId, hierarchy);
-    const filteredHierarchy: HierarchyInterface[] = hierarchy.filter((tableInfo) => requiredTableIds.has(tableInfo.id));
-    const sortedOrderForSubset = getSeedingOrder(filteredHierarchy);
+    const requiredTableIdsForInsert = getAncestors(targetTableInfo.id, hierarchy);
+    const filteredHierarchyForInsert: HierarchyInterface[] = hierarchy.filter((tableInfo) =>
+      requiredTableIdsForInsert.has(tableInfo.id)
+    );
+    const sortedOrderForInsert = getSeedingOrder(filteredHierarchyForInsert);
+
+    const affectedTableIdsForTruncate = getDescendants(targetTableInfo.id, hierarchy);
+
+    const fullSortedOrder = getSeedingOrder(hierarchy);
+    const tablesToTruncate: string[] = fullSortedOrder
+      .filter((name) => {
+        const id = hierarchy.find((t) => t.table === name)?.id;
+        return id !== undefined && affectedTableIdsForTruncate.has(id);
+      })
+      .reverse();
+
     const allTableData: AllTableData = {};
 
-    for (const tableName of sortedOrderForSubset) {
-      const csvFilePath = path.join(csvFolderPath, 'pre', `${tableName}.csv`);
+    for (const name of sortedOrderForInsert) {
+      const csvFilePath = path.join(csvFolderPath, 'pre', `${name}.csv`);
       if (fs.existsSync(csvFilePath)) {
-        console.log(`Reading data for "${tableName}" from: ${csvFilePath}`);
-        allTableData[tableName] = await readCSVFile(csvFilePath);
+        console.log(`Reading data for "${name}" from: ${csvFilePath}`);
+        allTableData[name] = await readCSVFile(csvFilePath);
       } else {
-        throw new Error(`No CSV file found for table "${tableName}" at ${csvFilePath}. Exiting seeding process.`);
+        throw new Error(`No CSV file found for table "${name}" at ${csvFilePath}. Exiting seeding process.`);
       }
     }
 
-    await performDbInserts(sortedOrderForSubset, allTableData);
-    // console.log(`Seeding for specific tables ${tableName} completed.`);
+    // console.log('a', sortedOrderForInsert);
+    // console.log('b', tablesToTruncate);
+
+    await performDbInserts(tablesToTruncate, sortedOrderForInsert, allTableData);
+
     return {
       message: `Seeding for specific tables ${tableName} completed.`,
-      tables: sortedOrderForSubset,
+      tables: sortedOrderForInsert,
     };
-  } catch (error) {
-    console.error('Error in insertPreDataModel', error);
-    throw new Error('Error in insertPreDataModel');
+  } catch (error: any) {
+    console.error('Error in insertPreDataModel', error.message);
+    throw new Error('Error in insertPreDataModel: ' + error.message);
   }
 };
 
 const insertPostDataModel = async (tableName: string) => {
   try {
-    const targetTableId = hierarchy.find((f) => f.table === tableName)?.id;
+    const targetTableInfo = hierarchy.find((f) => f.table === tableName);
 
-    if (!targetTableId) {
-      throw new Error('No valid target tables found in hierarchy. Exiting seeding process.');
+    if (!targetTableInfo) {
+      throw new Error(`No valid target table "${tableName}" found in hierarchy. Exiting seeding process.`);
     }
 
-    const requiredTableIds = getAncestors(targetTableId, hierarchy);
-    const filteredHierarchy: HierarchyInterface[] = hierarchy.filter((tableInfo) => requiredTableIds.has(tableInfo.id));
-    const sortedOrderForSubset = getSeedingOrder(filteredHierarchy);
+    const requiredTableIdsForInsert = getAncestors(targetTableInfo.id, hierarchy);
+    const filteredHierarchyForInsert: HierarchyInterface[] = hierarchy.filter((tableInfo) =>
+      requiredTableIdsForInsert.has(tableInfo.id)
+    );
+    const sortedOrderForInsert = getSeedingOrder(filteredHierarchyForInsert);
+
+    const affectedTableIdsForTruncate = getDescendants(targetTableInfo.id, hierarchy);
+
+    const fullSortedOrder = getSeedingOrder(hierarchy);
+    const tablesToTruncate: string[] = fullSortedOrder
+      .filter((name) => {
+        const id = hierarchy.find((t) => t.table === name)?.id;
+        return id !== undefined && affectedTableIdsForTruncate.has(id);
+      })
+      .reverse();
+
     const allTableData: AllTableData = {};
 
-    for (const tableName of sortedOrderForSubset) {
-      const csvFilePath = path.join(csvFolderPath, 'post', `${tableName}.csv`);
+    for (const name of sortedOrderForInsert) {
+      const csvFilePath = path.join(csvFolderPath, 'post', `${name}.csv`);
       if (fs.existsSync(csvFilePath)) {
-        console.log(`Reading data for "${tableName}" from: ${csvFilePath}`);
-        allTableData[tableName] = await readCSVFile(csvFilePath);
+        console.log(`Reading data for "${name}" from: ${csvFilePath}`);
+        allTableData[name] = await readCSVFile(csvFilePath);
       } else {
-        throw new Error(`No CSV file found for table "${tableName}" at ${csvFilePath}. Exiting seeding process.`);
+        throw new Error(`No CSV file found for table "${name}" at ${csvFilePath}. Exiting seeding process.`);
       }
     }
 
-    await performDbInserts(sortedOrderForSubset, allTableData);
-    // console.log(`Seeding for specific tables ${tableName} completed.`);
+    await performDbInserts(tablesToTruncate, sortedOrderForInsert, allTableData);
+
     return {
       message: `Seeding for specific tables ${tableName} completed.`,
-      tables: sortedOrderForSubset,
+      tables: sortedOrderForInsert,
     };
   } catch (error) {
     console.error('Error in insertPostDataModel', error);
@@ -504,10 +588,57 @@ const getAllExistingTablesModel = async () => {
   }
 };
 
+const getCurrentSeedingOrderModel = async () => {
+  try {
+    const order = getSeedingOrder(hierarchy);
+    return order;
+  } catch (error: any) {
+    console.error('Error in getCurrentSeedingOrderModel:', error.message);
+    // Re-throw the error to be caught by the controller, including the detailed message
+    throw new Error('Error calculating seeding order: ' + error.message);
+  }
+};
+
+const getOrdersForTableModel = async (tableName: string) => {
+  try {
+    const targetTableInfo = hierarchy.find((f) => f.table === tableName);
+
+    if (!targetTableInfo) {
+      throw new Error(`No valid target table "${tableName}" found in hierarchy. Exiting seeding process.`);
+    }
+
+    const requiredTableIdsForInsert = getAncestors(targetTableInfo.id, hierarchy);
+    const filteredHierarchyForInsert: HierarchyInterface[] = hierarchy.filter((tableInfo) =>
+      requiredTableIdsForInsert.has(tableInfo.id)
+    );
+    const sortedOrderForInsert = getSeedingOrder(filteredHierarchyForInsert);
+
+    const affectedTableIdsForTruncate = getDescendants(targetTableInfo.id, hierarchy);
+
+    const fullSortedOrder = getSeedingOrder(hierarchy);
+    const tablesToTruncate: string[] = fullSortedOrder
+      .filter((name) => {
+        const id = hierarchy.find((t) => t.table === name)?.id;
+        return id !== undefined && affectedTableIdsForTruncate.has(id);
+      })
+      .reverse();
+
+    return {
+      sortedOrderForInsert,
+      tablesToTruncate,
+    };
+  } catch (error) {
+    console.error('Error in insertPostDataModel', error);
+    throw new Error('Error in insertPostDataModel');
+  }
+};
+
 export default {
   insertPreDataModel,
   insertPostDataModel,
   getPreDataModel,
   getPostDataModel,
   getAllExistingTablesModel,
+  getCurrentSeedingOrderModel,
+  getOrdersForTableModel,
 };

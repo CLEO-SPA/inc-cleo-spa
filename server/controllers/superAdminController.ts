@@ -84,10 +84,38 @@ const getAllExistingTables = async (req: Request, res: Response, next: NextFunct
   }
 };
 
+const getCurrentSeedingOrderController = async (req: Request, res: Response, next: NextFunction): Promise<void> => {
+  try {
+    const results = await model.getCurrentSeedingOrderModel();
+    res.status(200).json(results);
+  } catch (error) {
+    console.error('Error in getCurrentSeedingOrderController', error);
+    // The error from the model (which includes cycle details) will be passed to the error handler
+    next(error);
+  }
+};
+
+const getOrdersForTableController = async (req: Request, res: Response, next: NextFunction): Promise<void> => {
+  try {
+    const { tableName } = req.params;
+    if (!tableName) {
+      res.status(400).json({ message: 'Table name parameter is required.' });
+      return;
+    }
+    const results = await model.getOrdersForTableModel(tableName);
+    res.status(200).json(results);
+  } catch (error) {
+    console.error(`Error in getOrdersForTableController for table ${req.params.tableName}:`, error);
+    next(error);
+  }
+};
+
 export default {
   insertPreDataController,
   insertPostDataController,
   getPreDataController,
   getPostDataController,
   getAllExistingTables,
+  getCurrentSeedingOrderController,
+  getOrdersForTableController,
 };

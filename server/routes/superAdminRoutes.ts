@@ -12,6 +12,8 @@ router.use(isAuthenticated, roleMiddleware.hasRole('super_admin'));
 router.get('/seed/check/all', saController.getAllExistingTables);
 router.get('/seed/pre/:table', saController.getPreDataController);
 router.get('/seed/post/:table', saController.getPostDataController);
+router.get('/seed/order', saController.getCurrentSeedingOrderController);
+router.get('/seed/order/:tableName', saController.getOrdersForTableController);
 
 router.post('/update/pre', preUpload.single('file'), (req: Request, res: Response) => {
   if (req.file) {
