@@ -109,7 +109,7 @@ const getTotalCount = async (search: string | null, category: number | null, sta
 const getAllServicesForDropdown = async () => {
   try {
     const query = `
-      SELECT id, service_name FROM services
+      SELECT id, service_name, service_price FROM services
       WHERE service_is_enabled = true
       ORDER BY service_name ASC
     `;
@@ -122,7 +122,7 @@ const getAllServicesForDropdown = async () => {
 };
 
 // get service by id, include both enabled and disabled services
-const getServiceById = async (id: number) => {
+const getServiceById= async (id: number) => {
   try {
     const query = `
         SELECT 
@@ -156,12 +156,30 @@ const getServiceById = async (id: number) => {
         WHERE s.id = $1; 
     `;
     const result = await pool().query(query, [id]); // Added id parameter to query
-    return result.rows;
+    return result.rows[0];
   } catch (error) {
     console.error('Error fetching service by id:', error);
     throw new Error('Error fetching service by id');
   }
 };
+
+// get service by name
+const getServiceByName= async (service_name: string) => {
+try {
+    const query = `
+        SELECT 
+            s.id,
+            s.service_name
+        FROM services AS s
+        WHERE s.service_name = $1; 
+    `;
+    const result = await pool().query(query, [service_name]); // Added string parameter to query
+    return result.rows[0];
+  } catch (error) {
+    console.error('Error fetching service by name:', error);
+    throw new Error('Error fetching service by name');
+  }
+}
 
 const getEnabledServiceById = async (id: number) => {
   // Added missing id parameter
@@ -206,11 +224,103 @@ const getEnabledServiceById = async (id: number) => {
   }
 };
 
+const getServiceCategories = async () => {
+  try{
+    const query = `
+    SELECT * FROM service_categories
+    ORDER BY service_category_sequence_no;`;
+    const result = await pool().query(query);
+    return result.rows;
+  }catch(error){
+    console.error('Error fetching service categories:', error);
+    throw new Error('Error fetching service categories');
+  }
+}
+
+const getServiceCategoryById = async (id: number) => {
+  try {
+    const query = `
+        SELECT 
+            id,
+            service_category_name
+        FROM service_categories
+        WHERE id = $1; 
+    `;
+    const result = await pool().query(query, [id]); // Added string parameter to query
+    return result.rows[0];
+  } catch (error) {
+    console.error('Error fetching service category by id:', error);
+    throw new Error('Error fetching service category by id');
+  }
+}
+
+const getServiceSequenceNo = async (service_category_id: number) => {
+  try{
+    const query = `
+    SELECT COUNT(*) AS seq_no FROM services
+    WHERE service_category_id = $1;`;
+    const result = await pool().query(query, [service_category_id]);
+    return result.rows[0].seq_no;
+  }catch(error){
+    console.error('Error fetching service sequence no:', error);
+    throw new Error('Error fetching service sequence no');
+  }
+}
+
+const createService = async (serviceData: any) =>{
+  try {
+    const query = `
+      INSERT INTO services (
+        service_name,
+        service_description,
+        service_remarks,
+        service_duration,
+        service_price,
+        service_is_enabled,
+        created_at,
+        updated_at,
+        service_category_id,
+        service_sequence_no,
+        created_by,
+        updated_by
+      ) VALUES (
+        $1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12
+      )
+      RETURNING *;
+    `;
+    const params = [
+      serviceData.service_name,
+      serviceData.service_description,
+      serviceData.service_remarks,
+      serviceData.service_duration,
+      serviceData.service_price,
+      serviceData.service_is_enabled,
+      serviceData.created_at,
+      serviceData.updated_at,
+      serviceData.service_category_id,
+      serviceData.service_sequence_no,
+      serviceData.created_by,
+      serviceData.updated_by
+    ];
+    const result = await pool().query(query, params);
+    console.log(result);
+    return result.rows;
+  } catch (error) {
+    console.error('Error creating new service:', error);
+    throw new Error('Error creating new service');
+  }
+}
+
 export default {
   getAllServices,
   getServicesPaginationFilter,
   getTotalCount,
   getAllServicesForDropdown,
   getServiceById,
+  getServiceByName,
   getEnabledServiceById,
+  getServiceCategories,
+  getServiceCategoryById,
+  getServiceSequenceNo,
+  createService
 };

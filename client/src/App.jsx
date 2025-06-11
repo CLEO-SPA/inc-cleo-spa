@@ -28,6 +28,9 @@ import UpdateServicePage from '@/pages/UpdateServicePage';
 import ReorderServicePage from '@/pages/ReorderServicePage';
 // import CreateMemberCarePackageFormPage from '@/pages/CarePackages/CreateMemberCarePackageFormPage';
 
+// Employees
+import ManagePositions from '@/pages/em/ManagePositions';
+
 function App() {
   return (
     <AuthProvider>
@@ -38,7 +41,6 @@ function App() {
             <Route path='/' element={<ProtectedRoute />}>
               <Route index element={<HomePage />} />
 
-              <Route path='/mcp' element={<ManageCarePackagesPage />} />
               {/* Member Management */}
               <Route path='/member' element={<ManageMembersPage />} />
               <Route path='/member/create' element={<CreateMemberPage />} />
@@ -57,6 +59,9 @@ function App() {
               {/* statistics */}
               <Route path='/dbcr' element={<DatabaseReportPage />} />
 
+              {/* Employees Routes */}
+              <Route path='/positions' element={<ManagePositions />} />
+
               {/* Service Management */}
               <Route path='/manage-service' element={<ManageServicePage />} />
               <Route path='/create-service' element={<CreateServicePage />} />
@@ -70,6 +75,8 @@ function App() {
             {/* Invitation & Reset Password */}
             <Route path='/invites' element={<ResetPasswordPage />} />
             <Route path='/reset-password' element={<ResetPasswordPage />} />
+
+
             
             <Route path='/membership-type' element={<ManageMembershipTypePage/>} />
             {/* 404 Page */}
