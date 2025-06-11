@@ -1,5 +1,6 @@
-import { useState, useCallback } from 'react';
+import { useEffect, useState, useCallback } from 'react';
 import useSelectedMemberStore from '@/stores/useSelectedMemberStore';
+import useTransactionCartStore from '@/stores/useTransactionCartStore';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { Button } from '@/components/ui/button';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
@@ -44,6 +45,22 @@ export default function MemberSelectorPanel() {
     setVouchersLimit,
     setVouchersSearchTerm
   } = useSelectedMemberStore();
+
+  const {
+    selectedMember,
+    cartItems,
+    setSelectedMember,
+    addCartItem,
+    removeCartItem,
+    getCartTotal,
+    getItemsByType
+  } = useTransactionCartStore();
+
+    useEffect(() => {
+    if (currentMember && (!selectedMember || selectedMember.id !== currentMember.id)) {
+      setSelectedMember(currentMember);
+    }
+  }, [currentMember, selectedMember, setSelectedMember]);
 
   const handleSearch = async () => {
     if (!searchInput.trim()) return;

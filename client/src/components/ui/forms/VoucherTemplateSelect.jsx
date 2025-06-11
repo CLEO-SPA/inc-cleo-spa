@@ -13,7 +13,7 @@ import useVoucherTemplateStore from "@/stores/useVoucherTemplateStore";
 import { cn } from "@/lib/utils";
 
 export function VoucherTemplateSelect({
-  name = "voucher_template_id",
+  name = "id",
   label = "Voucher Template *",
   disabled: customDisabled = false,
   onSelectFullDetails,
