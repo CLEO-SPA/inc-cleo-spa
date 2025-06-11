@@ -4,7 +4,6 @@ import { SiteHeader } from '@/components/site-header';
 import { SidebarInset, SidebarProvider } from '@/components/ui/sidebar';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
-import { Input } from '@/components/ui/input';
 import { Badge } from '@/components/ui/badge';
 import { Alert, AlertDescription } from '@/components/ui/alert';
 import {
@@ -23,7 +22,6 @@ import {
 } from '@/components/ui/dropdown-menu';
 import {
   Plus,
-  Search,
   MoreHorizontal,
   Edit,
   Trash2,
@@ -44,7 +42,6 @@ export default function PositionTablePage() {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
   const [success, setSuccess] = useState('');
-  const [searchTerm, setSearchTerm] = useState('');
 
   const [currentPage, setCurrentPage] = useState(1);
   const [totalPages, setTotalPages] = useState(1);
@@ -54,7 +51,7 @@ export default function PositionTablePage() {
   const [selectedPosition, setSelectedPosition] = useState(null);
   const [formLoading, setFormLoading] = useState(false);
 
-  const fetchPositions = async (page = 1, limit = 10, search = '') => {
+  const fetchPositions = async (page = 1, limit = 10) => {
     setLoading(true);
     setError('');
     try {
@@ -62,10 +59,6 @@ export default function PositionTablePage() {
         page: page.toString(),
         limit: limit.toString()
       });
-
-      if (search) {
-        params.append('search', search);
-      }
 
       const response = await fetch(`/api/position?${params}`);
       if (!response.ok) throw new Error('Failed to fetch positions');
@@ -78,31 +71,25 @@ export default function PositionTablePage() {
     } catch (err) {
       setError(err.message);
       setPositions([]);
+      console.error('Error fetching positions:', err);
     } finally {
       setLoading(false);
     }
   };
 
   useEffect(() => {
-    fetchPositions(currentPage, pageSize, searchTerm);
+    fetchPositions(currentPage, pageSize);
   }, []);
-
-  useEffect(() => {
-    const debounceTimer = setTimeout(() => {
-      fetchPositions(1, pageSize, searchTerm);
-    }, 500);
-    return () => clearTimeout(debounceTimer);
-  }, [searchTerm]);
 
   const handlePageChange = (page) => {
     setCurrentPage(page);
-    fetchPositions(page, pageSize, searchTerm);
+    fetchPositions(page, pageSize);
   };
 
   const handlePageSizeChange = (newSize) => {
     setPageSize(newSize);
     setCurrentPage(1);
-    fetchPositions(1, newSize, searchTerm);
+    fetchPositions(1, newSize);
   };
 
   const navigateToCreate = () => {
@@ -128,7 +115,7 @@ export default function PositionTablePage() {
       setSuccess('Position deleted successfully');
       setDeleteDialogOpen(false);
       setSelectedPosition(null);
-      fetchPositions(currentPage, pageSize, searchTerm);
+      fetchPositions(currentPage, pageSize);
       setTimeout(() => setSuccess(''), 3000);
     } catch (err) {
       setError(err.message);
@@ -149,7 +136,7 @@ export default function PositionTablePage() {
       }
 
       setSuccess(`Position ${position.position_is_active ? 'deactivated' : 'activated'} successfully`);
-      fetchPositions(currentPage, pageSize, searchTerm);
+      fetchPositions(currentPage, pageSize);
       setTimeout(() => setSuccess(''), 3000);
     } catch (err) {
       setError(err.message);
@@ -212,28 +199,23 @@ export default function PositionTablePage() {
               )}
 
               <Card>
-                <CardHeader><CardTitle className="text-lg">Search & Filters</CardTitle></CardHeader>
+                <CardHeader><CardTitle className="text-lg">Display Options</CardTitle></CardHeader>
                 <CardContent>
-                  <div className="flex items-center space-x-4">
-                    <div className="relative flex-1 max-w-sm">
-                      <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400 h-4 w-4" />
-                      <Input placeholder="Search positions..." value={searchTerm} onChange={(e) => setSearchTerm(e.target.value)} className="pl-10" />
-                    </div>
-                    <div className="flex items-center space-x-2">
-                      <Label>Show:</Label>
-                      <select value={pageSize} onChange={(e) => handlePageSizeChange(parseInt(e.target.value))} className="border rounded px-2 py-1 text-sm">
-                        <option value={5}>5</option>
-                        <option value={10}>10</option>
-                        <option value={20}>20</option>
-                        <option value={50}>50</option>
-                      </select>
-                    </div>
+                  <div className="flex items-center space-x-2">
+                    <Label>Show:</Label>
+                    <select value={pageSize} onChange={(e) => handlePageSizeChange(parseInt(e.target.value))} className="border rounded px-2 py-1 text-sm">
+                      <option value={5}>5</option>
+                      <option value={10}>10</option>
+                      <option value={20}>20</option>
+                      <option value={50}>50</option>
+                    </select>
                   </div>
                 </CardContent>
               </Card>
 
               <Card>
                 <CardHeader><CardTitle className="text-lg">Positions ({positions.length} of {totalPages * pageSize})</CardTitle></CardHeader>
+  
                 <CardContent>
                   {loading ? (
                     <div className="flex items-center justify-center py-8">
