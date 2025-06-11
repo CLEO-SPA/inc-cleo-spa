@@ -13,7 +13,6 @@ import ResetPasswordPage from '@/pages/ResetPasswordPage';
 import NotFoundPage from '@/pages/404Page';
 
 import ManageMembershipTypePage from '@/pages/membership-type/ManageMembershipTypePage';
-import ManageCarePackagesPage from './pages/CarePackages/ManageCarePackagesPage';
 import ManageMembersPage from './pages/member/ManageMembersPage';
 import CreateMemberPage from './pages/member/CreateMemberPage';
 import EditMemberPage from './pages/member/EditMemberPage';

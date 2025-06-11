@@ -26,7 +26,7 @@ const CarePackageCreateForm = () => {
     removeServiceFromPackage,
     updateServiceInPackage,
     fetchServiceOptions,
-    submitPackage, 
+    submitPackage,
   } = useCpFormStore();
 
   const [editingService, setEditingService] = useState(null);
@@ -44,18 +44,26 @@ const CarePackageCreateForm = () => {
     option.label.toLowerCase().includes(serviceSearch.toLowerCase())
   );
 
-  // calculate total package price using decimal discount
+  // calculate total package price using discount factor
   const calculateTotalPrice = () => {
     return mainFormData.services.reduce((total, service) => {
       const price = parseFloat(service.price) || 0;
-      const discountDecimal = parseFloat(service.discount) || 0; // Already a decimal (0.153 for 15.3%)
       const quantity = parseInt(service.quantity, 10) || 0;
-      
-      // apply discount formula: Final Price = Quantity × (1 - Discount) × Service Price
-      // where discount is already in decimal form
-      const discountedUnitPrice = price * (1 - discountDecimal);
+
+      let discountFactor = parseFloat(service.discount);
+      if (
+        isNaN(discountFactor) ||
+        service.discount === '' ||
+        service.discount === null ||
+        service.discount === undefined
+      ) {
+        discountFactor = 1; // Full price when empty
+      }
+
+      // apply discount factor: Final Price = Quantity × Discount Factor × Service Price
+      const discountedUnitPrice = price * discountFactor;
       const serviceTotal = quantity * discountedUnitPrice;
-      
+
       return total + serviceTotal;
     }, 0);
   };
@@ -63,14 +71,47 @@ const CarePackageCreateForm = () => {
   // calculate the current service total in the form
   const calculateCurrentServiceTotal = () => {
     const price = parseFloat(serviceForm.price) || 0;
-    const discountDecimal = parseFloat(serviceForm.discount) || 0; // Already a decimal
     const quantity = parseInt(serviceForm.quantity, 10) || 0;
-    
-    // apply discount formula with decimal discount
-    const discountedUnitPrice = price * (1 - discountDecimal);
+
+    // handle discount factor - default to 1 (full price) if empty/invalid
+    let discountFactor = parseFloat(serviceForm.discount);
+    if (
+      isNaN(discountFactor) ||
+      serviceForm.discount === '' ||
+      serviceForm.discount === null ||
+      serviceForm.discount === undefined
+    ) {
+      discountFactor = 1; // full price when empty
+    }
+
+    const discountedUnitPrice = price * discountFactor;
     const serviceTotal = quantity * discountedUnitPrice;
-    
+
     return serviceTotal;
+  };
+
+  // helper function to convert discount factor to percentage for display
+  const getDiscountPercentage = (discountFactor) => {
+    // handle empty/null/undefined values
+    if (discountFactor === '' || discountFactor === null || discountFactor === undefined) {
+      return '0';
+    }
+
+    const factor = parseFloat(discountFactor);
+
+    // handle invalid numbers
+    if (isNaN(factor)) {
+      return '0';
+    }
+
+    // calculate discount percentage: (1 - factor) * 100
+    // factor = 1.0 means 0% off (full price)
+    // factor = 0.5 means 50% off (half price)
+    // factor = 0.0 means 100% off (free)
+    const discountPercent = (1 - factor) * 100;
+
+    // ensure we don't show negative discounts
+    return Math.max(0, discountPercent).toFixed(1);
   };
 
   // handle service selection from dropdown
@@ -98,7 +139,7 @@ const CarePackageCreateForm = () => {
     setEditingService(null);
   };
 
-  // handle form submission 
+  // handle form submission
   const handleSubmit = async (e) => {
     e.preventDefault();
     setIsSubmitting(true);
@@ -110,12 +151,12 @@ const CarePackageCreateForm = () => {
         package_price: mainFormData.package_price > 0 ? mainFormData.package_price : calculateTotalPrice(),
         customizable: mainFormData.customizable,
         employee_id: mainFormData.employee_id || null,
-        services: mainFormData.services.map(service => ({
+        services: mainFormData.services.map((service) => ({
           service_id: service.id,
           quantity: parseInt(service.quantity, 10),
           price: parseFloat(service.price),
-          discount_percentage: parseFloat(service.discount), // Store as decimal
-          final_price: parseFloat(service.price) * (1 - parseFloat(service.discount))
+          discount_factor: parseFloat(service.discount), // Store as discount factor
+          final_price: parseFloat(service.price) * parseFloat(service.discount),
         })),
         total_price: mainFormData.package_price > 0 ? mainFormData.package_price : calculateTotalPrice(),
       };
@@ -123,9 +164,8 @@ const CarePackageCreateForm = () => {
 
       if (submitPackage) {
         await submitPackage(payload);
-      } 
+      }
       handleReset();
-      
     } catch (error) {
       console.error('Error submitting package:', error);
     } finally {
@@ -354,23 +394,28 @@ const CarePackageCreateForm = () => {
                     </div>
                   </div>
 
-                  {/* discount */}
+                  {/* discount factor */}
                   <div>
-                    <label className='block text-xs font-medium text-gray-600 mb-1'>DISCOUNT (DECIMAL)</label>
+                    <label className='block text-xs font-medium text-gray-600 mb-1'>DISCOUNT FACTOR</label>
                     <div className='relative'>
                       <Input
                         type='number'
                         value={serviceForm.discount}
-                        onChange={(e) => updateServiceFormField('discount', parseFloat(e.target.value) || 0)}
+                        onChange={(e) => {
+                          // Allow the raw value to be set directly for better typing experience
+                          updateServiceFormField('discount', e.target.value);
+                        }}
                         className='w-full px-2 py-1 border border-gray-200 rounded text-sm focus:outline-none focus:ring-2 focus:ring-gray-500 focus:border-transparent'
                         min='0'
                         max='1'
-                        step='0.001'
-                        placeholder='0.153'
+                        step='0.01'
+                        placeholder='1.0'
                       />
                     </div>
                     <div className='text-xs text-gray-500 mt-1'>
-                      Enter as decimal (e.g., 0.50 for 50% discount)
+                      {serviceForm.discount && serviceForm.discount !== ''
+                        ? `${getDiscountPercentage(serviceForm.discount)}% off`
+                        : 'Enter factor (1.0 = full price, 0.5 = half price)'}
                     </div>
                   </div>
 
