@@ -11,8 +11,12 @@ import HomePage from '@/pages/HomePage';
 import LoginPage from '@/pages/LoginPage';
 import ResetPasswordPage from '@/pages/ResetPasswordPage';
 import NotFoundPage from '@/pages/404Page';
+import ManageMembershipTypePage from '@/pages/membership-type/ManageMembershipTypePage';
 import ManageCarePackagesPage from '@/pages/CarePackages/ManageCarePackagesPage';
-import ManageVouchersPage from './pages/MemberVoucher/ManageVoucherPage';
+import ManageMembersPage from './pages/member/ManageMembersPage';
+import CreateMemberPage from './pages/member/CreateMemberPage';
+import EditMemberPage from './pages/member/EditMemberPage';
+import MockSalesTransactionPage from './pages/sale-transaction/mockSaleTransactionPage';import ManageVouchersPage from './pages/MemberVoucher/ManageVoucherPage';
 import DatabaseReportPage from '@/pages/DatabaseReportPage';
 import CreateConsumptionPage from '@/pages/CarePackages/CreateConsumptionPage';
 import CreateMemberVoucherConsumptionPage from '@/pages/MemberVoucher/CreateConsumptionPage';
@@ -29,6 +33,12 @@ function App() {
 
               {/* care packages */}
               <Route path='/mcp' element={<ManageCarePackagesPage />} />
+              {/* Member Management */}
+              <Route path='/member' element={<ManageMembersPage />} />
+              <Route path='/member/create' element={<CreateMemberPage />} />
+              <Route path='/member/edit/:id' element={<EditMemberPage />} />
+              <Route path='/cart-test' element={<MockSalesTransactionPage/>} />
+
               <Route path='/mcp/:packageId/consume' element={<CreateConsumptionPage />} />
 
               {/* member vouchers */}
@@ -40,10 +50,12 @@ function App() {
             </Route>
             <Route path='/login' element={<LoginPage />} />
 
+
             {/* Invitation & Reset Password */}
             <Route path='/invites' element={<ResetPasswordPage />} />
             <Route path='/reset-password' element={<ResetPasswordPage />} />
             
+            <Route path='/membership-type' element={<ManageMembershipTypePage/>} />
             {/* 404 Page */}
             <Route path='*' element={<NotFoundPage />} />
           </Routes>

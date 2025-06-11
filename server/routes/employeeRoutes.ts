@@ -17,7 +17,8 @@ import employeeController from '../controllers/employeeController.js';
 // =========================
 // router.use(isAuthenticated);
 
-// GET /api/em/basic-details - for search functionality
+// router.get('/', employeeController.getAllEmployees);
+router.get('/dropdown', employeeController.getAllEmployeesForDropdown);
 router.get('/basic-details', employeeController.getBasicEmployeeDetails);
 
 // router.post(

@@ -265,6 +265,21 @@ const getBasicEmployeeDetails = async (): Promise<Employee[]> => {
   }
 };
 
+const getAllEmployeesForDropdown = async () => {
+  try {
+    const query = `
+      SELECT id, employee_name FROM employees
+      ORDER BY employee_name ASC
+    `;
+    const result = await pool().query(query);
+    return result.rows;
+  } catch (error) {
+    console.error('Error fetching employee list:', error);
+    throw new Error('Error fetching employee list');
+  }
+};
+
+
 export default {
   // createEmployee,
   checkEmployeeCodeExists,
@@ -276,4 +291,5 @@ export default {
   getUserData,
   getEmployeeIdByUserAuthId,
   getBasicEmployeeDetails
+  getAllEmployeesForDropdown
 };
