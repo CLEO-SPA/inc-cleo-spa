@@ -281,6 +281,10 @@ const regenerateInvitationLink = async (req: Request, res: Response, next: NextF
   }
 };
 
+/**
+ * Get /api/em/dropdown
+ * This endpoint retrieves employee lists for dropdown functionality.
+ */
 const getAllEmployeesForDropdown = async (req: Request, res: Response) => {
   try {
     const employees = await model.getAllEmployeesForDropdown();
@@ -387,6 +391,10 @@ const getAllActivePositions = async (req: Request, res: Response) => {
   }
 }
 
+/**
+ * Get /api/em/employeeName/:employeeId
+ * This endpoint retrieves employee name by employee id
+ */
 const getEmployeeNameByEmployeeId = async (req: Request, res: Response) => {
   try {
     const { employeeId } = req.params;
@@ -423,7 +431,7 @@ const getEmployeeNameByEmployeeId = async (req: Request, res: Response) => {
       data: employee
     });
   } catch (error) {
-    console.error('Controller error in getEmployeeById:', error);
+    console.error('Controller error in getEmployeeNameByEmployeeId:', error);
     return res.status(500).json({ 
       success: false, 
       error: {

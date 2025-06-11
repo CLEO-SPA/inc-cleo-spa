@@ -3,7 +3,7 @@ import { Input } from '@/components/ui/input';
 import { useSimulationStore } from '@/stores/useSimulationStore';
 import { format } from 'date-fns';
 
-// Utility function to get simulation-aware current date
+// Function to get simulation-aware current date
 export const getCurrentSimulationDate = () => {
   const { isSimulationActive, simulationStartDate } = useSimulationStore.getState();
   return isSimulationActive && simulationStartDate ? new Date(simulationStartDate) : new Date();

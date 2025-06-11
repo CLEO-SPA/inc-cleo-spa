@@ -12,6 +12,7 @@ const getInitialState = () => ({
 const useEmployeeStore = create((set) => ({
   ...getInitialState(),
 
+  // Get Employee Lists for Dropdown Functionality
   fetchDropdownEmployees: async () => {
     set({ isFetching: true, error: false, errorMessage: null });
 
@@ -33,6 +34,7 @@ const useEmployeeStore = create((set) => ({
     }
   },
 
+  // Get Employee Name by Employee ID
   fetchEmployeeNameById: async (employeeId) => {
     set({ isFetching: true, error: false, errorMessage: null });
 

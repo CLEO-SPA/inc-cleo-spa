@@ -355,6 +355,10 @@ const employeeExists = async (employeeId: number): Promise<boolean> => {
   }
 }
 
+/**
+ * Get /api/em/dropdown
+ * This endpoint retrieves employee lists for dropdown functionality.
+ */
 const getAllEmployeesForDropdown = async () => {
   try {
     const query = `
@@ -369,6 +373,10 @@ const getAllEmployeesForDropdown = async () => {
   }
 };
 
+/**
+ * Get /api/em/employeeName/:employeeId
+ * This endpoint retrieves employee name by employee id
+ */
 const getEmployeeNameByEmployeeById = async (employeeId: number): Promise<DetailedEmployee | null> => {
   const query = `
     SELECT

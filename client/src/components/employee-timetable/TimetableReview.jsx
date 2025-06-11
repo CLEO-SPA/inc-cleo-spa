@@ -1,4 +1,5 @@
 import React from 'react';
+import { format } from 'date-fns';
 import { Button } from '@/components/ui/button';
 
 const TimetableReview = ({
@@ -37,13 +38,15 @@ const TimetableReview = ({
           </tr>
           <tr>
             <td className='px-4 py-2'><strong>Effective Start Date</strong></td>
-            <td className='px-4 py-2'>{startDate?.toLocaleDateString()}</td>
+            <td className='px-4 py-2'>{startDate ? format(startDate, 'yyyy-MM-dd') : '—'}</td>
           </tr>
           <tr>
             <td className='px-4 py-2'><strong>Effective End Date</strong></td>
             <td className='px-4 py-2'>
-              {endDate ? endDate.toLocaleDateString() : '—'}
-              {!endDate && <span className='text-muted-foreground'>  (timetable remains active indefinitely)</span>}
+              {endDate ? format(endDate, 'yyyy-MM-dd') : '—'}
+              {!endDate && (
+                <span className='text-muted-foreground'>  (timetable remains active indefinitely)</span>
+              )}
             </td>
           </tr>
           <tr>
@@ -52,7 +55,7 @@ const TimetableReview = ({
           </tr>
           <tr>
             <td className='px-4 py-2'><strong>Created At</strong></td>
-            <td className='px-4 py-2'>{createdAt?.toLocaleString()}</td>
+            <td className='px-4 py-2'>{createdAt ? format(createdAt, 'yyyy-MM-dd HH:mm') : '—'}</td>
           </tr>
         </tbody>
       </table>

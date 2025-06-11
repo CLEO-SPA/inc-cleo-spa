@@ -1,16 +1,22 @@
 import express from 'express';
+const router = express.Router();
+
+import isAuthenticated from '../middlewares/authMiddleware.js';
 import timetableController from '../controllers/timetableController.js';
 
-const router = express.Router();
 // =========================
 // Private routes
 // =========================
-// router.use(isAuthenticated);
+router.use(isAuthenticated);
 
 // GET /api/et/current-and-upcoming/:employeeId?currentDate=YYYY-MM-DD
 router.get('/current-and-upcoming/:employeeId', timetableController.getCurrentAndUpcomingTimetables);
 
+// POST /api/et/create-employee-timetable
 router.post('/create-employee-timetable', timetableController.createTimetable);
+
+// POST /api/et/reset-create-timetables-pre
+router.post('/reset-create-timetables-pre', timetableController.resetCreateTimetablePre);
 
 // GET /api/et/timetables?month=2025-02&page=1&limit=20
 router.get('/timetables', timetableController.getActiveRestDays);

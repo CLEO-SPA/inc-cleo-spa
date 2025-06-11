@@ -11,7 +11,7 @@ const formatToSingaporeDate = (dateString) => {
 
 const TimetableDisplay = ({ employeeId }) => {
   const { isSimulationActive, simulationStartDate } = useSimulationStore();
-  const { timetables, isLoading, error, fetchTimetablesByEmployee } = useTimetableStore();
+  const { timetables, isLoading, error, fetchCurrentAndUpcomingTimetablesByEmployeeId } = useTimetableStore();
 
   const currentDate =
     isSimulationActive && simulationStartDate
@@ -20,9 +20,9 @@ const TimetableDisplay = ({ employeeId }) => {
 
   useEffect(() => {
     if (employeeId) {
-      fetchTimetablesByEmployee(employeeId, currentDate);
+      fetchCurrentAndUpcomingTimetablesByEmployeeId(employeeId, currentDate);
     }
-  }, [employeeId, currentDate, fetchTimetablesByEmployee]);
+  }, [employeeId, currentDate, fetchCurrentAndUpcomingTimetablesByEmployeeId]);
 
   if (!employeeId) {
     return (

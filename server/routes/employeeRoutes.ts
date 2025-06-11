@@ -15,7 +15,7 @@ import employeeController from '../controllers/employeeController.js';
 // =========================
 // Private routes
 // =========================
-// router.use(isAuthenticated);
+router.use(isAuthenticated);
 
 // GET /api/em/basic-details - for search functionality
 router.get('/basic-details', employeeController.getBasicEmployeeDetails);

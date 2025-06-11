@@ -29,7 +29,10 @@ export interface MonthDateRange {
   end_date: Date; 
 }
 
-// for session start and end data utc
+/**
+ * Get /api/et/current-and-upcoming/:employeeId
+ * This endpoint retrieves current and upcoming timetables by employee id
+ */
 const getCurrentAndUpcomingTimetables = async (
   employeeId: number,
   currentDate: string,
@@ -42,7 +45,7 @@ const getCurrentAndUpcomingTimetables = async (
       SELECT *
       FROM timetables
       WHERE employee_id = $1
-        AND effective_startdate <= ($2::timestamptz + interval '1 day')
+        AND effective_startdate <= ($2::timestamptz)
         AND (effective_enddate IS NULL OR effective_enddate >= $2::timestamptz)
       ORDER BY effective_startdate DESC
       LIMIT 1
@@ -76,53 +79,10 @@ const getCurrentAndUpcomingTimetables = async (
   }
 };
 
-// backend testing 
-// const getCurrentAndUpcomingTimetables = async (
-//   employeeId: number,
-//   currentDate: string,
-//   start_date_utc: string,
-//   end_date_utc: string
-// ): Promise<{ current: any[]; upcoming: any[] }> => {
-//   try {
-//     // Query for current timetables
-//     const currentQuery = `
-//       SELECT *
-//       FROM timetables
-//       WHERE employee_id = $1
-//         AND effective_startdate <= ($2::timestamptz + interval '1 day')
-//         AND (effective_enddate IS NULL OR effective_enddate >= $2::timestamptz)
-//       ORDER BY effective_startdate DESC
-//       LIMIT 1
-//     `;
-
-//     const currentValues = [employeeId, currentDate];
-//     const currentResult = await pool().query(currentQuery, currentValues);
-
-//     // Query for upcoming timetables
-//     const upcomingQuery = `
-//       SELECT *
-//       FROM timetables
-//       WHERE employee_id = $1
-//         AND effective_startdate > $2::timestamptz
-//       ORDER BY effective_startdate ASC
-//     `;
-//     const upcomingValues = [employeeId, currentDate];
-//     const upcomingResult = await pool().query(upcomingQuery, upcomingValues);
-
-//     if (currentResult.rowCount === 0 && upcomingResult.rowCount === 0) {
-//       throw new Error('No timetables found for employee.');
-//     }
-
-//     return {
-//       current: currentResult.rows,
-//       upcoming: upcomingResult.rows,
-//     };
-//   } catch (error) {
-//     console.error('Error in timetableModel.getCurrentAndUpcomingTimetables:', error);
-//     throw error;
-//   }
-// };
-
+/**
+ * Get /api/et/create-employee-timetable
+ * This endpoint insert a new timetable record by calling SQL function "create_employee_timetable"
+ */
 const createEmployeeTimetable = async (input: CreateTimetableInput) => {
   const {
     employee_id,
@@ -152,7 +112,6 @@ const createEmployeeTimetable = async (input: CreateTimetableInput) => {
         created_at,
       ]
     );
-    console.log(result.rows[0])
 
     return result.rows[0];
   } finally {
@@ -366,10 +325,56 @@ const getActiveRestDaysByPosition = async (
   return getActiveRestDays(month, page, limit, positionId);
 }
 
+/**
+ * GET /api/et/reset-create-timetables-pre
+ * This endpoint resets the timetables db table to its defined pre-condition
+ */
+const resetCreateTimetablePre = async () => {
+  const client = await pool().connect();
+
+  try {
+    await client.query('BEGIN');
+
+    // 1. Delete all entries
+    await client.query('DELETE FROM timetables');
+
+    // 2. Reset ID sequence
+    await client.query(`ALTER SEQUENCE timetables_id_seq RESTART WITH 1`);
+
+    // 3. Insert test row with specified values
+    await client.query(
+      `INSERT INTO timetables (
+        employee_id, restday_number, effective_startdate,
+        effective_enddate, created_by, created_at,
+        updated_by, updated_at
+      ) VALUES (
+        $1, $2, $3, $4, $5, $6, NULL, NULL
+      )`,
+      [
+        11,
+        2,
+        '2025-01-01T00:00:00+08:00', // effective_startdate
+        null,                        // effective_enddate
+        15,
+        '2024-12-24T12:00:00+08:00', // created_at
+      ]
+    );
+
+    await client.query('COMMIT');
+  } catch (err) {
+    await client.query('ROLLBACK');
+    throw err;
+  } finally {
+    client.release();
+  }
+};
+
+
 export default {
   getCurrentAndUpcomingTimetables,
   createEmployeeTimetable,
   getActiveRestDays,
   getActiveRestDaysByEmployee,
-  getActiveRestDaysByPosition
+  getActiveRestDaysByPosition,
+  resetCreateTimetablePre
 };

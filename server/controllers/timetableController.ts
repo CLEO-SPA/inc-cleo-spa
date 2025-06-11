@@ -2,17 +2,14 @@
 import { Request, Response, NextFunction } from 'express';
 import timetableModel from '../models/timetableModel.js';
 
+/**
+ * Get /api/et/current-and-upcoming/:employeeId
+ * This endpoint retrieves current and upcoming timetables by employee id
+ */
 const getCurrentAndUpcomingTimetables = async (req: Request, res: Response, next: NextFunction) => {
   const { employeeId } = req.params;
   const { currentDate } = req.query;
   const { start_date_utc, end_date_utc } = req.session;
-
-  console.log('Employeeid, ' + employeeId);
-  console.log('currentDate, ' + currentDate);
-  console.log('start_date_utc, ' + start_date_utc);
-  console.log('end_date_utc, ' + end_date_utc);
-  console.log('req.session.start_date_utc:', req.session.start_date_utc);
-  console.log('req.session.end_date_utc:', req.session.end_date_utc);
 
   if (!employeeId || !currentDate) {
     return res.status(400).json({ message: 'Missing employeeId or session date' });
@@ -39,6 +36,10 @@ const getCurrentAndUpcomingTimetables = async (req: Request, res: Response, next
   }
 };
 
+/**
+ * Get /api/et/create-employee-timetable
+ * This endpoint insert new timetable record by calling SQL function "create_employee_timetable"
+ */
 const createTimetable = async (req: Request, res: Response) => {
   try {
     const data = await timetableModel.createEmployeeTimetable({
@@ -287,11 +288,28 @@ const getActiveRestDaysByPosition = async (req: Request, res: Response) => {
   } 
 }
 
+/**
+ * GET /api/et/reset-create-timetables-pre
+ * This endpoint resets the timetables db table to its defined pre-condition
+ */
+const resetCreateTimetablePre = async (req: Request, res: Response) => {
+  try {
+    await timetableModel.resetCreateTimetablePre();
+    res.status(200).json({ message: 'Reset successful' });
+  } catch (error) {
+    console.error('Reset pre-condition failed:', error);
+
+    const errorMessage = error instanceof Error ? error.message : 'Reset failed';
+    res.status(500).json({ message: errorMessage });
+  }
+};
+
 export default {
   getCurrentAndUpcomingTimetables,
   createTimetable,
   getActiveRestDays,
   getActiveRestDaysByEmployee,
-  getActiveRestDaysByPosition
+  getActiveRestDaysByPosition,
+  resetCreateTimetablePre
 };
 

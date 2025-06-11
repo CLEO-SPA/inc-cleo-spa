@@ -33,11 +33,13 @@ export default function CreateEmployeeTimetablePage() {
   const [createdAtTime, setCreatedAtTime] = useState('');
   const [createdAt, setCreatedAt] = useState(null);
   const [isReviewing, setIsReviewing] = useState(false);
-  const [timetableResult, setTimetableResult] = useState(null); 
+  const [timetableResult, setTimetableResult] = useState(null);
 
   const createTimetable = useTimetableStore((state) => state.createTimetable);
   const isSubmitting = useTimetableStore((state) => state.isSubmitting);
   const submitError = useTimetableStore((state) => state.submitError);
+
+  const resetCreateTimetablePre = useTimetableStore((state) => state.resetCreateTimetablePre);
 
   const updateCreatedAt = (date, timeStr) => {
     if (date && timeStr) {
@@ -68,7 +70,7 @@ export default function CreateEmployeeTimetablePage() {
 
       fetchEmployeeDetails();
     }
-  }, [selectedEmployee, fetchEmployeeNameById]); 
+  }, [selectedEmployee, fetchEmployeeNameById]);
 
   useEffect(() => {
     if (createdBy) {
@@ -122,13 +124,39 @@ export default function CreateEmployeeTimetablePage() {
           <SidebarInset>
             <div className='flex flex-1 flex-col gap-4 p-8 bg-gray-100'>
               <div className='p-8 bg-white rounded-lg border space-y-6 w-full max-w-full'>
+                {/* Page title header changes based on state */}
                 <h2 className='text-2xl font-bold'>
                   {timetableResult ? 'Confirmation' : isReviewing ? 'Review Timetable' : 'Create Employee Timetable'}
                 </h2>
                 {!isReviewing && !timetableResult && (
-                  <p className='text-sm text-muted-foreground text-right'>* indicates required fields</p>
+                  <>
+                    <div className='pt-2 text-left'>
+                      <Button
+                        size='sm'
+                        onClick={async () => {
+                          const confirmed = window.confirm(
+                            'Are you sure you want to reset the create timetable pre-conditions?'
+                          );
+                          if (!confirmed) return;
+
+                          try {
+                            await resetCreateTimetablePre();
+                            alert('Pre-conditions reset successfully.');
+                          } catch (err) {
+                            console.error('Reset failed:', err);
+                            alert('Failed to reset. Check console for details.');
+                          }
+                        }}
+                      >
+                        Reset
+                      </Button>
+                    </div>
+
+                    <p className='text-sm text-muted-foreground text-right'>* indicates required fields</p>
+                  </>
                 )}
 
+                {/* Confirmation view after successful creation */}
                 {timetableResult && (
                   <CreateConfirmation
                     employeeName={employeeName}
@@ -153,6 +181,7 @@ export default function CreateEmployeeTimetablePage() {
                   />
                 )}
 
+                {/* Review page before submission */}
                 {!timetableResult && isReviewing && (
                   <TimetableReview
                     employeeName={employeeName}
@@ -168,6 +197,7 @@ export default function CreateEmployeeTimetablePage() {
                   />
                 )}
 
+                {/* Initial timetable creation form */}
                 {!timetableResult && !isReviewing && (
                   <FormProvider {...methods}>
                     <form className='space-y-6'>
@@ -181,6 +211,7 @@ export default function CreateEmployeeTimetablePage() {
                         </div>
                       </div>
 
+                      {/* Display current/upcoming timetable */}
                       <TimetableDisplay employeeId={selectedEmployee} />
 
                       <div className='grid grid-cols-2 gap-6'>
