@@ -2,6 +2,10 @@ import { getSimPool as pool } from '../config/database.js';
 import fs from 'fs';
 import path from 'path';
 import readline from 'readline';
+import { fileURLToPath } from 'url';
+
+const __filename = fileURLToPath(import.meta.url);
+const __dirname = path.dirname(__filename);
 
 interface HierarchyInterface {
   id: number;
@@ -10,7 +14,7 @@ interface HierarchyInterface {
 }
 
 const hierarchy: HierarchyInterface[] = [
-  { id: 1, table: 'employees', dependencies: [] },
+  { id: 1, table: 'employees', dependencies: [9] },
   { id: 2, table: 'care_packages', dependencies: [1] },
   { id: 3, table: 'care_package_item_details', dependencies: [2] },
   { id: 4, table: 'member_care_packages', dependencies: [1] },
@@ -18,6 +22,7 @@ const hierarchy: HierarchyInterface[] = [
   { id: 6, table: 'member_care_package_transaction_logs', dependencies: [5, 7] },
   { id: 7, table: 'services', dependencies: [8] },
   { id: 8, table: 'service_categories', dependencies: [] },
+  { id: 9, table: 'positions', dependencies: [] },
 ];
 
 const csvFolderPath = path.join(__dirname, '..', '..', 'seed');
@@ -264,6 +269,20 @@ async function performDbInserts(orderedTables: string[], allTableData: AllTableD
   try {
     await client.query('BEGIN');
 
+    const truncationOrder = [...orderedTables].reverse();
+
+    for (const tableName of truncationOrder) {
+      try {
+        await client.query(`TRUNCATE TABLE "${tableName}" RESTART IDENTITY;`);
+        console.log(`  Truncated table: "${tableName}"`);
+      } catch (error: any) {
+        console.error(`Error truncating table "${tableName}": ${error.message}`);
+        throw new Error(
+          `Failed to truncate table "${tableName}". Check foreign key constraints. Error: ${error.message}`
+        );
+      }
+    }
+
     for (const tableName of orderedTables) {
       const dataForTable = allTableData[tableName];
       if (dataForTable && dataForTable.length > 0) {
@@ -333,7 +352,11 @@ const insertPreDataModel = async (tableName: string) => {
     }
 
     await performDbInserts(sortedOrderForSubset, allTableData);
-    console.log(`Seeding for specific tables ${tableName} completed.`);
+    // console.log(`Seeding for specific tables ${tableName} completed.`);
+    return {
+      message: `Seeding for specific tables ${tableName} completed.`,
+      tables: sortedOrderForSubset,
+    };
   } catch (error) {
     console.error('Error in insertPreDataModel', error);
     throw new Error('Error in insertPreDataModel');
@@ -364,7 +387,11 @@ const insertPostDataModel = async (tableName: string) => {
     }
 
     await performDbInserts(sortedOrderForSubset, allTableData);
-    console.log(`Seeding for specific tables ${tableName} completed.`);
+    // console.log(`Seeding for specific tables ${tableName} completed.`);
+    return {
+      message: `Seeding for specific tables ${tableName} completed.`,
+      tables: sortedOrderForSubset,
+    };
   } catch (error) {
     console.error('Error in insertPostDataModel', error);
     throw new Error('Error in insertPostDataModel');

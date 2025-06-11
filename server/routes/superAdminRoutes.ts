@@ -1,4 +1,4 @@
-import express from 'express';
+import express, { Request, Response } from 'express'; // Added Request, Response
 const router = express.Router();
 
 import { preUpload, postUpload } from '../store/multerStore.js';
@@ -13,10 +13,23 @@ router.get('/seed/check/all', saController.getAllExistingTables);
 router.get('/seed/pre/:table', saController.getPreDataController);
 router.get('/seed/post/:table', saController.getPostDataController);
 
+router.post('/update/pre', preUpload.single('file'), (req: Request, res: Response) => {
+  if (req.file) {
+    res.status(200).json({ message: `File '${req.file.originalname}' uploaded successfully to 'pre' directory.` });
+  } else {
+    res.status(400).json({ message: 'File upload failed or no file was provided.' });
+  }
+});
+
+router.post('/update/post', postUpload.single('file'), (req: Request, res: Response) => {
+  if (req.file) {
+    res.status(200).json({ message: `File '${req.file.originalname}' uploaded successfully to 'post' directory.` });
+  } else {
+    res.status(400).json({ message: 'File upload failed or no file was provided.' });
+  }
+});
+
 router.post('/seed/pre/:table', saController.insertPreDataController);
 router.post('/seed/post/:table', saController.insertPostDataController);
-
-router.put('/seed/pre/update/:file', preUpload.single('file'));
-router.put('/seed/post/update/:file', postUpload.single('file'));
 
 export default router;
