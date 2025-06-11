@@ -1,7 +1,8 @@
 import { pool } from '../config/database.js';
-import { PaginatedOptions, PaginatedReturn } from '../types/common.types.js';
+import { FieldMapping, PaginatedOptions, PaginatedReturn } from '../types/common.types.js';
 import { CarePackageItemDetails, CarePackages, Employees } from '../types/model.types.js';
 import { encodeCursor } from '../utils/cursorUtils.js';
+import { getEmployeeIdByUserAuthId } from './employeeModel.js';
 
 const getPaginatedCarePackages = async (
   limit: number,
@@ -114,20 +115,76 @@ const getPaginatedCarePackages = async (
   }
 };
 
-const getCarePackageById = async (id: string) => {
+const getCarePackagesForDropdown = async (): Promise<FullCarePackage[]> => {
   try {
-    const query = `SELECT * FROM care_packages
-                  WHERE id = $1`;
-    const values = [id];
-    const { rows } = await pool().query<CarePackages>(query, values);
+    const sql = `
+      SELECT cp.id, cp.care_package_name
+      FROM care_packages cp
+      WHERE cp.status_id = (SELECT get_or_create_status('ENABLED'))
+      ORDER BY cp.created_at DESC;
+    `;
 
-    return rows;
+    const { rows } = await pool().query<{ care_package_data: FullCarePackage }>(sql);
+
+    return rows.map((row) => row.care_package_data);
+  } catch (error) {
+    console.error('Error in cpModel.getAllCarePackages (with details):', error);
+    throw new Error('Could not retrieve all care packages with details');
+  }
+};
+
+interface CarePackagePurchaseCount {
+  care_package_id: string;
+  care_package_name: string;
+  purchase_count: string;  
+  is_purchased: string;
+}
+
+const getCarePackagePurchaseCount = async (): Promise<Record<number, { purchase_count: number; is_purchased: string }>> => {
+  try {
+    const sql = `SELECT * FROM get_cp_purchase_counts();`;
+
+    const { rows } = await pool().query<CarePackagePurchaseCount>(sql);
+    const purchaseCountsMap: Record<number, { purchase_count: number; is_purchased: string }> = {};
+    
+    rows.forEach((row) => {
+      const id = parseInt(row.care_package_id.toString());
+      
+      purchaseCountsMap[id] = {
+        purchase_count: parseInt(row.purchase_count.toString()),
+        is_purchased: row.is_purchased
+      };
+    });
+
+    return purchaseCountsMap;
+  } catch (error) {
+    console.error('Error in getCarePackagePurchaseCounts:', error);
+    throw new Error('Could not retrieve care package purchase counts');
+  }
+};
+
+interface FullCarePackage {
+  package: CarePackages;
+  details: CarePackageItemDetails[];
+}
+
+const getCarePackageById = async (id: string): Promise<FullCarePackage | null> => {
+  try {
+    const cpSql = 'SELECT get_cp_by_id($1) as data';
+    const { rows } = await pool().query<{ data: FullCarePackage }>(cpSql, [id]);
+
+    if (rows.length === 0 || !rows[0].data) {
+      return null;
+    }
+
+    return rows[0].data;
   } catch (error) {
     console.error('Error in CarePackageModel.getCarePackageById:', error);
     throw new Error('Could not retrieve care package by id');
   }
 };
 
+// NOTE: price is original price of service, finalPrice is price x discount
 interface servicePayload {
   id: string;
   name: string;
@@ -224,9 +281,205 @@ const createCarePackage = async (
   }
 };
 
-const updateCarePackageById = async (id: string) => {};
+const updateCarePackageById = async (
+  care_package_id: string,
+  package_name: string,
+  package_remarks: string,
+  package_price: number,
+  services: servicePayload[],
+  is_customizable: boolean,
+  employee_id: string,
+  updated_at: string
+) => {
+  const client = await pool().connect();
+  try {
+    await client.query('BEGIN');
 
-const deleteCarePackageById = async (id: string) => {};
+    // validate that the care package exists
+    const v_cp_sql = 'SELECT id FROM care_packages WHERE id = $1';
+    const cpResult = await client.query(v_cp_sql, [care_package_id]);
+
+    if (cpResult.rowCount === 0) {
+      throw new Error(`Care package with ID ${care_package_id} does not exist.`);
+    }
+
+    // validate employee exists
+    const v_employee_sql = 'SELECT id FROM employees WHERE id = $1';
+    const v_status_sql = 'SELECT get_or_create_status($1) as id';
+
+    const [employeeResult, statusResult] = await Promise.all([
+      client.query<Employees>(v_employee_sql, [employee_id]),
+      client.query<{ id: string }>(v_status_sql, ['ENABLED']),
+    ]);
+
+    if (employeeResult.rowCount === 0) {
+      throw new Error(`Invalid employee_id: ${employee_id} does not exist.`);
+    }
+    if (!statusResult.rows || statusResult.rows.length === 0 || !statusResult.rows[0].id) {
+      throw new Error('Failed to get or create status ID.');
+    }
+    const statusId = statusResult.rows[0].id;
+
+    // update care package main details
+    const u_cp_sql = `
+      UPDATE care_packages 
+      SET care_package_name = $1, 
+          care_package_remarks = $2, 
+          care_package_price = $3, 
+          care_package_customizable = $4, 
+          status_id = $5, 
+          last_updated_by = $6, 
+          updated_at = $7
+      WHERE id = $8
+    `;
+
+    await client.query(u_cp_sql, [
+      package_name,
+      package_remarks,
+      package_price,
+      is_customizable,
+      statusId,
+      employee_id,
+      updated_at,
+      care_package_id,
+    ]);
+
+    // delete existing care package item details
+    const d_cpid_sql = 'DELETE FROM care_package_item_details WHERE care_package_id = $1';
+    await client.query(d_cpid_sql, [care_package_id]);
+
+    // insert new care package item details
+    const i_cpid_sql = `
+      INSERT INTO care_package_item_details
+      (care_package_item_details_quantity, care_package_item_details_discount, care_package_item_details_price, service_id, care_package_id)
+      VALUES ($1, $2, $3, $4, $5) RETURNING id;
+    `;
+
+    const serviceProcessingPromise = services.map(async (service) => {
+      await client.query<{ id: string }>(i_cpid_sql, [
+        service.quantity,
+        service.discount,
+        service.finalPrice,
+        service.id,
+        care_package_id,
+      ]);
+    });
+
+    await Promise.all(serviceProcessingPromise);
+
+    await client.query('COMMIT');
+
+    return {
+      carePackageId: care_package_id,
+      message: 'Care package updated successfully',
+    };
+  } catch (error) {
+    console.error('Error updating care package:', error);
+    await client.query('ROLLBACK');
+    if (error instanceof Error) {
+      throw error;
+    }
+    throw new Error('An unexpected error occurred while updating the care package.');
+  } finally {
+    client.release();
+  }
+};
+
+const updateCarePackageStatusById = async (
+  care_package_id: string,
+  status_id: string,
+  employee_id: string,
+  updated_at: string
+) => {
+  const client = await pool().connect();
+  try {
+    await client.query('BEGIN');
+
+    // validate that the care package exists
+    const v_cp_sql = 'SELECT id FROM care_packages WHERE id = $1';
+    const cpResult = await client.query(v_cp_sql, [care_package_id]);
+
+    if (cpResult.rowCount === 0) {
+      throw new Error(`Care package with ID ${care_package_id} does not exist.`);
+    }
+
+    // validate employee exists
+    const v_employee_sql = 'SELECT id FROM employees WHERE id = $1';
+    const employeeResult = await client.query(v_employee_sql, [employee_id]);
+
+    if (employeeResult.rowCount === 0) {
+      throw new Error(`Invalid employee_id: ${employee_id} does not exist.`);
+    }
+
+    // update only the status and tracking fields
+    const u_status_sql = `
+      UPDATE care_packages 
+      SET status_id = $1, 
+          last_updated_by = $2, 
+          updated_at = $3
+      WHERE id = $4
+    `;
+
+    await client.query(u_status_sql, [
+      status_id,
+      employee_id,
+      updated_at,
+      care_package_id,
+    ]);
+
+    await client.query('COMMIT');
+
+    return {
+      carePackageId: care_package_id,
+      message: 'Care package status updated successfully',
+      status_id: status_id,
+    };
+  } catch (error) {
+    console.error('Error updating care package status:', error);
+    await client.query('ROLLBACK');
+    if (error instanceof Error) {
+      throw error;
+    }
+    throw new Error('An unexpected error occurred while updating the care package status.');
+  } finally {
+    client.release();
+  }
+};
+
+const deleteCarePackageById = async (carePackageId: string) => {
+  const client = await pool().connect();
+  try {
+    await client.query('BEGIN');
+
+    // delete care package item details first (foreign key constraint)
+    const d_cpid_sql = 'DELETE FROM care_package_item_details WHERE care_package_id = $1';
+    await client.query(d_cpid_sql, [carePackageId]);
+
+    // delete the care package
+    const d_cp_sql = 'DELETE FROM care_packages WHERE id = $1 RETURNING id';
+    const result = await client.query<{ id: string }>(d_cp_sql, [carePackageId]);
+
+    if (result.rowCount === 0) {
+      throw new Error(`Care package with ID ${carePackageId} does not exist.`);
+    }
+
+    await client.query('COMMIT');
+
+    return {
+      message: 'Care package deleted successfully.',
+      deletedCarePackageId: carePackageId,
+    };
+  } catch (error) {
+    console.error('Error deleting care package:', error);
+    await client.query('ROLLBACK');
+    if (error instanceof Error) {
+      throw error;
+    }
+    throw new Error('An unexpected error occurred while deleting the care package.');
+  } finally {
+    client.release();
+  }
+};
 
 interface emulatePayload {
   id?: string;
@@ -238,22 +491,11 @@ interface emulatePayload {
   status_id: string;
   created_at: string;
   updated_at: string;
-  user_id: string;
+  employee_id?: string;
+  user_id?: string;
 }
 
-interface FieldMapping {
-  payloadKey: keyof emulatePayload;
-  dbKey: keyof CarePackages;
-  transform?: (value: any) => any;
-}
-
-const emulateCarePackage = async (method: string, payload: emulatePayload) => {
-  const handlers = {
-    POST: em_post,
-    PUT: em_put,
-    DELETE: em_delete,
-  };
-
+const emulateCarePackage = async (method: string, payload: Partial<emulatePayload>) => {
   async function em_post(payload: emulatePayload) {
     try {
       const lastCpSql: string = 'SELECT * FROM care_packages ORDER BY id DESC LIMIT 1';
@@ -268,6 +510,9 @@ const emulateCarePackage = async (method: string, payload: emulatePayload) => {
       }
       const statusId = statusRows[0].id;
 
+      payload.employee_id =
+        payload.employee_id || (await getEmployeeIdByUserAuthId(payload.user_id as string)).rows[0].id;
+
       const newCp: CarePackages = {
         id: (lastCpId + 1).toString(),
         care_package_name: payload.package_name,
@@ -275,8 +520,8 @@ const emulateCarePackage = async (method: string, payload: emulatePayload) => {
         care_package_price: payload.package_price,
         care_package_customizable: payload.is_customizable,
         status_id: statusId,
-        created_by: payload.user_id,
-        last_updated_by: payload.user_id,
+        created_by: payload.employee_id,
+        last_updated_by: payload.employee_id,
         created_at: payload.created_at || new Date().toISOString(),
         updated_at: payload.updated_at || new Date().toISOString(),
       };
@@ -340,7 +585,10 @@ const emulateCarePackage = async (method: string, payload: emulatePayload) => {
         oldCarePackage.id,
       ]);
 
-      const fieldMappings: FieldMapping[] = [
+      payload.employee_id =
+        payload.employee_id || (await getEmployeeIdByUserAuthId(payload.user_id as string)).rows[0].id;
+
+      const fieldMappings: FieldMapping<emulatePayload, CarePackages>[] = [
         { payloadKey: 'package_name', dbKey: 'care_package_name' },
         { payloadKey: 'package_remarks', dbKey: 'care_package_remarks' },
         { payloadKey: 'package_price', dbKey: 'care_package_price' },
@@ -348,8 +596,8 @@ const emulateCarePackage = async (method: string, payload: emulatePayload) => {
         { payloadKey: 'status_id', dbKey: 'status_id' },
         { payloadKey: 'created_at', dbKey: 'created_at' },
         { payloadKey: 'updated_at', dbKey: 'updated_at' },
-        { payloadKey: 'user_id', dbKey: 'created_by' },
-        { payloadKey: 'user_id', dbKey: 'last_updated_by' },
+        { payloadKey: 'employee_id', dbKey: 'created_by' },
+        { payloadKey: 'employee_id', dbKey: 'last_updated_by' },
       ];
 
       const updatedCpFields: Partial<CarePackages> = {};
@@ -365,22 +613,56 @@ const emulateCarePackage = async (method: string, payload: emulatePayload) => {
         }
       });
 
-      const newCp: CarePackages = {
-        ...oldCarePackage,
+      const newCp: Partial<CarePackages> = {
+        // ...oldCarePackage,
         ...updatedCpFields,
         updated_at: payload.updated_at || new Date().toISOString(), // Ensure updated_at is always fresh
       };
 
-      const newCpItemDetails: CarePackageItemDetails[] = (payload.services || []).map((servicePayload) => {
-        const existingItem = oldCpItemDetails.find((oldItem) => oldItem.service_id === servicePayload.id);
-        return {
-          id: existingItem ? existingItem.id : undefined, // Reuse DB ID if service matches, else undefined for new
-          care_package_id: oldCarePackage.id!, // non-null assertion
-          service_id: servicePayload.id,
-          care_package_item_details_quantity: servicePayload.quantity,
-          care_package_item_details_discount: servicePayload.discount,
-          care_package_item_details_price: servicePayload.price,
-        };
+      const newCpItemDetails: Partial<CarePackageItemDetails>[] = [];
+
+      const serviceItemMappings: FieldMapping<servicePayload, CarePackageItemDetails>[] = [
+        { payloadKey: 'quantity', dbKey: 'care_package_item_details_quantity' },
+        { payloadKey: 'discount', dbKey: 'care_package_item_details_discount' },
+        { payloadKey: 'finalPrice', dbKey: 'care_package_item_details_price' },
+      ];
+
+      (payload.services || []).forEach((servicePayloadItem) => {
+        const existingItem = oldCpItemDetails.find(
+          (oldItem) => oldItem.service_id === servicePayloadItem.id && oldItem.care_package_id === oldCarePackage.id!
+        );
+
+        if (!existingItem) {
+          newCpItemDetails.push({
+            care_package_id: oldCarePackage.id!,
+            service_id: servicePayloadItem.id,
+            care_package_item_details_quantity: servicePayloadItem.quantity,
+            care_package_item_details_discount: servicePayloadItem.discount,
+            care_package_item_details_price: servicePayloadItem.price,
+          });
+        } else {
+          const updatedDetailFields: Partial<CarePackageItemDetails> = {
+            id: existingItem.id,
+            care_package_id: oldCarePackage.id!,
+            service_id: servicePayloadItem.id,
+          };
+          let hasChanges = false;
+
+          serviceItemMappings.forEach((m) => {
+            // Ensure the keys exist on both objects before comparison
+            const payloadValue = servicePayloadItem[m.payloadKey];
+            const existingDbValue = existingItem[m.dbKey];
+
+            if (payloadValue !== undefined && payloadValue !== existingDbValue) {
+              (updatedDetailFields as any)[m.dbKey] = payloadValue;
+              hasChanges = true;
+            }
+          });
+
+          if (hasChanges) {
+            newCpItemDetails.push(updatedDetailFields);
+          }
+        }
       });
 
       return {
@@ -439,19 +721,64 @@ const emulateCarePackage = async (method: string, payload: emulatePayload) => {
     }
   }
 
-  const handler = handlers[method.toUpperCase() as keyof typeof handlers];
-  if (handler) {
-    return handler(payload);
-  } else {
+  const handlers: { [key: string]: Function } = {
+    POST: em_post,
+    PUT: em_put,
+    DELETE: em_delete,
+  };
+
+  const upperMethod = method.toUpperCase();
+  const handler = handlers[upperMethod];
+
+  if (!handler) {
     throw new Error(`Unsupported method: ${method}`);
+  }
+
+  if (upperMethod === 'POST') {
+    if (
+      !payload.package_name ||
+      !payload.package_remarks ||
+      payload.package_price === undefined ||
+      !payload.services ||
+      typeof payload.is_customizable !== 'boolean' ||
+      !payload.created_at ||
+      !payload.updated_at
+    ) {
+      throw new Error('Missing required fields in payload for POST emulation.');
+    }
+    return em_post(payload as emulatePayload);
+  } else if (upperMethod === 'PUT') {
+    if (
+      !payload.id ||
+      !payload.package_name ||
+      !payload.package_remarks ||
+      payload.package_price === undefined ||
+      !payload.services ||
+      typeof payload.is_customizable !== 'boolean' ||
+      !payload.status_id ||
+      !payload.updated_at
+    ) {
+      throw new Error('Missing required fields in payload for PUT emulation.');
+    }
+    return em_put(payload as emulatePayload);
+  } else if (upperMethod === 'DELETE') {
+    if (!payload.id) {
+      throw new Error("Missing 'id' in payload for DELETE emulation.");
+    }
+    return em_delete(payload as emulatePayload);
+  } else {
+    throw new Error(`Handler dispatch error for method: ${method}`);
   }
 };
 
 export default {
   getPaginatedCarePackages,
+  getCarePackagesForDropdown,
   getCarePackageById,
+  getCarePackagePurchaseCount,
   createCarePackage,
   updateCarePackageById,
+  updateCarePackageStatusById,
   deleteCarePackageById,
   emulateCarePackage,
 };
