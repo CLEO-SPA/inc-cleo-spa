@@ -6,7 +6,7 @@ const getUserRoles = async (userId: string) => {
       SELECT r.role_name 
       FROM roles r
       JOIN user_to_role utr ON r.id = utr.role_id
-      WHERE utr.user_id = $1
+      WHERE utr.user_auth_id = $1
     `;
     const values = [userId];
     const result = await pool().query(query, values);
