@@ -3,7 +3,7 @@ import { useNavigate } from "react-router-dom";
 import { Button } from '@/components/ui/button';
 import { Input } from "@/components/ui/input";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
-import { ToggleSwitch } from '@/components/ui/switch';
+import { Switch } from '@/components/ui/switch';
 import DatePicker from "@/components/date-picker";
 import { AppSidebar } from '@/components/app-sidebar';
 import {
@@ -160,7 +160,7 @@ export default function CreateService() {
                       {/* Status */}
                       <div className="flex my-2 space-x-3">
                         <label className="block text-md font-medium ">Enabled</label>
-                        <ToggleSwitch checked={formData.service_is_enabled} required />
+                        <Switch checked={formData.service_is_enabled} required />
                       </div>
 
                     </div>

@@ -24,7 +24,7 @@ import { NotFoundState } from '@/components/NotFoundState';
 import { ErrorState } from '@/components/ErrorState';
 import { LoadingState } from '@/components/LoadingState';
 import ServiceItem from '@/pages/CarePackages/ServiceItem';
-import ServiceSelection from '@pages/CarePackages/ServiceSelection';
+import ServiceSelection from '@/pages/CarePackages/ServiceSelection';
 
 const EditCarePackagePage = () => {
   const { id: packageId } = useParams();
