@@ -290,6 +290,6 @@ export default {
   getUserCount,
   getUserData,
   getEmployeeIdByUserAuthId,
-  getBasicEmployeeDetails
+  getBasicEmployeeDetails,
   getAllEmployeesForDropdown
 };
