@@ -134,7 +134,7 @@ export function ServiceSelect({
                     filteredServices.map((svc) => (
                       <SelectItem key={svc.id} value={svc.id.toString()}>
                         <div className="flex items-center justify-between w-full">
-                          <span>{svc.service_name}</span>
+                          <span>{svc.service_name} (${svc.service_price})</span>
                           {isServiceDetailsLoading(svc.id) && (
                             <span className="text-xs text-gray-500 ml-2">Loading...</span>
                           )}

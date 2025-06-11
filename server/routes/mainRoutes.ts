@@ -15,6 +15,7 @@ import voucherTemplateRoutes from './voucherTemplateRoutes.js';
 
 router.use('/auth', authRoutes);
 router.use('/session', sessionRoutes);
+
 router.use('/service', serviceRoutes);
 router.use('/member', memberRoutes);
 router.use('/cp', carePackageRoutes);

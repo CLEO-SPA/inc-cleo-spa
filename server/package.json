@@ -27,7 +27,7 @@
     "jsonwebtoken": "^9.0.2",
     "pg": "^8.14.1",
     "server": "file:",
-    "validator": "^13.15.0"
+    "validator": "^13.15.15"
   },
   "devDependencies": {
     "@eslint/js": "^9.26.0",
@@ -38,7 +38,7 @@
     "@types/express-session": "^1.18.1",
     "@types/http-errors": "^2.0.4",
     "@types/jsonwebtoken": "^9.0.9",
-    "@types/node": "^22.15.23",
+    "@types/node": "^22.15.26",
     "@types/pg": "^8.15.2",
     "@types/validator": "^13.15.1",
     "@typescript-eslint/eslint-plugin": "^8.32.1",

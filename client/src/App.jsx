@@ -23,6 +23,9 @@ import ManageVoucherTemplatesPage from './pages/voucher-template/ManageVoucherTe
 import EditVouhcerTemplatePage from './pages/voucher-template/EditVoucherTemplatePage';
 // Service Management
 import ManageServicePage from '@/pages/ManageServicePage'
+import CreateServicePage from '@/pages/CreateServicePage';
+import UpdateServicePage from '@/pages/UpdateServicePage';
+import ReorderServicePage from '@/pages/ReorderServicePage';
 
 function App() {
   return (
@@ -32,6 +35,14 @@ function App() {
         <Router>
           <Routes>
             <Route path='/' element={<ProtectedRoute />}>
+              <Route index element={<HomePage />} />              
+              
+              {/* Service Management */}
+            <Route path='/manage-service' element={<ManageServicePage />} />
+            <Route path='/create-service' element={<CreateServicePage />} />
+            <Route path='/update-service/:service_id' element={<UpdateServicePage />} />
+            <Route path='/reorder-service' element={<ReorderServicePage />} />
+
               <Route index element={<HomePage />} />
               <Route path='/mcp' element={<ManageCarePackagesPage />} />
               {/* Member Management */}
@@ -54,9 +65,8 @@ function App() {
             <Route path='/membership-type' element={<ManageMembershipTypePage/>} />
             {/* 404 Page */}
             <Route path='*' element={<NotFoundPage />} />
-
-            {/* Service Management */}
-            <Route path='/manage-service' element={<ManageServicePage />} />          </Routes>
+            
+          </Routes>
         </Router>
       </DateRangeProvider>
     </AuthProvider>
