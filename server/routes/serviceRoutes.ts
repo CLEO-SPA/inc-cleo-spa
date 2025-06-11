@@ -26,4 +26,7 @@ router.get('/service-cat', serviceController.getServiceCategories)
 // get service by id
 router.get('/:id', serviceController.getServiceById);
 
+// create a new service
+router.post('/create-service', serviceController.validateServiceData, serviceController.createService)
+
 export default router;
