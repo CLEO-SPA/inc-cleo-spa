@@ -170,9 +170,10 @@ try {
         SELECT 
             s.id,
             s.service_name
+        FROM services AS s
         WHERE s.service_name = $1; 
     `;
-    const result = await pool().query(query, [service_name]); // Added id parameter to query
+    const result = await pool().query(query, [service_name]); // Added string parameter to query
     return result.rows[0];
   } catch (error) {
     console.error('Error fetching service by name:', error);
@@ -236,6 +237,23 @@ const getServiceCategories = async () => {
   }
 }
 
+const getServiceCategoryById = async (id: number) => {
+  try {
+    const query = `
+        SELECT 
+            id,
+            service_category_name
+        FROM service_categories
+        WHERE id = $1; 
+    `;
+    const result = await pool().query(query, [id]); // Added string parameter to query
+    return result.rows[0];
+  } catch (error) {
+    console.error('Error fetching service category by id:', error);
+    throw new Error('Error fetching service category by id');
+  }
+}
+
 const getServiceSequenceNo = async (service_category_id: number) => {
   try{
     const query = `
@@ -259,13 +277,16 @@ const createService = async (serviceData: any) =>{
         service_duration,
         service_price,
         service_is_enabled,
-        created_by,
-        updated_by,
+        created_at,
+        updated_at,
         service_category_id,
-        service_sequence_no
+        service_sequence_no,
+        created_by,
+        updated_by
       ) VALUES (
         $1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12
-      );
+      )
+      RETURNING *;
     `;
     const params = [
       serviceData.service_name,
@@ -282,7 +303,8 @@ const createService = async (serviceData: any) =>{
       serviceData.updated_by
     ];
     const result = await pool().query(query, params);
-    return result.rows[0];
+    console.log(result);
+    return result.rows;
   } catch (error) {
     console.error('Error creating new service:', error);
     throw new Error('Error creating new service');
@@ -298,6 +320,7 @@ export default {
   getServiceByName,
   getEnabledServiceById,
   getServiceCategories,
+  getServiceCategoryById,
   getServiceSequenceNo,
   createService
 };

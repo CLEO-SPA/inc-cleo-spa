@@ -213,12 +213,19 @@ const validateServiceData = async (req: Request, res: Response, next: NextFuncti
     return;
   }
 
-  if (
-    !validator.isInt(service_duration) ||
-    !validator.isNumeric(service_price) ||
-    !validator.isInt(service_category_id) ||
-    !validator.isInt(created_by)
-  ) {
+  if (service_category_id) {
+    if (!validator.isInt(service_category_id)) {
+      res.status(400).json({ message: 'Invalid data type' });
+      return;
+    } else {
+      const category = await serviceModel.getServiceCategoryById(service_category_id);
+      if (!category || category.length === 0) {
+        res.status(404).json({ message: 'Service Category not found' });
+        return;
+      }
+    }
+  }
+  if (!validator.isInt(service_duration) || !validator.isNumeric(service_price) || !validator.isInt(created_by)) {
     res.status(400).json({ message: 'Invalid data type' });
     return;
   }
@@ -244,22 +251,24 @@ const createService = async (req: Request, res: Response, next: NextFunction) =>
     // add service_sequence_no, updated_at, updated_by
     const serviceData = {
       ...formData,
-      created_at: formData.created_at.toISOString(),
+      created_at: new Date(formData.created_at).toISOString(),
       service_sequence_no: service_sequence_no,
       updated_by: formData.created_by,
-      updated_at: (req.session.start_date_utc ? new Date(req.session.start_date_utc).toISOString : new Date().toISOString())
-    }
+      updated_at: req.session.start_date_utc
+        ? new Date(req.session.start_date_utc).toISOString
+        : new Date().toISOString(),
+    };
 
     const newService = await serviceModel.createService(serviceData);
-
-    if(newService){
-      res.status(201).json({ message: 'Service created successfully'});
+    console.log(newService);
+    if (newService) {
+      res.status(201).json({ message: 'Service created successfully' });
     } else {
-      res.status(400).json({ message: 'Failed to create service' });
+      res.status(400).json({ message: 'Failed to create service 1' });
     }
   } catch (error) {
-    console.error('Error in getServiceCategories:', error);
-    res.status(500).json({ message: 'Failed to fetch service categories' });
+    console.error('Error in createService:', error);
+    res.status(500).json({ message: 'Failed to create service 2' });
   }
 };
 
@@ -271,5 +280,5 @@ export default {
   getEnabledServiceById,
   getServiceCategories,
   validateServiceData,
-  createService
+  createService,
 };
