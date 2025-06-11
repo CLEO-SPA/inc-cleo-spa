@@ -12,9 +12,12 @@ import LoginPage from '@/pages/LoginPage';
 import ResetPasswordPage from '@/pages/ResetPasswordPage';
 import NotFoundPage from '@/pages/404Page';
 
-
 // Employees
 import ManagePositions from '@/pages/em/ManagePositions';
+import CreatePositionPage from '@/pages/em/CreatePositionPage';
+import EditPositionPage from '@/pages/em/EditPositionPage';
+
+
 function App() {
   return (
     <AuthProvider>
@@ -24,9 +27,11 @@ function App() {
           <Routes>
             <Route path='/' element={<ProtectedRoute />}>
               <Route index element={<HomePage />} />
-
               {/* Employees Routes */}
               <Route path='/positions' element={<ManagePositions />} />
+              <Route path='/positions/create' element={<CreatePositionPage />} />
+              <Route path='/positions/edit/:id' element={<EditPositionPage />} />
+
             </Route>
             <Route path='/login' element={<LoginPage />} />
 

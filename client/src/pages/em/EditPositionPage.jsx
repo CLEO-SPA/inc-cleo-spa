@@ -4,7 +4,7 @@ import { SiteHeader } from '@/components/site-header';
 import { SidebarInset, SidebarProvider } from '@/components/ui/sidebar';
 import PositionForm from '@/components/em/PositionForm'; // adjust path if needed
 
-export default function CreatePositionPage() {
+export default function EditPositionPage() {
   return (
     <div className='[--header-height:calc(theme(spacing.14))]'>
       <SidebarProvider className='flex flex-col'>
@@ -13,8 +13,8 @@ export default function CreatePositionPage() {
           <AppSidebar />
           <SidebarInset>
             <div className='flex flex-1 flex-col gap-4 p-4'>
-              <h1 className='text-2xl font-bold mb-4'>Create New Position</h1>
-              <PositionForm mode="create" />
+              <h1 className='text-2xl font-bold mb-4'>Edit Position</h1>
+              <PositionForm mode="edit" />
             </div>
           </SidebarInset>
         </div>
