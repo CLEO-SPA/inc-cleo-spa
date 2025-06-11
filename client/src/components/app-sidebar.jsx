@@ -52,7 +52,7 @@ const data = {
         },
         {
           title: 'Manage Services',
-          url: '#',
+          url: 'manage-service',
         },
       ],
     },
@@ -77,12 +77,12 @@ const data = {
       icon: Tickets,
       items: [
         {
-          title: 'Create Voucher',
-          url: '#',
+          title: 'Create Voucher Template',
+          url: '/voucher-template/create',
         },
         {
-          title: 'Manage Vouchers',
-          url: '#',
+          title: 'Manage Voucher Templates',
+          url: '/voucher-template',
         },
       ],
     },
