@@ -11,11 +11,15 @@ import HomePage from '@/pages/HomePage';
 import LoginPage from '@/pages/LoginPage';
 import ResetPasswordPage from '@/pages/ResetPasswordPage';
 import NotFoundPage from '@/pages/404Page';
+
+// Services
 import ManageServicePage from '@/pages/ManageServicePage'
 import CreateServicePage from '@/pages/CreateServicePage';
 import UpdateServicePage from '@/pages/UpdateServicePage';
 import ReorderServicePage from '@/pages/ReorderServicePage';
 
+// Employees
+import ManagePositions from '@/pages/em/ManagePositions';
 function App() {
   return (
     <AuthProvider>
@@ -25,6 +29,9 @@ function App() {
           <Routes>
             <Route path='/' element={<ProtectedRoute />}>
               <Route index element={<HomePage />} />              
+
+              {/* Employees Routes */}
+              <Route path='/positions' element={<ManagePositions />} />
               
               {/* Service Management */}
             <Route path='/manage-service' element={<ManageServicePage />} />
@@ -38,6 +45,8 @@ function App() {
             {/* Invitation & Reset Password */}
             <Route path='/invites' element={<ResetPasswordPage />} />
             <Route path='/reset-password' element={<ResetPasswordPage />} />
+
+
 
             {/* 404 Page */}
             <Route path='*' element={<NotFoundPage />} />
