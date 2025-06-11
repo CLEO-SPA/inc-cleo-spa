@@ -72,29 +72,37 @@ const getAppointmentsByDate = async (appointmentDate: Date | string) => {
   }
 };
 
-const getAvailableTimeslotsByEmployee = async (
-  appointmentDate: Date | string,
-  employeeId: number | null
+const getTimeslotsByEmployeeAndDate = async (
+  date: Date | string,
+  employeeId: number | null,
 ) => {
   try {
-    const query = `SELECT * FROM get_available_timeslots($1, $2)`;
-    const values = [appointmentDate, employeeId];
+    const query = `SELECT * FROM get_available_and_booked_timeslots($1, $2)`;
+    const values = [date, employeeId];
     const result = await pool().query(query, values);
     return result.rows;
   } catch (error) {
-    console.error('Error fetching available timeslots:', error);
-    throw new Error('Error fetching available timeslots');
+    console.error('Error fetching available and booked timeslots:', error);
+    throw new Error('Error fetching available and booked timeslots');
   }
 };
 
+
+interface AppointmentItem {
+  servicing_employee_id: number;
+  appointment_date: string;
+  start_time: string;
+  end_time: string;
+  remarks?: string;
+}
 const checkRestdayConflict = async (
   employeeId: number | null,
   appointmentDate: Date | string,
 ) => {
   try {
-    const query = `
-      SELECT check_restday_conflict($1, $2) AS warning
-    `;
+    const query = 
+      `SELECT check_restday_conflict($1, $2) AS warning`
+    ;
     const values = [employeeId, appointmentDate];
     const { rows } = await pool().query(query, values);
     // rows[0].warning will be either the warning string or null
@@ -105,10 +113,36 @@ const checkRestdayConflict = async (
   }
 };
 
+const createAppointment = async (
+  memberId: number,
+  appointments: AppointmentItem[],
+  createdBy: number,
+  createdAt: string
+): Promise<void> => {
+  try {
+    // Call the stored procedure create_appointment_ab
+    // p_appointments is jsonb array: pass JSON string or JS object
+    const query = `CALL create_appointment_ab($1, $2::jsonb, $3, $4)`;
+    const values = [
+      memberId,
+      JSON.stringify(appointments),
+      createdBy,
+      createdAt,
+    ];
+    await pool().query(query, values);
+  } catch (error: any) {
+    console.error('Error in createAppointment:', error);
+    // Propagate the error message for controller to handle
+    // If Postgres RAISE EXCEPTION, error.message includes the detail
+    throw new Error(error.message || 'Error creating appointments');
+  }
+};
+
 export default {
  getAllAppointments,
  getAppointmentsByDate,
- getAvailableTimeslotsByEmployee,
- checkRestdayConflict
+ getTimeslotsByEmployeeAndDate,
+ checkRestdayConflict,
+ createAppointment
 };
  

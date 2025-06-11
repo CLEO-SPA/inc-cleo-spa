@@ -15,22 +15,66 @@ const getInitialState = () => ({
   endTimeSlotsByAppointment: {}, // Store end time slots per appointment index
 });
 
-// Generate evening time slots (5:30pm to 9:00pm)
-const generateEveningSlots = () => {
+// Helper function to generate timeslots in 30-minute intervals
+const generateTimeslots = (startTime, endTime) => {
   const slots = [];
-  const start = new Date();
-  start.setHours(17, 30, 0, 0); // 5:30 PM
-  const end = new Date();
-  end.setHours(21, 0, 0, 0); // 9:00 PM
-
-  while (start <= end) {
-    const hours = start.getHours().toString().padStart(2, '0');
-    const minutes = start.getMinutes().toString().padStart(2, '0');
-    slots.push(`${hours}:${minutes}`);
-    start.setMinutes(start.getMinutes() + 30);
+  const start = new Date(`2000-01-01T${startTime}:00`);
+  const end = new Date(`2000-01-01T${endTime}:00`);
+  
+  let current = new Date(start);
+  while (current <= end) {
+    const timeString = current.toTimeString().slice(0, 5);
+    slots.push(timeString);
+    current.setMinutes(current.getMinutes() + 30);
   }
+  
   return slots;
 };
+
+// Helper function to filter start time slots (10:00 AM - 6:30 PM)
+const filterStartTimeSlots = (allSlots) => {
+  const startTimeLimit = '18:30'; // 6:30 PM
+  return allSlots.filter(slot => slot <= startTimeLimit);
+};
+
+// Helper function to process end time slots with dynamic population
+const processEndTimeSlots = (availableSlots) => {
+  // Immediately check if 6:30 PM is available
+  const has630PM = availableSlots.includes('18:30');
+  
+  // If 6:30 PM is not available, exclude 7:00 PM to 9:00 PM slots
+  if (!has630PM) {
+    // Standard end time range: 10:30 AM - 6:30 PM (excluding 7:00 PM - 9:00 PM)
+    const restrictedEndSlots = generateTimeslots('10:30', '18:30');
+    const filteredSlots = restrictedEndSlots.filter(slot => availableSlots.includes(slot));
+    // Always append 6:30 PM option even if not in available slots
+    if (!filteredSlots.includes('18:30')) {
+      filteredSlots.push('18:30');
+    }
+    return filteredSlots;
+  }
+  
+  // Standard end time range: 10:30 AM - 9:00 PM (full range when 6:30 PM is available)
+  const standardEndSlots = generateTimeslots('10:30', '21:00');
+ 
+  // Find the last available start time slot (should be <= 18:30)
+  const startTimeSlots = filterStartTimeSlots(availableSlots);
+  const lastStartTime = startTimeSlots[startTimeSlots.length - 1];
+ 
+  if (!lastStartTime) return standardEndSlots;
+ 
+  if (lastStartTime === '18:00') {
+    // If we have 6:00 PM as the last start time and 6:30 PM is available,
+    // dynamically add 6:30 PM to the end time slots
+    const endSlotsSet = new Set([...availableSlots, '18:30']);
+    // Filter to only include end time range (10:30 AM - 9:00 PM)
+    return standardEndSlots.filter(slot => endSlotsSet.has(slot) || slot === '18:30');
+  }
+ 
+  // Return intersection of available slots and standard end time range
+  return standardEndSlots.filter(slot => availableSlots.includes(slot));
+};
+
 
 const useAppointmentDateTimeStore = create((set, get) => ({
   ...getInitialState(),
@@ -42,11 +86,21 @@ const useAppointmentDateTimeStore = create((set, get) => ({
       const url = `/ab/employee/${employeeId || 'null'}/date/${appointmentDate}`;
       const response = await api.get(url);
 
-      const baseTimeslots = response.data.availableTimeslots.map((t) => t.timeslot);
-      const eveningSlots = generateEveningSlots();
+     const availableSlots = Array.isArray(response.data.availableTimeslots)
+  ? response.data.availableTimeslots
+  : [];
 
-      // Remove duplicates and sort
-      const allEndTimeSlots = [...new Set([...baseTimeslots, ...eveningSlots])].sort();
+  const bookedSlots = Array.isArray(response.data.bookedTimeslots)
+  ? response.data.bookedTimeslots
+  : [];
+
+
+      
+      // Process start time slots (10:00 AM - 6:30 PM only)
+      const startTimeSlots = filterStartTimeSlots(availableSlots);
+      
+      // Process end time slots with dynamic population logic
+      const endTimeSlots = processEndTimeSlots(availableSlots);
 
       // Handle warning for specific appointment
       const warning = response.data.warning || null;
@@ -68,15 +122,15 @@ const useAppointmentDateTimeStore = create((set, get) => ({
         // Store in indexed format
         timeslotsByAppointment: {
           ...currentTimeslotsByAppointment,
-          [appointmentIndex]: baseTimeslots
+          [appointmentIndex]: startTimeSlots
         },
         endTimeSlotsByAppointment: {
           ...currentEndTimeSlotsByAppointment,
-          [appointmentIndex]: allEndTimeSlots
+          [appointmentIndex]: endTimeSlots
         },
         // Also update global state for backward compatibility
-        timeslots: baseTimeslots,
-        endTimeSlots: allEndTimeSlots,
+        timeslots: startTimeSlots,
+        endTimeSlots: endTimeSlots,
         warning: warning,
         warningAppointmentIndex: warning ? appointmentIndex : undefined,
         appointmentWarnings: updatedWarnings,

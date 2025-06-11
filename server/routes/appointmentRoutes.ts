@@ -13,7 +13,9 @@ router.get('/', appointmentController.getAllAppointments);
 router.get('/date/:date', appointmentController.getAppointmentsByDate);
 
 // Get appointment timeslots by employee and appointment date
-router.get('/employee/:employeeId/date/:appointmentDate', appointmentController.getAvailableTimeslotsByEmployee);
+router.get('/employee/:employeeId/date/:date', appointmentController.getTimeslotsByEmployeeAndDate);
 
+// Create bulk appointment
+router.post('/create', appointmentController.createAppointment);
 
 export default router;

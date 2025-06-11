@@ -15,11 +15,13 @@ import EmployeeSelect from '@/components/ui/forms/EmployeeSelect';
 import MemberSelect from '@/components/ui/forms/MemberSelect';
 import AppointmentDateTimeSelect from '@/components/ui/forms/AppointmentDateTimeSelect';
 import useAppointmentDateTimeStore from '@/stores/useAppointmentDateTimeStore';
+import api from '@/services/api';
 
 export default function CreateAppointmentPage() {
   const methods = useForm({
     defaultValues: {
       member_id: '',
+      created_at: '',
       appointments: [
         {
           id: 1,
@@ -134,7 +136,7 @@ export default function CreateAppointmentPage() {
     if (restDayConflictMessage) {
       return restDayConflictMessage;
     }
-    
+
     for (let i = 0; i < data.appointments.length; i++) {
       const apt = data.appointments[i];
       const aptNum = i + 1;
@@ -151,60 +153,78 @@ export default function CreateAppointmentPage() {
     return null;
   };
 
-  const onSubmit = async (data) => {
-    const validationError = validateForm(data);
+const onSubmit = async (data) => {
+  const validationError = validateForm(data);
+  if (validationError) {
+    setError(validationError);
+    return;
+  }
+  setLoading(true);
+  setError('');
+  try {
+    // Build bulk payload
+    const appointmentsPayload = data.appointments.map(app => ({
+      servicing_employee_id: parseInt(app.servicing_employee_id, 10),
+      appointment_date: app.appointment_date,
+      start_time: app.start_time,
+      end_time: app.end_time,
+      remarks: app.remarks,
+    }));
 
-    if (validationError) {
-      setError(validationError);
-      return;
-    }
-    setLoading(true);
-    setError('');
+    const payload = {
+      member_id: parseInt(data.member_id, 10),
+      appointments: appointmentsPayload,
+      created_by: parseInt(data.created_by, 10),
+      created_at: data.created_at,
+    };
+
+    let response;
     try {
-      const appointmentPromises = data.appointments.map(appointment => {
-        return fetch('/api/ab/create', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({
-            member_id: parseInt(data.member_id),
-            servicing_employee_id: parseInt(appointment.servicing_employee_id),
-            appointment_date: appointment.appointment_date,
-            start_time: appointment.start_time,
-            end_time: appointment.end_time,
-            remarks: appointment.remarks,
-            created_at: new Date().toISOString(),
-            updated_at: new Date().toISOString()
-          })
-        });
-      });
+      response = await api.post('/ab/create', payload);
+      console.log('response', response);
+    } catch (axiosError) {
+      console.error('Request failed:', axiosError);
 
-      const responses = await Promise.all(appointmentPromises);
-      const failedResponses = responses.filter(response => !response.ok);
-      if (failedResponses.length > 0) throw new Error(`Failed to create ${failedResponses.length} appointment(s)`);
-
-      setSuccess(true);
-      setTimeout(() => {
-        reset({
-          member_id: '',
-          appointments: [{
-            id: 1,
-            servicing_employee_id: '',
-            appointment_date: '',
-            start_time: '',
-            end_time: '',
-            remarks: '',
-            created_by: ''
-          }]
-        });
-        setSuccess(false);
-        resetStore(); // This will clear all warnings
-      }, 3000);
-    } catch (err) {
-      setError(err.message || 'An error occurred while creating appointments');
-    } finally {
-      setLoading(false);
+      let message = `Failed to create ${appointmentsPayload.length} appointment(s)`;
+      if (axiosError.response?.data?.message) {
+        message = axiosError.response.data.message;
+        console.log('Error message:', message);
+      } else if (axiosError.response?.data?.failed) {
+        const details = axiosError.response.data.failed
+          .map(f => `#${f.index + 1}: ${f.reason || JSON.stringify(f)}`)
+          .join('; ');
+        message = `Some appointments failed: ${details}`;
+        console.log('Detailed error:', details);
+      }
+      throw new Error(message);
     }
-  };
+
+    // On success
+    setSuccess(true);
+    setTimeout(() => {
+      reset({
+        member_id: '',
+        created_at: '',
+        created_by: '',
+        appointments: [{
+          servicing_employee_id: '',
+          appointment_date: '',
+          start_time: '',
+          end_time: '',
+          remarks: '',
+        }],
+      });
+      setSuccess(false);
+      resetStore(); // clear warnings in store
+    }, 3000);
+  } catch (err) {
+    console.error('Final catch error:', err);
+    setError(err.message || 'An error occurred while creating appointments');
+  } finally {
+    setLoading(false);
+  }
+};
+
 
   const today = new Date().toISOString().split('T')[0];
 
@@ -217,15 +237,6 @@ export default function CreateAppointmentPage() {
           <SidebarInset>
             <div className='flex flex-1 flex-col gap-4 p-4'>
               <h1 className='text-2xl font-bold'>Create an appointment</h1>
-
-              {success && (
-                <Alert className='border-green-200 bg-green-50'>
-                  <CheckCircle className='h-4 w-4 text-green-600' />
-                  <AlertDescription className='text-green-800'>
-                    Appointments created successfully!
-                  </AlertDescription>
-                </Alert>
-              )}
 
               <FormProvider {...methods}>
                 <form onSubmit={handleSubmit(onSubmit)}>
@@ -340,7 +351,7 @@ export default function CreateAppointmentPage() {
 
                         {/* Third row: Remarks */}
                         <div className='space-y-2'>
-                          <Label>Remarks <span className="text-sm text-gray-500">(include service name & duration)</span></Label>
+                          <Label>Remarks *<span className="text-sm text-gray-500">(include service name & duration)</span></Label>
                           <Textarea
                             placeholder='Type your message here. (e.g., REFRESHING CICA (2 Hours))'
                             value={appointment.remarks || ''}
@@ -366,6 +377,16 @@ export default function CreateAppointmentPage() {
                     <Alert className='border-red-200 bg-red-50 mb-4'>
                       <AlertDescription className='text-red-800'>
                         {error}
+                      </AlertDescription>
+                    </Alert>
+                  )}
+
+                  {/* Green bg success message - directly above Create button */}
+                  {success && (
+                    <Alert className='border-green-200 bg-green-50 mb-4'>
+                      <CheckCircle className='h-4 w-4 text-green-600' />
+                      <AlertDescription className='text-green-800'>
+                        Appointment(s) created successfully!
                       </AlertDescription>
                     </Alert>
                   )}

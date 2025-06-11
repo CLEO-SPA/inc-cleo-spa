@@ -10,8 +10,6 @@ import {
 import { Label } from '@/components/ui/label';
 import useAppointmentDateTimeStore from '@/stores/useAppointmentDateTimeStore';
 
-// Updated AppointmentDateTimeSelect.jsx to use indexed timeslots
-
 export function AppointmentDateTimeSelect({
   label = 'Start Time *',
   employeeId,
@@ -26,8 +24,8 @@ export function AppointmentDateTimeSelect({
   const {
     timeslots,
     endTimeSlots,
-    timeslotsByAppointment, // Add indexed timeslots
-    endTimeSlotsByAppointment, // Add indexed end time slots
+    timeslotsByAppointment,
+    endTimeSlotsByAppointment,
     isFetching,
     error,
     errorMessage,
@@ -44,7 +42,7 @@ export function AppointmentDateTimeSelect({
   const appointmentEndTimeSlots = endTimeSlotsByAppointment[appointmentIndex] || endTimeSlots || [];
 
   // Use appropriate timeslots based on whether this is start time or end time
-  const availableSlots = isStartTime ? appointmentTimeslots : appointmentEndTimeSlots;
+  const baseAvailableSlots = isStartTime ? appointmentTimeslots : appointmentEndTimeSlots;
 
   // Check if we have a valid appointment date and employee
   const hasValidDate = appointmentDate && appointmentDate.trim() !== '';
@@ -72,28 +70,35 @@ export function AppointmentDateTimeSelect({
     return hours * 60 + minutes;
   };
 
-  // Filter available timeslots based on the other time field
+  // Filter available timeslots based on the other time field with cross-validation
   const filteredTimeslots = useMemo(() => {
-    if (!availableSlots.length || !otherTimeValue) {
-      return availableSlots;
+    if (!baseAvailableSlots.length) {
+      return baseAvailableSlots;
+    }
+
+    // If no other time value is selected, return all base slots
+    if (!otherTimeValue) {
+      return baseAvailableSlots;
     }
 
     const otherTimeMinutes = timeToMinutes(otherTimeValue);
-    if (otherTimeMinutes === null) return availableSlots;
+    if (otherTimeMinutes === null) return baseAvailableSlots;
 
-    return availableSlots.filter(timeSlot => {
+    return baseAvailableSlots.filter(timeSlot => {
       const currentTimeMinutes = timeToMinutes(timeSlot);
       if (currentTimeMinutes === null) return true;
 
       if (isStartTime) {
-        // For start time: show only times before the end time
+        // For start time: show only times that are at least 30 minutes before the end time
+        // If end time is 2:00 PM (14:00), only show start times up to 1:30 PM (13:30)
         return currentTimeMinutes < otherTimeMinutes;
       } else {
-        // For end time: show only times after the start time
+        // For end time: show only times that are at least 30 minutes after the start time
+        // If start time is 12:00 PM (12:00), only show end times from 12:30 PM (12:30) onwards
         return currentTimeMinutes > otherTimeMinutes;
       }
     });
-  }, [availableSlots, otherTimeValue, isStartTime]);
+  }, [baseAvailableSlots, otherTimeValue, isStartTime]);
 
   // Check if the current value is still valid in the filtered timeslots
   const isCurrentValueValid = useMemo(() => {
@@ -115,7 +120,27 @@ export function AppointmentDateTimeSelect({
   // Check if this appointment's data is currently being fetched
   const isCurrentlyFetching = isFetching && currentFetchKey === `${employeeId}-${appointmentDate}`;
 
-  // Rest of the component remains the same...
+  // Enhanced placeholder logic
+  const getPlaceholder = () => {
+    if (!hasValidDate) return 'Select date first';
+    if (!hasValidEmployee) return 'Select employee first';
+    if (isCurrentlyFetching) return 'Loading…';
+    if (error) return `Error: ${errorMessage || 'Failed to load'}`;
+    
+    if (filteredTimeslots.length === 0) {
+      if (otherTimeValue) {
+        if (isStartTime) {
+          return 'No earlier times available';
+        } else {
+          return 'No later times available';
+        }
+      }
+      return 'No times available';
+    }
+    
+    return placeholder;
+  };
+
   return (
     <div className="space-y-2">
       <Label>{label}</Label>
@@ -125,23 +150,7 @@ export function AppointmentDateTimeSelect({
         onValueChange={onChange}
       >
         <SelectTrigger className="h-12">
-          <SelectValue
-            placeholder={
-              !hasValidDate
-                ? 'Select date first'
-                : !hasValidEmployee
-                  ? 'Select employee first'
-                  : isCurrentlyFetching
-                    ? 'Loading…'
-                    : error
-                      ? `Error: ${errorMessage || 'Failed to load'}`
-                      : filteredTimeslots.length === 0
-                        ? otherTimeValue
-                          ? `No ${isStartTime ? 'earlier' : 'later'} times available`
-                          : 'No times available'
-                        : placeholder
-            }
-          />
+          <SelectValue placeholder={getPlaceholder()} />
         </SelectTrigger>
         <SelectContent>
           {hasValidDate &&
