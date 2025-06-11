@@ -15,7 +15,6 @@ import {
 } from "@/components/ui/select";
 import { SiteHeader } from '@/components/site-header';
 import { SidebarInset, SidebarProvider } from '@/components/ui/sidebar';
-import { set } from "date-fns";
 
 export default function ManageService() {
   const [services, setServices] = useState([]);
@@ -113,7 +112,6 @@ export default function ManageService() {
     setSelectedStatus('0');
     setCurrentPage(1);
   }
-
   useEffect(() => {
     // Test data
     try {
@@ -142,13 +140,13 @@ export default function ManageService() {
           <SidebarInset>
             <div className='flex flex-1 flex-col gap-4 p-4'>
               {/* Buttons for other Functionalities */}
-              <div class="flex space-x-4 p-4 bg-muted/50 rounded-lg">
+              <div className="flex space-x-4 p-4 bg-muted/50 rounded-lg">
                 <Button onClick={() => navigate("/create-service")} className="rounded-xl">Create Service</Button>
                 <Button onClick={() => navigate("/reorder-service")} className="rounded-xl">Reorder Service</Button>
                 <Button className="rounded-xl">Manage Categories</Button>
               </div>
               {/* Filter */}
-              <div class="flex space-x-4 p-4 bg-muted/50 rounded-lg">
+              <div className="flex space-x-4 p-4 bg-muted/50 rounded-lg">
                 {/* Search bar */}
                 <input
                   type="text"
@@ -302,11 +300,12 @@ export default function ManageService() {
                       value={itemsPerPage}
                       onChange={(e) => {
                         setItemsPerPage(Number(e.target.value));
-                      setCurrentPage(1);}
-                    }
+                        setCurrentPage(1);
+                      }
+                      }
                       className="border rounded p-1"
                     >
-                      {[5, 10, 20, 25, 50, 100].map((num) => (
+                      {[5, 10, 20, 50, 100].map((num) => (
                         <option key={num} value={num}>{num}</option>
                       ))}
                     </select>
