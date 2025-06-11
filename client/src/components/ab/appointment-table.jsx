@@ -1,7 +1,7 @@
 import { useState, useEffect } from 'react';
 import { Button } from "@/components/ui/button";
 import {
-  Calendar,
+  Calendar1Icon,
   ChevronLeft,
   ChevronRight,
   MoreHorizontal,
@@ -13,6 +13,9 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { Alert, AlertDescription } from "@/components/ui/alert";
 import { cn } from "@/lib/utils";
+import EmployeeSelect from '@/components/ui/forms/EmployeeSelect';
+import api from '@/services/api';
+import { Calendar } from "@/components/ui/calendar"
 
 // Helper function to format time
 const formatTime = (dateString) => {
@@ -78,33 +81,22 @@ export function AppointmentTable() {
   // Fetch staff data using your existing employee store
   const fetchStaff = async () => {
     try {
-      // Use your existing employee API endpoint
-      const response = await fetch('/api/employees');
-      if (!response.ok) throw new Error('Failed to fetch staff');
-      const data = await response.json();
-      
+      const response = await api.get('/employee/dropdown');
+
+
+      const data = await response.data;
+
       // Transform employee data to match the expected format
       const transformedStaff = data.map((employee, index) => ({
         id: parseInt(employee.id),
         name: employee.employee_name,
-        role: employee.position || "Staff", 
         avatar: `/avatars/${employee.employee_name.toLowerCase().replace(/\s+/g, '')}.jpg`,
         color: `bg-${['blue', 'green', 'purple', 'orange', 'pink', 'indigo'][index % 6]}-100`
       }));
-      
+
       setStaff(transformedStaff);
     } catch (err) {
-      // Use staff data that matches your actual API responses
-      setStaff([
-        { id: 5, name: "CHLOE WONG", role: "Therapist", avatar: "/avatars/chloe.jpg", color: "bg-blue-100" },
-        { id: 6, name: "DARREN NG", role: "Therapist", avatar: "/avatars/darren.jpg", color: "bg-green-100" },
-        { id: 7, name: "ISABELLE CHUA", role: "Therapist", avatar: "/avatars/isabelle.jpg", color: "bg-purple-100" },
-        { id: 8, name: "ETHAN KOH", role: "Therapist", avatar: "/avatars/ethan.jpg", color: "bg-orange-100" },
-        { id: 10, name: "RYAN LEE", role: "Therapist", avatar: "/avatars/ryan.jpg", color: "bg-pink-100" },
-        { id: 11, name: "JASMINE LOW", role: "Therapist", avatar: "/avatars/jasmine.jpg", color: "bg-indigo-100" },
-        { id: 14, name: "TINA", role: "Therapist", avatar: "/avatars/tina.jpg", color: "bg-red-100" }
-      ]);
-      setError('Failed to load staff data, using fallback');
+      setError(err.message);
     }
   };
 
@@ -114,14 +106,12 @@ export function AppointmentTable() {
     setError('');
     try {
       const dateString = selectedDate.toISOString().split('T')[0];
-      const response = await fetch(`/api/appointments/date/${dateString}`);
-      
-      if (!response.ok) {
-        throw new Error('Failed to fetch appointments');
-      }
-      
-      const data = await response.json();
-      
+      console.log('Fetching appointments for date:', dateString);
+      const response = await api.get(`ab/date/${dateString}`);
+
+      console.log('Fetch appointments response:', response);
+      const data = await response.data;
+
       // Transform the API data to match component expectations
       const transformedAppointments = data.data ? data.data.map(transformAppointment) : [];
       setAppointments(transformedAppointments);
@@ -202,114 +192,6 @@ export function AppointmentTable() {
     );
   };
 
-  // Calendar component for date selection
-  const CalendarView = ({ currentDate, onDateChange, onClose }) => {
-    const [viewMonth, setViewMonth] = useState(new Date(currentDate));
-    const weekDays = ['S', 'M', 'T', 'W', 'T', 'F', 'S'];
-    const monthName = viewMonth.toLocaleString('default', { month: 'long', year: 'numeric' });
-
-    const previousMonth = () => {
-      const newMonth = new Date(viewMonth);
-      newMonth.setMonth(viewMonth.getMonth() - 1);
-      setViewMonth(newMonth);
-    };
-
-    const nextMonth = () => {
-      const newMonth = new Date(viewMonth);
-      newMonth.setMonth(viewMonth.getMonth() + 1);
-      setViewMonth(newMonth);
-    };
-
-    const generateCalendarDays = () => {
-      const year = viewMonth.getFullYear();
-      const month = viewMonth.getMonth();
-      const daysInMonth = getDaysInMonth(year, month);
-      const firstDay = getFirstDayOfMonth(year, month);
-      const days = [];
-
-      // Add empty cells for days before the first day of the month
-      for (let i = 0; i < firstDay; i++) {
-        days.push({ day: null, isCurrentMonth: false });
-      }
-
-      // Add days of the current month
-      for (let i = 1; i <= daysInMonth; i++) {
-        const dayDate = new Date(year, month, i);
-        days.push({
-          day: i,
-          isCurrentMonth: true,
-          isToday: new Date().getDate() === i &&
-            new Date().getMonth() === month &&
-            new Date().getFullYear() === year,
-          isSelected: currentDate.getDate() === i &&
-            currentDate.getMonth() === month &&
-            currentDate.getFullYear() === year,
-          date: dayDate,
-          hasAppointments: getAppointmentsForDate(dayDate).length > 0
-        });
-      }
-
-      // Fill out the rest of the last week
-      const remainingCells = 7 - (days.length % 7);
-      if (remainingCells < 7) {
-        for (let i = 0; i < remainingCells; i++) {
-          days.push({ day: null, isCurrentMonth: false });
-        }
-      }
-
-      return days;
-    };
-
-    const handleDateClick = (calendarDate) => {
-      onDateChange(calendarDate);
-      onClose();
-    };
-
-    const days = generateCalendarDays();
-
-    return (
-      <div className="w-full">
-        <div className="p-2 flex items-center justify-between border-b">
-          <h3 className="font-medium text-sm">{monthName}</h3>
-          <div className="flex gap-1">
-            <Button variant="ghost" size="icon" className="h-6 w-6" onClick={previousMonth}>
-              <ChevronLeft className="h-3 w-3" />
-            </Button>
-            <Button variant="ghost" size="icon" className="h-6 w-6" onClick={nextMonth}>
-              <ChevronRight className="h-3 w-3" />
-            </Button>
-          </div>
-        </div>
-        {/* Week days header */}
-        <div className="grid grid-cols-7 text-center py-1">
-          {weekDays.map((day, index) => (
-            <div key={index} className="text-xs font-medium text-muted-foreground">
-              {day}
-            </div>
-          ))}
-        </div>
-        {/* Calendar days */}
-        <div className="grid grid-cols-7 gap-1 p-2">
-          {days.map((day, index) => (
-            <div
-              key={index}
-              className={cn(
-                "h-7 w-7 flex items-center justify-center rounded-full text-xs",
-                day.isCurrentMonth ? "cursor-pointer" : "text-muted-foreground/30",
-                day.isSelected ? "bg-primary text-primary-foreground" : "",
-                day.isToday && !day.isSelected ? "border border-primary text-primary" : "",
-                day.hasAppointments && !day.isSelected ? "font-bold" : "",
-                !day.isCurrentMonth ? "invisible" : ""
-              )}
-              onClick={() => day.isCurrentMonth && handleDateClick(day.date)}
-            >
-              {day.day}
-            </div>
-          ))}
-        </div>
-      </div>
-    );
-  };
 
   // Get staff member by ID
   const getStaffById = (id) => {
@@ -339,15 +221,25 @@ export function AppointmentTable() {
           </Select>
           <Popover open={calendarOpen} onOpenChange={setCalendarOpen}>
             <PopoverTrigger asChild>
-              <Button variant="outline" size="icon" className="h-8 w-8">
-                <Calendar className="h-4 w-4" />
+              <Button
+                variant="outline"
+                size="icon"
+                className="h-8 w-8"
+              >
+                <Calendar1Icon className="h-4 w-4" />
               </Button>
             </PopoverTrigger>
-            <PopoverContent className="w-auto p-0" align="end">
-              <CalendarView
-                currentDate={date}
-                onDateChange={setDate}
-                onClose={() => setCalendarOpen(false)}
+            <PopoverContent className="w-auto overflow-hidden p-0" align="start" side="bottom">
+              <Calendar
+                mode="single"
+                selected={date}
+                captionLayout="dropdown"
+                onSelect={(selectedDate) => {
+                  if (selectedDate) {
+                    setDate(selectedDate);
+                    setCalendarOpen(false);
+                  }
+                }}
               />
             </PopoverContent>
           </Popover>
