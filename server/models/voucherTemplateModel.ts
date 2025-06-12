@@ -400,6 +400,7 @@ const getAllVoucherTemplatesForDropdown = async () => {
         voucher_template_name,
         default_starting_balance
       FROM voucher_templates
+      wHERE status = 'is_enabled'
       ORDER BY voucher_template_name;
     `;
 
