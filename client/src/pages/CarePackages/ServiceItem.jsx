@@ -184,7 +184,7 @@ const ServiceItem = ({ service, index, isEditing, onEdit, onSave, onCancel, onRe
           <div className='mb-4 p-2 bg-gray-50 rounded-md'>
             <div className='flex items-center text-xs text-gray-600'>
               <Clock className='h-3 w-3 mr-1' />
-              Last updated: {formatDate(service.updated_at)}
+              Service last updated: {formatDate(service.updated_at)}
               {service.updated_by_name && ` by ${service.updated_by_name}`}
             </div>
           </div>
@@ -335,28 +335,6 @@ const ServiceItem = ({ service, index, isEditing, onEdit, onSave, onCancel, onRe
             </div>
           </div>
         </div>
-
-        {/* service description/remarks if available */}
-        {(service.service_description || service.service_remarks) && (
-          <div className='mt-4 pt-4 border-t border-gray-100'>
-            {service.service_description && (
-              <div className='mb-2'>
-                <label className='block text-xs font-medium text-gray-600 mb-1'>Description</label>
-                <div className='text-xs text-gray-700 bg-gray-50 p-2 rounded'>
-                  {service.service_description}
-                </div>
-              </div>
-            )}
-            {service.service_remarks && (
-              <div>
-                <label className='block text-xs font-medium text-gray-600 mb-1'>Remarks</label>
-                <div className='text-xs text-gray-700 bg-gray-50 p-2 rounded'>
-                  {service.service_remarks}
-                </div>
-              </div>
-            )}
-          </div>
-        )}
       </div>
     </FormProvider>
   );

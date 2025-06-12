@@ -1,4 +1,4 @@
-import React, { useEffect } from 'react';
+import React, { useEffect, useState } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import { ArrowLeft, Edit, Trash2, Package } from 'lucide-react';
 import { AppSidebar } from '@/components/app-sidebar';
@@ -10,13 +10,21 @@ import { ErrorState } from '@/components/ErrorState';
 import { LoadingState } from '@/components/LoadingState';
 import { NotFoundState } from '@/components/NotFoundState';
 import { useCpSpecificStore } from '@/stores/useCpSpecificStore';
+import { useCpFormStore } from '@/stores/useCpFormStore';
+import ServiceItem from '@/pages/CarePackages/ServiceItem';
 import useAuth from '@/hooks/useAuth';
 
 const ViewCarePackageDetailsPage = () => {
   const { id } = useParams();
   const { currentPackage, isLoading, error, fetchPackageById, clearCurrentPackage, clearError } = useCpSpecificStore();
+  const { getEnabledServiceById } = useCpFormStore();
   const { statuses } = useAuth();
   const navigate = useNavigate();
+
+  // State for service names and complete service data
+  const [serviceNames, setServiceNames] = useState({});
+  const [serviceData, setServiceData] = useState({});
+  const [loadingServiceNames, setLoadingServiceNames] = useState(false);
 
   useEffect(() => {
     if (id) {
@@ -29,6 +37,59 @@ const ViewCarePackageDetailsPage = () => {
       clearError();
     };
   }, [id, fetchPackageById, clearCurrentPackage, clearError]);
+
+  useEffect(() => {
+    const fetchServiceNames = async () => {
+      if (!currentPackage?.details) return;
+
+      setLoadingServiceNames(true);
+      try {
+        const serviceIds = [...new Set(currentPackage.details.map((d) => d.service_id))];
+        const servicePromises = serviceIds.map(async (serviceId) => {
+          try {
+            const serviceData = await getEnabledServiceById(serviceId);
+            return {
+              id: serviceId,
+              name: serviceData.service_name || `Service ${serviceId}`,
+              data: serviceData,
+            };
+          } catch (error) {
+            console.error(`Error fetching service ${serviceId}:`, error);
+            return {
+              id: serviceId,
+              name: `Service ${serviceId}`,
+              error: true,
+            };
+          }
+        });
+
+        const serviceResponses = await Promise.all(servicePromises);
+
+        const serviceMap = {};
+        const serviceDataMap = {};
+        serviceResponses.forEach((response) => {
+          serviceMap[response.id] = response.name;
+          if (response.data) {
+            serviceDataMap[response.id] = response.data;
+          }
+        });
+
+        setServiceNames(serviceMap);
+        setServiceData(serviceDataMap);
+      } catch (error) {
+        console.error('Error fetching service names:', error);
+        const fallbackMap = {};
+        currentPackage.details.forEach((detail) => {
+          fallbackMap[detail.service_id] = `Service ${detail.service_id}`;
+        });
+        setServiceNames(fallbackMap);
+      } finally {
+        setLoadingServiceNames(false);
+      }
+    };
+
+    fetchServiceNames();
+  }, [currentPackage?.details, getEnabledServiceById]);
 
   const handleEdit = (id) => {
     navigate(`/cp/${id}/edit`);
@@ -51,6 +112,30 @@ const ViewCarePackageDetailsPage = () => {
     }
   };
 
+  // transform package details to match ServiceItem expected format
+  const transformPackageDetailsToServices = (packageDetails) => {
+    return packageDetails.map((detail, index) => {
+      const serviceInfo = serviceData[detail.service_id] || {};
+
+      return {
+        id: detail.service_id,
+        name: serviceNames[detail.service_id] || `Service ${detail.service_id}`,
+        quantity: parseInt(detail.care_package_item_details_quantity) || 1,
+        price: parseFloat(detail.care_package_item_details_price) || 0,
+        originalPrice: parseFloat(serviceInfo.service_price) || parseFloat(detail.care_package_item_details_price) || 0,
+        discount: parseFloat(detail.care_package_item_details_discount) || 1,
+        service_description: serviceInfo.service_description || '',
+        service_remarks: serviceInfo.service_remarks || detail.care_package_item_details_remarks || '',
+        service_duration: serviceInfo.service_duration || 45,
+        service_category_name: serviceInfo.service_category_name || '',
+        updated_at: serviceInfo.updated_at || null,
+        updated_by_name: serviceInfo.last_updated_by_name || null,
+        created_at: serviceInfo.created_at || null,
+        created_by_name: serviceInfo.created_by_name || null,
+      };
+    });
+  };
+
   const renderMainContent = () => {
     // show loading state
     if (isLoading) {
@@ -69,6 +154,7 @@ const ViewCarePackageDetailsPage = () => {
 
     const packageData = currentPackage.package;
     const packageDetails = currentPackage.details || [];
+    const transformedServices = transformPackageDetailsToServices(packageDetails);
 
     const getStatusById = (id) => {
       if (!statuses || statuses.length === 0) return null;
@@ -76,6 +162,14 @@ const ViewCarePackageDetailsPage = () => {
     };
 
     const currentStatus = getStatusById(packageData.status_id);
+
+    // calculate total package value
+    const calculateTotalValue = () => {
+      return transformedServices.reduce((total, service) => {
+        const unitPrice = service.price * service.discount;
+        return total + unitPrice * service.quantity;
+      }, 0);
+    };
 
     return (
       <div className='min-h-screen bg-gray-50'>
@@ -95,7 +189,7 @@ const ViewCarePackageDetailsPage = () => {
             </div>
             <div className='flex space-x-2'>
               <Button
-                onClick={() => handleEdit(packageData.id)} // ← Pass the actual ID
+                onClick={() => handleEdit(packageData.id)}
                 className='flex items-center bg-gray-900 hover:bg-black text-white text-sm px-3 py-2'
               >
                 <Edit className='w-4 h-4 mr-1' />
@@ -112,6 +206,7 @@ const ViewCarePackageDetailsPage = () => {
         {/* main content */}
         <div className='max-w-7xl mx-auto px-4 py-2'>
           <div className='space-y-3'>
+            {/* Package Information Card */}
             <Card className='border-gray-200 shadow-sm'>
               <CardHeader className='border-b border-gray-100 px-4 py-1'>
                 <CardTitle className='flex items-center text-gray-900 text-base font-semibold'>
@@ -156,23 +251,31 @@ const ViewCarePackageDetailsPage = () => {
                   </div>
 
                   <div>
-                    <label className='block text-xs font-medium text-gray-600 mb-1'>PRICE</label>
+                    <label className='block text-xs font-medium text-gray-600 mb-1'>PACKAGE PRICE</label>
                     <div className='text-gray-900 font-semibold px-2 py-1 bg-white border border-gray-200 rounded text-sm'>
-                      ${packageData.care_package_price || 0}
+                      ${parseFloat(packageData.care_package_price || 0).toFixed(2)}
                     </div>
                   </div>
 
                   <div>
-                    <label className='block text-xs font-medium text-gray-600 mb-1'>CREATED BY</label>
-                    <div className='text-gray-700 px-2 py-1 bg-gray-50 rounded text-xs'>
-                      User ID: {packageData.created_by}
+                    <label className='block text-xs font-medium text-gray-600 mb-1'>CALCULATED TOTAL</label>
+                    <div className='text-gray-900 font-semibold px-2 py-1 bg-green-50 border border-green-200 rounded text-sm'>
+                      ${calculateTotalValue().toFixed(2)}
                     </div>
                   </div>
 
                   <div>
-                    <label className='block text-xs font-medium text-gray-600 mb-1'>UPDATED BY</label>
-                    <div className='text-gray-700 px-2 py-1 bg-gray-50 rounded text-xs'>
-                      User ID: {packageData.last_updated_by}
+                    <label className='block text-xs font-medium text-gray-600 mb-1'>PRICE VARIANCE</label>
+                    <div
+                      className={`px-2 py-1 rounded text-sm font-medium ${
+                        Math.abs(parseFloat(packageData.care_package_price || 0) - calculateTotalValue()) < 0.01
+                          ? 'bg-green-50 border border-green-200 text-green-700'
+                          : 'bg-yellow-50 border border-yellow-200 text-yellow-700'
+                      }`}
+                    >
+                      {Math.abs(parseFloat(packageData.care_package_price || 0) - calculateTotalValue()) < 0.01
+                        ? 'Matches'
+                        : `$${(parseFloat(packageData.care_package_price || 0) - calculateTotalValue()).toFixed(2)}`}
                     </div>
                   </div>
                 </div>
@@ -186,7 +289,29 @@ const ViewCarePackageDetailsPage = () => {
                   </div>
                 )}
 
-                <div className='grid grid-cols-1 md:grid-cols-2 gap-4 mt-4 pt-4 border-t border-gray-200'>
+                <div className='grid grid-cols-1 md:grid-cols-4 gap-4 mt-4 pt-4 border-t border-gray-200'>
+                  <div>
+                    <label className='block text-xs font-medium text-gray-600 mb-1'>CREATED BY</label>
+                    <div className='text-gray-700 px-2 py-1 bg-gray-50 rounded text-xs'>
+                      {packageData.created_by_name ? (
+                        <span>{packageData.created_by_name}</span>
+                      ) : (
+                        <span>User ID: {packageData.created_by}</span>
+                      )}
+                    </div>
+                  </div>
+
+                  <div>
+                    <label className='block text-xs font-medium text-gray-600 mb-1'>UPDATED BY</label>
+                    <div className='text-gray-700 px-2 py-1 bg-gray-50 rounded text-xs'>
+                      {packageData.last_updated_by_name ? (
+                        <span>{packageData.last_updated_by_name}</span>
+                      ) : (
+                        <span>User ID: {packageData.last_updated_by}</span>
+                      )}
+                    </div>
+                  </div>
+
                   <div>
                     <label className='block text-xs font-medium text-gray-600 mb-1'>CREATED AT</label>
                     <div className='text-gray-600 text-sm px-2 py-1 bg-gray-50 rounded border border-gray-200'>
@@ -204,62 +329,49 @@ const ViewCarePackageDetailsPage = () => {
               </CardContent>
             </Card>
 
+            {/* package services card */}
             <Card className='border-gray-200 shadow-sm'>
               <CardHeader className='border-b border-gray-100 px-4 py-1'>
-                <CardTitle className='text-gray-900 text-base font-semibold'>Package Item Details</CardTitle>
+                <CardTitle className='text-gray-900 text-base font-semibold'>
+                  Package Services ({transformedServices.length} service{transformedServices.length !== 1 ? 's' : ''})
+                </CardTitle>
               </CardHeader>
               <CardContent className='p-3'>
-                {packageDetails.length > 0 ? (
+                {transformedServices.length > 0 ? (
                   <div className='space-y-3'>
-                    {packageDetails.map((detail, index) => (
-                      <div key={detail.id} className='border border-gray-200 rounded p-3 bg-gray-50/30'>
-                        <div className='flex items-center justify-between mb-3'>
-                          <h4 className='text-sm font-semibold text-gray-900'>Item {index + 1}</h4>
-                          <span className='text-xs text-gray-500 bg-white px-2 py-1 rounded border'>
-                            ID: {detail.id}
-                          </span>
-                        </div>
-                        <div className='grid grid-cols-2 md:grid-cols-4 gap-3'>
-                          <div>
-                            <label className='block text-xs font-medium text-gray-600 mb-1'>SERVICE ID</label>
-                            <div className='text-gray-900 px-2 py-1 bg-white rounded border text-sm'>
-                              {detail.service_id}
-                            </div>
-                          </div>
-                          <div>
-                            <label className='block text-xs font-medium text-gray-600 mb-1'>PRICE</label>
-                            <div className='text-gray-900 font-semibold px-2 py-1 bg-white rounded border text-sm'>
-                              ${detail.care_package_item_details_price}
-                            </div>
-                          </div>
-                          <div>
-                            <label className='block text-xs font-medium text-gray-600 mb-1'>DISCOUNT</label>
-                            <div className='text-gray-900 px-2 py-1 bg-white rounded border text-sm'>
-                              {detail.care_package_item_details_discount}%
-                            </div>
-                          </div>
-                          <div>
-                            <label className='block text-xs font-medium text-gray-600 mb-1'>QUANTITY</label>
-                            <div className='text-gray-900 px-2 py-1 bg-white rounded border text-sm'>
-                              {detail.care_package_item_details_quantity || 'N/A'}
-                            </div>
-                          </div>
-                        </div>
-                        {detail.care_package_item_details_remarks && (
-                          <div className='mt-3'>
-                            <label className='block text-xs font-medium text-gray-600 mb-1'>ITEM REMARKS</label>
-                            <div className='text-gray-700 px-2 py-1 bg-white rounded border text-sm'>
-                              {detail.care_package_item_details_remarks}
-                            </div>
-                          </div>
-                        )}
+                    {loadingServiceNames && (
+                      <div className='text-sm text-blue-600 mb-2'>Loading service details...</div>
+                    )}
+
+                    <style jsx>{`
+                      .view-only-service-item .action-buttons,
+                      .view-only-service-item button[title='Edit service'],
+                      .view-only-service-item button[title='Remove service'] {
+                        display: none !important;
+                      }
+                    `}</style>
+                    {transformedServices.map((service, index) => (
+                      <div key={`${service.id}-${index}`} className='view-only-service-item'>
+                        <ServiceItem
+                          service={service}
+                          index={index}
+                          isEditing={false}
+                          onEdit={() => {}}
+                          onSave={() => {}}
+                          onCancel={() => {}}
+                          onRemove={() => {}}
+                        />
                       </div>
                     ))}
                   </div>
                 ) : (
-                  <div className='text-center py-6'>
-                    <Package className='w-6 h-6 text-gray-400 mx-auto mb-2' />
-                    <p className='text-gray-500 text-sm'>No item details available</p>
+                  <div className='text-center py-8'>
+                    <Package className='w-8 h-8 text-gray-400 mx-auto mb-3' />
+                    <p className='text-gray-500 text-sm'>No services found in this package</p>
+                    <p className='text-gray-400 text-xs mt-1'>
+                      This package may have been created without services or there was an error loading the service
+                      details.
+                    </p>
                   </div>
                 )}
               </CardContent>
