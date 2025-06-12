@@ -87,34 +87,66 @@ export const useCpFormStore = create(
         `updateServiceFormField/${field}`
       ),
 
-    selectService: async (service) => {
-      try {
-        const response = await api.get('/service/' + service.id);
+    // selectService function (keeping for backward compatibility)
+    selectService: (service) => {
 
-        const serviceData = response.data;
-        // console.log(serviceData);
-
-        const newPrice = parseFloat(serviceData.service_price) || 0;
-        const newDiscountFactor = 1;
-
-        set(
-          {
-            serviceForm: {
-              id: serviceData.id,
-              name: serviceData.service_name,
-              price: newPrice,
-              quantity: 1, // Default quantity
-              discount: newDiscountFactor, // Default discount factor
-              finalPrice: newPrice * newDiscountFactor, // Calculated final unit price
-            },
-          },
-          false,
-          `selectService/${serviceData.id}`
+      set((state) => {
+        const servicePrice = parseFloat(
+          service.service_price || 
+            service.originalPrice || 
+            0
         );
+
+        const updatedServiceForm = {
+          ...state.serviceForm,
+          id: service.id,
+          name: service.service_name || service.name || service.label,
+          label: service.service_name || service.name || service.label,
+          price: servicePrice,
+          originalPrice: servicePrice, // store original price
+          discount: state.serviceForm.discount || 1,
+          quantity: state.serviceForm.quantity || 1,
+          // additional service properties
+          service_name: service.service_name || service.name || service.label,
+          service_price: servicePrice,
+          service_description: service.service_description,
+          service_remarks: service.service_remarks,
+          duration: parseInt(service.service_duration || service.duration || 45),
+          service_duration: service.service_duration || service.duration,
+          updated_at: service.updated_at,
+          created_at: service.created_at,
+          service_category_id: service.service_category_id,
+          service_category_name: service.service_category_name,
+          created_by_name: service.created_by_name,
+          updated_by_name: service.updated_by_name,
+        };
+
+        console.log('Updated service form in store:', updatedServiceForm); // Debug log
+
+        return {
+          serviceForm: updatedServiceForm,
+        };
+      });
+    },
+
+    // get enabled service by ID
+    getEnabledServiceById: async (serviceId) => {
+      set({ isLoading: true, error: null }, false, `getEnabledServiceById/${serviceId}/pending`);
+
+      try {
+        const response = await api.get(`/service/enabled-id/${serviceId}`);
+        const serviceData = response.data;
+
+        console.log('Enabled service data:', serviceData);
+
+        set({ isLoading: false }, false, `getEnabledServiceById/${serviceId}/fulfilled`);
+
+        return serviceData;
       } catch (error) {
-        const errorMessage = error.response?.data?.message || error.message || 'An unknown error occurred';
-        set({ error: errorMessage, isLoading: false }, false, 'fetchServiceDetails/rejected');
-        console.error('Error fetching service details:', error);
+        const errorMessage = error.response?.data?.message || error.message || 'Failed to fetch enabled service';
+        set({ error: errorMessage, isLoading: false }, false, `getEnabledServiceById/${serviceId}/rejected`);
+        console.error('Error fetching enabled service:', error);
+        throw error;
       }
     },
 
@@ -212,21 +244,26 @@ export const useCpFormStore = create(
     fetchServiceOptions: async () => {
       set({ isLoading: true, error: null }, false, 'fetchServiceOptions/pending');
       try {
-        const response = await api('/service/dropdown');
-        // console.log(response);
+        const response = await api.get('/service/dropdown');
 
-        const formattedOptions = response.data.map((service) => ({
+        const transformedOptions = response.data.map((service) => ({
           id: service.id,
           label: service.service_name,
+          name: service.service_name,
+          price: parseFloat(service.service_price) || 0,
+          originalPrice: parseFloat(service.service_price) || 0,
         }));
-        set({ serviceOptions: formattedOptions, isLoading: false }, false, 'fetchServiceOptions/fulfilled');
+
+        console.log('Transformed service options:', transformedOptions);
+
+        set({ serviceOptions: transformedOptions, isLoading: false }, false, 'fetchServiceOptions/fulfilled');
       } catch (error) {
         const errorMessage = error.response?.data?.message || error.message || 'An unknown error occurred';
         set({ error: errorMessage, isLoading: false }, false, 'fetchServiceOptions/rejected');
         console.error('Error fetching service options:', error);
       }
     },
-
+    
     submitPackage: async (packageData) => {
       set({ isLoading: true, error: null });
       try {

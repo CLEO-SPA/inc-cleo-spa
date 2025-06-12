@@ -11,8 +11,8 @@ const ServiceSelection = ({
   onAddService,
   onClearForm,
   calculateServiceTotal,
-  showOriginalPrice = false, // for edit mode
-  getDiscountPercentage, // for create mode (discount factor display)
+  showOriginalPrice = false,
+  getDiscountPercentage,
   className = "",
 }) => {
   const [showServiceDropdown, setShowServiceDropdown] = useState(false);
@@ -20,22 +20,65 @@ const ServiceSelection = ({
 
   // filter service options based on search input
   const filteredServiceOptions = serviceOptions.filter((option) =>
-    option.label.toLowerCase().includes(serviceSearch.toLowerCase())
+    option.service_name?.toLowerCase().includes(serviceSearch.toLowerCase()) ||
+    option.label?.toLowerCase().includes(serviceSearch.toLowerCase()) ||
+    option.name?.toLowerCase().includes(serviceSearch.toLowerCase()) ||
+    option.service_category_name?.toLowerCase().includes(serviceSearch.toLowerCase())
   );
 
   // handle service selection from dropdown
   const handleServiceSelect = (service) => {
-    onServiceSelect(service);
+    const servicePrice = parseFloat(
+      service.service_price || 
+      service.originalPrice || 
+      0
+    );
+
+    const normalizedService = {
+      id: service.id,
+      name: service.service_name || service.label || service.name,
+      label: service.service_name || service.label || service.name,
+      price: servicePrice,
+      // original properties for backward compatibility
+      service_name: service.service_name || service.name || service.label,
+      service_price: servicePrice,
+      originalPrice: servicePrice, // set original price for reference
+      service_description: service.service_description,
+      service_remarks: service.service_remarks,
+      duration: parseInt(service.service_duration || service.duration || 45),
+      service_duration: service.service_duration || service.duration,
+      updated_at: service.updated_at,
+      created_at: service.created_at,
+      service_category_id: service.service_category_id,
+      service_category_name: service.service_category_name,
+      created_by_name: service.created_by_name,
+      updated_by_name: service.updated_by_name,
+    };
+    
+
+    onServiceSelect(normalizedService);
     setShowServiceDropdown(false);
     setServiceSearch('');
   };
 
   // handle adding service
   const handleAddService = () => {
-    if (serviceForm.id && serviceForm.name && serviceForm.quantity > 0) {
+    const hasValidId = serviceForm.id && serviceForm.id !== '';
+    const hasValidName = serviceForm.name && serviceForm.name !== '';
+    const hasValidQuantity = serviceForm.quantity && serviceForm.quantity > 0;
+    
+    if (hasValidId && hasValidName && hasValidQuantity) {
       onAddService();
+    } else {
+      console.log('Cannot add service - missing required fields:', {
+        id: serviceForm.id,
+        name: serviceForm.name,
+        quantity: serviceForm.quantity,
+        checks: { hasValidId, hasValidName, hasValidQuantity }
+      });
     }
   };
+
   const gridCols = showOriginalPrice ? 'md:grid-cols-6' : 'md:grid-cols-5';
 
   return (
@@ -72,21 +115,36 @@ const ServiceSelection = ({
                   </div>
                 </div>
                 <div className="max-h-40 overflow-y-auto">
-                  {filteredServiceOptions.map((option) => (
-                    <button
-                      key={option.id}
-                      type="button"
-                      onClick={() => handleServiceSelect(option)}
-                      className="w-full px-3 py-2 text-left hover:bg-gray-50 focus:bg-gray-50 focus:outline-none text-xs"
-                    >
-                      <div className="font-medium text-gray-900">{option.label}</div>
-                      {showOriginalPrice && (
+                  {filteredServiceOptions.map((option) => {
+                    // get the display name and price with fallbacks for both formats
+                    const displayName = option.service_name || option.label || option.name || 'Unknown Service';
+                    const displayPrice = parseFloat(
+                      option.service_price || 
+                      option.originalPrice ||
+                      0
+                    );
+                    const updatedDate = option.updated_at ? new Date(option.updated_at).toLocaleDateString() : '';
+                    
+                    return (
+                      <button
+                        key={option.id}
+                        type="button"
+                        onClick={() => handleServiceSelect(option)}
+                        className="w-full px-3 py-2 text-left hover:bg-gray-50 focus:bg-gray-50 focus:outline-none text-xs"
+                      >
+                        <div className="font-medium text-gray-900">{displayName}</div>
                         <div className="text-gray-500">
-                          ID: {option.id} | Price: ${option.price}
+                          ID: {option.id} | Price: ${displayPrice.toFixed(2)}
+                          {updatedDate && ` | Updated: ${updatedDate}`}
                         </div>
-                      )}
-                    </button>
-                  ))}
+                        {option.service_category_name && (
+                          <div className="text-gray-400 text-xs">
+                            Category: {option.service_category_name}
+                          </div>
+                        )}
+                      </button>
+                    );
+                  })}
                   {filteredServiceOptions.length === 0 && (
                     <div className="px-3 py-2 text-xs text-gray-500">No services found</div>
                   )}
@@ -101,7 +159,7 @@ const ServiceSelection = ({
           <label className="block text-xs font-medium text-gray-600 mb-1">QUANTITY</label>
           <input
             type="number"
-            value={serviceForm.quantity}
+            value={serviceForm.quantity || ''}
             onChange={(e) => {
               const value = e.target.value;
               if (showOriginalPrice) {
@@ -157,7 +215,7 @@ const ServiceSelection = ({
             <DollarSign className="h-4 w-4 text-gray-400 absolute left-2 top-1/2 transform -translate-y-1/2" />
             <input
               type="number"
-              value={serviceForm.price}
+              value={serviceForm.price || ''}
               onChange={(e) => onFieldUpdate('price', parseFloat(e.target.value) || 0)}
               className="w-full pl-7 pr-2 py-1 border border-gray-200 rounded text-sm focus:outline-none focus:ring-2 focus:ring-gray-500 focus:border-transparent"
               min="0"
@@ -182,7 +240,7 @@ const ServiceSelection = ({
           <div className="relative">
             <input
               type="number"
-              value={serviceForm.discount}
+              value={serviceForm.discount !== undefined ? serviceForm.discount : ''}
               onChange={(e) => {
                 if (showOriginalPrice) {
                   onFieldUpdate('discount', e.target.value === '' ? '' : parseFloat(e.target.value) || 0);

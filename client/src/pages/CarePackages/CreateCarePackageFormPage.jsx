@@ -72,11 +72,6 @@ const CarePackageCreateForm = () => {
     fetchServiceOptions();
   }, [fetchServiceOptions]);
 
-  // filter service options based on search input
-  const filteredServiceOptions = serviceOptions.filter((option) =>
-    option.label.toLowerCase().includes(serviceSearch.toLowerCase())
-  );
-
   // calculate total package price using discount factor
   const calculateTotalPrice = () => {
     return mainFormData.services.reduce((total, service) => {
@@ -149,7 +144,41 @@ const CarePackageCreateForm = () => {
 
   // handle service selection from dropdown
   const handleServiceSelect = (service) => {
-    selectService(service);
+    if (!service || !service.id) {
+      console.error('Invalid service object:', service);
+      return;
+    }
+
+    const servicePrice = parseFloat(
+      service.service_price || 
+        service.originalPrice || 
+        0
+    );
+
+    // create a normalized service object with all the required properties
+    const serviceToSelect = {
+      id: service.id,
+      name: service.service_name || service.name || service.label || 'Unknown Service',
+      label: service.service_name || service.name || service.label || 'Unknown Service',
+      price: servicePrice,
+      // store original price for reference
+      originalPrice: servicePrice,
+      // additional service properties
+      service_name: service.service_name || service.name || service.label,
+      service_price: servicePrice,
+      service_description: service.service_description,
+      service_remarks: service.service_remarks,
+      duration: parseInt(service.service_duration || service.duration || 45),
+      service_duration: service.service_duration || service.duration,
+      updated_at: service.updated_at,
+      created_at: service.created_at,
+      service_category_id: service.service_category_id,
+      service_category_name: service.service_category_name,
+      created_by_name: service.created_by_name,
+      updated_by_name: service.updated_by_name,
+    };
+
+    selectService(serviceToSelect);
     setShowServiceDropdown(false);
     setServiceSearch('');
   };
@@ -428,7 +457,7 @@ const CarePackageCreateForm = () => {
                 />
               </CardContent>
             </Card>
-            
+
             {/* services list*/}
             {mainFormData.services.length > 0 && (
               <Card className='border-gray-200 shadow-sm'>

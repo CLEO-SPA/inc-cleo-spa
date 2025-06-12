@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { Trash2, Edit3, Save, X } from 'lucide-react';
+import { Trash2, Edit3, Save, X, Clock, Tag } from 'lucide-react';
 import ServiceSelect from '@/components/ui/forms/ServiceSelect';
 import { FormProvider, useForm } from 'react-hook-form';
 
@@ -11,9 +11,8 @@ const ServiceItem = ({ service, index, isEditing, onEdit, onSave, onCancel, onRe
     service_id: service.id,
   });
 
-  // Original price should come from the service data and never be modified
-  // This represents the service's base price from the database
-  const originalServicePrice = service.originalPrice || service.price;
+  // original price should comes from the service data and never be modified
+  const originalServicePrice = service.originalPrice || service.service_price || service.price;
 
   // form methods for ServiceSelect
   const methods = useForm({
@@ -22,12 +21,12 @@ const ServiceItem = ({ service, index, isEditing, onEdit, onSave, onCancel, onRe
     },
   });
 
-  // Reset editData when service prop changes or when starting to edit
+  // reset editData when service prop changes or when starting to edit
   useEffect(() => {
     if (isEditing) {
       setEditData({
         quantity: service.quantity,
-        price: service.price, // Custom price for this care package
+        price: service.price, // custom price for this care package
         discount: service.discount,
         service_id: service.id,
       });
@@ -40,7 +39,7 @@ const ServiceItem = ({ service, index, isEditing, onEdit, onSave, onCancel, onRe
     onSave({
       ...editData,
       service_id: formData.service_id,
-      // Preserve the original price reference
+      // preserve the original price reference
       originalPrice: originalServicePrice,
     });
   };
@@ -48,7 +47,7 @@ const ServiceItem = ({ service, index, isEditing, onEdit, onSave, onCancel, onRe
   const handleCancel = () => {
     setEditData({
       quantity: service.quantity,
-      price: service.price, // Reset to current custom price
+      price: service.price, 
       discount: service.discount,
       service_id: service.id,
     });
@@ -59,17 +58,15 @@ const ServiceItem = ({ service, index, isEditing, onEdit, onSave, onCancel, onRe
   // handle service selection from ServiceSelect
   const handleServiceSelect = (serviceDetails) => {
     if (serviceDetails) {
-      // When a new service is selected, use its original price as the default custom price
-      // But DO NOT modify the originalServicePrice - it should remain readonly
       setEditData((prev) => ({
         ...prev,
-        price: serviceDetails.price || prev.price, // Set custom price to service's default price
+        price: parseFloat(serviceDetails.service_price || serviceDetails.price || prev.price),
         service_id: serviceDetails.id,
       }));
     }
   };
 
-  // Handle input changes with proper type conversion
+  // handle input changes with proper type conversion
   const handleEditDataChange = (field, value) => {
     let processedValue = value;
     
@@ -90,7 +87,7 @@ const ServiceItem = ({ service, index, isEditing, onEdit, onSave, onCancel, onRe
   const discountFactor = parseFloat(editData.discount) || 1; // Default to 1 if empty
   const quantityInEdit = parseInt(editData.quantity) || 0;
 
-  // Apply discount formula: Final Price = Quantity × Custom Price × Discount Factor
+  // apply discount formula: Final Price = Quantity × Custom Price × Discount Factor
   const discountedUnitPrice = customPriceInEdit * discountFactor;
   const totalInEdit = quantityInEdit * discountedUnitPrice;
 
@@ -101,13 +98,29 @@ const ServiceItem = ({ service, index, isEditing, onEdit, onSave, onCancel, onRe
   const discountedUnitPriceDisplay = customPriceInDisplay * discountFactorDisplay;
   const totalInDisplay = quantityInDisplay * discountedUnitPriceDisplay;
 
-  // Helper function to calculate discount percentage for display
+  // helper function to calculate discount percentage for display
   const getDiscountPercentage = (discountFactor) => {
     if (!discountFactor || discountFactor === '') return '0';
     const factor = parseFloat(discountFactor);
     if (isNaN(factor)) return '0';
     const discountPercent = (1 - factor) * 100;
     return Math.max(0, discountPercent).toFixed(1);
+  };
+
+  // format date for display
+  const formatDate = (dateString) => {
+    if (!dateString) return 'N/A';
+    try {
+      return new Date(dateString).toLocaleDateString('en-US', {
+        year: 'numeric',
+        month: 'short',
+        day: 'numeric',
+        hour: '2-digit',
+        minute: '2-digit'
+      });
+    } catch {
+      return 'Invalid Date';
+    }
   };
 
   return (
@@ -118,6 +131,12 @@ const ServiceItem = ({ service, index, isEditing, onEdit, onSave, onCancel, onRe
           <div className='flex items-center space-x-3'>
             <h4 className='text-sm font-semibold text-gray-900'>{service.name}</h4>
             <span className='text-xs text-gray-500 bg-gray-100 px-2 py-1 rounded'>ID: {service.id}</span>
+            {service.service_category_name && (
+              <span className='text-xs text-blue-600 bg-blue-50 px-2 py-1 rounded flex items-center'>
+                <Tag className='h-3 w-3 mr-1' />
+                {service.service_category_name}
+              </span>
+            )}
           </div>
 
           {/* action buttons */}
@@ -160,6 +179,17 @@ const ServiceItem = ({ service, index, isEditing, onEdit, onSave, onCancel, onRe
           </div>
         </div>
 
+        {/* service metadata */}
+        {service.updated_at && (
+          <div className='mb-4 p-2 bg-gray-50 rounded-md'>
+            <div className='flex items-center text-xs text-gray-600'>
+              <Clock className='h-3 w-3 mr-1' />
+              Last updated: {formatDate(service.updated_at)}
+              {service.updated_by_name && ` by ${service.updated_by_name}`}
+            </div>
+          </div>
+        )}
+
         {/* service details */}
         {isEditing ? (
           <div className='grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-6 gap-4'>
@@ -174,7 +204,7 @@ const ServiceItem = ({ service, index, isEditing, onEdit, onSave, onCancel, onRe
                 <span className='text-xs text-gray-400 ml-1'>(from service)</span>
               </label>
               <div className='w-full px-3 py-2 border border-gray-300 rounded-md text-sm bg-gray-100 text-gray-700'>
-                ${originalServicePrice.toFixed(2)}
+                ${parseFloat(originalServicePrice).toFixed(2)}
               </div>
             </div>
 
@@ -242,7 +272,7 @@ const ServiceItem = ({ service, index, isEditing, onEdit, onSave, onCancel, onRe
                 <span className='text-xs text-gray-400 ml-1'>(from service)</span>
               </label>
               <div className='w-full px-3 py-2 border border-gray-300 rounded-md text-sm bg-gray-100 text-gray-700'>
-                ${originalServicePrice.toFixed(2)}
+                ${parseFloat(originalServicePrice).toFixed(2)}
               </div>
             </div>
 
@@ -294,17 +324,39 @@ const ServiceItem = ({ service, index, isEditing, onEdit, onSave, onCancel, onRe
           <div>
             <label className='block text-xs font-medium text-gray-600 mb-1'>Duration (min)</label>
             <div className='w-full px-3 py-2 border border-gray-300 rounded-md text-sm bg-gray-50 text-gray-700'>
-              {service.duration || 45}
+              {service.service_duration || service.duration || 45}
             </div>
           </div>
 
           <div>
             <label className='block text-xs font-medium text-gray-600 mb-1'>Pricing Model</label>
             <div className='w-full px-3 py-2 border border-gray-300 rounded-md text-sm bg-gray-50 text-gray-700'>
-              {customPriceInDisplay !== originalServicePrice ? 'Custom' : 'Standard'}
+              {customPriceInDisplay !== parseFloat(originalServicePrice) ? 'Custom' : 'Standard'}
             </div>
           </div>
         </div>
+
+        {/* service description/remarks if available */}
+        {(service.service_description || service.service_remarks) && (
+          <div className='mt-4 pt-4 border-t border-gray-100'>
+            {service.service_description && (
+              <div className='mb-2'>
+                <label className='block text-xs font-medium text-gray-600 mb-1'>Description</label>
+                <div className='text-xs text-gray-700 bg-gray-50 p-2 rounded'>
+                  {service.service_description}
+                </div>
+              </div>
+            )}
+            {service.service_remarks && (
+              <div>
+                <label className='block text-xs font-medium text-gray-600 mb-1'>Remarks</label>
+                <div className='text-xs text-gray-700 bg-gray-50 p-2 rounded'>
+                  {service.service_remarks}
+                </div>
+              </div>
+            )}
+          </div>
+        )}
       </div>
     </FormProvider>
   );
