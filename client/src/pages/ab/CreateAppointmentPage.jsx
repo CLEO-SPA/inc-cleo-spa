@@ -50,7 +50,6 @@ export default function CreateAppointmentPage() {
     clearWarningForAppointment,
     shiftAppointmentWarnings,
     clearTimeslots,
-    shouldBlockAppointmentCreation,
     getRestDayConflictMessage,
   } = useAppointmentDateTimeStore();
 
@@ -153,77 +152,77 @@ export default function CreateAppointmentPage() {
     return null;
   };
 
-const onSubmit = async (data) => {
-  const validationError = validateForm(data);
-  if (validationError) {
-    setError(validationError);
-    return;
-  }
-  setLoading(true);
-  setError('');
-  try {
-    // Build bulk payload
-    const appointmentsPayload = data.appointments.map(app => ({
-      servicing_employee_id: parseInt(app.servicing_employee_id, 10),
-      appointment_date: app.appointment_date,
-      start_time: app.start_time,
-      end_time: app.end_time,
-      remarks: app.remarks,
-    }));
-
-    const payload = {
-      member_id: parseInt(data.member_id, 10),
-      appointments: appointmentsPayload,
-      created_by: parseInt(data.created_by, 10),
-      created_at: data.created_at,
-    };
-
-    let response;
-    try {
-      response = await api.post('/ab/create', payload);
-      console.log('response', response);
-    } catch (axiosError) {
-      console.error('Request failed:', axiosError);
-
-      let message = `Failed to create ${appointmentsPayload.length} appointment(s)`;
-      if (axiosError.response?.data?.message) {
-        message = axiosError.response.data.message;
-        console.log('Error message:', message);
-      } else if (axiosError.response?.data?.failed) {
-        const details = axiosError.response.data.failed
-          .map(f => `#${f.index + 1}: ${f.reason || JSON.stringify(f)}`)
-          .join('; ');
-        message = `Some appointments failed: ${details}`;
-        console.log('Detailed error:', details);
-      }
-      throw new Error(message);
+  const onSubmit = async (data) => {
+    const validationError = validateForm(data);
+    if (validationError) {
+      setError(validationError);
+      return;
     }
+    setLoading(true);
+    setError('');
+    try {
+      // Build bulk payload
+      const appointmentsPayload = data.appointments.map(app => ({
+        servicing_employee_id: parseInt(app.servicing_employee_id, 10),
+        appointment_date: app.appointment_date,
+        start_time: app.start_time,
+        end_time: app.end_time,
+        remarks: app.remarks,
+      }));
 
-    // On success
-    setSuccess(true);
-    setTimeout(() => {
-      reset({
-        member_id: '',
-        created_at: '',
-        created_by: '',
-        appointments: [{
-          servicing_employee_id: '',
-          appointment_date: '',
-          start_time: '',
-          end_time: '',
-          remarks: '',
-        }],
-      });
-      setSuccess(false);
-      resetStore(); // clear warnings in store
-    }, 3000);
-  } catch (err) {
-    console.error('Final catch error:', err);
-    setError(err.message || 'An error occurred while creating appointments');
-  } finally {
-    setLoading(false);
-  }
-};
+      const payload = {
+        member_id: parseInt(data.member_id, 10),
+        appointments: appointmentsPayload,
+        created_by: parseInt(data.created_by, 10),
+        created_at: data.created_at,
+      };
+
+      let response;
+      try {
+        response = await api.post('/ab/create', payload);
+        console.log('response', response);
+      } catch (axiosError) {
+        console.error('Request failed:', axiosError);
+
+        let message = `Failed to create ${appointmentsPayload.length} appointment(s)`;
+        if (axiosError.response?.data?.message) {
+          message = axiosError.response.data.message;
+          console.log('Error message:', message);
+        } else if (axiosError.response?.data?.failed) {
+          const details = axiosError.response.data.failed
+            .map(f => `#${f.index + 1}: ${f.reason || JSON.stringify(f)}`)
+            .join('; ');
+          message = `Some appointments failed: ${details}`;
+          console.log('Detailed error:', details);
+        }
+        throw new Error(message);
+      }
+
+      // On success
+      setSuccess(true);
+      setTimeout(() => {
+        reset({
+          member_id: '',
+          created_at: '',
+          created_by: '',
+          appointments: [{
+            servicing_employee_id: '',
+            appointment_date: '',
+            start_time: '',
+            end_time: '',
+            remarks: '',
+          }],
+        });
+        setSuccess(false);
+        resetStore(); // clear warnings in store
+      }, 3000);
+    } catch (err) {
+      console.error('Final catch error:', err);
+      setError(err.message || 'An error occurred while creating appointments');
+    } finally {
+      setLoading(false);
+    }
+  };
 
 
   const today = new Date().toISOString().split('T')[0];
@@ -375,7 +374,7 @@ const onSubmit = async (data) => {
                   {/* Red bg error message - directly above Create button */}
                   {error && (
                     <Alert className='border-red-200 bg-red-50 mb-4'>
-                      <AlertDescription className='text-red-800'>
+                      <AlertDescription className='text-red-800 whitespace-pre-line'>
                         {error}
                       </AlertDescription>
                     </Alert>

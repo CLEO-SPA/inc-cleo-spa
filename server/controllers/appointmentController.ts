@@ -59,72 +59,6 @@ const getAppointmentsByDate = async (req: Request, res: Response, next: NextFunc
   }
 };
 
-
-const getTimeslotsByEmployeeAndDate = async (req: Request, res: Response, next: NextFunction): Promise<any> => {
-  const { employeeId, date } = req.params;
-
-  // Parse employeeId (allow 'null', 'undefined', 'anyAvailableStaff' → null)
-  const parsedEmployeeId =
-    employeeId === 'null' ||
-    employeeId === 'undefined' ||
-    employeeId === 'anyAvailableStaff'
-      ? null
-      : parseInt(employeeId, 10);
-
-  // Validate date format YYYY-MM-DD
-  if (!/^\d{4}-\d{2}-\d{2}$/.test(date)) {
-    return res
-      .status(400)
-      .json({ message: 'Invalid appointmentDate. Use format YYYY-MM-DD.' });
-  }
-
-  try {
-    // 1) Fetch both available and booked timeslots in one call
-    const rows = await model.getTimeslotsByEmployeeAndDate(
-      date,
-      parsedEmployeeId
-    );
-    // rows: array of { available_timeslot: string|null, booked_timeslot: string|null }
-
-    // 2) Separate into two arrays, formatting to "HH:MM"
-    const availableTimeslots: string[] = [];
-    const bookedTimeslots: string[] = [];
-
-    rows.forEach(row => {
-      // row.available_timeslot or row.booked_timeslot might be e.g. "10:00:00" or null
-      if (row.available_timeslot) {
-        // take first 5 chars "HH:MM"
-        availableTimeslots.push(row.available_timeslot.slice(0, 5));
-      }
-      if (row.booked_timeslot) {
-        bookedTimeslots.push(row.booked_timeslot.slice(0, 5));
-      }
-    });
-
-    // 3) Fetch warning as before
-    const warning = await model.checkRestdayConflict(
-      parsedEmployeeId,
-      date
-    );
-
-    // 4) Respond with separated arrays
-    res.status(200).json({
-      employeeId: parsedEmployeeId,
-      date,
-      availableTimeslots,   // e.g. ["10:00", "10:30", ...]
-      bookedTimeslots,      // e.g. ["12:00", "12:30", ...]
-      warning,
-    });
-  } catch (error) {
-    console.error('Error getting available/booked timeslots or warning:', error);
-    const msg = error instanceof Error ? error.message : String(error);
-    res.status(500).json({
-      message: 'Error fetching available/booked timeslots or restday warning',
-      error: msg,
-    });
-  }
-};
-
 interface AppointmentItem {
   servicing_employee_id: number;
   appointment_date: string; // "YYYY-MM-DD"
@@ -139,31 +73,6 @@ interface BulkAppointmentBody {
   created_by: number;
   created_at?: string; // optional: if not provided, use now()
 }
-
-/**
- * Convert a UTC ISO string (e.g. "2025-06-03T03:01:00.000Z")
- * into Singapore time ISO with offset, e.g. "2025-06-03T11:01:00+08:00".
- */
-function toSingaporeTimeISOString(utcString: string): string {
-  const date = new Date(utcString);
-  if (isNaN(date.getTime())) {
-    throw new Error(`Invalid date: ${utcString}`);
-  }
-  // Add 8 hours (in ms)
-  const offsetMs = 8 * 60 * 60 * 1000;
-  const sgtTime = new Date(date.getTime() + offsetMs);
-
-  const pad = (n: number) => n.toString().padStart(2, '0');
-  const Y = sgtTime.getUTCFullYear();
-  const M = pad(sgtTime.getUTCMonth() + 1);
-  const D = pad(sgtTime.getUTCDate());
-  const h = pad(sgtTime.getUTCHours());
-  const m = pad(sgtTime.getUTCMinutes());
-  const s = pad(sgtTime.getUTCSeconds());
-  // Use "+08:00" as offset
-  return `${Y}-${M}-${D}T${h}:${m}:${s}+08:00`;
-}
-
 
 const createAppointment = async (req: Request, res: Response, next: NextFunction): Promise<any> => {
   try {
@@ -240,9 +149,120 @@ const createAppointment = async (req: Request, res: Response, next: NextFunction
   }
 };
 
+// Get max duration info for all start times
+const getMaxDurationFromStartTimes = async (req: Request, res: Response, next: NextFunction): Promise<any> => {
+  const { employeeId, date } = req.params;
+  
+  // Parse employeeId
+  const parsedEmployeeId =
+    employeeId === 'null' ||
+    employeeId === 'undefined' ||
+    employeeId === 'anyAvailableStaff'
+      ? null
+      : parseInt(employeeId, 10);
+      
+  // Validate date format
+  if (!/^\d{4}-\d{2}-\d{2}$/.test(date)) {
+    return res
+      .status(400)
+      .json({ message: 'Invalid date. Use format YYYY-MM-DD.' });
+  }
+  
+  try {
+    const rows = await model.getMaxDurationFromStartTimes(
+      date,
+      parsedEmployeeId
+    );
+    
+    // Format the response
+    const maxDurations = rows.map(row => ({
+      startTime: row.start_time.slice(0, 5),
+      maxEndTime: row.max_end_time.slice(0, 5),
+      maxDurationMinutes: row.max_duration_minutes
+    }));
+
+    // 3) Fetch warning as before
+    const warning = await model.checkRestdayConflict(
+      parsedEmployeeId,
+      date
+    );
+    
+    res.status(200).json({
+      employeeId: parsedEmployeeId,
+      date,
+      maxDurations,
+      warning,
+    });
+  } catch (error) {
+    console.error('Error getting max durations:', error);
+    const msg = error instanceof Error ? error.message : String(error);
+    res.status(500).json({
+      message: 'Error fetching max durations',
+      error: msg,
+    });
+  }
+};
+
+// Get available end times for a specific start time
+const getEndTimesForStartTime = async (req: Request, res: Response, next: NextFunction): Promise<any> => {
+  const { employeeId, date, startTime } = req.params;
+  
+  // Parse employeeId
+  const parsedEmployeeId =
+    employeeId === 'null' ||
+    employeeId === 'undefined' ||
+    employeeId === 'anyAvailableStaff'
+      ? null
+      : parseInt(employeeId, 10);
+      
+  // Validate date format
+  if (!/^\d{4}-\d{2}-\d{2}$/.test(date)) {
+    return res
+      .status(400)
+      .json({ message: 'Invalid date. Use format YYYY-MM-DD.' });
+  }
+  
+  // Validate time format HH:MM
+  if (!/^\d{2}:\d{2}$/.test(startTime)) {
+    return res
+      .status(400)
+      .json({ message: 'Invalid startTime. Use format HH:MM.' });
+  }
+  
+  try {
+    // Fetch available end times for the specific start time
+    const endTimes = await model.getEndTimesForStartTime(
+      date,
+      startTime,
+      parsedEmployeeId
+    );
+    
+    // Format to HH:MM
+    const formattedEndTimes = endTimes.map(row => 
+      row.end_time.slice(0, 5)
+    );
+    
+    res.status(200).json({
+      employeeId: parsedEmployeeId,
+      date,
+      startTime,
+      availableEndTimes: formattedEndTimes,
+    });
+  } catch (error) {
+    console.error('Error getting end times for start time:', error);
+    const msg = error instanceof Error ? error.message : String(error);
+    res.status(500).json({
+      message: 'Error fetching end times for start time',
+      error: msg,
+    });
+  }
+};
+
+
 export default {
   getAllAppointments,
   getAppointmentsByDate,
-  getTimeslotsByEmployeeAndDate,
   createAppointment,
+  getMaxDurationFromStartTimes,
+  getEndTimesForStartTime
 };

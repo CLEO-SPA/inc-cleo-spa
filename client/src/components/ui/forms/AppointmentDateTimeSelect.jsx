@@ -18,11 +18,12 @@ export function AppointmentDateTimeSelect({
   onChange,
   placeholder = 'Select time',
   isStartTime = true,
-  otherTimeValue = null,
+  otherTimeValue = null,    // for start select: otherTimeValue is selected end; for end select: otherTimeValue is selected start
   appointmentIndex = 0,
 }) {
   const {
-    timeslots,
+    // renamed in store:
+    startTimeSlots,
     endTimeSlots,
     timeslotsByAppointment,
     endTimeSlotsByAppointment,
@@ -31,82 +32,129 @@ export function AppointmentDateTimeSelect({
     errorMessage,
     warning,
     fetchTimeslots,
-    reset,
+    fetchEndTimesForStartTime,
+    // optionally you could have a method to clear end times; we'll clear locally
   } = useAppointmentDateTimeStore();
 
-  // Local state to track the last fetched data for this specific appointment
+  // Local state to avoid refetch flood
   const [lastFetchKey, setLastFetchKey] = useState('');
 
-  // Use indexed timeslots for this specific appointment, fallback to global if not available
-  const appointmentTimeslots = timeslotsByAppointment[appointmentIndex] || timeslots || [];
+  // Determine the slots for this appointment index, falling back to global
+  const appointmentStartTimeSlots = timeslotsByAppointment[appointmentIndex] || startTimeSlots || [];
   const appointmentEndTimeSlots = endTimeSlotsByAppointment[appointmentIndex] || endTimeSlots || [];
 
-  // Use appropriate timeslots based on whether this is start time or end time
-  const baseAvailableSlots = isStartTime ? appointmentTimeslots : appointmentEndTimeSlots;
+  // Base slots for dropdown:
+  const baseAvailableSlots = isStartTime ? appointmentStartTimeSlots : appointmentEndTimeSlots;
 
-  // Check if we have a valid appointment date and employee
+  // Validate inputs
   const hasValidDate = appointmentDate && appointmentDate.trim() !== '';
-  const hasValidEmployee = employeeId && employeeId.trim() !== '';
+  const hasValidEmployee = employeeId && employeeId.toString().trim() !== '';
 
-  // Create a unique key for this appointment's fetch
+  // Unique key per fetch
   const currentFetchKey = `${employeeId}-${appointmentDate}`;
 
-  // Re-fetch whenever date or employee changes
+  // Fetch start-time slots when date or employee changes
   useEffect(() => {
-    if (hasValidDate && hasValidEmployee && currentFetchKey !== lastFetchKey) {
-      console.log('Fetching timeslots for appointment', appointmentIndex, ':', { employeeId, appointmentDate });
-      fetchTimeslots({ employeeId, appointmentDate, appointmentIndex });
-      setLastFetchKey(currentFetchKey);
-    } else if (!hasValidDate || !hasValidEmployee) {
-      console.log('Resetting timeslots for appointment', appointmentIndex, '- invalid date or employee');
-      setLastFetchKey('');
+    if (isStartTime) {
+      if (hasValidDate && hasValidEmployee && currentFetchKey !== lastFetchKey) {
+        console.log('Fetching start times for appointment', appointmentIndex, ':', { employeeId, appointmentDate });
+        fetchTimeslots({ employeeId, appointmentDate, appointmentIndex });
+        setLastFetchKey(currentFetchKey);
+      } else if (!hasValidDate || !hasValidEmployee) {
+        // reset key so future valid changes trigger fetch
+        setLastFetchKey('');
+      }
     }
-  }, [appointmentDate, employeeId, fetchTimeslots, hasValidDate, hasValidEmployee, currentFetchKey, lastFetchKey, appointmentIndex]);
+    // For end-time select, we do not fetch here; we wait for start selection
+  }, [
+    isStartTime,
+    appointmentDate,
+    employeeId,
+    fetchTimeslots,
+    hasValidDate,
+    hasValidEmployee,
+    currentFetchKey,
+    lastFetchKey,
+    appointmentIndex,
+  ]);
 
-  // Helper function to convert time string to minutes for comparison
+  // When this is the end-time select, and the start time (`otherTimeValue`) changes,
+  // fetch the available end times for that start.
+  useEffect(() => {
+    if (!isStartTime) {
+      const selectedStartTime = otherTimeValue;
+      // Clear previous end times if start changed
+      // (store will overwrite on fetch)
+      if (selectedStartTime && hasValidDate && hasValidEmployee) {
+        console.log('Fetching end times for appointment', appointmentIndex, 'startTime:', selectedStartTime);
+        fetchEndTimesForStartTime({
+          employeeId,
+          appointmentDate,
+          startTime: selectedStartTime,
+          appointmentIndex,
+        });
+      } else {
+        // If no valid start or inputs missing, clear endTimeSlots for this appointment
+        // We can clear by setting an empty array in the store:
+        const { endTimeSlotsByAppointment, reset } = useAppointmentDateTimeStore.getState();
+        // But invoking store setter directly:
+        useAppointmentDateTimeStore.setState((state) => {
+          const updated = { ...state.endTimeSlotsByAppointment };
+          delete updated[appointmentIndex];
+          return {
+            endTimeSlotsByAppointment: updated,
+            endTimeSlots: [],
+          };
+        });
+      }
+    }
+  }, [
+    isStartTime,
+    otherTimeValue,
+    employeeId,
+    appointmentDate,
+    hasValidDate,
+    hasValidEmployee,
+    fetchEndTimesForStartTime,
+    appointmentIndex,
+  ]);
+
+  // Helper to convert "HH:MM" to minutes
   const timeToMinutes = (timeString) => {
     if (!timeString) return null;
     const [hours, minutes] = timeString.split(':').map(Number);
     return hours * 60 + minutes;
   };
 
-  // Filter available timeslots based on the other time field with cross-validation
+  // Filter slots based on otherTimeValue (cross-validation)
   const filteredTimeslots = useMemo(() => {
-    if (!baseAvailableSlots.length) {
-      return baseAvailableSlots;
-    }
+    if (!baseAvailableSlots.length) return baseAvailableSlots;
 
-    // If no other time value is selected, return all base slots
-    if (!otherTimeValue) {
-      return baseAvailableSlots;
-    }
+    // If no otherTimeValue selected, allow all
+    if (!otherTimeValue) return baseAvailableSlots;
 
-    const otherTimeMinutes = timeToMinutes(otherTimeValue);
-    if (otherTimeMinutes === null) return baseAvailableSlots;
+    const otherMins = timeToMinutes(otherTimeValue);
+    if (otherMins === null) return baseAvailableSlots;
 
-    return baseAvailableSlots.filter(timeSlot => {
-      const currentTimeMinutes = timeToMinutes(timeSlot);
-      if (currentTimeMinutes === null) return true;
-
+    return baseAvailableSlots.filter(slot => {
+      const slotMins = timeToMinutes(slot);
+      if (slotMins === null) return true;
       if (isStartTime) {
-        // For start time: show only times that are at least 30 minutes before the end time
-        // If end time is 2:00 PM (14:00), only show start times up to 1:30 PM (13:30)
-        return currentTimeMinutes < otherTimeMinutes;
+        // start must be < end
+        return slotMins < otherMins;
       } else {
-        // For end time: show only times that are at least 30 minutes after the start time
-        // If start time is 12:00 PM (12:00), only show end times from 12:30 PM (12:30) onwards
-        return currentTimeMinutes > otherTimeMinutes;
+        // end must be > start
+        return slotMins > otherMins;
       }
     });
   }, [baseAvailableSlots, otherTimeValue, isStartTime]);
 
-  // Check if the current value is still valid in the filtered timeslots
+  // If current value is no longer in filteredSlots, clear it
   const isCurrentValueValid = useMemo(() => {
-    if (!value || !filteredTimeslots.length) return true;
+    if (!value) return true;
     return filteredTimeslots.includes(value);
   }, [value, filteredTimeslots]);
 
-  // Clear the value if it's no longer valid
   useEffect(() => {
     if (value && !isCurrentValueValid) {
       console.log('Clearing invalid time value for appointment', appointmentIndex, ':', value);
@@ -114,30 +162,35 @@ export function AppointmentDateTimeSelect({
     }
   }, [value, isCurrentValueValid, onChange, appointmentIndex]);
 
-  // Determine if Select should be disabled
-  const isDisabled = !hasValidDate || !hasValidEmployee || isFetching || error;
+// Disabled if missing inputs or fetching or error, and also disable end-time if no start selected
+const isDisabled = 
+  !hasValidDate 
+  || !hasValidEmployee 
+  || isFetching 
+  || error 
+  || (!isStartTime && !otherTimeValue);
 
-  // Check if this appointment's data is currently being fetched
-  const isCurrentlyFetching = isFetching && currentFetchKey === `${employeeId}-${appointmentDate}`;
+  // Detect if fetching corresponds to this appointment’s fetch
+  const isCurrentlyFetching = isFetching && isStartTime && currentFetchKey === `${employeeId}-${appointmentDate}`;
 
-  // Enhanced placeholder logic
+  // Placeholder logic
   const getPlaceholder = () => {
     if (!hasValidDate) return 'Select date first';
     if (!hasValidEmployee) return 'Select employee first';
     if (isCurrentlyFetching) return 'Loading…';
     if (error) return `Error: ${errorMessage || 'Failed to load'}`;
-    
+
+    // If this is end-time dropdown and no start time selected:
+    if (!isStartTime && !otherTimeValue) {
+      return 'Select start time first';
+    }
+
     if (filteredTimeslots.length === 0) {
       if (otherTimeValue) {
-        if (isStartTime) {
-          return 'No earlier times available';
-        } else {
-          return 'No later times available';
-        }
+        return isStartTime ? 'No earlier times' : 'No later times';
       }
       return 'No times available';
     }
-    
     return placeholder;
   };
 
@@ -165,9 +218,7 @@ export function AppointmentDateTimeSelect({
         </SelectContent>
       </Select>
       {error && errorMessage && (
-        <p className="text-red-500 text-xs mt-1">
-          {errorMessage}
-        </p>
+        <p className="text-red-500 text-xs mt-1">{errorMessage}</p>
       )}
     </div>
   );

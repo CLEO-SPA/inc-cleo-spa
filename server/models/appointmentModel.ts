@@ -72,22 +72,6 @@ const getAppointmentsByDate = async (appointmentDate: Date | string) => {
   }
 };
 
-const getTimeslotsByEmployeeAndDate = async (
-  date: Date | string,
-  employeeId: number | null,
-) => {
-  try {
-    const query = `SELECT * FROM get_available_and_booked_timeslots($1, $2)`;
-    const values = [date, employeeId];
-    const result = await pool().query(query, values);
-    return result.rows;
-  } catch (error) {
-    console.error('Error fetching available and booked timeslots:', error);
-    throw new Error('Error fetching available and booked timeslots');
-  }
-};
-
-
 interface AppointmentItem {
   servicing_employee_id: number;
   appointment_date: string;
@@ -138,11 +122,45 @@ const createAppointment = async (
   }
 };
 
+// Get available end times for specific start time
+const getEndTimesForStartTime = async (
+  date: Date | string,
+  startTime: string,
+  employeeId: number | null,
+) => {
+  try {
+    const query = `SELECT * FROM get_available_end_times_for_start($1, $2, $3)`;
+    const values = [date, startTime, employeeId];
+    const result = await pool().query(query, values);
+    return result.rows;
+  } catch (error) {
+    console.error('Error fetching end times for start time:', error);
+    throw new Error('Error fetching end times for start time');
+  }
+};
+
+// Get max duration info for all start times
+const getMaxDurationFromStartTimes = async (
+  date: Date | string,
+  employeeId: number | null,
+) => {
+  try {
+    const query = `SELECT * FROM get_max_duration_from_start_time($1, $2)`;
+    const values = [date, employeeId];
+    const result = await pool().query(query, values);
+    return result.rows;
+  } catch (error) {
+    console.error('Error fetching max durations:', error);
+    throw new Error('Error fetching max durations');
+  }
+};
+
 export default {
  getAllAppointments,
  getAppointmentsByDate,
- getTimeslotsByEmployeeAndDate,
  checkRestdayConflict,
- createAppointment
+ createAppointment,
+ getEndTimesForStartTime,
+ getMaxDurationFromStartTimes
 };
  
