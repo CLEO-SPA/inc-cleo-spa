@@ -383,12 +383,17 @@ function getDescendants(startNodeId: number, fullHierarchy: HierarchyInterface[]
   return descendants;
 }
 
-const insertPreDataModel = async (tableName: string) => {
+interface tablePayload {
+  table: string;
+  file: string;
+}
+
+const insertPreDataModel = async (targetTable: string, tablePayload: tablePayload[]) => {
   try {
-    const targetTableInfo = hierarchy.find((f) => f.table === tableName);
+    const targetTableInfo = hierarchy.find((f) => f.table === targetTable);
 
     if (!targetTableInfo) {
-      throw new Error(`No valid target table "${tableName}" found in hierarchy. Exiting seeding process.`);
+      throw new Error(`No valid target table "${targetTable}" found in hierarchy. Exiting seeding process.`);
     }
 
     const requiredTableIdsForInsert = getAncestors(targetTableInfo.id, hierarchy);
@@ -410,9 +415,10 @@ const insertPreDataModel = async (tableName: string) => {
     const allTableData: AllTableData = {};
 
     for (const name of sortedOrderForInsert) {
-      const csvFilePath = path.join(csvFolderPath, 'pre', `${name}.csv`);
+      const fileName = tablePayload.find((f) => f.table === name);
+      const csvFilePath = path.join(csvFolderPath, 'pre', name, `${fileName}.csv`);
       if (fs.existsSync(csvFilePath)) {
-        console.log(`Reading data for "${name}" from: ${csvFilePath}`);
+        console.log(`Reading data for "${fileName}" from: ${csvFilePath}`);
         allTableData[name] = await readCSVFile(csvFilePath);
       } else {
         throw new Error(`No CSV file found for table "${name}" at ${csvFilePath}. Exiting seeding process.`);
@@ -425,7 +431,7 @@ const insertPreDataModel = async (tableName: string) => {
     await performDbInserts(tablesToTruncate, sortedOrderForInsert, allTableData);
 
     return {
-      message: `Seeding for specific tables ${tableName} completed.`,
+      message: `Seeding for specific tables ${targetTable} completed.`,
       tables: sortedOrderForInsert,
     };
   } catch (error: any) {
@@ -434,12 +440,12 @@ const insertPreDataModel = async (tableName: string) => {
   }
 };
 
-const insertPostDataModel = async (tableName: string) => {
+const insertPostDataModel = async (targetTable: string, tablePayload: tablePayload[]) => {
   try {
-    const targetTableInfo = hierarchy.find((f) => f.table === tableName);
+    const targetTableInfo = hierarchy.find((f) => f.table === targetTable);
 
     if (!targetTableInfo) {
-      throw new Error(`No valid target table "${tableName}" found in hierarchy. Exiting seeding process.`);
+      throw new Error(`No valid target table "${targetTable}" found in hierarchy. Exiting seeding process.`);
     }
 
     const requiredTableIdsForInsert = getAncestors(targetTableInfo.id, hierarchy);
@@ -452,28 +458,29 @@ const insertPostDataModel = async (tableName: string) => {
 
     const fullSortedOrder = getSeedingOrder(hierarchy);
     const tablesToTruncate: string[] = fullSortedOrder
-      .filter((name) => {
-        const id = hierarchy.find((t) => t.table === name)?.id;
+      .filter((tableName) => {
+        const id = hierarchy.find((t) => t.table === tableName)?.id;
         return id !== undefined && affectedTableIdsForTruncate.has(id);
       })
       .reverse();
 
     const allTableData: AllTableData = {};
 
-    for (const name of sortedOrderForInsert) {
-      const csvFilePath = path.join(csvFolderPath, 'post', `${name}.csv`);
+    for (const tableName of sortedOrderForInsert) {
+      const fileName = tablePayload.find((f) => f.table === tableName);
+      const csvFilePath = path.join(csvFolderPath, 'post', tableName, `${fileName}.csv`);
       if (fs.existsSync(csvFilePath)) {
-        console.log(`Reading data for "${name}" from: ${csvFilePath}`);
-        allTableData[name] = await readCSVFile(csvFilePath);
+        console.log(`Reading data for "${tableName}" from: ${csvFilePath}`);
+        allTableData[tableName] = await readCSVFile(csvFilePath);
       } else {
-        throw new Error(`No CSV file found for table "${name}" at ${csvFilePath}. Exiting seeding process.`);
+        throw new Error(`No CSV file found for table "${tableName}" at ${csvFilePath}. Exiting seeding process.`);
       }
     }
 
     await performDbInserts(tablesToTruncate, sortedOrderForInsert, allTableData);
 
     return {
-      message: `Seeding for specific tables ${tableName} completed.`,
+      message: `Seeding for specific tables ${targetTable} completed.`,
       tables: sortedOrderForInsert,
     };
   } catch (error) {
@@ -482,22 +489,22 @@ const insertPostDataModel = async (tableName: string) => {
   }
 };
 
-const getPreDataModel = async (tableName: string) => {
-  const filePath = path.join(csvFolderPath, 'pre', `${tableName}.csv`);
+const getPreDataModel = async (tableName: string, fileName: string) => {
+  const filePath = path.join(csvFolderPath, 'pre', tableName, `${fileName}.csv`);
   try {
     if (!fs.existsSync(filePath)) {
-      throw new Error(`[saModel] Post-data file not found for table "${tableName}" at ${filePath}.`);
+      throw new Error(`[saModel] Pre-data file not found for table "${tableName}" at ${filePath}.`);
     }
 
     const parsedCsvData: CsvRow[] = await readCSVFile(filePath);
 
     if (!parsedCsvData || (parsedCsvData.length === 0 && !fs.readFileSync(filePath, 'utf8').trim())) {
-      throw new Error(`[saModel] Post-data CSV for table "${tableName}" is empty.`);
+      throw new Error(`[saModel] Pre-data CSV for table "${tableName}" is empty.`);
     }
 
     if (!parsedCsvData || parsedCsvData.length === 0) {
       throw new Error(
-        `[saModel] Post-data CSV for table "${tableName}" yielded no data, or headers could not be parsed.`
+        `[saModel] Pre-data CSV for table "${tableName}" yielded no data, or headers could not be parsed.`
       );
     }
 
@@ -522,8 +529,8 @@ const getPreDataModel = async (tableName: string) => {
   }
 };
 
-const getPostDataModel = async (tableName: string) => {
-  const filePath = path.join(csvFolderPath, 'post', `${tableName}.csv`);
+const getPostDataModel = async (tableName: string, fileName: string) => {
+  const filePath = path.join(csvFolderPath, 'post', tableName, `${fileName}.csv`);
   try {
     if (!fs.existsSync(filePath)) {
       throw new Error(`[saModel] Post-data file not found for table "${tableName}" at ${filePath}.`);
@@ -568,8 +575,8 @@ const getAllExistingTablesModel = async () => {
     const tableNamesFromHierarchy = hierarchy.map((m) => m.table);
 
     for (const tableName of tableNamesFromHierarchy) {
-      const preFilePath = path.join(csvFolderPath, 'pre', `${tableName}.csv`);
-      const postFilePath = path.join(csvFolderPath, 'post', `${tableName}.csv`);
+      const preFilePath = path.join(csvFolderPath, 'pre', tableName);
+      const postFilePath = path.join(csvFolderPath, 'post', tableName);
 
       const preFileExists = fs.existsSync(preFilePath);
       const postFileExists = fs.existsSync(postFilePath);
@@ -633,6 +640,41 @@ const getOrdersForTableModel = async (tableName: string) => {
   }
 };
 
+const getPreDataFilesModel = async (tableName: string) => {
+  const directoryPath = path.join(csvFolderPath, 'pre', tableName);
+  try {
+    if (!fs.existsSync(directoryPath)) {
+      console.log(
+        `[saModel] Pre-data directory not found for table "${tableName}" at ${directoryPath}. Returning empty list.`
+      );
+      return [];
+    }
+    const files = await fs.promises.readdir(directoryPath);
+
+    return files.map((file) => file.replace(/\.csv$/, ''));
+  } catch (error: any) {
+    console.error(`[saModel] Error reading pre-data files for table "${tableName}":`, error.message);
+    throw new Error(`Error fetching pre-data files for table "${tableName}": ${error.message}`);
+  }
+};
+
+const getPostDataFilesModel = async (tableName: string) => {
+  const directoryPath = path.join(csvFolderPath, 'post', tableName);
+  try {
+    if (!fs.existsSync(directoryPath)) {
+      console.log(
+        `[saModel] Post-data directory not found for table "${tableName}" at ${directoryPath}. Returning empty list.`
+      );
+      return [];
+    }
+    const files = await fs.promises.readdir(directoryPath);
+    return files.map((file) => file.replace(/\.csv$/, ''));
+  } catch (error: any) {
+    console.error(`[saModel] Error reading post-data files for table "${tableName}":`, error.message);
+    throw new Error(`Error fetching post-data files for table "${tableName}": ${error.message}`);
+  }
+};
+
 export default {
   insertPreDataModel,
   insertPostDataModel,
@@ -641,4 +683,6 @@ export default {
   getAllExistingTablesModel,
   getCurrentSeedingOrderModel,
   getOrdersForTableModel,
+  getPreDataFilesModel,
+  getPostDataFilesModel,
 };
