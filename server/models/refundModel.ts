@@ -42,6 +42,7 @@ const getServiceTransactionsForRefund = async (
     start_date_utc?: string,
     end_date_utc?: string) => {
 
+    // Retrieve both member and non-member (member ID: 0) service transactions with FULL status.
     let query = `
     SELECT 
       st.id AS sale_transaction_id,
@@ -50,6 +51,7 @@ const getServiceTransactionsForRefund = async (
       m.full_name AS member_name,
       st.total_paid_amount,
       st.created_at,
+      sti.id AS sale_transaction_item_id,
       sti.service_name,
       sti.amount AS service_amount,
       sti.quantity
@@ -57,14 +59,14 @@ const getServiceTransactionsForRefund = async (
     LEFT JOIN members m ON st.member_id = m.id
     JOIN sale_transaction_items sti ON st.id = sti.sale_transactions_id
     WHERE st.sale_transaction_status = 'FULL'
-
-      AND sti.item_type = 'SERVICE'
-  `;
+    AND sti.item_type = 'SERVICE'
+    `;
+    // No partial payment for adhoc services 
 
     const values: any[] = [];
     let i = 1;
 
-    if (member_id) {
+    if (member_id !== undefined) {  // Allow 0 as a valid id (Walk-In Customer)
         query += ` AND st.member_id = $${i++}`;
         values.push(member_id);
     }
@@ -87,15 +89,74 @@ const getServiceTransactionsForRefund = async (
     query += ` ORDER BY st.created_at DESC`;
 
     const result = await pool().query(query, values);
-    return result.rows;
+    const groupedTransactions = groupTransactions(result.rows);
+    return groupedTransactions;
 };
+
+type SaleTransactionItem = {
+    sale_transaction_id: number;
+    receipt_no: string;
+    member_id: number;
+    member_name: string | null;
+    total_paid_amount: number;
+    created_at: string;
+    sale_transaction_item_id: number;
+    service_name: string;
+    service_amount: number;
+    quantity: number;
+};
+
+type GroupedTransaction = {
+    sale_transaction_id: number;
+    receipt_no: string;
+    member_id: number;
+    member_name: string | null;
+    total_paid_amount: number;
+    created_at: string;
+    items: {
+        id: number;
+        service_name: string;
+        amount: number;
+        quantity: number;
+    }[];
+};
+
+const groupTransactions = (rows: SaleTransactionItem[]): GroupedTransaction[] => {
+    const transactionMap = new Map<number, GroupedTransaction>();
+
+    for (const row of rows) {
+        if (!transactionMap.has(row.sale_transaction_id)) {
+            // Create a new transaction entry if it doesn't exist
+            transactionMap.set(row.sale_transaction_id, {
+                sale_transaction_id: row.sale_transaction_id,
+                receipt_no: row.receipt_no,
+                member_id: row.member_id,
+                member_name: row.member_name,
+                total_paid_amount: row.total_paid_amount,
+                created_at: row.created_at,
+                items: []
+            });
+        }
+
+        // Push the current item into the correct transaction's items list
+        transactionMap.get(row.sale_transaction_id)!.items.push({
+            id: row.sale_transaction_item_id,
+            service_name: row.service_name,
+            amount: row.service_amount,
+            quantity: row.quantity
+        });
+    }
+
+    return Array.from(transactionMap.values());
+};
+
 
 const processRefundService = async (body: {
     saleTransactionId: number;
     refundRemarks?: string;
     refundedBy: number;
-    paymentMethodId: number;
     refundItems: {
+        service_transaction_item_id: number; // Required to map to employee
         service_name: string;
         original_unit_price: number;
         quantity: number;
@@ -107,7 +168,7 @@ const processRefundService = async (body: {
     try {
         await client.query('BEGIN');
 
-        // 1. Fetch original sale transaction (to copy relevant info)
+        // 1. Fetch original sale transaction
         const { rows: originalTx } = await client.query(
             `SELECT * FROM sale_transactions WHERE id = $1`,
             [body.saleTransactionId]
@@ -116,6 +177,8 @@ const processRefundService = async (body: {
         const original = originalTx[0];
 
         // 2. Insert refund sale_transaction
+        const totalRefundAmount = body.refundItems.reduce((sum, item) => sum + item.amount, 0);
+
         const { rows: refundTxRows } = await client.query(
             `INSERT INTO sale_transactions (
                 customer_type, member_id, total_paid_amount, outstanding_total_payment_amount,
@@ -127,7 +190,7 @@ const processRefundService = async (body: {
             [
                 original.customer_type,
                 original.member_id,
-                -1 * body.refundItems.reduce((sum, item) => sum + item.amount, 0), // refund total as negative
+                -1 * totalRefundAmount,
                 0,
                 'REFUND',
                 body.refundRemarks ?? `Refund for transaction #${original.id}`,
@@ -137,35 +200,55 @@ const processRefundService = async (body: {
         );
         const refundTxId = refundTxRows[0].id;
 
-        // 3. Insert refund items
+        // 3. Insert refund items and map to employees
         for (const item of body.refundItems) {
-            await client.query(
+            const { rows: refundItemRows } = await client.query(
                 `INSERT INTO sale_transaction_items (
-                sale_transactions_id, service_name, original_unit_price,
-                quantity, remarks, amount, item_type
+                    sale_transactions_id, service_name, original_unit_price,
+                    quantity, remarks, amount, item_type
                 )
-                VALUES ($1, $2, $3, $4, $5, $6, 'SERVICE')`,
+                VALUES ($1, $2, $3, $4, $5, $6, 'SERVICE')
+                RETURNING id`,
                 [
                     refundTxId,
                     item.service_name,
                     item.original_unit_price,
-                    -1 * item.quantity, // negative for refund
+                    -1 * item.quantity,
                     item.remarks ?? '',
                     -1 * item.amount,
                 ]
             );
+
+            const refundItemId = refundItemRows[0].id;
+
+            // Insert a new entry in the serving_employee_to_sale_transaction_item table for the refund item
+            // Get the original employee(s) linked to this item
+            const { rows: employeeRows } = await client.query(
+                `SELECT employee_id FROM serving_employee_to_sale_transaction_item WHERE sale_transaction_item_id = $1`,
+                [item.service_transaction_item_id]
+            );
+
+            // Insert a new mapping for the refund item
+            for (const emp of employeeRows) {
+                await client.query(
+                    `INSERT INTO serving_employee_to_sale_transaction_item (
+                sale_transaction_item_id, employee_id, remarks
+            ) VALUES ($1, $2, $3)`,
+                    [refundItemId, emp.employee_id, 'Refunded Service']
+                );
+            }
         }
 
         // 4. Insert refund payment
         await client.query(
             `INSERT INTO payment_to_sale_transactions (
-            payment_method_id, sale_transaction_id, amount,
-            remarks, created_by, created_at, updated_by, updated_at
+                payment_method_id, sale_transaction_id, amount,
+                remarks, created_by, created_at, updated_by, updated_at
             ) VALUES ($1, $2, $3, $4, $5, now(), $5, now())`,
             [
-                body.paymentMethodId,
+                8, // Payment Method ID 8 = Refund
                 refundTxId,
-                -1 * body.refundItems.reduce((sum, item) => sum + item.amount, 0),
+                -1 * totalRefundAmount,
                 'Refund',
                 body.refundedBy,
             ]
