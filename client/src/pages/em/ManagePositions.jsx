@@ -1,5 +1,6 @@
 // PositionTablePage.jsx
 import React, { useState, useEffect } from 'react';
+import { useNavigate } from 'react-router-dom'; // Optional: if you're using React Router
 import { AppSidebar } from '@/components/app-sidebar';
 import { SiteHeader } from '@/components/site-header';
 import { SidebarInset, SidebarProvider } from '@/components/ui/sidebar';
@@ -41,10 +42,11 @@ export default function PositionTablePage() {
   const [deleteDialogOpen, setDeleteDialogOpen] = useState(false);
   const [selectedPosition, setSelectedPosition] = useState(null);
   const [formLoading, setFormLoading] = useState(false);
+  const navigate = useNavigate(); // If using React Router
 
   useEffect(() => {
     fetchPositions(currentPage, pageSize);
-  }, []);
+  }, [currentPage, pageSize]);
 
   const fetchPositions = async (page = 1, limit = 10) => {
     setLoading(true);
@@ -64,43 +66,32 @@ export default function PositionTablePage() {
     }
   };
 
-  const handlePageChange = (page) => {
-    setCurrentPage(page);
-    fetchPositions(page, pageSize);
-  };
-
-  const handlePageSizeChange = (newSize) => {
-    setPageSize(newSize);
-    setCurrentPage(1);
-    fetchPositions(1, newSize);
-  };
-
   const navigateToCreate = () => {
-    window.location.href = '/positions/create';
+    navigate('/positions/create'); // or use window.location.href
   };
 
   const navigateToEdit = (position) => {
-    window.location.href = `/positions/update/${position.id}`;
+    navigate(`/positions/update/${position.id}`); // or use window.location.href
   };
 
   const handleDelete = async () => {
     setFormLoading(true);
     try {
-      const response = await fetch(`/api/positions/${selectedPosition.id}`, { method: 'DELETE' });
-      if (!response.ok) throw new Error('Failed to delete position');
+      await api.delete(`/position/${selectedPosition.id}`);
       setSuccess('Position deleted successfully');
       setDeleteDialogOpen(false);
       setSelectedPosition(null);
       fetchPositions(currentPage, pageSize);
       setTimeout(() => setSuccess(''), 3000);
     } catch (err) {
-      setError(err.message);
+      setError(err?.response?.data?.message || err.message);
     } finally {
       setFormLoading(false);
     }
   };
 
   const openDeleteDialog = (position) => {
+    setError('');
     setSelectedPosition(position);
     setDeleteDialogOpen(true);
   };
@@ -131,7 +122,6 @@ export default function PositionTablePage() {
                 <Button onClick={navigateToCreate}><Plus className="mr-2 h-4 w-4" /> Add Position</Button>
               </div>
 
-              {error && <Alert variant="destructive"><AlertCircle className="h-4 w-4" /><AlertDescription>{error}</AlertDescription></Alert>}
               {success && <Alert variant="success"><CheckCircle className="h-4 w-4" /><AlertDescription>{success}</AlertDescription></Alert>}
 
               <Card>
@@ -139,7 +129,7 @@ export default function PositionTablePage() {
                 <CardContent>
                   <div className="flex items-center space-x-2">
                     <Label>Show:</Label>
-                    <select value={pageSize} onChange={(e) => handlePageSizeChange(parseInt(e.target.value))} className="border rounded px-2 py-1 text-sm">
+                    <select value={pageSize} onChange={(e) => setPageSize(parseInt(e.target.value))} className="border rounded px-2 py-1 text-sm">
                       <option value={5}>5</option>
                       <option value={10}>10</option>
                       <option value={20}>20</option>
@@ -157,6 +147,8 @@ export default function PositionTablePage() {
 
                   {loading ? (
                     <div className="flex justify-center py-8"><Loader2 className="h-6 w-6 animate-spin" /></div>
+                  ) : positions.length === 0 ? (
+                    <div className="text-center text-sm text-muted-foreground py-6">No positions found.</div>
                   ) : (
                     <>
                       <Table>
@@ -202,13 +194,21 @@ export default function PositionTablePage() {
 
                       <Pagination className="mt-4">
                         <PaginationContent>
-                          {currentPage > 1 && <PaginationItem><PaginationPrevious onClick={() => handlePageChange(currentPage - 1)} /></PaginationItem>}
+                          {currentPage > 1 && (
+                            <PaginationItem>
+                              <PaginationPrevious onClick={() => setCurrentPage(currentPage - 1)} />
+                            </PaginationItem>
+                          )}
                           {generatePageNumbers().map((page) => (
                             <PaginationItem key={page}>
-                              <PaginationLink isActive={page === currentPage} onClick={() => handlePageChange(page)} href="#">{page}</PaginationLink>
+                              <PaginationLink isActive={page === currentPage} onClick={(e) => { e.preventDefault(); setCurrentPage(page); }}>{page}</PaginationLink>
                             </PaginationItem>
                           ))}
-                          {currentPage < totalPages && <PaginationItem><PaginationNext onClick={() => handlePageChange(currentPage + 1)} /></PaginationItem>}
+                          {currentPage < totalPages && (
+                            <PaginationItem>
+                              <PaginationNext onClick={() => setCurrentPage(currentPage + 1)} />
+                            </PaginationItem>
+                          )}
                         </PaginationContent>
                       </Pagination>
                     </>
@@ -216,20 +216,33 @@ export default function PositionTablePage() {
                 </CardContent>
               </Card>
 
-              <Dialog open={deleteDialogOpen} onOpenChange={setDeleteDialogOpen}>
+              <Dialog open={deleteDialogOpen} onOpenChange={(open) => {
+                if (!open) {
+                  setDeleteDialogOpen(false);
+                  setSelectedPosition(null);
+                  setError('');
+                }
+              }}>
                 <DialogContent>
                   <DialogHeader>
                     <DialogTitle>Delete Position</DialogTitle>
                     <DialogDescription>
-                      Are you sure you want to delete "{selectedPosition?.position_name}"? This action cannot be undone.
+                      Are you sure you want to delete: <span className="font-semibold">{selectedPosition?.position_name}</span>?
                     </DialogDescription>
                   </DialogHeader>
+
                   <DialogFooter>
                     <Button variant="outline" onClick={() => setDeleteDialogOpen(false)}>Cancel</Button>
                     <Button variant="destructive" onClick={handleDelete} disabled={formLoading}>
                       {formLoading ? (<><Loader2 className="mr-2 h-4 w-4 animate-spin" />Deleting...</>) : 'Delete Position'}
                     </Button>
                   </DialogFooter>
+
+                  {error && (
+                    <div className="mt-4 rounded-md border border-red-300 bg-red-100 px-3 py-2 text-sm text-red-700">
+                      {error}
+                    </div>
+                  )}
                 </DialogContent>
               </Dialog>
             </div>

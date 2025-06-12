@@ -177,7 +177,7 @@ const deletePosition = async (id: number) => {
   } catch (error) {
     console.error('Error deleting position:', error);
     await client.query('ROLLBACK');
-    throw new Error('Error deleting position');
+    throw error; // ✅ Re-throw original error instead of overwriting
   } finally {
     client.release();
   }
