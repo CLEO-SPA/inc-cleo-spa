@@ -71,6 +71,8 @@ const getAllPositions = async (req: Request, res: Response, next: NextFunction) 
       totalCount,
       pageSize: limit,
       data: positions,
+      start_date_utc: start_date_utc,
+      end_date_utc: end_date_utc,
     });
   } catch (error) {
     console.error('Error getting positions:', error);

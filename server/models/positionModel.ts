@@ -48,6 +48,8 @@ const getAllPositions = async (
       positions: result.rows,
       totalPages,
       totalCount,
+      startDate_utc,
+      endDate_utc,
     };
   } catch (error) {
     console.error('Error fetching positions:', error);
@@ -105,11 +107,13 @@ const updatePosition = async (
     position_description,
     position_is_active,
     position_updated_at,
+    position_created_at,
   }: {
     position_name?: string;
     position_description?: string;
     position_is_active?: boolean;
     position_updated_at: string;
+    position_created_at?: string;
   }
 ) => {
   const client = await pool().connect();
@@ -122,11 +126,13 @@ const updatePosition = async (
         position_name = COALESCE($2, position_name),
         position_description = COALESCE($3, position_description),
         position_is_active = COALESCE($4, position_is_active),
-        position_updated_at = $5
+        position_updated_at = $5,
+        position_created_at = COALESCE($6, position_created_at)
+
       WHERE id = $1
       RETURNING *;
     `;
-    const values = [id, position_name, position_description, position_is_active, position_updated_at];
+    const values = [id, position_name, position_description, position_is_active, position_updated_at, position_created_at];
     const result = await client.query(updateQuery, values);
 
     if (result.rows.length === 0) {

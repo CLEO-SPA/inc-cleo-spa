@@ -34,19 +34,16 @@ router.post(
 
 router.put(
     "/:id",
-    roleMiddleware.hasRole(['super_admin', 'data_admin']),
     positionController.updatePosition
 )
 
 router.delete(
   '/:id',
-  roleMiddleware.hasRole(['super_admin', 'data_admin']),
   positionController.deletePosition
 );
 
 router.patch(
-  '/:id/toggle',
-  roleMiddleware.hasRole(['super_admin', 'data_admin']),
+  '/:id/toggle', 
   positionController.togglePositionStatus
 );
 

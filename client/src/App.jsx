@@ -15,7 +15,7 @@ import NotFoundPage from '@/pages/404Page';
 // Employees
 import ManagePositions from '@/pages/em/ManagePositions';
 import CreatePositionPage from '@/pages/em/CreatePositionPage';
-import EditPositionPage from '@/pages/em/EditPositionPage';
+import EditPositionPage from '@/pages/em/UpdatePositionPage';
 
 
 function App() {
@@ -30,7 +30,7 @@ function App() {
               {/* Employees Routes */}
               <Route path='/positions' element={<ManagePositions />} />
               <Route path='/positions/create' element={<CreatePositionPage />} />
-              <Route path='/positions/edit/:id' element={<EditPositionPage />} />
+              <Route path='/positions/update/:id' element={<EditPositionPage />} />
 
             </Route>
             <Route path='/login' element={<LoginPage />} />

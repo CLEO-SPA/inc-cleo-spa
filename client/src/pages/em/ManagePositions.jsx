@@ -1,4 +1,4 @@
-// The full updated PositionTablePage component with row numbering
+// PositionTablePage.jsx
 import React, { useState, useEffect } from 'react';
 import { AppSidebar } from '@/components/app-sidebar';
 import { SiteHeader } from '@/components/site-header';
@@ -9,45 +9,23 @@ import { Badge } from '@/components/ui/badge';
 import { Alert, AlertDescription } from '@/components/ui/alert';
 import api from '@/services/api';
 import {
-  Dialog,
-  DialogContent,
-  DialogDescription,
-  DialogFooter,
-  DialogHeader,
-  DialogTitle,
+  Dialog, DialogContent, DialogDescription,
+  DialogFooter, DialogHeader, DialogTitle
 } from '@/components/ui/dialog';
 import {
-  DropdownMenu,
-  DropdownMenuContent,
-  DropdownMenuItem,
-  DropdownMenuTrigger,
+  DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger
 } from '@/components/ui/dropdown-menu';
 import {
-  Pagination,
-  PaginationContent,
-  PaginationItem,
-  PaginationLink,
-  PaginationNext,
-  PaginationPrevious,
+  Pagination, PaginationContent, PaginationItem,
+  PaginationLink, PaginationNext, PaginationPrevious
 } from "@/components/ui/pagination"
 import {
-  Table,
-  TableBody,
-  TableCell,
-  TableHead,
-  TableHeader,
-  TableRow,
+  Table, TableBody, TableCell,
+  TableHead, TableHeader, TableRow
 } from "@/components/ui/table";
 import {
-  Plus,
-  MoreHorizontal,
-  Edit,
-  Trash2,
-  Power,
-  PowerOff,
-  Loader2,
-  AlertCircle,
-  CheckCircle,
+  Plus, MoreHorizontal, Edit,
+  Trash2, Loader2, AlertCircle, CheckCircle
 } from 'lucide-react';
 import { Label } from '@/components/ui/label';
 
@@ -64,13 +42,16 @@ export default function PositionTablePage() {
   const [selectedPosition, setSelectedPosition] = useState(null);
   const [formLoading, setFormLoading] = useState(false);
 
+  useEffect(() => {
+    fetchPositions(currentPage, pageSize);
+  }, []);
+
   const fetchPositions = async (page = 1, limit = 10) => {
     setLoading(true);
-    setError('');
     try {
       const params = new URLSearchParams({ page: page.toString(), limit: limit.toString() });
       const response = await api.get(`/position?${params}`);
-      const data = await response.data;
+      const data = response.data;
       setPositions(data.data || []);
       setCurrentPage(data.currentPage || 1);
       setTotalPages(data.totalPages || 1);
@@ -78,15 +59,10 @@ export default function PositionTablePage() {
       setTotalCount(data.totalCount || 0);
     } catch (err) {
       setError(err.message);
-      setPositions([]);
     } finally {
       setLoading(false);
     }
   };
-
-  useEffect(() => {
-    fetchPositions(currentPage, pageSize);
-  }, []);
 
   const handlePageChange = (page) => {
     setCurrentPage(page);
@@ -104,7 +80,7 @@ export default function PositionTablePage() {
   };
 
   const navigateToEdit = (position) => {
-    window.location.href = `/positions/edit/${position.id}`;
+    window.location.href = `/positions/update/${position.id}`;
   };
 
   const handleDelete = async () => {
@@ -124,32 +100,21 @@ export default function PositionTablePage() {
     }
   };
 
-  const handleToggleStatus = async (position) => {
-    try {
-      const response = await fetch(`/api/positions/${position.id}/toggle`, { method: 'PATCH' });
-      if (!response.ok) throw new Error('Failed to toggle status');
-      setSuccess(`Position ${position.position_is_active ? 'deactivated' : 'activated'} successfully`);
-      fetchPositions(currentPage, pageSize);
-      setTimeout(() => setSuccess(''), 3000);
-    } catch (err) {
-      setError(err.message);
-    }
-  };
-
   const openDeleteDialog = (position) => {
     setSelectedPosition(position);
     setDeleteDialogOpen(true);
   };
 
-  const formatDate = (dateString) => new Date(dateString).toLocaleDateString('en-US', {
-    year: 'numeric', month: 'short', day: 'numeric'
-  });
+  const formatDate = (dateString) =>
+    new Date(dateString).toLocaleDateString('en-US', {
+      year: 'numeric', month: 'short', day: 'numeric'
+    });
 
   const generatePageNumbers = () => {
     const pages = [];
-    const startPage = Math.max(1, currentPage - 2);
-    const endPage = Math.min(totalPages, currentPage + 2);
-    for (let i = startPage; i <= endPage; i++) pages.push(i);
+    const start = Math.max(1, currentPage - 2);
+    const end = Math.min(totalPages, currentPage + 2);
+    for (let i = start; i <= end; i++) pages.push(i);
     return pages;
   };
 
@@ -160,11 +125,9 @@ export default function PositionTablePage() {
         <div className='flex flex-1'>
           <AppSidebar />
           <SidebarInset>
-            <div className='flex flex-1 flex-col gap-4 p-4'>
+            <div className='flex flex-col gap-4 p-4'>
               <div className="flex items-center justify-between">
-                <div>
-                  <h1 className='text-2xl font-bold'>Manage Positions</h1>
-                </div>
+                <h1 className='text-2xl font-bold'>Manage Positions</h1>
                 <Button onClick={navigateToCreate}><Plus className="mr-2 h-4 w-4" /> Add Position</Button>
               </div>
 
@@ -188,10 +151,8 @@ export default function PositionTablePage() {
 
               <Card>
                 <CardContent>
-                  <div className="flex justify-between items-center mb-2">
-                    <p className="text-sm text-muted-foreground">
-                      Showing {(currentPage - 1) * pageSize + 1}–{Math.min(currentPage * pageSize, totalCount)} of {totalCount} positions
-                    </p>
+                  <div className="mb-2 text-sm text-muted-foreground">
+                    Showing {(currentPage - 1) * pageSize + 1}–{Math.min(currentPage * pageSize, totalCount)} of {totalCount} positions
                   </div>
 
                   {loading ? (
@@ -217,7 +178,7 @@ export default function PositionTablePage() {
                               <TableCell>{position.position_name}</TableCell>
                               <TableCell className="truncate max-w-[200px]">{position.position_description}</TableCell>
                               <TableCell>
-                                <Badge className={position.position_is_active ? 'bg-green-100 text-green-700' : 'bg-red-100 text-red-700'}>
+                                <Badge className={position.position_is_active ? 'bg-green-100 text-green-700' : 'bg-muted text-muted-foreground'}>
                                   {position.position_is_active ? "Active" : "Inactive"}
                                 </Badge>
                               </TableCell>
@@ -230,9 +191,6 @@ export default function PositionTablePage() {
                                   </DropdownMenuTrigger>
                                   <DropdownMenuContent align="end">
                                     <DropdownMenuItem onClick={() => navigateToEdit(position)}><Edit className="mr-2 h-4 w-4" /> Edit</DropdownMenuItem>
-                                    <DropdownMenuItem onClick={() => handleToggleStatus(position)}>
-                                      {position.position_is_active ? <><PowerOff className="mr-2 h-4 w-4" /> Deactivate</> : <><Power className="mr-2 h-4 w-4" /> Activate</>}
-                                    </DropdownMenuItem>
                                     <DropdownMenuItem onClick={() => openDeleteDialog(position)} className="text-red-600"><Trash2 className="mr-2 h-4 w-4" /> Delete</DropdownMenuItem>
                                   </DropdownMenuContent>
                                 </DropdownMenu>
@@ -242,19 +200,17 @@ export default function PositionTablePage() {
                         </TableBody>
                       </Table>
 
-                     
-                        <Pagination className="mt-4">
-                          <PaginationContent>
-                            {currentPage > 1 && <PaginationItem><PaginationPrevious onClick={() => handlePageChange(currentPage - 1)} /></PaginationItem>}
-                            {generatePageNumbers().map((page) => (
-                              <PaginationItem key={page}>
-                                <PaginationLink isActive={page === currentPage} onClick={() => handlePageChange(page)} href="#">{page}</PaginationLink>
-                              </PaginationItem>
-                            ))}
-                            {currentPage < totalPages && <PaginationItem><PaginationNext onClick={() => handlePageChange(currentPage + 1)} /></PaginationItem>}
-                          </PaginationContent>
-                        </Pagination>
-                    
+                      <Pagination className="mt-4">
+                        <PaginationContent>
+                          {currentPage > 1 && <PaginationItem><PaginationPrevious onClick={() => handlePageChange(currentPage - 1)} /></PaginationItem>}
+                          {generatePageNumbers().map((page) => (
+                            <PaginationItem key={page}>
+                              <PaginationLink isActive={page === currentPage} onClick={() => handlePageChange(page)} href="#">{page}</PaginationLink>
+                            </PaginationItem>
+                          ))}
+                          {currentPage < totalPages && <PaginationItem><PaginationNext onClick={() => handlePageChange(currentPage + 1)} /></PaginationItem>}
+                        </PaginationContent>
+                      </Pagination>
                     </>
                   )}
                 </CardContent>
@@ -264,7 +220,9 @@ export default function PositionTablePage() {
                 <DialogContent>
                   <DialogHeader>
                     <DialogTitle>Delete Position</DialogTitle>
-                    <DialogDescription>Are you sure you want to delete "{selectedPosition?.position_name}"? This action cannot be undone.</DialogDescription>
+                    <DialogDescription>
+                      Are you sure you want to delete "{selectedPosition?.position_name}"? This action cannot be undone.
+                    </DialogDescription>
                   </DialogHeader>
                   <DialogFooter>
                     <Button variant="outline" onClick={() => setDeleteDialogOpen(false)}>Cancel</Button>
@@ -274,7 +232,6 @@ export default function PositionTablePage() {
                   </DialogFooter>
                 </DialogContent>
               </Dialog>
-
             </div>
           </SidebarInset>
         </div>

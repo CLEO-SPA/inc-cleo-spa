@@ -56,7 +56,10 @@ export default function CreatePositionPage() {
                 window.location.href = "/positions";
             }, 1500);
         } catch (err) {
-            setError(err.message || "Failed to create position");
+            const apiMessage =
+                err?.response?.data?.message ||
+                "Failed to create position";
+            setError(apiMessage);
         } finally {
             setLoading(false);
         }
@@ -93,7 +96,7 @@ export default function CreatePositionPage() {
                                     <form onSubmit={handleSubmit} className="space-y-6">
                                         {/* Position Name */}
                                         <div>
-                                            <Label htmlFor="position_name">Position Name *</Label>
+                                            <Label htmlFor="position_name" className="mb-2">Position Name * (between 2 and 100 characters) </Label>
                                             <Input
                                                 id="position_name"
                                                 value={formData.position_name}
@@ -106,8 +109,8 @@ export default function CreatePositionPage() {
 
                                         {/* Description */}
                                         <div>
-                                            <Label htmlFor="position_description">
-                                                Description *
+                                            <Label htmlFor="position_description" className="mb-2">
+                                                Description * (between 5 and 500 characters)
                                             </Label>
                                             <Textarea
                                                 id="position_description"
