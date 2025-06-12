@@ -156,7 +156,7 @@ const ServiceSelection = ({
 
         {/* quantity */}
         <div>
-          <label className="block text-xs font-medium text-gray-600 mb-1">QUANTITY</label>
+          <label className="block text-xs font-medium text-gray-600 mb-1">QUANTITY*</label>
           <input
             type="number"
             value={serviceForm.quantity || ''}

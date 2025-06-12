@@ -1,11 +1,12 @@
 import React, { useState, useEffect } from 'react';
-import { Plus, Save, X, Package, DollarSign, Search, ChevronDown, ArrowLeft, User, Calendar } from 'lucide-react';
+import { Plus, Save, X, Package, DollarSign, Search, ChevronDown, ArrowLeft, User, Calendar, AlertCircle } from 'lucide-react';
 import { AppSidebar } from '@/components/app-sidebar';
 import { SiteHeader } from '@/components/site-header';
 import { SidebarInset, SidebarProvider } from '@/components/ui/sidebar';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
 import { Button } from '@/components/ui/button';
+import { Alert, AlertDescription } from '@/components/ui/alert';
 import { useCpFormStore } from '@/stores/useCpFormStore';
 import { Textarea } from '@/components/ui/textarea';
 import ServiceItem from '@/pages/CarePackages/ServiceItem';
@@ -37,6 +38,7 @@ const CarePackageCreateForm = () => {
   const [serviceSearch, setServiceSearch] = useState('');
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [submitStatus, setSubmitStatus] = useState({ type: '', message: '' });
+  const [employeeError, setEmployeeError] = useState('');
 
   const methods = useForm({
     defaultValues: {
@@ -48,6 +50,9 @@ const CarePackageCreateForm = () => {
     const subscription = methods.watch((value, { name }) => {
       if (name === 'employee_id') {
         updateMainField('employee_id', value.employee_id);
+        if (value.employee_id) {
+          setEmployeeError('');
+        }
       }
     });
     return () => subscription.unsubscribe();
@@ -72,6 +77,16 @@ const CarePackageCreateForm = () => {
     fetchServiceOptions();
   }, [fetchServiceOptions]);
 
+  // employee validation function
+  const validateEmployee = () => {
+    if (!mainFormData.employee_id || mainFormData.employee_id === '') {
+      setEmployeeError('Please select an employee');
+      return false;
+    }
+    setEmployeeError('');
+    return true;
+  };
+
   // calculate total package price using discount factor
   const calculateTotalPrice = () => {
     return mainFormData.services.reduce((total, service) => {
@@ -85,7 +100,7 @@ const CarePackageCreateForm = () => {
         service.discount === null ||
         service.discount === undefined
       ) {
-        discountFactor = 1; // Full price when empty
+        discountFactor = 1; // full price when empty
       }
 
       // apply discount factor: Final Price = Quantity × Discount Factor × Service Price
@@ -204,8 +219,17 @@ const CarePackageCreateForm = () => {
   // handle form submission
   const handleSubmit = async (e) => {
     e.preventDefault();
-    setIsSubmitting(true);
     setSubmitStatus({ type: '', message: '' });
+
+    if (!validateEmployee()) {
+      setSubmitStatus({
+        type: 'error',
+        message: 'Please select an employee before creating the package.',
+      });
+      return;
+    }
+
+    setIsSubmitting(true);
 
     try {
       const payload = {
@@ -213,7 +237,7 @@ const CarePackageCreateForm = () => {
         package_remarks: mainFormData.package_remarks || '',
         package_price: mainFormData.package_price > 0 ? mainFormData.package_price : calculateTotalPrice(),
         is_customizable: mainFormData.customizable,
-        employee_id: mainFormData.employee_id || null,
+        employee_id: mainFormData.employee_id,
         created_at: mainFormData.created_at,
         updated_at: mainFormData.created_at,
         services: mainFormData.services.map((service) => ({
@@ -256,12 +280,25 @@ const CarePackageCreateForm = () => {
     resetMainForm();
     resetServiceForm();
     setEditingService(null);
+    setEmployeeError('');
     // reset created_at to current time
     const now = new Date();
     const localISOTime = new Date(now.getTime() - now.getTimezoneOffset() * 60000).toISOString().slice(0, 16);
     updateMainField('created_at', localISOTime);
     // reset form context
     methods.reset({ employee_id: '' });
+  };
+
+  // helper function to check if form is valid for submission
+  const isFormValid = () => {
+    return (
+      mainFormData.package_name && 
+      mainFormData.package_name.trim() !== '' &&
+      mainFormData.employee_id && 
+      mainFormData.employee_id !== '' &&
+      mainFormData.services && 
+      mainFormData.services.length > 0
+    );
   };
 
   const renderMainContent = () => {
@@ -288,7 +325,7 @@ const CarePackageCreateForm = () => {
               </Button>
               <Button
                 onClick={handleSubmit}
-                disabled={!mainFormData.package_name || mainFormData.services.length === 0 || isSubmitting}
+                disabled={!isFormValid() || isSubmitting}
                 className='flex items-center bg-gray-900 hover:bg-black text-white text-sm px-3 py-2 disabled:bg-gray-300 disabled:cursor-not-allowed'
               >
                 <Save className='w-4 h-4 mr-1' />
@@ -304,6 +341,18 @@ const CarePackageCreateForm = () => {
             <div className='bg-red-50 border border-red-200 rounded-lg p-4'>
               <p className='text-red-800 text-sm'>{error}</p>
             </div>
+          </div>
+        )}
+
+        {/* employee error display */}
+        {employeeError && (
+          <div className='max-w-7xl mx-auto px-4 py-2'>
+            <Alert variant="destructive">
+              <AlertCircle className="h-4 w-4" />
+              <AlertDescription>
+                {employeeError}
+              </AlertDescription>
+            </Alert>
           </div>
         )}
 
@@ -356,8 +405,13 @@ const CarePackageCreateForm = () => {
                       ASSIGNED EMPLOYEE *
                     </label>
                     <FormProvider {...methods}>
-                      <EmployeeSelect name='employee_id' label='' />
+                      <div className={employeeError ? 'border border-red-300 rounded bg-red-50' : ''}>
+                        <EmployeeSelect name='employee_id' label='' />
+                      </div>
                     </FormProvider>
+                    {employeeError && (
+                      <p className="text-red-600 text-xs mt-1">{employeeError}</p>
+                    )}
                   </div>
                 </div>
 
