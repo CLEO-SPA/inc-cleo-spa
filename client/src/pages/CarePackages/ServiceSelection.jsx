@@ -259,7 +259,7 @@ const ServiceSelection = ({
             {showOriginalPrice ? (
               serviceForm.discount
                 ? `${((1 - parseFloat(serviceForm.discount)) * 100).toFixed(1)}% off`
-                : '1.0 = full price, 0.5 = half price'
+                : 'Enter factor (1.0 = full price, 0.5 = half price)'
             ) : (
               serviceForm.discount && serviceForm.discount !== '' && getDiscountPercentage
                 ? `${getDiscountPercentage(serviceForm.discount)}% off`
