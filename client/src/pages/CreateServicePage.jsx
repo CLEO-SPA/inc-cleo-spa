@@ -33,7 +33,7 @@ export default function CreateService() {
   const [formData, setFormData] = useState({
     service_name: "",
     service_description: "",
-    remarks: "",
+    service_remarks: "",
     service_duration: "0",
     service_price: "",
     service_is_enabled: true,
@@ -83,7 +83,7 @@ export default function CreateService() {
         setFormData({
           service_name: "",
           service_description: "",
-          remarks: "",
+          service_remarks: "",
           service_duration: "0",
           service_price: "",
           service_is_enabled: true,
@@ -297,7 +297,7 @@ export default function CreateService() {
                         <label className="block text-md font-medium ">Remarks</label>
                         <textarea
                           name="remarks"
-                          value={formData.remarks}
+                          value={formData.service_remarks}
                           onChange={handleChange}
                           className="w-full p-2 border rounded-md"
                           placeholder="Enter remarks"

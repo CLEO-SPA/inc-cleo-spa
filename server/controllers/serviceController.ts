@@ -168,7 +168,7 @@ const validateServiceData = async (req: Request, res: Response, next: NextFuncti
   const {
     service_name,
     service_description,
-    remarks,
+    service_remarks,
     service_duration,
     service_price,
     service_is_enabled,
@@ -209,7 +209,7 @@ const validateServiceData = async (req: Request, res: Response, next: NextFuncti
     return;
   }
 
-  if (remarks && !isSafeInput(remarks.trim())) {
+  if (service_remarks && !isSafeInput(service_remarks.trim())) {
     res.status(400).json({ message: 'Invalid data type' });
     return;
   }
