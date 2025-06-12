@@ -70,8 +70,20 @@ const EditCarePackagePage = () => {
   // enhanced function to get service names for display
   const getServiceDisplayName = useCallback(
     (serviceId) => {
-      const service = serviceOptions.find((opt) => opt.id === serviceId);
-      return service ? service.label : `Service ${serviceId}`;
+      const serviceIdString = String(serviceId);
+      const service = serviceOptions.find((opt) => String(opt.id) === serviceIdString);
+      const displayName = service ? service.label : `Service ${serviceId}`;
+
+      if (!service) {
+        console.warn(
+          `Service with ID ${serviceId} (as string: "${serviceIdString}") not found in serviceOptions. Available options:`,
+          serviceOptions.map((s) => ({ id: s.id, label: s.label }))
+        );
+      } else {
+        console.log(`Found service: ID ${serviceId} -> ${displayName}`);
+      }
+
+      return displayName;
     },
     [serviceOptions]
   );
@@ -88,10 +100,12 @@ const EditCarePackagePage = () => {
   // helper function to populate form with package data
   const populateFormWithPackageData = useCallback(
     (packageData) => {
+      console.log('Populating form data with service options:', serviceOptions.length);
+
       const pkg = packageData.package;
       const details = packageData.details || [];
 
-      // update main form fields with correct field names from the API response
+      // update main form fields
       updateMainField('package_name', pkg.care_package_name || '');
       updateMainField('package_price', parseFloat(pkg.care_package_price) || '');
       updateMainField('customizable', pkg.care_package_customizable || false);
@@ -101,6 +115,8 @@ const EditCarePackagePage = () => {
       const transformedServices = details.map((detail) => {
         const serviceName = getServiceDisplayName(detail.service_id);
         const originalPrice = getOriginalServicePrice(detail.service_id);
+
+        console.log(`Service ID ${detail.service_id} -> Name: ${serviceName}, Original Price: ${originalPrice}`);
 
         return {
           id: detail.service_id,
@@ -117,10 +133,12 @@ const EditCarePackagePage = () => {
         };
       });
 
+      console.log('Transformed services:', transformedServices);
+
       // update services array
       updateMainField('services', transformedServices);
     },
-    [updateMainField, getServiceDisplayName, getOriginalServicePrice]
+    [updateMainField, getServiceDisplayName, getOriginalServicePrice, serviceOptions] // Add serviceOptions as dependency
   );
 
   // load package data and service options on component mount
@@ -130,17 +148,13 @@ const EditCarePackagePage = () => {
     const loadData = async () => {
       try {
         clearError();
-
-        // First fetch service options
         await fetchServiceOptions();
 
-        // Then fetch package data if we have a packageId and haven't initialized yet
         if (packageId && !isInitialized && isMounted) {
           const packageData = await fetchPackageById(packageId);
 
           if (packageData && isMounted) {
             setOriginalData(JSON.parse(JSON.stringify(packageData)));
-            // Set a flag to populate form after service options are loaded
             setIsInitialized(true);
           } else {
             console.log('No package data returned');
@@ -158,9 +172,9 @@ const EditCarePackagePage = () => {
     };
   }, [packageId, fetchServiceOptions, fetchPackageById, clearError, isInitialized]);
 
-  // Separate effect to populate form data after both package data and service options are loaded
   useEffect(() => {
     if (originalData && serviceOptions.length > 0 && isInitialized) {
+      console.log('Populating form with service options loaded:', serviceOptions.length);
       populateFormWithPackageData(originalData);
     }
   }, [originalData, serviceOptions, isInitialized, populateFormWithPackageData]);
@@ -207,11 +221,6 @@ const EditCarePackagePage = () => {
       setHasUnsavedChanges(hasChanges);
     }
   }, [mainFormData, originalData, currentPackage, isInitialized, getServiceDisplayName, serviceOptions.length]);
-
-  // filter service options based on search input
-  const filteredServiceOptions = serviceOptions.filter((option) =>
-    option.label.toLowerCase().includes(serviceSearch.toLowerCase())
-  );
 
   // calculate total package price using decimal discount
   const calculateTotalPrice = () => {
