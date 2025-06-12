@@ -51,6 +51,7 @@ const hierarchy: HierarchyInterface[] = [
   { id: 35, table: 'voucher_templates', dependencies: [] },
   { id: 36, table: 'system_parameters', dependencies: [] },
   { id: 37, table: 'user_auth', dependencies: [] },
+  { id: 38, table: 'employee_to_position', dependencies: [1, 9] },
 ];
 
 const csvFolderPath = path.join(__dirname, '..', '..', 'seed');
