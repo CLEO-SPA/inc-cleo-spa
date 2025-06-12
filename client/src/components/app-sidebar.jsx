@@ -48,11 +48,11 @@ const data = {
       items: [
         {
           title: 'Add New Service',
-          url: 'create-service',
+          url: '/create-service',
         },
         {
           title: 'Manage Services',
-          url: 'manage-service',
+          url: '/manage-service',
         },
       ],
     },

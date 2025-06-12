@@ -62,7 +62,6 @@ export default function UpdateService() {
   const getService = async (id) => {
     try {
       const response = await api.get(`/service/${id}`);
-      console.log(response.data);
       setService(response.data);
     } catch (err) {
       console.error("Error fetching service:" + err);
@@ -89,7 +88,23 @@ export default function UpdateService() {
 
   const handleSubmit = async (e) => {
     e.preventDefault();
-    console.log("Form Submitted!")
+    try{
+      console.log(formData);
+      const response = await api.put(`/service/update-service/${service_id}`, formData, {
+        headers: {
+          "Content-Type": "application/json"
+        }
+      });
+      if (response.status === 200) {
+        setErrorMsg("");
+        setService(response.data.service);
+        setModalOpen(true);
+      }
+    }catch(err){
+      console.error('Error updating service:' + err);
+      setErrorMsg(err.response.data.message);
+      setModalOpen(true);
+    }
   };
 
   useEffect(() => {
@@ -132,6 +147,21 @@ export default function UpdateService() {
     }
   }, [service, reset])
 
+    useEffect(() => {
+      try {
+        setFormData(prevFormData => ({
+          ...prevFormData,
+          service_category_id: selectedCategory,
+          created_by: createdBy || "",
+          updated_by: updatedBy || "",
+          created_at: createdAt,
+          updated_at: updatedAt,
+        }));
+      } catch (err) {
+        console.error('Error updating form data:', err);
+      }
+    }, [selectedCategory, createdBy, updatedBy, createdAt, updatedAt]);
+
   return (
     <div className='[--header-height:calc(theme(spacing.14))]'>
       <SidebarProvider className='flex flex-col'>
@@ -166,7 +196,7 @@ export default function UpdateService() {
                       ) : (
                         <>
                           <p className="text-xl text-green-600">Service was updated successfully!</p>
-                          <p>ID: {service.id}</p>
+                          <p>ID: {service_id}</p>
                           <p>Name: {service.service_name}</p>
                           <p>Category: {
                             categories.find(cat => cat.id === service.service_category_id)?.service_category_name || 'Other'
@@ -222,7 +252,7 @@ export default function UpdateService() {
                           <label className="block text-md font-medium">Last Updated at*</label>
                           <DatePicker
                             value={updatedAt}
-                            // onChange={}
+                            onChange={setUpdatedAt}
                             required />
                         </div>
 

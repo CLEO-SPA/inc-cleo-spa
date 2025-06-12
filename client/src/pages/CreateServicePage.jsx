@@ -97,7 +97,6 @@ export default function CreateService() {
         reset();
         setModalOpen(true);
       }
-
     } catch (err) {
       console.error('Error creating service:' + err);
       setErrorMsg(err.response.data.message);
@@ -122,7 +121,6 @@ export default function CreateService() {
         created_at: createdAt,
         service_is_enabled: selectedStatus
       }));
-      console.log(FormData)
     } catch (err) {
       console.error('Error updating form data:', err);
     }
