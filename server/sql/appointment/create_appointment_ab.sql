@@ -14,11 +14,18 @@ DECLARE
   conflict_rec     RECORD;
   idx              integer := 0;
   idx2             integer := 0;
+  v_random_employee_id bigint;
+  v_processed_appointments jsonb := '[]'::jsonb;
+  v_appointment jsonb;
 BEGIN
-  -- STEP 1: Check for conflicts between appointments in the same request
+  -- STEP 1: Process appointments and assign random employees where needed
   FOR rec IN
     SELECT
-      (item->>'servicing_employee_id')::bigint   AS servicing_employee_id,
+      CASE 
+        WHEN (item->>'servicing_employee_id') IS NULL OR (item->>'servicing_employee_id')::text = 'null' 
+        THEN NULL 
+        ELSE (item->>'servicing_employee_id')::bigint 
+      END AS servicing_employee_id,
       (item->>'appointment_date')::date          AS appointment_date,
       (item->>'start_time')::timestamptz         AS start_time,
       (item->>'end_time')::timestamptz           AS end_time,
@@ -26,7 +33,69 @@ BEGIN
     FROM jsonb_array_elements(p_appointments) AS arr(item)
   LOOP
     idx := idx + 1;
-    idx2 := 0; -- reset inner counter
+    
+    -- If employee_id is null, find a random available employee
+    IF rec.servicing_employee_id IS NULL THEN
+      SELECT e.id INTO v_random_employee_id
+      FROM employees e
+      WHERE e.id NOT IN (
+        -- Exclude employees already booked at this time (existing appointments)
+        SELECT DISTINCT a.servicing_employee_id
+        FROM appointments a
+        WHERE a.appointment_date = rec.appointment_date
+          AND rec.start_time < a.end_time
+          AND rec.end_time > a.start_time
+        
+        UNION
+        
+        -- Exclude employees already assigned in this batch (from processed appointments)
+        SELECT DISTINCT (processed_item->>'servicing_employee_id')::bigint
+        FROM jsonb_array_elements(v_processed_appointments) AS processed_arr(processed_item)
+        WHERE (processed_item->>'appointment_date')::date = rec.appointment_date
+          AND rec.start_time < (processed_item->>'end_time')::timestamptz
+          AND rec.end_time > (processed_item->>'start_time')::timestamptz
+      )
+      ORDER BY RANDOM()
+      LIMIT 1;
+      
+      -- If no available employee found, raise exception
+      IF v_random_employee_id IS NULL THEN
+        RAISE EXCEPTION 
+          'No available employee found for appointment % on % from % to %',
+          idx,
+          rec.appointment_date,
+          TO_CHAR(rec.start_time, 'HH24:MI'),
+          TO_CHAR(rec.end_time, 'HH24:MI');
+      END IF;
+      
+      -- Use the randomly assigned employee
+      rec.servicing_employee_id := v_random_employee_id;
+    END IF;
+    
+    -- Add this processed appointment to our tracking array
+    v_appointment := jsonb_build_object(
+      'servicing_employee_id', rec.servicing_employee_id,
+      'appointment_date', rec.appointment_date,
+      'start_time', rec.start_time,
+      'end_time', rec.end_time,
+      'remarks', rec.remarks
+    );
+    v_processed_appointments := v_processed_appointments || v_appointment;
+  END LOOP;
+
+  -- STEP 2: Check for conflicts between appointments in the processed request
+  idx := 0;
+  FOR rec IN
+    SELECT
+      (item->>'servicing_employee_id')::bigint   AS servicing_employee_id,
+      (item->>'appointment_date')::date          AS appointment_date,
+      (item->>'start_time')::timestamptz         AS start_time,
+      (item->>'end_time')::timestamptz           AS end_time,
+      (item->>'remarks')::text                   AS remarks
+    FROM jsonb_array_elements(v_processed_appointments) AS arr(item)
+  LOOP
+    idx := idx + 1;
+    idx2 := 0;
     
     -- Check against all other appointments in the same request
     FOR rec2 IN
@@ -35,7 +104,7 @@ BEGIN
         (item->>'appointment_date')::date          AS appointment_date,
         (item->>'start_time')::timestamptz         AS start_time,
         (item->>'end_time')::timestamptz           AS end_time
-      FROM jsonb_array_elements(p_appointments) AS arr(item)
+      FROM jsonb_array_elements(v_processed_appointments) AS arr(item)
     LOOP
       idx2 := idx2 + 1;
       
@@ -66,8 +135,8 @@ BEGIN
     END LOOP;
   END LOOP;
 
-  -- STEP 2: Check for conflicts with existing appointments (your original validation)
-  idx := 0; -- reset counter
+  -- STEP 3: Check for conflicts with existing appointments
+  idx := 0;
   FOR rec IN
     SELECT
       (item->>'servicing_employee_id')::bigint   AS servicing_employee_id,
@@ -75,7 +144,7 @@ BEGIN
       (item->>'start_time')::timestamptz         AS start_time,
       (item->>'end_time')::timestamptz           AS end_time,
       (item->>'remarks')::text                   AS remarks
-    FROM jsonb_array_elements(p_appointments) AS arr(item)
+    FROM jsonb_array_elements(v_processed_appointments) AS arr(item)
   LOOP
     idx := idx + 1;
   
@@ -106,7 +175,7 @@ BEGIN
     END IF;
   END LOOP;
 
-  -- STEP 3: Insert all appointments only if all validations passed
+  -- STEP 4: Insert all appointments only if all validations passed
   FOR rec IN
     SELECT
       (item->>'servicing_employee_id')::bigint   AS servicing_employee_id,
@@ -114,7 +183,7 @@ BEGIN
       (item->>'start_time')::timestamptz         AS start_time,
       (item->>'end_time')::timestamptz           AS end_time,
       (item->>'remarks')::text                   AS remarks
-    FROM jsonb_array_elements(p_appointments) AS arr(item)
+    FROM jsonb_array_elements(v_processed_appointments) AS arr(item)
   LOOP
     INSERT INTO appointments (
       member_id,
