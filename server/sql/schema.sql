@@ -416,7 +416,7 @@ CREATE TABLE "user_to_role" (
 
 -- CreateTable
 CREATE TABLE "appointments" (
-    "id" BIGINT NOT NULL,
+    "id" BIGSERIAL NOT NULL,
     "member_id" BIGINT,
     "servicing_employee_id" BIGINT,
     "appointment_date" TIMESTAMPTZ(6),
