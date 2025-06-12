@@ -1,7 +1,8 @@
 import { Request, Response, NextFunction } from 'express';
 import model from '../models/stModel.js';
-import { decodeCursor } from '../utils/cursorUtils.js';
-import { PaginatedOptions, CursorPayload } from '../types/common.types.js';
+// import { decodeCursor } from '../utils/cursorUtils.js';
+// import { PaginatedOptions, CursorPayload } from '../types/common.types.js';
+// import { create } from 'domain';
 
 const getAllSaleTransaction = async (req: Request, res: Response, next: NextFunction): Promise<void> => {
   try {
@@ -20,78 +21,88 @@ const getAllSaleTransaction = async (req: Request, res: Response, next: NextFunc
   }
 };
 
-async function getInvoiceList(req, res) {
+const getSalesTransactionList = async (req: Request, res: Response): Promise<void> => {
   try {
     const {
       filter,
       searchQuery,
       memberSearchQuery,
-      sortField,
-      sortDirection,
-      page,
-      limit,
-      outlet_id
+      sortField = 'transaction_id',
+      sortDirection = 'desc',
+      page = 1,
+      limit = 10,
     } = req.query;
 
-    const outletId = outlet_id ? outlet_id : res.locals.outlet?.[0].outlet_id || 1;
-
-    const invoices = await invoiceModel.getInvoiceList(
-      filter,
-      searchQuery,
-      memberSearchQuery,
-      sortField,
-      sortDirection,
-      parseInt(page) || 1,
-      parseInt(limit) || 10,
-      outletId
+    const result = await model.getSalesTransactionList(
+      filter as string,
+      searchQuery as string,
+      memberSearchQuery as string,
+      sortField as string,
+      sortDirection as string,
+      parseInt(page as string) || 1,
+      parseInt(limit as string) || 10,
     );
 
     res.status(200).json({
       success: true,
-      data: invoices
+      data: result.items,
+      pagination: {
+        total: result.total,
+        totalPages: result.totalPages,
+        currentPage: result.currentPage,
+        limit: parseInt(limit as string) || 10
+      }
     });
   } catch (error) {
-    console.error('Error fetching invoice list:', error);
+    console.error('Error fetching sales transaction list:', error);
     res.status(500).json({
       success: false,
-      error: 'Failed to fetch invoice list'
+      error: 'Failed to fetch sales transaction list'
     });
   }
 };
 
-async function getInvoiceById(req, res) {
+// Get sales transaction by ID
+const getSalesTransactionById = async (req: Request, res: Response): Promise<void> => {
   try {
     const { id } = req.params;
 
     if (!id) {
-      return res.status(400).json({
+      res.status(400).json({
         success: false,
-        error: 'Invoice ID is required'
+        error: 'Sales transaction ID is required'
       });
+      return;
     }
 
-    const invoice = await invoiceModel.getInvoiceById(id);
+    const transaction = await model.getSalesTransactionById(id);
 
-    if (!invoice) {
-      return res.status(404).json({
+    if (!transaction) {
+      res.status(404).json({
         success: false,
-        error: 'Invoice not found'
+        error: 'Sales transaction not found'
       });
+      return;
     }
 
     res.status(200).json({
       success: true,
-      data: invoice
+      data: transaction
     });
   } catch (error) {
-    console.error('Error fetching invoice:', error);
+    console.error('Error fetching sales transaction:', error);
     res.status(500).json({
       success: false,
-      error: 'Failed to fetch invoice'
+      error: 'Failed to fetch sales transaction'
     });
   }
 };
 
+
+
+
 export default {
   getAllSaleTransaction,
+  getSalesTransactionList,
+  getSalesTransactionById,
 };

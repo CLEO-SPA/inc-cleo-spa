@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { Search, Home, Filter, ArrowUpDown } from 'lucide-react';
+import { Search, Home, Filter, ArrowUpDown, CreditCard, Users, DollarSign, Calendar, Eye, RefreshCcw } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
 import api from '@/services/api';
 import { AppSidebar } from '@/components/app-sidebar';
@@ -13,73 +13,36 @@ const SaleTransactionList = () => {
     const [transactions, setTransactions] = useState([]);
     const [loading, setLoading] = useState(true);
     const [error, setError] = useState(null);
-    const [sortField, setSortField] = useState('id');
+    const [sortField, setSortField] = useState('transaction_id');
     const [sortDirection, setSortDirection] = useState('desc');
     const [currentPage, setCurrentPage] = useState(1);
     const [filter, setFilter] = useState('');
     const [searchQuery, setSearchQuery] = useState('');
     const [searchBuffer, setSearchBuffer] = useState('');
+    const [memberSearchQuery, setMemberSearchQuery] = useState('');
+    const [totalItems, setTotalItems] = useState(0);
+    const [totalPages, setTotalPages] = useState(1);
     const itemsPerPage = 10;
     
-    // Calculate total items and pages
-    const totalItems = transactions.length;
-    const totalPages = Math.ceil(totalItems / itemsPerPage);
-    
-    // Get current page transactions
-    const indexOfLastItem = currentPage * itemsPerPage;
-    const indexOfFirstItem = indexOfLastItem - itemsPerPage;
-    const currentTransactions = transactions.slice(indexOfFirstItem, indexOfLastItem);
-
     const fetchTransactions = async () => {
         try {
             setLoading(true);
-            const response = await api.get('/st/all');
+            const response = await api.get('/st/list', {
+                params: {
+                    filter,
+                    searchQuery,
+                    memberSearchQuery,
+                    sortField,
+                    sortDirection,
+                    page: currentPage,
+                    limit: itemsPerPage
+                }
+            });
             
-            // Ensure we're extracting the transactions array from the response
-            if (response.data && response.data.transactions) {
-                let transactionData = response.data.transactions;
-                
-                // Apply search filter if provided
-                if (searchQuery) {
-                    transactionData = transactionData.filter(tx => 
-                        tx.id.includes(searchQuery) || 
-                        (tx.receipt_no && tx.receipt_no.includes(searchQuery)) ||
-                        (tx.remarks && tx.remarks.toLowerCase().includes(searchQuery.toLowerCase()))
-                    );
-                }
-                
-                // Apply status filter if provided
-                if (filter) {
-                    transactionData = transactionData.filter(tx => 
-                        tx.sale_transaction_status === filter
-                    );
-                }
-                
-                // Apply sorting
-                transactionData.sort((a, b) => {
-                    // Handle numeric fields
-                    if (['id', 'total_paid_amount', 'outstanding_total_payment_amount'].includes(sortField)) {
-                        const aValue = parseFloat(a[sortField]);
-                        const bValue = parseFloat(b[sortField]);
-                        return sortDirection === 'asc' ? aValue - bValue : bValue - aValue;
-                    }
-                    
-                    // Handle date fields
-                    if (['created_at', 'updated_at'].includes(sortField)) {
-                        const aDate = new Date(a[sortField]);
-                        const bDate = new Date(b[sortField]);
-                        return sortDirection === 'asc' ? aDate - bDate : bDate - aDate;
-                    }
-                    
-                    // Handle string fields
-                    const aValue = a[sortField] || '';
-                    const bValue = b[sortField] || '';
-                    return sortDirection === 'asc' 
-                        ? aValue.localeCompare(bValue) 
-                        : bValue.localeCompare(aValue);
-                });
-                
-                setTransactions(transactionData);
+            if (response.data && response.data.success) {
+                setTransactions(response.data.data);
+                setTotalItems(response.data.pagination.total);
+                setTotalPages(response.data.pagination.totalPages);
             } else {
                 setError('Invalid response format');
             }
@@ -93,7 +56,7 @@ const SaleTransactionList = () => {
 
     useEffect(() => {
         fetchTransactions();
-    }, [sortField, sortDirection, filter]);
+    }, [sortField, sortDirection, filter, currentPage, searchQuery, memberSearchQuery]);
 
     const handleSort = (field) => {
         setSortDirection(currentDirection => {
@@ -103,6 +66,7 @@ const SaleTransactionList = () => {
             return 'desc';
         });
         setSortField(field);
+        setCurrentPage(1); // Reset to first page on sort change
     };
 
     const handleSearch = (e) => {
@@ -113,13 +77,13 @@ const SaleTransactionList = () => {
     const handleSearchKeyPress = (e) => {
         if (e.key === 'Enter' || e.keyCode === 13) {
             setSearchQuery(searchBuffer);
-            fetchTransactions();
+            setCurrentPage(1); // Reset to first page on search
         }
     };
 
     const handleSearchSubmit = () => {
         setSearchQuery(searchBuffer);
-        fetchTransactions();
+        setCurrentPage(1); // Reset to first page on search
     };
 
     const formatCurrency = (amount) => {
@@ -129,6 +93,15 @@ const SaleTransactionList = () => {
             currency: 'SGD',
             minimumFractionDigits: 2
         });
+    };
+
+    const formatDate = (dateString) => {
+        const date = new Date(dateString);
+        return new Intl.DateTimeFormat('en-SG', {
+            year: 'numeric',
+            month: 'short',
+            day: '2-digit'
+        }).format(date);
     };
 
     const handlePrevPage = () => {
@@ -153,7 +126,7 @@ const SaleTransactionList = () => {
 
     const handleRefund = (transaction) => {
         // This would typically navigate to a refund page or show a modal
-        alert(`Refund for Transaction #${transaction.id} with amount ${formatCurrency(transaction.total_paid_amount)}`);
+        alert(`Refund for Transaction #${transaction.transaction_id} with amount ${formatCurrency(transaction.total_paid_amount)}`);
     };
 
     const PaginationControls = () => (
@@ -163,7 +136,7 @@ const SaleTransactionList = () => {
                     <button
                         onClick={handlePrevPage}
                         disabled={currentPage === 1 || loading}
-                        className="px-3 py-1 bg-blue-50 text-blue-700 rounded-md text-sm font-medium 
+                        className="px-3 py-1.5 bg-blue-50 text-blue-700 rounded-md text-sm font-medium 
                                 hover:bg-blue-100 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
                     >
                         Previous
@@ -183,7 +156,7 @@ const SaleTransactionList = () => {
                                     )}
                                     <button
                                         onClick={() => handlePageChange(page)}
-                                        className={`px-3 py-1 rounded-md text-sm font-medium ${currentPage === page
+                                        className={`px-3 py-1.5 rounded-md text-sm font-medium ${currentPage === page
                                             ? 'bg-blue-600 text-white'
                                             : 'bg-blue-50 text-blue-700 hover:bg-blue-100'
                                             }`}
@@ -196,14 +169,14 @@ const SaleTransactionList = () => {
                     <button
                         onClick={handleNextPage}
                         disabled={currentPage === totalPages || loading}
-                        className="px-3 py-1 bg-blue-50 text-blue-700 rounded-md text-sm font-medium 
+                        className="px-3 py-1.5 bg-blue-50 text-blue-700 rounded-md text-sm font-medium 
                                 hover:bg-blue-100 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
                     >
                         Next
                     </button>
                 </div>
                 <div className="text-sm text-gray-500">
-                    Showing {indexOfFirstItem + 1} to {Math.min(indexOfLastItem, totalItems)} of {totalItems} entries
+                    Showing {totalItems === 0 ? 0 : (currentPage - 1) * itemsPerPage + 1} to {Math.min(currentPage * itemsPerPage, totalItems)} of {totalItems} entries
                 </div>
             </div>
         </div>
@@ -214,24 +187,52 @@ const SaleTransactionList = () => {
         <div className="max-w-[1600px] mx-auto p-4 space-y-6">
             {/* Header Section */}
             <Card>
-                <CardHeader>
-                    <CardTitle>Sale Transactions</CardTitle>
+                <CardHeader className="pb-3">
+                    <div className="flex items-center justify-between">
+                        <CardTitle className="text-xl font-bold">Sale Transactions</CardTitle>
+                        <Button 
+                            onClick={fetchTransactions}
+                            variant="outline" 
+                            size="sm"
+                            className="flex items-center gap-1"
+                        >
+                            <RefreshCcw className="h-4 w-4" />
+                            <span>Refresh</span>
+                        </Button>
+                    </div>
                 </CardHeader>
                 <CardContent>
                     <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
                         <div>
                             <p className="text-sm text-gray-500">Manage and track all sale transactions</p>
+                            {filter && (
+                                <div className="mt-2 text-xs font-medium text-blue-700 bg-blue-50 px-2 py-1 rounded-full inline-block">
+                                    {filter === 'FULL' ? 'Showing fully paid transactions' : 
+                                     filter === 'PARTIAL' ? 'Showing partially paid transactions' :
+                                     filter === 'package' ? 'Showing package transactions' :
+                                     filter === 'service' ? 'Showing service transactions' :
+                                     filter === 'product' ? 'Showing product transactions' :
+                                     filter === 'voucher' ? 'Showing voucher transactions' : ''}
+                                </div>
+                            )}
                         </div>
 
                         <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-4 w-full sm:w-auto">
                             <select
                                 value={filter}
-                                onChange={(e) => setFilter(e.target.value)}
+                                onChange={(e) => {
+                                    setFilter(e.target.value);
+                                    setCurrentPage(1); // Reset to first page on filter change
+                                }}
                                 className="px-4 py-2.5 bg-white border border-gray-300 rounded-lg shadow-sm text-sm focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
                             >
                                 <option value="">All Transactions</option>
                                 <option value="FULL">Fully Paid</option>
                                 <option value="PARTIAL">Partially Paid</option>
+                                <option value="package">Packages</option>
+                                <option value="service">Services</option>
+                                <option value="product">Products</option>
+                                <option value="voucher">Vouchers</option>
                             </select>
 
                             <div className="relative flex items-center">
@@ -255,6 +256,59 @@ const SaleTransactionList = () => {
                     </div>
                 </CardContent>
             </Card>
+
+            {/* Stats Cards */}
+            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
+                <Card>
+                    <CardContent className="p-4 flex items-center gap-4">
+                        <div className="bg-blue-100 p-3 rounded-full">
+                            <CreditCard className="h-6 w-6 text-blue-700" />
+                        </div>
+                        <div>
+                            <p className="text-xs font-medium text-gray-500">Total Transactions</p>
+                            <p className="text-xl font-bold">{totalItems}</p>
+                        </div>
+                    </CardContent>
+                </Card>
+                
+                <Card>
+                    <CardContent className="p-4 flex items-center gap-4">
+                        <div className="bg-green-100 p-3 rounded-full">
+                            <DollarSign className="h-6 w-6 text-green-700" />
+                        </div>
+                        <div>
+                            <p className="text-xs font-medium text-gray-500">Fully Paid</p>
+                            <p className="text-xl font-bold">{transactions.filter(t => t.transaction_status === 'FULL').length}</p>
+                        </div>
+                    </CardContent>
+                </Card>
+                
+                <Card>
+                    <CardContent className="p-4 flex items-center gap-4">
+                        <div className="bg-yellow-100 p-3 rounded-full">
+                            <DollarSign className="h-6 w-6 text-yellow-700" />
+                        </div>
+                        <div>
+                            <p className="text-xs font-medium text-gray-500">Partially Paid</p>
+                            <p className="text-xl font-bold">{transactions.filter(t => t.transaction_status === 'PARTIAL').length}</p>
+                        </div>
+                    </CardContent>
+                </Card>
+                
+                <Card>
+                    <CardContent className="p-4 flex items-center gap-4">
+                        <div className="bg-purple-100 p-3 rounded-full">
+                            <Users className="h-6 w-6 text-purple-700" />
+                        </div>
+                        <div>
+                            <p className="text-xs font-medium text-gray-500">Unique Customers</p>
+                            <p className="text-xl font-bold">
+                                {new Set(transactions.map(t => t.member?.id)).size}
+                            </p>
+                        </div>
+                    </CardContent>
+                </Card>
+            </div>
 
             {/* Table Section */}
             <Card>
@@ -280,40 +334,70 @@ const SaleTransactionList = () => {
                                 <thead>
                                     <tr className="bg-gray-50">
                                         <th
-                                            onClick={() => handleSort('id')}
+                                            onClick={() => handleSort('transaction_id')}
                                             className="px-6 py-4 text-left text-xs font-semibold text-gray-600 uppercase tracking-wider cursor-pointer hover:bg-gray-100"
                                         >
-                                            Transaction ID {sortField === 'id' && (sortDirection === 'asc' ? '↑' : '↓')}
+                                            <div className="flex items-center">
+                                                <span>Transaction ID</span>
+                                                {sortField === 'transaction_id' && (
+                                                    <span className="ml-1">{sortDirection === 'asc' ? '↑' : '↓'}</span>
+                                                )}
+                                            </div>
                                         </th>
                                         <th
-                                            onClick={() => handleSort('member_id')}
+                                            onClick={() => handleSort('member_name')}
                                             className="px-6 py-4 text-left text-xs font-semibold text-gray-600 uppercase tracking-wider cursor-pointer hover:bg-gray-100"
                                         >
-                                            Member ID {sortField === 'member_id' && (sortDirection === 'asc' ? '↑' : '↓')}
+                                            <div className="flex items-center">
+                                                <span>Member</span>
+                                                {sortField === 'member_name' && (
+                                                    <span className="ml-1">{sortDirection === 'asc' ? '↑' : '↓'}</span>
+                                                )}
+                                            </div>
                                         </th>
                                         <th
                                             onClick={() => handleSort('total_paid_amount')}
                                             className="px-6 py-4 text-right text-xs font-semibold text-gray-600 uppercase tracking-wider cursor-pointer hover:bg-gray-100"
                                         >
-                                            Paid Amount {sortField === 'total_paid_amount' && (sortDirection === 'asc' ? '↑' : '↓')}
+                                            <div className="flex items-center justify-end">
+                                                <span>Paid Amount</span>
+                                                {sortField === 'total_paid_amount' && (
+                                                    <span className="ml-1">{sortDirection === 'asc' ? '↑' : '↓'}</span>
+                                                )}
+                                            </div>
                                         </th>
                                         <th
-                                            onClick={() => handleSort('outstanding_total_payment_amount')}
+                                            onClick={() => handleSort('outstanding')}
                                             className="px-6 py-4 text-right text-xs font-semibold text-gray-600 uppercase tracking-wider cursor-pointer hover:bg-gray-100"
                                         >
-                                            Outstanding {sortField === 'outstanding_total_payment_amount' && (sortDirection === 'asc' ? '↑' : '↓')}
+                                            <div className="flex items-center justify-end">
+                                                <span>Outstanding</span>
+                                                {sortField === 'outstanding' && (
+                                                    <span className="ml-1">{sortDirection === 'asc' ? '↑' : '↓'}</span>
+                                                )}
+                                            </div>
                                         </th>
                                         <th
-                                            onClick={() => handleSort('sale_transaction_status')}
+                                            onClick={() => handleSort('transaction_status')}
                                             className="px-6 py-4 text-left text-xs font-semibold text-gray-600 uppercase tracking-wider cursor-pointer hover:bg-gray-100"
                                         >
-                                            Status {sortField === 'sale_transaction_status' && (sortDirection === 'asc' ? '↑' : '↓')}
+                                            <div className="flex items-center">
+                                                <span>Status</span>
+                                                {sortField === 'transaction_status' && (
+                                                    <span className="ml-1">{sortDirection === 'asc' ? '↑' : '↓'}</span>
+                                                )}
+                                            </div>
                                         </th>
                                         <th
-                                            onClick={() => handleSort('created_at')}
+                                            onClick={() => handleSort('date')}
                                             className="px-6 py-4 text-left text-xs font-semibold text-gray-600 uppercase tracking-wider cursor-pointer hover:bg-gray-100"
                                         >
-                                            Date {sortField === 'created_at' && (sortDirection === 'asc' ? '↑' : '↓')}
+                                            <div className="flex items-center">
+                                                <span>Date</span>
+                                                {sortField === 'date' && (
+                                                    <span className="ml-1">{sortDirection === 'asc' ? '↑' : '↓'}</span>
+                                                )}
+                                            </div>
                                         </th>
                                         <th className="px-6 py-4 text-left text-xs font-semibold text-gray-600 uppercase tracking-wider">
                                             Actions
@@ -321,39 +405,58 @@ const SaleTransactionList = () => {
                                     </tr>
                                 </thead>
                                 <tbody className="divide-y divide-gray-200">
-                                    {currentTransactions.map((transaction) => (
-                                        <tr key={transaction.id} className="hover:bg-gray-50/50 transition-colors">
+                                    {transactions.map((transaction) => (
+                                        <tr key={transaction.transaction_id} className="hover:bg-gray-50/50 transition-colors">
                                             <td className="px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-900">
-                                                {transaction.id}
+                                                <div className="flex flex-col">
+                                                    <span>#{transaction.transaction_id}</span>
+                                                    <span className="text-xs text-gray-500 mt-1">
+                                                        {transaction.has_services && <span className="mr-1">Services</span>}
+                                                        {transaction.has_products && <span className="mr-1">Products</span>}
+                                                        {transaction.has_care_packages && <span>Packages</span>}
+                                                    </span>
+                                                </div>
                                             </td>
                                             <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-600">
-                                                {transaction.member_id}
+                                                {transaction.member ? (
+                                                    <div className="flex flex-col">
+                                                        <span className="font-medium">{transaction.member.name}</span>
+                                                        <span className="text-xs text-gray-500 mt-1">{transaction.member.contact}</span>
+                                                    </div>
+                                                ) : (
+                                                    <span className="text-gray-400">Guest</span>
+                                                )}
                                             </td>
                                             <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900 text-right">
-                                                <span className={parseFloat(transaction.total_paid_amount) < 0 ? 'text-red-600' : ''}>
+                                                <span className={parseFloat(transaction.total_paid_amount) < 0 ? 'text-red-600 font-medium' : 'font-medium'}>
                                                     {formatCurrency(transaction.total_paid_amount)}
                                                 </span>
                                             </td>
                                             <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900 text-right">
-                                                {formatCurrency(transaction.outstanding_total_payment_amount)}
+                                                <span className={parseFloat(transaction.outstanding_total_payment_amount) > 0 ? 'text-amber-600 font-medium' : 'font-medium'}>
+                                                    {formatCurrency(transaction.outstanding_total_payment_amount)}
+                                                </span>
                                             </td>
                                             <td className="px-6 py-4">
                                                 <span className={`inline-flex items-center px-2.5 py-1 rounded-full text-xs font-medium
-                                                    ${transaction.sale_transaction_status === 'FULL' ? 'bg-green-100 text-green-800' :
-                                                     transaction.sale_transaction_status === 'PARTIAL' ? 'bg-yellow-100 text-yellow-800' :
+                                                    ${transaction.transaction_status === 'FULL' ? 'bg-green-100 text-green-800' :
+                                                     transaction.transaction_status === 'PARTIAL' ? 'bg-yellow-100 text-yellow-800' :
                                                      'bg-red-100 text-red-800'}`}>
-                                                    {transaction.sale_transaction_status}
+                                                    {transaction.transaction_status === 'FULL' ? 'Fully Paid' :
+                                                     transaction.transaction_status === 'PARTIAL' ? 'Partially Paid' :
+                                                     transaction.transaction_status}
                                                 </span>
                                             </td>
                                             <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
-                                                {new Date(transaction.created_at).toLocaleDateString()}
+                                                {formatDate(transaction.transaction_created_at)}
                                             </td>
                                             <td className="px-6 py-4">
                                                 <div className="flex items-center gap-2">
                                                     <button
-                                                        onClick={() => handleView(transaction.id)}
+                                                        onClick={() => handleView(transaction.transaction_id)}
                                                         className="inline-flex items-center px-3 py-1.5 bg-blue-50 text-blue-700 rounded-md text-sm font-medium hover:bg-blue-100 transition-colors"
                                                     >
+                                                        <Eye className="h-3.5 w-3.5 mr-1" />
                                                         View
                                                     </button>
                                                     {parseFloat(transaction.total_paid_amount) > 0 && (
@@ -364,9 +467,9 @@ const SaleTransactionList = () => {
                                                             Refund
                                                         </button>
                                                     )}
-                                                    {transaction.sale_transaction_status === 'PARTIAL' && (
+                                                    {transaction.transaction_status === 'PARTIAL' && (
                                                         <button
-                                                            onClick={() => navigate(`/transactions/payment/${transaction.id}`)}
+                                                            onClick={() => navigate(`/transactions/payment/${transaction.transaction_id}`)}
                                                             className="inline-flex items-center px-3 py-1.5 bg-green-50 text-green-700 rounded-md text-sm font-medium hover:bg-green-100 transition-colors"
                                                         >
                                                             Pay Balance
@@ -376,10 +479,16 @@ const SaleTransactionList = () => {
                                             </td>
                                         </tr>
                                     ))}
-                                    {currentTransactions.length === 0 && (
+                                    {transactions.length === 0 && (
                                         <tr>
                                             <td colSpan="7" className="px-6 py-10 text-center text-gray-500">
-                                                No transactions found
+                                                <div className="flex flex-col items-center">
+                                                    <div className="bg-gray-100 p-4 rounded-full mb-3">
+                                                        <Search className="h-6 w-6 text-gray-400" />
+                                                    </div>
+                                                    <p className="font-medium text-gray-600">No transactions found</p>
+                                                    <p className="text-sm text-gray-500 mt-1">Try adjusting your search or filter</p>
+                                                </div>
                                             </td>
                                         </tr>
                                     )}

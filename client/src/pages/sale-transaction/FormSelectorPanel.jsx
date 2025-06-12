@@ -1,6 +1,7 @@
 import { useState } from 'react';
 import useSalesTransactionStore from '@/stores/useSelectedMemberStore';
 import { Button } from '@/components/ui/button';
+// import ServiceTab from '@/pages/sale-transaction/tabs/ServiceTab';
 
 export default function FormSelectorPanel() {
   const [selectedTab, setSelectedTab] = useState('services');
@@ -18,7 +19,7 @@ export default function FormSelectorPanel() {
   const renderTabContent = () => {
     switch (selectedTab) {
       case 'services':
-        // return <ServicesTab />;
+        // return <ServiceTab onServiceSelect={(service) => console.log('Service selected:', service)} />;
       case 'products':
         // return <ProductsTab />;
       case 'mcp':

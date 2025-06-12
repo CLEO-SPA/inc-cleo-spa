@@ -14,6 +14,8 @@ import controller from '../controllers/stController.js';
 // =========================
 // router.use(isAuthenticated);
 router.get('/all', controller.getAllSaleTransaction);
+router.get('/list', controller.getSalesTransactionList);
+router.get('/list/:id', controller.getSalesTransactionById);
 
 // router.all('/e', roleMiddleware.hasRole(['data_admin', 'super_admin']), controller.emulateCarePackage);
 
