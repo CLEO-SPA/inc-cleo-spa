@@ -451,6 +451,40 @@ const updateTransactionLogsAndCurrentBalanceByLogId = async (req: Request, res: 
   }
 };
 
+const deleteTransactionLogsByLogId = async (req: Request, res: Response, next: NextFunction): Promise<void> => {
+
+  const {
+    id,
+    transaction_log_id
+  } = req.params;
+
+  try {
+
+    const intTransaction_log_id = parseInt(transaction_log_id, 10);
+    const intMember_voucher_id = parseInt(id, 10);
+
+    if (!intTransaction_log_id || Number.isNaN(intTransaction_log_id)) {
+      res.status(400).json({ message: "Error 400: Transaction Log id is invalid." });
+      return;
+    };
+    if (!intMember_voucher_id || Number.isNaN(intMember_voucher_id)) {
+      res.status(400).json({ message: "Error 400: Member Voucher id is invalid." });
+      return;
+    };
+
+    const results = await model.deleteTransactionLogsAndCurrentBalanceByLogId(intTransaction_log_id, intMember_voucher_id);
+    if (results.success) {
+      res.status(200).json({ message: results.message });
+    } else {
+      res.status(400).json({ message: results.message });
+      throw new Error(results.message);
+    };
+  } catch (error) {
+    console.error('Error in memberVoucherController.deleteTransactionLogsByLogId:', error);
+    next(error);
+  }
+};
+
 export default {
   getAllMemberVouchers,
   getAllServicesOfMemberVoucherById,
@@ -459,5 +493,6 @@ export default {
   checkCurrentBalance,
   checkPaidCurrentBalance,
   getMemberNameByMemberVoucherId,
-  updateTransactionLogsAndCurrentBalanceByLogId
+  updateTransactionLogsAndCurrentBalanceByLogId,
+  deleteTransactionLogsByLogId
 }

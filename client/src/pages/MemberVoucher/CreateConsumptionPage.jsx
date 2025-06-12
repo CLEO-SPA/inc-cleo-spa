@@ -143,7 +143,7 @@ const CreateMemberVoucherConsumptionPage = () => {
             {/* Deleting Confirmation Pop Up */}
             {isDeleting && <ConfirmationPopUp
                 open={isConfirming}
-                title="Please confirm the following details"
+                title="Are you sure you wish to delete this and the subsequent entries? Please confirm the following details"
                 body={confirmBody}
                 onConfirm={() => {
                     deletingMemberVoucherTransactionLog();

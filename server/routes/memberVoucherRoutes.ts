@@ -26,4 +26,6 @@ router.post('/:id/t/create', controller.checkCurrentBalance, controller.checkPai
 
 router.put('/:id/t/update', controller.updateTransactionLogsAndCurrentBalanceByLogId);
 
+router.delete('/:id/t/:transaction_log_id/delete', controller.deleteTransactionLogsByLogId);
+
 export default router;
