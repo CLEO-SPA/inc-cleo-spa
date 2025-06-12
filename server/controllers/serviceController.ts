@@ -20,7 +20,7 @@ const getAllServices = async (req: Request, res: Response, next: NextFunction) =
 
 function isSafeInput(input: string) {
   // Allow only letters, numbers, spaces, and a few symbols
-  return /^[\w\s\,-.&+_()$]+$/.test(input);
+  return /^[\w\s\,-.&+_()$/]+$/.test(input);
 }
 
 // Get services with pagination and filter
