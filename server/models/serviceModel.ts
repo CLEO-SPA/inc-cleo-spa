@@ -198,36 +198,6 @@ const getEnabledServiceById = async (id: number) => {
   }
 };
 
-const getServiceCategories = async () => {
-  try {
-    const query = `
-    SELECT * FROM service_categories
-    ORDER BY service_category_sequence_no;`;
-    const result = await pool().query(query);
-    return result.rows;
-  } catch (error) {
-    console.error('Error fetching service categories:', error);
-    throw new Error('Error fetching service categories');
-  }
-};
-
-const getServiceCategoryById = async (id: number) => {
-  try {
-    const query = `
-        SELECT 
-            id,
-            service_category_name
-        FROM service_categories
-        WHERE id = $1; 
-    `;
-    const result = await pool().query(query, [id]); // Added string parameter to query
-    return result.rows[0];
-  } catch (error) {
-    console.error('Error fetching service category by id:', error);
-    throw new Error('Error fetching service category by id');
-  }
-};
-
 const getServiceSequenceNo = async (service_category_id: number) => {
   try {
     const query = `
@@ -238,6 +208,20 @@ const getServiceSequenceNo = async (service_category_id: number) => {
   } catch (error) {
     console.error('Error fetching service sequence no:', error);
     throw new Error('Error fetching service sequence no');
+  }
+};
+
+const getServiceByCategory = async (service_category_id: number) => {
+  try {
+    const query = `
+    SELECT id, service_name, service_sequence_no FROM services
+    WHERE service_category_id = $1
+    ORDER BY service_sequence_no ASC;`;
+    const result = await pool().query(query, [service_category_id]);
+    return result.rows;
+  } catch (error) {
+    console.error('Error fetching services:', error);
+    throw new Error('Error fetching services');
   }
 };
 
@@ -352,6 +336,36 @@ const updateService = async (formData: any) => {
   }
 };
 
+const getServiceCategories = async () => {
+  try {
+    const query = `
+    SELECT * FROM service_categories
+    ORDER BY service_category_sequence_no;`;
+    const result = await pool().query(query);
+    return result.rows;
+  } catch (error) {
+    console.error('Error fetching service categories:', error);
+    throw new Error('Error fetching service categories');
+  }
+};
+
+const getServiceCategoryById = async (id: number) => {
+  try {
+    const query = `
+        SELECT 
+            id,
+            service_category_name
+        FROM service_categories
+        WHERE id = $1; 
+    `;
+    const result = await pool().query(query, [id]); // Added string parameter to query
+    return result.rows[0];
+  } catch (error) {
+    console.error('Error fetching service category by id:', error);
+    throw new Error('Error fetching service category by id');
+  }
+};
+
 export default {
   getAllServices,
   getServicesPaginationFilter,
@@ -360,9 +374,10 @@ export default {
   getServiceById,
   getServiceByName,
   getEnabledServiceById,
+  getServiceSequenceNo,
+  getServiceByCategory,
+  createService,
+  updateService,
   getServiceCategories,
   getServiceCategoryById,
-  getServiceSequenceNo,
-  createService,
-  updateService
 };

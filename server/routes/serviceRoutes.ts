@@ -13,7 +13,7 @@ router.get('/all-page-filter', serviceController.getServicesPaginationFilter);
 router.get('/enabled-id/:id', serviceController.getEnabledServiceById);
 
 // Get services by category
-// router.get('/all-by-cat/:category_id')
+router.get('/all-by-cat/:category_id', serviceController.getServicesByCategory)
 
 // for service dropdown
 router.get('/dropdown', serviceController.getAllServicesForDropdown);

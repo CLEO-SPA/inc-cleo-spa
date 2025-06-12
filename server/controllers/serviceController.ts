@@ -143,22 +143,6 @@ const getEnabledServiceById = async (req: Request, res: Response, next: NextFunc
   }
 };
 
-const getServiceCategories = async (req: Request, res: Response, next: NextFunction) => {
-  try {
-    const serviceCategories = await serviceModel.getServiceCategories();
-
-    if (!serviceCategories || serviceCategories.length === 0) {
-      res.status(404).json({ message: 'Service categories not found' });
-      return;
-    }
-
-    res.status(200).json(serviceCategories);
-  } catch (error) {
-    console.error('Error in getServiceCategories:', error);
-    res.status(500).json({ message: 'Failed to fetch service categories' });
-  }
-};
-
 // create service
 // data validation
 //Data validation
@@ -345,14 +329,51 @@ const updateService = async (req: Request, res: Response, next: NextFunction) =>
   }
 };
 
+// get services by categories
+const getServicesByCategory = async(req: Request, res: Response, next: NextFunction)=>{
+  try {
+    const category_id = parseInt(req.params.category_id, 10);
+
+    if (isNaN(category_id)) {
+      res.status(400).json({ message: 'Invalid service category ID' });
+      return;
+    }
+
+    const services = await serviceModel.getServiceByCategory(category_id);
+    res.status(200).json(services);
+  } catch (error) {
+    console.error('Error in getServiceById:', error);
+    res.status(500).json({ message: 'Failed to fetch service' });
+  }
+}
+
+// SERVICE CATEGORIES ROUTES
+// Get Service Categories
+const getServiceCategories = async (req: Request, res: Response, next: NextFunction) => {
+  try {
+    const serviceCategories = await serviceModel.getServiceCategories();
+
+    if (!serviceCategories || serviceCategories.length === 0) {
+      res.status(404).json({ message: 'Service categories not found' });
+      return;
+    }
+
+    res.status(200).json(serviceCategories);
+  } catch (error) {
+    console.error('Error in getServiceCategories:', error);
+    res.status(500).json({ message: 'Failed to fetch service categories' });
+  }
+};
+
 export default {
   getAllServices,
   getServicesPaginationFilter,
   getAllServicesForDropdown,
   getServiceById,
   getEnabledServiceById,
-  getServiceCategories,
+  getServicesByCategory,
   validateServiceData,
   createService,
-  updateService
+  updateService,
+  getServiceCategories
 };
