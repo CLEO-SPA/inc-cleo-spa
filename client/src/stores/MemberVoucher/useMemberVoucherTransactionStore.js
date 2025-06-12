@@ -344,11 +344,20 @@ const useMemberVoucherTransactionStore = create((set, get) => ({
         set({ loading: true, success: false, error: false });
 
         try {
-            await api.put(`/mv/${selectedMemberVoucherId}/t/delete`);
+            const state = get();
+            const { selectedMemberVoucherId, selectedTransactionLogId } = state;
+
+            await api.delete(`/mv/${selectedMemberVoucherId}/t/${selectedTransactionLogId}/delete`);
+
+            set({
+                isConfirming: false,
+                isUpdating: false,
+                loading: false,
+                success: true,
+                formData: []
+            });
 
             await get().initialize();
-
-            set({ isConfirming: false, loading: false, success: true });
 
             get().setSuccessWithTimeout();
 
@@ -578,6 +587,38 @@ const useMemberVoucherTransactionStore = create((set, get) => ({
                 handledBy: handledByEmpName,
                 lastUpdatedBy: lastUpdatedByEmpName
             }
+        });
+    },
+
+    setDeleteFormData: () => {
+        const state = get();
+        const { memberVoucherTransactionLogs, employeeList, selectedTransactionLogId } = state;
+        const memberVoucherTransactionLog = memberVoucherTransactionLogs.find(log => log.id === selectedTransactionLogId);
+
+        const dateStr = memberVoucherTransactionLog.service_date;
+        const date = new Date(dateStr);
+
+        const month = String(date.getMonth() + 1).padStart(2, '0');
+        const day = String(date.getDate()).padStart(2, '0');
+        const year = String(date.getFullYear());
+        const dateFormatted = `${year}-${month}-${day}`;
+        const timeFormatted = `${String(date.getHours()).padStart(2, '0')}:${String(date.getMinutes()).padStart(2, '0')}`;
+
+        const createdByEmpName = getNameById(employeeList, String(memberVoucherTransactionLog.created_by));
+        const handledByEmpName = getNameById(employeeList, String(memberVoucherTransactionLog.serviced_by));
+
+        set({
+            formData: {
+                consumptionValue: memberVoucherTransactionLog.amount_change,
+                remarks: memberVoucherTransactionLog.service_description,
+                date: dateFormatted,
+                time: timeFormatted,
+                type: memberVoucherTransactionLog.type,
+                createdBy: createdByEmpName,
+                handledBy: handledByEmpName
+            },
+            isDeleting: true,
+            isConfirming: true
         });
     },
 

@@ -41,10 +41,10 @@ const MemberVoucherTransactionLogs = () => {
         goToPage,
         setLimit,
 
-        isUpdating,
         setSelectedTransactionLogId,
         setIsUpdating,
-        setUpdateFormData
+        setUpdateFormData,
+        setDeleteFormData
     } = useMemberVoucherTransactionStore();
 
     const [targetPageInput, setTargetPageInput] = useState('');
@@ -195,12 +195,10 @@ const MemberVoucherTransactionLogs = () => {
                                                                         <DropdownMenuSeparator />
                                                                         <DropdownMenuItem
                                                                             onClick={() => {
-                                                                                // const id = voucher.id
-                                                                                // // const value = getMembershipTypeById(id);
-
-                                                                                // // if (setSelectedMembershipTypeId(id)) {
-                                                                                // //     handleDelete(value);
-                                                                                // // };
+                                                                                const id = transaction.id
+                                                                                console.log("Delete Button Clicked");
+                                                                                setSelectedTransactionLogId(id);
+                                                                                setDeleteFormData();
                                                                             }}
                                                                             className='text-destructive focus:text-destructive focus:bg-destructive/10'
                                                                         >

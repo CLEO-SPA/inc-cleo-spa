@@ -678,6 +678,96 @@ const setTransactionLogsAndCurrentBalanceByLogId = async (data: MemberVoucherTra
   }
 };
 
+const deleteTransactionLogsAndCurrentBalanceByLogId = async (transaction_log_id: number, member_voucher_id: number): Promise<{ success: boolean, message: string }> => {
+
+  const client = await pool().connect();
+
+  try {
+    // To get the sum of the total amount change from all the to-be deleted transaction logs
+    const getSumOfAmountChangeQuery = `
+        SELECT SUM(amount_change)
+        FROM member_voucher_transaction_logs
+        WHERE id >= $1;
+    `;
+
+    const getSumOfAmountChangeValue = [
+      transaction_log_id
+    ];
+
+    const updateMemberVoucherQuery = `
+        UPDATE member_vouchers
+        SET current_balance = current_balance - $1
+        WHERE id = $2;
+        `;
+
+    const deleteTransactionLogAndSubsequentLogsByIdQuery = `
+        DELETE FROM member_voucher_transaction_logs
+        WHERE id >= $1
+        `;
+
+    await client.query('BEGIN');
+
+    const getAmountChangeResult = await client.query(getSumOfAmountChangeQuery, getSumOfAmountChangeValue);
+
+    console.log("getAmountChangeResult.rows[0].sum: " + getAmountChangeResult.rows[0].sum);
+
+    const updateMemberVoucherValues = [
+      getAmountChangeResult.rows[0].sum,
+      member_voucher_id
+    ];
+
+    const deleteTransactionLogAndSubsequentLogsByIdValue = [
+      transaction_log_id
+    ];
+
+    const updateMemberVoucherResults = await client.query(updateMemberVoucherQuery, updateMemberVoucherValues);
+
+    const deleteTransactionLogsResults = await client.query(deleteTransactionLogAndSubsequentLogsByIdQuery, deleteTransactionLogAndSubsequentLogsByIdValue);
+
+    if ((updateMemberVoucherResults.rowCount ?? 0) > 0 && (deleteTransactionLogsResults.rowCount ?? 0) > 0) {
+      await client.query('COMMIT');
+
+      return {
+        success: true,
+        message: "The Member Voucher transaction log and Member Voucher balance has been respectively deleted and updated successfully.",
+      };
+    } else {
+      // Rollback if any operation failed
+      await client.query('ROLLBACK');
+
+      return {
+        success: false,
+        message: "Transaction failed - no rows affected in one or more operations."
+      };
+    }
+
+  } catch (error) {
+    // Rollback on any error
+    try {
+      await client.query('ROLLBACK');
+    } catch (rollbackError) {
+      console.error('Error during rollback:', rollbackError);
+    }
+
+    console.error('Error deleting Member Voucher transaction log by Transation Log Id:', error);
+
+    console.error('Full error details:', {
+      error: error instanceof Error ? error.message : 'Unknown error',
+      stack: error instanceof Error ? error.stack : undefined
+    });
+
+    // Return user-friendly message but also throw for critical errors
+    if (error instanceof Error && error.message.includes('connection')) {
+      throw new Error('Database connection failed. Please try again later.');
+    };
+
+    return { success: false, message: "Failed to deleting Member Voucher transaction log by Transation Log Id due to database error." };
+
+  } finally {
+    client.release();
+  }
+};
+
 export default {
   getPaginatedVouchers,
   getServicesOfMemberVoucherById,
@@ -686,5 +776,6 @@ export default {
   getMemberVoucherCurrentBalance,
   getMemberVoucherPaidCurrentBalance,
   getMemberNameByMemberVoucherId,
-  setTransactionLogsAndCurrentBalanceByLogId
+  setTransactionLogsAndCurrentBalanceByLogId,
+  deleteTransactionLogsAndCurrentBalanceByLogId
 }
