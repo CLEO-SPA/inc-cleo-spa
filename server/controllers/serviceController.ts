@@ -112,7 +112,7 @@ const getServiceById = async (req: Request, res: Response, next: NextFunction) =
       return;
     }
 
-    res.status(200).json(service[0]); // Assuming only one row is returned
+    res.status(200).json(service); // Assuming only one row is returned
   } catch (error) {
     console.error('Error in getServiceById:', error);
     res.status(500).json({ message: 'Failed to fetch service' });

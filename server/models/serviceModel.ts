@@ -125,34 +125,8 @@ const getAllServicesForDropdown = async () => {
 const getServiceById= async (id: number) => {
   try {
     const query = `
-        SELECT 
-            s.id,
-            s.service_name,
-            s.service_description,
-            s.service_remarks,
-            s.service_duration,
-            s.service_price,
-            s.service_is_enabled,
-            s.created_at,
-            s.updated_at,
-            s.service_category_id,
-            s.service_sequence_no,
-            s.created_by,
-            s.updated_by,
-            
-            -- Category information
-            sc.service_category_name,
-            
-            -- Creator information
-            em_c.employee_name as created_by,
-            
-            -- Updater information
-            em_u.employee_name as updated_by
-            
+        SELECT *
         FROM public.services s
-        LEFT JOIN service_categories AS sc ON s.service_category_id = sc.id
-        INNER JOIN employees AS em_c ON s.created_by = em_c.id
-        INNER JOIN employees AS em_u ON s.updated_by = em_u.id
         WHERE s.id = $1; 
     `;
     const result = await pool().query(query, [id]); // Added id parameter to query

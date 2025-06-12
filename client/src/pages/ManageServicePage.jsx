@@ -3,7 +3,6 @@ import { useNavigate } from "react-router-dom";
 import api from '@/services/api';
 import { Button } from '@/components/ui/button';
 import { Switch } from '@/components/ui/switch';
-import { SearchForm } from '@/components/search-form';
 import { ChevronDownCircle, ChevronUpCircle, FilePenLine, ChevronLeft, ChevronsLeft, ChevronRight, ChevronsRight } from 'lucide-react';
 import { AppSidebar } from '@/components/app-sidebar';
 import {
@@ -228,7 +227,7 @@ export default function ManageService() {
                               {/* Action Row */}
                               <td className="px-4 py-2 border border-gray-200">
                                 <div className="flex space-x-2 space-y-1">
-                                  <Button className="p-1 bg-green-600 text-white text-sm font-medium rounded-xl hover:bg-green-700">
+                                  <Button className="p-1 bg-green-600 text-white text-sm font-medium rounded-xl hover:bg-green-700" onClick={()=> navigate(`/update-service/${service.id}`)}>
                                     <FilePenLine className="inline-block mr-1" />
                                   </Button>
                                   <Button className="px-2 py-1 bg-gray-600 text-white text-sm font-medium rounded-xl hover:bg-blue-700">
