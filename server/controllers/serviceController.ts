@@ -20,7 +20,7 @@ const getAllServices = async (req: Request, res: Response, next: NextFunction) =
 
 function isSafeInput(input: string) {
   // Allow only letters, numbers, spaces, and a few symbols
-  return /^[\w\s\,-.&+_()]+$/.test(input);
+  return /^[\w\s\,-.&+_()$]+$/.test(input);
 }
 
 // Get services with pagination and filter
@@ -184,7 +184,8 @@ const validateServiceData = async (req: Request, res: Response, next: NextFuncti
     !service_price ||
     isNaN(service_is_enabled) ||
     !service_category_id ||
-    !created_at
+    !created_at ||
+    !created_by
   ) {
     res.status(400).json({ message: 'Data missing from required fields.' });
     return;
@@ -225,7 +226,7 @@ const validateServiceData = async (req: Request, res: Response, next: NextFuncti
       }
     }
   }
-  if (!validator.isInt(service_duration) || !validator.isNumeric(service_price) || !validator.isInt(created_by)) {
+  if (!validator.isInt(service_duration) || !validator.isNumeric(service_price)) {
     res.status(400).json({ message: 'Invalid data type' });
     return;
   }
@@ -260,9 +261,8 @@ const createService = async (req: Request, res: Response, next: NextFunction) =>
     };
 
     const newService = await serviceModel.createService(serviceData);
-    console.log(newService);
     if (newService) {
-      res.status(201).json({ message: 'Service created successfully' });
+      res.status(201).json({ service: newService[0], message: 'Service created successfully' });
     } else {
       res.status(400).json({ message: 'Failed to create service 1' });
     }
