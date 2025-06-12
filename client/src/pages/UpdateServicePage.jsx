@@ -17,6 +17,7 @@ import {
 import { SiteHeader } from '@/components/site-header';
 import { SidebarInset, SidebarProvider } from '@/components/ui/sidebar';
 import EmployeeSelect from '@/components/ui/forms/EmployeeSelect';
+import { useSimulationStore } from "@/stores/useSimulationStore";
 
 export default function UpdateService() {
   // Get Service Id from Params
@@ -27,6 +28,8 @@ export default function UpdateService() {
   const [categories, setCategories] = useState([]);
   const methods = useForm({});
   const { watch, reset } = methods;
+  const isSimulationActive = useSimulationStore((state) => state.isSimulationActive)
+  const simulationStartDate = useSimulationStore((state) => state.simulationStartDate);
 
   // For Modal
   const [modalOpen, setModalOpen] = useState(false);
@@ -112,7 +115,7 @@ export default function UpdateService() {
           service_category_id: service.service_category_id || '',
           created_at: service.created_at || '',
           created_by: service.created_by || '',
-          updated_at: new Date(),
+          updated_at: isSimulationActive ? new Date(simulationStartDate) : new Date(),
           updated_by: ""
         });
         setSelectedCategory(service.service_category_id);
