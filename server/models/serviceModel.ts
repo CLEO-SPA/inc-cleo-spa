@@ -122,7 +122,7 @@ const getAllServicesForDropdown = async () => {
 };
 
 // get service by id, include both enabled and disabled services
-const getServiceById= async (id: number) => {
+const getServiceById = async (id: number) => {
   try {
     const query = `
         SELECT *
@@ -138,8 +138,8 @@ const getServiceById= async (id: number) => {
 };
 
 // get service by name
-const getServiceByName= async (service_name: string) => {
-try {
+const getServiceByName = async (service_name: string) => {
+  try {
     const query = `
         SELECT 
             s.id,
@@ -153,7 +153,7 @@ try {
     console.error('Error fetching service by name:', error);
     throw new Error('Error fetching service by name');
   }
-}
+};
 
 const getEnabledServiceById = async (id: number) => {
   // Added missing id parameter
@@ -199,17 +199,17 @@ const getEnabledServiceById = async (id: number) => {
 };
 
 const getServiceCategories = async () => {
-  try{
+  try {
     const query = `
     SELECT * FROM service_categories
     ORDER BY service_category_sequence_no;`;
     const result = await pool().query(query);
     return result.rows;
-  }catch(error){
+  } catch (error) {
     console.error('Error fetching service categories:', error);
     throw new Error('Error fetching service categories');
   }
-}
+};
 
 const getServiceCategoryById = async (id: number) => {
   try {
@@ -226,22 +226,22 @@ const getServiceCategoryById = async (id: number) => {
     console.error('Error fetching service category by id:', error);
     throw new Error('Error fetching service category by id');
   }
-}
+};
 
 const getServiceSequenceNo = async (service_category_id: number) => {
-  try{
+  try {
     const query = `
     SELECT COUNT(*) AS seq_no FROM services
     WHERE service_category_id = $1;`;
     const result = await pool().query(query, [service_category_id]);
     return result.rows[0].seq_no;
-  }catch(error){
+  } catch (error) {
     console.error('Error fetching service sequence no:', error);
     throw new Error('Error fetching service sequence no');
   }
-}
+};
 
-const createService = async (serviceData: any) =>{
+const createService = async (serviceData: any) => {
   try {
     const query = `
       INSERT INTO services (
@@ -274,16 +274,83 @@ const createService = async (serviceData: any) =>{
       serviceData.service_category_id,
       serviceData.service_sequence_no,
       serviceData.created_by,
-      serviceData.updated_by
+      serviceData.updated_by,
     ];
     const result = await pool().query(query, params);
-    console.log(result);
     return result.rows;
   } catch (error) {
     console.error('Error creating new service:', error);
     throw new Error('Error creating new service');
   }
-}
+};
+
+const updateService = async (formData: any) => {
+  try {
+    const conditions: string[] = [];
+    const params: any[] = [];
+    let index = 1;
+
+    if (formData.service_name) {
+      params.push(formData.service_name);
+      conditions.push(`service_name = $${index++}`);
+    }
+
+    if (formData.service_description) {
+      params.push(formData.service_description);
+      conditions.push(`service_description = $${index++}`);
+    }
+
+    if (formData.service_remarks) {
+      params.push(formData.service_remarks);
+      conditions.push(`service_remarks = $${index++}`);
+    }
+
+    if (formData.service_duration) {
+      params.push(formData.service_duration);
+      conditions.push(`service_duration = $${index++}`);
+    }
+
+    if (formData.service_price) {
+      params.push(formData.service_price);
+      conditions.push(`service_price = $${index++}`);
+    }
+
+    if (formData.service_category_id) {
+      params.push(formData.service_category_id);
+      conditions.push(`service_category_id = $${index++}`);
+      params.push(formData.service_sequence_no);
+      conditions.push(`service_sequence_no = $${index++}`);
+    }
+
+    if (formData.created_at) {
+      params.push(formData.created_at);
+      conditions.push(`created_at = $${index++}`);
+    }
+
+    if (formData.created_by) {
+      params.push(formData.created_by);
+      conditions.push(`created_by = $${index++}`);
+    }
+
+    // Always update updated_at and updated_by
+    params.push(formData.updated_at || new Date());
+    conditions.push(`updated_at = $${index++}`);
+
+    params.push(formData.updated_by || '');
+    conditions.push(`updated_by = $${index++}`);
+
+    const query = `UPDATE services SET ${conditions.join(", ")} WHERE id = $${index}
+    RETURNING *`;
+    params.push(formData.id);
+
+    console.log(query);
+    const result = await prodPool().query(query, params);
+    return result.rows;
+  } catch (error) {
+    console.error('Error updating service:', error);
+    throw new Error('Error updating service');
+  }
+};
 
 export default {
   getAllServices,
@@ -296,5 +363,6 @@ export default {
   getServiceCategories,
   getServiceCategoryById,
   getServiceSequenceNo,
-  createService
+  createService,
+  updateService
 };

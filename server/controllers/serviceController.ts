@@ -171,7 +171,6 @@ const validateServiceData = async (req: Request, res: Response, next: NextFuncti
     service_remarks,
     service_duration,
     service_price,
-    service_is_enabled,
     service_category_id,
     created_at,
     created_by,
@@ -182,7 +181,6 @@ const validateServiceData = async (req: Request, res: Response, next: NextFuncti
     !service_name ||
     !service_duration ||
     !service_price ||
-    isNaN(service_is_enabled) ||
     !service_category_id ||
     !created_at ||
     !created_by
@@ -231,11 +229,6 @@ const validateServiceData = async (req: Request, res: Response, next: NextFuncti
     return;
   }
 
-  if (!validator.isBoolean(service_is_enabled.toString())) {
-    res.status(400).json({ message: 'Invalid data type' });
-    return;
-  }
-
   if (!validator.isISO8601(created_at)) {
     throw new Error('Invalid data type');
   }
@@ -246,6 +239,10 @@ const validateServiceData = async (req: Request, res: Response, next: NextFuncti
 const createService = async (req: Request, res: Response, next: NextFunction) => {
   const formData = req.body;
   try {
+    if (!validator.isBoolean(formData.service_is_enabled.toString())) {
+    res.status(400).json({ message: 'Invalid data type' });
+    return;
+  }
     // get service sequence no (last in the category)
     const service_sequence_no = parseInt(await serviceModel.getServiceSequenceNo(formData.service_category_id)) + 1;
 
@@ -264,11 +261,87 @@ const createService = async (req: Request, res: Response, next: NextFunction) =>
     if (newService) {
       res.status(201).json({ service: newService[0], message: 'Service created successfully' });
     } else {
-      res.status(400).json({ message: 'Failed to create service 1' });
+      res.status(400).json({ message: 'Failed to create service' });
     }
   } catch (error) {
     console.error('Error in createService:', error);
-    res.status(500).json({ message: 'Failed to create service 2' });
+    res.status(500).json({ message: 'Failed to create service' });
+  }
+};
+
+const updateService = async (req: Request, res: Response, next: NextFunction) => {
+  const id = parseInt(req.params.id, 10);
+  const formData = req.body;
+  const { updated_by, updated_at } = formData;
+  try {
+    //check if service exists
+    const service = await serviceModel.getServiceById(id);
+    if (!service) {
+      res.status(404).json({ message: 'Service Not Found' });
+      return;
+    }
+
+    // validate updated by and updated at values
+    if (!updated_by || !updated_at) {
+      res.status(400).json({ message: 'Data missing from required fields.' });
+      return;
+    }
+
+    // Dynamic Update payload
+    const updatePayload: { [key: string]: any } = {};
+
+    if (formData.service_name && formData.service_name !== service.service_name) {
+      updatePayload.service_name = formData.service_name;
+    }
+
+    if (formData.service_description && formData.service_description !== service.service_description) {
+      updatePayload.service_description = formData.service_description;
+    }
+
+    if (formData.service_remarks && formData.service_remarks !== service.service_remarks) {
+      updatePayload.service_remarks = formData.service_remarks;
+    }
+
+    if (formData.service_duration && formData.service_duration !== service.service_duration) {
+      updatePayload.service_duration = formData.service_duration;
+    }
+    if (formData.service_price && formData.service_price !== service.service_price) {
+      updatePayload.service_price = formData.service_price;
+    }
+
+    if (formData.service_category_id && formData.service_category_id !== service.service_category_id) {
+      updatePayload.service_category_id = formData.service_category_id;
+      updatePayload.service_sequence_no = await serviceModel.getServiceSequenceNo(formData.service_category_id);
+    }
+
+    if (formData.created_at && formData.created_at !== service.created_at) {
+      updatePayload.created_at = formData.created_at;
+    }
+
+    if (formData.created_by && formData.created_by !== service.created_by) {
+      updatePayload.created_by = formData.created_by;
+    }
+
+    //if no changes detected so far
+    if (Object.keys(updatePayload).length === 0) {
+      res.status(400).json({ message: 'No changes detected' });
+    } else {
+      // add in updated at and updated by
+      // because they might be changed
+      updatePayload.updated_at = formData.updated_at;
+      updatePayload.updated_by = formData.updated_by;
+      updatePayload.id = id;
+    }
+
+    const  updatedService = await serviceModel.updateService(updatePayload);
+    if (updatedService) {
+      res.status(200).json({ service: updatedService[0], message: 'Service updated successfully' });
+    } else {
+      res.status(400).json({ message: 'Failed to update service' });
+    }
+  } catch (error) {
+    console.error('Error in updateService:', error);
+    res.status(500).json({ message: 'Failed to update service' });
   }
 };
 
@@ -281,4 +354,5 @@ export default {
   getServiceCategories,
   validateServiceData,
   createService,
+  updateService
 };

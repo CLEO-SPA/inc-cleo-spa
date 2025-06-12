@@ -15,9 +15,14 @@ router.get('/enabled-id/:id', serviceController.getEnabledServiceById);
 // Get services by category
 // router.get('/all-by-cat/:category_id')
 
-// TODO: add service prices for dropdown
 // for service dropdown
 router.get('/dropdown', serviceController.getAllServicesForDropdown);
+
+// create a new service
+router.post('/create-service', serviceController.validateServiceData, serviceController.createService)
+
+// update service
+router.put('/update-service/:id', serviceController.validateServiceData, serviceController.updateService)
 
 // SERVICE CATEGORIES ROUTES
 //  get all service categories
@@ -25,8 +30,5 @@ router.get('/service-cat', serviceController.getServiceCategories)
 
 // get service by id
 router.get('/:id', serviceController.getServiceById);
-
-// create a new service
-router.post('/create-service', serviceController.validateServiceData, serviceController.createService)
 
 export default router;
