@@ -29,12 +29,11 @@ router.get('/', positionController.getAllPositions);
 // Admin-only routes
 router.post(
   '/create',
-  roleMiddleware.hasRole(['super_admin', 'data_admin']),
   positionController.createPosition
 );
 
 router.put(
-    "/id",
+    "/:id",
     roleMiddleware.hasRole(['super_admin', 'data_admin']),
     positionController.updatePosition
 )
