@@ -9,7 +9,7 @@ import memberRoutes from './memberRoutes.js';
 import carePackageRoutes from './cpRoutes.js';
 import membershipTypeRoutes from './membershipTypeRoutes.js';
 import employeeRoutes from './employeeRoutes.js';
-
+import  stRoutes from './stRoutes.js';
 // router.use(simulationMiddleware);
 
 router.use('/auth', authRoutes);
@@ -18,7 +18,7 @@ router.use('/member', memberRoutes);
 router.use('/cp', carePackageRoutes);
 router.use('/membership-type', membershipTypeRoutes);
 router.use('/employee', employeeRoutes);
-
+router.use('/st', stRoutes);
 // router.use('/sa', superAdminRoutes);
 
 export default router;
