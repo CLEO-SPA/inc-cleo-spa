@@ -579,8 +579,26 @@ const getAllExistingTablesModel = async () => {
       const preFilePath = path.join(csvFolderPath, 'pre', tableName);
       const postFilePath = path.join(csvFolderPath, 'post', tableName);
 
-      const preFileExists = fs.existsSync(preFilePath);
-      const postFileExists = fs.existsSync(postFilePath);
+      let preFileExists = false;
+      let postFileExists = false;
+
+      if (fs.existsSync(preFilePath)) {
+        try {
+          const files = await fs.promises.readdir(preFilePath);
+          preFileExists = files.filter((file) => file.endsWith('.csv')).length > 0;
+        } catch (err) {
+          console.warn(`Could not read pre data directory for ${tableName}:`, err);
+        }
+      }
+
+      if (fs.existsSync(postFilePath)) {
+        try {
+          const files = await fs.promises.readdir(postFilePath);
+          postFileExists = files.filter((file) => file.endsWith('.csv')).length > 0;
+        } catch (err) {
+          console.warn(`Could not read post data directory for ${tableName}:`, err);
+        }
+      }
 
       existingTables.push({
         name: tableName,
@@ -595,7 +613,6 @@ const getAllExistingTablesModel = async () => {
     throw new Error('Error scanning for existing seed tables');
   }
 };
-
 const getCurrentSeedingOrderModel = async () => {
   try {
     const order = getSeedingOrder(hierarchy);
