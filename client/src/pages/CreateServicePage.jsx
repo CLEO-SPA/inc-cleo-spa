@@ -294,7 +294,7 @@ export default function CreateService() {
                       <div>
                         <label className="block text-md font-medium ">Remarks</label>
                         <textarea
-                          name="remarks"
+                          name="service_remarks"
                           value={formData.service_remarks}
                           onChange={handleChange}
                           className="w-full p-2 border rounded-md"

@@ -134,8 +134,8 @@ export default function UpdateService() {
           updated_by: ""
         });
         setSelectedCategory(service.service_category_id);
-        setCreatedAt(service.created_at ? new Date(service.created_at) : null);
-        setUpdatedAt(formData.updated_at);
+        setCreatedAt(service.created_at ? new Date(service.created_at) : new Date());
+        setUpdatedAt(formData.updated_at ? new Date(formData.updated_at) : new Date());
         
         // Reset the form with the service data for EmployeeSelect components
         reset({
@@ -341,7 +341,7 @@ export default function UpdateService() {
                       <div>
                         <label className="block text-md font-medium ">Remarks</label>
                         <textarea
-                          name="remarks"
+                          name="service_remarks"
                           value={formData.service_remarks}
                           onChange={handleChange}
                           className="w-full p-2 border rounded-md"
