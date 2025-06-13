@@ -2,7 +2,7 @@ const ErrorAlert = ({ error, errorMessage, onClose }) => {
   if (!error || !errorMessage) return null;
 
   return (
-    <div className="mx-6 mb-4 p-3 bg-red-100 border border-red-400 text-red-700 rounded flex justify-between items-center">
+    <div className="mx-6 my-1 p-3 bg-red-100 border border-red-400 text-red-700 rounded flex justify-between items-center">
       <span className="text-sm">{errorMessage}</span>
       {onClose && (
         <button 

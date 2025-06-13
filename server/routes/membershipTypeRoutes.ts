@@ -14,9 +14,9 @@ router.get('/get', membershipType.getAllMembershipType);
 
 router.post('/create', membershipType.createMembershipType);
 
-router.put('/update', membershipType.updateMembershipType);
+router.put('/:id/update', membershipType.updateMembershipType);
 
-router.put('/delete/:id', membershipType.deleteMembershipType);
+router.delete('/:id/delete', membershipType.deleteMembershipType);
 // =========================
 // Private routes
 // =========================
