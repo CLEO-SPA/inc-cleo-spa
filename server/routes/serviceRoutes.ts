@@ -24,6 +24,9 @@ router.post('/create-service', serviceController.validateServiceData, serviceCon
 // update service
 router.put('/update-service/:id', serviceController.validateServiceData, serviceController.updateService)
 
+// update service sequence
+router.put('/reorder-service', serviceController.reorderService);
+
 // SERVICE CATEGORIES ROUTES
 //  get all service categories
 router.get('/service-cat', serviceController.getServiceCategories)

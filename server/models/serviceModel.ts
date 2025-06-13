@@ -327,7 +327,6 @@ const updateService = async (formData: any) => {
     RETURNING *`;
     params.push(formData.id);
 
-    console.log(query);
     const result = await prodPool().query(query, params);
     return result.rows;
   } catch (error) {
@@ -335,6 +334,24 @@ const updateService = async (formData: any) => {
     throw new Error('Error updating service');
   }
 };
+
+const reorderServices = async (services: any) =>{
+  try{
+    const query = `
+    UPDATE services
+    SET service_sequence_no = $1
+    WHERE id = $2`;
+    for (const service of services){
+      const params = [service.service_sequence_no, service.id];
+      await prodPool().query(query, params);
+    }
+    return { success: true, updatedCount: services.length };
+
+  }catch(error){
+    console.error('Error updating service sequence:', error);
+    throw new Error('Error updating service sequence');
+  }
+}
 
 const getServiceCategories = async () => {
   try {
@@ -378,6 +395,7 @@ export default {
   getServiceByCategory,
   createService,
   updateService,
+  reorderServices,
   getServiceCategories,
   getServiceCategoryById,
 };

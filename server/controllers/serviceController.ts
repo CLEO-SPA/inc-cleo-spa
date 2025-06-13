@@ -143,9 +143,7 @@ const getEnabledServiceById = async (req: Request, res: Response, next: NextFunc
   }
 };
 
-// create service
-// data validation
-//Data validation
+//Data validation for create and update service
 const validateServiceData = async (req: Request, res: Response, next: NextFunction) => {
   const serviceData = req.body;
 
@@ -161,14 +159,7 @@ const validateServiceData = async (req: Request, res: Response, next: NextFuncti
   } = serviceData;
 
   //Check if all fields are provided
-  if (
-    !service_name ||
-    !service_duration ||
-    !service_price ||
-    !service_category_id ||
-    !created_at ||
-    !created_by
-  ) {
+  if (!service_name || !service_duration || !service_price || !service_category_id || !created_at || !created_by) {
     res.status(400).json({ message: 'Data missing from required fields.' });
     return;
   }
@@ -220,13 +211,14 @@ const validateServiceData = async (req: Request, res: Response, next: NextFuncti
   next();
 };
 
+// Create service
 const createService = async (req: Request, res: Response, next: NextFunction) => {
   const formData = req.body;
   try {
     if (!validator.isBoolean(formData.service_is_enabled.toString())) {
-    res.status(400).json({ message: 'Invalid data type' });
-    return;
-  }
+      res.status(400).json({ message: 'Invalid data type' });
+      return;
+    }
     // get service sequence no (last in the category)
     const service_sequence_no = parseInt(await serviceModel.getServiceSequenceNo(formData.service_category_id)) + 1;
 
@@ -253,6 +245,7 @@ const createService = async (req: Request, res: Response, next: NextFunction) =>
   }
 };
 
+// update service
 const updateService = async (req: Request, res: Response, next: NextFunction) => {
   const id = parseInt(req.params.id, 10);
   const formData = req.body;
@@ -317,7 +310,7 @@ const updateService = async (req: Request, res: Response, next: NextFunction) =>
       updatePayload.id = id;
     }
 
-    const  updatedService = await serviceModel.updateService(updatePayload);
+    const updatedService = await serviceModel.updateService(updatePayload);
     if (updatedService) {
       res.status(200).json({ service: updatedService[0], message: 'Service updated successfully' });
     } else {
@@ -329,8 +322,28 @@ const updateService = async (req: Request, res: Response, next: NextFunction) =>
   }
 };
 
+// update service sequence
+const reorderService = async (req: Request, res: Response, next: NextFunction) => {
+  try {
+    const services = req.body;
+    console.log(req.body);
+    console.log(services);
+
+    const updatedSequence = await serviceModel.reorderServices(services);
+
+    if(updatedSequence.success){
+      res.status(200).json({message: "Reorder Service Sequence Successfully"})
+    } else {
+      res.status(400).json({message: "Error reordering service sequence"})
+    }
+  } catch (error) {
+    console.error('Error in reorderService:', error);
+    res.status(500).json({ message: 'Failed to reorder service sequence' });
+  }
+};
+
 // get services by categories
-const getServicesByCategory = async(req: Request, res: Response, next: NextFunction)=>{
+const getServicesByCategory = async (req: Request, res: Response, next: NextFunction) => {
   try {
     const category_id = parseInt(req.params.category_id, 10);
 
@@ -345,7 +358,7 @@ const getServicesByCategory = async(req: Request, res: Response, next: NextFunct
     console.error('Error in getServiceById:', error);
     res.status(500).json({ message: 'Failed to fetch service' });
   }
-}
+};
 
 // SERVICE CATEGORIES ROUTES
 // Get Service Categories
@@ -375,5 +388,6 @@ export default {
   validateServiceData,
   createService,
   updateService,
+  reorderService,
   getServiceCategories
 };
