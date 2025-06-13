@@ -13,8 +13,13 @@ import {
 } from "@/components/ui/select";
 import { SiteHeader } from '@/components/site-header';
 import { SidebarInset, SidebarProvider } from '@/components/ui/sidebar';
+import { Label } from "@radix-ui/react-select";
 
 export default function ReorderService() {
+  // For modal
+  const [modalOpen, setModalOpen] = useState(false);
+  const [errorMsg, setErrorMsg] = useState('');
+
   // For categories
   const [categories, setCategories] = useState([]);
   const [selectedCategory, setSelectedCategory] = useState('0');
@@ -22,10 +27,10 @@ export default function ReorderService() {
   // Services associated with selected category
   const [services, setServices] = useState([]);
 
-  const [draggedItem, setDraggedItem] = useState(null);
-
   const navigate = useNavigate();
 
+  // For dragging
+  const [draggedItem, setDraggedItem] = useState(null);
   // Drag handlers
   const handleDragStart = (e, index) => {
     setDraggedItem(services[index]);
@@ -53,19 +58,33 @@ export default function ReorderService() {
 
     setServices(updatedServices);
     setDraggedItem(null);
-
-    try {
-      // update order api
-    } catch (error) {
-      console.error('Error updating service order:', error);
-      // fetch updated service sequence
-    }
   };
+
+  const handleSave = async () => {
+    try {
+      console.log(services);
+      // update order api
+      const response = await api.put(`/service/reorder-service`, services, {
+        headers: {
+          "Content-Type": "application/json"
+        }
+      });
+      if (response.status === 200) {
+        getServices(selectedCategory);
+        setErrorMsg("");
+        setModalOpen(true);
+      }
+    } catch (err) {
+      console.error('Error updating service order:', err);
+      setErrorMsg(err.response.data.message);
+      setModalOpen(true);
+    }
+  }
 
   // get Categories
   const getCategories = async () => {
     try {
-      const response = await api.get('/service/service-cat');
+      const response = await api.get(`/service/service-cat`);
       if (response.status === 200) {
         setCategories(response.data);
       } else {
@@ -76,6 +95,7 @@ export default function ReorderService() {
     }
   }
 
+  // get services in the category
   const getServices = async (category_id) => {
     try {
       const response = await api.get(`/service/all-by-cat/${category_id}`);
@@ -89,6 +109,7 @@ export default function ReorderService() {
     }
   }
 
+  // upon page load
   useEffect(() => {
     try {
       getCategories();
@@ -97,6 +118,7 @@ export default function ReorderService() {
     }
   }, [])
 
+  // upon category being selected
   useEffect(() => {
     try {
       getServices(selectedCategory);
@@ -107,6 +129,52 @@ export default function ReorderService() {
 
   return (
     <div className='[--header-height:calc(theme(spacing.14))]'>
+      {/* modal */}
+      {modalOpen && (
+        <div className="fixed inset-0 flex justify-center items-center bg-opacity-80 z-50">
+          <div className="bg-white border p-6 rounded-md shadow-lg w-full max-w-lg">
+            <div className="flex justify-between items-center">
+              {errorMsg ? (
+                <h3 className="text-xl font-semibold">Error</h3>
+              ) :
+                (
+                  <h3 className="text-xl font-semibold">Reorder Service Page</h3>
+                )}
+              <button
+                onClick={() => { setModalOpen(false) }}
+                className="text-xl"
+                aria-label="Close"
+              >
+                X
+              </button>
+            </div>
+            <div className="mt-4">
+              {errorMsg ? (
+                <p className="text-xl text-red-500">{errorMsg}</p>
+              ) : (
+                  <p className="text-xl text-green-600">Changes were saved!</p>
+              )}
+            </div>
+            <div className="mt-4 flex justify-end gap-2">
+              {errorMsg ? "" : (
+                <Button
+                  onClick={() =>  navigate('/manage-service')}
+                  className="bg-blue-600 rounded-md hover:bg-blue-500"
+                >
+                  View Services
+                </Button>
+              )}
+              <Button
+                onClick={() => { setModalOpen(false);}}
+                className="text-white py-2 px-4 rounded-md hover:bg-gray-700"
+              >
+                Close
+              </Button>
+            </div>
+          </div>
+        </div>
+      )}
+
       <SidebarProvider className='flex flex-col'>
         <SiteHeader />
         <div className='flex flex-1'>
@@ -114,12 +182,13 @@ export default function ReorderService() {
           <SidebarInset>
             <div className='flex flex-1 flex-col gap-4 p-4'>
               {/* Select row */}
-              <div className="flex space-x-4 p-4 bg-gray-100 rounded-lg">
+              <div className="flex space-x-4 p-4 bg-muted/50 rounded-lg">
                 {/* Back button */}
                 <Button variant="outline" onClick={() => navigate(-1)} className="rounded-xl">
                   Back
                 </Button>
                 {/* Select Category */}
+                
                 <Select value={selectedCategory} onValueChange={setSelectedCategory}>
                   <SelectTrigger className="w-[200px]">
                     <SelectValue placeholder="Select Category" />
@@ -136,10 +205,10 @@ export default function ReorderService() {
               </div>
 
               {/* Services list container - grows to fill available space */}
-              <div className="flex-1 rounded-xl bg-muted/50 p-4 flex flex-col">
+              <div className="p-4 h-[75vh] flex flex-col rounded-xl bg-muted/50">
                 <div className="flex-1 overflow-y-auto">
                   {selectedCategory === '0' ? (
-                    <div className="flex text-xl text-gray-500 justify-center items-center gap-3 p-2 bg-white border rounded">
+                    <div className="flex justify-center text-xl text-gray-500 items-center gap-3 p-2 bg-white border rounded">
                       Please Select a Category
                     </div>
                   ) : (
@@ -153,11 +222,11 @@ export default function ReorderService() {
                           onDragEnd={handleDragEnd}
                           className="flex items-center gap-3 p-2 bg-white border rounded cursor-move hover:bg-gray-50"
                         >
-                          <GripVertical className="text-gray-400" size={16} />
-                          <span className="text-sm">{service.service_name}</span>
-                          <span className="ml-auto text-sm text-gray-500">
+                          <span className="text-sm text-gray-500">
                             #{service.service_sequence_no}
                           </span>
+                          <span className="text-sm">{service.service_name}</span>
+                          <GripVertical className="ml-auto text-gray-400" size={16} />
                         </div>
                       ))}
                     </div>
@@ -166,8 +235,11 @@ export default function ReorderService() {
 
                 {/* Save button - positioned at bottom, only shown when category is selected */}
                 {selectedCategory !== '0' && (
-                  <div className="mt-4 ml-auto pt-4 border-t border-gray-200">
-                    <Button className="bg-blue-600 rounded-md hover:bg-blue-500">
+                  <div className="mt-4 ml-auto pt-4 border-t border-gray-200 space-x-4">
+                    <Button onClick={() => getServices(selectedCategory)} className="rounded-md">
+                      Reset Order
+                    </Button>
+                    <Button onClick={handleSave} className="bg-blue-600 rounded-md hover:bg-blue-500">
                       Save Changes
                     </Button>
                   </div>
