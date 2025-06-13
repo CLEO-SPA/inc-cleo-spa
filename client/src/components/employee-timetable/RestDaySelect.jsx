@@ -4,10 +4,10 @@ import { Select, SelectTrigger, SelectValue, SelectContent, SelectItem } from '@
 
 const days = ['Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday', 'Sunday'];
 
-export default function RestDaySelect({ value, onChange }) {
+export default function RestDaySelect({ value, onChange, label= 'New Rest Day' }) {
   return (
     <div className='grid grid-cols-4 items-center gap-2'>
-      <Label className='col-span-1'>New Rest Day*</Label>
+      <Label className='col-span-1'>{label}</Label>
       <div className='col-span-3'>
         <Select value={value} onValueChange={onChange}>
           <SelectTrigger className='min-w-[180px]'>

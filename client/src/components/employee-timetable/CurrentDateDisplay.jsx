@@ -11,7 +11,15 @@ export const getCurrentSimulationDate = () => {
 
 // Component to display current date
 const CurrentDateDisplay = () => {
-  const displayDate = format(getCurrentSimulationDate(), 'yyyy-MM-dd');
+  const isSimulationActive = useSimulationStore((state) => state.isSimulationActive);
+  const simulationStartDate = useSimulationStore((state) => state.simulationStartDate);
+
+  const displayDate = format(
+    isSimulationActive && simulationStartDate
+      ? new Date(simulationStartDate)
+      : new Date(),
+    'yyyy-MM-dd'
+  );
 
   return (
     <div className='grid grid-cols-4 items-center gap-4'>

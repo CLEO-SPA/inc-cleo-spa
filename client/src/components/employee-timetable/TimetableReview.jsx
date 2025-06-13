@@ -3,6 +3,7 @@ import { format } from 'date-fns';
 import { Button } from '@/components/ui/button';
 
 const TimetableReview = ({
+  mode = 'create',
   employeeName,
   restDay,
   startDate,
@@ -29,34 +30,46 @@ const TimetableReview = ({
         </thead>
         <tbody>
           <tr>
-            <td className='px-4 py-2'><strong>Employee</strong></td>
+            <td className='px-4 py-2'>
+              <strong>Employee</strong>
+            </td>
             <td className='px-4 py-2'>{employeeName}</td>
           </tr>
           <tr>
-            <td className='px-4 py-2'><strong>Rest Day</strong></td>
+            <td className='px-4 py-2'>
+              <strong>Rest Day</strong>
+            </td>
             <td className='px-4 py-2'>{restDay}</td>
           </tr>
           <tr>
-            <td className='px-4 py-2'><strong>Effective Start Date</strong></td>
+            <td className='px-4 py-2'>
+              <strong>Effective Start Date</strong>
+            </td>
             <td className='px-4 py-2'>{startDate ? format(startDate, 'yyyy-MM-dd') : '—'}</td>
           </tr>
           <tr>
-            <td className='px-4 py-2'><strong>Effective End Date</strong></td>
+            <td className='px-4 py-2'>
+              <strong>Effective End Date</strong>
+            </td>
             <td className='px-4 py-2'>
               {endDate ? format(endDate, 'yyyy-MM-dd') : '—'}
-              {!endDate && (
-                <span className='text-muted-foreground'>  (timetable remains active indefinitely)</span>
-              )}
+              {!endDate && <span className='text-muted-foreground'> (timetable remains active indefinitely)</span>}
             </td>
           </tr>
           <tr>
-            <td className='px-4 py-2'><strong>Created By</strong></td>
+            <td className='px-4 py-2'>
+              <strong>{mode === 'update' ? 'Updated By' : 'Created By'}</strong>
+            </td>
             <td className='px-4 py-2'>{createdByName}</td>
           </tr>
-          <tr>
-            <td className='px-4 py-2'><strong>Created At</strong></td>
-            <td className='px-4 py-2'>{createdAt ? format(createdAt, 'yyyy-MM-dd HH:mm') : '—'}</td>
-          </tr>
+          {mode === 'create' && (
+            <tr>
+              <td className='px-4 py-2'>
+                <strong>Created At</strong>
+              </td>
+              <td className='px-4 py-2'>{createdAt ? format(createdAt, 'yyyy-MM-dd HH:mm') : '—'}</td>
+            </tr>
+          )}
         </tbody>
       </table>
 

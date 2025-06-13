@@ -15,6 +15,7 @@ import EmployeeTimetablePage from './pages/EmployeeTimetable/EmployeeTimetabel';
 
 // Employee Timetable Pages
 import CreateEmployeeTimetablePage from '@/pages/EmployeeTimetable/CreateEmployeeTimetablePage'
+import UpdateEmployeeTimetablePage from '@/pages/EmployeeTimetable/UpdateEmployeeTimetablePage'
 
 function App() {
   return (
@@ -27,6 +28,7 @@ function App() {
               <Route index element={<HomePage />} />
               {/* employee timetable */}
               <Route path='/et/create-employee-timetable' element={<CreateEmployeeTimetablePage />} />
+              <Route path='/et/update-employee-timetable/:timetableId' element={<UpdateEmployeeTimetablePage />} />
             </Route>
             <Route path='/login' element={<LoginPage />} />
 
