@@ -9,6 +9,7 @@ declare module 'express-session' {
     role?: string;
     start_date_utc: string | null;
     end_date_utc: string;
+    end_date_is_default?: boolean | null;
     is_simulation?: boolean | null;
   }
 }
