@@ -1,9 +1,12 @@
 import React, { useState, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
+import { useForm, FormProvider } from 'react-hook-form';
 import api from '@/services/api';
 import { Button } from '@/components/ui/button';
 import { Switch } from '@/components/ui/switch';
+import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { ChevronDownCircle, ChevronUpCircle, FilePenLine, ChevronLeft, ChevronsLeft, ChevronRight, ChevronsRight } from 'lucide-react';
+import DatePicker from "@/components/date-picker";
 import { AppSidebar } from '@/components/app-sidebar';
 import {
   Select,
@@ -14,11 +17,15 @@ import {
 } from "@/components/ui/select";
 import { SiteHeader } from '@/components/site-header';
 import { SidebarInset, SidebarProvider } from '@/components/ui/sidebar';
+import EmployeeSelect from '@/components/ui/forms/EmployeeSelect';
+import { useSimulationStore } from "@/stores/useSimulationStore";
 
 export default function ManageService() {
+  // Data
   const [services, setServices] = useState([]);
   const [categories, setCategories] = useState([]);
 
+  // Filters
   // For search bar
   const [searchQuery, setSearchQuery] = useState('');
   // For select categories
@@ -26,12 +33,30 @@ export default function ManageService() {
   // For select status
   const [selectedStatus, setSelectedStatus] = useState('0');
 
+  // Navigation to other pages
   const navigate = useNavigate();
 
   // For Pagination
   const [totalPages, setTotalPages] = useState(1);
   const [currentPage, setCurrentPage] = useState(1);
   const [itemsPerPage, setItemsPerPage] = useState(10); // Number of services per page
+
+  // Disable/Enable Service
+  const [modalOpen, setModalOpen] = useState(false);
+  const [errorMsg, setErrorMsg] = useState('');
+  const [changeService, setChangeService] = useState(null);
+  const [changeStatus, setChangeStatus] = useState(false);
+  const [updateForm, setUpdateForm] = useState({
+    updated_at: "",
+    updated_by: "",
+    service_remarks: ""
+  });
+  const methods = useForm({});
+  const { watch, reset } = methods;
+  const isSimulationActive = useSimulationStore((state) => state.isSimulationActive)
+  const simulationStartDate = useSimulationStore((state) => state.simulationStartDate);
+  const updatedBy = watch('updated_by');
+  const [updatedAt, setUpdatedAt] = useState(null);
 
   const getServices = async () => {
     try {
@@ -74,15 +99,80 @@ export default function ManageService() {
   }
 
   //for enabled and disabled service
-  const handleSwitchChange = (serviceId, service_is_enabled) => {
-    // Update the service's enabled status
-    console.log(`Change Status for ${serviceId}`);
+  const handleSwitchChange = async (service) => {
+    try {
+      setChangeService(service);
+      setChangeStatus(!service.service_is_enabled);
+      setModalOpen(true);
+      let updateData = {
+        ...updateForm,
+        updated_at: isSimulationActive ? new Date(simulationStartDate) : new Date(),
+        service_remarks: service.service_remarks
+      }
+      setUpdateForm(updateData);
+      setUpdatedAt(updateData.updated_at ? new Date(updateData.updated_at) : new Date());
+    } catch (err) {
+      console.error('Error changing service status:', err);
+    }
+  }
+
+  const resetForm = async () => {
+    setChangeService(null);
+    setChangeStatus(null);
+    setUpdatedAt(null);
+    reset();
+    setUpdateForm({
+      updated_at: "",
+      updated_by: "",
+      service_remarks: ""
+    });
+    setErrorMsg('');
+  }
+
+  const handleSubmit = async (e) => {
+    e.preventDefault();
+    if (!updateForm.updated_by) {
+      setErrorMsg('Please select who updated this service');
+      return;
+    }
+    try {
+      if (changeStatus) {
+        // Enabled if True
+        // Disabled if False
+        const response = await api.put(`/service/enable-service/${changeService.id}`, updateForm, {
+          headers: {
+            "Content-Type": "application/json"
+          }
+        });
+        if (response.status === 200) {
+          resetForm();
+          setModalOpen(false);
+          getServices();
+        }
+      } else {
+        // Disabled if False
+        const response = await api.put(`/service/disable-service/${changeService.id}`, updateForm, {
+          headers: {
+            "Content-Type": "application/json"
+          }
+        });
+        if (response.status === 200) {
+          resetForm();
+          setModalOpen(false);
+          getServices();
+        }
+      }
+    } catch (err) {
+      console.error('Error changing service status:', err);
+      setErrorMsg(err.response?.data?.message || 'An error occurred');
+    }
   }
 
   // For expanding rows
   // const [expandedIndex, setExpandedIndex] = useState(null);
   const [expandedRows, setExpandedRows] = useState([]);
 
+  // Toggle Rows to view more service Details
   const toggleRow = async (index) => {
     //Toggled details of one row at a time
     // setExpandedIndex(prev => (prev === index ? null : index));
@@ -95,6 +185,7 @@ export default function ManageService() {
     }
   };
 
+  // Toggle so all rows show
   const handleViewAllDetails = () => {
     if (expandedRows.length === services.length) {
       // Collapse all rows if all are expanded
@@ -105,14 +196,16 @@ export default function ManageService() {
     }
   }
 
+  // Reset Filters
   const handleReset = () => {
     setSearchQuery('');
     setSelectedCategory('0');
     setSelectedStatus('0');
     setCurrentPage(1);
   }
+
+  // Fetch data
   useEffect(() => {
-    // Test data
     try {
       getServices();
       getCategories();
@@ -121,14 +214,27 @@ export default function ManageService() {
     }
   }, [])
 
+  // Upon filter change
   useEffect(() => {
-    // Test data
     try {
       getServices();
     } catch (err) {
       console.error('Error fetching services:' + err);
     }
   }, [searchQuery, selectedCategory, selectedStatus, currentPage, itemsPerPage]);
+
+  // For update form
+  useEffect(() => {
+    try {
+      setUpdateForm(prevUpdateForm => ({
+        ...prevUpdateForm,
+        updated_by: updatedBy || "",
+        updated_at: updatedAt
+      }))
+    } catch (err) {
+      console.error('Error updating form data:', err);
+    }
+  }, [updatedAt, updatedBy])
 
   return (
     <div className='[--header-height:calc(theme(spacing.14))]'>
@@ -137,12 +243,83 @@ export default function ManageService() {
         <div className='flex flex-1'>
           <AppSidebar />
           <SidebarInset>
+            {/* disable enable form */}
+            {modalOpen && (
+              <div className="fixed inset-0 flex justify-center items-center bg-opacity-80 z-50">
+                <div className="bg-white border p-6 rounded-md shadow-lg w-full max-w-lg">
+                  <div className="flex justify-between items-center">
+                    <h3 className="text-xl font-bold">{changeStatus ? "Enable Service" : "Disable Service"} "{changeService.service_name}"</h3>
+                    <button
+                      onClick={() => { setModalOpen(false); resetForm(); }}
+                      className="text-xl"
+                      aria-label="Close"
+                    >
+                      X
+                    </button>
+                  </div>
+                  <div className="mt-4">
+                    {errorMsg && (
+                      <span className="text-red-500">{errorMsg}</span>
+                    )}
+                    <FormProvider {...methods}>
+                      <form onSubmit={handleSubmit} className="space-y-3">
+
+                        {/* Update At */}
+                        <div>
+                          <label className="block text-md font-medium">Last Updated at*</label>
+                          <DatePicker
+                            value={updatedAt}
+                            onChange={setUpdatedAt}
+                            required />
+                        </div>
+
+                        {/* Updated By */}
+                        <div>
+                          <label className="block text-md font-medium">Updated By*</label>
+                          <EmployeeSelect
+                            name='updated_by'
+                            label=''
+                            rules={{ required: 'Updated_by is required' }} />
+                        </div>
+
+                        {/* Remarks */}
+                        <div>
+                          <label className="block text-md font-medium ">Remarks</label>
+                          <textarea
+                            name="service_remarks"
+                            value={updateForm.service_remarks}
+                            onChange={(e) => {
+                              setUpdateForm(prevUpdateForm => ({
+                                ...prevUpdateForm,
+                                service_remarks: e.target.value
+                              }))
+                            }}
+                            className="w-full p-2 border rounded-md"
+                            placeholder="Enter remarks"
+                          />
+                        </div>
+
+                        {/* Submit Button */}
+                        <div className="flex justify-center space-x-4">
+                          <Button type="submit" className="bg-blue-600 rounded-md hover:bg-blue-500">
+                            Confirm
+                          </Button>
+                          <Button onClick={() => { setModalOpen(false); resetForm(); }} className="rounded-md hover:bg-gray-500">
+                            Cancel
+                          </Button>
+                        </div>
+                      </form>
+                    </FormProvider>
+                  </div>
+                </div>
+              </div>
+            )}
             <div className='flex flex-1 flex-col gap-4 p-4'>
               {/* Buttons for other Functionalities */}
               <div className="flex space-x-4 p-4 bg-muted/50 rounded-lg">
                 <Button onClick={() => navigate("/create-service")} className="rounded-xl">Create Service</Button>
                 <Button onClick={() => navigate("/reorder-service")} className="rounded-xl">Reorder Service</Button>
-                <Button className="rounded-xl">Manage Categories</Button>
+                <Button className="rounded-xl" disabled>Manage Categories</Button>
               </div>
               {/* Filter */}
               <div className="flex space-x-4 p-4 bg-muted/50 rounded-lg">
@@ -221,13 +398,13 @@ export default function ManageService() {
                               <td className="px-2 py-2 border border-gray-200">
                                 <Switch
                                   checked={service.service_is_enabled}
-                                  onCheckedChange={handleSwitchChange(service.id, service.service_is_enabled)}
+                                  onCheckedChange={() => handleSwitchChange(service)}
                                 />
                               </td>
                               {/* Action Row */}
                               <td className="px-4 py-2 border border-gray-200">
                                 <div className="flex space-x-2 space-y-1">
-                                  <Button className="p-1 bg-green-600 text-white text-sm font-medium rounded-xl hover:bg-green-700" onClick={()=> navigate(`/update-service/${service.id}`)}>
+                                  <Button className="p-1 bg-green-600 text-white text-sm font-medium rounded-xl hover:bg-green-700" onClick={() => navigate(`/update-service/${service.id}`)}>
                                     <FilePenLine className="inline-block mr-1" />
                                   </Button>
                                   <Button className="px-2 py-1 bg-gray-600 text-white text-sm font-medium rounded-xl hover:bg-blue-700">
