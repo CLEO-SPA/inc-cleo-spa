@@ -73,6 +73,7 @@ const decodeSuperUserToken = async (req: Request, res: Response, next: NextFunct
 
     next();
   } catch (error) {
+    console.error('Error decoding token', error);
     throw new Error('Error decoding token');
   }
 };
@@ -93,6 +94,7 @@ const setUpSuperUser = async (req: Request, res: Response, next: NextFunction): 
 
     res.status(201).json({ message: 'Super user created successfully' });
   } catch (error) {
+    console.error('Error creating super user', error);
     throw new Error('Error creating super user');
   }
 };

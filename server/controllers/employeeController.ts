@@ -113,7 +113,6 @@ const getAuthUser = async (req: Request, res: Response, next: NextFunction): Pro
   }
 };
 
-// eslint-disable-next-line no-unused-vars
 // const createEmployee = async (req: Request, res: Response, next: NextFunction) => {
 //   try {
 //     const {
@@ -227,7 +226,8 @@ const acceptInvitation = async (req: Request, res: Response, next: NextFunction)
 
     next();
   } catch (error) {
-    throw new Error('Error accepting invitation');
+    console.error('Error accepting invitation');
+    next(error);
   }
 };
 
@@ -239,6 +239,7 @@ const updateEmployeePassword = async (req: Request, res: Response, next: NextFun
 
     res.status(200).json({ message: 'Password updated successfully' });
   } catch (error) {
+    console.error('Error updating password', error);
     throw new Error('Error updating password');
   }
 };
@@ -278,6 +279,7 @@ const regenerateInvitationLink = async (req: Request, res: Response, next: NextF
 
     res.status(200).json({ message: 'Invitation link regenerated successfully', callbackUrl });
   } catch (error) {
+    console.error('Error regenerating invitation link', error);
     throw new Error('Error regenerating invitation link');
   }
 };
