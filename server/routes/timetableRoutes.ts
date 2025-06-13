@@ -15,6 +15,12 @@ router.get('/current-and-upcoming/:employeeId', timetableController.getCurrentAn
 // POST /api/et/create-employee-timetable
 router.post('/create-employee-timetable', timetableController.createTimetable);
 
+// GET /api/et/timetableId
+router.get('/:timetableId', timetableController.getTimetableById);
+
+// PUT /api/et/update-employee-timetable/:timetableId
+router.put('/update-employee-timetable/:timetableId', timetableController.updateTimetable);
+
 // POST /api/et/reset-create-timetables-pre
 router.post('/reset-create-timetables-pre', timetableController.resetCreateTimetablePre);
 

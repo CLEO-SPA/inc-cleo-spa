@@ -1,5 +1,5 @@
 import { pool } from '../config/database.js';
-import { CreateTimetableInput } from '../types/timetable.types.js';
+import { CreateTimetableInput, UpdateTimetableInput } from '../types/timetable.types.js';
 
 export interface RestDay {
   restday_number: number;
@@ -326,6 +326,72 @@ const getActiveRestDaysByPosition = async (
 }
 
 /**
+ * GET /api/et/:timetableId
+ * This endpoint retrieves the timetable by timetable ID
+ */
+const getTimetableById =  async (timetableId: number): Promise<DetailedTimetable | null> => {
+  const query = `
+    SELECT 
+    t.id,
+    t.employee_id,
+    t.restday_number,
+    t.effective_startdate,
+    t.effective_enddate,
+    e.employee_name
+    FROM timetables t
+    JOIN employees e ON e.id = t.employee_id 
+    WHERE t.id = $1
+  `
+  try {
+    const result = await pool().query(query, [timetableId]);
+    return result.rows.length > 0 ? result.rows[0] : null;
+  } catch (error) {
+    console.error('Database error in getTimetableById: ', error);
+    throw new Error('Failed to fetch timetable details from database');
+  }
+}
+
+/**
+ * Get /api/et/update-employee-timetable/:timetableId
+ * This endpoint update the timetable record by calling SQL function "update_employee_timetable"
+ */
+const updateEmployeeTimetable = async (input: UpdateTimetableInput) => {
+  const {
+    timetable_id,
+    current_date,
+    rest_day_number,
+    effective_start_date,
+    effective_end_date,
+    updated_by,
+    updated_at,
+  } = input;
+
+  const client = await pool().connect();
+  try {
+    const result = await client.query(
+      `SELECT * FROM update_employee_timetable(
+        $1::BIGINT, $2::TIMESTAMPTZ, $3::SMALLINT,
+        $4::TIMESTAMPTZ, $5::TIMESTAMPTZ,
+        $6::BIGINT, $7::TIMESTAMPTZ
+      );`,
+      [
+        timetable_id,
+        current_date,
+        rest_day_number,
+        effective_start_date,
+        effective_end_date,
+        updated_by,
+        updated_at,
+      ]
+    );
+
+    return result.rows[0];
+  } finally {
+    client.release();
+  }
+};
+
+/**
  * GET /api/et/reset-create-timetables-pre
  * This endpoint resets the timetables db table to its defined pre-condition
  */
@@ -376,5 +442,7 @@ export default {
   getActiveRestDays,
   getActiveRestDaysByEmployee,
   getActiveRestDaysByPosition,
+  getTimetableById,
+  updateEmployeeTimetable,
   resetCreateTimetablePre
 };

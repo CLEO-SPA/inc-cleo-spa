@@ -289,6 +289,71 @@ const getActiveRestDaysByPosition = async (req: Request, res: Response) => {
 }
 
 /**
+ * GET /api/et/:timetableId
+ * This endpoint retrieves the timetable by timetable ID
+ */
+const getTimetableById = async (req: Request, res: Response) => {
+  try{
+    const timetableId = req.params.timetableId;
+
+    // Validate timetableId
+    if (!timetableId || isNaN(parseInt(timetableId, 10))) {
+      return res.status(400).json({ 
+        success: false, 
+        error: { code: 'INVALID_ID', message: 'Invalid timetableId ID provided' } 
+      });
+    }
+
+    const timetableIdNum = parseInt(timetableId, 10);
+    console.log(`Fetching details for timetable ID: ${req.params.timetableId}`);
+
+    const timetable = await timetableModel.getTimetableById(timetableIdNum);
+    if (!timetable) {
+      console.log(`Timetable with ID ${timetableId} not found`);
+      return res.status(404).json({ 
+        success: false, 
+        error: { code: 'NOT_FOUND', message: 'No timetable found with the given ID' } 
+      });
+    }
+    res.status(200).json({
+      success: true,
+      data: timetable
+    });
+  } catch (error) {
+    console.error('Controller error in getTimetableById:', error);
+    res.status(500).json({ 
+      success: false, 
+      error: {
+        code: 'INTERNAL_SERVER_ERROR',
+        message: 'Failed to fetch timetable details by given ID',
+      }
+    });
+  }
+}
+
+/**
+ * Get /api/et/update-employee-timetable/:timetableId
+ * This endpoint update the timetable record by calling SQL function "update_employee_timetable"
+ */
+const updateTimetable = async (req: Request, res: Response) => {
+  try {
+    const { timetableId } = req.params;
+
+    const data = await timetableModel.updateEmployeeTimetable({
+      timetable_id: Number(timetableId),
+      ...req.body,
+    });
+    res.status(200).json(data);
+  } catch (error) {
+    console.error('Failed to update timetable:', error);
+
+    const errorMessage = error instanceof Error ? error.message : 'Failed to update timetable';
+
+    res.status(500).json({ message: errorMessage });
+  }
+};
+
+/**
  * GET /api/et/reset-create-timetables-pre
  * This endpoint resets the timetables db table to its defined pre-condition
  */
@@ -310,6 +375,8 @@ export default {
   getActiveRestDays,
   getActiveRestDaysByEmployee,
   getActiveRestDaysByPosition,
+  getTimetableById,
+  updateTimetable,
   resetCreateTimetablePre
 };
 
