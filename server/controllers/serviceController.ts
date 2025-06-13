@@ -25,15 +25,9 @@ function isSafeInput(input: string) {
 
 // Get services with pagination and filter
 const getServicesPaginationFilter = async (req: Request, res: Response, next: NextFunction) => {
-  console.log('query:');
-  console.log(req.query);
+
   const { page, limit, search, category, status } = req.query;
   try {
-    console.log('page:', page, typeof page);
-    console.log('limit:', limit, typeof limit);
-    console.log('search:', search, typeof search);
-    console.log('category:', category, typeof category);
-    console.log('status:', status, typeof status);
 
     const data: { [key: string]: any } = {};
 
@@ -67,7 +61,6 @@ const getServicesPaginationFilter = async (req: Request, res: Response, next: Ne
       data.status = null;
     }
 
-    console.log(data);
     const totalCount = await serviceModel.getTotalCount(data.search, data.category, data.status);
     const totalPages = Math.ceil(totalCount / data.limit);
     const services = await serviceModel.getServicesPaginationFilter(
@@ -326,8 +319,6 @@ const updateService = async (req: Request, res: Response, next: NextFunction) =>
 const reorderService = async (req: Request, res: Response, next: NextFunction) => {
   try {
     const services = req.body;
-    console.log(req.body);
-    console.log(services);
 
     const updatedSequence = await serviceModel.reorderServices(services);
 
@@ -349,7 +340,7 @@ const disableService = async (req: Request, res: Response, next: NextFunction) =
     const id = parseInt(req.params.id,10);
     const data = req.body;
 
-    let updateData = {
+    let updateData: { [key: string]: any } = {
       id: id,
       updated_by: data.updated_by,
       updated_at: data.updated_at
@@ -357,12 +348,15 @@ const disableService = async (req: Request, res: Response, next: NextFunction) =
     
     // check service exists validation
     // check if disabled or not
+    const service = await serviceModel.getServiceById(id);
+    if (!service.service_is_enabled){
+      res.status(400).json({ message: "Service is already disabled."})
+    }
     
     // check if remarks was updated
-    // if (data.service_remarks && data.service_remarks == service.service_remarks) {
-    //   updateData.service_remarks = ;
-    // }
-
+    if (data.service_remarks && data.service_remarks !== service.service_remarks) {
+      updateData.service_remarks = data.service_remarks;
+    }
     
     // change status
     const updatedService = await serviceModel.disableService(updateData);
@@ -373,6 +367,45 @@ const disableService = async (req: Request, res: Response, next: NextFunction) =
   }catch(error){
     console.error('Error in disableService:', error);
     res.status(500).json({ message: 'Failed to disable service' });
+  }
+}
+
+const enableService = async (req: Request, res: Response, next: NextFunction) => {
+  try{
+    const id = parseInt(req.params.id,10);
+    const data = req.body;
+
+    let updateData: { [key: string]: any } = {
+      id: id,
+      updated_by: data.updated_by,
+      updated_at: data.updated_at
+    }
+    
+    // check service exists validation
+    // check if enabled or not
+    const service = await serviceModel.getServiceById(id);
+    if (service.service_is_enabled){
+      res.status(400).json({ message: "Service is already enabled."})
+    }
+    
+    // check if remarks was updated
+    if (data.service_remarks && data.service_remarks !== service.service_remarks) {
+      updateData.service_remarks = data.service_remarks;
+    }
+    
+    // get service sequence no (last in the category)
+    const service_sequence_no = parseInt(await serviceModel.getServiceSequenceNo(service.service_category_id)) + 1;
+    updateData.service_sequence_no = service_sequence_no;
+
+    // change status
+    const updatedService = await serviceModel.disableService(updateData);
+    if (updatedService){
+      res.status(200).json({ message: "Enabled Service Successfully"})
+    }
+
+  }catch(error){
+    console.error('Error in enableService:', error);
+    res.status(500).json({ message: 'Failed to enable service' });
   }
 }
 
@@ -424,5 +457,6 @@ export default {
   updateService,
   reorderService,
   disableService,
+  enableService,
   getServiceCategories
 };

@@ -57,7 +57,6 @@ const getServicesPaginationFilter = async (
       $5::BOOLEAN
       );`;
     const params = [page, limit, search, category, status];
-    // console.log(query, params);
     const result = await prodPool().query(query, params);
     return result.rows;
   } catch (error) {
@@ -363,12 +362,12 @@ const disableService = async (updateData: any) => {
       updated_by = $1,
       updated_at = $2`;
 
-    if (updateData.remarks) {
+    if (updateData.service_remarks) {
       query += `,
         remarks = $4
       WHERE id = $3
       RETURNING *`;
-      params.push(updateData.remarks);
+      params.push(updateData.service_remarks);
     } else {
       query += `
       WHERE id = $3
@@ -380,6 +379,37 @@ const disableService = async (updateData: any) => {
   } catch (error) {
     console.error('Error disabling service sequence:', error);
     throw new Error('Error disabling service sequence');
+  }
+};
+
+const enableService = async (updateData: any) => {
+  try {
+    let params = [updateData.updated_by, updateData.updated_at, updateData.id];
+    let query = `   
+    UPDATE services
+    SET
+      service_is_enabled = true,
+      service_sequence_no = $1,
+      updated_by = $2,
+      updated_at = $3`;
+
+    if (updateData.service_remarks) {
+      query += `,
+        remarks = $5
+      WHERE id = $4
+      RETURNING *`;
+      params.push(updateData.service_remarks);
+    } else {
+      query += `
+      WHERE id = $4
+      RETURNING *`;
+    }
+
+    const result = await pool().query(query, params);
+    return result.rows[0];
+  } catch (error) {
+    console.error('Error enabling service sequence:', error);
+    throw new Error('Error enabling service sequence');
   }
 };
 
@@ -427,6 +457,7 @@ export default {
   updateService,
   reorderServices,
   disableService,
+  enableService,
   getServiceCategories,
   getServiceCategoryById,
 };
