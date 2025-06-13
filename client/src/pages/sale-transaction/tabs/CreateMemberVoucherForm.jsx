@@ -452,14 +452,26 @@ const MemberVoucherDetailRow = ({
     <div className="p-3 border rounded-lg bg-gray-50 space-y-3">
         {/* Service Selection Row */}
         <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-            <ServiceSelect
-                name={`member_voucher_details.${index}.service_id`}
-                label="Service"
-                value={detail.service_id || ''}
-                onChange={(serviceId) => onUpdateDetail(detail.id, 'service_id', serviceId)}
-                onSelectFullDetails={(serviceDetails) => onServiceSelect(detail.id, serviceDetails)}
-                className="col-span-1"
-            />
+            {isTemplateMode ? (
+                <ServiceSelect
+                    name={`member_voucher_details.${index}.service_id`}
+                    label="Service"
+                    value={detail.service_id || ''}
+                    onChange={(serviceId) => onUpdateDetail(detail.id, 'service_id', serviceId)}
+                    onSelectFullDetails={(serviceDetails) => onServiceSelect(detail.id, serviceDetails)}
+                    className="col-span-1"
+                />
+            ) : (
+                <div className="space-y-1">
+                    <Label className="text-sm font-medium text-gray-700">Service Name</Label>
+                    <Input
+                        placeholder="Enter service name"
+                        value={detail.name || ''}
+                        onChange={(e) => onUpdateDetail(detail.id, 'name', e.target.value)}
+                        className="h-9 bg-white"
+                    />
+                </div>
+            )}
             <div className="space-y-1">
                 <Label className="text-sm font-medium text-gray-700">Duration</Label>
                 <Input
