@@ -18,9 +18,12 @@ const setDateRange = (req: Request, res: Response, next: NextFunction): void => 
   }
 
   if (end_date_utc === null || end_date_utc === undefined) {
+    req.session.end_date_is_default = true;
     delete req.session.end_date_utc;
   } else if (end_date_utc) {
+    req.session.end_date_is_default = false;
     if (!validator.isISO8601(end_date_utc)) {
+      req.session.end_date_is_default = true;
       res.status(400).json({ message: 'Invalid end date format. Expected ISO8601.' });
       return;
     }
