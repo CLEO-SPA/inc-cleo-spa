@@ -443,18 +443,14 @@ const EditCarePackagePage = () => {
           finalPrice: customPrice, // final price after discount
         };
       });
-
-      // calculate total price with validation
-      const calculatedTotal = processedServices.reduce((total, service) => {
-        return total + (service.quantity * service.finalPrice);
-      }, 0);
+      const packagePrice = parseFloat(mainFormData.package_price) || 0;
 
       // create proper payload structure with validated data
       const updatedPackageData = {
         care_package_id: packageId,
         package_name: mainFormData.package_name.trim(),
         package_remarks: (mainFormData.package_remarks || '').trim(),
-        package_price: Math.max(0, calculatedTotal), // ensure positive price
+        package_price: packagePrice, // ensure positive price
         is_customizable: Boolean(mainFormData.customizable),
         employee_id: mainFormData.employee_id,
         services: processedServices.map(service => ({
