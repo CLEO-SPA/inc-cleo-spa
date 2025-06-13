@@ -72,8 +72,61 @@ const getAppointmentsByDate = async (appointmentDate: Date | string) => {
   }
 };
 
+const validateEmployeeIsActive = async (employeeId: number): Promise<boolean> => {
+  try {
+    const query = `
+      SELECT id, employee_is_active 
+      FROM employees 
+      WHERE id = $1
+    `;
+
+    const values = [employeeId];
+    const result = await pool().query(query, values);
+
+    // Check if employee exists and is active
+    if (result.rows.length === 0) {
+      return false; // Employee doesn't exist
+    }
+
+    const employee = result.rows[0];
+    console.log('Employee validation result:', employee.employee_is_active);
+    return employee.employee_is_active === true;
+
+  } catch (error) {
+    console.error('Error validating employee:', error);
+    throw new Error('Error validating employee');
+  }
+};
+
+const validateMemberIsActive = async (memberId: number): Promise<boolean> => {
+  try {
+    const query = `
+      SELECT id
+      FROM members 
+      WHERE id = $1
+    `;
+
+    const values = [memberId];
+    const result = await pool().query(query, values);
+
+    // Check if member exists
+    const row = result.rows[0];
+    if (!row) {
+      // not found
+      return false;
+    }
+
+    // Member exists, no need to check active status
+    return true;
+
+  } catch (error) {
+    console.error('Error validating member:', error);
+    throw new Error('Error validating member');
+  }
+};
+
 interface AppointmentItem {
-  servicing_employee_id: number;
+  servicing_employee_id: number | null;
   appointment_date: string;
   start_time: string;
   end_time: string;
@@ -84,9 +137,9 @@ const checkRestdayConflict = async (
   appointmentDate: Date | string,
 ) => {
   try {
-    const query = 
+    const query =
       `SELECT check_restday_conflict($1, $2) AS warning`
-    ;
+      ;
     const values = [employeeId, appointmentDate];
     const { rows } = await pool().query(query, values);
     // rows[0].warning will be either the warning string or null
@@ -119,6 +172,36 @@ const createAppointment = async (
     // Propagate the error message for controller to handle
     // If Postgres RAISE EXCEPTION, error.message includes the detail
     throw new Error(error.message || 'Error creating appointments');
+  }
+};
+
+export const updateAppointment = async (
+  memberId: number,
+  appointments: {
+    id: number;
+    servicing_employee_id: number | null;
+    appointment_date: string;
+    start_time: string;
+    end_time: string;
+    remarks: string;
+  }[],
+  updatedBy: number,
+  updatedAt: string
+): Promise<void> => {
+  try {
+    // Stored procedure expects JSON array with each object including id
+    const query = `CALL update_appointment_ab($1, $2::jsonb, $3, $4)`;
+    const values = [
+      memberId,
+      JSON.stringify(appointments),
+      updatedBy,
+      updatedAt,
+    ];
+    await pool().query(query, values);
+  } catch (error: any) {
+    console.error('Error in updateAppointment:', error);
+    // Rethrow with message for controller
+    throw new Error(error.message || 'Error updating appointment(s)');
   }
 };
 
@@ -156,11 +239,13 @@ const getMaxDurationFromStartTimes = async (
 };
 
 export default {
- getAllAppointments,
- getAppointmentsByDate,
- checkRestdayConflict,
- createAppointment,
- getEndTimesForStartTime,
- getMaxDurationFromStartTimes
+  getAllAppointments,
+  getAppointmentsByDate,
+  validateEmployeeIsActive,
+  validateMemberIsActive,
+  checkRestdayConflict,
+  createAppointment,
+  updateAppointment,
+  getEndTimesForStartTime,
+  getMaxDurationFromStartTimes
 };
- 

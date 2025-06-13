@@ -18,6 +18,9 @@ router.get('/employee/:employeeId/date/:date/start-time/:startTime/end-times', a
 
 
 // Create bulk appointment
-router.post('/create', appointmentController.createAppointment);
+router.post('/create', appointmentController.validateEmployeeAndMember, appointmentController.createAppointment);
+
+// Update single appointment
+router.put('/update', appointmentController.validateEmployeeAndMember, appointmentController.updateAppointment);
 
 export default router;

@@ -10,19 +10,23 @@ DECLARE
   rec              RECORD;
   rec2             RECORD;
   v_employee_name  text;
-  conflict_count   integer;
-  conflict_rec     RECORD;
+  v_member_name    text;
+  v_conflict_rec   RECORD;
   idx              integer := 0;
   idx2             integer := 0;
   v_random_employee_id bigint;
   v_processed_appointments jsonb := '[]'::jsonb;
   v_appointment jsonb;
 BEGIN
-  -- STEP 1: Process appointments and assign random employees where needed
+  -------------------------------------------------
+  -- STEP 1: Assign random employees where needed
+  -------------------------------------------------
+  idx := 0;
   FOR rec IN
     SELECT
       CASE 
-        WHEN (item->>'servicing_employee_id') IS NULL OR (item->>'servicing_employee_id')::text = 'null' 
+        WHEN (item->>'servicing_employee_id') IS NULL 
+             OR (item->>'servicing_employee_id')::text = 'null' 
         THEN NULL 
         ELSE (item->>'servicing_employee_id')::bigint 
       END AS servicing_employee_id,
@@ -34,7 +38,7 @@ BEGIN
   LOOP
     idx := idx + 1;
     
-    -- If employee_id is null, find a random available employee
+    -- If employee_id is null, pick a random available employee
     IF rec.servicing_employee_id IS NULL THEN
       SELECT e.id INTO v_random_employee_id
       FROM employees e
@@ -48,7 +52,7 @@ BEGIN
         
         UNION
         
-        -- Exclude employees already assigned in this batch (from processed appointments)
+        -- Exclude employees already assigned in this batch
         SELECT DISTINCT (processed_item->>'servicing_employee_id')::bigint
         FROM jsonb_array_elements(v_processed_appointments) AS processed_arr(processed_item)
         WHERE (processed_item->>'appointment_date')::date = rec.appointment_date
@@ -58,7 +62,6 @@ BEGIN
       ORDER BY RANDOM()
       LIMIT 1;
       
-      -- If no available employee found, raise exception
       IF v_random_employee_id IS NULL THEN
         RAISE EXCEPTION 
           'No available employee found for appointment % on % from % to %',
@@ -68,11 +71,10 @@ BEGIN
           TO_CHAR(rec.end_time, 'HH24:MI');
       END IF;
       
-      -- Use the randomly assigned employee
       rec.servicing_employee_id := v_random_employee_id;
     END IF;
     
-    -- Add this processed appointment to our tracking array
+    -- Append to processed array
     v_appointment := jsonb_build_object(
       'servicing_employee_id', rec.servicing_employee_id,
       'appointment_date', rec.appointment_date,
@@ -83,79 +85,94 @@ BEGIN
     v_processed_appointments := v_processed_appointments || v_appointment;
   END LOOP;
 
-  -- STEP 2: Check for conflicts between appointments in the processed request
+
+  -------------------------------------------------
+  -- STEP 2: Internal conflict checks among new appointments
+  -------------------------------------------------
+  -- We must check:
+  -- a) same employee overlapping
+  -- b) same member overlapping (regardless of employee)
+  -- We'll unnest v_processed_appointments twice and compare pairs.
   idx := 0;
   FOR rec IN
     SELECT
+      row_number() OVER () AS idx,
       (item->>'servicing_employee_id')::bigint   AS servicing_employee_id,
       (item->>'appointment_date')::date          AS appointment_date,
       (item->>'start_time')::timestamptz         AS start_time,
-      (item->>'end_time')::timestamptz           AS end_time,
-      (item->>'remarks')::text                   AS remarks
+      (item->>'end_time')::timestamptz           AS end_time
     FROM jsonb_array_elements(v_processed_appointments) AS arr(item)
   LOOP
-    idx := idx + 1;
-    idx2 := 0;
-    
-    -- Check against all other appointments in the same request
+    idx := rec.idx;
+    -- Compare with others
     FOR rec2 IN
       SELECT
+        row_number() OVER () AS idx,
         (item->>'servicing_employee_id')::bigint   AS servicing_employee_id,
         (item->>'appointment_date')::date          AS appointment_date,
         (item->>'start_time')::timestamptz         AS start_time,
         (item->>'end_time')::timestamptz           AS end_time
       FROM jsonb_array_elements(v_processed_appointments) AS arr(item)
     LOOP
-      idx2 := idx2 + 1;
-      
-      -- Skip comparing appointment with itself
+      idx2 := rec2.idx;
       IF idx = idx2 THEN
         CONTINUE;
       END IF;
-      
-      -- Check for conflict: same employee, same date, overlapping times
-      IF rec.servicing_employee_id = rec2.servicing_employee_id
-         AND rec.appointment_date = rec2.appointment_date
-         AND rec.start_time < rec2.end_time
-         AND rec.end_time > rec2.start_time THEN
-        
-        -- Get employee name for error message
-        SELECT INITCAP(e.employee_name) INTO v_employee_name
-        FROM employees e
-        WHERE e.id = rec.servicing_employee_id;
-        
-        RAISE EXCEPTION
-          'Conflict detected between appointments in request: appointment % and % both scheduled for employee % (ID: %) on % with overlapping times',
-          idx,
-          idx2,
-          COALESCE(v_employee_name, 'Unknown'),
-          rec.servicing_employee_id,
-          rec.appointment_date;
+
+      -- Check date overlap first
+      IF rec.appointment_date = rec2.appointment_date THEN
+        -- 1) Same employee overlap?
+        IF rec.servicing_employee_id = rec2.servicing_employee_id
+           AND rec.start_time < rec2.end_time
+           AND rec.end_time > rec2.start_time THEN
+          SELECT INITCAP(e.employee_name) INTO v_employee_name
+          FROM employees e WHERE e.id = rec.servicing_employee_id;
+          RAISE EXCEPTION
+            'Conflict in request between appointment % and %: same employee % (ID: %) on % with overlapping times',
+            idx, idx2,
+            COALESCE(v_employee_name, 'Unknown'),
+            rec.servicing_employee_id,
+            rec.appointment_date;
+        END IF;
+
+        -- 2) Same member overlap? (p_member_id applies to all new appointments)
+        IF rec.start_time < rec2.end_time
+           AND rec.end_time > rec2.start_time THEN
+		  SELECT INITCAP(m.name) INTO v_member_name
+          FROM members m WHERE m.id = p_member_id;
+          RAISE EXCEPTION
+            'Conflict in request between appointment % and %: same member % (ID: %) has overlapping times on %',
+            idx, idx2,
+			COALESCE(v_member_name, 'Unknown'),
+            p_member_id,
+            rec.appointment_date;
+        END IF;
       END IF;
     END LOOP;
   END LOOP;
 
-  -- STEP 3: Check for conflicts with existing appointments
+
+  -------------------------------------------------
+  -- STEP 3: External conflict checks against existing appointments
+  -------------------------------------------------
   idx := 0;
   FOR rec IN
     SELECT
+      row_number() OVER () AS idx,
       (item->>'servicing_employee_id')::bigint   AS servicing_employee_id,
       (item->>'appointment_date')::date          AS appointment_date,
       (item->>'start_time')::timestamptz         AS start_time,
-      (item->>'end_time')::timestamptz           AS end_time,
-      (item->>'remarks')::text                   AS remarks
+      (item->>'end_time')::timestamptz           AS end_time
     FROM jsonb_array_elements(v_processed_appointments) AS arr(item)
   LOOP
-    idx := idx + 1;
-  
-    -- Fetch employee name
-    SELECT INITCAP(e.employee_name) INTO v_employee_name
-    FROM employees e
-    WHERE e.id = rec.servicing_employee_id;
+    idx := rec.idx;
 
-    -- Check for any conflicting existing appointment
+    -- 3a) Check existing appointments for the employee
+    SELECT INITCAP(e.employee_name) INTO v_employee_name
+    FROM employees e WHERE e.id = rec.servicing_employee_id;
+
     SELECT a.start_time, a.end_time
-    INTO conflict_rec
+    INTO v_conflict_rec
     FROM appointments a
     WHERE a.servicing_employee_id = rec.servicing_employee_id
       AND a.appointment_date = rec.appointment_date
@@ -165,17 +182,44 @@ BEGIN
 
     IF FOUND THEN
       RAISE EXCEPTION
-        'Appointment % has a conflict: employee % (ID: %) is already booked on % from % to %',
+        'Appointment % conflicts with existing for employee % (ID: %) on %: existing [% - %]',
         idx,
-        v_employee_name,
+        COALESCE(v_employee_name, 'Unknown'),
         rec.servicing_employee_id,
         rec.appointment_date,
-        TO_CHAR(conflict_rec.start_time, 'HH24:MI'),
-        TO_CHAR(conflict_rec.end_time, 'HH24:MI');
+        TO_CHAR(v_conflict_rec.start_time, 'HH24:MI'),
+        TO_CHAR(v_conflict_rec.end_time, 'HH24:MI');
+    END IF;
+
+    -- 3b) Check existing appointments for the same member
+	SELECT INITCAP(m.name) INTO v_member_name
+    FROM members m WHERE m.id = p_member_id;
+	
+    SELECT a.start_time, a.end_time
+    INTO v_conflict_rec
+    FROM appointments a
+    WHERE a.member_id = p_member_id
+      AND a.appointment_date = rec.appointment_date
+      AND rec.start_time < a.end_time
+      AND rec.end_time > a.start_time
+    LIMIT 1;
+
+    IF FOUND THEN
+      RAISE EXCEPTION
+        'Appointment % conflicts with existing for member % (ID: %) on %: existing [% - %]',
+        idx,
+		COALESCE(v_member_name, 'Unknown'),
+        p_member_id,
+        rec.appointment_date,
+        TO_CHAR(v_conflict_rec.start_time, 'HH24:MI'),
+        TO_CHAR(v_conflict_rec.end_time, 'HH24:MI');
     END IF;
   END LOOP;
 
-  -- STEP 4: Insert all appointments only if all validations passed
+
+  -------------------------------------------------
+  -- STEP 4: Insert all appointments
+  -------------------------------------------------
   FOR rec IN
     SELECT
       (item->>'servicing_employee_id')::bigint   AS servicing_employee_id,
