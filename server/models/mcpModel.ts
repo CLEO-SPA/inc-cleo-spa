@@ -1,3 +1,4 @@
+import { QueryResult } from 'pg';
 import { pool } from '../config/database.js';
 import { FieldMapping, PaginatedOptions, PaginatedReturn } from '../types/common.types.js';
 import {
@@ -189,7 +190,7 @@ const createMemberCarePackage = async (
 
     const i_mcp_sql = `
       INSERT INTO member_care_packages
-      (member_id, employee_id, package_name, package_remarks, status_id, total_price, created_at, updated_at)
+      (member_id, employee_id, package_name, package_remarks, status_id, total_price, balance, created_at, updated_at)
       VALUES ($1, $2, $3, $4, $5, $6, $7, $8) RETURNING id
     `;
     const { rows: mcp } = await client.query<{ id: string }>(i_mcp_sql, [
@@ -199,6 +200,7 @@ const createMemberCarePackage = async (
       package_remarks,
       statusId,
       package_price,
+      0,
       created_at,
       updated_at,
     ]);
@@ -272,6 +274,7 @@ const updateMemberCarePackage = async (
   package_name: string,
   package_remarks: string,
   package_price: number,
+  package_balance: number,
   services: servicePayload[],
   status_id: string,
   employee_id: string,
@@ -313,10 +316,11 @@ const updateMemberCarePackage = async (
         package_name = $2,
         package_remarks = $3,
         total_price = $4,
-        status_id = $5,
-        updated_at = $6
+        balance = $5,
+        status_id = $6,
+        updated_at = $7
       WHERE
-        id = $7;
+        id = $8;
       `;
     const i_mcpd_sql = `
       INSERT INTO member_care_package_details
@@ -334,6 +338,7 @@ const updateMemberCarePackage = async (
       package_name,
       package_remarks,
       package_price,
+      package_balance,
       status_id,
       updated_at,
       id,
@@ -471,15 +476,26 @@ const createConsumption = async (
     await client.query('BEGIN');
 
     // Check if mcp exists
-    const results = await getMemberCarePackageById(mcp_id);
-    if (!results) {
+    const mcp = await getMemberCarePackageById(mcp_id);
+    if (!mcp) {
       throw new Error(`Member care package with id ${mcp_id} not found for updating status.`);
+    }
+
+    if (mcp.package.balance === 0) {
+      throw new Error(`Member care package with id ${mcp_id} has a zero balance. No services left to consume.`);
     }
 
     if (!employee_id) {
       employee_id = (await getEmployeeIdByUserAuthId(user_id)).rows[0].id;
     }
 
+    const u_mcp_sql = `
+      UPDATE member_care_packages SET
+        balance = $1
+        updated_at = $2
+      WHERE
+        id = $3;
+    `;
     const g_mcpd_sql = `
       SELECT * FROM member_care_package_details WHERE id = $1;
     `;
@@ -489,9 +505,10 @@ const createConsumption = async (
     const i_mcptl_sql = `
       INSERT INTO member_care_package_transaction_logs
       (type, description, transaction_date, transaction_amount, amount_changed, member_care_package_details_id, employee_id, service_id, created_at)
-      VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9)
+      VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9) RETURNING id;
     `;
 
+    const results: { completed: string[]; failed: string[] } = { completed: [], failed: [] };
     const detailPromises = mcp_details.map(async (d) => {
       const { rows: mcpdRows } = await client.query<MemberCarePackagesDetails>(g_mcpd_sql, [d.mcpd_id]);
       if (mcpdRows.length === 0) {
@@ -502,11 +519,21 @@ const createConsumption = async (
 
       const { rows: baseLogRows } = await client.query<MemberCarePackageTransactionLogs>(g_mcptl_sql, [
         d.mcpd_id,
-        results.package.created_at,
+        mcp.package.created_at,
       ]);
 
+      // Create a local tracking variable for the remaining balance
+      let currentBalance = mcp.package.balance;
       const consumptionLogPromises = [];
+
       for (let i = 0; i < d.mcpd_quantity; i++) {
+        if (mcpDetailToConsume.price > currentBalance) {
+          results.failed.push(d.mcpd_id);
+          break;
+        }
+
+        // Update the local balance tracking
+        currentBalance -= mcpDetailToConsume.price;
         baseLogRows[0].transaction_amount -= mcpDetailToConsume.price;
 
         consumptionLogPromises.push(
@@ -522,14 +549,19 @@ const createConsumption = async (
             d.mcpd_date,
           ])
         );
+
+        results.completed.push(d.mcpd_id);
       }
 
       await Promise.all(consumptionLogPromises);
-    });
 
+      mcp.package.balance = currentBalance;
+    });
     await Promise.all(detailPromises);
+    await client.query(u_mcp_sql, [mcp.package.balance, new Date().toISOString(), mcp.package.id]);
 
     await client.query('COMMIT');
+    return results;
   } catch (error) {
     console.error('Error creating member care package consumption:', error);
     await client.query('ROLLBACK');
@@ -566,7 +598,7 @@ const enableMemberCarePackage = async (id: string, payload: mcpServiceStatusPayl
     const u_mcpd_sql = 'UPDATE member_care_package_details SET status_id = $1 WHERE id = $2';
 
     const mcp = await client.query(u_mcp_sql, [status_id[0].id, id]);
-    const mcpd: any = [];
+    const mcpd: QueryResult[] = [];
     const servicePromise = payload.map(async (service) => {
       const { rows: status_id } = await client.query<{ id: string }>('SELECT get_or_create_status($1) as id', [
         service.status_name,
@@ -619,7 +651,7 @@ const checkMcpUpdatable = async (id: string) => {
 
     return rows[0].is_updateable;
   } catch (error) {
-    console.error('Error checking member care package updateable');
+    console.error('Error checking member care package updateable', error);
     throw new Error('Error checking member care package updateable');
   }
 };
@@ -664,6 +696,7 @@ const emulateMemberCarePackage = async (method: string, payload: Partial<emulate
         package_remarks: payload.package_remarks,
         status_id: statusId,
         total_price: payload.package_price,
+        balance: 0,
         created_at: payload.created_at || new Date().toISOString(),
         updated_at: payload.updated_at || new Date().toISOString(),
       };
@@ -879,6 +912,7 @@ const emulateMemberCarePackage = async (method: string, payload: Partial<emulate
     }
   }
 
+  // eslint-disable-next-line @typescript-eslint/no-unsafe-function-type
   const handlers: { [key: string]: Function } = {
     POST: em_post,
     PUT: em_put,

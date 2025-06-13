@@ -203,6 +203,7 @@ CREATE TABLE "member_care_packages" (
     "package_name" VARCHAR(100) NOT NULL,
     "status_id" BIGINT NOT NULL,
     "total_price" DECIMAL(10,2) NOT NULL,
+    "balance" DECIMAL(10,2) NOT NULL,
     "created_at" TIMESTAMPTZ(6) NOT NULL,
     "updated_at" TIMESTAMPTZ(6) NOT NULL,
     "package_remarks" VARCHAR(255),

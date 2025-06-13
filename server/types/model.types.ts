@@ -1,4 +1,3 @@
-/* eslint-disable @typescript-eslint/no-explicit-any */
 export interface Employees {
   id?: string;
   user_auth_id: string;
@@ -41,6 +40,7 @@ export interface MemberCarePackages {
   package_name: string;
   status_id: string;
   total_price: number;
+  balance: number;
   created_at: string;
   updated_at: string;
   package_remarks: string;
