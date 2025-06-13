@@ -132,7 +132,17 @@ const createMemberCarePackage = async (req: Request, res: Response, next: NextFu
 
 const updateMemberCarePackage = async (req: Request, res: Response, next: NextFunction): Promise<void> => {
   try {
-    const { id, package_name, package_remarks, package_price, services, status_id, updated_at, employee_id } = req.body;
+    const {
+      id,
+      package_name,
+      package_remarks,
+      package_price,
+      package_balance,
+      services,
+      status_id,
+      updated_at,
+      employee_id,
+    } = req.body;
 
     const requiredFieldsErrorMessages: string[] = [];
     if (!package_name) requiredFieldsErrorMessages.push('package_name is required');
@@ -157,7 +167,7 @@ const updateMemberCarePackage = async (req: Request, res: Response, next: NextFu
     }
 
     const isValidService = services.every(
-      (s: any) =>
+      (s: { id: string; name: string; quantity: number; price: number; discount: number }) =>
         s &&
         typeof s.id === 'string' &&
         typeof s.name === 'string' &&
@@ -180,6 +190,7 @@ const updateMemberCarePackage = async (req: Request, res: Response, next: NextFu
       package_name,
       package_remarks,
       package_price,
+      package_balance,
       services,
       status_id,
       employee_id,
@@ -257,11 +268,6 @@ const createConsumption = async (req: Request, res: Response, next: NextFunction
     next(error);
   }
 };
-
-interface mcpServiceStatusPayload {
-  id: string;
-  status_name: string;
-}
 
 const enableMemberCarePackage = async (req: Request, res: Response, next: NextFunction): Promise<void> => {
   try {
@@ -373,7 +379,7 @@ const emulateMemberCarePackage = async (req: Request, res: Response, next: NextF
     }
 
     const isValidService = services.every(
-      (s: any) =>
+      (s: { id: string; name: string; quantity: number; price: number; discount: number }) =>
         s &&
         typeof s.id === 'string' &&
         typeof s.name === 'string' &&

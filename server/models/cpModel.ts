@@ -136,23 +136,25 @@ const getCarePackagesForDropdown = async (): Promise<FullCarePackage[]> => {
 interface CarePackagePurchaseCount {
   care_package_id: string;
   care_package_name: string;
-  purchase_count: string;  
+  purchase_count: string;
   is_purchased: string;
 }
 
-const getCarePackagePurchaseCount = async (): Promise<Record<number, { purchase_count: number; is_purchased: string }>> => {
+const getCarePackagePurchaseCount = async (): Promise<
+  Record<number, { purchase_count: number; is_purchased: string }>
+> => {
   try {
     const sql = `SELECT * FROM get_cp_purchase_counts();`;
 
     const { rows } = await pool().query<CarePackagePurchaseCount>(sql);
     const purchaseCountsMap: Record<number, { purchase_count: number; is_purchased: string }> = {};
-    
+
     rows.forEach((row) => {
       const id = parseInt(row.care_package_id.toString());
-      
+
       purchaseCountsMap[id] = {
         purchase_count: parseInt(row.purchase_count.toString()),
-        is_purchased: row.is_purchased
+        is_purchased: row.is_purchased,
       };
     });
 
@@ -420,12 +422,7 @@ const updateCarePackageStatusById = async (
       WHERE id = $4
     `;
 
-    await client.query(u_status_sql, [
-      status_id,
-      employee_id,
-      updated_at,
-      care_package_id,
-    ]);
+    await client.query(u_status_sql, [status_id, employee_id, updated_at, care_package_id]);
 
     await client.query('COMMIT');
 
@@ -654,6 +651,7 @@ const emulateCarePackage = async (method: string, payload: Partial<emulatePayloa
             const existingDbValue = existingItem[m.dbKey];
 
             if (payloadValue !== undefined && payloadValue !== existingDbValue) {
+              // eslint-disable-next-line @typescript-eslint/no-explicit-any
               (updatedDetailFields as any)[m.dbKey] = payloadValue;
               hasChanges = true;
             }
@@ -721,6 +719,7 @@ const emulateCarePackage = async (method: string, payload: Partial<emulatePayloa
     }
   }
 
+  // eslint-disable-next-line @typescript-eslint/no-unsafe-function-type
   const handlers: { [key: string]: Function } = {
     POST: em_post,
     PUT: em_put,
