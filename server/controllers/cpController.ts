@@ -357,7 +357,7 @@ const emulateCarePackage = async (req: Request, res: Response, next: NextFunctio
     }
 
     const isValidService = services.every(
-      (s: any) =>
+      (s: { id: string; name: string; quantity: number; price: number; discount: number }) =>
         s &&
         typeof s.id === 'string' &&
         typeof s.name === 'string' &&
