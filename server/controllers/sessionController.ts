@@ -77,8 +77,7 @@ const toggleSimulation = async (req: Request, res: Response, next: NextFunction)
     });
   } catch (error) {
     console.error('Error toggling simulation:', error);
-    res.status(500).json({ message: 'Failed to toggle simulation.' });
-    return;
+    next(error);
   }
 };
 
@@ -100,7 +99,8 @@ const getSimulation = async (req: Request, res: Response, next: NextFunction): P
       end_date_utc: simulationState.end_date_utc,
     });
   } catch (error) {
-    throw new Error('Failed to fetch simulation state.');
+    console.error('Error getting simulation:', error);
+    next(error);
   }
 };
 
@@ -161,4 +161,6 @@ export default {
   getSimulation,
   streamSimEvent,
   testSSE,
+  getAllStatus,
+  getStatusNameById,
 };
