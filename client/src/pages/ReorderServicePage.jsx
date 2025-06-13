@@ -62,7 +62,6 @@ export default function ReorderService() {
 
   const handleSave = async () => {
     try {
-      console.log(services);
       // update order api
       const response = await api.put(`/service/reorder-service`, services, {
         headers: {

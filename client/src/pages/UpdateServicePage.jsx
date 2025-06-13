@@ -89,7 +89,6 @@ export default function UpdateService() {
   const handleSubmit = async (e) => {
     e.preventDefault();
     try{
-      console.log(formData);
       const response = await api.put(`/service/update-service/${service_id}`, formData, {
         headers: {
           "Content-Type": "application/json"
@@ -248,6 +247,7 @@ export default function UpdateService() {
                           <EmployeeSelect name='created_by' label='' rules={{ required: 'Created_by is required' }} />
                         </div>
 
+                        {/* Updated At */}
                         <div>
                           <label className="block text-md font-medium">Last Updated at*</label>
                           <DatePicker

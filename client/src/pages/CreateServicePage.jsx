@@ -66,7 +66,6 @@ export default function CreateService() {
   const handleChange = (e) => {
     const { name, value } = e.target;
     setFormData((prevData) => ({ ...prevData, [name]: value }));
-    console.log(formData);
   };
 
   const handleSubmit = async (e) => {
