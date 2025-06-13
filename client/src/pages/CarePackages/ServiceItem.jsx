@@ -66,20 +66,66 @@ const ServiceItem = ({ service, index, isEditing, onEdit, onSave, onCancel, onRe
     }
   };
 
-  // handle input changes with proper type conversion
+  // handle input changes with proper type conversion 
   const handleEditDataChange = (field, value) => {
-    let processedValue = value;
-    
     if (field === 'quantity') {
-      processedValue = parseInt(value) || 1;
-    } else if (field === 'price' || field === 'discount') {
-      processedValue = parseFloat(value) || 0;
+      const processedValue = value === '' ? '' : parseInt(value, 10) || '';
+      setEditData(prev => ({
+        ...prev,
+        [field]: processedValue
+      }));
+    } else if (field === 'price') {
+      const processedValue = value === '' ? '' : parseFloat(value) || '';
+      setEditData(prev => ({
+        ...prev,
+        [field]: processedValue
+      }));
+    } else if (field === 'discount') {
+      if (value === '') {
+        setEditData(prev => ({
+          ...prev,
+          [field]: ''
+        }));
+      } else {
+        const numValue = parseFloat(value);
+        const processedValue = !isNaN(numValue) ? numValue : value;
+        setEditData(prev => ({
+          ...prev,
+          [field]: processedValue
+        }));
+      }
+    } else {
+      setEditData(prev => ({
+        ...prev,
+        [field]: value
+      }));
     }
-    
-    setEditData(prev => ({
-      ...prev,
-      [field]: processedValue
-    }));
+  };
+
+  // handle blur events to set defaults if needed
+  const handleBlur = (field, value) => {
+    if (field === 'quantity') {
+      if (value === '' || parseInt(value, 10) <= 0) {
+        setEditData(prev => ({
+          ...prev,
+          [field]: 1
+        }));
+      }
+    } else if (field === 'price') {
+      if (value === '') {
+        setEditData(prev => ({
+          ...prev,
+          [field]: 0
+        }));
+      }
+    } else if (field === 'discount') {
+      if (value === '') {
+        setEditData(prev => ({
+          ...prev,
+          [field]: 1 // default to 1 (no discount)
+        }));
+      }
+    }
   };
 
   // calculate subtotal for edit mode based on current editData
@@ -216,8 +262,9 @@ const ServiceItem = ({ service, index, isEditing, onEdit, onSave, onCancel, onRe
               </label>
               <input
                 type='number'
-                value={editData.price}
+                value={editData.price !== undefined ? editData.price : ''}
                 onChange={(e) => handleEditDataChange('price', e.target.value)}
+                onBlur={(e) => handleBlur('price', e.target.value)}
                 className='w-full px-3 py-2 border border-gray-300 rounded-md text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent'
                 min='0'
                 step='0.01'
@@ -230,8 +277,9 @@ const ServiceItem = ({ service, index, isEditing, onEdit, onSave, onCancel, onRe
               <label className='block text-xs font-medium text-gray-600 mb-1'>Discount Factor</label>
               <input
                 type='number'
-                value={editData.discount}
+                value={editData.discount !== undefined ? editData.discount : ''}
                 onChange={(e) => handleEditDataChange('discount', e.target.value)}
+                onBlur={(e) => handleBlur('discount', e.target.value)}
                 className='w-full px-3 py-2 border border-gray-300 rounded-md text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent'
                 min='0'
                 max='1'
@@ -248,10 +296,12 @@ const ServiceItem = ({ service, index, isEditing, onEdit, onSave, onCancel, onRe
               <label className='block text-xs font-medium text-gray-600 mb-1'>Quantity</label>
               <input
                 type='number'
-                value={editData.quantity}
+                value={editData.quantity !== undefined ? editData.quantity : ''}
                 onChange={(e) => handleEditDataChange('quantity', e.target.value)}
+                onBlur={(e) => handleBlur('quantity', e.target.value)}
                 className='w-full px-3 py-2 border border-gray-300 rounded-md text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent'
                 min='1'
+                placeholder='Enter quantity'
               />
             </div>
           </div>

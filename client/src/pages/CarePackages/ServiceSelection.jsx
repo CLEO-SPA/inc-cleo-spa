@@ -11,7 +11,7 @@ const ServiceSelection = ({
   onAddService,
   onClearForm,
   calculateServiceTotal,
-  showOriginalPrice = false,
+  showOriginalPrice = false, // keeping for backward compatibility
   getDiscountPercentage,
   className = "",
 }) => {
@@ -55,7 +55,6 @@ const ServiceSelection = ({
       updated_by_name: service.updated_by_name,
     };
     
-
     onServiceSelect(normalizedService);
     setShowServiceDropdown(false);
     setServiceSearch('');
@@ -79,13 +78,14 @@ const ServiceSelection = ({
     }
   };
 
-  const gridCols = showOriginalPrice ? 'md:grid-cols-6' : 'md:grid-cols-5';
+  // Always use the 6-column layout (edit mode layout)
+  const gridCols = 'md:grid-cols-6';
 
   return (
     <div className={`space-y-4 ${className}`}>
       <div className={`grid grid-cols-1 ${gridCols} gap-4`}>
-        {/* service selection dropdown */}
-        <div className="relative">
+        {/* service selection dropdown - spans 2 columns */}
+        <div className="md:col-span-2 relative">
           <label className="block text-xs font-medium text-gray-600 mb-1">SELECT SERVICE *</label>
           <div className="relative">
             <button
@@ -154,62 +154,22 @@ const ServiceSelection = ({
           </div>
         </div>
 
-        {/* quantity */}
-        <div>
-          <label className="block text-xs font-medium text-gray-600 mb-1">QUANTITY*</label>
-          <input
-            type="number"
-            value={serviceForm.quantity || ''}
-            onChange={(e) => {
-              const value = e.target.value;
-              if (showOriginalPrice) {
-                // edit mode - allow empty values
-                onFieldUpdate('quantity', value === '' ? '' : parseInt(value, 10) || 0);
-              } else {
-                // create mode - ensure valid values
-                if (value === '' || (!isNaN(value) && parseInt(value, 10) >= 0)) {
-                  onFieldUpdate('quantity', value === '' ? '' : parseInt(value, 10) || 1);
-                }
-              }
-            }}
-            onBlur={(e) => {
-              if (!showOriginalPrice) {
-                const value = e.target.value;
-                if (value === '' || parseInt(value, 10) <= 0) {
-                  onFieldUpdate('quantity', 1);
-                }
-              }
-            }}
-            className="w-full px-2 py-1 border border-gray-200 rounded text-sm focus:outline-none focus:ring-2 focus:ring-gray-500 focus:border-transparent"
-            min="1"
-            placeholder="Enter quantity"
-          />
-        </div>
-
-        {/* original price (edit mode only) */}
-        {showOriginalPrice && (
-          <div>
-            <label className="block text-xs font-medium text-gray-600 mb-1">
-              ORIGINAL PRICE
-              <span className="text-xs text-gray-400 ml-1">(from service)</span>
-            </label>
-            <div className="w-full px-2 py-1 border border-gray-300 rounded text-sm bg-gray-100 text-gray-700">
-              ${(serviceForm.originalPrice || 0).toFixed(2)}
-            </div>
-          </div>
-        )}
-
-        {/* price */}
+        {/* original price - always shown */}
         <div>
           <label className="block text-xs font-medium text-gray-600 mb-1">
-            {showOriginalPrice ? (
-              <>
-                CUSTOM PRICE
-                <span className="text-xs text-gray-400 ml-1">(package-specific)</span>
-              </>
-            ) : (
-              'PRICE PER UNIT'
-            )}
+            ORIGINAL PRICE
+            <span className="text-xs text-gray-400 ml-1">(from service)</span>
+          </label>
+          <div className="w-full px-2 py-1 border border-gray-300 rounded text-sm bg-gray-100 text-gray-700">
+            ${(serviceForm.originalPrice || serviceForm.price || 0).toFixed(2)}
+          </div>
+        </div>
+
+        {/* custom price - always shown */}
+        <div>
+          <label className="block text-xs font-medium text-gray-600 mb-1">
+            CUSTOM PRICE
+            <span className="text-xs text-gray-400 ml-1">(package-specific)</span>
           </label>
           <div className="relative">
             <DollarSign className="h-4 w-4 text-gray-400 absolute left-2 top-1/2 transform -translate-y-1/2" />
@@ -220,21 +180,19 @@ const ServiceSelection = ({
               className="w-full pl-7 pr-2 py-1 border border-gray-200 rounded text-sm focus:outline-none focus:ring-2 focus:ring-gray-500 focus:border-transparent"
               min="0"
               step="0.01"
-              placeholder={showOriginalPrice ? "Enter custom price" : "0.00"}
+              placeholder="Enter custom price"
             />
           </div>
-          {showOriginalPrice && (
-            <div className="text-xs text-gray-500 mt-1">
-              {serviceForm.price &&
-              serviceForm.originalPrice &&
-              parseFloat(serviceForm.price) !== parseFloat(serviceForm.originalPrice)
-                ? 'Using custom pricing'
-                : 'Using standard pricing'}
-            </div>
-          )}
+          <div className="text-xs text-gray-500 mt-1">
+            {serviceForm.price &&
+            serviceForm.originalPrice &&
+            parseFloat(serviceForm.price) !== parseFloat(serviceForm.originalPrice)
+              ? 'Using custom pricing'
+              : 'Using standard pricing'}
+          </div>
         </div>
 
-        {/* discount */}
+        {/* discount factor */}
         <div>
           <label className="block text-xs font-medium text-gray-600 mb-1">DISCOUNT FACTOR</label>
           <div className="relative">
@@ -242,11 +200,7 @@ const ServiceSelection = ({
               type="number"
               value={serviceForm.discount !== undefined ? serviceForm.discount : ''}
               onChange={(e) => {
-                if (showOriginalPrice) {
-                  onFieldUpdate('discount', e.target.value === '' ? '' : parseFloat(e.target.value) || 0);
-                } else {
-                  onFieldUpdate('discount', e.target.value);
-                }
+                onFieldUpdate('discount', e.target.value === '' ? '' : parseFloat(e.target.value) || 0);
               }}
               className="w-full px-2 py-1 border border-gray-200 rounded text-sm focus:outline-none focus:ring-2 focus:ring-gray-500 focus:border-transparent"
               min="0"
@@ -256,24 +210,32 @@ const ServiceSelection = ({
             />
           </div>
           <div className="text-xs text-gray-500 mt-1">
-            {showOriginalPrice ? (
-              serviceForm.discount
-                ? `${((1 - parseFloat(serviceForm.discount)) * 100).toFixed(1)}% off`
-                : 'Enter factor (1.0 = full price, 0.5 = half price)'
-            ) : (
-              serviceForm.discount && serviceForm.discount !== '' && getDiscountPercentage
-                ? `${getDiscountPercentage(serviceForm.discount)}% off`
-                : 'Enter factor (1.0 = full price, 0.5 = half price)'
-            )}
+            {serviceForm.discount
+              ? `${((1 - parseFloat(serviceForm.discount)) * 100).toFixed(1)}% off`
+              : 'Enter factor (1.0 = full price, 0.5 = half price)'}
           </div>
         </div>
 
-        {/* service total */}
+        {/* quantity */}
         <div>
-          <label className="block text-xs font-medium text-gray-600 mb-1">SERVICE TOTAL</label>
-          <div className="text-gray-900 font-semibold px-2 py-1 bg-blue-50 border border-blue-200 rounded text-sm">
-            ${calculateServiceTotal().toFixed(2)}
-          </div>
+          <label className="block text-xs font-medium text-gray-600 mb-1">QUANTITY *</label>
+          <input
+            type="number"
+            value={serviceForm.quantity || ''}
+            onChange={(e) => {
+              const value = e.target.value;
+              onFieldUpdate('quantity', value === '' ? '' : parseInt(value, 10) || 0);
+            }}
+            onBlur={(e) => {
+              const value = e.target.value;
+              if (value === '' || parseInt(value, 10) <= 0) {
+                onFieldUpdate('quantity', 1);
+              }
+            }}
+            className="w-full px-2 py-1 border border-gray-200 rounded text-sm focus:outline-none focus:ring-2 focus:ring-gray-500 focus:border-transparent"
+            min="1"
+            placeholder="Enter quantity"
+          />
         </div>
       </div>
 
