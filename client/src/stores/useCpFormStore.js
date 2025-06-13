@@ -137,7 +137,7 @@ export const useCpFormStore = create(
         const response = await api.get(`/service/enabled-id/${serviceId}`);
         const serviceData = response.data;
 
-        console.log('Enabled service data:', serviceData);
+        // console.log('Enabled service data:', serviceData);
 
         set({ isLoading: false }, false, `getEnabledServiceById/${serviceId}/fulfilled`);
 
@@ -254,7 +254,7 @@ export const useCpFormStore = create(
           originalPrice: parseFloat(service.service_price) || 0,
         }));
 
-        console.log('Transformed service options:', transformedOptions);
+        // console.log('Transformed service options:', transformedOptions);
 
         set({ serviceOptions: transformedOptions, isLoading: false }, false, 'fetchServiceOptions/fulfilled');
       } catch (error) {

@@ -1,5 +1,14 @@
 import React, { useState, useEffect } from 'react';
-import { Plus, Save, X, Package, DollarSign, Search, ChevronDown, ArrowLeft, User, Calendar, AlertCircle } from 'lucide-react';
+import {
+  Save,
+  X,
+  Package,
+  DollarSign,
+  ArrowLeft,
+  User,
+  Calendar,
+  AlertCircle,
+} from 'lucide-react';
 import { AppSidebar } from '@/components/app-sidebar';
 import { SiteHeader } from '@/components/site-header';
 import { SidebarInset, SidebarProvider } from '@/components/ui/sidebar';
@@ -87,73 +96,43 @@ const CarePackageCreateForm = () => {
     return true;
   };
 
-  // calculate total package price using discount factor
+  // calculate total package price
   const calculateTotalPrice = () => {
     return mainFormData.services.reduce((total, service) => {
-      const price = parseFloat(service.price) || 0;
+      const customPrice = parseFloat(service.price) || 0; 
       const quantity = parseInt(service.quantity, 10) || 0;
+      const discountFactor = parseFloat(service.discount) || 1;
 
-      let discountFactor = parseFloat(service.discount);
-      if (
-        isNaN(discountFactor) ||
-        service.discount === '' ||
-        service.discount === null ||
-        service.discount === undefined
-      ) {
-        discountFactor = 1; // full price when empty
-      }
-
-      // apply discount factor: Final Price = Quantity × Discount Factor × Service Price
-      const discountedUnitPrice = price * discountFactor;
-      const serviceTotal = quantity * discountedUnitPrice;
-
-      return total + serviceTotal;
+      const finalUnitPrice = customPrice * discountFactor;
+      const lineTotal = quantity * finalUnitPrice;
+      return total + lineTotal;
     }, 0);
   };
 
-  // calculate the current service total in the form
+  // calculate current service total in form 
   const calculateCurrentServiceTotal = () => {
-    const price = parseFloat(serviceForm.price) || 0;
+    const customPrice = parseFloat(serviceForm.price) || 0; 
     const quantity = parseInt(serviceForm.quantity, 10) || 0;
+    const discountFactor = parseFloat(serviceForm.discount) || 1; 
 
-    // handle discount factor - default to 1 (full price) if empty/invalid
-    let discountFactor = parseFloat(serviceForm.discount);
-    if (
-      isNaN(discountFactor) ||
-      serviceForm.discount === '' ||
-      serviceForm.discount === null ||
-      serviceForm.discount === undefined
-    ) {
-      discountFactor = 1; // full price when empty
-    }
+    const finalUnitPrice = customPrice * discountFactor;
+    const lineTotal = quantity * finalUnitPrice;
 
-    const discountedUnitPrice = price * discountFactor;
-    const serviceTotal = quantity * discountedUnitPrice;
-
-    return serviceTotal;
+    return lineTotal;
   };
 
   // helper function to convert discount factor to percentage for display
   const getDiscountPercentage = (discountFactor) => {
-    // handle empty/null/undefined values
     if (discountFactor === '' || discountFactor === null || discountFactor === undefined) {
       return '0';
     }
 
     const factor = parseFloat(discountFactor);
-
-    // handle invalid numbers
     if (isNaN(factor)) {
       return '0';
     }
 
-    // calculate discount percentage: (1 - factor) * 100
-    // factor = 1.0 means 0% off (full price)
-    // factor = 0.5 means 50% off (half price)
-    // factor = 0.0 means 100% off (free)
     const discountPercent = (1 - factor) * 100;
-
-    // ensure we don't show negative discounts
     return Math.max(0, discountPercent).toFixed(1);
   };
 
@@ -164,33 +143,29 @@ const CarePackageCreateForm = () => {
       return;
     }
 
-    const servicePrice = parseFloat(
-      service.service_price || 
-        service.originalPrice || 
-        0
-    );
+    const servicePrice = parseFloat(service.service_price || service.originalPrice || service.price || 0);
+    if (servicePrice <= 0) {
+      console.warn('Service has zero or invalid price:', service);
+    }
 
-    // create a normalized service object with all the required properties
     const serviceToSelect = {
-      id: service.id,
+      id: service.id.toString(), 
       name: service.service_name || service.name || service.label || 'Unknown Service',
       label: service.service_name || service.name || service.label || 'Unknown Service',
-      price: servicePrice,
-      // store original price for reference
-      originalPrice: servicePrice,
-      // additional service properties
+      price: servicePrice, 
+      originalPrice: servicePrice, 
       service_name: service.service_name || service.name || service.label,
       service_price: servicePrice,
-      service_description: service.service_description,
-      service_remarks: service.service_remarks,
+      service_description: service.service_description || '',
+      service_remarks: service.service_remarks || '',
       duration: parseInt(service.service_duration || service.duration || 45),
-      service_duration: service.service_duration || service.duration,
+      service_duration: service.service_duration || service.duration || 45,
       updated_at: service.updated_at,
       created_at: service.created_at,
       service_category_id: service.service_category_id,
-      service_category_name: service.service_category_name,
-      created_by_name: service.created_by_name,
-      updated_by_name: service.updated_by_name,
+      service_category_name: service.service_category_name || '',
+      created_by_name: service.created_by_name || '',
+      updated_by_name: service.updated_by_name || '',
     };
 
     selectService(serviceToSelect);
@@ -212,11 +187,17 @@ const CarePackageCreateForm = () => {
 
   // handle saving edited service
   const handleSaveEditedService = (index, updatedData) => {
-    updateServiceInPackage(index, updatedData);
+    const processedData = {
+      ...updatedData,
+      price: parseFloat(updatedData.price) || 0, 
+      quantity: parseInt(updatedData.quantity) || 1,
+      discount: parseFloat(updatedData.discount) || 1, 
+    };
+
+    updateServiceInPackage(index, processedData);
     setEditingService(null);
   };
 
-  // handle form submission
   const handleSubmit = async (e) => {
     e.preventDefault();
     setSubmitStatus({ type: '', message: '' });
@@ -232,24 +213,70 @@ const CarePackageCreateForm = () => {
     setIsSubmitting(true);
 
     try {
+      const processedServices = mainFormData.services.map((service, index) => {
+        // validate service fields
+        if (!service.id) {
+          throw new Error(`Service ${index + 1}: Missing service ID`);
+        }
+        if (!service.name) {
+          throw new Error(`Service ${index + 1}: Missing service name`);
+        }
+        const quantity = parseInt(service.quantity, 10);
+        if (isNaN(quantity) || quantity <= 0) {
+          throw new Error(`Service ${index + 1}: Invalid quantity (${service.quantity})`);
+        }
+        const customPrice = parseFloat(service.price); // ORIGINAL custom price (before discount)
+        if (isNaN(customPrice) || customPrice < 0) {
+          throw new Error(`Service ${index + 1}: Invalid price (${service.price})`);
+        }
+        const discountFactor = parseFloat(service.discount);
+        if (isNaN(discountFactor) || discountFactor < 0) {
+          throw new Error(`Service ${index + 1}: Invalid discount (${service.discount})`);
+        }
+        return {
+          id: service.id.toString(),
+          name: service.name,
+          quantity: quantity,
+          price: customPrice, 
+          discount: discountFactor,
+          finalPrice: customPrice, // final price before discount
+        };
+      });
+
+      // validate main form fields
+      if (!mainFormData.package_name || mainFormData.package_name.trim() === '') {
+        throw new Error('Package name is required');
+      }
+      if (!mainFormData.employee_id) {
+        throw new Error('Employee selection is required');
+      }
+      if (!mainFormData.created_at) {
+        throw new Error('Creation date is required');
+      }
+
+      // calculate package price
+      const calculatedTotal = calculateTotalPrice();
+      let finalPackagePrice = calculatedTotal;
+
+      if (
+        mainFormData.package_price &&
+        mainFormData.package_price !== '' &&
+        !isNaN(parseFloat(mainFormData.package_price)) &&
+        parseFloat(mainFormData.package_price) !== calculatedTotal
+      ) {
+        finalPackagePrice = parseFloat(mainFormData.package_price);
+      }
+
       const payload = {
-        package_name: mainFormData.package_name,
+        package_name: mainFormData.package_name.trim(),
         package_remarks: mainFormData.package_remarks || '',
-        package_price: mainFormData.package_price > 0 ? mainFormData.package_price : calculateTotalPrice(),
-        is_customizable: mainFormData.customizable,
-        employee_id: mainFormData.employee_id,
+        package_price: finalPackagePrice,
+        is_customizable: Boolean(mainFormData.customizable),
+        employee_id: mainFormData.employee_id.toString(),
         created_at: mainFormData.created_at,
         updated_at: mainFormData.created_at,
-        services: mainFormData.services.map((service) => ({
-          id: service.id,
-          name: service.name,
-          quantity: parseInt(service.quantity, 10),
-          price: parseFloat(service.price),
-          finalPrice: parseFloat(service.price) * parseFloat(service.discount),
-          discount: parseFloat(service.discount),
-        })),
+        services: processedServices, 
       };
-      console.log('Submitting package payload:', payload);
 
       if (submitPackage) {
         await submitPackage(payload);
@@ -258,17 +285,17 @@ const CarePackageCreateForm = () => {
           message: 'Care package created successfully!',
         });
 
-        // reset form after a brief delay to show the success message
         setTimeout(() => {
           handleReset();
           setSubmitStatus({ type: '', message: '' });
-        }, 2000); // 2 second delay
+        }, 2000);
       }
     } catch (error) {
-      console.error('Error submitting package:', error);
+      console.error('Error details:', error);
+
       setSubmitStatus({
         type: 'error',
-        message: 'Failed to create care package. Please try again.',
+        message: `Failed to create care package: ${error.message}`,
       });
     } finally {
       setIsSubmitting(false);
@@ -281,22 +308,20 @@ const CarePackageCreateForm = () => {
     resetServiceForm();
     setEditingService(null);
     setEmployeeError('');
-    // reset created_at to current time
     const now = new Date();
     const localISOTime = new Date(now.getTime() - now.getTimezoneOffset() * 60000).toISOString().slice(0, 16);
     updateMainField('created_at', localISOTime);
-    // reset form context
     methods.reset({ employee_id: '' });
   };
 
   // helper function to check if form is valid for submission
   const isFormValid = () => {
     return (
-      mainFormData.package_name && 
+      mainFormData.package_name &&
       mainFormData.package_name.trim() !== '' &&
-      mainFormData.employee_id && 
+      mainFormData.employee_id &&
       mainFormData.employee_id !== '' &&
-      mainFormData.services && 
+      mainFormData.services &&
       mainFormData.services.length > 0
     );
   };
@@ -347,11 +372,9 @@ const CarePackageCreateForm = () => {
         {/* employee error display */}
         {employeeError && (
           <div className='max-w-7xl mx-auto px-4 py-2'>
-            <Alert variant="destructive">
-              <AlertCircle className="h-4 w-4" />
-              <AlertDescription>
-                {employeeError}
-              </AlertDescription>
+            <Alert variant='destructive'>
+              <AlertCircle className='h-4 w-4' />
+              <AlertDescription>{employeeError}</AlertDescription>
             </Alert>
           </div>
         )}
@@ -409,9 +432,7 @@ const CarePackageCreateForm = () => {
                         <EmployeeSelect name='employee_id' label='' />
                       </div>
                     </FormProvider>
-                    {employeeError && (
-                      <p className="text-red-600 text-xs mt-1">{employeeError}</p>
-                    )}
+                    {employeeError && <p className='text-red-600 text-xs mt-1'>{employeeError}</p>}
                   </div>
                 </div>
 
@@ -429,17 +450,31 @@ const CarePackageCreateForm = () => {
                   </div>
 
                   <div>
-                    <label className='block text-sm font-medium text-gray-600 mb-2'>PACKAGE PRICE</label>
+                    <label className='block text-sm font-medium text-gray-600 mb-2'>
+                      PACKAGE PRICE
+                      <span className='text-xs text-gray-400 ml-1'>
+                        (leave empty for auto-calculated: ${calculateTotalPrice().toFixed(2)})
+                      </span>
+                    </label>
                     <div className='relative'>
                       <DollarSign className='h-4 w-4 text-gray-400 absolute left-3 top-1/2 transform -translate-y-1/2' />
                       <Input
                         type='number'
-                        value={mainFormData.package_price}
-                        onChange={(e) => updateMainField('package_price', parseFloat(e.target.value) || 0)}
+                        value={mainFormData.package_price || ''}
+                        onChange={(e) => updateMainField('package_price', e.target.value)}
                         className='w-full pl-10 pr-3 py-2 border border-gray-200 rounded text-sm focus:outline-none focus:ring-2 focus:ring-gray-500 focus:border-transparent'
-                        placeholder='0.00'
+                        placeholder={calculateTotalPrice().toFixed(2)}
                         step='0.01'
                       />
+                    </div>
+                    <div className='text-xs text-gray-500 mt-1'>
+                      {!mainFormData.package_price || mainFormData.package_price === ''
+                        ? `Will use calculated total: $${calculateTotalPrice().toFixed(2)}`
+                        : parseFloat(mainFormData.package_price) === calculateTotalPrice()
+                        ? 'Matches calculated total'
+                        : `Override: $${parseFloat(mainFormData.package_price || 0).toFixed(
+                            2
+                          )} (vs calculated: $${calculateTotalPrice().toFixed(2)})`}
                     </div>
                   </div>
 
@@ -456,12 +491,15 @@ const CarePackageCreateForm = () => {
                   </div>
                 </div>
 
-                {/* service */}
+                {/* pricing summary */}
                 {mainFormData.services.length > 0 && (
                   <div className='mt-6 pt-6 border-t border-gray-200'>
                     <div className='grid grid-cols-1 md:grid-cols-2 gap-6'>
                       <div>
-                        <label className='block text-sm font-medium text-gray-600 mb-2'>CALCULATED TOTAL</label>
+                        <label className='block text-sm font-medium text-gray-600 mb-2'>
+                          CALCULATED TOTAL
+                          <span className='text-xs text-gray-400 ml-1'>(frontend calculation)</span>
+                        </label>
                         <div className='text-gray-900 font-semibold px-3 py-2 bg-green-50 border border-green-200 rounded text-sm'>
                           ${calculateTotalPrice().toFixed(2)}
                         </div>
@@ -512,7 +550,7 @@ const CarePackageCreateForm = () => {
               </CardContent>
             </Card>
 
-            {/* services list*/}
+            {/* services list */}
             {mainFormData.services.length > 0 && (
               <Card className='border-gray-200 shadow-sm'>
                 <CardHeader className='border-b border-gray-100 px-4 py-1'>
@@ -532,6 +570,42 @@ const CarePackageCreateForm = () => {
                         onRemove={() => removeServiceFromPackage(index)}
                       />
                     ))}
+                  </div>
+
+                  {/* service summary */}
+                  <div className='mt-4 pt-4 border-t border-gray-200 bg-gray-50 rounded-lg p-4'>
+                    <div className='grid grid-cols-2 md:grid-cols-4 gap-4 text-center'>
+                      <div>
+                        <div className='text-xs text-gray-600 mb-1'>TOTAL SERVICES</div>
+                        <div className='text-lg font-semibold text-gray-900'>{mainFormData.services.length}</div>
+                      </div>
+                      <div>
+                        <div className='text-xs text-gray-600 mb-1'>TOTAL SESSIONS</div>
+                        <div className='text-lg font-semibold text-gray-900'>
+                          {mainFormData.services.reduce(
+                            (total, service) => total + (parseInt(service.quantity) || 0),
+                            0
+                          )}
+                        </div>
+                      </div>
+                      <div>
+                        <div className='text-xs text-gray-600 mb-1'>BEFORE DISCOUNTS</div>
+                        <div className='text-lg font-semibold text-gray-900'>
+                          $
+                          {mainFormData.services
+                            .reduce((total, service) => {
+                              const price = parseFloat(service.price) || 0; // Custom price WITHOUT discount
+                              const quantity = parseInt(service.quantity) || 0;
+                              return total + price * quantity;
+                            }, 0)
+                            .toFixed(2)}
+                        </div>
+                      </div>
+                      <div>
+                        <div className='text-xs text-gray-600 mb-1'>FINAL TOTAL</div>
+                        <div className='text-lg font-bold text-green-600'>${calculateTotalPrice().toFixed(2)}</div>
+                      </div>
+                    </div>
                   </div>
                 </CardContent>
               </Card>
