@@ -13,6 +13,7 @@ const getCurrentUserRoles = async (req: Request, res: Response, next: NextFuncti
     const roles = await roleModel.getUserRoles(req.session.user_id);
     return res.status(200).json({ roles });
   } catch (error) {
+    console.error('Error fetching user roles', error);
     throw new Error('Error fetching user roles');
   }
 };
