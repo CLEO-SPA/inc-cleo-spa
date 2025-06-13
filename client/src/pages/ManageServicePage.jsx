@@ -287,7 +287,7 @@ export default function ManageService() {
                           <label className="block text-md font-medium ">Remarks</label>
                           <textarea
                             name="service_remarks"
-                            value={updateForm.service_remarks}
+                            value={updateForm.service_remarks || ""}
                             onChange={(e) => {
                               setUpdateForm(prevUpdateForm => ({
                                 ...prevUpdateForm,
@@ -418,7 +418,7 @@ export default function ManageService() {
                             </tr>
 
                             {expandedRows.includes(index) && (
-                              <tr key={service.id} className="bg-gray-100">
+                              <tr className="bg-gray-100">
                                 <td colSpan="100%" className="px-4 py-2 border border-gray-200">
                                   <div className="grid grid-cols-2 gap-4">
                                     {/* More Details */}
