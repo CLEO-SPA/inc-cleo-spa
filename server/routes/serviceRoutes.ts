@@ -27,6 +27,9 @@ router.put('/update-service/:id', serviceController.validateServiceData, service
 // update service sequence
 router.put('/reorder-service', serviceController.reorderService);
 
+// update service status
+router.put('/disable-service/:id', serviceController.disableService);
+
 // SERVICE CATEGORIES ROUTES
 //  get all service categories
 router.get('/service-cat', serviceController.getServiceCategories)

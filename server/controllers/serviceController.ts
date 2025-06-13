@@ -342,6 +342,40 @@ const reorderService = async (req: Request, res: Response, next: NextFunction) =
   }
 };
 
+// update service status
+// disable service
+const disableService = async (req: Request, res: Response, next: NextFunction) => {
+  try{
+    const id = parseInt(req.params.id,10);
+    const data = req.body;
+
+    let updateData = {
+      id: id,
+      updated_by: data.updated_by,
+      updated_at: data.updated_at
+    }
+    
+    // check service exists validation
+    // check if disabled or not
+    
+    // check if remarks was updated
+    // if (data.service_remarks && data.service_remarks == service.service_remarks) {
+    //   updateData.service_remarks = ;
+    // }
+
+    
+    // change status
+    const updatedService = await serviceModel.disableService(updateData);
+    if (updatedService){
+      res.status(200).json({ message: "Disabled Service Successfully"})
+    }
+
+  }catch(error){
+    console.error('Error in disableService:', error);
+    res.status(500).json({ message: 'Failed to disable service' });
+  }
+}
+
 // get services by categories
 const getServicesByCategory = async (req: Request, res: Response, next: NextFunction) => {
   try {
@@ -389,5 +423,6 @@ export default {
   createService,
   updateService,
   reorderService,
+  disableService,
   getServiceCategories
 };

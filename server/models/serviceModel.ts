@@ -323,7 +323,7 @@ const updateService = async (formData: any) => {
     params.push(formData.updated_by || '');
     conditions.push(`updated_by = $${index++}`);
 
-    const query = `UPDATE services SET ${conditions.join(", ")} WHERE id = $${index}
+    const query = `UPDATE services SET ${conditions.join(', ')} WHERE id = $${index}
     RETURNING *`;
     params.push(formData.id);
 
@@ -335,23 +335,53 @@ const updateService = async (formData: any) => {
   }
 };
 
-const reorderServices = async (services: any) =>{
-  try{
+const reorderServices = async (services: any) => {
+  try {
     const query = `
     UPDATE services
     SET service_sequence_no = $1
     WHERE id = $2`;
-    for (const service of services){
+    for (const service of services) {
       const params = [service.service_sequence_no, service.id];
       await prodPool().query(query, params);
     }
     return { success: true, updatedCount: services.length };
-
-  }catch(error){
+  } catch (error) {
     console.error('Error updating service sequence:', error);
     throw new Error('Error updating service sequence');
   }
-}
+};
+
+const disableService = async (updateData: any) => {
+  try {
+    let params = [updateData.updated_by, updateData.updated_at, updateData.id];
+    let query = `   
+    UPDATE services
+    SET
+      service_is_enabled = false,
+      service_sequence_no = 0,
+      updated_by = $1,
+      updated_at = $2`;
+
+    if (updateData.remarks) {
+      query += `,
+        remarks = $4
+      WHERE id = $3
+      RETURNING *`;
+      params.push(updateData.remarks);
+    } else {
+      query += `
+      WHERE id = $3
+      RETURNING *`;
+    }
+
+    const result = await pool().query(query, params);
+    return result.rows[0];
+  } catch (error) {
+    console.error('Error disabling service sequence:', error);
+    throw new Error('Error disabling service sequence');
+  }
+};
 
 const getServiceCategories = async () => {
   try {
@@ -396,6 +426,7 @@ export default {
   createService,
   updateService,
   reorderServices,
+  disableService,
   getServiceCategories,
   getServiceCategoryById,
 };
