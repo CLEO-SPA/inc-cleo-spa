@@ -350,7 +350,8 @@ const disableService = async (req: Request, res: Response, next: NextFunction) =
     // check if disabled or not
     const service = await serviceModel.getServiceById(id);
     if (!service.service_is_enabled){
-      res.status(400).json({ message: "Service is already disabled."})
+      res.status(400).json({ message: "Service is already disabled."});
+      return;
     }
     
     // check if remarks was updated
@@ -385,7 +386,8 @@ const enableService = async (req: Request, res: Response, next: NextFunction) =>
     // check if enabled or not
     const service = await serviceModel.getServiceById(id);
     if (service.service_is_enabled){
-      res.status(400).json({ message: "Service is already enabled."})
+      res.status(400).json({ message: "Service is already enabled."});
+      return;
     }
     
     // check if remarks was updated
@@ -398,7 +400,7 @@ const enableService = async (req: Request, res: Response, next: NextFunction) =>
     updateData.service_sequence_no = service_sequence_no;
 
     // change status
-    const updatedService = await serviceModel.disableService(updateData);
+    const updatedService = await serviceModel.enableService(updateData);
     if (updatedService){
       res.status(200).json({ message: "Enabled Service Successfully"})
     }

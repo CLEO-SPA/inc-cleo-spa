@@ -377,14 +377,14 @@ const disableService = async (updateData: any) => {
     const result = await pool().query(query, params);
     return result.rows[0];
   } catch (error) {
-    console.error('Error disabling service sequence:', error);
-    throw new Error('Error disabling service sequence');
+    console.error('Error disabling service:', error);
+    throw new Error('Error disabling service');
   }
 };
 
 const enableService = async (updateData: any) => {
   try {
-    let params = [updateData.updated_by, updateData.updated_at, updateData.id];
+    let params = [updateData.service_sequence_no, updateData.updated_by, updateData.updated_at, updateData.id];
     let query = `   
     UPDATE services
     SET
