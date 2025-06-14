@@ -1,6 +1,6 @@
 // PositionTablePage.jsx
 import React, { useState, useEffect } from 'react';
-import { useNavigate } from 'react-router-dom'; // Optional: if you're using React Router
+import { useNavigate } from 'react-router-dom';
 import { AppSidebar } from '@/components/app-sidebar';
 import { SiteHeader } from '@/components/site-header';
 import { SidebarInset, SidebarProvider } from '@/components/ui/sidebar';
@@ -42,7 +42,7 @@ export default function PositionTablePage() {
   const [deleteDialogOpen, setDeleteDialogOpen] = useState(false);
   const [selectedPosition, setSelectedPosition] = useState(null);
   const [formLoading, setFormLoading] = useState(false);
-  const navigate = useNavigate(); // If using React Router
+  const navigate = useNavigate();
 
   useEffect(() => {
     fetchPositions(currentPage, pageSize);
@@ -67,11 +67,11 @@ export default function PositionTablePage() {
   };
 
   const navigateToCreate = () => {
-    navigate('/positions/create'); // or use window.location.href
+    navigate('/positions/create');
   };
 
   const navigateToEdit = (position) => {
-    navigate(`/positions/update/${position.id}`); // or use window.location.href
+    navigate(`/positions/update/${position.id}`);
   };
 
   const handleDelete = async () => {
@@ -122,7 +122,12 @@ export default function PositionTablePage() {
                 <Button onClick={navigateToCreate}><Plus className="mr-2 h-4 w-4" /> Add Position</Button>
               </div>
 
-              {success && <Alert variant="success"><CheckCircle className="h-4 w-4" /><AlertDescription>{success}</AlertDescription></Alert>}
+              {success && (
+                <Alert variant="success">
+                  <CheckCircle className="h-4 w-4" />
+                  <AlertDescription>{success}</AlertDescription>
+                </Alert>
+              )}
 
               <Card>
                 <CardHeader><CardTitle>Display Options</CardTitle></CardHeader>
@@ -231,18 +236,18 @@ export default function PositionTablePage() {
                     </DialogDescription>
                   </DialogHeader>
 
+                  {error && (
+                    <div className="mt-4 rounded-md border border-red-300 bg-red-100 px-3 py-2 text-sm text-red-700">
+                      {error}
+                    </div>
+                  )}
+
                   <DialogFooter>
                     <Button variant="outline" onClick={() => setDeleteDialogOpen(false)}>Cancel</Button>
                     <Button variant="destructive" onClick={handleDelete} disabled={formLoading}>
                       {formLoading ? (<><Loader2 className="mr-2 h-4 w-4 animate-spin" />Deleting...</>) : 'Delete Position'}
                     </Button>
                   </DialogFooter>
-
-                  {error && (
-                    <div className="mt-4 rounded-md border border-red-300 bg-red-100 px-3 py-2 text-sm text-red-700">
-                      {error}
-                    </div>
-                  )}
                 </DialogContent>
               </Dialog>
             </div>
