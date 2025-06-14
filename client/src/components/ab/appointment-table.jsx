@@ -65,7 +65,7 @@ export function AppointmentTable() {
   const methods = useForm({ defaultValues: { employee_id: null, member_id: null } });
   const { watch, reset } = methods;
 
-  const filterEmployeeId = watch('employee_id');
+  const filterEmployeeId = Number(watch('employee_id')) || null;
 
   const filterMemberId = watch('member_id');
 
@@ -78,8 +78,6 @@ export function AppointmentTable() {
       const transformed = data.map((emp, i) => ({
         id: parseInt(emp.id),
         name: emp.employee_name,
-        avatar: `/avatars/${emp.employee_name.toLowerCase().replace(/\s+/g, '')}.jpg`,
-        color: `bg-${['blue', 'green', 'purple', 'orange', 'pink', 'indigo'][i % 6]}-100`
       }));
       setStaff(transformed);
       console.log('Staff fetched:', transformed);
@@ -106,6 +104,7 @@ export function AppointmentTable() {
     }
   };
 
+  console.log(appointments)
   useEffect(() => {
     fetchStaff();
     fetchAppointments(date);
@@ -121,6 +120,10 @@ export function AppointmentTable() {
     return matchEmployee && matchMember;
   });
 
+  console.log('Filtered Appointments:', filteredAppointments);
+  console.log("filterEmployeeId:", filterEmployeeId);
+  console.log("filterMemberId:", filterMemberId);
+
   const staffWithAppointments = staff.filter((emp) =>
     filteredAppointments.some((app) => app.staff === emp.id)
   );
@@ -130,10 +133,17 @@ export function AppointmentTable() {
   const sortedStaff = [...staffWithAppointments, ...staffWithoutAppointments];
 
   const totalPages = Math.ceil(sortedStaff.length / EMPLOYEES_PER_PAGE);
-  const paginatedStaff = sortedStaff.slice(
-    employeePage * EMPLOYEES_PER_PAGE,
-    (employeePage + 1) * EMPLOYEES_PER_PAGE
-  );
+  const paginatedStaff = filterEmployeeId
+    ? staff.filter(emp => emp.id === filterEmployeeId)
+    : sortedStaff.slice(
+      employeePage * EMPLOYEES_PER_PAGE,
+      (employeePage + 1) * EMPLOYEES_PER_PAGE
+    );
+
+  useEffect(() => {
+    setEmployeePage(0);
+  }, [filterEmployeeId]);
+
 
   const formattedDate = date.toLocaleDateString('en-US', {
     weekday: 'short', month: 'short', day: 'numeric'
@@ -212,6 +222,7 @@ export function AppointmentTable() {
                 <tr>
                   <th className="border px-2 py-2 w-[100px] text-left">Time</th>
                   {paginatedStaff.map((emp) => (
+
                     <th key={emp.id} className="border px-2 py-2 text-left">
                       <div className="flex items-center gap-2">
                         <span>{emp.name}</span>
