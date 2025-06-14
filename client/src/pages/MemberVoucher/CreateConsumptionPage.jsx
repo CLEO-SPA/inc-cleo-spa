@@ -13,11 +13,11 @@ import { AppSidebar } from '@/components/app-sidebar';
 import { SiteHeader } from '@/components/site-header';
 import { SidebarInset, SidebarProvider } from '@/components/ui/sidebar';
 import BackButtonHeader from '@/components/ui/backButtonWithNameHeader';
-import MemberVoucherServices from '@/components/memberVoucherServices';
-import MemberVoucherTransactionLogs from '@/components/memberVoucherTransactionLogs';
-import MemberVoucherConsumptionForm from '@/components/memberVoucherConsumptionCreateForm';
+import MemberVoucherServices from '@/components/member-voucher-transaction-logs/memberVoucherServices';
+import MemberVoucherTransactionLogs from '@/components/member-voucher-transaction-logs/memberVoucherTransactionLogs';
+import MemberVoucherConsumptionForm from '@/components/member-voucher-transaction-logs/memberVoucherConsumptionCreateForm';
 import ErrorAlert from '@/components/ui/errorAlert';
-import TransactionLogUpdateForm from '@/components/memberVoucherConsumptionUpdateForm';
+import TransactionLogUpdateForm from '@/components/member-voucher-transaction-logs/memberVoucherConsumptionUpdateForm';
 
 const CreateMemberVoucherConsumptionPage = () => {
     const navigate = useNavigate();
@@ -83,28 +83,29 @@ const CreateMemberVoucherConsumptionPage = () => {
     }
 
     return (
-
         <div className='[--header-height:calc(theme(spacing.14))]'>
             <SidebarProvider className='flex flex-col'>
                 <SiteHeader />
                 <div className='flex flex-1'>
                     <AppSidebar />
                     <SidebarInset>
-                        <div className='container mx-3'>
-                            <BackButtonHeader name={memberName?.name || 'Loading...'} onBack={handleViewAll} />
-                        </div>
-                        <MemberVoucherServices />
-                        {/* Error Alert */}
-                        {!isUpdating && error && <ErrorAlert error={error}
-                            errorMessage={errorMessage}
-                            onClose={clearError}
-                        />}
-                        <div className='flex'>
-                            <div className='flex-1'>
-                                <MemberVoucherTransactionLogs />
+                        <div>
+                            <div className='container mx-3'>
+                                <BackButtonHeader name={memberName?.name || 'Loading...'} onBack={handleViewAll} />
                             </div>
-                            <div className='w-80 shrink-0'>
-                                <MemberVoucherConsumptionForm />
+                            <MemberVoucherServices />
+                            {/* Error Alert */}
+                            {!isUpdating && error && <ErrorAlert error={error}
+                                errorMessage={errorMessage}
+                                onClose={clearError}
+                            />}
+                            <div className='flex'>
+                                <div className='flex-1'>
+                                    <MemberVoucherTransactionLogs />
+                                </div>
+                                <div className='w-80 shrink-0'>
+                                    <MemberVoucherConsumptionForm />
+                                </div>
                             </div>
                         </div>
                     </SidebarInset>
@@ -122,8 +123,7 @@ const CreateMemberVoucherConsumptionPage = () => {
                     createMemberVoucherTransactionLog();
                 }}
                 onCancel={() => {
-                    setIsCreating(false);
-                    setIsConfirming(false);
+
                 }}
             />}
 
@@ -136,7 +136,6 @@ const CreateMemberVoucherConsumptionPage = () => {
                     updateMemberVoucherTransactionLog();
                 }}
                 onCancel={() => {
-                    setIsUpdating(false);
                     setIsConfirming(false);
                 }}
             />}

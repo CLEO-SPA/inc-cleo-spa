@@ -10,6 +10,7 @@ const useMemberVoucherFormStore = create(
       selectedTemplate: null,
       memberVoucherDetails: [],
       formData: {
+        voucher_name: '',
         voucher_template_id: '',
         created_by: '',
         creation_datetime: '',
@@ -82,7 +83,6 @@ const useMemberVoucherFormStore = create(
               formData: {
                 ...state.formData,
                 voucher_template_id: '',
-                member_voucher_name: '',
                 starting_balance: 0,
                 free_of_charge: 0,
                 total_price: 0,
@@ -95,15 +95,15 @@ const useMemberVoucherFormStore = create(
 
           const memberVoucherDetailsFromTemplate = template.details
             ? template.details.map((detail) => ({
-              id: detail.id || Date.now() + Math.random(),
-              service_id: Number(detail.service_id) || '',
-              name: detail.service_name_from_service || detail.service_name || '',
-              price: parseFloat(detail.original_price) || 0,
-              custom_price: parseFloat(detail.custom_price) || 0,
-              discount: parseFloat(detail.discount) || 0,
-              final_price: parseFloat(detail.final_price) || 0,
-              duration: detail.duration || 0,
-            }))
+                id: detail.id || Date.now() + Math.random(),
+                service_id: Number(detail.service_id) || '',
+                name: detail.service_name_from_service || detail.service_name || '',
+                price: parseFloat(detail.original_price) || 0,
+                custom_price: parseFloat(detail.custom_price) || 0,
+                discount: parseFloat(detail.discount) || 0,
+                final_price: parseFloat(detail.final_price) || 0,
+                duration: detail.duration || 0,
+              }))
             : [];
 
           return {
@@ -111,7 +111,6 @@ const useMemberVoucherFormStore = create(
             formData: {
               ...state.formData,
               voucher_template_id: template.id,
-              member_voucher_name: template.voucher_template_name ?? '',
               starting_balance: parseFloat(template.default_starting_balance) ?? 0,
               free_of_charge: parseFloat(template.default_free_of_charge) ?? 0,
               total_price: parseFloat(template.default_total_price) ?? 0,
@@ -129,51 +128,17 @@ const useMemberVoucherFormStore = create(
       // Update form field
       updateFormField: (field, value) => {
         set((state) => {
-          const updatedForm = {
-            ...state.formData,
-            [field]: value,
-          };
-
-          // Auto-calculate total price if in bypass mode and updating balance fields
-          if  (field === 'starting_balance' || field === 'free_of_charge') {
-            // Convert to numbers, defaulting to 0 for invalid values
-            let starting = Number(updatedForm.starting_balance) || 0;
-            let free = Number(updatedForm.free_of_charge) || 0;
-
-            if (field === 'starting_balance') {
-              starting = Number(value) || 0;
-            } else if (field === 'free_of_charge') {
-              free = Number(value) || 0;
-            }
-
-            // Validate: FOC must not exceed starting balance
-            if (free > starting) {
-              console.warn("Free of charge cannot exceed starting balance");
-
-              const fixedForm = {
-                ...updatedForm,
-                free_of_charge: 0, // Set to 0 instead of invalid value
-                total_price: starting, // Keep as number
-              };
-
-              return {
-                formData: fixedForm,
-                // Set error for the free_of_charge field
-                formErrors: {
-                  ...state.formErrors,
-                  free_of_charge: "Free of charge cannot exceed starting balance",
-                },
-              };
-            }
-
-            // Calculate total price and keep as number
-            updatedForm.starting_balance = starting;
-            updatedForm.free_of_charge = free;
-            updatedForm.total_price = starting - free;
+          const newFormData = { ...state.formData, [field]: value };
+          
+          // Auto-calculate total price if in bypass mode
+          if (state.bypassTemplate && (field === 'starting_balance' || field === 'free_of_charge')) {
+            const startingBalance = field === 'starting_balance' ? parseFloat(value) || 0 : state.formData.starting_balance;
+            const freeOfCharge = field === 'free_of_charge' ? parseFloat(value) || 0 : state.formData.free_of_charge;
+            newFormData.total_price = Math.max(0, startingBalance - freeOfCharge);
           }
 
           return {
-            formData: updatedForm,
+            formData: newFormData,
             // Clear specific field error when user starts typing
             formErrors: {
               ...state.formErrors,
@@ -182,16 +147,17 @@ const useMemberVoucherFormStore = create(
           };
         });
       },
+
       // Member voucher details management
       addMemberVoucherDetail: (newDetail = {}) => {
         set((state) => {
           const detail = {
             id: Date.now() + Math.random(),
-            service_id: 0,
+            service_id: '',
             name: '',
             price: 0,
-            discount: 1,
-            duration: 0,
+            discount: 0,
+            duration: '',
             final_price: 0,
             ...newDetail,
           };
@@ -210,54 +176,15 @@ const useMemberVoucherFormStore = create(
         set((state) => {
           const updatedDetails = state.memberVoucherDetails.map((detail) => {
             if (detail.id === id) {
-              const updatedDetail = {
-                ...detail,
-                [field]: value,
-              };
+              const updated = { ...detail, [field]: value };
 
-              // Convert to numbers, defaulting to 0 for invalid values
-              let price = Number(updatedDetail.price) || 0;
-              let discount = Number(updatedDetail.discount) || 0;
-
-              if (field === 'price') {
-                price = Number(value) || 0;
-              } else if (field === 'discount') {
-                discount = Number(value) || 0;
+              // Recalculate final_price if price or discount changes
+              if (field === 'price' || field === 'discount') {
+                const price = field === 'price' ? parseFloat(value) || 0 : parseFloat(updated.price);
+                const discount = field === 'discount' ? parseFloat(value) || 0 : parseFloat(updated.discount);
+                updated.final_price = price - (price * (discount / 100));
               }
-
-              // Validate: discount must not exceed 1 (Chinese reverse style)
-              if (discount > 1) {
-                console.warn("Discount ratio cannot exceed 1");
-
-                const fixedDetail = {
-                  ...updatedDetail,
-                  discount: 1, // Set to 1 (no discount)
-                  final_price: price, // Keep original price as final price
-                };
-
-                return fixedDetail;
-              }
-
-              // Validate: discount must not be negative
-              if (discount < 0) {
-                console.warn("Discount ratio cannot be negative");
-
-                const fixedDetail = {
-                  ...updatedDetail,
-                  discount: 1, // Set to 1 (no discount)
-                  final_price: price, // Keep original price as final price
-                };
-
-                return fixedDetail;
-              }
-
-              // Calculate final_price: price * discount (Chinese reverse style)
-              // 0.2 = 20% of original (80% off), 0.6 = 60% of original (40% off)
-              updatedDetail.price = price;
-              updatedDetail.discount = discount;
-              updatedDetail.final_price = price * discount;
-
-              return updatedDetail;
+              return updated;
             }
             return detail;
           });
@@ -275,7 +202,7 @@ const useMemberVoucherFormStore = create(
       removeMemberVoucherDetail: (id) => {
         set((state) => {
           const filteredDetails = state.memberVoucherDetails.filter((detail) => detail.id !== id);
-
+          
           return {
             memberVoucherDetails: filteredDetails,
             formData: {
@@ -291,30 +218,15 @@ const useMemberVoucherFormStore = create(
         set((state) => {
           const updatedDetails = state.memberVoucherDetails.map((detail) => {
             if (detail.id === detailId) {
-              // Convert to numbers, defaulting to appropriate values
-              const servicePrice = Number(serviceDetails.service_price) || 0;
-              let discount = Number(detail.discount) || 1; // Default to 1 (no discount) for Chinese reverse style
-
-              // Validate discount ratio (Chinese reverse style)
-              if (discount > 1) {
-                console.warn("Discount ratio cannot exceed 1, setting to 1");
-                discount = 1;
-              } else if (discount < 0) {
-                console.warn("Discount ratio cannot be negative, setting to 1");
-                discount = 1;
-              }
-
-              // Calculate final price using Chinese reverse style: price * discount
-              // 0.2 = 20% of original (80% off), 0.6 = 60% of original (40% off)
-              const finalPrice = servicePrice * discount;
-
+              const finalPrice = (serviceDetails.service_price || 0) -
+                ((serviceDetails.service_price || 0) * (detail.discount || 0) / 100);
+              
               return {
                 ...detail,
                 service_id: serviceDetails.id,
                 name: serviceDetails.service_name,
-                price: servicePrice,
+                price: serviceDetails.service_price || 0,
                 duration: serviceDetails.service_duration || '',
-                discount: discount,
                 final_price: finalPrice,
               };
             }
@@ -395,6 +307,7 @@ const useMemberVoucherFormStore = create(
           selectedTemplate: null,
           memberVoucherDetails: [],
           formData: {
+            voucher_name: '',
             voucher_template_id: '',
             created_by: '',
             creation_datetime: '',
@@ -432,7 +345,7 @@ const useMemberVoucherFormStore = create(
         const localDateTime = new Date(now.getTime() - now.getTimezoneOffset() * 60000)
           .toISOString()
           .slice(0, 16);
-
+        
         get().updateFormField('creation_datetime', localDateTime);
       },
     })),

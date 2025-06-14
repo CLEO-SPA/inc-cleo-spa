@@ -128,9 +128,9 @@ const useMemberVoucherTransactionStore = create((set, get) => ({
 
             get().setSuccessWithTimeout();
 
-        } catch (err) {
-            console.error('Failed to fetch member name:', err);
-            set({ error: err.message || 'An unexpected error occurred', loading: false });
+        } catch (error) {
+            const errorMessage = handleApiError(error);
+            set({ error: true, errorMessage: errorMessage, loading: false });
         }
     },
 
@@ -163,9 +163,9 @@ const useMemberVoucherTransactionStore = create((set, get) => ({
 
             get().setSuccessWithTimeout();
 
-        } catch (err) {
-            console.error('Failed to fetch employee data:', err);
-            set({ error: err.message || 'An unexpected error occurred', loading: false });
+        } catch (error) {
+            const errorMessage = handleApiError(error);
+            set({ error: true, errorMessage: errorMessage, loading: false });
         }
     },
 
