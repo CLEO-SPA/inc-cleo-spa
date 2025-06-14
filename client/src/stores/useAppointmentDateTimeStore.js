@@ -1,4 +1,4 @@
-// src/stores/appointmentDateTimeStore.js
+// src/stores/useAppointmentDateTimeStore.js
 import { create } from 'zustand';
 import api from '@/services/api';
 

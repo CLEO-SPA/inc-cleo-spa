@@ -37,7 +37,7 @@ DECLARE
   v_restday  INT;
 BEGIN
   -- fetch the employee’s name (assumes id exists)
-  SELECT employee_name
+  SELECT INITCAP(employee_name)
     INTO v_name
     FROM employees
    WHERE id = p_employee_id;
