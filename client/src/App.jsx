@@ -11,7 +11,7 @@ import HomePage from '@/pages/HomePage';
 import LoginPage from '@/pages/LoginPage';
 import ResetPasswordPage from '@/pages/ResetPasswordPage';
 import NotFoundPage from '@/pages/404Page';
-import ManageMembershipTypePage from '@/pages/membership-type/ManageMembershipTypePage';
+import ManageMembershipTypePage from '@/pages/MembershipType/ManageMembershipTypePage';
 import ManageCarePackagesPage from './pages/CarePackages/ManageCarePackagesPage';
 // Member Management
 import ManageMembersPage from './pages/member/ManageMembersPage';
@@ -23,7 +23,7 @@ import ManageVoucherTemplatesPage from './pages/voucher-template/ManageVoucherTe
 import EditVouhcerTemplatePage from './pages/voucher-template/EditVoucherTemplatePage';
 // Service Management
 import ManageServicePage from '@/pages/ManageServicePage'
-import MockSalesTransactionPage from './pages/sale-transaction/mockSaleTransactionPage';import ManageVouchersPage from './pages/MemberVoucher/ManageVoucherPage';
+import MockSalesTransactionPage from './pages/sale-transaction/mockSaleTransactionPage'; import ManageVouchersPage from './pages/MemberVoucher/ManageVoucherPage';
 import DatabaseReportPage from '@/pages/DatabaseReportPage';
 import CreateConsumptionPage from '@/pages/CarePackages/CreateConsumptionPage';
 import CreateMemberVoucherConsumptionPage from '@/pages/MemberVoucher/CreateConsumptionPage';
@@ -49,13 +49,16 @@ function App() {
               <Route path='/voucher-template/create' element={<CreateVoucherTemplatesPage />} />
               <Route path='/voucher-template' element={<ManageVoucherTemplatesPage />} />
               <Route path='/voucher-template/edit/:id' element={<EditVouhcerTemplatePage />} />
-              <Route path='/cart-test' element={<MockSalesTransactionPage/>} />
+              <Route path='/cart-test' element={<MockSalesTransactionPage />} />
 
               <Route path='/mcp/:packageId/consume' element={<CreateConsumptionPage />} />
 
               {/* member vouchers */}
               <Route path="/mv" element={<ManageVouchersPage />} />
               <Route path="/mv/:memberId/consume" element={<CreateMemberVoucherConsumptionPage />} />
+
+              {/* membership-type */}
+              <Route path='/membership-type' element={<ManageMembershipTypePage />} />
 
               {/* statistics */}
               <Route path='/dbcr' element={<DatabaseReportPage />} />
@@ -66,8 +69,7 @@ function App() {
             {/* Invitation & Reset Password */}
             <Route path='/invites' element={<ResetPasswordPage />} />
             <Route path='/reset-password' element={<ResetPasswordPage />} />
-            
-            <Route path='/membership-type' element={<ManageMembershipTypePage/>} />
+
             {/* 404 Page */}
             <Route path='*' element={<NotFoundPage />} />
 

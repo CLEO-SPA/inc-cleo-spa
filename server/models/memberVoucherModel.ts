@@ -9,7 +9,7 @@ const getPaginatedVouchers = async (
   options: PaginatedOptions = {},
   start_date_utc: string | undefined | null,
   end_date_utc: string
-): Promise<PaginatedReturn<MemberVouchers>> => {
+): Promise<{ success: boolean, data: PaginatedReturn<MemberVouchers> | [], message: string }> => {
   const { after, before, page, searchTerm } = options;
 
   const params = [
@@ -42,15 +42,15 @@ const getPaginatedVouchers = async (
     const { rows: resultRows } = await pool().query(sqlFunctionQuery, params);
 
     if (!resultRows[0] || !resultRows[0].result) {
-      console.error('Invalid response from SQL function get_voucher_paginated_json');
-      throw new Error('Could not retrieve paginated vouchers due to invalid DB response.');
+      const errorMessage = 'Error 400: Invalid response from SQL function get_voucher_paginated_json';
+      return { success: false, data: [], message: errorMessage };
     }
 
     const result = resultRows[0].result;
 
     if (result.error) {
-      console.error('Error reported by SQL function get_voucher_paginated_json:', result.error);
-      throw new Error(`Database error: ${result.error}`);
+      const errorMessage = 'Error 400: Error reported by SQL function get_voucher_paginated_json: ' + result.error;
+      return { success: false, data: [], message: errorMessage };
     }
 
     const vouchers = result.data || []; // Ensure data is an array
@@ -100,7 +100,7 @@ const getPaginatedVouchers = async (
       );
     }
 
-    return {
+    const data = {
       data: vouchers,
       pageInfo: {
         startCursor,
@@ -110,9 +110,23 @@ const getPaginatedVouchers = async (
         totalCount,
       },
     };
+
+    return { success: true, data: data, message: "Successfully retrieved paginated vouchers." };
   } catch (error) {
-    console.error('Error in memberVoucherModel.getPaginatedVouchers (with PG function):', error);
-    throw new Error('Could not retrieve paginated vouchers.');
+    console.error('Error retrieving paginated vouchers:', error);
+
+    console.error('Full error details:', {
+      error: error instanceof Error ? error.message : 'Unknown error',
+      stack: error instanceof Error ? error.stack : undefined
+    });
+
+    // Return user-friendly message but also throw for critical errors
+    if (error instanceof Error && error.message.includes('connection')) {
+      // Critical database errors should bubble up
+      throw new Error('Database connection failed. Please try again later.');
+    }
+
+    return { success: false, data: [], message: "Failed to retrieve paginated vouchers due to database error." };
   }
 };
 
@@ -453,10 +467,10 @@ const getMemberVoucherPaidCurrentBalance = async (id: number, consumptionValue: 
     const query = `
     SELECT st.outstanding_total_payment_amount, mv.current_balance, mv.free_of_charge
     FROM sale_transactions st
-    JOIN sale_transaction_items sti ON st.id = sti.sale_transactions_id
+    JOIN sale_transaction_items sti ON st.id = sti.sale_transaction_id
     JOIN member_vouchers mv ON sti.member_voucher_id = mv.id
     WHERE sti.member_voucher_id = $1
-    ORDER BY sti.sale_transactions_id DESC
+    ORDER BY sti.sale_transaction_id DESC
     LIMIT 1;
     `;
 

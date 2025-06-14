@@ -18,9 +18,12 @@ const setDateRange = (req: Request, res: Response, next: NextFunction): void => 
   }
 
   if (end_date_utc === null || end_date_utc === undefined) {
+    req.session.end_date_is_default = true;
     delete req.session.end_date_utc;
   } else if (end_date_utc) {
+    req.session.end_date_is_default = false;
     if (!validator.isISO8601(end_date_utc)) {
+      req.session.end_date_is_default = true;
       res.status(400).json({ message: 'Invalid end date format. Expected ISO8601.' });
       return;
     }
@@ -77,8 +80,7 @@ const toggleSimulation = async (req: Request, res: Response, next: NextFunction)
     });
   } catch (error) {
     console.error('Error toggling simulation:', error);
-    res.status(500).json({ message: 'Failed to toggle simulation.' });
-    return;
+    next(error);
   }
 };
 
@@ -100,7 +102,8 @@ const getSimulation = async (req: Request, res: Response, next: NextFunction): P
       end_date_utc: simulationState.end_date_utc,
     });
   } catch (error) {
-    throw new Error('Failed to fetch simulation state.');
+    console.error('Error getting simulation:', error);
+    next(error);
   }
 };
 

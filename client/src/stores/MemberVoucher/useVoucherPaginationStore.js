@@ -1,8 +1,15 @@
 import { create } from 'zustand';
 import api from '@/services/api';
+import { handleApiError } from '@/utils/errorHandlingUtils';
 
-export const useVoucherPaginationStore = create((set, get) => ({
-  // States
+const getInitialState = () => ({
+  // Loading and error states
+  loading: false,
+  success: false,
+  error: false,
+  errorMessage: null,
+
+  // Pagination states
   currentPage: 1,
   currentLimit: 10,
   startCursor: null,
@@ -13,146 +20,207 @@ export const useVoucherPaginationStore = create((set, get) => ({
   vouchers: [],
   totalCount: null,
   isOffsetMode: false,
-  isLoading: false,
-  error: null,
   lastAction: null,
+});
 
-  // Actions
-  initializePagination: (initialLimit = 10, initialSearchTerm = '') => {
+export const useVoucherPaginationStore = create((set, get) => ({
+  ...getInitialState(),
+
+  // Initialize pagination with optional parameters
+  initializePagination: async (initialLimit = 10, initialSearchTerm = '') => {
     set({
-      currentPage: 1,
+      ...getInitialState(),
       currentLimit: initialLimit,
-      startCursor: null,
-      endCursor: null,
-      hasNextPage: false,
-      hasPreviousPage: false,
       searchTerm: initialSearchTerm,
-      vouchers: [],
-      totalCount: null,
-      isOffsetMode: false,
-      isLoading: false,
-      error: null,
-      lastAction: null,
     });
-    // Fetch initial data after state is set
-    get().fetchVouchers();
+    
+    // Fetch initial data after state is reset
+    await get().fetchVouchers();
   },
 
-  setPaginationData: (data, pageInfo, searchTerm) =>
-    set((state) => {
-      const newState = {
-        vouchers: data,
-        startCursor: pageInfo.startCursor,
-        endCursor: pageInfo.endCursor,
-        hasNextPage: pageInfo.hasNextPage,
-        hasPreviousPage: pageInfo.hasPreviousPage,
-        totalCount: pageInfo.totalCount !== undefined ? pageInfo.totalCount : state.totalCount,
-        searchTerm: searchTerm !== undefined ? searchTerm : state.searchTerm,
-        isLoading: false, // Turn off loading after data is set
-        error: null, // Clear any previous error
-      };
-      console.log('State after setPaginationData:', { ...state, ...newState });
-      return newState;
-    }),
-
+  // Main fetch function
   fetchVouchers: async () => {
-    set({ isLoading: true, error: null }); // Set loading true, clear previous error
-
-    const state = get(); // Get the current state
-    const { currentPage, currentLimit, startCursor, endCursor, searchTerm, isOffsetMode, lastAction } = state;
-
-    const queryParams = {
-      limit: currentLimit,
-      searchTerm: searchTerm || undefined, // Only include if not empty
-    };
-
-    // Determine pagination strategy
-    if (isOffsetMode) {
-      queryParams.page = currentPage;
-    } else {
-      // Cursor-based logic:
-      // If going next, use endCursor of previous page as 'after'
-      if (lastAction === 'next' && endCursor) {
-        queryParams.after = endCursor;
-      }
-      // If going previous, use startCursor of previous page as 'before'
-      else if (lastAction === 'prev' && startCursor) {
-        queryParams.before = startCursor;
-      }
-      // For initial load or new search/filter (where cursors might be null),
-      // no 'after' or 'before' is sent, so it fetches the first page.
+    if (get().loading) {
+      set({ success: false, error: true, errorMessage: "Another process is running." });
+      return;
     }
+
+    set({ loading: true, success: false, error: false, errorMessage: null });
 
     try {
-      // Use your imported API service
+      const state = get();
+      const { currentPage, currentLimit, startCursor, endCursor, searchTerm, isOffsetMode, lastAction } = state;
+
+      const queryParams = {
+        limit: currentLimit,
+        searchTerm: searchTerm || undefined,
+      };
+
+      // Determine pagination strategy
+      if (isOffsetMode) {
+        queryParams.page = currentPage;
+      } else {
+        // Cursor-based logic
+        if (lastAction === 'next' && endCursor) {
+          queryParams.after = endCursor;
+        } else if (lastAction === 'prev' && startCursor) {
+          queryParams.before = startCursor;
+        }
+      }
+
       const response = await api.get('/mv/v', { params: queryParams });
 
-      console.log(response);
+      const data = response.data.data;
 
       // Update state with fetched data
-      get().setPaginationData(response.data.data, response.data.pageInfo, searchTerm);
-    } catch (err) {
-      console.error('Failed to fetch vouchers:', err);
-      set({ error: err.message || 'An unexpected error occurred', isLoading: false });
+      set({
+        loading: false,
+        success: true,
+        error: false,
+        errorMessage: null,
+        vouchers: data.data,
+        startCursor: data.pageInfo.startCursor,
+        endCursor: data.pageInfo.endCursor,
+        hasNextPage: data.pageInfo.hasNextPage,
+        hasPreviousPage: data.pageInfo.hasPreviousPage,
+        totalCount: data.pageInfo.totalCount !== undefined 
+          ? data.pageInfo.totalCount 
+          : state.totalCount,
+      });
+
+      console.log('State after fetchVouchers:', get());
+      get().setSuccessWithTimeout();
+
+    } catch (error) {
+      console.error('Failed to fetch vouchers:', error);
+      const errorMessage = handleApiError(error);
+      set({ 
+        loading: false,
+        error: true, 
+        errorMessage: errorMessage,
+        success: false 
+      });
     }
   },
 
-  // Action to navigate to the next page (cursor-based)
+  // Navigation actions
   goToNextPage: () => {
+    const state = get();
+    if (!state.hasNextPage || state.loading) return;
+
     set((state) => ({
       currentPage: state.currentPage + 1,
       isOffsetMode: false,
-      lastAction: 'next', // Track the action for `WorkspaceVouchers`
+      lastAction: 'next',
     }));
-    get().fetchVouchers(); // Trigger fetch
+    get().fetchVouchers();
   },
 
-  // Action to navigate to the previous page (cursor-based)
   goToPreviousPage: () => {
+    const state = get();
+    if (!state.hasPreviousPage || state.loading) return;
+
     set((state) => ({
       currentPage: state.currentPage - 1,
       isOffsetMode: false,
-      lastAction: 'prev', // Track the action for `WorkspaceVouchers`
+      lastAction: 'prev',
     }));
-    get().fetchVouchers(); // Trigger fetch
+    get().fetchVouchers();
   },
 
-  // Action for direct jump to page (offset-based)
   goToPage: (pageNumber) => {
-    set((state) => ({
+    if (pageNumber < 1 || get().loading) return;
+
+    set({
       currentPage: pageNumber,
-      isOffsetMode: true, // Switch to offset mode
-      startCursor: null, // Clear cursors when jumping by page number
+      isOffsetMode: true,
+      startCursor: null,
       endCursor: null,
-      lastAction: 'jump', // Track action
-    }));
-    get().fetchVouchers(); // Trigger fetch
+      lastAction: 'jump',
+    });
+    get().fetchVouchers();
   },
 
-  // Actions that should reset to the first page and potentially switch mode
+  // Filter and limit actions
   setSearchTerm: (term) => {
-    set(() => ({
+    set({
       searchTerm: term,
       currentPage: 1,
       startCursor: null,
       endCursor: null,
       totalCount: null,
-      isOffsetMode: false, // Reset to cursor mode for new search
-      lastAction: 'search', // Track action
-    }));
-    get().fetchVouchers(); // Trigger fetch
+      isOffsetMode: false,
+      lastAction: 'search',
+    });
+    get().fetchVouchers();
   },
 
   setLimit: (newLimit) => {
-    set(() => ({
+    if (newLimit < 1 || get().loading) return;
+
+    set({
       currentLimit: newLimit,
       currentPage: 1,
       startCursor: null,
       endCursor: null,
       totalCount: null,
-      isOffsetMode: false, // Reset to cursor mode for new limit
-      lastAction: 'limit', // Track action
-    }));
-    get().fetchVouchers(); // Trigger fetch
+      isOffsetMode: false,
+      lastAction: 'limit',
+    });
+    get().fetchVouchers();
+  },
+
+  // Utility functions
+  setSuccessWithTimeout: () => {
+    set({ success: true, error: false, errorMessage: null });
+
+    // Auto-clear success message after 3 seconds
+    setTimeout(() => {
+      set((state) => ({
+        ...state,
+        success: false
+      }));
+    }, 3000);
+  },
+
+  clearError: () => {
+    set({ error: false, errorMessage: null });
+  },
+
+  setError: (errorMessage) => {
+    set({ error: true, errorMessage: errorMessage });
+  },
+
+  // Reset store to initial state
+  reset: () => set(getInitialState()),
+
+  // Refresh current page
+  refresh: () => {
+    get().fetchVouchers();
+  },
+
+  // Get current voucher by ID
+  getVoucherById: (id) => {
+    const state = get();
+    return state.vouchers.find(voucher => voucher.id === id);
+  },
+
+  // Check if there are any vouchers
+  hasVouchers: () => {
+    const state = get();
+    return state.vouchers && state.vouchers.length > 0;
+  },
+
+  // Get pagination info
+  getPaginationInfo: () => {
+    const state = get();
+    return {
+      currentPage: state.currentPage,
+      totalCount: state.totalCount,
+      hasNextPage: state.hasNextPage,
+      hasPreviousPage: state.hasPreviousPage,
+      currentLimit: state.currentLimit,
+      isOffsetMode: state.isOffsetMode,
+    };
   },
 }));

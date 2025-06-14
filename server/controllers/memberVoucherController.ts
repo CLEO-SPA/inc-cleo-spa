@@ -12,8 +12,6 @@ const getAllMemberVouchers = async (req: Request, res: Response, next: NextFunct
   const page = parseInt(req.query.page as string);
   const searchTerm = req.query.searchTerm as string;
 
-  // console.log(`\n${startDate_utc} || ${endDate_utc} \n`);
-
   if (limit <= 0) {
     res.status(400).json({ error: 'Error 400: Limit must be a positive integer.' });
     return;
@@ -57,7 +55,12 @@ const getAllMemberVouchers = async (req: Request, res: Response, next: NextFunct
 
   try {
     const results = await model.getPaginatedVouchers(limit, options, start_date_utc, end_date_utc as string);
-    res.status(200).json(results);
+    if (results.success) {
+      res.status(200).json(results);
+    } else {
+      res.status(400).json({ message: results.message });
+      return;
+    }
   } catch (error) {
     console.error('Error in memberVoucherController.getAllMemberVouchers:', error);
     next(error);
@@ -82,7 +85,7 @@ const getAllServicesOfMemberVoucherById = async (req: Request, res: Response, ne
       res.status(200).json({ message: "Get Services of Member Voucher By Id was successful.", data: results });
     } else {
       res.status(400).json({ message: results.message });
-      throw new Error(results.message);
+      return;
     }
   } catch (error) {
     console.error("Error getting Services of Member Voucher:", error);
@@ -91,16 +94,14 @@ const getAllServicesOfMemberVoucherById = async (req: Request, res: Response, ne
 };
 
 const getAllTransactionLogsOfMemberVoucherById = async (req: Request, res: Response, next: NextFunction): Promise<void> => {
-  // const { start_date_utc, end_date_utc } = req.session; // Uncomment once sim is fixed
-  const start_date_utc = "";
-  const end_date_utc = "";
+  const { start_date_utc, end_date_utc } = req.session;
   const id: number = parseInt(req.params.id, 10);
   const limit: number = parseInt((req.query.limit as string) || '10');
   const afterCursor: string = req.query.after as string;
   const beforeCursor: string = req.query.before as string;
   const page = parseInt(req.query.page as string);
 
-  // console.log(`\n${startDate_utc} || ${endDate_utc} \n`);
+  console.log(`\n${start_date_utc} || ${end_date_utc} \n`);
 
   if (Number.isNaN(id)) {
     res.status(400).json({
@@ -155,7 +156,7 @@ const getAllTransactionLogsOfMemberVoucherById = async (req: Request, res: Respo
       res.status(200).json(results);
     } else {
       res.status(400).json({ message: results.message });
-      throw new Error(results.message);
+      return;
     }
 
   } catch (error) {
@@ -194,8 +195,6 @@ const createTransactionLogsByMemberVoucherId = async (req: Request, res: Respons
       current_balance: parseFloat(current_balance)
     };
 
-    console.log(newMemberVoucherTransactionLogData);
-
     if (!newMemberVoucherTransactionLogData) {
       res.status(400).json({ message: "Error 400: Missing new Member Voucher Transaction Log Body" });
       return;
@@ -210,44 +209,50 @@ const createTransactionLogsByMemberVoucherId = async (req: Request, res: Respons
       }
     };
 
-    if (isNaN(Number(newMemberVoucherTransactionLogData.consumptionValue))) {
-      res.status(400).json({ message: "Error 400: Consumption value is invalid" });
+    const numValue = Number(newMemberVoucherTransactionLogData.consumptionValue);
+    if ((newMemberVoucherTransactionLogData.consumptionValue == null) || isNaN(numValue)) {
+      res.status(400).json({ message: "Error 400: Consumption value is invalid or missing" });
       return;
     }
+
+    if (isNaN(Number())) {
+      res.status(400).json({ message: "Error 400: Consumption value is invalid" });
+      return;
+    };
     if (newMemberVoucherTransactionLogData.remarks.length > 500) {
       res.status(400).json({ message: "Error 400: Remarks input is too long" });
       return;
-    }
+    };
     if (!/^\d{4}-\d{2}-\d{2}$/.test(newMemberVoucherTransactionLogData.date)) {
       res.status(400).json({ message: "Error 400: Date input is invalid" });
       return;
-    }
+    };
 
     const regex = /^([01]\d|2[0-3]):([0-5]\d)$/;
     if (!regex.test(newMemberVoucherTransactionLogData.time)) {
       res.status(400).json({ message: "Error 400: Time input is invalid." });
       return;
-    }
+    };
 
     if (Number.isNaN(newMemberVoucherTransactionLogData.createdBy)) {
       res.status(400).json({ message: "Error 400: Created By Employee id is invalid." });
       return;
-    }
+    };
     if (Number.isNaN(newMemberVoucherTransactionLogData.handledBy)) {
       res.status(400).json({ message: "Error 400: Handled By Employee id is invalid" });
       return;
-    }
+    };
     if (Number.isNaN(newMemberVoucherTransactionLogData.current_balance)) {
       res.status(400).json({ message: "Error 400: Current Balance is invalid" });
       return;
-    }
+    };
 
     const results = await model.addTransactionLogsByMemberVoucherId(newMemberVoucherTransactionLogData);
     if (results.success) {
       res.status(201).json({ message: results.message });
     } else {
       res.status(400).json({ message: results.message });
-      throw new Error(results.message);
+      return;
     };
   } catch (error) {
     console.error('Error in memberVoucherController.createTransactionLogsByMemberVoucherId:', error);
@@ -260,10 +265,11 @@ const checkCurrentBalance = async (req: Request, res: Response, next: NextFuncti
   const { consumptionValue } = req.body;
 
   try {
-    if (!consumptionValue || isNaN(Number(consumptionValue))) {
+    const numValue = Number(consumptionValue);
+    if ((consumptionValue === '' || consumptionValue == null) || isNaN(numValue)) {
       res.status(400).json({ message: "Error 400: Consumption value is invalid or missing" });
       return;
-    };
+    }
 
     const intId = parseInt(id, 10);
     const numericConsumptionValue = parseFloat(consumptionValue);
@@ -280,7 +286,7 @@ const checkCurrentBalance = async (req: Request, res: Response, next: NextFuncti
     } else {
       res.status(400).json({ message: results.message });
       return;
-    }
+    };
   } catch (error) {
     console.error("Error getting current balance by Member Voucher Id:", error);
     res.status(500).json({ message: "Internal server error" });
@@ -293,10 +299,12 @@ const checkPaidCurrentBalance = async (req: Request, res: Response, next: NextFu
   const { consumptionValue } = req.body;
 
   try {
-    if (!consumptionValue || isNaN(Number(consumptionValue))) {
+
+    const numValue = Number(consumptionValue);
+    if ((consumptionValue === '' || consumptionValue == null) || isNaN(numValue)) {
       res.status(400).json({ message: "Error 400: Consumption value is invalid or missing" });
       return;
-    };
+    }
 
     const intId = parseInt(id, 10);
     const numericConsumptionValue = parseFloat(consumptionValue);
@@ -316,12 +324,12 @@ const checkPaidCurrentBalance = async (req: Request, res: Response, next: NextFu
     } else {
       res.status(400).json({ message: results.message });
       return;
-    }
+    };
   } catch (error) {
     console.error("Error getting paid current balance by Member Voucher Id:", error);
     res.status(500).json({ message: "Internal server error" });
     return;
-  }
+  };
 };
 
 const getMemberNameByMemberVoucherId = async (req: Request, res: Response, next: NextFunction): Promise<void> => {
@@ -344,12 +352,12 @@ const getMemberNameByMemberVoucherId = async (req: Request, res: Response, next:
     } else {
       res.status(400).json({ message: results.message });
       return;
-    }
+    };
   } catch (error) {
     console.error("Error getting paid current balance by Member Voucher Id:", error);
     res.status(500).json({ message: "Internal server error" });
     return;
-  }
+  };
 };
 
 const updateTransactionLogsAndCurrentBalanceByLogId = async (req: Request, res: Response, next: NextFunction): Promise<void> => {
@@ -397,13 +405,14 @@ const updateTransactionLogsAndCurrentBalanceByLogId = async (req: Request, res: 
       if (key !== "remarks" && (value === null || value === undefined)) {
         res.status(400).json({ message: `Error 400: Property "${property}" is required.` });
         return;
-      }
+      };
     };
 
-    if (isNaN(Number(updatedMemberVoucherTransactionLogData.consumptionValue))) {
-      res.status(400).json({ message: "Error 400: Consumption value is invalid" });
+    const numValue = Number(updatedMemberVoucherTransactionLogData.consumptionValue);
+    if ((updatedMemberVoucherTransactionLogData.consumptionValue == null) || isNaN(numValue)) {
+      res.status(400).json({ message: "Error 400: Consumption value is invalid or missing" });
       return;
-    };
+    }
     if (updatedMemberVoucherTransactionLogData.remarks.length > 500) {
       res.status(400).json({ message: "Error 400: Remarks input is too long" });
       return;
@@ -448,7 +457,7 @@ const updateTransactionLogsAndCurrentBalanceByLogId = async (req: Request, res: 
   } catch (error) {
     console.error('Error in memberVoucherController.updatedMemberVoucherTransactionLogData:', error);
     next(error);
-  }
+  };
 };
 
 const deleteTransactionLogsByLogId = async (req: Request, res: Response, next: NextFunction): Promise<void> => {
