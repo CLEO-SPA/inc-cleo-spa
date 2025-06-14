@@ -14,7 +14,7 @@ import serviceRoutes from './serviceRoutes.js';
 import employeeRoutes from './employeeRoutes.js';
 import positionRoutes from './positionRoutes.js';
 
-// router.use(simulationMiddleware);
+router.use(simulationMiddleware);
 
 router.use('/auth', authRoutes);
 router.use('/session', sessionRoutes);
