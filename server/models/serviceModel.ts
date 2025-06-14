@@ -199,9 +199,11 @@ const getEnabledServiceById = async (id: number) => {
 
 const getServiceSequenceNo = async (service_category_id: number) => {
   try {
+    // get sequence number by counting services that are enabled and in same category
     const query = `
     SELECT COUNT(*) AS seq_no FROM services
-    WHERE service_category_id = $1;`;
+    WHERE service_category_id = $1
+    AND service_is_enabled = true;`;
     const result = await pool().query(query, [service_category_id]);
     return result.rows[0].seq_no;
   } catch (error) {
