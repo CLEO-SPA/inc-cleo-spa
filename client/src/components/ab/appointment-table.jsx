@@ -66,6 +66,7 @@ export function AppointmentTable() {
   const { watch, reset } = methods;
 
   const filterEmployeeId = watch('employee_id');
+
   const filterMemberId = watch('member_id');
 
   const timeSlots = generateTimeSlots();
@@ -81,6 +82,7 @@ export function AppointmentTable() {
         color: `bg-${['blue', 'green', 'purple', 'orange', 'pink', 'indigo'][i % 6]}-100`
       }));
       setStaff(transformed);
+      console.log('Staff fetched:', transformed);
     } catch (err) {
       setError(err.message);
     }
@@ -94,6 +96,7 @@ export function AppointmentTable() {
       const response = await api.get(`ab/date/${dateString}`);
       const data = await response.data;
       const transformed = data.data ? data.data.map(transformAppointment) : [];
+      console.log('Appointments fetched:', transformed);
       setAppointments(transformed);
     } catch (err) {
       setError(err.message);
@@ -211,10 +214,6 @@ export function AppointmentTable() {
                   {paginatedStaff.map((emp) => (
                     <th key={emp.id} className="border px-2 py-2 text-left">
                       <div className="flex items-center gap-2">
-                        <Avatar className="h-6 w-6">
-                          <AvatarImage src={emp.avatar} />
-                          <AvatarFallback>{emp.name.charAt(0)}</AvatarFallback>
-                        </Avatar>
                         <span>{emp.name}</span>
                       </div>
                     </th>
