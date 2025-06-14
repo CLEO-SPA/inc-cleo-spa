@@ -351,7 +351,7 @@ const useMemberVoucherTransactionStore = create((set, get) => ({
 
             set({
                 isConfirming: false,
-                isUpdating: false,
+                isDeleting: false,
                 loading: false,
                 success: true,
                 formData: []
