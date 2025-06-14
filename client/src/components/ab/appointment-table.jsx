@@ -1,11 +1,9 @@
-// Updated AppointmentTable.jsx using standalone EmployeeSelect + MemberSelect with useForm support + conditional clear filters
 import { useState, useEffect } from 'react';
 import { useForm, FormProvider } from 'react-hook-form';
 import { Button } from "@/components/ui/button";
 import {
   ChevronLeft,
   ChevronRight,
-  MoreHorizontal,
   Loader2,
   AlertCircle
 } from "lucide-react";
@@ -16,17 +14,16 @@ import api from '@/services/api';
 import EmployeeSelect from '@/components/ui/forms/EmployeeSelect';
 import MemberSelect from "@/components/ui/forms/MemberSelect";
 
-const formatTime = (dateString) => {
-  const date = new Date(dateString);
-  const hour = date.getHours();
-  const minute = date.getMinutes();
-  return `${hour % 12 === 0 ? 12 : hour % 12}:${minute.toString().padStart(2, '0')} ${hour >= 12 ? 'PM' : 'AM'}`;
+const formatDisplayTime = (hour, minute) => {
+  const h = hour % 12 === 0 ? 12 : hour % 12;
+  const ampm = hour >= 12 ? 'PM' : 'AM';
+  return `${h}:${minute.toString().padStart(2, '0')} ${ampm}`;
 };
 
 const generateTimeSlots = () => {
   const slots = [];
   for (let hour = 10; hour <= 17; hour++) {
-    for (let minute = 0; minute < 60; minute += 15) {
+    for (let minute = 0; minute < 60; minute += 30) {
       slots.push({ hour, minute });
     }
   }
@@ -61,9 +58,12 @@ export function AppointmentTable() {
   const [staff, setStaff] = useState([]);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
+  const [employeePage, setEmployeePage] = useState(0);
+
+  const EMPLOYEES_PER_PAGE = 4;
 
   const methods = useForm({ defaultValues: { employee_id: null, member_id: null } });
-  const { watch, setValue, reset } = methods;
+  const { watch, reset } = methods;
 
   const filterEmployeeId = watch('employee_id');
   const filterMemberId = watch('member_id');
@@ -93,9 +93,7 @@ export function AppointmentTable() {
       const dateString = selectedDate.toISOString().split('T')[0];
       const response = await api.get(`ab/date/${dateString}`);
       const data = await response.data;
-      console.log('Fetched appointments:', response.data);
       const transformed = data.data ? data.data.map(transformAppointment) : [];
-      
       setAppointments(transformed);
     } catch (err) {
       setError(err.message);
@@ -119,6 +117,20 @@ export function AppointmentTable() {
     const matchMember = filterMemberId ? app.customerId === filterMemberId : true;
     return matchEmployee && matchMember;
   });
+
+  const staffWithAppointments = staff.filter((emp) =>
+    filteredAppointments.some((app) => app.staff === emp.id)
+  );
+  const staffWithoutAppointments = staff.filter(
+    (emp) => !staffWithAppointments.includes(emp)
+  );
+  const sortedStaff = [...staffWithAppointments, ...staffWithoutAppointments];
+
+  const totalPages = Math.ceil(sortedStaff.length / EMPLOYEES_PER_PAGE);
+  const paginatedStaff = sortedStaff.slice(
+    employeePage * EMPLOYEES_PER_PAGE,
+    (employeePage + 1) * EMPLOYEES_PER_PAGE
+  );
 
   const formattedDate = date.toLocaleDateString('en-US', {
     weekday: 'short', month: 'short', day: 'numeric'
@@ -166,10 +178,110 @@ export function AppointmentTable() {
             <span className="text-sm text-muted-foreground">Loading appointments...</span>
           </div>
         ) : (
-          <div className="text-center py-8 text-sm text-muted-foreground">
-            {filteredAppointments.length === 0
-              ? `No appointments scheduled for ${formattedDate}`
-              : `Showing ${filteredAppointments.length} appointment(s)`}
+          <div className="overflow-x-auto border rounded-md mt-4">
+            <div className="flex justify-between items-center px-4 py-2 bg-muted border-b">
+              <div className="text-sm text-muted-foreground">
+                Showing employees {employeePage * EMPLOYEES_PER_PAGE + 1}–
+                {Math.min((employeePage + 1) * EMPLOYEES_PER_PAGE, sortedStaff.length)} of {sortedStaff.length}
+              </div>
+              <div className="flex gap-2">
+                <Button
+                  size="icon"
+                  variant="outline"
+                  disabled={employeePage === 0}
+                  onClick={() => setEmployeePage((prev) => Math.max(prev - 1, 0))}
+                >
+                  <ChevronLeft className="h-4 w-4" />
+                </Button>
+                <Button
+                  size="icon"
+                  variant="outline"
+                  disabled={employeePage >= totalPages - 1}
+                  onClick={() => setEmployeePage((prev) => Math.min(prev + 1, totalPages - 1))}
+                >
+                  <ChevronRight className="h-4 w-4" />
+                </Button>
+              </div>
+            </div>
+
+            <table className="min-w-full text-sm border-collapse">
+              <thead className="bg-muted sticky top-0 z-10">
+                <tr>
+                  <th className="border px-2 py-2 w-[100px] text-left">Time</th>
+                  {paginatedStaff.map((emp) => (
+                    <th key={emp.id} className="border px-2 py-2 text-left">
+                      <div className="flex items-center gap-2">
+                        <Avatar className="h-6 w-6">
+                          <AvatarImage src={emp.avatar} />
+                          <AvatarFallback>{emp.name.charAt(0)}</AvatarFallback>
+                        </Avatar>
+                        <span>{emp.name}</span>
+                      </div>
+                    </th>
+                  ))}
+                </tr>
+              </thead>
+              <tbody>
+                {timeSlots.map(({ hour, minute }) => {
+                  const timeInMinutes = hour * 60 + minute;
+                  const timeLabel = `${hour.toString().padStart(2, '0')}:${minute.toString().padStart(2, '0')}`;
+                  return (
+                    <tr key={timeLabel}>
+                      <td className="border px-2 py-1 font-medium text-xs text-muted-foreground w-[100px]">
+                        {formatDisplayTime(hour, minute)}
+                      </td>
+                      {paginatedStaff.map((emp) => {
+                        // Check if an appointment starts exactly at this slot
+                        const matchingAppointment = filteredAppointments.find((app) => {
+                          const appStart = app.startTime.hour * 60 + app.startTime.minute;
+                          return app.staff === emp.id && appStart === timeInMinutes;
+                        });
+
+                        // Check if a cell is already spanned by a previous appointment
+                        const isCoveredBySpan = filteredAppointments.some((app) => {
+                          const appStart = app.startTime.hour * 60 + app.startTime.minute;
+                          const appEnd = app.endTime.hour * 60 + app.endTime.minute;
+                          return (
+                            app.staff === emp.id &&
+                            appStart < timeInMinutes &&
+                            timeInMinutes < appEnd
+                          );
+                        });
+
+                        if (matchingAppointment) {
+                          const start = matchingAppointment.startTime;
+                          const end = matchingAppointment.endTime;
+                          const duration = (end.hour * 60 + end.minute) - (start.hour * 60 + start.minute);
+                          const rowSpan = duration / 30;
+
+                          return (
+                            <td
+                              key={emp.id + timeLabel}
+                              rowSpan={rowSpan}
+                              className="border px-2 py-1 align-top bg-blue-50"
+                            >
+                              <div className="text-xs text-blue-900 font-medium">
+                                {matchingAppointment.customer}
+                              </div>
+                              <div className="text-xs text-blue-800">
+                                {matchingAppointment.service}
+                              </div>
+                              <div className="text-[10px] text-blue-700">
+                                {formatDisplayTime(start.hour, start.minute)} - {formatDisplayTime(end.hour, end.minute)}
+                              </div>
+                            </td>
+                          );
+                        } else if (isCoveredBySpan) {
+                          return null; // Skip rendering this cell
+                        } else {
+                          return <td key={emp.id + timeLabel} className="border px-2 py-1" />;
+                        }
+                      })}
+                    </tr>
+                  );
+                })}
+              </tbody>
+            </table>
           </div>
         )}
       </div>
