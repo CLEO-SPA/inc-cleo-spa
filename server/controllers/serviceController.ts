@@ -447,6 +447,41 @@ const getServiceCategories = async (req: Request, res: Response, next: NextFunct
   }
 };
 
+// get sales history by service id, selected month and year
+const getSalesHistoryByServiceId = async (req: Request, res: Response) => {
+  try {
+    const id = parseInt(req.params.serviceId, 10);
+    const { month, year } = req.query;
+
+    if (isNaN(id)) {
+      return res.status(400).json({ message: 'Invalid service ID' });
+    }
+
+    if (!month || !year) {
+      return res.status(400).json({ message: 'Month and year are required' });
+    }
+
+    const salesData = await serviceModel.getSalesHistoryByServiceId(
+      id,
+      parseInt(month as string, 10),
+      parseInt(year as string, 10)
+    );
+
+    if (!salesData || salesData.length === 0) {
+      return res.status(404).json({ message: 'No sales history found' });
+    }
+
+    const summary = salesData.find(row => row.result_type === 'monthly_summary');
+    const daily = salesData.filter(row => row.result_type === 'daily_breakdown');
+
+    res.status(200).json({ summary, daily });
+  } catch (error) {
+    console.error('Error in getSalesHistoryByServiceId:', error);
+    res.status(500).json({ message: 'Failed to fetch sales history' });
+  }
+};
+
+
 export default {
   getAllServices,
   getServicesPaginationFilter,
@@ -460,5 +495,6 @@ export default {
   reorderService,
   disableService,
   enableService,
-  getServiceCategories
+  getServiceCategories,
+  getSalesHistoryByServiceId
 };

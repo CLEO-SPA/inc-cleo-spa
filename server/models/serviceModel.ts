@@ -446,6 +446,19 @@ const getServiceCategoryById = async (id: number) => {
   }
 };
 
+// get sales history by service id, selected month and year
+const getSalesHistoryByServiceId = async (id: number, month: number, year: number) => {
+  try {
+    const salesQuery = `SELECT * FROM get_sales_history_for_each_service($1, $2, $3);`;
+    const result = await pool().query(salesQuery, [id, year, month]);
+
+    return result.rows;
+  } catch (error) {
+    console.error('Error fetching sales history by service ID:', error);
+    throw new Error('Error fetching sales history');
+  }
+};
+
 export default {
   getAllServices,
   getServicesPaginationFilter,
@@ -463,4 +476,5 @@ export default {
   enableService,
   getServiceCategories,
   getServiceCategoryById,
+  getSalesHistoryByServiceId
 };

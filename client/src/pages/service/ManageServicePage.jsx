@@ -407,7 +407,7 @@ export default function ManageService() {
                                   <Button className="p-1 bg-green-600 text-white text-sm font-medium rounded-xl hover:bg-green-700" onClick={() => navigate(`/update-service/${service.id}`)}>
                                     <FilePenLine className="inline-block mr-1" />
                                   </Button>
-                                  <Button className="px-2 py-1 bg-gray-600 text-white text-sm font-medium rounded-xl hover:bg-blue-700">
+                                  <Button className="px-2 py-1 bg-gray-600 text-white text-sm font-medium rounded-xl hover:bg-blue-700" onClick={() => navigate(`/view-sales-history/${service.id}`)}>
                                     View Sales History
                                   </Button>
                                   <Button className="p-1 text-3xl text-black bg-transparent rounded-xl hover:bg-transparent hover:text-blue-700" onClick={() => toggleRow(index)}>

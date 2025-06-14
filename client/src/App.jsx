@@ -17,6 +17,7 @@ import ManageServicePage from '@/pages/service/ManageServicePage'
 import CreateServicePage from '@/pages/service/CreateServicePage';
 import UpdateServicePage from '@/pages/service/UpdateServicePage';
 import ReorderServicePage from '@/pages/service/ReorderServicePage';
+import ViewSalesHistoryPage from '@/pages/service/ViewSalesHistoryPage';
 
 // Employees
 import ManagePositions from '@/pages/em/ManagePositions';
@@ -38,6 +39,7 @@ function App() {
             <Route path='/create-service' element={<CreateServicePage />} />
             <Route path='/update-service/:service_id' element={<UpdateServicePage />} />
             <Route path='/reorder-service' element={<ReorderServicePage />} />
+            <Route path='/view-sales-history/:service_id' element={<ViewSalesHistoryPage />} />
 
             </Route>
             <Route path='/login' element={<LoginPage />} />
