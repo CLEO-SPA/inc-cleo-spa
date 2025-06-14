@@ -1,11 +1,12 @@
-import useDataExportStore from "@/stores/useDataExportStore";
+import useDataExportStore from "@/stores/DataExport/useDataExportStore";
 import * as XLSX from "xlsx";
 import { Loader2 } from 'lucide-react';
-import { DataToExportList } from '../types/dataExport';
 import { handleApiError } from "@/utils/errorHandlingUtils";
 import { validateForm } from "@/utils/validationUtils";
+import useAuth from '@/hooks/useAuth';
 
-const convertToExcel = (data: DataToExportList<any>, selectedTable: string | null) => {
+
+const convertToExcel = (data, selectedTable) => {
     const worksheet = XLSX.utils.json_to_sheet(data.dataToExportList);
     const workbook = XLSX.utils.book_new();
     XLSX.utils.book_append_sheet(workbook, worksheet, selectedTable ? selectedTable : "");
@@ -14,11 +15,11 @@ const convertToExcel = (data: DataToExportList<any>, selectedTable: string | nul
     return wbout;
 }
 
-const convertToJSON = (data: DataToExportList<any>) => {
+const convertToJSON = (data) => {
     return JSON.stringify(data, null, 2);
 };
 
-const convertToCSV = (data: DataToExportList<any>, columns: string[]) => {
+const convertToCSV = (data, columns) => {
     let csv = '';
 
     csv = columns.join(',') + '\n';
@@ -30,11 +31,12 @@ const convertToCSV = (data: DataToExportList<any>, columns: string[]) => {
         }).join(',');
         csv += row + '\n';
     });
-    
+
     return csv;
 };
 
 const ExportDataButton = () => {
+    const { user } = useAuth();
 
     const {
         loading,
@@ -42,40 +44,41 @@ const ExportDataButton = () => {
         timeInput,
         exportFormat,
         columns,
-        isSelectingUnusedMemberCarePackage,
-        isSelectingUnusedMemberVoucher,
+        openTimeInput,
 
         setError,
         setErrorMessage,
         setLoading,
-        getDataToExport
+        getDataToExport,
+        clearDataToExportList
     } = useDataExportStore();
 
-    const handleExport = async () => {
+    const canDownload = user?.role === 'super_admin' || user?.role === 'data_admin';
 
+    const handleExport = async () => {
         const validate = validateForm(
             selectedTable,
-            exportFormat, 
-            isSelectingUnusedMemberVoucher, 
-            isSelectingUnusedMemberCarePackage, 
+            exportFormat,
+            openTimeInput,
             timeInput
         );
 
         if (!validate.isValid) {
             setError(true);
-            setErrorMessage(validate.error); 
+            setErrorMessage(validate.error);
             return;
         }
 
         try {
             const result = await getDataToExport();
 
-            if(!result) {
+            if (!result) {
                 return;
             }
 
             let content;
             let fileType;
+            let fileExtension;
 
             const { dataExportList } = useDataExportStore.getState();
             const data = dataExportList;
@@ -88,60 +91,75 @@ const ExportDataButton = () => {
                 case "json":
                     content = convertToJSON(data);
                     fileType = "application/json";
+                    fileExtension = "json";
                     break;
                 case "csv":
                     content = convertToCSV(data, columns);
                     fileType = "text/csv";
+                    fileExtension = "csv";
                     break;
                 case "excel":
                     content = convertToExcel(data, selectedTable);
-                    fileType = "application/octet-stream";
+                    fileType = "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"; // ✅ FIX: Proper MIME type
+                    fileExtension = "xlsx";
                     break;
                 default:
                     throw new Error('Unsupported format');
             }
 
             // Create and trigger download for the file
-            const blob = new Blob([content], {
-                type: fileType
-            });
+            const blob = new Blob([content], { type: fileType });
             const url = URL.createObjectURL(blob);
             const link = document.createElement('a');
             link.href = url;
-            link.target = '_blank';
-            link.download = `export_${selectedTable}_${new Date().toISOString().split('T')[0]}.${exportFormat}`;
+            link.style.display = 'none';
+
+
+            link.download = `export_${selectedTable}_${new Date().toISOString().split('T')[0]}.${fileExtension}`;
 
             document.body.appendChild(link);
             link.click();
-            document.body.removeChild(link);
-            URL.revokeObjectURL(url);
+
+
+            setTimeout(() => {
+                document.body.removeChild(link);
+                URL.revokeObjectURL(url);
+                clearDataToExportList();
+            }, 100);
+
         } catch (error) {
-            const errorMessage = handleApiError(error);
+            const errorMessage = error.message;
             setError(true);
             setErrorMessage(errorMessage);
         } finally {
             setLoading(false);
         }
     };
-
     return (
-        <button
-            data-testid="export-data-button"
-            onClick={handleExport}
-            disabled={!selectedTable || !exportFormat || loading}
-            className="w-full bg-blue-600 text-white py-2 px-4 rounded-md hover:bg-blue-700 
+        <div>
+            <button
+                data-testid="export-data-button"
+                onClick={handleExport}
+                disabled={!selectedTable || !exportFormat || loading || !canDownload}
+                className="w-full bg-blue-600 text-white py-2 px-4 rounded-md hover:bg-blue-700 
                                disabled:bg-blue-300 disabled:cursor-not-allowed transition-colors
                                focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2"
-        >
-            {loading ? (
-                <span className="flex items-center justify-center">
-                    <Loader2 className="animate-spin -ml-1 mr-2 h-5 w-5" />
-                    Exporting...
-                </span>
-            ) : (
-                'Export Data'
+            >
+                {loading ? (
+                    <span className="flex items-center justify-center">
+                        <Loader2 className="animate-spin -ml-1 mr-2 h-5 w-5" />
+                        Exporting...
+                    </span>
+                ) : (
+                    'Export Data'
+                )}
+            </button>
+            {!canDownload && (
+                <p className="text-sm text-red-600 mt-2 text-center">
+                    You don't have permission to export data. Contact an administrator.
+                </p>
             )}
-        </button>
+        </div>
     )
 };
 

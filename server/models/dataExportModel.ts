@@ -1,11 +1,10 @@
-import { time } from 'console';
 import { pool, getProdPool as prodPool } from '../config/database.js';
 import {
     DataToExportList,
     MemberDetailsData,
     UnusedMemberCarePackageData,
     UnusedMemberVoucherData
-} from '../types/dataExportTypes.js';
+} from '../types/model.types.js';
 
 const getMemberDetails = async (): Promise<{ success: boolean, data?: DataToExportList<MemberDetailsData>, message: string }> => {
 
@@ -45,12 +44,22 @@ const getUnusedMemberVoucher = async (timeInput: number): Promise<{ success: boo
             m.contact, 
             m.email, 
             mv.member_voucher_name, 
-            EXTRACT(DAY FROM (CURRENT_DATE - mv.created_at)) as days_since_use,
-            mv.created_at
+            EXTRACT(DAY FROM (CURRENT_DATE - mvtl.service_date)) as days_since_use,
+            mvtl.service_date
         FROM members m
         JOIN member_vouchers mv ON m.id = mv.member_id
-        WHERE EXTRACT(DAY FROM (CURRENT_DATE - mv.created_at)) >= $1
-        ORDER BY mv.created_at;
+        JOIN member_voucher_transaction_logs mvtl ON mv.id = mvtl.member_voucher_id
+        JOIN (
+            SELECT 
+                member_voucher_id, 
+                MAX(service_date) as latest_service_date
+            FROM member_voucher_transaction_logs
+            GROUP BY member_voucher_id
+        ) latest ON mvtl.member_voucher_id = latest.member_voucher_id 
+            AND mvtl.service_date = latest.latest_service_date
+        WHERE EXTRACT(DAY FROM (CURRENT_DATE - mvtl.service_date)) >= 5        
+        AND mv.status = 'is_enabled'  
+        ORDER BY mvtl.service_date DESC;
         `;
 
         const result = await client.query(query, [timeInput]);
@@ -80,7 +89,7 @@ const getUnusedMemberCarePackage = async (timeInput: number): Promise<{ success:
             m.name as member_name, 
             m.contact, 
             m.email, 
-            mcp.package_name as member_care_package_name, 
+            mcp.package_name as package_name, 
             EXTRACT(DAY FROM (CURRENT_DATE - mcp.created_at)) as days_since_use,
             mcp.created_at
         FROM members m

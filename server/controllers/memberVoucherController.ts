@@ -94,16 +94,14 @@ const getAllServicesOfMemberVoucherById = async (req: Request, res: Response, ne
 };
 
 const getAllTransactionLogsOfMemberVoucherById = async (req: Request, res: Response, next: NextFunction): Promise<void> => {
-  // const { start_date_utc, end_date_utc } = req.session; // Uncomment once sim is fixed
-  const start_date_utc = "";
-  const end_date_utc = "";
+  const { start_date_utc, end_date_utc } = req.session;
   const id: number = parseInt(req.params.id, 10);
   const limit: number = parseInt((req.query.limit as string) || '10');
   const afterCursor: string = req.query.after as string;
   const beforeCursor: string = req.query.before as string;
   const page = parseInt(req.query.page as string);
 
-  // console.log(`\n${startDate_utc} || ${endDate_utc} \n`);
+  console.log(`\n${start_date_utc} || ${end_date_utc} \n`);
 
   if (Number.isNaN(id)) {
     res.status(400).json({

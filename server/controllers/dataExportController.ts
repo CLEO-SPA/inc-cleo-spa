@@ -1,36 +1,24 @@
 import { Request, Response, NextFunction } from 'express';
 import model from '../models/dataExportModel.js';
-import { getCurrentSimStatus } from '../services/simulationService.js';
-import validator from 'validator';
-import crypto from 'crypto';
-import jwt from 'jsonwebtoken';
 import 'dotenv/config';
-import { InvJwtPayload } from '../types/auth.types.js';
-import {
-    DataToExportList,
-    MemberDetailsData,
-    UnusedMemberCarePackageData,
-    UnusedMemberVoucherData
-} from '../types/dataExportTypes.js';
 
-const getMemberDetails = async (req: Request, res: Response): Promise<void> => {
+
+const getMemberDetails = async (req: Request, res: Response, next: NextFunction): Promise<void> => {
     try {
         const response = await model.getMemberDetails();
         if (response.success) {
             res.status(200).json({ message: response.message, data: response.data });
         } else {
             res.status(400).json({ message: response.message });
+            return;
         }
     } catch (error) {
-        console.error("Error getting Member Details:", error);
-        res.status(500).json({
-            message: "Failed to retrieve Member Details",
-            error: process.env.NODE_ENV === 'development' ? error : undefined
-        });
+        console.error('Error in dataExportController.getMemberDetails:', error);
+        next(error);
     }
 };
 
-const getUnusedVoucher = async (req: Request, res: Response): Promise<void> => {
+const getUnusedVoucher = async (req: Request, res: Response, next: NextFunction): Promise<void> => {
     const { time } = req.query;
 
     if (typeof time !== 'string') {
@@ -51,22 +39,20 @@ const getUnusedVoucher = async (req: Request, res: Response): Promise<void> => {
             res.status(200).json({ message: response.message, data: response.data });
         } else {
             res.status(400).json({ message: response.message });
+            return;
         }
     } catch (error) {
-        console.error("Error getting Unused Member Voucher:", error);
-        res.status(500).json({
-            message: "Failed to retrieve Unused Member Voucher",
-            error: process.env.NODE_ENV === 'development' ? error : undefined
-        });
+        console.error('Error in dataExportController.getUnusedVoucher:', error);
+        next(error);
     }
 };
 
-const getUnusedCarePackage = async (req: Request, res: Response): Promise<void> => {
+const getUnusedCarePackage = async (req: Request, res: Response, next: NextFunction): Promise<void> => {
     const { time } = req.query;
 
     if (typeof time !== 'string') {
         res.status(400).send('Time must be provided as a string.');
-        return
+        return;
     }
 
     const timeInput = parseInt(time, 10);
@@ -78,17 +64,16 @@ const getUnusedCarePackage = async (req: Request, res: Response): Promise<void> 
 
     try {
         const response = await model.getUnusedMemberCarePackage(timeInput);
+        console.log(response);
         if (response.success) {
             res.status(200).json({ message: "Get Unused Member Care Package was successful.", data: response.data });
         } else {
             res.status(400).json({ message: response.message });
+            return;
         }
     } catch (error) {
-        console.error("Error getting Unused Member Care Package:", error);
-        res.status(500).json({
-            message: "Failed to retrieve Unused Member Care Package",
-            error: process.env.NODE_ENV === 'development' ? error : undefined
-        });
+        console.error('Error in dataExportController.getUnusedCarePackage:', error);
+        next(error);
     }
 };
 

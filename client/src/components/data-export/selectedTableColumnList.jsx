@@ -1,4 +1,4 @@
-import useDataExportStore from "@/stores/useDataExportStore";
+import useDataExportStore from "@/stores/DataExport/useDataExportStore";
 
 const SelectedTableColumnList = () => {
 

@@ -1,15 +1,15 @@
 import express from 'express';
 const router = express.Router();
 
-// import { hashPassword } from '../middlewares/bcryptMiddleware.js';
-// import roleMiddleware from '../middlewares/roleMiddleware.js';
-// import isAuthenticated from '../middlewares/authMiddleware.js';
+import isAuthenticated from '../middlewares/authMiddleware.js';
 
 import dataExport from '../controllers/dataExportController.js';
 
 // =========================
 // Public routes
 // =========================
+router.use(isAuthenticated);
+
 router.get('/get-member-details', dataExport.getMemberDetails);
 
 router.get('/get-minimum-time-since-used-member-voucher', dataExport.getUnusedVoucher);

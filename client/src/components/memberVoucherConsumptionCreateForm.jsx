@@ -1,6 +1,8 @@
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Button } from '@/components/ui/button';
+import useAuth from '@/hooks/useAuth';
+
 import {
   Select,
   SelectContent,
@@ -11,6 +13,7 @@ import {
 import useMemberVoucherTransactionStore from '@/stores/MemberVoucher/useMemberVoucherTransactionStore';
 
 const MemberVoucherConsumptionForm = () => {
+  const { user } = useAuth();
   const {
     createFormFieldData,
 
@@ -35,6 +38,8 @@ const MemberVoucherConsumptionForm = () => {
   const handleClear = () => {
     clearCreateFormData();
   };
+
+  const canAdd = user?.role === 'super_admin' || user?.role === 'data_admin';
 
   return (
     <div className="bg-gray mr-5 my-2 rounded-lg">
@@ -123,10 +128,15 @@ const MemberVoucherConsumptionForm = () => {
           <Button variant="outline" onClick={handleClear} className="flex-1">
             Clear
           </Button>
-          <Button onClick={handleSubmit} className="flex-1">
+          <Button onClick={handleSubmit} className="flex-1" disabled={!canAdd}>
             Submit
           </Button>
         </div>
+        {!canAdd && (
+          <p className="text-sm text-muted-foreground mt-2">
+            You don't have permission to create transactions
+          </p>
+        )}
       </div>
     </div>
   );
