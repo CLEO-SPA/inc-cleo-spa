@@ -13,10 +13,10 @@ import ResetPasswordPage from '@/pages/ResetPasswordPage';
 import NotFoundPage from '@/pages/404Page';
 
 // Services
-import ManageServicePage from '@/pages/ManageServicePage'
-import CreateServicePage from '@/pages/CreateServicePage';
-import UpdateServicePage from '@/pages/UpdateServicePage';
-import ReorderServicePage from '@/pages/ReorderServicePage';
+import ManageServicePage from '@/pages/service/ManageServicePage'
+import CreateServicePage from '@/pages/service/CreateServicePage';
+import UpdateServicePage from '@/pages/service/UpdateServicePage';
+import ReorderServicePage from '@/pages/service/ReorderServicePage';
 
 // Employees
 import ManagePositions from '@/pages/em/ManagePositions';

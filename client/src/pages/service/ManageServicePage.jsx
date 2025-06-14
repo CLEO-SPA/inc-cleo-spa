@@ -386,7 +386,7 @@ export default function ManageService() {
                       {services.length > 0 ? (
                         services.map((service, index) => (
                           <>
-                            <tr key={service.id}>
+                            <tr key={`${service.id}-basic`}>
                               <td className="px-2 py-2 border border-gray-200">{service.id}</td>
                               <td className="px-2 py-2 border border-gray-200">{service.service_name}</td>
                               <td className="px-2 py-2 border border-gray-200">{service.service_price}</td>
@@ -418,7 +418,7 @@ export default function ManageService() {
                             </tr>
 
                             {expandedRows.includes(index) && (
-                              <tr className="bg-gray-100">
+                              <tr key={`${service.id}-details`}className="bg-gray-100">
                                 <td colSpan="100%" className="px-4 py-2 border border-gray-200">
                                   <div className="grid grid-cols-2 gap-4">
                                     {/* More Details */}
