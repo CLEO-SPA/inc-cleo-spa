@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { Search, Home, Filter, ArrowUpDown, CreditCard, Users, DollarSign, Calendar, Eye, RefreshCcw } from 'lucide-react';
+import { Search, Home, Filter, ArrowUpDown, CreditCard, Users, DollarSign, Calendar, Eye, RefreshCcw, X } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
 import api from '@/services/api';
 import { AppSidebar } from '@/components/app-sidebar';
@@ -54,9 +54,10 @@ const SaleTransactionList = () => {
         }
     };
 
+
     useEffect(() => {
         fetchTransactions();
-    }, [sortField, sortDirection, filter, currentPage, searchQuery, memberSearchQuery]);
+    }, [sortField, sortDirection, filter, currentPage, memberSearchQuery]); 
 
     const handleSort = (field) => {
         setSortDirection(currentDirection => {
@@ -66,24 +67,33 @@ const SaleTransactionList = () => {
             return 'desc';
         });
         setSortField(field);
-        setCurrentPage(1); // Reset to first page on sort change
+        setCurrentPage(1); 
     };
 
+    // Keep your existing handlers but make sure they work correctly
     const handleSearch = (e) => {
         const query = e.target.value;
         setSearchBuffer(query);
+        // Don't trigger search here automatically
     };
 
     const handleSearchKeyPress = (e) => {
         if (e.key === 'Enter' || e.keyCode === 13) {
             setSearchQuery(searchBuffer);
-            setCurrentPage(1); // Reset to first page on search
+            setCurrentPage(1);
         }
     };
 
     const handleSearchSubmit = () => {
         setSearchQuery(searchBuffer);
-        setCurrentPage(1); // Reset to first page on search
+        setCurrentPage(1);
+    };
+
+    // Add a clear search function
+    const handleClearSearch = () => {
+        setSearchBuffer('');
+        setSearchQuery('');
+        setCurrentPage(1);
     };
 
     const formatCurrency = (amount) => {
@@ -215,6 +225,19 @@ const SaleTransactionList = () => {
                                      filter === 'voucher' ? 'Showing voucher transactions' : ''}
                                 </div>
                             )}
+                            
+                            {/* Show active search indicator */}
+                            {searchQuery && (
+                                <div className="mt-2 text-xs font-medium text-green-700 bg-green-50 px-2 py-1 rounded-full inline-block">
+                                    Searching for: "{searchQuery}"
+                                    <button
+                                        onClick={handleClearSearch}
+                                        className="ml-1 text-green-600 hover:text-green-800"
+                                    >
+                                        ✕
+                                    </button>
+                                </div>
+                            )}
                         </div>
 
                         <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-4 w-full sm:w-auto">
@@ -238,13 +261,24 @@ const SaleTransactionList = () => {
                             <div className="relative flex items-center">
                                 <input
                                     type="text"
-                                    placeholder="Search transactions..."
+                                    placeholder="Search by receipt number (press Enter to search)..."
                                     value={searchBuffer}
                                     onChange={handleSearch}
                                     onKeyDown={handleSearchKeyPress}
-                                    className="w-full sm:w-80 pl-10 pr-4 py-2.5 bg-white border border-gray-300 rounded-lg shadow-sm text-sm focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                                    className="w-full sm:w-80 pl-10 pr-16 py-2.5 bg-white border border-gray-300 rounded-lg shadow-sm text-sm focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
                                 />
                                 <Search className="absolute left-3 top-3 h-5 w-5 text-gray-400" />
+                                
+                                {/* Clear button */}
+                                {searchBuffer && (
+                                    <button
+                                        onClick={handleClearSearch}
+                                        className="absolute right-24 top-3 text-gray-400 hover:text-gray-600"
+                                    >
+                                        <X className="h-4 w-4" />
+                                    </button>
+                                )}
+                                
                                 <button
                                     onClick={handleSearchSubmit}
                                     className="ml-2 px-4 py-2.5 bg-blue-600 text-white rounded-lg shadow-sm text-sm hover:bg-blue-700 transition-colors"

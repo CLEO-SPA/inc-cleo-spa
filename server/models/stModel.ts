@@ -1,5 +1,6 @@
 import { pool } from '../config/database.js';
 
+// Types
 interface Member {
   id: string;
   name: string;
@@ -108,6 +109,16 @@ const getSalesTransactionList = async (
     // Handle sales transaction type filter
     if (filter) {
       switch (filter.toLowerCase()) {
+        case 'full':
+          whereConditions.push(`st.sale_transaction_status = $${paramIndex}`);
+          queryParams.push('FULL');
+          paramIndex++;
+          break;
+        case 'partial':
+          whereConditions.push(`st.sale_transaction_status = $${paramIndex}`);
+          queryParams.push('PARTIAL');
+          paramIndex++;
+          break;
         case 'package':
           whereConditions.push(`EXISTS (
             SELECT 1 FROM sale_transaction_items sti 
@@ -131,12 +142,19 @@ const getSalesTransactionList = async (
             AND sti.product_name IS NOT NULL
           )`);
           break;
+        case 'voucher':
+          whereConditions.push(`EXISTS (
+            SELECT 1 FROM sale_transaction_items sti 
+            WHERE sti.sale_transaction_id = st.id 
+            AND sti.member_voucher_id IS NOT NULL
+          )`);
+          break;
       }
     }
 
     // Handle search queries
     if (searchQuery) {
-      whereConditions.push(`st.receipt_no ILIKE $${paramIndex}`);
+      whereConditions.push(`CAST(st.id AS TEXT) ILIKE ${paramIndex}`);
       queryParams.push(`%${searchQuery}%`);
       paramIndex++;
     }
@@ -173,6 +191,12 @@ const getSalesTransactionList = async (
     // Build WHERE clause
     const whereClause = whereConditions.length > 0 ? `WHERE ${whereConditions.join(' AND ')}` : '';
 
+    // Debug logging
+    console.log('Filter:', filter);
+    console.log('Where conditions:', whereConditions);
+    console.log('Query params:', queryParams);
+    console.log('Param index:', paramIndex);
+
     // Get total count
     const countQuery = `
       SELECT COUNT(DISTINCT st.id) as total
@@ -180,6 +204,8 @@ const getSalesTransactionList = async (
       LEFT JOIN members m ON st.member_id = m.id
       ${whereClause}
     `;
+    
+    console.log('Count query:', countQuery);
     
     const countResult = await pool().query(countQuery, queryParams);
     const totalItems = parseInt(countResult.rows[0].total);
