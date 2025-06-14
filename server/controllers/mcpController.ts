@@ -260,9 +260,9 @@ const createConsumption = async (req: Request, res: Response, next: NextFunction
       return;
     }
 
-    await model.createConsumption(mcp_id, mcp_details, employee_id, req.session.user_id!);
+    const results = await model.createConsumption(mcp_id, mcp_details, employee_id, req.session.user_id!);
 
-    res.status(200).json({ success: true });
+    res.status(200).json(results);
   } catch (error) {
     console.error('Error creating consumption', error);
     next(error);

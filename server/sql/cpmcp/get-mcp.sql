@@ -14,6 +14,7 @@ BEGIN
                 'package_name', mcp.package_name,
                 'status_id', mcp.status_id,
                 'total_price', mcp.total_price,
+                'balance', mcp.balance,
                 'created_at', mcp.created_at,
                 'updated_at', mcp.updated_at,
                 'package_remarks', mcp.package_remarks

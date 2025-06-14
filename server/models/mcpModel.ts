@@ -491,7 +491,7 @@ const createConsumption = async (
 
     const u_mcp_sql = `
       UPDATE member_care_packages SET
-        balance = $1
+        balance = $1,
         updated_at = $2
       WHERE
         id = $3;
@@ -534,6 +534,7 @@ const createConsumption = async (
 
         // Update the local balance tracking
         currentBalance -= mcpDetailToConsume.price;
+        // console.log(currentBalance);
         baseLogRows[0].transaction_amount -= mcpDetailToConsume.price;
 
         consumptionLogPromises.push(
@@ -558,7 +559,7 @@ const createConsumption = async (
       mcp.package.balance = currentBalance;
     });
     await Promise.all(detailPromises);
-    await client.query(u_mcp_sql, [mcp.package.balance, new Date().toISOString(), mcp.package.id]);
+    await client.query(u_mcp_sql, [mcp.package.balance, new Date().toUTCString(), mcp.package.id]);
 
     await client.query('COMMIT');
     return results;
