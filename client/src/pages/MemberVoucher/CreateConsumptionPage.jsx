@@ -1,11 +1,7 @@
 import React, { useEffect } from 'react';
 import { useParams } from 'react-router-dom';
-import useAuth from '@/hooks/useAuth';
 import { useNavigate } from 'react-router-dom';
-import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
-import { Button } from '@/components/ui/button';
-import { Input } from '@/components/ui/input';
-import { Label } from '@/components/ui/label';
+
 
 import ConfirmationPopUp from '@/components/confirmationPopUp';
 import useMemberVoucherTransactionStore from '@/stores/MemberVoucher/useMemberVoucherTransactionStore';
@@ -22,17 +18,6 @@ import TransactionLogUpdateForm from '@/components/member-voucher-transaction-lo
 const CreateMemberVoucherConsumptionPage = () => {
     const navigate = useNavigate();
     const { memberId } = useParams();
-
-    // const handleDelete = async (data) => {
-    //     console.log("Delete Data: " + data);
-
-    //     if (!data) {
-    //         throw new Error("The membership type has no id");
-    //     }
-
-    //     setFormValues(data);
-    //     setShowConfirm(true);
-    // };
 
     const {
         initialize,
@@ -51,8 +36,6 @@ const CreateMemberVoucherConsumptionPage = () => {
         updateMemberVoucherTransactionLog,
         deletingMemberVoucherTransactionLog,
         setIsConfirming,
-        setIsCreating,
-        setIsUpdating,
         setIsDeleting
     } = useMemberVoucherTransactionStore();
 
