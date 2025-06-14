@@ -191,7 +191,7 @@ const createMemberCarePackage = async (
     const i_mcp_sql = `
       INSERT INTO member_care_packages
       (member_id, employee_id, package_name, package_remarks, status_id, total_price, balance, created_at, updated_at)
-      VALUES ($1, $2, $3, $4, $5, $6, $7, $8) RETURNING id
+      VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9) RETURNING id
     `;
     const { rows: mcp } = await client.query<{ id: string }>(i_mcp_sql, [
       member_id,
