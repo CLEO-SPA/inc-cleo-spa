@@ -67,9 +67,10 @@ export const validateTransactionLogId = (id) => {
 
 export const validateMemberVoucherConsumptionCreateData = (formData) => {
     try {
-        if (!formData.consumptionValue || Number.isNaN(Number(formData.consumptionValue))) {
+        const numValue = Number(formData.consumptionValue);
+        if ((formData.consumptionValue === '' || formData.consumptionValue == null) || Number.isNaN(numValue)) {
             return { isValid: false, error: "Consumption value is invalid. Please enter a valid input" };
-        };
+        }
         if (formData.remarks.length > 500) {
             return { isValid: false, error: "Remarks input is too long. Please try again." };
         };

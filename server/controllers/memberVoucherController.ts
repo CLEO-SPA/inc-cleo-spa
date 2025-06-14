@@ -195,8 +195,6 @@ const createTransactionLogsByMemberVoucherId = async (req: Request, res: Respons
       current_balance: parseFloat(current_balance)
     };
 
-    console.log(newMemberVoucherTransactionLogData);
-
     if (!newMemberVoucherTransactionLogData) {
       res.status(400).json({ message: "Error 400: Missing new Member Voucher Transaction Log Body" });
       return;
@@ -211,7 +209,13 @@ const createTransactionLogsByMemberVoucherId = async (req: Request, res: Respons
       }
     };
 
-    if (isNaN(Number(newMemberVoucherTransactionLogData.consumptionValue))) {
+    const numValue = Number(newMemberVoucherTransactionLogData.consumptionValue);
+    if ((newMemberVoucherTransactionLogData.consumptionValue == null) || isNaN(numValue)) {
+      res.status(400).json({ message: "Error 400: Consumption value is invalid or missing" });
+      return;
+    }
+
+    if (isNaN(Number())) {
       res.status(400).json({ message: "Error 400: Consumption value is invalid" });
       return;
     };
@@ -261,10 +265,11 @@ const checkCurrentBalance = async (req: Request, res: Response, next: NextFuncti
   const { consumptionValue } = req.body;
 
   try {
-    if (!consumptionValue || isNaN(Number(consumptionValue))) {
+    const numValue = Number(consumptionValue);
+    if ((consumptionValue === '' || consumptionValue == null) || isNaN(numValue)) {
       res.status(400).json({ message: "Error 400: Consumption value is invalid or missing" });
       return;
-    };
+    }
 
     const intId = parseInt(id, 10);
     const numericConsumptionValue = parseFloat(consumptionValue);
@@ -294,10 +299,12 @@ const checkPaidCurrentBalance = async (req: Request, res: Response, next: NextFu
   const { consumptionValue } = req.body;
 
   try {
-    if (!consumptionValue || isNaN(Number(consumptionValue))) {
+
+    const numValue = Number(consumptionValue);
+    if ((consumptionValue === '' || consumptionValue == null) || isNaN(numValue)) {
       res.status(400).json({ message: "Error 400: Consumption value is invalid or missing" });
       return;
-    };
+    }
 
     const intId = parseInt(id, 10);
     const numericConsumptionValue = parseFloat(consumptionValue);
@@ -401,10 +408,11 @@ const updateTransactionLogsAndCurrentBalanceByLogId = async (req: Request, res: 
       };
     };
 
-    if (isNaN(Number(updatedMemberVoucherTransactionLogData.consumptionValue))) {
-      res.status(400).json({ message: "Error 400: Consumption value is invalid" });
+    const numValue = Number(updatedMemberVoucherTransactionLogData.consumptionValue);
+    if ((updatedMemberVoucherTransactionLogData.consumptionValue == null) || isNaN(numValue)) {
+      res.status(400).json({ message: "Error 400: Consumption value is invalid or missing" });
       return;
-    };
+    }
     if (updatedMemberVoucherTransactionLogData.remarks.length > 500) {
       res.status(400).json({ message: "Error 400: Remarks input is too long" });
       return;

@@ -56,18 +56,18 @@ const getInitialState = () => ({
     isDeleting: false
 });
 
-function getNameById(empMap, id) {
-    for (let [name, empId] of empMap) {
-        if (empId === id) {
-            return name;
-        }
-    }
-    return null;
-}
-
 const useMemberVoucherTransactionStore = create((set, get) => ({
 
     ...getInitialState(),
+
+    getNameById: (empMap, id) => {
+        for (let [name, empId] of empMap) {
+            if (empId === id) {
+                return name;
+            }
+        }
+        return null;
+    },
 
     fetchServiceOfMemberVoucher: async () => {
         if (get().loading) {
@@ -560,7 +560,7 @@ const useMemberVoucherTransactionStore = create((set, get) => ({
 
     setUpdateFormData: () => {
         const state = get();
-        const { memberVoucherTransactionLogs, employeeList, selectedTransactionLogId } = state;
+        const { memberVoucherTransactionLogs, employeeList, selectedTransactionLogId, getNameById } = state;
         const memberVoucherTransactionLog = memberVoucherTransactionLogs.find(log => log.id === selectedTransactionLogId);
 
         const dateStr = memberVoucherTransactionLog.service_date;
@@ -592,7 +592,7 @@ const useMemberVoucherTransactionStore = create((set, get) => ({
 
     setDeleteFormData: () => {
         const state = get();
-        const { memberVoucherTransactionLogs, employeeList, selectedTransactionLogId } = state;
+        const { memberVoucherTransactionLogs, employeeList, selectedTransactionLogId, getNameById } = state;
         const memberVoucherTransactionLog = memberVoucherTransactionLogs.find(log => log.id === selectedTransactionLogId);
 
         const dateStr = memberVoucherTransactionLog.service_date;
