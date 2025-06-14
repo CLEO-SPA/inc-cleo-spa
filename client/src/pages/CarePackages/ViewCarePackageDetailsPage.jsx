@@ -1,6 +1,6 @@
 import React, { useEffect, useState } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
-import { ArrowLeft, Edit, Trash2, Package } from 'lucide-react';
+import { ArrowLeft, Edit, Trash2, Package, AlertTriangle } from 'lucide-react';
 import { AppSidebar } from '@/components/app-sidebar';
 import { SiteHeader } from '@/components/site-header';
 import { SidebarInset, SidebarProvider } from '@/components/ui/sidebar';
@@ -12,19 +12,25 @@ import { NotFoundState } from '@/components/NotFoundState';
 import { useCpSpecificStore } from '@/stores/useCpSpecificStore';
 import { useCpFormStore } from '@/stores/useCpFormStore';
 import ServiceItem from '@/pages/CarePackages/ServiceItem';
+import DeleteConfirmationDialog from '@/components/DeleteConfirmationDialog';
 import useAuth from '@/hooks/useAuth';
 
 const ViewCarePackageDetailsPage = () => {
   const { id } = useParams();
-  const { currentPackage, isLoading, error, fetchPackageById, clearCurrentPackage, clearError } = useCpSpecificStore();
+  const { currentPackage, isLoading, error, fetchPackageById, clearCurrentPackage, clearError, deletePackage } =
+    useCpSpecificStore();
   const { getEnabledServiceById } = useCpFormStore();
-  const { statuses } = useAuth();
+  const { statuses, user } = useAuth();
   const navigate = useNavigate();
 
-  // State for service names and complete service data
+  // state for service names and complete service data
   const [serviceNames, setServiceNames] = useState({});
   const [serviceData, setServiceData] = useState({});
   const [loadingServiceNames, setLoadingServiceNames] = useState(false);
+
+  // delete dialog state
+  const [deleteDialogOpen, setDeleteDialogOpen] = useState(false);
+  const [isDeleting, setIsDeleting] = useState(false);
 
   useEffect(() => {
     if (id) {
@@ -95,8 +101,61 @@ const ViewCarePackageDetailsPage = () => {
     navigate(`/cp/${id}/edit`);
   };
 
-  const handleDelete = () => {
-    console.log('Delete functionality to be implemented');
+  // open delete confirmation dialog
+  const handleDeleteClick = () => {
+    setDeleteDialogOpen(true);
+  };
+
+  // handle actual deletion
+  const handleDeleteConfirm = async () => {
+    if (!currentPackage?.package?.id) return;
+
+    setIsDeleting(true);
+
+    try {
+      await deletePackage(currentPackage.package.id);
+      navigate('/cp');
+    } catch (err) {
+      console.error('Failed to delete care package:', err);
+      let errorMessage = 'Failed to delete care package.';
+      if (err.response?.data?.message) {
+        errorMessage = err.response.data.message;
+      } else if (err.message) {
+        errorMessage = err.message;
+      }
+
+      alert(errorMessage);
+    } finally {
+      setIsDeleting(false);
+      setDeleteDialogOpen(false);
+    }
+  };
+
+  // cancel deletion
+  const handleDeleteCancel = () => {
+    setDeleteDialogOpen(false);
+  };
+
+  // check if package is enabled (active)
+  const isPackageEnabled = (pkg) => {
+    return pkg.status_id === 1; // status_id 1 is enabled
+  };
+
+  // check if package can be deleted
+  const canDeletePackage = (pkg) => {
+    if (!pkg) return false;
+    return !isPackageEnabled(pkg); // can only delete if disabled
+  };
+
+  // get deletion restriction reason
+  const getDeleteRestrictionReason = (pkg) => {
+    if (!pkg) return 'Package not found.';
+
+    if (isPackageEnabled(pkg)) {
+      return 'This care package is currently enabled and cannot be deleted. Please disable the package first by changing its status to "Inactive" before attempting deletion.';
+    }
+
+    return null;
   };
 
   const getStatusColor = (status) => {
@@ -136,6 +195,10 @@ const ViewCarePackageDetailsPage = () => {
     });
   };
 
+  // role-based access control
+  const canEdit = user?.role === 'super_admin' || user?.role === 'data_admin';
+  const canDelete = user?.role === 'super_admin';
+
   const renderMainContent = () => {
     // show loading state
     if (isLoading) {
@@ -162,6 +225,7 @@ const ViewCarePackageDetailsPage = () => {
     };
 
     const currentStatus = getStatusById(packageData.status_id);
+    const isDeletable = canDeletePackage(packageData);
 
     // calculate total package value
     const calculateTotalValue = () => {
@@ -188,17 +252,32 @@ const ViewCarePackageDetailsPage = () => {
               <h1 className='text-lg font-semibold text-gray-900'>Care Package Details</h1>
             </div>
             <div className='flex space-x-2'>
-              <Button
-                onClick={() => handleEdit(packageData.id)}
-                className='flex items-center bg-gray-900 hover:bg-black text-white text-sm px-3 py-2'
-              >
-                <Edit className='w-4 h-4 mr-1' />
-                Edit
-              </Button>
-              <Button onClick={handleDelete} variant='outline' className='flex items-center text-sm px-3 py-2'>
-                <Trash2 className='w-4 h-4 mr-1' />
-                Delete
-              </Button>
+              {canEdit && (
+                <Button
+                  onClick={() => handleEdit(packageData.id)}
+                  className='flex items-center bg-gray-900 hover:bg-black text-white text-sm px-3 py-2'
+                >
+                  <Edit className='w-4 h-4 mr-1' />
+                  Edit
+                </Button>
+              )}
+              {canDelete && (
+                <Button
+                  onClick={handleDeleteClick}
+                  variant='outline'
+                  className={`flex items-center text-sm px-3 py-2 ${
+                    !isDeletable
+                      ? 'text-muted-foreground cursor-not-allowed'
+                      : 'text-destructive hover:text-destructive hover:bg-destructive/10'
+                  }`}
+                  disabled={!isDeletable}
+                  title={!isDeletable ? 'Package must be disabled before deletion' : 'Delete package'}
+                >
+                  <Trash2 className='w-4 h-4 mr-1' />
+                  Delete
+                  {!isDeletable && <AlertTriangle className='w-3 h-3 ml-1' />}
+                </Button>
+              )}
             </div>
           </div>
         </div>
@@ -232,13 +311,23 @@ const ViewCarePackageDetailsPage = () => {
 
                   <div>
                     <label className='block text-xs font-medium text-gray-600 mb-1'>STATUS</label>
-                    <span
-                      className={`inline-flex px-2 py-1 rounded text-xs font-medium ${getStatusColor(
-                        currentStatus?.status_name
-                      )}`}
-                    >
-                      {currentStatus?.status_name || 'Unknown'}
-                    </span>
+                    <div className='flex items-center gap-2'>
+                      <span
+                        className={`inline-flex px-2 py-1 rounded text-xs font-medium ${getStatusColor(
+                          currentStatus?.status_name
+                        )}`}
+                      >
+                        {currentStatus?.status_name || 'Unknown'}
+                      </span>
+                      {isPackageEnabled(packageData) && canDelete && (
+                        <div className='group relative'>
+                          <AlertTriangle className='h-4 w-4 text-amber-500' />
+                          <div className='absolute bottom-full left-1/2 transform -translate-x-1/2 mb-2 px-2 py-1 text-xs text-white bg-gray-800 rounded opacity-0 group-hover:opacity-100 transition-opacity whitespace-nowrap'>
+                            Disable to allow deletion
+                          </div>
+                        </div>
+                      )}
+                    </div>
                   </div>
                 </div>
 
@@ -378,6 +467,40 @@ const ViewCarePackageDetailsPage = () => {
             </Card>
           </div>
         </div>
+
+        {/* delete confirmation dialog */}
+        {currentPackage?.package && (
+          <DeleteConfirmationDialog
+            open={deleteDialogOpen}
+            onOpenChange={setDeleteDialogOpen}
+            onConfirm={handleDeleteConfirm}
+            onCancel={handleDeleteCancel}
+            title='Delete Care Package'
+            itemName={currentPackage.package.care_package_name}
+            itemType='care package'
+            isDeleting={isDeleting}
+            canDelete={canDeletePackage(currentPackage.package)}
+            deleteRestrictionReason={getDeleteRestrictionReason(currentPackage.package)}
+            destructiveAction={true}
+            itemDetails={
+              <div>
+                <div>
+                  <strong>Package ID:</strong> {currentPackage.package.id}
+                </div>
+                <div>
+                  <strong>Price:</strong> ${parseFloat(currentPackage.package.care_package_price || 0).toFixed(2)}
+                </div>
+                <div>
+                  <strong>Status:</strong> {currentStatus?.status_name || 'Unknown'}
+                </div>
+                <div>
+                  <strong>Services:</strong> {transformedServices.length} service
+                  {transformedServices.length !== 1 ? 's' : ''}
+                </div>
+              </div>
+            }
+          />
+        )}
       </div>
     );
   };
