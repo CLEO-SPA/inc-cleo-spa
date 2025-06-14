@@ -23,6 +23,7 @@ export const handleApiError = (error) => {
                 return `Server error (${error.response.status}). Please try again.`;
         }
     }
+    return `Server error (500). Please try again.`;
 }
 
 export const handleSystemError = (error) => {

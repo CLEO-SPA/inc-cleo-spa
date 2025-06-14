@@ -27,6 +27,7 @@ const loginEmployee = async (req: Request, res: Response, next: NextFunction) =>
       }
       req.session.start_date_utc = getCurrentSimStatus().isActive ? start_date_utc : null;
       req.session.end_date_utc = getCurrentSimStatus().isActive ? end_date_utc : new Date().toUTCString();
+      req.session.end_date_is_default = getCurrentSimStatus().isActive ? false : true;
       req.session.user_id = res.locals.user_id;
       req.session.username = res.locals.username;
       req.session.email = res.locals.email;
@@ -112,7 +113,6 @@ const getAuthUser = async (req: Request, res: Response, next: NextFunction): Pro
   }
 };
 
-// eslint-disable-next-line no-unused-vars
 // const createEmployee = async (req: Request, res: Response, next: NextFunction) => {
 //   try {
 //     const {
@@ -226,7 +226,8 @@ const acceptInvitation = async (req: Request, res: Response, next: NextFunction)
 
     next();
   } catch (error) {
-    throw new Error('Error accepting invitation');
+    console.error('Error accepting invitation');
+    next(error);
   }
 };
 
@@ -238,6 +239,7 @@ const updateEmployeePassword = async (req: Request, res: Response, next: NextFun
 
     res.status(200).json({ message: 'Password updated successfully' });
   } catch (error) {
+    console.error('Error updating password', error);
     throw new Error('Error updating password');
   }
 };
@@ -277,7 +279,40 @@ const regenerateInvitationLink = async (req: Request, res: Response, next: NextF
 
     res.status(200).json({ message: 'Invitation link regenerated successfully', callbackUrl });
   } catch (error) {
+    console.error('Error regenerating invitation link', error);
     throw new Error('Error regenerating invitation link');
+  }
+};
+
+const getBasicEmployeeDetails = async (req: Request, res: Response) => {
+  try {
+    console.log('Fetching basic employee details for search');
+    const employees = await model.getBasicEmployeeDetails();
+    console.log(`Found ${employees.length} active employees`);
+    res.status(200).json({
+      success: true,
+      data: employees,
+      total: employees.length,
+    });
+  } catch (error) {
+    console.error('Controller error in getBasicEmployeeDetails:', error);
+    res.status(500).json({ 
+      success: false, 
+      error: {
+        code: 'INTERNAL_SERVER_ERROR',
+        message: 'Failed to fetch basic employee details for search',
+      }
+    });
+  } 
+};
+
+const getAllEmployeesForDropdown = async (req: Request, res: Response) => {
+  try {
+    const employees = await model.getAllEmployeesForDropdown();
+    res.status(200).json(employees);
+  } catch (error) {
+    console.error('Error in getAllEmployeesForDropdown:', error);
+    res.status(500).json({ message: 'Failed to fetch employees for dropdown' });
   }
 };
 
@@ -292,4 +327,6 @@ export default {
   updateEmployeePassword,
   // getAllEmployees,
   regenerateInvitationLink,
+  getBasicEmployeeDetails,
+  getAllEmployeesForDropdown
 };
