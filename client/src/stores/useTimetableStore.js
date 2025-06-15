@@ -77,6 +77,39 @@ const useTimetableStore = create((set) => ({
     }
   },
 
+  // Inside the useTimetableStore store
+  fetchTimetableById: async (timetableId) => {
+    set({ isLoading: true, error: null });
+    try {
+      const response = await api.get(`/et/${timetableId}`);
+      set({ isLoading: false });
+      return response.data;
+    } catch (err) {
+      set({
+        isLoading: false,
+        error: err.response?.data?.message || err.message || 'Failed to fetch timetable',
+      });
+      throw err;
+    }
+  },
+
+  // Update Timetable
+  updateTimetable: async (payload) => {
+    set({ isSubmitting: true, submitError: null });
+
+    try {
+      const response = await api.put(`/et/update-employee-timetable/${payload.timetable_id}`, payload);
+      set({ isSubmitting: false });
+      return response.data;
+    } catch (error) {
+      set({
+        isSubmitting: false,
+        submitError: error.response?.data?.message || error.message || 'Failed to update timetable',
+      });
+      throw error;
+    }
+  },
+
   clearTimetables: () =>
     set({
       timetables: {

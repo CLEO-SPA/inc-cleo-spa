@@ -14,7 +14,7 @@ import DateTimePicker from '@/components/employee-timetable/FormDateTimePicker';
 import RestDaySelect from '@/components/employee-timetable/RestDaySelect';
 import CurrentDateDisplay, { getCurrentSimulationDate } from '@/components/employee-timetable/CurrentDateDisplay';
 import TimetableReview from '@/components/employee-timetable/TimetableReview';
-import CreateConfirmation from '@/components/employee-timetable/CreateConfirmation';
+import CreateUpdateConfirmation from '@/components/employee-timetable/CreateUpdateConfirmation';
 
 import useTimetableStore from '@/stores/useTimetableStore';
 import useEmployeeStore from '@/stores/useEmployeeStore';
@@ -107,7 +107,6 @@ export default function CreateEmployeeTimetablePage() {
 
     try {
       const result = await createTimetable(payload);
-      console.log('Create result:', result);
       setTimetableResult(result.create_employee_timetable);
       setIsReviewing(false);
     } catch (err) {
@@ -158,7 +157,7 @@ export default function CreateEmployeeTimetablePage() {
 
                 {/* Confirmation view after successful creation */}
                 {timetableResult && (
-                  <CreateConfirmation
+                  <CreateUpdateConfirmation
                     employeeName={employeeName}
                     createdByName={createdByName}
                     timetableDetails={timetableResult.timetable_details}
@@ -184,6 +183,7 @@ export default function CreateEmployeeTimetablePage() {
                 {/* Review page before submission */}
                 {!timetableResult && isReviewing && (
                   <TimetableReview
+                    mode='create'
                     employeeName={employeeName}
                     restDay={newRestDay}
                     startDate={startDate}
