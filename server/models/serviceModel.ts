@@ -419,8 +419,14 @@ const enableService = async (updateData: any) => {
 const getServiceCategories = async () => {
   try {
     const query = `
-    SELECT * FROM service_categories
-    ORDER BY service_category_sequence_no;`;
+      SELECT 
+        sc.*,
+        COUNT(s.id) AS total_services
+      FROM service_categories sc
+      LEFT JOIN services s ON s.service_category_id = sc.id
+      GROUP BY sc.id
+      ORDER BY sc.service_category_sequence_no;
+    `;
     const result = await pool().query(query);
     return result.rows;
   } catch (error) {
@@ -459,6 +465,72 @@ const getSalesHistoryByServiceId = async (id: number, month: number, year: numbe
   }
 };
 
+// create a new service category
+const createServiceCategory = async (name: string) => {
+  try {
+    const query = `SELECT * FROM create_service_category($1)`;
+    const result = await pool().query(query, [name]);
+    return result.rows;
+  } catch (error) {
+    console.error('Error creating service category:', error);
+
+    if (error instanceof Error && error.message.includes('Category already exists')) {
+      throw new Error('Category already exists');
+    }
+
+    throw new Error('Error creating service category');
+  }
+};
+
+// update service category by id
+const updateServiceCategory = async (id: number, name: string) => {
+  try {
+    const result = await prodPool().query(
+      'SELECT * FROM update_service_category($1, $2)',
+      [id, name]
+    );
+    return result.rows;
+  } catch (error) {
+    console.error('Error updating service category:', error);
+
+    if (error instanceof Error && error.message.includes('does not exist')) {
+      throw new Error('Category not found');
+    }
+
+    if (error instanceof Error && error.message.includes('already exists')) {
+      throw new Error('Category already exists');
+    }
+
+    throw new Error('Error updating service category');
+  }
+};
+
+// reorder service category sequence no
+const reorderServiceCategory = async (categories: { id: number; service_category_sequence_no: number }[]) => {
+  const client = await prodPool().connect();
+
+  try {
+    await client.query('BEGIN');
+
+    for (const { id, service_category_sequence_no } of categories) {
+      await client.query(
+        `UPDATE service_categories
+         SET service_category_sequence_no = $1,
+             updated_at = NOW()
+         WHERE id = $2`,
+        [service_category_sequence_no, id]
+      );
+    }
+
+    await client.query('COMMIT');
+  } catch (error) {
+    await client.query('ROLLBACK');
+    throw error;
+  } finally {
+    client.release();
+  }
+};
+
 export default {
   getAllServices,
   getServicesPaginationFilter,
@@ -476,5 +548,8 @@ export default {
   enableService,
   getServiceCategories,
   getServiceCategoryById,
-  getSalesHistoryByServiceId
+  getSalesHistoryByServiceId,
+  createServiceCategory,
+  updateServiceCategory,
+  reorderServiceCategory
 };

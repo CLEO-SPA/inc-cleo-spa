@@ -481,6 +481,79 @@ const getSalesHistoryByServiceId = async (req: Request, res: Response) => {
   }
 };
 
+// create a new service category
+const createServiceCategory = async (req: Request, res: Response, next: NextFunction) => {
+  const { service_category_name } = req.body;
+
+  try {
+    if (!service_category_name || typeof service_category_name !== 'string') {
+      return res.status(400).json({ message: 'Invalid or missing category name' });
+    }
+
+    const newCategory = await serviceModel.createServiceCategory(service_category_name.trim());
+
+    res.status(201).json({ category: newCategory[0], message: 'Category created successfully' });
+  } catch (error) {
+    console.error('Error in createServiceCategory:', error);
+
+    const message =
+      error instanceof Error && error.message === 'Category already exists'
+        ? 'Category already exists'
+        : 'Failed to create category';
+
+    res.status(400).json({ message });
+  }
+};
+
+// update service category by id
+const updateServiceCategory = async (req: Request, res: Response) => {
+  const catId = parseInt(req.params.catId, 10);
+  const { name } = req.body;
+
+  try {
+    if (!name || typeof name !== 'string' || name.trim() === '') {
+      return res.status(400).json({ message: 'Invalid or missing category name' });
+    }
+
+    const updated = await serviceModel.updateServiceCategory(catId, name.trim());
+    res.status(200).json({ category: updated[0], message: 'Category name updated successfully.' });
+
+  } catch (error) {
+    console.error('Error in updateServiceCategory:', error);
+
+    const message =
+      error instanceof Error ? error.message : 'Failed to update category';
+
+    // Translate known errors to appropriate HTTP status
+    if (message === 'Category not found') {
+      return res.status(404).json({ message });
+    }
+
+    if (message === 'Category already exists') {
+      return res.status(409).json({ message });
+    }
+
+    res.status(400).json({ message });
+  }
+};
+
+// reorder service category sequence no
+const reorderServiceCategory = async (req: Request, res: Response, next: NextFunction) => {
+  const categories = req.body; // expected to be array of { id, service_category_sequence_no }
+
+  if (!Array.isArray(categories) || categories.some(cat => !cat.id || cat.service_category_sequence_no == null)) {
+    return res.status(400).json({ message: 'Invalid category data.' });
+  }
+
+  try {
+    await serviceModel.reorderServiceCategory(categories);
+    return res.status(200).json({ message: 'Service categories reordered successfully.' });
+  } catch (error) {
+    console.error('Error updating category order:', error);
+    return res.status(500).json({ message: 'Failed to update category order.' });
+  }
+};
+
 
 export default {
   getAllServices,
@@ -496,5 +569,8 @@ export default {
   disableService,
   enableService,
   getServiceCategories,
-  getSalesHistoryByServiceId
+  getSalesHistoryByServiceId,
+  createServiceCategory,
+  updateServiceCategory,
+  reorderServiceCategory
 };

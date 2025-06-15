@@ -37,6 +37,12 @@ router.put('/enable-service/:id', serviceController.enableService);
 // SERVICE CATEGORIES ROUTES
 //  get all service categories
 router.get('/service-cat', serviceController.getServiceCategories)
+//  create a new service category
+router.post('/create-service-cat', serviceController.createServiceCategory)
+//  update service category by id
+router.put('/update-service-cat/:catId', serviceController.updateServiceCategory)
+//  reorder service category sequence number
+router.put('/reorder-service-cat', serviceController.reorderServiceCategory)
 
 // get service by id
 router.get('/:id', serviceController.getServiceById);
