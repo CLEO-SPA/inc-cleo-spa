@@ -76,21 +76,6 @@ interface PaginatedResult<T> {
   currentPage: number;
 }
 
-const getAllSaleTransactions = async () => {
-  try {
-    const query = `
-      SELECT * FROM sale_transactions
-      ORDER BY created_at DESC
-      LIMIT $1
-    `;
-    const limit = 20;
-    const result = await pool().query(query, [limit]);
-    return result.rows;
-  } catch (error) {
-    console.error('Error fetching sales transactions:', error);
-    throw new Error('Error fetching sales transactions');
-  }
-};
 
 const getSalesTransactionList = async (
   filter?: string,
@@ -154,9 +139,9 @@ const getSalesTransactionList = async (
 
     // Handle search queries
     if (searchQuery) {
-      whereConditions.push(`CAST(st.id AS TEXT) ILIKE ${paramIndex}`);
-      queryParams.push(`%${searchQuery}%`);
-      paramIndex++;
+  whereConditions.push(`st.receipt_no ILIKE $${paramIndex}`);
+  queryParams.push(`%${searchQuery}%`);
+  paramIndex++;
     }
 
     if (memberSearchQuery) {
@@ -188,7 +173,6 @@ const getSalesTransactionList = async (
         break;
     }
 
-    // Build WHERE clause
     const whereClause = whereConditions.length > 0 ? `WHERE ${whereConditions.join(' AND ')}` : '';
 
     // Debug logging
@@ -249,11 +233,9 @@ const getSalesTransactionList = async (
       LIMIT $${paramIndex} OFFSET $${paramIndex + 1}
     `;
 
-    // Add limit and offset parameters only to the main query
     const mainQueryParams = [...queryParams, limit, offset];
     const salesTransactions = await pool().query(mainQuery, mainQueryParams);
 
-    // Get payment information for each transaction
     const transactionIds = salesTransactions.rows.map((row: any) => row.id);
     let paymentData: any[] = [];
 
@@ -491,7 +473,6 @@ const getSalesTransactionById = async (id: string): Promise<SalesTransactionDeta
 };
 
 export default {
-  getAllSaleTransactions,
   getSalesTransactionList,
   getSalesTransactionById
 };

@@ -4,22 +4,6 @@ import model from '../models/stModel.js';
 // import { PaginatedOptions, CursorPayload } from '../types/common.types.js';
 // import { create } from 'domain';
 
-const getAllSaleTransaction = async (req: Request, res: Response, next: NextFunction): Promise<void> => {
-  try {
-    // if (!req.session || !req.session.user_id) {
-    //   res.status(401).json({ message: 'Not authenticated' });
-    //    return;
-    // }
-
-    const transactions = await model.getAllSaleTransactions();
-     res.status(200).json({ transactions });
-      return;
-  } catch (error) {
-    console.error('Error fetching sales transactions:', error);
-     res.status(500).json({ message: 'Error fetching sales transactions' });
-      return;
-  }
-};
 
 const getSalesTransactionList = async (req: Request, res: Response): Promise<void> => {
   try {
@@ -101,8 +85,8 @@ const getSalesTransactionById = async (req: Request, res: Response): Promise<voi
 
 
 
+
 export default {
-  getAllSaleTransaction,
   getSalesTransactionList,
-  getSalesTransactionById,
+  getSalesTransactionById
 };

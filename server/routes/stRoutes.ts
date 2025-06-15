@@ -13,7 +13,6 @@ import controller from '../controllers/stController.js';
 // Private routes
 // =========================
 // router.use(isAuthenticated);
-router.get('/all', controller.getAllSaleTransaction);
 router.get('/list', controller.getSalesTransactionList);
 router.get('/list/:id', controller.getSalesTransactionById);
 
