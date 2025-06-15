@@ -243,6 +243,27 @@ const savePostDataController = async (req: Request, res: Response, next: NextFun
   }
 };
 
+const deleteSeedDataFileController = async (req: Request, res: Response, next: NextFunction): Promise<void> => {
+  try {
+    const { dataType, table, file } = req.params;
+
+    if (!dataType || (dataType !== 'pre' && dataType !== 'post') || !table || !file) {
+      res.status(400).json({ message: 'Invalid parameters: dataType, table, and file name are required.' });
+      return;
+    }
+
+    await model.deleteSeedDataFileModel(dataType as 'pre' | 'post', table, file);
+    res.status(200).json({ message: `File '${file}.csv' for table '${table}' (${dataType}) deleted successfully.` });
+  } catch (error: any) {
+    console.error('Error in deleteSeedDataFileController:', error.message);
+    if (error.message.includes('File not found')) {
+      res.status(404).json({ message: error.message });
+    } else {
+      next(error); // Pass to global error handler
+    }
+  }
+};
+
 export default {
   insertPreDataController,
   insertPostDataController,
@@ -255,4 +276,5 @@ export default {
   getAllPostDataFilesController,
   savePreDataController,
   savePostDataController,
+  deleteSeedDataFileController, // Add new controller function
 };

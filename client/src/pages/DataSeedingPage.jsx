@@ -29,7 +29,8 @@ import {
   Plus,
   UploadCloud,
   XCircle,
-  Copy, // Add Copy icon
+  Copy,
+  Trash2, // Add Trash2 icon
 } from 'lucide-react';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Separator } from '@/components/ui/separator';
@@ -63,6 +64,7 @@ const DataSeedingPage = () => {
 
     addRow,
     addColumn,
+    deleteTableDataFile, // Add new action
     copyTableDataFile,
   } = useSeedDataStore();
 
@@ -133,6 +135,33 @@ const DataSeedingPage = () => {
     }
 
     await copyTableDataFile(tableName, originalFileName, selectedDataType);
+  };
+
+  const handleDeleteSelectedFile = async (tableName) => {
+    const fileNameToDelete = selectedFiles[tableName];
+    if (!fileNameToDelete) {
+      alert('No file selected to delete.');
+      return;
+    }
+
+    if (
+      confirm(
+        `Are you sure you want to delete the file "${fileNameToDelete}.csv" for table "${tableName}"? This action cannot be undone.`
+      )
+    ) {
+      const success = await deleteTableDataFile(tableName, fileNameToDelete, selectedDataType);
+      if (success) {
+        // The store action handles refreshing files and clearing selection/data.
+        // If the deleted file was in newFileNameInputs, clear it.
+        setNewFileNameInputs((prev) => {
+          const updatedInputs = { ...prev };
+          if (updatedInputs[tableName] === fileNameToDelete) {
+            updatedInputs[tableName] = '';
+          }
+          return updatedInputs;
+        });
+      }
+    }
   };
 
   const handleSeedCurrentSet = () => {
@@ -330,7 +359,7 @@ const DataSeedingPage = () => {
                               </div>
                             </div>
                           </div>
-                          <div className='flex flex-wrap gap-2'>
+                          <div className='flex flex-wrap gap-2 items-center'>
                             {' '}
                             {/* Wrapper for buttons */}
                             <Button
@@ -346,8 +375,30 @@ const DataSeedingPage = () => {
                               disabled={isLoading || !selectedFiles[currentTabTable]}
                               className='flex items-center gap-2'
                             >
-                              <Copy className='h-4 w-4' /> Create New Copy & Save
+                              <Copy className='h-4 w-4' /> Create New Copy
                             </Button>
+                            <TooltipProvider>
+                              <Tooltip>
+                                <TooltipTrigger asChild>
+                                  <Button
+                                    variant='destructive'
+                                    onClick={() => handleDeleteSelectedFile(currentTabTable)}
+                                    disabled={isLoading || !selectedFiles[currentTabTable]}
+                                    className='flex items-center gap-2'
+                                  >
+                                    <Trash2 className='h-4 w-4' />
+                                  </Button>
+                                </TooltipTrigger>
+                                <TooltipContent side='bottom'>
+                                  <p>
+                                    Delete{' '}
+                                    {selectedFiles[currentTabTable]
+                                      ? `${selectedFiles[currentTabTable]}.csv`
+                                      : 'selected file'}
+                                  </p>
+                                </TooltipContent>
+                              </Tooltip>
+                            </TooltipProvider>
                           </div>
 
                           <Separator />

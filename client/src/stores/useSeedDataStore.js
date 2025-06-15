@@ -334,6 +334,36 @@ export const useSeedDataStore = create((set, get) => ({
     }
   },
 
+  deleteTableDataFile: async (tableName, fileNameToDelete, dataType) => {
+    if (!tableName || !fileNameToDelete || !dataType) {
+      alert('Table name, file name, and data type are required to delete.');
+      return false;
+    }
+    set({ isLoading: true, error: null });
+    try {
+      await api.delete(`/sa/seed/${dataType}/${tableName}/${fileNameToDelete}`);
+      set({ isLoading: false });
+      // alert(`${dataType}-data file '${fileNameToDelete}.csv' for table '${tableName}' deleted successfully!`); // Optional success alert
+
+      // Refresh files for the table
+      await get().fetchAvailableFilesForTable(tableName, dataType);
+      // Clear selected file and data for this table if it was the one deleted
+      if (get().selectedFiles[tableName] === fileNameToDelete) {
+        set((state) => ({
+          selectedFiles: { ...state.selectedFiles, [tableName]: '' },
+          data: { ...state.data, [tableName]: defaultSpreadsheetData },
+        }));
+      }
+      return true;
+    } catch (error) {
+      console.error(`Failed to delete ${dataType}-data file ${fileNameToDelete} for ${tableName}:`, error);
+      const errorMessage = error.response?.data?.message || error.message || 'Failed to delete file';
+      set({ error: errorMessage, isLoading: false });
+      alert(`Error deleting file: ${errorMessage}`);
+      return false;
+    }
+  },
+
   // For seeding the entire set based on current selections
   seedCurrentSet: async (targetTableName, dataType) => {
     set({ isLoading: true, error: null });

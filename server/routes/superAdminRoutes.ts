@@ -20,6 +20,8 @@ router.get('/seed/order/:tableName', saController.getOrdersForTableController);
 router.post('/update/pre', preUpload.single('file'), saController.savePreDataController);
 router.post('/update/post', postUpload.single('file'), saController.savePostDataController);
 
+router.delete('/seed/:dataType/:table/:file', saController.deleteSeedDataFileController);
+
 router.post('/seed/pre', saController.insertPreDataController);
 router.post('/seed/post', saController.insertPostDataController);
 

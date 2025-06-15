@@ -693,6 +693,30 @@ const getPostDataFilesModel = async (tableName: string) => {
   }
 };
 
+const deleteSeedDataFileModel = async (
+  dataType: 'pre' | 'post',
+  tableName: string,
+  fileName: string
+): Promise<void> => {
+  const directoryPath = path.join(csvFolderPath, dataType, tableName);
+  const filePath = path.join(directoryPath, `${fileName}.csv`);
+
+  try {
+    if (!fs.existsSync(filePath)) {
+      throw new Error(`File not found: ${dataType}/${tableName}/${fileName}.csv`);
+    }
+    await fs.promises.unlink(filePath);
+    console.log(`Successfully deleted file: ${filePath}`);
+  } catch (error: any) {
+    console.error(
+      `[saModel] Error deleting ${dataType}-data file "${fileName}.csv" for table "${tableName}":`,
+      error.message
+    );
+    // Rethrow with a more specific message if needed, or let the original error propagate
+    throw new Error(`Failed to delete file ${dataType}/${tableName}/${fileName}.csv: ${error.message}`);
+  }
+};
+
 export default {
   insertPreDataModel,
   insertPostDataModel,
@@ -703,4 +727,5 @@ export default {
   getOrdersForTableModel,
   getPreDataFilesModel,
   getPostDataFilesModel,
+  deleteSeedDataFileModel, // Add new model function
 };
