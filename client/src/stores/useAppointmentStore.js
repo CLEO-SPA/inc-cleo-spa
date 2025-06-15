@@ -10,6 +10,8 @@ const getInitialState = () => ({
   isDeleting: false,
   error: false,
   errorMessage: null,
+  // For edit page:
+  selectedAppointment: null, // will hold the fetched appointment object
 });
 
 function emptyStringToNull(obj) {
@@ -22,6 +24,26 @@ function emptyStringToNull(obj) {
 
 const useAppointmentStore = create((set, get) => ({
   ...getInitialState(),
+
+  // Fetch a single appointment by ID
+  fetchAppointment: async (id) => {
+    set({ isFetching: true, error: false, errorMessage: null });
+    try {
+      const response = await api.get(`/ab/${id}`);
+      // Assuming response.data is the appointment object:
+      // { id, member_id, servicing_employee_id, appointment_date, start_time, end_time, remarks, ... }
+      set({ selectedAppointment: response.data, isFetching: false });
+      return { success: true, data: response.data };
+    } catch (err) {
+      const message =
+        err.response?.data?.message ||
+        err.message ||
+        `Failed to fetch appointment ${id}`;
+      set({ isFetching: false, error: true, errorMessage: message });
+      return { success: false, error: message };
+    }
+  },
+
 
   // Create bulk appointments
   createAppointment: async (payload) => {

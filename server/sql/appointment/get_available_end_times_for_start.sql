@@ -6,7 +6,8 @@
 CREATE OR REPLACE FUNCTION get_available_end_times_for_start(
     p_appointment_date DATE,
     p_start_time TIME,
-    p_employee_id INT DEFAULT NULL
+    p_employee_id INT DEFAULT NULL,
+	p_exclude_appointment_id INT DEFAULT NULL
 )
 RETURNS TABLE(
     end_time TIME
@@ -36,7 +37,7 @@ BEGIN
 
     -- Otherwise, find the maximum possible end time for this start time
     SELECT max_end_time INTO max_end
-    FROM get_max_duration_from_start_time(p_appointment_date, p_employee_id)
+    FROM get_max_duration_from_start_time(p_appointment_date, p_employee_id, p_exclude_appointment_id)
     WHERE start_time = p_start_time;
 
     -- If no valid start time found or max_end is null, return empty set

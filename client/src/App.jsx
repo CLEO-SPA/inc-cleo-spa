@@ -12,9 +12,10 @@ import LoginPage from '@/pages/LoginPage';
 import ResetPasswordPage from '@/pages/ResetPasswordPage';
 import NotFoundPage from '@/pages/404Page';
 
-// Appointments
+// Appointments Management
 import ManageAppointmentsPage from '@/pages/ab/ManageAppointmentsPage';
 import CreateAppointmentPage from './pages/ab/CreateAppointmentPage';
+import EditAppointmentPage from './pages/ab/EditAppointmentPage.jsx';
 
 
 function App() {
@@ -33,6 +34,7 @@ function App() {
               
               <Route path="/appointments/create" element={<CreateAppointmentPage />} />
               <Route path="/employees" element={<CreateAppointmentPage />} />
+              <Route path='/appointments/edit/:id' element={<EditAppointmentPage />} />
 
             </Route>
             <Route path='/login' element={<LoginPage />} />

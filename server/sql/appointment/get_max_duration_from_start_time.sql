@@ -1,6 +1,7 @@
 CREATE OR REPLACE FUNCTION get_max_duration_from_start_time(
     p_appointment_date DATE,
-    p_employee_id INT DEFAULT NULL
+    p_employee_id INT DEFAULT NULL,
+	p_exclude_appointment_id INT DEFAULT NULL  -- /// NEW
 )
 RETURNS TABLE(
     start_time TIME,
@@ -47,6 +48,7 @@ BEGIN
             ON a.servicing_employee_id = es.emp_id
            AND DATE(a.start_time) = p_appointment_date
            AND a.start_time > es.slot_time
+		   AND (p_exclude_appointment_id IS NULL OR a.id != p_exclude_appointment_id)
         GROUP BY es.slot_time, es.emp_id
     ),
     -- Exclude (slot_time, emp_id) where the employee is already booked at slot_time
@@ -63,6 +65,7 @@ BEGIN
               AND DATE(a2.start_time) = p_appointment_date
               AND ncp.slot_time >= a2.start_time
               AND ncp.slot_time < a2.end_time
+			  AND (p_exclude_appointment_id IS NULL OR a2.id != p_exclude_appointment_id)
         )
     ),
     -- For each slot_time, pick the employee that gives the latest next_conflict_time

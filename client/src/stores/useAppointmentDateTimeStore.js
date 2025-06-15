@@ -74,21 +74,29 @@ const useAppointmentDateTimeStore = create((set, get) => ({
     });
   },
 
-  getRestDayConflictMessage: (appointmentCount) => {
+ getRestDayConflictMessage: (appointmentCount, isUpdate = false) => {
     const { appointmentWarnings } = get();
     const warningCount = Object.keys(appointmentWarnings).length;
     if (appointmentCount === 1 && warningCount > 0) {
-      return 'Cannot create appointment due to a rest day conflict. Please select a different date or employee.\nNote: when creating two or more appointments, this warning will be ignored';
+      if (isUpdate) {
+        return 'Cannot update appointment due to a rest day conflict. Please select a different date or employee.';
+      } else {
+        return 'Cannot create appointment due to a rest day conflict. Please select a different date or employee.\nNote: when creating two or more appointments, this warning will be ignored';
+      }
     }
     return null;
   },
 
   // Fetch start times (max-durations) for a given employee & date
-  fetchTimeslots: async ({ employeeId = null, appointmentDate, appointmentIndex = 0 }) => {
+  fetchTimeslots: async ({ employeeId = null, appointmentDate, appointmentIndex = 0, excludeAppointmentId = null  }) => {
     set({ isFetching: true, error: false, errorMessage: null });
     try {
-      // Call new API endpoint for max-durations
-      const url = `/ab/employee/${employeeId || 'null'}/date/${appointmentDate}/max-durations`;
+     // Build URL with exclude parameter if provided
+      let url = `/ab/employee/${employeeId || 'null'}/date/${appointmentDate}/max-durations`;
+      if (excludeAppointmentId) {
+        url += `?exclude_appointment_id=${excludeAppointmentId}`;
+      }
+
       const response = await api.get(url);
 
       // Expect response.data.maxDurations = [{ startTime, maxEndTime, maxDurationMinutes }, ...]
@@ -141,10 +149,16 @@ const useAppointmentDateTimeStore = create((set, get) => ({
     employeeId = null,
     appointmentDate,
     startTime,        // e.g. "18:00"
-    appointmentIndex = 0
+    appointmentIndex = 0,
+    excludeAppointmentId = null
   }) => {
     try {
-      const url = `/ab/employee/${employeeId || 'null'}/date/${appointmentDate}/start-time/${startTime}/end-times`;
+      // Build URL with exclude parameter if provided
+      let url = `/ab/employee/${employeeId || 'null'}/date/${appointmentDate}/start-time/${startTime}/end-times`;
+      if (excludeAppointmentId) {
+        url += `?exclude_appointment_id=${excludeAppointmentId}`;
+      }
+
       const response = await api.get(url);
 
       console.log('Available end times for start time:', response.data);

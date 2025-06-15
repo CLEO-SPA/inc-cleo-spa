@@ -11,6 +11,7 @@ const router = express.Router();
 
 router.get('/', appointmentController.getAllAppointments);
 router.get('/date/:date', appointmentController.getAppointmentsByDate);
+router.get('/:id', appointmentController.getAppointmentById);
 
 // Get appointment timeslots by employee and appointment date
 router.get('/employee/:employeeId/date/:date/max-durations', appointmentController.getMaxDurationFromStartTimes);

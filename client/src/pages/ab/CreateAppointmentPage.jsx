@@ -1,5 +1,5 @@
 // src/pages/CreateAppointmentPage.jsx (or .tsx)
-import React, { useState } from 'react';
+import React, { useEffect, useState } from 'react';
 import { useForm, FormProvider } from 'react-hook-form';
 import { AppSidebar } from '@/components/app-sidebar';
 import { SiteHeader } from '@/components/site-header';
@@ -41,6 +41,13 @@ const CreateAppointmentPage = () => {
   });
   const { handleSubmit, watch, setValue, reset } = methods;
   const formData = watch();
+
+  // Set default created_at to current SGT time and TODO: created_by to logged-in user
+  useEffect(() => {
+    const sgtNow = new Date(Date.now() + 8 * 60 * 60 * 1000);
+    const val = sgtNow.toISOString().slice(0, 16); // "YYYY-MM-DDTHH:mm"
+    setValue('created_at', val);
+  }, [setValue]);
 
   const {
     appointmentWarnings,
@@ -144,7 +151,11 @@ const CreateAppointmentPage = () => {
   const handleAppointmentChange = (index, field, value) => {
     setValue(`appointments.${index}.${field}`, value);
     if (field === 'appointment_date') {
+      // clear times and warnings
+      setValue(`appointments.${index}.start_time`, '');
+      setValue(`appointments.${index}.end_time`, '');
       clearWarningForAppointment(index);
+      clearTimeslots(index);
     }
     if (localError) setLocalError('');
     if (success) setSuccess(false);

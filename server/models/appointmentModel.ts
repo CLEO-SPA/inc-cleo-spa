@@ -1,4 +1,5 @@
 import { pool, getProdPool as prodPool } from '../config/database.js';
+import { format } from 'date-fns';
 
 const getAllAppointments = async (
   offset: number,
@@ -69,6 +70,48 @@ const getAppointmentsByDate = async (appointmentDate: Date | string) => {
   } catch (error) {
     console.error('Error fetching appointments by date:', error);
     throw new Error('Error fetching appointments by date');
+  }
+};
+
+const getAppointmentById = async (id: number) => {
+  try {
+    const query = `
+      SELECT 
+        *
+      FROM appointments
+      WHERE id = $1;
+    `;
+
+    const result = await pool().query(query, [id]);
+
+    if (result.rows.length === 0) {
+      throw new Error('Appointment not found');
+    }
+
+    const appointment = result.rows[0];
+
+    return {
+      ...appointment,
+      appointment_date: appointment.appointment_date
+        ? format(new Date(appointment.appointment_date), 'yyyy-MM-dd')
+        : null,
+      start_time: appointment.start_time
+        ? format(new Date(appointment.start_time), 'HH:mm')
+        : null,
+      end_time: appointment.end_time
+        ? format(new Date(appointment.end_time), 'HH:mm')
+        : null,
+      created_at: appointment.created_at
+        ? format(new Date(appointment.created_at), 'dd MMM yyyy, hh:mm a')
+        : null,
+      updated_at: appointment.updated_at
+        ? format(new Date(appointment.updated_at), 'dd MMM yyyy, hh:mm a')
+        : null,
+
+    };
+  } catch (error) {
+    console.error('Error fetching appointment by ID:', error);
+    throw new Error('Error fetching appointment by ID');
   }
 };
 
@@ -205,31 +248,15 @@ export const updateAppointment = async (
   }
 };
 
-// Get available end times for specific start time
-const getEndTimesForStartTime = async (
-  date: Date | string,
-  startTime: string,
-  employeeId: number | null,
-) => {
-  try {
-    const query = `SELECT * FROM get_available_end_times_for_start($1, $2, $3)`;
-    const values = [date, startTime, employeeId];
-    const result = await pool().query(query, values);
-    return result.rows;
-  } catch (error) {
-    console.error('Error fetching end times for start time:', error);
-    throw new Error('Error fetching end times for start time');
-  }
-};
-
 // Get max duration info for all start times
 const getMaxDurationFromStartTimes = async (
   date: Date | string,
   employeeId: number | null,
+  excludeAppointmentId: number | null  /// NEW
 ) => {
   try {
-    const query = `SELECT * FROM get_max_duration_from_start_time($1, $2)`;
-    const values = [date, employeeId];
+    const query = `SELECT * FROM get_max_duration_from_start_time($1, $2, $3)`;
+    const values = [date, employeeId, excludeAppointmentId];
     const result = await pool().query(query, values);
     return result.rows;
   } catch (error) {
@@ -238,9 +265,28 @@ const getMaxDurationFromStartTimes = async (
   }
 };
 
+// Get available end times for specific start time
+const getEndTimesForStartTime = async (
+  date: Date | string,
+  startTime: string,
+  employeeId: number | null,
+  excludeAppointmentId: number | null  
+) => {
+  try {
+    const query = `SELECT * FROM get_available_end_times_for_start($1, $2, $3, $4)`;
+    const values = [date, startTime, employeeId, excludeAppointmentId];
+    const result = await pool().query(query, values);
+    return result.rows;
+  } catch (error) {
+    console.error('Error fetching end times for start time:', error);
+    throw new Error('Error fetching end times for start time');
+  }
+};
+
 export default {
   getAllAppointments,
   getAppointmentsByDate,
+  getAppointmentById,
   validateEmployeeIsActive,
   validateMemberIsActive,
   checkRestdayConflict,
