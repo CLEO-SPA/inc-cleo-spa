@@ -272,6 +272,68 @@ export const useSeedDataStore = create((set, get) => ({
     }
   },
 
+  copyTableDataFile: async (tableName, originalFileName, dataType) => {
+    if (!tableName || !originalFileName || !dataType) {
+      alert('Table name, original file name, and data type are required to copy.');
+      return false;
+    }
+
+    set({ isLoading: true, error: null });
+    try {
+      // 1. Determine the new filename
+      const currentAvailableFiles = get().availableFiles[tableName] || [];
+      const baseName = originalFileName.replace(/\.csv$/i, '');
+      let newFileName = '';
+      let counter = 1;
+      // Loop to find an available filename like baseName_1, baseName_2, etc.
+      while (true) {
+        const potentialName = `${baseName}_${counter}`;
+        if (!currentAvailableFiles.includes(potentialName)) {
+          newFileName = potentialName;
+          break;
+        }
+        counter++;
+      }
+
+      // 2. Fetch the data of the original file
+      const response = await api.get(`/sa/seed/${dataType}/${tableName}/${originalFileName}`);
+      const originalData = response.data;
+
+      if (!originalData || originalData.length === 0) {
+        throw new Error(
+          `Original file ${originalFileName}.csv for table ${tableName} is empty or could not be fetched.`
+        );
+      }
+
+      // 3. Convert this data to CSV
+      const csvData = convertDataToCSV(originalData);
+      const fileToCopy = new File([csvData], `${newFileName}.csv`, { type: 'text/csv' });
+
+      // 4. Save this CSV data as a new file
+      const formData = new FormData();
+      formData.append('file', fileToCopy);
+      formData.append('tableName', tableName);
+
+      await api.post(`/sa/update/${dataType}`, formData);
+
+      set({ isLoading: false });
+      // No alert needed as per new requirement
+
+      // 5. Refresh files for the table
+      await get().fetchAvailableFilesForTable(tableName, dataType);
+      // 6. Set the new copy as the selected file
+      await get().setSelectedFileForTable(tableName, newFileName, dataType);
+      // The useEffect in DataSeedingPage will update newFileNameInputs
+      return true;
+    } catch (error) {
+      console.error(`Failed to copy ${dataType}-data for ${tableName}/${originalFileName}:`, error);
+      const errorMessage = error.response?.data?.message || error.message || 'Failed to copy file';
+      set({ error: errorMessage, isLoading: false });
+      alert(`Error copying file: ${errorMessage}`); // Keep error alert
+      return false;
+    }
+  },
+
   // For seeding the entire set based on current selections
   seedCurrentSet: async (targetTableName, dataType) => {
     set({ isLoading: true, error: null });

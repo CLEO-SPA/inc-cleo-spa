@@ -29,6 +29,7 @@ import {
   Plus,
   UploadCloud,
   XCircle,
+  Copy, // Add Copy icon
 } from 'lucide-react';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Separator } from '@/components/ui/separator';
@@ -62,6 +63,7 @@ const DataSeedingPage = () => {
 
     addRow,
     addColumn,
+    copyTableDataFile,
   } = useSeedDataStore();
 
   // Component State
@@ -121,6 +123,16 @@ const DataSeedingPage = () => {
       return;
     }
     saveTableData(tableName, fileNameToSave.replace(/\.csv$/i, ''), selectedDataType);
+  };
+
+  const handleCreateCopy = async (tableName) => {
+    const originalFileName = selectedFiles[tableName];
+    if (!originalFileName) {
+      alert('Please select a file to copy first.'); // Keep this validation
+      return;
+    }
+
+    await copyTableDataFile(tableName, originalFileName, selectedDataType);
   };
 
   const handleSeedCurrentSet = () => {
@@ -318,13 +330,25 @@ const DataSeedingPage = () => {
                               </div>
                             </div>
                           </div>
-                          <Button
-                            onClick={() => handleSaveTableData(currentTabTable)}
-                            disabled={isLoading || !newFileNameInputs[currentTabTable]}
-                            className='flex items-center gap-2'
-                          >
-                            <Save className='h-4 w-4' /> Save Data for {currentTabTable}
-                          </Button>
+                          <div className='flex flex-wrap gap-2'>
+                            {' '}
+                            {/* Wrapper for buttons */}
+                            <Button
+                              onClick={() => handleSaveTableData(currentTabTable)}
+                              disabled={isLoading || !newFileNameInputs[currentTabTable]}
+                              className='flex items-center gap-2'
+                            >
+                              <Save className='h-4 w-4' /> Save Data for {currentTabTable}
+                            </Button>
+                            <Button
+                              variant='outline'
+                              onClick={() => handleCreateCopy(currentTabTable)}
+                              disabled={isLoading || !selectedFiles[currentTabTable]}
+                              className='flex items-center gap-2'
+                            >
+                              <Copy className='h-4 w-4' /> Create New Copy & Save
+                            </Button>
+                          </div>
 
                           <Separator />
                           <div className='mb-4 overflow-x-auto min-h-[300px]'>
