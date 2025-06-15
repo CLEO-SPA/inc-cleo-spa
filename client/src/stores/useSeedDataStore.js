@@ -180,7 +180,7 @@ export const useSeedDataStore = create((set, get) => ({
 
       set({ isLoading: false });
       alert(`Pre-data for table '${tableName}', file '${fileName}.csv' saved successfully!`);
-      get().fetchAvailableFilesForTable(tableName);
+      get().fetchPreAvailableFilesForTable(tableName);
       get().fetchPreData(tableName, fileName);
     } catch (error) {
       console.error(`Failed to save pre-data for ${tableName}/${fileName}:`, error);
@@ -215,8 +215,8 @@ export const useSeedDataStore = create((set, get) => ({
 
       set({ isLoading: false });
       alert(`Post-data for table '${tableName}', file '${fileName}.csv' saved successfully!`);
+      get().fetchPostAvailableFilesForTable(tableName);
       get().fetchPostData(tableName, fileName);
-      get().fetchAvailableFilesForTable(tableName);
     } catch (error) {
       console.error(`Failed to save post-data for ${tableName}/${fileName}:`, error);
       const errorMessage = error.response?.data?.message || error.message || `Failed to save post-data`;
