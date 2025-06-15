@@ -12,19 +12,81 @@ const checkEmployeeCodeExists = async (employee_code: number) => {
   }
 };
 
-const getAllEmployees = async (offset: number, limit: number, startDate_utc: string, endDate_utc: string) => {
+const getAllEmployees = async (
+  offset: number,
+  limit: number,
+  startDate_utc: string,
+  endDate_utc: string
+) => {
   try {
-    const query = `
-      SELECT * FROM employees
+    // Step 1: Fetch paginated employee IDs based on date range
+    const idQuery = `
+      SELECT id FROM employees
       WHERE created_at BETWEEN
-        COALESCE($3, '0001-01-01'::timestamp with time zone)
-        AND $4
+        COALESCE($1, '0001-01-01'::timestamp with time zone)
+        AND $2
       ORDER BY id ASC
-      LIMIT $1 OFFSET $2
+      LIMIT $3 OFFSET $4
     `;
-    const values = [limit, offset, startDate_utc, endDate_utc];
-    const result = await pool().query(query, values);
+    const idValues = [startDate_utc, endDate_utc, limit, offset];
+    const idResult = await pool().query(idQuery, idValues);
+    const employeeIds = idResult.rows.map((row) => row.id);
 
+    if (employeeIds.length === 0) {
+      return {
+        employees: [],
+        totalPages: 0,
+        totalCount: 0,
+      };
+    }
+
+    // Step 2: Fetch full employee + position info for selected IDs
+    const dataQuery = `
+      SELECT 
+        e.id AS employee_id,
+        e.employee_name,
+        e.employee_email,
+        e.employee_is_active,
+        e.created_at,
+        e.updated_at,
+        p.id AS position_id,
+        p.position_name
+      FROM employees e
+      LEFT JOIN employee_to_position ep ON e.id = ep.employee_id
+      LEFT JOIN positions p ON ep.position_id = p.id
+      WHERE e.id = ANY($1)
+      ORDER BY e.id ASC
+    `;
+    const dataResult = await pool().query(dataQuery, [employeeIds]);
+
+    // Step 3: Group employee rows
+    const groupedMap: Record<number, any> = {};
+
+    dataResult.rows.forEach((row) => {
+      const empId = row.employee_id;
+      if (!groupedMap[empId]) {
+        groupedMap[empId] = {
+          id: empId,
+          employee_name: row.employee_name,
+          employee_email: row.employee_email,
+          employee_is_active: row.employee_is_active,
+          created_at: row.created_at,
+          updated_at: row.updated_at,
+          positions: [],
+        };
+      }
+
+      if (row.position_id && row.position_name) {
+        groupedMap[empId].positions.push({
+          position_id: row.position_id,
+          position_name: row.position_name,
+        });
+      }
+    });
+
+    const groupedEmployees = Object.values(groupedMap);
+
+    // Step 4: Get total count for pagination
     const totalQuery = `
       SELECT COUNT(*) FROM employees
       WHERE created_at BETWEEN
@@ -33,17 +95,20 @@ const getAllEmployees = async (offset: number, limit: number, startDate_utc: str
     `;
     const totalValues = [startDate_utc, endDate_utc];
     const totalResult = await pool().query(totalQuery, totalValues);
-    const totalPages = Math.ceil(totalResult.rows[0].count / limit);
+    const totalCount = parseInt(totalResult.rows[0].count, 10);
+    const totalPages = Math.ceil(totalCount / limit);
 
     return {
-      employees: result.rows,
+      employees: groupedEmployees,
       totalPages,
+      totalCount,
     };
   } catch (error) {
-    console.error('Error fetching employees:', error);
-    throw new Error('Error fetching employees');
+    console.error('Error fetching employees with positions:', error);
+    throw new Error('Error fetching employees with positions');
   }
 };
+
 
 const createSuperUser = async (email: string, password_hash: string) => {
   try {

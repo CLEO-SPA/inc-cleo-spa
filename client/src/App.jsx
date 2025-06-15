@@ -13,9 +13,10 @@ import ResetPasswordPage from '@/pages/ResetPasswordPage';
 import NotFoundPage from '@/pages/404Page';
 
 // Employees
-import ManagePositions from '@/pages/em/ManagePositions';
+import ManagePositions from '@/pages/em/ManagePositionsPage';
 import CreatePositionPage from '@/pages/em/CreatePositionPage';
 import EditPositionPage from '@/pages/em/UpdatePositionPage';
+import ManageEmployeesPage from '@/pages/em/ManageEmployeesPage';
 
 
 function App() {
@@ -31,6 +32,9 @@ function App() {
               <Route path='/positions' element={<ManagePositions />} />
               <Route path='/positions/create' element={<CreatePositionPage />} />
               <Route path='/positions/update/:id' element={<EditPositionPage />} />
+              <Route path='/employees' element={<ManageEmployeesPage />} />
+
+              {/* Protected Routes */}
 
             </Route>
             <Route path='/login' element={<LoginPage />} />
