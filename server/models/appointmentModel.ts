@@ -14,33 +14,30 @@ const getAllAppointments = async (
   try {
     const now = new Date();
     const toDateStr = (d: Date | string | null | undefined) =>
-      d instanceof Date ? d.toISOString() : d;
+      d instanceof Date ? d.toISOString().split('T')[0] : d?.toString().trim();
 
     const filters: string[] = [];
     const values: (string | number | null)[] = [limit, offset];
     let paramIndex = 3;
 
-    // Filter: appointment_date between startDate and endDate
+    // --- MAIN QUERY WHERE CLAUSE ---
     if (startDate || endDate) {
-      filters.push(`a.appointment_date BETWEEN COALESCE($${paramIndex++}, '0001-01-01') AND COALESCE($${paramIndex++}, '9999-12-31')`);
+      filters.push(`a.appointment_date BETWEEN COALESCE($${paramIndex++}::DATE, '0001-01-01') AND COALESCE($${paramIndex++}::DATE, '9999-12-31')`);
       values.push(toDateStr(startDate), toDateStr(endDate));
     }
 
-    // Filter: employee
     if (employeeId) {
       filters.push(`a.servicing_employee_id = $${paramIndex}`);
       values.push(employeeId);
       paramIndex++;
     }
 
-    // Filter: member
     if (memberId) {
       filters.push(`a.member_id = $${paramIndex}`);
       values.push(memberId);
       paramIndex++;
     }
 
-    // Filter: upcoming or finished
     if (status === 'upcoming') {
       filters.push(`(a.appointment_date + a.start_time) > $${paramIndex}`);
       values.push(toDateStr(now));
@@ -68,8 +65,38 @@ const getAllAppointments = async (
 
     const result = await pool().query(query, values);
 
-    const totalQuery = `SELECT COUNT(*) FROM appointments a ${whereClause}`;
-    const totalResult = await pool().query(totalQuery, values.slice(2));
+    // --- REBUILD COUNT QUERY WITH REINDEXED PARAMS ---
+    const countFilters: string[] = [];
+    const countValues: (string | number | null)[] = [];
+    let idx = 1;
+
+    if (startDate || endDate) {
+      countFilters.push(`a.appointment_date BETWEEN COALESCE($${idx++}::DATE, '0001-01-01') AND COALESCE($${idx++}::DATE, '9999-12-31')`);
+      countValues.push(toDateStr(startDate), toDateStr(endDate));
+    }
+
+    if (employeeId) {
+      countFilters.push(`a.servicing_employee_id = $${idx++}`);
+      countValues.push(employeeId);
+    }
+
+    if (memberId) {
+      countFilters.push(`a.member_id = $${idx++}`);
+      countValues.push(memberId);
+    }
+
+    if (status === 'upcoming') {
+      countFilters.push(`(a.appointment_date + a.start_time) > $${idx++}`);
+      countValues.push(toDateStr(now));
+    } else if (status === 'finished') {
+      countFilters.push(`(a.appointment_date + a.start_time) <= $${idx++}`);
+      countValues.push(toDateStr(now));
+    }
+
+    const countWhere = countFilters.length ? `WHERE ${countFilters.join(' AND ')}` : '';
+    const totalQuery = `SELECT COUNT(*) FROM appointments a ${countWhere}`;
+    const totalResult = await pool().query(totalQuery, countValues);
+
     const totalPages = Math.ceil(Number(totalResult.rows[0].count) / limit);
 
     return {
@@ -81,6 +108,8 @@ const getAllAppointments = async (
     throw new Error('Error fetching appointments');
   }
 };
+
+
 
 
 const getAppointmentsByDate = async (appointmentDate: Date | string) => {
