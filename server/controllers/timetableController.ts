@@ -186,6 +186,12 @@ const getActiveRestDaysByEmployee = async (req: Request, res: Response) => {
     res.status(200).json({
       success: true,
       data: employeeTimetable,
+      pagination: {
+        current_page: 1,
+        per_page: 1,
+        total_employees: 1,
+        total_pages: 1
+      }
     });
   } catch (error: any) {
     console.error('Controller error in fetching active rest days by employee:', error);

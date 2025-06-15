@@ -138,8 +138,6 @@ const useEmployeeTimetableStore = create((set, get) => ({
              */
             if (selectedEmployee) {
                 // url += `&employeeId=${selectedEmployee.employee_id}`;
-                console.log('selectedEmployee:', selectedEmployee);
-                console.log('selectedEmployee.employee_id:', selectedEmployee?.id);
                 url = `/api/et/employee/${selectedEmployee.id}?month=${monthStr}`;
             } else if (selectedPosition) {
                 // url += `&position_id=${selectedPosition.position_id}`;
@@ -151,7 +149,9 @@ const useEmployeeTimetableStore = create((set, get) => ({
             // const response = await api.get(url);
             const response = await fetch(`http://localhost:3000${url}`);
             const data = await response.json();
-            console.log('Timetable data loaded:', data);
+            console.log('API Response when searching:', data);
+            console.log('Pagination from API:', data.pagination);
+            // console.log('Timetable data loaded:', data);
             
             if(data.success) {
                 // Update timetable data
