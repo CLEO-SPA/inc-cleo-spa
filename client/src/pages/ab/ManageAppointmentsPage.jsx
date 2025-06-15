@@ -8,6 +8,8 @@ import { Calendar, Plus, LayoutGrid, List, CalendarDays } from "lucide-react";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { AppointmentTable } from '@/components/ab/appointment-table';
 import { Link } from 'react-router-dom';
+import AppointmentList from '@/components/ab/AppointmentList';
+import App from '@/App';
 
 export default function AppointmentPage() {
   const [viewStyle, setViewStyle] = useState("schedule");
@@ -50,10 +52,6 @@ export default function AppointmentPage() {
                         <List className="mr-2 h-4 w-4" />
                         <span>List View</span>
                       </SelectItem>
-                      <SelectItem value="calendar" className="flex items-center">
-                        <CalendarDays className="mr-2 h-4 w-4" />
-                        <span>Calendar</span>
-                      </SelectItem>
                     </SelectContent>
                   </Select>
 
@@ -73,31 +71,10 @@ export default function AppointmentPage() {
               )}
 
               {viewStyle === "list" && (
-                <Card>
-                  <CardHeader>
-                    <CardTitle>Appointment List</CardTitle>
-                    <CardDescription>View all appointments in list format</CardDescription>
-                  </CardHeader>
-                  <CardContent>
-                    <p className="text-muted-foreground">Select "Schedule" from the view dropdown to see the appointment table.</p>
-                  </CardContent>
-                </Card>
+                <AppointmentList />
               )}
 
-              {viewStyle === "calendar" && (
-                <Card>
-                  <CardHeader>
-                    <CardTitle>Appointment Calendar</CardTitle>
-                    <CardDescription>Monthly calendar view</CardDescription>
-                  </CardHeader>
-                  <CardContent>
-                    <div className="flex items-center justify-center p-12">
-                      <Calendar className="h-12 w-12 text-muted-foreground" />
-                      <p className="ml-4 text-muted-foreground">Calendar view coming soon</p>
-                    </div>
-                  </CardContent>
-                </Card>
-              )}
+             
             </div>
           </SidebarInset>
         </div>

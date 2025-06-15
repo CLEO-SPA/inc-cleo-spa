@@ -17,7 +17,7 @@ const getAllAppointments = async (req: Request, res: Response) => {
     : undefined;
 
   try {
-    const { appointments, totalPages } = await model.getAllAppointments(
+    const { appointments, totalPages, totalCount } = await model.getAllAppointments(
       offset,
       limit,
       startDate ?? null,
@@ -31,6 +31,7 @@ const getAllAppointments = async (req: Request, res: Response) => {
     res.status(200).json({
       currentPage: page,
       totalPages,
+      totalCount,
       pageSize: limit,
       data: appointments,
     });

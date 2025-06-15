@@ -22,7 +22,9 @@ const getAllAppointments = async (
 
     // --- MAIN QUERY WHERE CLAUSE ---
     if (startDate || endDate) {
-      filters.push(`a.appointment_date BETWEEN COALESCE($${paramIndex++}::DATE, '0001-01-01') AND COALESCE($${paramIndex++}::DATE, '9999-12-31')`);
+      filters.push(
+        `a.appointment_date BETWEEN COALESCE($${paramIndex++}::DATE, '0001-01-01') AND COALESCE($${paramIndex++}::DATE, '9999-12-31')`
+      );
       values.push(toDateStr(startDate), toDateStr(endDate));
     }
 
@@ -71,7 +73,9 @@ const getAllAppointments = async (
     let idx = 1;
 
     if (startDate || endDate) {
-      countFilters.push(`a.appointment_date BETWEEN COALESCE($${idx++}::DATE, '0001-01-01') AND COALESCE($${idx++}::DATE, '9999-12-31')`);
+      countFilters.push(
+        `a.appointment_date BETWEEN COALESCE($${idx++}::DATE, '0001-01-01') AND COALESCE($${idx++}::DATE, '9999-12-31')`
+      );
       countValues.push(toDateStr(startDate), toDateStr(endDate));
     }
 
@@ -99,18 +103,18 @@ const getAllAppointments = async (
 
     const totalPages = Math.ceil(Number(totalResult.rows[0].count) / limit);
 
+    const totalCount = Number(totalResult.rows[0].count);
+
     return {
       appointments: result.rows,
       totalPages,
+      totalCount,
     };
   } catch (error) {
     console.error('Error fetching appointments:', error);
     throw new Error('Error fetching appointments');
   }
 };
-
-
-
 
 const getAppointmentsByDate = async (appointmentDate: Date | string) => {
   try {
@@ -167,18 +171,10 @@ const getAppointmentById = async (id: number) => {
       appointment_date: appointment.appointment_date
         ? format(new Date(appointment.appointment_date), 'yyyy-MM-dd')
         : null,
-      start_time: appointment.start_time
-        ? format(new Date(appointment.start_time), 'HH:mm')
-        : null,
-      end_time: appointment.end_time
-        ? format(new Date(appointment.end_time), 'HH:mm')
-        : null,
-      created_at: appointment.created_at
-        ? format(new Date(appointment.created_at), 'dd MMM yyyy, hh:mm a')
-        : null,
-      updated_at: appointment.updated_at
-        ? format(new Date(appointment.updated_at), 'dd MMM yyyy, hh:mm a')
-        : null,
+      start_time: appointment.start_time ? format(new Date(appointment.start_time), 'HH:mm') : null,
+      end_time: appointment.end_time ? format(new Date(appointment.end_time), 'HH:mm') : null,
+      created_at: appointment.created_at ? format(new Date(appointment.created_at), 'dd MMM yyyy, hh:mm a') : null,
+      updated_at: appointment.updated_at ? format(new Date(appointment.updated_at), 'dd MMM yyyy, hh:mm a') : null,
       member_name: appointment.member_name || null,
       servicing_employee_name: appointment.servicing_employee_name || null,
       created_by_name: appointment.created_by_name || null,
@@ -209,7 +205,6 @@ const validateEmployeeIsActive = async (employeeId: number): Promise<boolean> =>
     const employee = result.rows[0];
     console.log('Employee validation result:', employee.employee_is_active);
     return employee.employee_is_active === true;
-
   } catch (error) {
     console.error('Error validating employee:', error);
     throw new Error('Error validating employee');
@@ -236,7 +231,6 @@ const validateMemberIsActive = async (memberId: number): Promise<boolean> => {
 
     // Member exists, no need to check active status
     return true;
-
   } catch (error) {
     console.error('Error validating member:', error);
     throw new Error('Error validating member');
@@ -250,14 +244,9 @@ interface AppointmentItem {
   end_time: string;
   remarks?: string;
 }
-const checkRestdayConflict = async (
-  employeeId: number | null,
-  appointmentDate: Date | string,
-) => {
+const checkRestdayConflict = async (employeeId: number | null, appointmentDate: Date | string) => {
   try {
-    const query =
-      `SELECT check_restday_conflict($1, $2) AS warning`
-      ;
+    const query = `SELECT check_restday_conflict($1, $2) AS warning`;
     const values = [employeeId, appointmentDate];
     const { rows } = await pool().query(query, values);
     // rows[0].warning will be either the warning string or null
@@ -278,12 +267,7 @@ const createAppointment = async (
     // Call the stored procedure create_appointment_ab
     // p_appointments is jsonb array: pass JSON string or JS object
     const query = `CALL create_appointment_ab($1, $2::jsonb, $3, $4)`;
-    const values = [
-      memberId,
-      JSON.stringify(appointments),
-      createdBy,
-      createdAt,
-    ];
+    const values = [memberId, JSON.stringify(appointments), createdBy, createdAt];
     await pool().query(query, values);
   } catch (error: any) {
     console.error('Error in createAppointment:', error);
@@ -309,12 +293,7 @@ export const updateAppointment = async (
   try {
     // Stored procedure expects JSON array with each object including id
     const query = `CALL update_appointment_ab($1, $2::jsonb, $3, $4)`;
-    const values = [
-      memberId,
-      JSON.stringify(appointments),
-      updatedBy,
-      updatedAt,
-    ];
+    const values = [memberId, JSON.stringify(appointments), updatedBy, updatedAt];
     await pool().query(query, values);
   } catch (error: any) {
     console.error('Error in updateAppointment:', error);
@@ -327,7 +306,7 @@ export const updateAppointment = async (
 const getMaxDurationFromStartTimes = async (
   date: Date | string,
   employeeId: number | null,
-  excludeAppointmentId: number | null  /// NEW
+  excludeAppointmentId: number | null /// NEW
 ) => {
   try {
     const query = `SELECT * FROM get_max_duration_from_start_time($1, $2, $3)`;
@@ -345,7 +324,7 @@ const getEndTimesForStartTime = async (
   date: Date | string,
   startTime: string,
   employeeId: number | null,
-  excludeAppointmentId: number | null  
+  excludeAppointmentId: number | null
 ) => {
   try {
     const query = `SELECT * FROM get_available_end_times_for_start($1, $2, $3, $4)`;
@@ -368,5 +347,5 @@ export default {
   createAppointment,
   updateAppointment,
   getEndTimesForStartTime,
-  getMaxDurationFromStartTimes
+  getMaxDurationFromStartTimes,
 };
