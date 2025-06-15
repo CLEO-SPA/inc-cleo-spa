@@ -16,143 +16,126 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import { Label } from '@/components/ui/label';
 import { RadioGroup, RadioGroupItem } from '@/components/ui/radio-group';
 import { Input } from '@/components/ui/input';
-import { useSeedDataStore, initialData } from '@/stores/useSeedDataStore';
+import { useSeedDataStore, defaultSpreadsheetData } from '@/stores/useSeedDataStore'; // Updated import
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
-import { Terminal, FileCheck, FilePlus, Database, Type, Save, RefreshCw, Plus } from 'lucide-react';
+import {
+  Terminal,
+  FileCheck,
+  FilePlus,
+  Database,
+  Type,
+  Save,
+  RefreshCw,
+  Plus,
+  UploadCloud,
+  XCircle,
+} from 'lucide-react';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Separator } from '@/components/ui/separator';
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip';
+import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs'; // Import Tabs
 
 const DataSeedingPage = () => {
   const {
-    data,
-    setData,
-    tables,
+    tables, // List of all possible tables
     fetchAvailableTables,
-    availableFiles,
-    selectedFile,
-    fetchPreAvailableFilesForTable,
-    fetchPostAvailableFilesForTable,
-    fetchPreData,
-    fetchPostData,
-    savePreData,
-    savePostData,
-    addRow,
-    addColumn,
-    resetSchemaAndDataToDefault,
     isLoading,
     error,
+
+    data, // Object: { [tableName: string]: spreadsheetData }
+    seedingSetTables, // Array of table names for current context (target + ancestors)
+    activeTableForDisplay, // String: tableName of the currently viewed/edited spreadsheet
+    availableFiles, // Object: { [tableName: string]: string[] }
+    selectedFiles, // Object: { [tableName: string]: string }
+
+    setTableData,
+    setActiveTableForDisplay,
+    // fetchAvailableFilesForTable, // Used by loadTablesForSeedingSet
+    setSelectedFileForTable,
+    // fetchTableData, // Used by setSelectedFileForTable
+
+    loadTablesForSeedingSet,
+    resetActiveTableToDefault,
+    clearCurrentSeedingSet,
+    saveTableData,
+    seedCurrentSet,
+
+    addRow,
+    addColumn,
   } = useSeedDataStore();
 
-  const [selectedTable, setSelectedTable] = useState('');
-  const [selectedDataType, setSelectedDataType] = useState('pre');
-  const [newFileNameInput, setNewFileNameInput] = useState('');
+  // Component State
+  const [selectedTargetTable, setSelectedTargetTable] = useState(''); // The main table selected to initiate a seeding set
+  const [selectedDataType, setSelectedDataType] = useState('pre'); // 'pre' or 'post'
+  const [newFileNameInputs, setNewFileNameInputs] = useState({}); // Object: { [tableName: string]: string }
 
-  // Fix missing dependencies in useCallback hooks
   const stableFetchAvailableTables = useCallback(fetchAvailableTables, [fetchAvailableTables]);
-  const stableResetSchemaAndDataToDefault = useCallback(resetSchemaAndDataToDefault, [resetSchemaAndDataToDefault]);
-  const stableFetchPreAvailableFiles = useCallback(fetchPreAvailableFilesForTable, [fetchPreAvailableFilesForTable]);
-  const stableFetchPostAvailableFiles = useCallback(fetchPostAvailableFilesForTable, [fetchPostAvailableFilesForTable]);
-  const stableFetchPreData = useCallback(fetchPreData, [fetchPreData]);
-  const stableFetchPostData = useCallback(fetchPostData, [fetchPostData]);
+  const stableLoadTablesForSeedingSet = useCallback(loadTablesForSeedingSet, [loadTablesForSeedingSet]);
+  const stableClearCurrentSeedingSet = useCallback(clearCurrentSeedingSet, [clearCurrentSeedingSet]);
 
   useEffect(() => {
-    stableFetchAvailableTables();
-  }, [stableFetchAvailableTables]);
+    stableFetchAvailableTables(); // Fetch all possible tables on component mount
+    return () => {
+      stableClearCurrentSeedingSet(); // Clear seeding set when component unmounts
+    };
+  }, [stableFetchAvailableTables, stableClearCurrentSeedingSet]);
 
+  // Effect to load/reload the seeding set when target table or data type changes
   useEffect(() => {
-    if (selectedTable && selectedDataType) {
-      stableResetSchemaAndDataToDefault();
-      setNewFileNameInput(''); // Reset new file name input when table/type changes
-      if (selectedDataType === 'pre') {
-        stableFetchPreAvailableFiles(selectedTable);
-      } else {
-        stableFetchPostAvailableFiles(selectedTable);
-      }
+    if (selectedTargetTable && selectedDataType) {
+      stableLoadTablesForSeedingSet(selectedTargetTable, selectedDataType);
+      setNewFileNameInputs({}); // Reset all filename inputs for the new set
     } else {
-      useSeedDataStore.setState({ availableFiles: [], selectedFile: '', data: initialData });
-      setNewFileNameInput('');
+      stableClearCurrentSeedingSet(); // Clear if no target table selected
     }
-  }, [
-    selectedTable,
-    selectedDataType,
-    stableFetchPreAvailableFiles,
-    stableFetchPostAvailableFiles,
-    stableResetSchemaAndDataToDefault,
-  ]);
+  }, [selectedTargetTable, selectedDataType, stableLoadTablesForSeedingSet, stableClearCurrentSeedingSet]);
 
+  // Update individual filename input when a file is selected for a table in a tab
   useEffect(() => {
-    if (selectedTable && selectedDataType && selectedFile) {
-      setNewFileNameInput(selectedFile); // Populate input if a file is selected
-      if (selectedDataType === 'pre') {
-        stableFetchPreData(selectedTable, selectedFile);
-      } else {
-        stableFetchPostData(selectedTable, selectedFile);
-      }
-    } else if (selectedTable && selectedDataType && !selectedFile) {
-      setData(initialData); // Use imported initialData
+    if (activeTableForDisplay && selectedFiles[activeTableForDisplay]) {
+      setNewFileNameInputs((prev) => ({
+        ...prev,
+        [activeTableForDisplay]: selectedFiles[activeTableForDisplay],
+      }));
     }
-  }, [selectedTable, selectedDataType, selectedFile, stableFetchPreData, stableFetchPostData, setData]);
+  }, [selectedFiles, activeTableForDisplay]);
 
-  const handleTableChange = (value) => {
-    setSelectedTable(value);
+  const handleTargetTableChange = (value) => {
+    setSelectedTargetTable(value);
+    // The useEffect above will handle loading the seeding set
   };
 
   const handleDataTypeChange = (value) => {
     setSelectedDataType(value);
+    // The useEffect above will handle loading the seeding set
   };
 
-  const handleFileChange = (fileName) => {
-    useSeedDataStore.setState({ selectedFile: fileName });
-    setNewFileNameInput(fileName); // Also update the input field
+  const handleFileNameInputChange = (tableName, value) => {
+    setNewFileNameInputs((prev) => ({ ...prev, [tableName]: value }));
   };
 
-  const handleSaveChanges = async () => {
-    if (!selectedTable) {
-      alert('Please select a table.');
-      return;
-    }
-
-    let fileNameToSave = newFileNameInput.trim();
-
+  const handleSaveTableData = (tableName) => {
+    const fileNameToSave = (newFileNameInputs[tableName] || '').trim();
     if (!fileNameToSave) {
-      alert('Please enter a filename.');
+      alert(`Please enter a filename for table ${tableName}.`);
       return;
     }
+    saveTableData(tableName, fileNameToSave.replace(/\.csv$/i, ''), selectedDataType);
+  };
 
-    // Sanitize filename (optional, basic example: remove .csv if user adds it)
-    fileNameToSave = fileNameToSave.replace(/\.csv$/i, '');
-    if (!fileNameToSave) {
-      alert('Filename cannot be empty or just ".csv".');
+  const handleSeedCurrentSet = () => {
+    if (!selectedTargetTable) {
+      alert('Please select a target table first.');
       return;
     }
+    seedCurrentSet(selectedTargetTable, selectedDataType);
+  };
 
-    const isNewFile = !availableFiles.includes(fileNameToSave);
-    if (isNewFile) {
-      // Optional: Confirm if user wants to create a new file if the name doesn't exist
-      // const confirmNew = window.confirm(`File "${fileNameToSave}.csv" does not exist. Create new?`);
-      // if (!confirmNew) return;
-    } else if (fileNameToSave !== selectedFile) {
-      // Saving to an existing file but with a name different from the one selected in dropdown
-      // This implies the user typed an existing name into the input field
-      // Optional: Confirm overwrite if it's an existing file different from selectedFile
-      // const confirmOverwrite = window.confirm(`Overwrite existing file "${fileNameToSave}.csv"?`);
-      // if (!confirmOverwrite) return;
-    }
-
-    if (selectedDataType === 'pre') {
-      await savePreData(selectedTable, fileNameToSave);
-    } else {
-      await savePostData(selectedTable, fileNameToSave);
-    }
-    // After successful save, update selectedFile in store to the saved name
-    // and refresh available files. savePreData/savePostData should ideally handle this.
-    // If they do, these lines might be redundant or handled within the store actions.
-    useSeedDataStore.setState({ selectedFile: fileNameToSave });
-    if (isNewFile) {
-      // If it was a new file, clear input for next new file.
-      // setNewFileNameInput(''); // Or keep it if user might save multiple versions
-    }
+  const handleResetEntireView = () => {
+    setSelectedTargetTable('');
+    // setSelectedDataType('pre'); // Optionally reset data type
+    stableClearCurrentSeedingSet();
+    setNewFileNameInputs({});
   };
 
   return (
@@ -195,20 +178,20 @@ const DataSeedingPage = () => {
               {/* Enhanced UI for Controls */}
               <Card>
                 <CardHeader className='pb-3'>
-                  <CardTitle>Data Configuration</CardTitle>
+                  <CardTitle>Seeding Configuration</CardTitle>
                   <CardDescription>
-                    Select a table, data type, and file to begin editing or create a new file.
+                    Select a target table and data type. Ancestor tables will be loaded for editing.
                   </CardDescription>
                 </CardHeader>
                 <CardContent>
-                  <div className='grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4 mb-3'>
+                  <div className='grid grid-cols-1 md:grid-cols-3 gap-4 mb-3 items-end'>
                     <div className='space-y-2'>
-                      <Label htmlFor='table-select' className='flex items-center gap-2'>
-                        <Database className='h-4 w-4' /> Select Table
+                      <Label htmlFor='target-table-select' className='flex items-center gap-2'>
+                        <Database className='h-4 w-4' /> Select Target Table
                       </Label>
-                      <Select onValueChange={handleTableChange} value={selectedTable}>
-                        <SelectTrigger id='table-select' className='w-full'>
-                          <SelectValue placeholder='Choose a table...' />
+                      <Select onValueChange={handleTargetTableChange} value={selectedTargetTable}>
+                        <SelectTrigger id='target-table-select' className='w-full'>
+                          <SelectValue placeholder='Choose a target table...' />
                         </SelectTrigger>
                         <SelectContent>
                           {tables.map((table) => (
@@ -244,159 +227,202 @@ const DataSeedingPage = () => {
                         </div>
                       </RadioGroup>
                     </div>
-
-                    <div className='space-y-2'>
-                      <Label htmlFor='file-select' className='flex items-center gap-2'>
-                        <FileCheck className='h-4 w-4' /> Select File
-                      </Label>
-                      <Select
-                        onValueChange={handleFileChange}
-                        value={selectedFile}
-                        disabled={isLoading || !selectedTable || availableFiles.length === 0}
-                      >
-                        <SelectTrigger id='file-select' className='w-full'>
-                          <SelectValue
-                            placeholder={availableFiles.length > 0 ? 'Choose a file...' : 'No files available'}
-                          />
-                        </SelectTrigger>
-                        <SelectContent>
-                          {availableFiles.map((fileName) => (
-                            <SelectItem key={fileName} value={fileName}>
-                              {fileName}.csv
-                            </SelectItem>
-                          ))}
-                        </SelectContent>
-                      </Select>
-                      {availableFiles.length > 0 && (
-                        <p className='text-xs text-muted-foreground'>
-                          {availableFiles.length} {availableFiles.length === 1 ? 'file' : 'files'} available
-                        </p>
-                      )}
-                    </div>
-
-                    <div className='space-y-2'>
-                      <Label htmlFor='filename-input' className='flex items-center gap-2'>
-                        <FilePlus className='h-4 w-4' /> Save Filename
-                      </Label>
-                      <div className='flex space-x-2'>
-                        <Input
-                          id='filename-input'
-                          type='text'
-                          placeholder='e.g., my_data'
-                          value={newFileNameInput}
-                          onChange={(e) => setNewFileNameInput(e.target.value)}
-                          disabled={isLoading || !selectedTable}
-                          className='flex-1'
-                        />
-                        <span className='flex items-center text-sm text-muted-foreground self-center'>.csv</span>
-                      </div>
-                      <p className='text-xs text-muted-foreground'>
-                        Enter filename to save data (without .csv extension)
-                      </p>
-                    </div>
-                  </div>
-
-                  <Separator className='my-4' />
-
-                  <div className='flex flex-wrap items-center gap-2'>
-                    <TooltipProvider>
-                      <Tooltip>
-                        <TooltipTrigger asChild>
-                          <Button
-                            disabled={isLoading || !selectedTable}
-                            onClick={handleSaveChanges}
-                            className='flex items-center gap-2'
-                          >
-                            <Save className='h-4 w-4' />
-                            {isLoading ? 'Saving...' : 'Save Data'}
-                          </Button>
-                        </TooltipTrigger>
-                        <TooltipContent side='bottom'>Save to {newFileNameInput.trim() || '...'}.csv</TooltipContent>
-                      </Tooltip>
-                    </TooltipProvider>
-
-                    <Tooltip>
-                      <TooltipTrigger asChild>
-                        <Button
-                          variant='outline'
-                          onClick={addRow}
-                          disabled={isLoading}
-                          className='flex items-center gap-2'
-                        >
-                          <Plus className='h-4 w-4' /> Row
-                        </Button>
-                      </TooltipTrigger>
-                      <TooltipContent side='bottom'>Add a new row to the spreadsheet</TooltipContent>
-                    </Tooltip>
-
-                    <Tooltip>
-                      <TooltipTrigger asChild>
-                        <Button
-                          variant='outline'
-                          onClick={addColumn}
-                          disabled={isLoading}
-                          className='flex items-center gap-2'
-                        >
-                          <Plus className='h-4 w-4' /> Column
-                        </Button>
-                      </TooltipTrigger>
-                      <TooltipContent side='bottom'>Add a new column to the spreadsheet</TooltipContent>
-                    </Tooltip>
-
-                    <Tooltip>
-                      <TooltipTrigger asChild>
-                        <Button
-                          variant='secondary'
-                          onClick={() => {
-                            stableResetSchemaAndDataToDefault();
-                            setNewFileNameInput('');
-                          }}
-                          disabled={isLoading}
-                          className='flex items-center gap-2'
-                        >
-                          <RefreshCw className='h-4 w-4' /> Reset
-                        </Button>
-                      </TooltipTrigger>
-                      <TooltipContent side='bottom'>Clear the spreadsheet and reset selections</TooltipContent>
-                    </Tooltip>
+                    <Button
+                      variant='destructive'
+                      onClick={handleResetEntireView}
+                      className='flex items-center gap-2 w-full md:w-auto'
+                    >
+                      <XCircle className='h-4 w-4' /> Reset View
+                    </Button>
                   </div>
                 </CardContent>
               </Card>
 
-              {/* The dashboard part with the spreadsheet - unchanged */}
-              <div
-                className='flex flex-1 items-start justify-center rounded-lg border border-dashed shadow-sm p-4 min-h-[400px] overflow-y-auto'
-                x-chunk='dashboard-02-chunk-1'
-              >
-                {isLoading && <p>Loading...</p>}
-                {!isLoading && !selectedTable && (
-                  <div className='text-center text-muted-foreground'>
-                    <p className='mb-2'>Please select a table and data type to begin.</p>
-                  </div>
-                )}
-                {!isLoading && selectedTable && (
-                  <div className='w-full'>
-                    {!selectedFile && availableFiles.length === 0 && (
-                      <div className='text-center text-muted-foreground mb-4 p-2 border border-yellow-300 bg-yellow-50 rounded'>
-                        <p>
-                          No {selectedDataType} data files found for table '{selectedTable}'.
-                        </p>
-                        <p className='text-sm'>You can start editing the sheet below and save it as a new file.</p>
-                      </div>
-                    )}
-                    {!selectedFile && availableFiles.length > 0 && !newFileNameInput && (
-                      <div className='text-center text-muted-foreground mb-4 p-2 border border-blue-300 bg-blue-50 rounded'>
-                        <p>
-                          Select an existing file from the dropdown or enter a new filename to start editing/saving.
-                        </p>
-                      </div>
-                    )}
-                    <div className='mb-4 overflow-x-auto'>
-                      <Spreadsheet data={data} onChange={setData} />
-                    </div>
-                  </div>
-                )}
-              </div>
+              {isLoading && <p className='text-center my-4'>Loading configuration and data...</p>}
+
+              {!isLoading && selectedTargetTable && seedingSetTables.length > 0 && (
+                <Tabs value={activeTableForDisplay} onValueChange={setActiveTableForDisplay} className='w-full'>
+                  <TabsList className='grid w-full grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 gap-1 h-auto'>
+                    {seedingSetTables.map((tableName) => (
+                      <TabsTrigger
+                        key={tableName}
+                        value={tableName}
+                        className='truncate px-2 py-1.5 text-xs sm:text-sm'
+                      >
+                        {tableName}
+                        {selectedFiles[tableName] && <FileCheck className='h-3 w-3 ml-1 text-green-500 inline-block' />}
+                      </TabsTrigger>
+                    ))}
+                  </TabsList>
+
+                  {seedingSetTables.map((currentTabTable) => (
+                    <TabsContent key={currentTabTable} value={currentTabTable} className='mt-4'>
+                      <Card>
+                        <CardHeader>
+                          <CardTitle>Editing: {currentTabTable}</CardTitle>
+                          <CardDescription>
+                            Select or create a file for this table. Changes are per-table.
+                          </CardDescription>
+                        </CardHeader>
+                        <CardContent className='space-y-4'>
+                          <div className='grid grid-cols-1 md:grid-cols-2 gap-4 items-end'>
+                            <div className='space-y-2'>
+                              <Label htmlFor={`file-select-${currentTabTable}`} className='flex items-center gap-2'>
+                                <FileCheck className='h-4 w-4' /> Select File for {currentTabTable}
+                              </Label>
+                              <Select
+                                onValueChange={(fileName) =>
+                                  setSelectedFileForTable(currentTabTable, fileName, selectedDataType)
+                                }
+                                value={selectedFiles[currentTabTable] || ''}
+                                disabled={
+                                  isLoading ||
+                                  !(availableFiles[currentTabTable] && availableFiles[currentTabTable].length > 0)
+                                }
+                              >
+                                <SelectTrigger id={`file-select-${currentTabTable}`} className='w-full'>
+                                  <SelectValue
+                                    placeholder={
+                                      availableFiles[currentTabTable] && availableFiles[currentTabTable].length > 0
+                                        ? 'Choose a file...'
+                                        : 'No files available'
+                                    }
+                                  />
+                                </SelectTrigger>
+                                <SelectContent>
+                                  {(availableFiles[currentTabTable] || []).map((fileName) => (
+                                    <SelectItem key={fileName} value={fileName}>
+                                      {fileName}.csv
+                                    </SelectItem>
+                                  ))}
+                                </SelectContent>
+                              </Select>
+                            </div>
+                            <div className='space-y-2'>
+                              <Label htmlFor={`filename-input-${currentTabTable}`} className='flex items-center gap-2'>
+                                <FilePlus className='h-4 w-4' /> Save Filename for {currentTabTable}
+                              </Label>
+                              <div className='flex space-x-2'>
+                                <Input
+                                  id={`filename-input-${currentTabTable}`}
+                                  type='text'
+                                  placeholder='e.g., my_data'
+                                  value={newFileNameInputs[currentTabTable] || ''}
+                                  onChange={(e) => handleFileNameInputChange(currentTabTable, e.target.value)}
+                                  disabled={isLoading}
+                                  className='flex-1'
+                                />
+                                <span className='flex items-center text-sm text-muted-foreground self-center'>
+                                  .csv
+                                </span>
+                              </div>
+                            </div>
+                          </div>
+                          <Button
+                            onClick={() => handleSaveTableData(currentTabTable)}
+                            disabled={isLoading || !newFileNameInputs[currentTabTable]}
+                            className='flex items-center gap-2'
+                          >
+                            <Save className='h-4 w-4' /> Save Data for {currentTabTable}
+                          </Button>
+
+                          <Separator />
+                          <div className='mb-4 overflow-x-auto min-h-[300px]'>
+                            <Spreadsheet
+                              data={data[currentTabTable] || defaultSpreadsheetData}
+                              onChange={(newData) => setTableData(currentTabTable, newData)}
+                            />
+                          </div>
+                        </CardContent>
+                      </Card>
+                    </TabsContent>
+                  ))}
+                </Tabs>
+              )}
+
+              {!isLoading && selectedTargetTable && seedingSetTables.length === 0 && !error && (
+                <p className='text-center my-4 text-muted-foreground'>
+                  Loading ancestor tables for {selectedTargetTable}...
+                </p>
+              )}
+              {!isLoading && !selectedTargetTable && (
+                <div className='text-center text-muted-foreground my-10'>
+                  <p className='mb-2 text-lg'>Please select a target table to begin the seeding process.</p>
+                  <p className='text-sm'>
+                    Ancestor tables will be loaded into tabs for individual file selection and editing.
+                  </p>
+                </div>
+              )}
+
+              {/* Global actions for the active tab or the entire set */}
+              {selectedTargetTable && seedingSetTables.length > 0 && (
+                <Card className='mt-6'>
+                  <CardHeader>
+                    <CardTitle>Spreadsheet & Seeding Actions</CardTitle>
+                    <CardDescription>
+                      Actions for the currently active table (<b>{activeTableForDisplay}</b>) or the entire seeding set.
+                    </CardDescription>
+                  </CardHeader>
+                  <CardContent className='flex flex-wrap items-center gap-2'>
+                    <TooltipProvider>
+                      <Tooltip>
+                        <TooltipTrigger asChild>
+                          <Button
+                            variant='outline'
+                            onClick={addRow}
+                            disabled={isLoading || !activeTableForDisplay}
+                            className='flex items-center gap-2'
+                          >
+                            <Plus className='h-4 w-4' /> Row
+                          </Button>
+                        </TooltipTrigger>
+                        <TooltipContent side='bottom'>Add Row to {activeTableForDisplay}</TooltipContent>
+                      </Tooltip>
+                      <Tooltip>
+                        <TooltipTrigger asChild>
+                          <Button
+                            variant='outline'
+                            onClick={addColumn}
+                            disabled={isLoading || !activeTableForDisplay}
+                            className='flex items-center gap-2'
+                          >
+                            <Plus className='h-4 w-4' /> Column
+                          </Button>
+                        </TooltipTrigger>
+                        <TooltipContent side='bottom'>Add Column to {activeTableForDisplay}</TooltipContent>
+                      </Tooltip>
+                      <Tooltip>
+                        <TooltipTrigger asChild>
+                          <Button
+                            variant='secondary'
+                            onClick={resetActiveTableToDefault}
+                            disabled={isLoading || !activeTableForDisplay}
+                            className='flex items-center gap-2'
+                          >
+                            <RefreshCw className='h-4 w-4' /> Reset Active Table
+                          </Button>
+                        </TooltipTrigger>
+                        <TooltipContent side='bottom'>Reset {activeTableForDisplay} to default schema</TooltipContent>
+                      </Tooltip>
+                      <Separator orientation='vertical' className='h-8 mx-2' />
+                      <Tooltip>
+                        <TooltipTrigger asChild>
+                          <Button
+                            onClick={handleSeedCurrentSet}
+                            disabled={isLoading}
+                            className='flex items-center gap-2 bg-green-600 hover:bg-green-700 text-white'
+                          >
+                            <UploadCloud className='h-4 w-4' /> Seed This Set
+                          </Button>
+                        </TooltipTrigger>
+                        <TooltipContent side='bottom'>
+                          Seed {selectedTargetTable} and its ancestors with selected files
+                        </TooltipContent>
+                      </Tooltip>
+                    </TooltipProvider>
+                  </CardContent>
+                </Card>
+              )}
             </div>
           </SidebarInset>
         </div>
