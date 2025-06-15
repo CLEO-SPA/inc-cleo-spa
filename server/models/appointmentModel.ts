@@ -3,11 +3,55 @@ import { pool, getProdPool as prodPool } from '../config/database.js';
 const getAllAppointments = async (
   offset: number,
   limit: number,
-  startDate_utc: Date | string | null,
-  endDate_utc?: Date | string | null
+  startDate?: Date | string | null,
+  endDate?: Date | string | null,
+  employeeId?: number,
+  memberId?: number,
+  sortOrder: 'asc' | 'desc' = 'desc',
+  status?: 'upcoming' | 'finished'
 ) => {
   try {
-    const effectiveEndDate = endDate_utc || new Date();
+    const now = new Date();
+    const toDateStr = (d: Date | string | null | undefined) =>
+      d instanceof Date ? d.toISOString() : d;
+
+    const filters: string[] = [];
+    const values: (string | number | null)[] = [limit, offset];
+    let paramIndex = 3;
+
+    // Filter: appointment_date between startDate and endDate
+    if (startDate || endDate) {
+      filters.push(`a.appointment_date BETWEEN COALESCE($${paramIndex++}, '0001-01-01') AND COALESCE($${paramIndex++}, '9999-12-31')`);
+      values.push(toDateStr(startDate), toDateStr(endDate));
+    }
+
+    // Filter: employee
+    if (employeeId) {
+      filters.push(`a.servicing_employee_id = $${paramIndex}`);
+      values.push(employeeId);
+      paramIndex++;
+    }
+
+    // Filter: member
+    if (memberId) {
+      filters.push(`a.member_id = $${paramIndex}`);
+      values.push(memberId);
+      paramIndex++;
+    }
+
+    // Filter: upcoming or finished
+    if (status === 'upcoming') {
+      filters.push(`(a.appointment_date + a.start_time) > $${paramIndex}`);
+      values.push(toDateStr(now));
+      paramIndex++;
+    } else if (status === 'finished') {
+      filters.push(`(a.appointment_date + a.start_time) <= $${paramIndex}`);
+      values.push(toDateStr(now));
+      paramIndex++;
+    }
+
+    const whereClause = filters.length ? `WHERE ${filters.join(' AND ')}` : '';
+
     const query = `
       SELECT 
         a.*,
@@ -16,25 +60,16 @@ const getAllAppointments = async (
       FROM appointments a
       LEFT JOIN members m ON a.member_id = m.id
       LEFT JOIN employees e ON a.servicing_employee_id = e.id
-      WHERE a.created_at BETWEEN
-        COALESCE($3, '0001-01-01'::timestamp with time zone)
-        AND $4
-      ORDER BY a.appointment_date DESC, a.start_time ASC
+      ${whereClause}
+      ORDER BY a.appointment_date ${sortOrder.toUpperCase()}, a.start_time ${sortOrder.toUpperCase()}
       LIMIT $1 OFFSET $2
     `;
-    const values = [limit, offset, startDate_utc, effectiveEndDate];
+
     const result = await pool().query(query, values);
 
-    const totalQuery = `
-      SELECT COUNT(*) FROM appointments
-
-      WHERE created_at BETWEEN
-        COALESCE($1, '0001-01-01'::timestamp with time zone)
-        AND $2
-    `;
-    const totalValues = [startDate_utc, effectiveEndDate];
-    const totalResult = await pool().query(totalQuery, totalValues);
-    const totalPages = Math.ceil(totalResult.rows[0].count / limit);
+    const totalQuery = `SELECT COUNT(*) FROM appointments a ${whereClause}`;
+    const totalResult = await pool().query(totalQuery, values.slice(2));
+    const totalPages = Math.ceil(Number(totalResult.rows[0].count) / limit);
 
     return {
       appointments: result.rows,
@@ -45,6 +80,7 @@ const getAllAppointments = async (
     throw new Error('Error fetching appointments');
   }
 };
+
 
 const getAppointmentsByDate = async (appointmentDate: Date | string) => {
   try {

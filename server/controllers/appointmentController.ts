@@ -5,29 +5,41 @@ const getAllAppointments = async (req: Request, res: Response) => {
   const page = parseInt(req.query.page as string || '1', 10);
   const limit = parseInt(req.query.limit as string || '10', 10);
   const offset = (page - 1) * limit;
-  const { startDate_utc, endDate_utc } = req.session as typeof req.session & {
-    startDate_utc?: string;
-    endDate_utc?: string;
-  };
+
+  // Optional filters from query string
+  const startDate = req.query.startDate as string | undefined;
+  const endDate = req.query.endDate as string | undefined;
+  const employeeId = req.query.employeeId ? Number(req.query.employeeId) : undefined;
+  const memberId = req.query.memberId ? Number(req.query.memberId) : undefined;
+  const sortOrder = req.query.sortOrder === 'asc' ? 'asc' : 'desc';
+  const status = req.query.status === 'upcoming' || req.query.status === 'finished'
+    ? req.query.status
+    : undefined;
 
   try {
     const { appointments, totalPages } = await model.getAllAppointments(
       offset,
       limit,
-      startDate_utc ?? null,
-      endDate_utc ?? null
+      startDate ?? null,
+      endDate ?? null,
+      employeeId,
+      memberId,
+      sortOrder,
+      status
     );
 
     res.status(200).json({
       currentPage: page,
-      totalPages: totalPages,
+      totalPages,
       pageSize: limit,
       data: appointments,
     });
   } catch (error) {
-    console.log('Error getting appointments:', error);
-    const errorMessage = error instanceof Error ? error.message : String(error);
-    res.status(500).json({ message: 'Error getting appointments', error: errorMessage });
+    console.error('Error getting appointments:', error);
+    res.status(500).json({
+      message: 'Error getting appointments',
+      error: error instanceof Error ? error.message : String(error),
+    });
   }
 };
 
