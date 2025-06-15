@@ -13,6 +13,16 @@ const useEmployeeTimetableStore = create((set, get) => ({
     currentMonth: new Date(), // Default to current month
     searchTerm: '',
 
+    // Pagination state
+    pagination: {
+        currentPage: 1,
+        totalPages: 1,
+        totalItems: 0,
+        pageSize: 10,
+        hasNextPage: false,
+        hasPrevPage: false
+    },
+
     // Loading state
     loading: {
         employees: false,
@@ -25,13 +35,42 @@ const useEmployeeTimetableStore = create((set, get) => ({
     setSelectedPosition: (position) => set({ 
         selectedPosition: position,
         searchTerm: '', // Reset search term when position changes
-        selectedEmployee: null // Reset employee selection when position changes
+        selectedEmployee: null, // Reset employee selection when position changes
+        pagination: { ...get().pagination, currentPage: 1 } // Reset to first page
     }),
-    setCurrentMonth: (month) => set({ currentMonth: month }),
+    setCurrentMonth: (month) => set({ 
+        currentMonth: month,
+        pagination: { ...get().pagination, currentPage: 1 } // Reset to first page when month changes
+    }),
     setSearchTerm: (term) => set({ searchTerm: term }),
     setLoading: (key, value) => set((state) => ({
         loading: { ...state.loading, [key]: value }
     })),
+
+    // Pagination actions
+    setCurrentPage: (page) => set((state) => ({
+        pagination: { ...state.pagination, currentPage: page }
+    })),
+
+    goToNextPage: async () => {
+        const { pagination, loadTimetableData, currentMonth } = get();
+        if (pagination.hasNextPage) {
+            set((state) => ({
+                pagination: { ...state.pagination, currentPage: state.pagination.currentPage + 1 }
+            }));
+            await loadTimetableData(currentMonth);
+        }
+    },
+
+    goToPrevPage: async () => {
+        const { pagination, loadTimetableData, currentMonth } = get();
+        if (pagination.hasPrevPage) {
+            set((state) => ({
+                pagination: { ...state.pagination, currentPage: state.pagination.currentPage - 1 }
+            }));
+            await loadTimetableData(currentMonth);
+        }
+    },
 
     // API calls
     loadEmployees: async () => {
@@ -89,47 +128,60 @@ const useEmployeeTimetableStore = create((set, get) => ({
         try {
             const monthStr = month.toISOString().slice(0, 7); // Format month as YYYY-MM
             console.log('Loading timetable data for month:', monthStr);
-            const { selectedEmployee, selectedPosition } = get();
+            const { selectedEmployee, selectedPosition, pagination } = get();
 
-            let url = `/api/et/timetable?month=${monthStr}`;
+            // Build URL with pagination parameters
+            let url = `/api/et/timetables?month=${monthStr}&page=${pagination.currentPage}&limit=${pagination.pageSize}`;
+            
             /**
-             * Implement both employee and position are selected
-             * If both are selected, we will use employeeId and positionId as query parameters
+             * Implement both employee and position filters
              */
             if (selectedEmployee) {
-                url = `/api/et/timetable?employeeId=${selectedEmployee}?month=${monthStr}`;
+                // url += `&employeeId=${selectedEmployee.employee_id}`;
+                console.log('selectedEmployee:', selectedEmployee);
+                console.log('selectedEmployee.employee_id:', selectedEmployee?.id);
+                url = `/api/et/employee/${selectedEmployee.id}?month=${monthStr}`;
             } else if (selectedPosition) {
-                url = `/api/et/timetable?positionId=${selectedPosition}?month=${monthStr}`;
+                // url += `&position_id=${selectedPosition.position_id}`;
+                url = `/api/et/position/${selectedPosition.id}?month=${monthStr}`;
             }
+            
             console.log('Fetching timetable data from URL:', url);
 
-            const response = await api.get(url);
+            // const response = await api.get(url);
+            const response = await fetch(`http://localhost:3000${url}`);
             const data = await response.json();
             console.log('Timetable data loaded:', data);
+            
             if(data.success) {
+                // Update timetable data
                 if(data.data && Array.isArray(data.data)) {
-                    /**
-                     * If data is an array, we set the timetableData state
-                     */
-                set({ timetableData: data.data });
-                }
-                else if(data.data && !Array.isArray(data.data)){
-                    /**
-                     * If data is an object, we set the timetableData state
-                     * which means we have a single timetable entry
-                     */
+                    set({ timetableData: data.data });
+                } else if(data.data && !Array.isArray(data.data)){
                     set({ timetableData: [data.data] });
                 } else {
-                    /**
-                     * If data is empty, we set the timetableData state to an empty array
-                     */
                     set({ timetableData: [] });
+                }
+
+                // Update pagination info
+                if (data.pagination) {
+                    set((state) => ({
+                        pagination: {
+                            ...state.pagination,
+                            totalPages: data.pagination.total_pages,
+                            totalItems: data.pagination.total_employees,  // ✅ Fix
+                            hasNextPage: data.pagination.current_page < data.pagination.total_pages,  // ✅ Calculate
+                            hasPrevPage: data.pagination.current_page > 1  // ✅ Calculate
+                        }
+                    }));
                 }
             } else {
                 console.error('Failed to load timetable data:', data.error);
+                set({ timetableData: [] });
             }
         } catch (error) {
             console.error('Failed to load timetable data:', error);
+            set({ timetableData: [] });
         } finally {
             set((state) => ({
                 loading: { ...state.loading, timetable: false }
@@ -141,20 +193,20 @@ const useEmployeeTimetableStore = create((set, get) => ({
     getFilteredEmployees: () => {
         const { employees, selectedPosition, searchTerm } = get();
         let filtered = employees;
+        // console.log('filtered employees:', filtered);
         // Filter by position if selected
         if (selectedPosition) {
             /**
              * Check whether position_id or positionId is used in the employee object
              * It could js be id 
              */
-            filtered = filtered.filter(emp => emp.position_id === selectedPosition);
+            filtered = filtered.filter(emp => emp.position_id === selectedPosition.position_id);
         }
 
         // Filter by search term
         if (searchTerm) {
             filtered = filtered.filter(emp => 
-                emp.employee_name.toLowerCase().includes(searchTerm.toLowerCase()) ||
-                emp.employee_code.toLowerCase().includes(searchTerm.toLowerCase())
+                emp.employee_name.toLowerCase().includes(searchTerm.toLowerCase())
             );
         }
         return filtered;

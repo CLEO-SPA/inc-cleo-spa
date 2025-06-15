@@ -7,7 +7,7 @@ import timetableController from '../controllers/timetableController.js';
 // =========================
 // Private routes
 // =========================
-router.use(isAuthenticated);
+// router.use(isAuthenticated);
 
 // GET /api/et/current-and-upcoming/:employeeId?currentDate=YYYY-MM-DD
 router.get('/current-and-upcoming/:employeeId', timetableController.getCurrentAndUpcomingTimetables);
@@ -15,17 +15,17 @@ router.get('/current-and-upcoming/:employeeId', timetableController.getCurrentAn
 // POST /api/et/create-employee-timetable
 router.post('/create-employee-timetable', timetableController.createTimetable);
 
+// GET /api/et/timetables?month=2025-02&page=1&limit=20
+router.get('/timetables', timetableController.getActiveRestDays);
+
 // GET /api/et/timetableId
-router.get('/:timetableId', timetableController.getTimetableById);
+// router.get('/:timetableId', timetableController.getTimetableById);
 
 // PUT /api/et/update-employee-timetable/:timetableId
 router.put('/update-employee-timetable/:timetableId', timetableController.updateTimetable);
 
 // POST /api/et/reset-create-timetables-pre
 router.post('/reset-create-timetables-pre', timetableController.resetCreateTimetablePre);
-
-// GET /api/et/timetables?month=2025-02&page=1&limit=20
-router.get('/timetables', timetableController.getActiveRestDays);
 
 // GET /api/et/employee/:employeeId?month=2025-02  
 router.get('/employee/:employeeId', timetableController.getActiveRestDaysByEmployee);

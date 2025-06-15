@@ -172,6 +172,7 @@ const getActiveRestDays = async(
       SELECT 
         fe.employee_id,
         fe.employee_name,
+        tc.total,
         t.restday_number,
         CASE t.restday_number
           WHEN 1 THEN 'Monday'
@@ -207,39 +208,53 @@ const getActiveRestDays = async(
     /**
      * Incase if there is any error, check here 
      */
-    result.rows.forEach((row: { total: number; employee_id: number; employee_name: string; restday_number: number; restday_name: string; effective_startdate: any; effective_enddate: any; }) => {
-      totalEmployees = row.total;
-      
-      if (!employeeMap.has(row.employee_id)) {
-        employeeMap.set(row.employee_id, {
-          employee_id: row.employee_id,
-          employee_name: row.employee_name,
-          rest_days: []
-        });
-      }
+    if (result.rows.length === 0) {
+      // If no employees found, return empty data with pagination
+      const countQuery = `
+        SELECT COUNT(*) AS total
+        FROM employees e
+        WHERE e.employee_is_active = true
+        ${positionId ? 'AND e.position_id = $1' : ''}
+      `;
+      const countParams = positionId ? [positionId] : [];
+      const countResult = await pool().query(countQuery, countParams);
+      totalEmployees = parseInt(countResult.rows[0].total, 10);
+    } else {
+      result.rows.forEach((row: { total: number; employee_id: number; employee_name: string; restday_number: number; restday_name: string; effective_startdate: any; effective_enddate: any; }) => {
+        console.log('Row total value:', row.total, typeof row.total); 
+        totalEmployees = row.total;
+        
+        if (!employeeMap.has(row.employee_id)) {
+          employeeMap.set(row.employee_id, {
+            employee_id: row.employee_id,
+            employee_name: row.employee_name,
+            rest_days: []
+          });
+        }
 
-      if (row.restday_number) {
-        employeeMap.get(row.employee_id)!.rest_days.push({
-          restday_number: row.restday_number,
-          restday_name: row.restday_name,
-          effective_startdate: row.effective_startdate,
-          effective_enddate: row.effective_enddate
-        });
-      }
-    });
+        if (row.restday_number) {
+          employeeMap.get(row.employee_id)!.rest_days.push({
+            restday_number: row.restday_number,
+            restday_name: row.restday_name,
+            effective_startdate: row.effective_startdate,
+            effective_enddate: row.effective_enddate
+          });
+        }
+      });
 
-    const data = Array.from(employeeMap.values());
-    const totalPages = Math.ceil(totalEmployees / limit);
+      const data = Array.from(employeeMap.values());
+      const totalPages = Math.ceil(totalEmployees / limit);
 
-    return {
-      data,
-      pagination: {
-        current_page: page,
-        per_page: limit,
-        total_employees: totalEmployees,
-        total_pages: totalPages
-      }
-    };
+      return {
+        data,
+        pagination: {
+          current_page: page,
+          per_page: limit,
+          total_employees: totalEmployees,
+          total_pages: totalPages
+        }
+      };
+    }
   } catch (error) {
     console.error('Database Error in getActiveRestDays:', error);
     throw new Error('Failed to fetch timetable data from the database');

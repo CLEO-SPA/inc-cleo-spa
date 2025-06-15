@@ -116,7 +116,7 @@ export default function EmployeeSearch() {
             <div className="py-1">
               {filteredEmployees.map((employee) => (
                 <button
-                  key={employee.employee_id}
+                  key={employee.id}
                   onClick={() => handleEmployeeSelect(employee)}
                   className="w-full px-4 py-2 text-left hover:bg-gray-100 focus:bg-gray-100 focus:outline-none"
                 >

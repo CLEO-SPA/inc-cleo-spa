@@ -61,7 +61,7 @@ const createTimetable = async (req: Request, res: Response) => {
  */
 const getActiveRestDays = async (req: Request, res: Response) => {
   try{
-    const { month, page = 1, limit = 20, position_id } = req.query;
+    const { month, page = 1, limit = 10, position_id } = req.query;
 
     // Validate month parameter
     if (!month || typeof month !== 'string') {

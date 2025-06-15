@@ -24,7 +24,7 @@ export default function PositionFilter() {
     if (value === 'all') {
       setSelectedPosition(null);
     } else {
-      const position = positions.find(p => p.position_id.toString() === value);
+      const position = positions.find(p => p.id.toString() === value);
       setSelectedPosition(position);
     }
     
@@ -39,7 +39,7 @@ export default function PositionFilter() {
       </Label>
       
       <Select
-        value={selectedPosition ? selectedPosition.position_id.toString() : 'all'}
+        value={selectedPosition ? selectedPosition.id.toString() : 'all'}
         onValueChange={handlePositionChange}
         disabled={loading.positions}
       >

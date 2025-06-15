@@ -3,6 +3,8 @@ import useEmployeeTimetableStore from '@/stores/useEmployeeTimetableStore';
 import TimetableFilters from '@/components/employee-timetable/TimetableFilters';
 import MonthNavigator from '@/components/employee-timetable/MonthNavigator';
 import TimetableCalendar from '@/components/employee-timetable/TimetableCalendar';
+import TimetablePagination from '@/components/employee-timetable/TimetablePagination';
+
 export default function EmployeeTimetablePage() {
   const initialize = useEmployeeTimetableStore((state) => state.initialize);
   const loading = useEmployeeTimetableStore((state) => state.loading);
@@ -36,7 +38,10 @@ export default function EmployeeTimetablePage() {
             <div className="text-gray-500">Loading timetable data...</div>
           </div>
         ) : (
-          <TimetableCalendar />
+          <>
+            <TimetableCalendar />
+            <TimetablePagination />
+          </>
         )}
       </div>
 
