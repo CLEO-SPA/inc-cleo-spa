@@ -8,6 +8,7 @@ import useEmployeeTimetableStore from '@/stores/useEmployeeTimetableStore';
 export default function EmployeeSearch() {
   const [isOpen, setIsOpen] = useState(false);
   const [inputValue, setInputValue] = useState('');
+  const [isSelected, setIsSelected] = useState(false); // ✅ ADD THIS
   const dropdownRef = useRef(null);
   const inputRef = useRef(null);
   
@@ -33,15 +34,16 @@ export default function EmployeeSearch() {
     return () => clearTimeout(timer);
   }, [inputValue, setSearchTerm]);
 
-  // Show dropdown when typing
+  // Show dropdown when typing (but not when employee is selected)
   useEffect(() => {
-    setIsOpen(inputValue.length > 0 && filteredEmployees.length > 0);
-  }, [inputValue, filteredEmployees]);
+    setIsOpen(inputValue.length > 0 && filteredEmployees.length > 0 && !isSelected); // ✅ FIX
+  }, [inputValue, filteredEmployees, isSelected]);
 
   // Handle employee selection
   const handleEmployeeSelect = async (employee) => {
     setSelectedEmployee(employee);
     setInputValue(employee.employee_name);
+    setIsSelected(true); // ✅ ADD THIS
     setIsOpen(false);
     
     // Load that employee's timetable
@@ -53,10 +55,17 @@ export default function EmployeeSearch() {
     setSelectedEmployee(null);
     setInputValue('');
     setSearchTerm('');
+    setIsSelected(false); // ✅ ADD THIS
     setIsOpen(false);
     
     // Reload all employees' timetables
     loadTimetableData(currentMonth);
+  };
+
+  // Handle input change - reset selection state when user types
+  const handleInputChange = (e) => {
+    setInputValue(e.target.value);
+    setIsSelected(false); // ✅ ADD THIS - User is typing, not selected
   };
 
   // Handle click outside
@@ -75,8 +84,10 @@ export default function EmployeeSearch() {
   useEffect(() => {
     if (selectedEmployee) {
       setInputValue(selectedEmployee.employee_name);
+      setIsSelected(true); // ✅ ADD THIS
     } else {
       setInputValue('');
+      setIsSelected(false); // ✅ ADD THIS
     }
   }, [selectedEmployee]);
 
@@ -93,7 +104,7 @@ export default function EmployeeSearch() {
           type="text"
           placeholder="Search employees by name..."
           value={inputValue}
-          onChange={(e) => setInputValue(e.target.value)}
+          onChange={handleInputChange} // ✅ CHANGE THIS
           className="pl-10 pr-10"
         />
         
@@ -131,7 +142,7 @@ export default function EmployeeSearch() {
             <div className="px-4 py-2 text-gray-500 text-sm">
               No matching employees found
             </div>
-          )}
+            )}
         </div>
       )}
     </div>
