@@ -16,6 +16,7 @@ import NotFoundPage from '@/pages/404Page';
 import ManageAppointmentsPage from '@/pages/ab/ManageAppointmentsPage';
 import CreateAppointmentPage from './pages/ab/CreateAppointmentPage';
 import EditAppointmentPage from './pages/ab/EditAppointmentPage.jsx';
+import ViewAppointmentDetailsPage from '@/pages/ab/ViewAppointmentDetailsPage.jsx';
 
 
 function App() {
@@ -35,6 +36,9 @@ function App() {
               <Route path="/appointments/create" element={<CreateAppointmentPage />} />
               <Route path="/employees" element={<CreateAppointmentPage />} />
               <Route path='/appointments/edit/:id' element={<EditAppointmentPage />} />
+              <Route path='/appointments/:id' element={<ViewAppointmentDetailsPage />} />
+              
+              {/* Protected Routes */}
 
             </Route>
             <Route path='/login' element={<LoginPage />} />

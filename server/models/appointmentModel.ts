@@ -108,14 +108,21 @@ const getAppointmentsByDate = async (appointmentDate: Date | string) => {
     throw new Error('Error fetching appointments by date');
   }
 };
-
 const getAppointmentById = async (id: number) => {
   try {
     const query = `
       SELECT 
-        *
-      FROM appointments
-      WHERE id = $1;
+        a.*,
+        m.name AS member_name,
+        e.employee_name AS servicing_employee_name,
+        c.employee_name AS created_by_name,
+        u.employee_name AS updated_by_name
+      FROM appointments a
+      LEFT JOIN members m ON a.member_id = m.id
+      LEFT JOIN employees e ON a.servicing_employee_id = e.id
+      LEFT JOIN employees c ON a.created_by = c.id
+      LEFT JOIN employees u ON a.updated_by = u.id
+      WHERE a.id = $1;
     `;
 
     const result = await pool().query(query, [id]);
@@ -143,7 +150,10 @@ const getAppointmentById = async (id: number) => {
       updated_at: appointment.updated_at
         ? format(new Date(appointment.updated_at), 'dd MMM yyyy, hh:mm a')
         : null,
-
+      member_name: appointment.member_name || null,
+      servicing_employee_name: appointment.servicing_employee_name || null,
+      created_by_name: appointment.created_by_name || null,
+      updated_by_name: appointment.updated_by_name || null,
     };
   } catch (error) {
     console.error('Error fetching appointment by ID:', error);
