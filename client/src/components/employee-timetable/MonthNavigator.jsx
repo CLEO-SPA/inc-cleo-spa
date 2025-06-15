@@ -3,8 +3,8 @@ import React from 'react';
 import { format, addMonths, subMonths } from 'date-fns';
 import { Button } from '@/components/ui/button';
 import { ChevronLeft, ChevronRight } from 'lucide-react';
-import DateTimePicker from '../employee-timetable/DateTimePicker';
-import useTimetableStore from '../../stores/useTimetableStore';
+import DateTimePicker from './DateTimePicker';
+import useEmployeeTimetableStore from '@/stores/useEmployeeTimetableStore';
 
 export default function MonthNavigator() {
   const {
@@ -12,7 +12,7 @@ export default function MonthNavigator() {
     setCurrentMonth,
     loadTimetableData,
     loading
-  } = useTimetableStore();
+  } = useEmployeeTimetableStore();
 
   const handlePreviousMonth = async () => {
     const newMonth = subMonths(currentMonth, 1);

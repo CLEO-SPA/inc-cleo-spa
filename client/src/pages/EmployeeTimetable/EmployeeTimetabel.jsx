@@ -1,12 +1,11 @@
 import React, { useEffect } from 'react';
-import useTimetableStore from '../../stores/useTimetableStore';
-import TimetableFilters from '../../components/employee-timetable/TimetableFilters';
-import MonthNavigator from '../../components/employee-timetable/MonthNavigator';
-import TimetableCalendar from '../../components/employee-timetable/TimetableCalendar';
-
+import useEmployeeTimetableStore from '@/stores/useEmployeeTimetableStore';
+import TimetableFilters from '@/components/employee-timetable/TimetableFilters';
+import MonthNavigator from '@/components/employee-timetable/MonthNavigator';
+import TimetableCalendar from '@/components/employee-timetable/TimetableCalendar';
 export default function EmployeeTimetablePage() {
-  const initialize = useTimetableStore((state) => state.initialize);
-  const loading = useTimetableStore((state) => state.loading);
+  const initialize = useEmployeeTimetableStore((state) => state.initialize);
+  const loading = useEmployeeTimetableStore((state) => state.loading);
 
   useEffect(() => {
     initialize();

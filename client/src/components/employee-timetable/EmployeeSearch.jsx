@@ -3,7 +3,7 @@ import React, { useState, useEffect, useRef } from 'react';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Search, X } from 'lucide-react';
-import useTimetableStore from '../../stores/useTimetableStore';
+import useEmployeeTimetableStore from '@/stores/useEmployeeTimetableStore';
 
 export default function EmployeeSearch() {
   const [isOpen, setIsOpen] = useState(false);
@@ -19,7 +19,7 @@ export default function EmployeeSearch() {
     getFilteredEmployees,
     loadTimetableData,
     currentMonth
-  } = useTimetableStore();
+  } = useEmployeeTimetableStore();
 
   // Get filtered employees
   const filteredEmployees = getFilteredEmployees();

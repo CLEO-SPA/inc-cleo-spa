@@ -8,7 +8,7 @@ import {
   SelectTrigger,
   SelectValue,
 } from '@/components/ui/select';
-import useTimetableStore from '../../stores/useTimetableStore';
+import useEmployeeTimetableStore from '@/stores/useEmployeeTimetableStore';
 
 export default function PositionFilter() {
   const {
@@ -18,7 +18,7 @@ export default function PositionFilter() {
     loadTimetableData,
     currentMonth,
     loading
-  } = useTimetableStore();
+  } = useEmployeeTimetableStore();
 
   const handlePositionChange = async (value) => {
     if (value === 'all') {
@@ -50,8 +50,8 @@ export default function PositionFilter() {
           <SelectItem value="all">All Positions</SelectItem>
           {positions.map((position) => (
             <SelectItem 
-              key={position.position_id} 
-              value={position.position_id.toString()}
+              key={position.id} 
+              value={position.id.toString()}
             >
               {position.position_name}
             </SelectItem>

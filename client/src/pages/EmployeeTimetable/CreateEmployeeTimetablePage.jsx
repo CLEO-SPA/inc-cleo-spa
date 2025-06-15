@@ -10,7 +10,7 @@ import { Button } from '@/components/ui/button';
 
 import EmployeeSelect from '@/components/ui/forms/EmployeeSelect';
 import TimetableDisplay from '@/components/employee-timetable/TimetableDisplay';
-import DateTimePicker from '@/components/employee-timetable/DateTimePicker';
+import DateTimePicker from '@/components/employee-timetable/FormDateTimePicker';
 import RestDaySelect from '@/components/employee-timetable/RestDaySelect';
 import CurrentDateDisplay, { getCurrentSimulationDate } from '@/components/employee-timetable/CurrentDateDisplay';
 import TimetableReview from '@/components/employee-timetable/TimetableReview';
