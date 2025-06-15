@@ -319,7 +319,7 @@ export default function ManageService() {
               <div className="flex space-x-4 p-4 bg-muted/50 rounded-lg">
                 <Button onClick={() => navigate("/create-service")} className="rounded-xl">Create Service</Button>
                 <Button onClick={() => navigate("/reorder-service")} className="rounded-xl">Reorder Service</Button>
-                <Button className="rounded-xl" disabled>Manage Categories</Button>
+                <Button onClick={() => navigate("/manage-service-category")} className="rounded-xl">Manage Categories</Button>
               </div>
               {/* Filter */}
               <div className="flex space-x-4 p-4 bg-muted/50 rounded-lg">
