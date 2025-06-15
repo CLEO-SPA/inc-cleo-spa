@@ -5,7 +5,8 @@ import {
   ChevronLeft,
   ChevronRight,
   Loader2,
-  AlertCircle
+  AlertCircle,
+  MoreHorizontal
 } from "lucide-react";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Alert, AlertDescription } from "@/components/ui/alert";
@@ -13,6 +14,13 @@ import { cn } from "@/lib/utils";
 import api from '@/services/api';
 import EmployeeSelect from '@/components/ui/forms/EmployeeSelect';
 import MemberSelect from "@/components/ui/forms/MemberSelect";
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu";
+import { Link } from 'react-router-dom';
 
 const formatDisplayTime = (hour, minute) => {
   const h = hour % 12 === 0 ? 12 : hour % 12;
@@ -66,7 +74,6 @@ export function AppointmentTable() {
   const { watch, reset } = methods;
 
   const filterEmployeeId = Number(watch('employee_id')) || null;
-
   const filterMemberId = watch('member_id');
 
   const timeSlots = generateTimeSlots();
@@ -75,12 +82,11 @@ export function AppointmentTable() {
     try {
       const response = await api.get('/employee/dropdown');
       const data = await response.data;
-      const transformed = data.map((emp, i) => ({
+      const transformed = data.map((emp) => ({
         id: parseInt(emp.id),
         name: emp.employee_name,
       }));
       setStaff(transformed);
-      console.log('Staff fetched:', transformed);
     } catch (err) {
       setError(err.message);
     }
@@ -94,7 +100,6 @@ export function AppointmentTable() {
       const response = await api.get(`ab/date/${dateString}`);
       const data = await response.data;
       const transformed = data.data ? data.data.map(transformAppointment) : [];
-      console.log('Appointments fetched:', transformed);
       setAppointments(transformed);
     } catch (err) {
       setError(err.message);
@@ -104,7 +109,6 @@ export function AppointmentTable() {
     }
   };
 
-  console.log(appointments)
   useEffect(() => {
     fetchStaff();
     fetchAppointments(date);
@@ -120,10 +124,6 @@ export function AppointmentTable() {
     return matchEmployee && matchMember;
   });
 
-  console.log('Filtered Appointments:', filteredAppointments);
-  console.log("filterEmployeeId:", filterEmployeeId);
-  console.log("filterMemberId:", filterMemberId);
-
   const staffWithAppointments = staff.filter((emp) =>
     filteredAppointments.some((app) => app.staff === emp.id)
   );
@@ -136,14 +136,13 @@ export function AppointmentTable() {
   const paginatedStaff = filterEmployeeId
     ? staff.filter(emp => emp.id === filterEmployeeId)
     : sortedStaff.slice(
-      employeePage * EMPLOYEES_PER_PAGE,
-      (employeePage + 1) * EMPLOYEES_PER_PAGE
-    );
+        employeePage * EMPLOYEES_PER_PAGE,
+        (employeePage + 1) * EMPLOYEES_PER_PAGE
+      );
 
   useEffect(() => {
     setEmployeePage(0);
   }, [filterEmployeeId]);
-
 
   const formattedDate = date.toLocaleDateString('en-US', {
     weekday: 'short', month: 'short', day: 'numeric'
@@ -193,10 +192,11 @@ export function AppointmentTable() {
         ) : (
           <div className="overflow-x-auto border rounded-md mt-4">
             <div className="flex justify-between items-center px-4 py-2 bg-muted border-b">
-              <div className="text-sm text-muted-foreground">
+              <span className="text-sm text-muted-foreground">
+                Total appointments: {filteredAppointments.length} |
                 Showing employees {employeePage * EMPLOYEES_PER_PAGE + 1}–
                 {Math.min((employeePage + 1) * EMPLOYEES_PER_PAGE, sortedStaff.length)} of {sortedStaff.length}
-              </div>
+              </span>
               <div className="flex gap-2">
                 <Button
                   size="icon"
@@ -222,7 +222,6 @@ export function AppointmentTable() {
                 <tr>
                   <th className="border px-2 py-2 w-[100px] text-left">Time</th>
                   {paginatedStaff.map((emp) => (
-
                     <th key={emp.id} className="border px-2 py-2 text-left">
                       <div className="flex items-center gap-2">
                         <span>{emp.name}</span>
@@ -241,13 +240,11 @@ export function AppointmentTable() {
                         {formatDisplayTime(hour, minute)}
                       </td>
                       {paginatedStaff.map((emp) => {
-                        // Check if an appointment starts exactly at this slot
                         const matchingAppointment = filteredAppointments.find((app) => {
                           const appStart = app.startTime.hour * 60 + app.startTime.minute;
                           return app.staff === emp.id && appStart === timeInMinutes;
                         });
 
-                        // Check if a cell is already spanned by a previous appointment
                         const isCoveredBySpan = filteredAppointments.some((app) => {
                           const appStart = app.startTime.hour * 60 + app.startTime.minute;
                           const appEnd = app.endTime.hour * 60 + app.endTime.minute;
@@ -268,21 +265,36 @@ export function AppointmentTable() {
                             <td
                               key={emp.id + timeLabel}
                               rowSpan={rowSpan}
-                              className="border px-2 py-1 align-top bg-blue-50"
+                              className="border px-2 py-1 align-top bg-muted"
                             >
-                              <div className="text-xs text-blue-900 font-medium">
+                              <div className="text-xs font-medium text-black">
                                 {matchingAppointment.customer}
                               </div>
-                              <div className="text-xs text-blue-800">
+                              <div className="text-xs text-muted-foreground">
                                 {matchingAppointment.service}
                               </div>
-                              <div className="text-[10px] text-blue-700">
+                              <div className="text-[10px] text-muted-foreground mb-1">
                                 {formatDisplayTime(start.hour, start.minute)} - {formatDisplayTime(end.hour, end.minute)}
                               </div>
+                              <DropdownMenu>
+                                <DropdownMenuTrigger asChild>
+                                  <Button variant="ghost" size="icon" className="h-5 w-5 p-0">
+                                    <MoreHorizontal className="h-4 w-4 text-muted-foreground" />
+                                  </Button>
+                                </DropdownMenuTrigger>
+                                <DropdownMenuContent align="start" className="text-sm">
+                                  <DropdownMenuItem asChild>
+                                   <Link to={`/appointments/${matchingAppointment.id}`}>View Details</Link>
+                                  </DropdownMenuItem>
+                                  <DropdownMenuItem asChild>
+                                    <Link to={`/appointments/edit/${matchingAppointment.id}`}>Reschedule</Link>
+                                  </DropdownMenuItem>
+                                </DropdownMenuContent>
+                              </DropdownMenu>
                             </td>
                           );
                         } else if (isCoveredBySpan) {
-                          return null; // Skip rendering this cell
+                          return null;
                         } else {
                           return <td key={emp.id + timeLabel} className="border px-2 py-1" />;
                         }
