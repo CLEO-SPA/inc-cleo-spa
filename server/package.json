@@ -27,6 +27,7 @@
     "multer": "^2.0.1",
     "pg": "^8.14.1",
     "server": "file:",
+    "sqlite3": "^5.1.7",
     "validator": "^13.15.0"
   },
   "devDependencies": {

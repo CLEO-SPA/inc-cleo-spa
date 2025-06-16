@@ -4,6 +4,8 @@ import path from 'path';
 import readline from 'readline';
 import { fileURLToPath } from 'url';
 
+import { logSeededFile, getActiveSeedInfo, calculateFileHash, clearActiveSeedInfo } from '../services/sqliteService.js';
+
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
 
@@ -431,6 +433,25 @@ const insertPreDataModel = async (targetTable: string, tablePayload: tablePayloa
 
     await performDbInserts(tablesToTruncate, sortedOrderForInsert, allTableData);
 
+    for (const tableName of sortedOrderForInsert) {
+      const payloadEntry = tablePayload.find((f) => f.table === tableName);
+      if (payloadEntry) {
+        const fileNameWithoutExtension = payloadEntry.file;
+        const csvFilePath = path.join(csvFolderPath, 'pre', tableName, `${fileNameWithoutExtension}.csv`);
+        try {
+          if (fs.existsSync(csvFilePath)) {
+            const fileHash = await calculateFileHash(csvFilePath);
+            await logSeededFile(tableName, 'pre', fileNameWithoutExtension, fileHash);
+          }
+        } catch (logError: any) {
+          console.error(
+            `[saModel] Failed to log active seed status for pre/${tableName}/${fileNameWithoutExtension}.csv: ${logError.message}`
+          );
+          // Non-fatal: main operation succeeded.
+        }
+      }
+    }
+
     return {
       message: `Seeding for specific tables ${targetTable} completed.`,
       tables: sortedOrderForInsert,
@@ -479,6 +500,24 @@ const insertPostDataModel = async (targetTable: string, tablePayload: tablePaylo
     }
 
     await performDbInserts(tablesToTruncate, sortedOrderForInsert, allTableData);
+
+    for (const tableName of sortedOrderForInsert) {
+      const payloadEntry = tablePayload.find((f) => f.table === tableName);
+      if (payloadEntry) {
+        const fileNameWithoutExtension = payloadEntry.file;
+        const csvFilePath = path.join(csvFolderPath, 'post', tableName, `${fileNameWithoutExtension}.csv`);
+        try {
+          if (fs.existsSync(csvFilePath)) {
+            const fileHash = await calculateFileHash(csvFilePath);
+            await logSeededFile(tableName, 'post', fileNameWithoutExtension, fileHash);
+          }
+        } catch (logError: any) {
+          console.error(
+            `[saModel] Failed to log active seed status for post/${tableName}/${fileNameWithoutExtension}.csv: ${logError.message}`
+          );
+        }
+      }
+    }
 
     return {
       message: `Seeding for specific tables ${targetTable} completed.`,
@@ -658,38 +697,108 @@ const getOrdersForTableModel = async (tableName: string) => {
   }
 };
 
+export interface SeedFileStatus {
+  name: string;
+  hash: string | null;
+  isLive: boolean;
+}
+
 const getPreDataFilesModel = async (tableName: string) => {
   const directoryPath = path.join(csvFolderPath, 'pre', tableName);
+  const results: SeedFileStatus[] = [];
+
   try {
     if (!fs.existsSync(directoryPath)) {
-      console.log(
-        `[saModel] Pre-data directory not found for table "${tableName}" at ${directoryPath}. Returning empty list.`
-      );
-      return [];
+      // console.log(`[saModel] Pre-data directory not found for table "${tableName}". Returning empty list.`);
+      return []; // Expected behavior if directory doesn't exist
     }
-    const files = await fs.promises.readdir(directoryPath);
 
-    return files.map((file) => file.replace(/\.csv$/, ''));
+    const files = await fs.promises.readdir(directoryPath);
+    const csvFiles = files.filter((file) => file.endsWith('.csv'));
+
+    if (csvFiles.length === 0) return [];
+
+    const activeInfo = await getActiveSeedInfo(tableName, 'pre');
+
+    for (const file of csvFiles) {
+      const fileNameWithoutExtension = file.replace(/\.csv$/, '');
+      const fullFilePath = path.join(directoryPath, file);
+      let currentHash: string | null = null;
+      let isLive = false;
+
+      try {
+        currentHash = await calculateFileHash(fullFilePath);
+        if (
+          activeInfo &&
+          activeInfo.file_name === fileNameWithoutExtension &&
+          activeInfo.file_content_hash === currentHash
+        ) {
+          isLive = true;
+        }
+      } catch (hashError: any) {
+        console.warn(`[saModel] Could not calculate hash for pre/${tableName}/${file}: ${hashError.message}`);
+        // Keep hash as null, isLive remains false
+      }
+
+      results.push({
+        name: fileNameWithoutExtension,
+        hash: currentHash,
+        isLive: isLive,
+      });
+    }
+    return results;
   } catch (error: any) {
     console.error(`[saModel] Error reading pre-data files for table "${tableName}":`, error.message);
-    throw new Error(`Error fetching pre-data files for table "${tableName}": ${error.message}`);
+    // Avoid throwing generic error, let controller handle specific http status
+    throw new Error(`Failed to fetch pre-data files for table "${tableName}".`);
   }
 };
 
 const getPostDataFilesModel = async (tableName: string) => {
   const directoryPath = path.join(csvFolderPath, 'post', tableName);
+  const results: SeedFileStatus[] = [];
+
   try {
     if (!fs.existsSync(directoryPath)) {
-      console.log(
-        `[saModel] Post-data directory not found for table "${tableName}" at ${directoryPath}. Returning empty list.`
-      );
+      // console.log(`[saModel] Post-data directory not found for table "${tableName}". Returning empty list.`);
       return [];
     }
     const files = await fs.promises.readdir(directoryPath);
-    return files.map((file) => file.replace(/\.csv$/, ''));
+    const csvFiles = files.filter((file) => file.endsWith('.csv'));
+
+    if (csvFiles.length === 0) return [];
+
+    const activeInfo = await getActiveSeedInfo(tableName, 'post');
+
+    for (const file of csvFiles) {
+      const fileNameWithoutExtension = file.replace(/\.csv$/, '');
+      const fullFilePath = path.join(directoryPath, file);
+      let currentHash: string | null = null;
+      let isLive = false;
+
+      try {
+        currentHash = await calculateFileHash(fullFilePath);
+        if (
+          activeInfo &&
+          activeInfo.file_name === fileNameWithoutExtension &&
+          activeInfo.file_content_hash === currentHash
+        ) {
+          isLive = true;
+        }
+      } catch (hashError: any) {
+        console.warn(`[saModel] Could not calculate hash for post/${tableName}/${file}: ${hashError.message}`);
+      }
+
+      results.push({
+        name: fileNameWithoutExtension,
+        hash: currentHash,
+        isLive: isLive,
+      });
+    }
+    return results;
   } catch (error: any) {
     console.error(`[saModel] Error reading post-data files for table "${tableName}":`, error.message);
-    throw new Error(`Error fetching post-data files for table "${tableName}": ${error.message}`);
+    throw new Error(`Failed to fetch post-data files for table "${tableName}".`);
   }
 };
 
@@ -706,12 +815,21 @@ const deleteSeedDataFileModel = async (
       throw new Error(`File not found: ${dataType}/${tableName}/${fileName}.csv`);
     }
     await fs.promises.unlink(filePath);
-    console.log(`Successfully deleted file: ${filePath}`);
+    console.log(`[saModel] Successfully deleted file: ${filePath}`);
+
+    const activeInfo = await getActiveSeedInfo(tableName, dataType);
+    if (activeInfo && activeInfo.file_name === fileName) {
+      await clearActiveSeedInfo(tableName, dataType);
+      console.log(`[saModel] Cleared active seed status for deleted file: ${dataType}/${tableName}/${fileName}.csv`);
+    }
   } catch (error: any) {
     console.error(
       `[saModel] Error deleting ${dataType}-data file "${fileName}.csv" for table "${tableName}":`,
       error.message
     );
+    if (error instanceof Error && error.message.startsWith('File not found')) {
+      throw error;
+    }
     // Rethrow with a more specific message if needed, or let the original error propagate
     throw new Error(`Failed to delete file ${dataType}/${tableName}/${fileName}.csv: ${error.message}`);
   }
@@ -727,5 +845,5 @@ export default {
   getOrdersForTableModel,
   getPreDataFilesModel,
   getPostDataFilesModel,
-  deleteSeedDataFileModel, // Add new model function
+  deleteSeedDataFileModel,
 };

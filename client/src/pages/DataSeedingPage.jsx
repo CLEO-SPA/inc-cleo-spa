@@ -36,35 +36,30 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/com
 import { Separator } from '@/components/ui/separator';
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs'; // Import Tabs
+import { Badge } from '@/components/ui/badge'; // Import Badge for "Live" indicator
 
 const DataSeedingPage = () => {
   const {
-    tables, // List of all possible tables
+    tables,
     fetchAvailableTables,
     isLoading,
     error,
-
-    data, // Object: { [tableName: string]: spreadsheetData }
-    seedingSetTables, // Array of table names for current context (target + ancestors)
-    activeTableForDisplay, // String: tableName of the currently viewed/edited spreadsheet
-    availableFiles, // Object: { [tableName: string]: string[] }
-    selectedFiles, // Object: { [tableName: string]: string }
-
+    data,
+    seedingSetTables,
+    activeTableForDisplay,
+    availableFiles,
+    selectedFiles,
     setTableData,
     setActiveTableForDisplay,
-    // fetchAvailableFilesForTable, // Used by loadTablesForSeedingSet
     setSelectedFileForTable,
-    // fetchTableData, // Used by setSelectedFileForTable
-
     loadTablesForSeedingSet,
     resetActiveTableToDefault,
     clearCurrentSeedingSet,
     saveTableData,
     seedCurrentSet,
-
     addRow,
     addColumn,
-    deleteTableDataFile, // Add new action
+    deleteTableDataFile,
     copyTableDataFile,
   } = useSeedDataStore();
 
@@ -284,16 +279,42 @@ const DataSeedingPage = () => {
               {!isLoading && selectedTargetTable && seedingSetTables.length > 0 && (
                 <Tabs value={activeTableForDisplay} onValueChange={setActiveTableForDisplay} className='w-full'>
                   <TabsList className='grid w-full grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 gap-1 h-auto'>
-                    {seedingSetTables.map((tableName) => (
-                      <TabsTrigger
-                        key={tableName}
-                        value={tableName}
-                        className='truncate px-2 py-1.5 text-xs sm:text-sm'
-                      >
-                        {tableName}
-                        {selectedFiles[tableName] && <FileCheck className='h-3 w-3 ml-1 text-green-500 inline-block' />}
-                      </TabsTrigger>
-                    ))}
+                    {seedingSetTables.map((tableName) => {
+                      const selectedFileNameForTab = selectedFiles[tableName];
+                      const isSelectedFileLive =
+                        selectedFileNameForTab &&
+                        availableFiles[tableName]?.find((f) => f.name === selectedFileNameForTab)?.isLive;
+
+                      return (
+                        <TabsTrigger
+                          key={tableName}
+                          value={tableName}
+                          className='truncate px-2 py-1.5 text-xs sm:text-sm data-[state=active]:shadow-md relative'
+                        >
+                          {tableName}
+                          {selectedFileNameForTab && (
+                            <TooltipProvider delayDuration={100}>
+                              <Tooltip>
+                                <TooltipTrigger asChild>
+                                  <FileCheck
+                                    className={`h-3 w-3 ml-1.5 inline-block ${
+                                      isSelectedFileLive ? 'text-green-500' : 'text-muted-foreground'
+                                    }`}
+                                  />
+                                </TooltipTrigger>
+                                <TooltipContent side='bottom'>
+                                  <p>
+                                    {isSelectedFileLive
+                                      ? `File "${selectedFileNameForTab}.csv" is live in DB.`
+                                      : `File "${selectedFileNameForTab}.csv" selected.`}
+                                  </p>
+                                </TooltipContent>
+                              </Tooltip>
+                            </TooltipProvider>
+                          )}
+                        </TabsTrigger>
+                      );
+                    })}
                   </TabsList>
 
                   {seedingSetTables.map((currentTabTable) => (
@@ -312,9 +333,9 @@ const DataSeedingPage = () => {
                                 <FileCheck className='h-4 w-4' /> Select File for {currentTabTable}
                               </Label>
                               <Select
-                                onValueChange={(fileName) =>
-                                  setSelectedFileForTable(currentTabTable, fileName, selectedDataType)
-                                }
+                                onValueChange={(
+                                  fileName // fileName is the string name
+                                ) => setSelectedFileForTable(currentTabTable, fileName, selectedDataType)}
                                 value={selectedFiles[currentTabTable] || ''}
                                 disabled={
                                   isLoading ||
@@ -331,11 +352,25 @@ const DataSeedingPage = () => {
                                   />
                                 </SelectTrigger>
                                 <SelectContent>
-                                  {(availableFiles[currentTabTable] || []).map((fileName) => (
-                                    <SelectItem key={fileName} value={fileName}>
-                                      {fileName}.csv
-                                    </SelectItem>
-                                  ))}
+                                  {(availableFiles[currentTabTable] || []).map(
+                                    (
+                                      fileStatus // fileStatus is SeedFileStatus
+                                    ) => (
+                                      <SelectItem key={fileStatus.name} value={fileStatus.name}>
+                                        <div className='flex items-center justify-between w-full'>
+                                          <span>{fileStatus.name}.csv</span>
+                                          {fileStatus.isLive && (
+                                            <Badge
+                                              variant='outline'
+                                              className='ml-2 text-green-600 border-green-600 px-1.5 py-0.5 text-xs'
+                                            >
+                                              Live
+                                            </Badge>
+                                          )}
+                                        </div>
+                                      </SelectItem>
+                                    )
+                                  )}
                                 </SelectContent>
                               </Select>
                             </div>
@@ -360,8 +395,6 @@ const DataSeedingPage = () => {
                             </div>
                           </div>
                           <div className='flex flex-wrap gap-2 items-center'>
-                            {' '}
-                            {/* Wrapper for buttons */}
                             <Button
                               onClick={() => handleSaveTableData(currentTabTable)}
                               disabled={isLoading || !newFileNameInputs[currentTabTable]}
