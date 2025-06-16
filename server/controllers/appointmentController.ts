@@ -125,7 +125,7 @@ interface AppointmentUpdateBody {
 
 type AnyBody = AppointmentCreateBody & Partial<AppointmentUpdateBody>;
 
-export const validateEmployeeAndMember = async (
+const validateEmployeeAndMember = async (
   req: Request,
   res: Response,
   next: NextFunction

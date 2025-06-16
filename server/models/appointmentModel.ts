@@ -13,8 +13,14 @@ const getAllAppointments = async (
 ) => {
   try {
     const now = new Date();
-    const toDateStr = (d: Date | string | null | undefined) =>
-      d instanceof Date ? d.toISOString().split('T')[0] : d?.toString().trim();
+    const toDateStr = (d?: Date | string | null): string | null => {
+      if (d == null) return null;
+      if (d instanceof Date) {
+        return d.toISOString().split('T')[0];
+      }
+      const s = d.toString().trim();
+      return s === '' ? null : s;
+    };
 
     const filters: string[] = [];
     const values: (string | number | null)[] = [limit, offset];
