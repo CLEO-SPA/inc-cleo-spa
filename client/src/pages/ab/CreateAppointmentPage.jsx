@@ -1,7 +1,7 @@
 // src/pages/CreateAppointmentPage.jsx (or .tsx)
 import React, { useEffect, useState } from 'react';
 import { useForm, FormProvider } from 'react-hook-form';
-import { useParams, useNavigate } from 'react-router-dom';
+import { useNavigate } from 'react-router-dom';
 import { AppSidebar } from '@/components/app-sidebar';
 import { SiteHeader } from '@/components/site-header';
 import { SidebarInset, SidebarProvider } from '@/components/ui/sidebar';
@@ -41,7 +41,7 @@ const CreateAppointmentPage = () => {
       ]
     }
   });
-  const { handleSubmit, watch, setValue, reset } = methods;
+  const { handleSubmit, watch, setValue } = methods;
   const formData = watch();
 
   // Set default created_at to current SGT time and TODO: created_by to logged-in user

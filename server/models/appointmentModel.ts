@@ -1,4 +1,5 @@
-import { pool, getProdPool as prodPool } from '../config/database.js';
+/* eslint-disable @typescript-eslint/no-explicit-any */
+import { pool } from '../config/database.js';
 import { format } from 'date-fns';
 
 const getAllAppointments = async (
