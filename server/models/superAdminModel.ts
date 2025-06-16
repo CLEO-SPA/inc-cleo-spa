@@ -321,6 +321,22 @@ async function performDbInserts(tablesToTruncate: string[], orderedTables: strin
         for (const row of dataForTable) {
           await insertRowIntoPg(client, tableName, row);
         }
+
+        const sequenceNameResult = await client.query(`
+            SELECT pg_get_serial_sequence('"${tableName}"', 'id') AS sequence_name;
+          `);
+        const sequenceName = sequenceNameResult.rows[0]?.sequence_name;
+
+        if (sequenceName) {
+          const maxIdResult = await client.query(`SELECT COALESCE(MAX("id"), 0) AS max_id FROM "${tableName}";`);
+          const maxId = maxIdResult.rows[0].max_id;
+          await client.query(`SELECT pg_catalog.setval('${sequenceName}', ${maxId}, false);`);
+          console.log(
+            `   Updated sequence "${sequenceName}" for "${tableName}" to ${maxId}. Next ID will be ${maxId + 1}.`
+          );
+        } else {
+          console.warn(`   Could not find sequence for table "${tableName}" on column "id". Skipping sequence update.`);
+        }
       } else {
         console.log(`  No data file found or no rows parsed for table: "${tableName}", skipping.`);
       }
