@@ -22,7 +22,7 @@ const MemberVoucherServices = () => {
     return (
         <Card className="mx-5 mb-1">
             <CardHeader>
-                <CardTitle>Services</CardTitle>
+                <CardTitle>Voucher Management</CardTitle>
             </CardHeader>
             <CardContent className='space-y-4'>
                 <div className='rounded-md border'>

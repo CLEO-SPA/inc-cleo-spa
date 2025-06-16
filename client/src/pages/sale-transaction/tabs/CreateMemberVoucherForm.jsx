@@ -139,7 +139,7 @@ const CreateMemberVoucherForm = () => {
                 {/* Additional Form Fields */}
                 <Card>
                     <CardContent className="space-y-4">
-                        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+                        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-2 gap-4">
                             <div className="space-y-1">
                                 <Label htmlFor="creation_datetime" className="text-sm font-medium text-gray-700">
                                     Creation DateTime *
@@ -212,6 +212,7 @@ const TemplateMode = ({
     selectedTemplate,
     memberVoucherDetails,
     formData,
+    formErrors, // Add formErrors prop
     onTemplateSelect,
     onAddDetail,
     onUpdateDetail,
@@ -256,8 +257,13 @@ const TemplateMode = ({
                         step="0.01"
                         value={formData.free_of_charge || 0}
                         onChange={(e) => updateFormField('free_of_charge', parseFloat(e.target.value) || 0)}
-                        className="bg-white h-9"
+                        className={`bg-white h-9 ${formErrors?.free_of_charge ? 'border-red-500' : ''}`}
                     />
+                    {formErrors?.free_of_charge && (
+                        <p className="text-sm text-red-600 mt-1">
+                            {formErrors.free_of_charge}
+                        </p>
+                    )}
                 </div>
                 <div className="space-y-1">
                     <Label className="text-sm font-medium text-gray-700">
@@ -288,7 +294,6 @@ const TemplateMode = ({
         />
     </div>
 );
-
 // Bypass Mode Component
 const BypassMode = ({
     formData,
@@ -435,7 +440,6 @@ const MemberVoucherDetailsSection = ({
         )}
     </div>
 );
-
 // Individual Member Voucher Detail Row Component
 const MemberVoucherDetailRow = ({
     detail,
@@ -452,14 +456,26 @@ const MemberVoucherDetailRow = ({
     <div className="p-3 border rounded-lg bg-gray-50 space-y-3">
         {/* Service Selection Row */}
         <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-            <ServiceSelect
-                name={`member_voucher_details.${index}.service_id`}
-                label="Service"
-                value={detail.service_id || ''}
-                onChange={(serviceId) => onUpdateDetail(detail.id, 'service_id', serviceId)}
-                onSelectFullDetails={(serviceDetails) => onServiceSelect(detail.id, serviceDetails)}
-                className="col-span-1"
-            />
+            {isTemplateMode ? (
+                <ServiceSelect
+                    name={`member_voucher_details.${index}.service_id`}
+                    label="Service"
+                    value={detail.service_id || ''}
+                    onChange={(serviceId) => onUpdateDetail(detail.id, 'service_id', serviceId)}
+                    onSelectFullDetails={(serviceDetails) => onServiceSelect(detail.id, serviceDetails)}
+                    className="col-span-1"
+                />
+            ) : (
+                <div className="space-y-1">
+                    <Label className="text-sm font-medium text-gray-700">Service Name</Label>
+                    <Input
+                        placeholder="Enter service name"
+                        value={detail.name || ''}
+                        onChange={(e) => onUpdateDetail(detail.id, 'name', e.target.value)}
+                        className="h-9 bg-white"
+                    />
+                </div>
+            )}
             <div className="space-y-1">
                 <Label className="text-sm font-medium text-gray-700">Duration</Label>
                 <Input
@@ -485,17 +501,19 @@ const MemberVoucherDetailRow = ({
         </div>
 
         {/* Details Row */}
-        <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
-            <div className="space-y-1">
-                <Label className="text-sm font-medium text-gray-700">Service Name</Label>
-                <Input
-                    placeholder="Service name"
-                    value={detail.name || ''}
-                    onChange={(e) => onUpdateDetail(detail.id, 'name', e.target.value)}
-                    readOnly={isTemplateMode}
-                    className="h-9 bg-white"
-                />
-            </div>
+        <div className={`grid grid-cols-1 gap-4 ${isTemplateMode ? 'md:grid-cols-4' : 'md:grid-cols-3'}`}>
+            {isTemplateMode && (
+                <div className="space-y-1">
+                    <Label className="text-sm font-medium text-gray-700">Service Name</Label>
+                    <Input
+                        placeholder="Service name"
+                        value={detail.name || ''}
+                        onChange={(e) => onUpdateDetail(detail.id, 'name', e.target.value)}
+                        readOnly={isTemplateMode}
+                        className="h-9 bg-white"
+                    />
+                </div>
+            )}
             <div className="space-y-1">
                 <Label className="text-sm font-medium text-gray-700">Price</Label>
                 <Input
@@ -508,7 +526,7 @@ const MemberVoucherDetailRow = ({
                 />
             </div>
             <div className="space-y-1">
-                <Label className="text-sm font-medium text-gray-700">Discount (%)</Label>
+                <Label className="text-sm font-medium text-gray-700">Discount (打折)</Label>
                 <Input
                     type="number"
                     step="0.01"

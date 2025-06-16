@@ -25,10 +25,16 @@ DECLARE
     v_total_count BIGINT;
     v_fetched_rows JSON;
     v_actual_fetched_count INTEGER;
+    v_is_before_cursor BOOLEAN := FALSE;
 BEGIN
+    -- Log debug info
+    RAISE NOTICE 'TRANSACTION LOGS PAGINATION DEBUG: member_voucher_id=%, limit=%, after_id=%, before_id=%, page=%', 
+        p_member_voucher_id, p_limit, p_after_id, p_before_id, p_page;
 
+    -- Always filter by member_voucher_id
     v_filter_conditions := array_append(v_filter_conditions, format('mvtl.member_voucher_id = %s', p_member_voucher_id));
 
+    -- Add date filters
     IF p_start_date_utc IS NOT NULL THEN
         v_filter_conditions := array_append(v_filter_conditions, format('mvtl.created_at >= %L', p_start_date_utc));
     END IF;
@@ -49,29 +55,40 @@ BEGIN
     v_final_where_clause := v_filter_where_clause; 
 
     IF p_page IS NOT NULL AND p_page > 0 THEN
-        -- Offset-based pagination
+        -- Offset-based pagination - consistent ordering DESC, DESC
         v_offset := (p_page - 1) * p_limit;
-        v_order_by := 'ORDER BY mvtl.service_date DESC, mvtl.id ASC';
+        v_order_by := 'ORDER BY mvtl.service_date DESC, mvtl.id DESC';
         v_data_query := format('SELECT %s %s %s %s OFFSET %s LIMIT %s',
                             v_select_list, v_base_query_from, v_final_where_clause, v_order_by, v_offset, p_limit);
+        
+        RAISE NOTICE 'OFFSET QUERY: %', v_data_query;
     ELSE
         -- Cursor-based pagination
         v_effective_limit := p_limit + 1; -- Fetch one extra
+        
+        v_order_by := 'ORDER BY mvtl.service_date DESC, mvtl.id DESC';
 
         IF p_after_created_at IS NOT NULL AND p_after_id IS NOT NULL THEN
-            v_order_by := 'ORDER BY mvtl.service_date DESC, mvtl.id ASC';
-            v_cursor_conditions := array_append(v_cursor_conditions,
-                format('(mvtl.service_date > %L OR (mvtl.service_date = %L AND mvtl.id > %s))',
-                       p_after_created_at, p_after_created_at, p_after_id)
-            );
-        ELSIF p_before_created_at IS NOT NULL AND p_before_id IS NOT NULL THEN
-            v_order_by := 'ORDER BY mvtl.service_date ASC, mvtl.id DESC'; -- Fetch in reverse for 'before'
+            -- Next page: get records that come AFTER the cursor in our DESC, DESC order
             v_cursor_conditions := array_append(v_cursor_conditions,
                 format('(mvtl.service_date < %L OR (mvtl.service_date = %L AND mvtl.id < %s))',
+                       p_after_created_at, p_after_created_at, p_after_id)
+            );
+            RAISE NOTICE 'CURSOR AFTER: service_date < % OR (service_date = % AND id < %)', 
+                p_after_created_at, p_after_created_at, p_after_id;
+                
+        ELSIF p_before_created_at IS NOT NULL AND p_before_id IS NOT NULL THEN
+            -- Previous page: get records that come BEFORE the cursor in our DESC, DESC order
+            v_cursor_conditions := array_append(v_cursor_conditions,
+                format('(mvtl.service_date > %L OR (mvtl.service_date = %L AND mvtl.id > %s))',
                        p_before_created_at, p_before_created_at, p_before_id)
             );
+            v_order_by := 'ORDER BY mvtl.service_date ASC, mvtl.id ASC'; -- Reverse order to get previous records
+            v_is_before_cursor := TRUE;
+            RAISE NOTICE 'CURSOR BEFORE: service_date > % OR (service_date = % AND id > %), reversed order', 
+                p_before_created_at, p_before_created_at, p_before_id;
         ELSE
-             v_order_by := 'ORDER BY mvtl.service_date DESC, mvtl.id ASC'; -- Default order
+            RAISE NOTICE 'CURSOR INITIAL: No cursor, using default DESC, DESC order';
         END IF;
 
         IF array_length(v_cursor_conditions, 1) > 0 THEN
@@ -84,6 +101,8 @@ BEGIN
         
         v_data_query := format('SELECT %s %s %s %s LIMIT %s',
                              v_select_list, v_base_query_from, v_final_where_clause, v_order_by, v_effective_limit);
+        
+        RAISE NOTICE 'CURSOR QUERY: %', v_data_query;
     END IF;
 
     -- Execute data query and build JSON array
@@ -93,23 +112,30 @@ BEGIN
         EXECUTE format('CREATE TEMP TABLE %I ON COMMIT DROP AS %s', temp_table_name, v_data_query);
         EXECUTE format('SELECT count(*) FROM %I', temp_table_name) INTO v_actual_fetched_count;
         
-        IF p_page IS NOT NULL AND p_page > 0 THEN -- Offset pagination
+        RAISE NOTICE 'FETCHED COUNT: %', v_actual_fetched_count;
+        
+        IF p_page IS NOT NULL AND p_page > 0 THEN 
+            -- Offset pagination - return in standard DESC, DESC order
             EXECUTE format(
-                'SELECT COALESCE(json_agg(row_to_json(t.*) ORDER BY t.service_date DESC, t.id ASC), ''[]''::JSON) FROM (SELECT * FROM %I) t', -- MODIFIED: ::JSON
+                'SELECT COALESCE(json_agg(row_to_json(t.*) ORDER BY t.service_date DESC, t.id DESC), ''[]''::JSON) FROM %I t',
                 temp_table_name
             ) INTO v_fetched_rows;
-        ELSIF p_before_created_at IS NOT NULL THEN -- Cursor 'before'
+        ELSIF v_is_before_cursor THEN 
+            -- Cursor 'before' - we fetched in reverse order (ASC, ASC), but need to return in standard order (DESC, DESC)
             EXECUTE format(
-                'SELECT COALESCE(json_agg(sub.* ORDER BY sub.service_date DESC, sub.id ASC), ''[]''::JSON) -- MODIFIED: ::JSON
+                'SELECT COALESCE(json_agg(sub.* ORDER BY sub.service_date DESC, sub.id DESC), ''[]''::JSON)
                  FROM (
                      SELECT * FROM %I 
+                     ORDER BY service_date ASC, id ASC
                      LIMIT %L 
                  ) sub',
                 temp_table_name, p_limit 
             ) INTO v_fetched_rows;
-        ELSE -- Cursor 'after' or initial load (no cursor)
+        ELSE 
+            -- Cursor 'after' or initial load - return in standard DESC, DESC order, limit to p_limit
             EXECUTE format(
-                'SELECT COALESCE(json_agg(row_to_json(t.*) ORDER BY t.service_date DESC, t.id ASC), ''[]''::JSON) FROM (SELECT * FROM %I LIMIT %L) t', -- MODIFIED: ::JSON
+                'SELECT COALESCE(json_agg(row_to_json(t.*) ORDER BY t.service_date DESC, t.id DESC), ''[]''::JSON) 
+                 FROM (SELECT * FROM %I ORDER BY service_date DESC, id DESC LIMIT %L) t',
                 temp_table_name, p_limit
             ) INTO v_fetched_rows;
         END IF;

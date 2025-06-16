@@ -6,8 +6,10 @@ import { Button } from '@/components/ui/button';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Input } from '@/components/ui/input';
 import { ChevronLeft, ChevronRight, ChevronsLeft, ChevronsRight, Search } from 'lucide-react';
+import { useNavigate } from 'react-router-dom';
 
 export default function MemberSelectorPanel() {
+  const navigate = useNavigate();
   const [searchInput, setSearchInput] = useState('');
   const [notFound, setNotFound] = useState(false);
   const [selectedTab, setSelectedTab] = useState('info');
@@ -56,7 +58,7 @@ export default function MemberSelectorPanel() {
     getItemsByType
   } = useTransactionCartStore();
 
-    useEffect(() => {
+  useEffect(() => {
     if (currentMember && (!selectedMember || selectedMember.id !== currentMember.id)) {
       setSelectedMember(currentMember);
     }
@@ -127,8 +129,8 @@ export default function MemberSelectorPanel() {
     console.log('Refund voucher:', voucher);
   };
 
-  const handleConsume = (voucher) => {
-    console.log('Consume voucher:', voucher);
+  const handleConsume = (voucherId) => {
+    navigate(`/mv/${voucherId}/consume`);
   };
 
   const PaginationControls = ({
@@ -425,7 +427,7 @@ export default function MemberSelectorPanel() {
                         disabled={packagesisFetching}
                         hidePaginationControls
                       />
-                    <Table className="table-fixed w-full [&_td]:p-1 [&_th]:h-8">
+                      <Table className="table-fixed w-full [&_td]:p-1 [&_th]:h-8">
                         <TableHeader>
                           <TableRow>
                             <TableHead className="text-xs">Name</TableHead>
@@ -496,7 +498,7 @@ export default function MemberSelectorPanel() {
                         disabled={vouchersisFetching}
                         hidePaginationControls
                       />
-                    <Table className="table-fixed w-full [&_td]:p-1 [&_th]:h-8">
+                      <Table className="table-fixed w-full [&_td]:p-1 [&_th]:h-8">
                         <TableHeader>
                           <TableRow>
                             <TableHead className="w-[120px] text-xs">Name</TableHead>
@@ -504,6 +506,7 @@ export default function MemberSelectorPanel() {
                             <TableHead className="w-[110px] text-xs">Starting Balance</TableHead>
                             <TableHead className="w-[110px] text-xs">Free of Charge</TableHead>
                             <TableHead className="w-[110px] text-xs">Default Price</TableHead>
+                            <TableHead className="w-[110px] text-xs">Current Paid Balance</TableHead>
                             <TableHead className="w-[80px] text-xs">Status</TableHead>
                             <TableHead className="w-[150px] text-xs">Remarks</TableHead>
                             <TableHead className="w-[120px] text-xs">Actions</TableHead>
@@ -518,6 +521,7 @@ export default function MemberSelectorPanel() {
                               <TableCell className="text-xs">${voucher.starting_balance}</TableCell>
                               <TableCell className="text-xs">${voucher.free_of_charge}</TableCell>
                               <TableCell className="text-xs">${voucher.default_total_price}</TableCell>
+                              <TableCell className="text-xs">${voucher.current_paid_balance}</TableCell>
                               <TableCell className="text-xs">{voucher.status}</TableCell>
                               <TableCell className="text-xs truncate" title={voucher.remarks}>
                                 {voucher.remarks}
@@ -529,7 +533,7 @@ export default function MemberSelectorPanel() {
                                 <button onClick={() => handleRefund(voucher)} className="text-red-600 hover:underline">
                                   Refund
                                 </button>
-                                <button onClick={() => handleConsume(voucher)} className="text-green-600 hover:underline">
+                                <button onClick={() => handleConsume(voucher.id)} className="text-green-600 hover:underline">
                                   Consume
                                 </button>
                               </TableCell>
