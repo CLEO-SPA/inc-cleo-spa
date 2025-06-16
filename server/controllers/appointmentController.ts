@@ -256,25 +256,10 @@ export const validateEmployeeAndMember = async (
   }
 };
 
-interface AppointmentItem {
-  servicing_employee_id: number;
-  appointment_date: string; // "YYYY-MM-DD"
-  start_time: string;       // ISO timestamp or "YYYY-MM-DDTHH:MM:SS+TZ"
-  end_time: string;
-  remarks?: string;
-}
-
-interface BulkAppointmentBody {
-  member_id: number;
-  appointments: AppointmentItem[];
-  created_by: number;
-  created_at?: string;
-}
-
 
 const createAppointment = async (req: Request, res: Response, next: NextFunction): Promise<any> => {
   try {
-    const body = req.body as BulkAppointmentBody;
+    const body = req.body as AnyBody;
 
     // Basic shape validation
     if (
@@ -541,29 +526,13 @@ const getEndTimesForStartTime = async (req: Request, res: Response, next: NextFu
   }
 };
 
-interface AppointmentItemUpdate {
-  id: number;
-  servicing_employee_id: number | null;
-  appointment_date: string; // "YYYY-MM-DD"
-  start_time: string;       // ISO timestamp or "HH:MM"
-  end_time: string;         // same
-  remarks: string;
-}
-
-interface UpdateSingleAppointmentBody {
-  member_id: number;
-  appointment: AppointmentItemUpdate; // single object
-  updated_by: number;
-  updated_at?: string;
-}
-
 const updateAppointment = async (
   req: Request,
   res: Response,
   next: NextFunction
 ): Promise<any> => {
   try {
-    const body = req.body as UpdateSingleAppointmentBody;
+    const body = req.body as AnyBody;
 
     // Basic shape validation
     if (
