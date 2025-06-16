@@ -98,7 +98,7 @@ export function AppointmentTable() {
 
   const methods = useForm({
     defaultValues: {
-      employee_id: getEmployeeFromQuery(), 
+      employee_id: getEmployeeFromQuery(),
       member_id: null
     }
   });
@@ -110,7 +110,7 @@ export function AppointmentTable() {
     const empVal = empParam && /^\d+$/.test(empParam) ? empParam : '';
     setValue('employee_id', empVal);
     // No dependencies on setValue: want to run whenever location.search changes
-  }, [location.search, setValue]); 
+  }, [location.search, setValue]);
 
   const filterEmployeeId = Number(watch('employee_id')) || null;
   const filterMemberId = watch('member_id');
@@ -213,7 +213,16 @@ export function AppointmentTable() {
             <EmployeeSelect label="" name="employee_id" />
             <MemberSelect label="" name="member_id" />
             {hasFilters && (
-              <Button size="sm" variant="outline" onClick={() => reset()}>Clear Filters</Button>
+              <Button size="sm" variant="outline" onClick={() => {
+                // reset form fields
+                reset();
+                // clear employee_id from URL, keep date
+                const params = new URLSearchParams(location.search);
+                params.delete('employee_id');
+                navigate({ search: params.toString() }, { replace: true });
+                // reset pagination
+                setEmployeePage(0);
+              }}>Clear Filters</Button>
             )}
             <input
               type="date"
@@ -248,8 +257,16 @@ export function AppointmentTable() {
             <div className="flex justify-between items-center px-4 py-2 bg-muted border-b">
               <span className="text-sm text-muted-foreground">
                 Total appointments: {filteredAppointments.length} |
-                Showing employees {employeePage * EMPLOYEES_PER_PAGE + 1}–
-                {Math.min((employeePage + 1) * EMPLOYEES_PER_PAGE, sortedStaff.length)} of {sortedStaff.length}
+                {' '}
+                {filterEmployeeId
+                  // When a specific employee is selected, show "Showing employee 1 of N"
+                  ? `Showing employee ${filterEmployeeId} of ${staff.length}`
+                  // Otherwise, paginated range
+                  : `Showing employees ${employeePage * EMPLOYEES_PER_PAGE + 1}–${Math.min(
+                    (employeePage + 1) * EMPLOYEES_PER_PAGE,
+                    sortedStaff.length
+                  )} of ${sortedStaff.length}`
+                }
               </span>
               <div className="flex gap-2">
                 <Button
