@@ -276,5 +276,5 @@ export default {
   getAllPostDataFilesController,
   savePreDataController,
   savePostDataController,
-  deleteSeedDataFileController, // Add new controller function
+  deleteSeedDataFileController,
 };
