@@ -37,6 +37,9 @@ const simulationMiddleware = async (req: Request, res: Response, next: NextFunct
         });
         return;
       }
+    } else if (req.session.end_date_is_default) {
+      req.session.end_date_utc = new Date().toUTCString();
+      // console.log('Updated Date:', req.session.end_date_utc);
     }
 
     next();
