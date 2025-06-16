@@ -1,7 +1,6 @@
 import useDataExportStore from "@/stores/DataExport/useDataExportStore";
 import * as XLSX from "xlsx";
 import { Loader2 } from 'lucide-react';
-import { handleApiError } from "@/utils/errorHandlingUtils";
 import { validateForm } from "@/utils/validationUtils";
 import useAuth from '@/hooks/useAuth';
 

@@ -88,41 +88,41 @@ const useDataExportStore = create((set, get) => ({
 
     },
 
-    fetchMinimumTimeSinceUsedOfMemberCarePackage: async (time) => {
+    // fetchMinimumTimeSinceUsedOfMemberCarePackage: async (time) => {
 
-        if (get().loading) {
-            set({ error: true, errorMessage: "Another process is running." });
-            return;
-        }
+    //     if (get().loading) {
+    //         set({ error: true, errorMessage: "Another process is running." });
+    //         return;
+    //     }
 
-        const validation = validateTimeInput(time);
-        if (!validation.isValid) {
-            set({ error: true, errorMessage: validation.error });
-            return;
-        }
+    //     const validation = validateTimeInput(time);
+    //     if (!validation.isValid) {
+    //         set({ error: true, errorMessage: validation.error });
+    //         return;
+    //     }
 
-        set({ loading: true, success: false, error: false })
+    //     set({ loading: true, success: false, error: false })
 
-        try {
-            const response = await api.get(`/de/get-minimum-time-since-used-member-care-package?time=${time}`);
-            const dataToExport = response.data.data;
+    //     try {
+    //         const response = await api.get(`/de/get-minimum-time-since-used-member-care-package?time=${time}`);
+    //         const dataToExport = response.data.data;
 
-            set({
-                loading: false,
-                success: true,
-                error: false,
-                errorMessage: null,
-                dataExportList: dataToExport
-            });
+    //         set({
+    //             loading: false,
+    //             success: true,
+    //             error: false,
+    //             errorMessage: null,
+    //             dataExportList: dataToExport
+    //         });
 
-            get().setSuccessWithTimeout();
+    //         get().setSuccessWithTimeout();
 
-        } catch (error) {
-            const errorMessage = handleApiError(error);
-            set({ error: true, errorMessage: errorMessage, loading: false });
-        }
+    //     } catch (error) {
+    //         const errorMessage = handleApiError(error);
+    //         set({ error: true, errorMessage: errorMessage, loading: false });
+    //     }
 
-    },
+    // },
 
     getDataToExport: async () => {
         const { selectedTable, timeInput } = get();
@@ -143,17 +143,17 @@ const useDataExportStore = create((set, get) => ({
             return false;
         }
 
-        if (selectedTable === "unused-member-care-package") {
-            const validate = validateTimeInput(timeInput);
-            if (validate.isValid) {
-                await get().fetchMinimumTimeSinceUsedOfMemberCarePackage(timeInput ? timeInput : 7);
-                return true;
-            }
+        // if (selectedTable === "unused-member-care-package") {
+        //     const validate = validateTimeInput(timeInput);
+        //     if (validate.isValid) {
+        //         await get().fetchMinimumTimeSinceUsedOfMemberCarePackage(timeInput ? timeInput : 7);
+        //         return true;
+        //     }
 
-            set({ error: true, errorMessage: validate.error });
+        //     set({ error: true, errorMessage: validate.error });
 
-            return false;
-        }
+        //     return false;
+        // }
 
         return false;
     },
@@ -170,10 +170,10 @@ const useDataExportStore = create((set, get) => ({
             get().setColumns(['member_name', 'contact', 'email', 'member_voucher_name', 'days_since_use', 'created_at']);
         }
 
-        if (value === "unused-member-care-package") {
-            set({ openTimeInput: true })
-            get().setColumns(['member_name', 'contact', 'email', 'member_care_package_name', 'days_since_use', 'created_at']);
-        }
+        // if (value === "unused-member-care-package") {
+        //     set({ openTimeInput: true })
+        //     get().setColumns(['member_name', 'contact', 'email', 'member_care_package_name', 'days_since_use', 'created_at']);
+        // }
     },
 
     setTimeInput: (value) => set({ timeInput: value }),

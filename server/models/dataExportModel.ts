@@ -57,7 +57,7 @@ const getUnusedMemberVoucher = async (timeInput: number): Promise<{ success: boo
             GROUP BY member_voucher_id
         ) latest ON mvtl.member_voucher_id = latest.member_voucher_id 
             AND mvtl.service_date = latest.latest_service_date
-        WHERE EXTRACT(DAY FROM (CURRENT_DATE - mvtl.service_date)) >= 5        
+        WHERE EXTRACT(DAY FROM (CURRENT_DATE - mvtl.service_date)) >= $1        
         AND mv.status = 'is_enabled'  
         ORDER BY mvtl.service_date DESC;
         `;
