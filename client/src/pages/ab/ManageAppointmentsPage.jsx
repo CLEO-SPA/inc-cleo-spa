@@ -40,7 +40,7 @@ export default function AppointmentPage() {
                     value={viewStyle}
                     onValueChange={handleViewChange}
                   >
-                    <SelectTrigger className="w-[130px]">
+                    <SelectTrigger className="w-[140px]">
                       <SelectValue placeholder="View Style" />
                     </SelectTrigger>
                     <SelectContent>

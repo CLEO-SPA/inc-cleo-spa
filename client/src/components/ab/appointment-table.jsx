@@ -30,11 +30,13 @@ const formatDisplayTime = (hour, minute) => {
 
 const generateTimeSlots = () => {
   const slots = [];
-  for (let hour = 10; hour <= 17; hour++) {
+  for (let hour = 10; hour < 21; hour++) { // 10:00 to 20:30
     for (let minute = 0; minute < 60; minute += 30) {
       slots.push({ hour, minute });
     }
   }
+  // Add final slot for 21:00
+  slots.push({ hour: 21, minute: 0 });
   return slots;
 };
 
