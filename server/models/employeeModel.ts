@@ -198,69 +198,69 @@ const getUserData = async (identity: string | number) => {
   }
 };
 
-// const createEmployee = async ({
-//   employee_code,
-//   department_id,
-//   employee_contact,
-//   employee_email,
-//   employeeIsActive, // TODO: recheck with team
-//   employee_name,
-//   position_id,
-//   commission_percentage,
-//   password_hash,
-//   created_at,
-//   updated_at,
-// }) => {
-//   const client = await pool().connect();
+interface NewEmployeeInput {
+  user_auth_id: number;
+  employee_code: string;
+  employee_name: string;
+  employee_email: string;
+  employee_contact: string;
+  employee_is_active: boolean;
+  position_ids?: number[]; // optional: to also link positions
+  created_at?: string; // optional: defaults to NOW()
+  updated_at?: string; // optional: defaults to NOW()
+}
 
-//   try {
-//     // Start a transaction
-//     await client.query('BEGIN');
 
-//     const insertAuthQuery = `
-//       INSERT INTO user_auth (email ,password, created_at, updated_at)
-//       VALUES ($1, $2, $3, $4)
-//       RETURNING *;
-//     `;
-//     const authValues = [employee_email, password_hash, created_at, updated_at];
-//     const authResult = await client.query(insertAuthQuery, authValues);
-//     const newAuth = authResult.rows[0];
+const createEmployee = async (data: NewEmployeeInput) => {
+  const client = await pool().connect();
+  try {
+    await client.query('BEGIN');
 
-//     const insertEmployeeQuery = `
-//       INSERT INTO employees (employee_code, department_id, employee_contact, employee_email, employee_is_active, employee_name, position_id, commission_percentage, created_at, updated_at, user_auth_id)
-//       VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11)
-//       RETURNING *;
-//     `;
-//     const values = [
-//       employee_code,
-//       parseInt(department_id, 10),
-//       employee_contact,
-//       employee_email,
-//       employeeIsActive || true,
-//       employee_name,
-//       parseInt(position_id, 10) || null,
-//       parseFloat(commission_percentage) || 0.0,
-//       created_at,
-//       updated_at,
-//       newAuth.id,
-//     ];
+    const insertQuery = `
+      INSERT INTO employees (
+        user_auth_id,
+        employee_code,
+        employee_name,
+        employee_email,
+        employee_contact,
+        employee_is_active,
+        created_at,
+        updated_at
+      )
+      VALUES ($1, $2, $3, $4, $5, $6, NOW(), NOW())
+      RETURNING id
+    `;
+    const values = [
+      data.user_auth_id,
+      data.employee_code,
+      data.employee_name,
+      data.employee_email,
+      data.employee_contact,
+      data.employee_is_active
+    ];
 
-//     const result = await client.query(insertEmployeeQuery, values);
-//     const newEmployee = result.rows[0];
+    const result = await client.query(insertQuery, values);
+    const employeeId = result.rows[0].id;
 
-//     await client.query('COMMIT');
-//     return {
-//       employee: newEmployee,
-//       auth: newAuth,
-//     };
-//   } catch (error) {
-//     console.error('Error creating employee:', error);
-//     await client.query('ROLLBACK');
-//     throw new Error('Error creating employee');
-//   } finally {
-//     client.release(); // Release the client back to the pool
-//   }
-// };
+    if (data.position_ids && data.position_ids.length > 0) {
+      const positionInsertQuery = `
+        INSERT INTO employee_to_position (employee_id, position_id)
+        VALUES ${data.position_ids.map((_, i) => `($1, $${i + 2})`).join(',')}
+      `;
+      await client.query(positionInsertQuery, [employeeId, ...data.position_ids]);
+    }
+
+    await client.query('COMMIT');
+    return { id: employeeId };
+  } catch (err) {
+    await client.query('ROLLBACK');
+    console.error('Error creating employee:', err);
+    throw new Error('Failed to create employee');
+  } finally {
+    client.release();
+  }
+};
+
 
 const updateEmployeePassword = async (email: string, password_hash: string) => {
   const client = await pool().connect();
@@ -316,7 +316,7 @@ const getAllEmployeesForDropdown = async () => {
 
 
 export default {
-  // createEmployee,
+  createEmployee,
   checkEmployeeCodeExists,
   getAuthUser,
   updateEmployeePassword,

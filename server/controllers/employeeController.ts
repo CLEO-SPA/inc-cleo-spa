@@ -303,6 +303,58 @@ const getAllEmployeesForDropdown = async (req: Request, res: Response, next: Nex
   }
 };
 
+export const createEmployee = async (req: Request, res: Response) => {
+  try {
+    const {
+      user_auth_id,
+      employee_code,
+      employee_name,
+      employee_email,
+      employee_contact,
+      employee_is_active = true,
+      position_ids = [], // optional array of position IDs
+      created_by,
+      updated_by,
+    } = req.body;
+
+    // Validate required fields
+    if (
+      !user_auth_id || !employee_code || !employee_name ||
+      !employee_email || !employee_contact || !created_by || !updated_by
+    ) {
+      return res.status(400).json({ message: 'Missing required fields' });
+    }
+
+    // Create the employee
+    const newEmployee = await model.createEmployee({
+      user_auth_id,
+      employee_code,
+      employee_name,
+      employee_email,
+      employee_contact,
+      employee_is_active,
+      created_by,
+      updated_by,
+    });
+
+    // If position_ids are provided, assign them
+    if (position_ids.length > 0) {
+      await model.assignPositionsToEmployee(newEmployee.id, position_ids);
+    }
+
+    return res.status(201).json({
+      message: 'Employee created successfully',
+      data: newEmployee,
+    });
+  } catch (error) {
+    console.error('Error creating employee:', error);
+    return res.status(500).json({
+      message: 'Internal server error',
+      error: error instanceof Error ? error.message : String(error),
+    });
+  }
+};
+
 export default {
   defaultPassword,
   // createEmployee,
