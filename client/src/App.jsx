@@ -11,6 +11,11 @@ import HomePage from '@/pages/HomePage';
 import LoginPage from '@/pages/LoginPage';
 import ResetPasswordPage from '@/pages/ResetPasswordPage';
 import NotFoundPage from '@/pages/404Page';
+
+import ManageMembershipTypePage from '@/pages/membership-type/ManageMembershipTypePage';
+import ManageMembersPage from './pages/member/ManageMembersPage';
+import CreateMemberPage from './pages/member/CreateMemberPage';
+import EditMemberPage from './pages/member/EditMemberPage';
 import ManageCarePackagesPage from '@/pages/CarePackages/ManageCarePackagesPage';
 import ViewCarePackageDetailsPage from '@/pages/CarePackages/ViewCarePackageDetailsPage';
 import CreateCarePackageFormPage from '@/pages/CarePackages/CreateCarePackageFormPage';
@@ -23,6 +28,9 @@ import UpdateServicePage from '@/pages/UpdateServicePage';
 import ReorderServicePage from '@/pages/ReorderServicePage';
 // import CreateMemberCarePackageFormPage from '@/pages/CarePackages/CreateMemberCarePackageFormPage';
 
+// Employees
+import ManagePositions from '@/pages/em/ManagePositions';
+
 function App() {
   return (
     <AuthProvider>
@@ -32,6 +40,11 @@ function App() {
           <Routes>
             <Route path='/' element={<ProtectedRoute />}>
               <Route index element={<HomePage />} />
+
+              {/* Member Management */}
+              <Route path='/member' element={<ManageMembersPage />} />
+              <Route path='/member/create' element={<CreateMemberPage />} />
+              <Route path='/member/edit/:id' element={<EditMemberPage />} />
 
               {/* care packages */}
               <Route path='/cp' element={<ManageCarePackagesPage />} />
@@ -46,18 +59,26 @@ function App() {
               {/* statistics */}
               <Route path='/dbcr' element={<DatabaseReportPage />} />
 
+              {/* Employees Routes */}
+              <Route path='/positions' element={<ManagePositions />} />
+
               {/* Service Management */}
               <Route path='/manage-service' element={<ManageServicePage />} />
               <Route path='/create-service' element={<CreateServicePage />} />
               <Route path='/update-service/:service_id' element={<UpdateServicePage />} />
               <Route path='/reorder-service' element={<ReorderServicePage />} />
+
             </Route>
             <Route path='/login' element={<LoginPage />} />
+
 
             {/* Invitation & Reset Password */}
             <Route path='/invites' element={<ResetPasswordPage />} />
             <Route path='/reset-password' element={<ResetPasswordPage />} />
 
+
+            
+            <Route path='/membership-type' element={<ManageMembershipTypePage/>} />
             {/* 404 Page */}
             <Route path='*' element={<NotFoundPage />} />
           </Routes>

@@ -39,28 +39,20 @@ export const useCpSpecificStore = create((set, get) => ({
   },
 
   // update existing package
-  updatePackage: async (id, packageData) => {
-    set({ isLoading: true, error: null });
-
+  updatePackage: async (packageId, updatedData) => {
     try {
-      const response = await api.put(`/cp/u`, packageData);
+      const response = await api.put('/cp/u', updatedData);
 
-      // update current package with the response data
-      set({
+      set((state) => ({
         currentPackage: response.data,
         isLoading: false,
         error: null,
-      });
+      }));
 
       return response.data;
-    } catch (err) {
-      console.error('Failed to update care package:', err);
-      const errorMessage = err.response?.data?.message || err.message || 'Failed to update package';
-      set({
-        error: errorMessage,
-        isLoading: false,
-      });
-      throw err;
+    } catch (error) {
+      console.error('Update error:', error);
+      throw error;
     }
   },
 

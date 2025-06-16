@@ -1,5 +1,7 @@
 import * as React from 'react';
-import { Command, Users, CalendarDays, ShieldUser, Box, Wand, LayoutDashboard, Package, Tickets, ChartColumnStacked } from 'lucide-react';
+
+import { Command, Users, CalendarDays, ShieldUser, Box, Wand, LayoutDashboard, Package, Tickets, ChartColumnStacked, SquareUserRound } from 'lucide-react';
+
 import { NavMain } from '@/components/nav-main';
 import { NavUser } from '@/components/nav-user';
 import {
@@ -87,6 +89,21 @@ const data = {
       ],
     },
     {
+      title: 'Members',
+      url: '/member',
+      icon: SquareUserRound ,
+      items: [
+        {
+          title: 'Manage Member',
+          url: '/member',
+        },
+        {
+          title: 'Create Member',
+          url: '/member/create',
+        },
+      ],
+    },
+    {
       title: 'Care Packages',
       url: '#',
       icon: Package,
@@ -107,12 +124,20 @@ const data = {
       icon: Users,
       items: [
         {
-          title: 'Add New Employee',
+          title: 'Add new employee',
           url: '#',
         },
         {
-          title: 'Manage Employees',
+          title: 'Manage employees',
           url: '#',
+        },
+        {
+          title: 'Add new position',
+          url: '/positions/add',
+        },
+        {
+          title: 'Manage positions',
+          url: '/positions',
         },
       ],
     },

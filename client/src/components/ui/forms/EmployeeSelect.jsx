@@ -10,11 +10,12 @@ import {
 import { Label } from "@/components/ui/label";
 import { Input } from "@/components/ui/input";
 import useEmployeeStore from "@/stores/useEmployeeStore";
-
+import { cn } from "@/lib/utils"; 
 export function EmployeeSelect({
   name = "employee_id",
   label = "Assigned Employee *",
   disabled: customDisabled = false,
+  className = "", 
 }) {
   const {
     control,
@@ -40,7 +41,7 @@ export function EmployeeSelect({
   }, [employees.length, loading, fetchDropdownEmployees]);
 
   return (
-    <div className="space-y-2">
+    <div className={cn("space-y-2", className)}>
       <Label htmlFor={name} className="text-sm font-medium text-gray-700">
         {label}
       </Label>
@@ -62,17 +63,23 @@ export function EmployeeSelect({
               open={isOpen}
               onOpenChange={setIsOpen}
             >
-              <SelectTrigger className={errors[name] ? "border-red-500" : ""}>
+              <SelectTrigger
+                className={cn(
+                  "w-full", 
+                  errors[name] ? "border-red-500" : ""
+                )}
+              >
                 <SelectValue
                   placeholder={
                     loading
                       ? "Loading employees..."
                       : error
-                      ? "Error loading employees"
-                      : "Select employee"
+                        ? "Error loading employees"
+                        : "Select employee"
                   }
                 />
               </SelectTrigger>
+
               <SelectContent>
                 <div className="p-2 border-b">
                   <Input
