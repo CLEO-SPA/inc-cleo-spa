@@ -60,6 +60,10 @@ export default function ManageService() {
 
   const getServices = async () => {
     try {
+      setExpandedRows([]); // Reset expanded rows when fetching new data
+
+      // Construct query parameters based on filters
+      // If no filters are applied, default to page 1 and items per page
       let queryParams = new URLSearchParams({
         page: currentPage,
         limit: itemsPerPage
@@ -372,13 +376,13 @@ export default function ManageService() {
                     {/* Table Header */}
                     <thead className="bg-black text-white sticky top-0 z-10 shadow">
                       <tr>
-                        <th className="px-2 py-2 text-left border border-gray-200">ID</th>
-                        <th className="px-2 py-2 text-left border border-gray-200">Name</th>
-                        <th className="px-2 py-2 text-left border border-gray-200">Unit Price (SGD)</th>
-                        <th className="px-2 py-2 text-left border border-gray-200">Date of Creation</th>
-                        <th className="px-2 py-2 text-left border border-gray-200">Category</th>
-                        <th className="px-2 py-2 text-left border border-gray-200">Status</th>
-                        <th className="px-4 py-2 text-left border border-gray-200">Actions</th>
+                        <th className="w-1/12 px-2 py-2 text-left border border-gray-200">ID</th>
+                        <th className="w-3/12 px-2 py-2 text-left border border-gray-200">Name</th>
+                        <th className="w-2/12 px-2 py-2 text-left border border-gray-200">Unit Price (SGD)</th>
+                        <th className="w-2/12 px-2 py-2 text-left border border-gray-200">Date of Creation</th>
+                        <th className="w-2/12 px-2 py-2 text-left border border-gray-200">Category</th>
+                        <th className="w-1/12 px-2 py-2 text-left border border-gray-200">Status</th>
+                        <th className="w-1/12 px-4 py-2 text-left border border-gray-200">Actions</th>
                       </tr>
                     </thead>
                     {/* Table body */}
@@ -388,7 +392,7 @@ export default function ManageService() {
                           <>
                             <tr key={`${service.id}-basic`}>
                               <td className="px-2 py-2 border border-gray-200">{service.id}</td>
-                              <td className="px-2 py-2 border border-gray-200">{service.service_name}</td>
+                              <td className="px-2 py-2 border border-gray-200 break-words">{service.service_name}</td>
                               <td className="px-2 py-2 border border-gray-200">{service.service_price}</td>
                               <td className="px-2 py-2 border border-gray-200">
                                 {new Date(service.created_at).toLocaleDateString()}
