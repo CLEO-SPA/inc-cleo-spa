@@ -320,12 +320,19 @@ export const createEmployee = async (req: Request, res: Response) => {
       position_ids = [], // optional array of position IDs
       created_by,
       updated_by,
+      created_at,
+      updated_at,
     } = req.body;
 
     // Validate required fields
     if (
-      !user_auth_id || !employee_code || !employee_name ||
-      !employee_email || !employee_contact || !created_by || !updated_by
+      !user_auth_id ||
+      !employee_code ||
+      !employee_name ||
+      !employee_email ||
+      !employee_contact ||
+      !created_by ||
+      !updated_by
     ) {
       return res.status(400).json({ message: 'Missing required fields' });
     }
@@ -340,6 +347,8 @@ export const createEmployee = async (req: Request, res: Response) => {
       employee_is_active,
       created_by,
       updated_by,
+      created_at,
+      updated_at,
     });
 
     // If position_ids are provided, assign them
@@ -371,5 +380,5 @@ export default {
   updateEmployeePassword,
   getAllEmployees,
   regenerateInvitationLink,
-  getAllEmployeesForDropdown
+  getAllEmployeesForDropdown,
 };

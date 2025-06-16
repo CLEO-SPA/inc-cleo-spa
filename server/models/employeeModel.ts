@@ -1,4 +1,5 @@
 import { pool, getProdPool as prodPool } from '../config/database.js';
+import { Employees, Positions } from '../types/model.types.js';
 
 const checkEmployeeCodeExists = async (employee_code: number) => {
   try {
@@ -13,12 +14,7 @@ const checkEmployeeCodeExists = async (employee_code: number) => {
   }
 };
 
-const getAllEmployees = async (
-  offset: number,
-  limit: number,
-  startDate_utc: string,
-  endDate_utc: string
-) => {
+const getAllEmployees = async (offset: number, limit: number, startDate_utc: string, endDate_utc: string) => {
   try {
     // Step 1: Fetch paginated employee IDs based on date range
     const idQuery = `
@@ -58,13 +54,16 @@ const getAllEmployees = async (
       WHERE e.id = ANY($1)
       ORDER BY e.id ASC
     `;
-    const dataResult = await pool().query(dataQuery, [employeeIds]);
+    const dataResult = await pool().query<Partial<Employees & Positions & { [any: string]: string }>>(dataQuery, [
+      employeeIds,
+    ]);
 
     // Step 3: Group employee rows
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
     const groupedMap: Record<number, any> = {};
 
     dataResult.rows.forEach((row) => {
-      const empId = row.employee_id;
+      const empId: number = parseInt(row.employee_id!);
       if (!groupedMap[empId]) {
         groupedMap[empId] = {
           id: empId,
@@ -109,7 +108,6 @@ const getAllEmployees = async (
     throw new Error('Error fetching employees with positions');
   }
 };
-
 
 const createSuperUser = async (email: string, password_hash: string) => {
   try {
@@ -209,10 +207,11 @@ interface NewEmployeeInput {
   employee_contact: string;
   employee_is_active: boolean;
   position_ids?: number[]; // optional: to also link positions
+  created_by: string;
+  updated_by: string;
   created_at?: string; // optional: defaults to NOW()
   updated_at?: string; // optional: defaults to NOW()
 }
-
 
 const createEmployee = async (data: NewEmployeeInput) => {
   const client = await pool().connect();
@@ -239,7 +238,7 @@ const createEmployee = async (data: NewEmployeeInput) => {
       data.employee_name,
       data.employee_email,
       data.employee_contact,
-      data.employee_is_active
+      data.employee_is_active,
     ];
 
     const result = await client.query(insertQuery, values);
@@ -263,7 +262,6 @@ const createEmployee = async (data: NewEmployeeInput) => {
     client.release();
   }
 };
-
 
 const updateEmployeePassword = async (email: string, password_hash: string) => {
   const client = await pool().connect();
@@ -317,7 +315,6 @@ const getAllEmployeesForDropdown = async () => {
   }
 };
 
-
 export default {
   createEmployee,
   checkEmployeeCodeExists,
@@ -327,5 +324,5 @@ export default {
   createSuperUser,
   getUserCount,
   getUserData,
-  getAllEmployeesForDropdown
+  getAllEmployeesForDropdown,
 };
