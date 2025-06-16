@@ -250,8 +250,7 @@ const getBasicEmployeeDetails = async (): Promise<Employee[]> => {
   const query = `
     SELECT 
       id, 
-      employee_name, 
-      position_id 
+      employee_name 
     FROM employees e 
     WHERE employee_is_active = true 
     ORDER BY employee_name ASC`;

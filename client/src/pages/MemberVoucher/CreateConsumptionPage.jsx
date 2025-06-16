@@ -43,10 +43,6 @@ const CreateMemberVoucherConsumptionPage = () => {
         initialize(memberId);
     }, [initialize]);
 
-    const handleViewAll = () => {
-        navigate(`/mv`);
-    };
-
     const confirmBody = (
         <div>
             {Object.entries(formData).map(([key, value]) => (
@@ -74,7 +70,7 @@ const CreateMemberVoucherConsumptionPage = () => {
                     <SidebarInset>
                         <div>
                             <div className='container mx-3'>
-                                <BackButtonHeader name={memberName?.name || 'Loading...'} onBack={handleViewAll} />
+                                <BackButtonHeader name={memberName?.name || 'Loading...'}/>
                             </div>
                             <MemberVoucherServices />
                             {/* Error Alert */}
@@ -106,7 +102,7 @@ const CreateMemberVoucherConsumptionPage = () => {
                     createMemberVoucherTransactionLog();
                 }}
                 onCancel={() => {
-
+                    setIsConfirming(false);
                 }}
             />}
 
