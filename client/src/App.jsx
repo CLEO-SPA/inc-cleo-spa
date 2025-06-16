@@ -22,12 +22,12 @@ import CreateVoucherTemplatesPage from './pages/voucher-template/CreateVoucherTe
 import ManageVoucherTemplatesPage from './pages/voucher-template/ManageVoucherTemplatesPage';
 import EditVouhcerTemplatePage from './pages/voucher-template/EditVoucherTemplatePage';
 // Service Management
-import ManageServicePage from '@/pages/ManageServicePage'
-import MockSalesTransactionPage from './pages/sale-transaction/mockSaleTransactionPage'; import ManageVouchersPage from './pages/MemberVoucher/ManageVoucherPage';
+import ManageServicePage from '@/pages/ManageServicePage';
+import MockSalesTransactionPage from './pages/sale-transaction/mockSaleTransactionPage';
+import ManageVouchersPage from './pages/MemberVoucher/ManageVoucherPage';
 import DatabaseReportPage from '@/pages/DatabaseReportPage';
 import CreateConsumptionPage from '@/pages/CarePackages/CreateConsumptionPage';
 import CreateMemberVoucherConsumptionPage from '@/pages/MemberVoucher/CreateConsumptionPage';
-import ManageCarePackagesPage from '@/pages/CarePackages/ManageCarePackagesPage';
 import ViewCarePackageDetailsPage from '@/pages/CarePackages/ViewCarePackageDetailsPage';
 import CreateCarePackageFormPage from '@/pages/CarePackages/CreateCarePackageFormPage';
 import EditCarePackagePage from './pages/CarePackages/EditCarePackagePage';
@@ -85,8 +85,8 @@ function App() {
               <Route path='/mcp/:packageId/consume' element={<CreateConsumptionPage />} />
 
               {/* member vouchers */}
-              <Route path="/mv" element={<ManageVouchersPage />} />
-              <Route path="/mv/:memberId/consume" element={<CreateMemberVoucherConsumptionPage />} />
+              <Route path='/mv' element={<ManageVouchersPage />} />
+              <Route path='/mv/:memberId/consume' element={<CreateMemberVoucherConsumptionPage />} />
 
               {/* membership-type */}
               <Route path='/membership-type' element={<ManageMembershipTypePage />} />
@@ -96,12 +96,9 @@ function App() {
             </Route>
             <Route path='/login' element={<LoginPage />} />
 
-
             {/* Invitation & Reset Password */}
             <Route path='/invites' element={<ResetPasswordPage />} />
             <Route path='/reset-password' element={<ResetPasswordPage />} />
-
-
 
             {/* 404 Page */}
             <Route path='*' element={<NotFoundPage />} />
