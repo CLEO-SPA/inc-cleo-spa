@@ -20,7 +20,7 @@ import {
   DropdownMenuItem,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
-import { Link } from 'react-router-dom';
+import { Link, useLocation, useNavigate } from 'react-router-dom';
 
 const formatDisplayTime = (hour, minute) => {
   const h = hour % 12 === 0 ? 12 : hour % 12;
@@ -63,7 +63,31 @@ const transformAppointment = (apiAppointment) => ({
 });
 
 export function AppointmentTable() {
-  const [date, setDate] = useState(new Date());
+  const location = useLocation();
+  const navigate = useNavigate();
+
+  // initialize date from query param or today
+  const getDateFromQuery = () => {
+    const params = new URLSearchParams(location.search);
+    const dateParam = params.get('date');
+    if (dateParam && /^\d{4}-\d{2}-\d{2}$/.test(dateParam)) {
+      const d = new Date(dateParam);
+      if (!isNaN(d)) return d;
+    }
+    return new Date();
+  };
+
+  // Read employee_id from query param
+  const getEmployeeFromQuery = () => {
+    const params = new URLSearchParams(location.search);
+    const empParam = params.get('employee_id');
+    if (empParam && /^\d+$/.test(empParam)) {
+      return parseInt(empParam, 10);
+    }
+    return null;
+  };
+
+  const [date, setDate] = useState(getDateFromQuery());
   const [appointments, setAppointments] = useState([]);
   const [staff, setStaff] = useState([]);
   const [loading, setLoading] = useState(false);
@@ -72,8 +96,21 @@ export function AppointmentTable() {
 
   const EMPLOYEES_PER_PAGE = 4;
 
-  const methods = useForm({ defaultValues: { employee_id: null, member_id: null } });
-  const { watch, reset } = methods;
+  const methods = useForm({
+    defaultValues: {
+      employee_id: getEmployeeFromQuery(), 
+      member_id: null
+    }
+  });
+  const { watch, reset, setValue } = methods;
+
+  useEffect(() => {
+    const params = new URLSearchParams(location.search);
+    const empParam = params.get('employee_id');
+    const empVal = empParam && /^\d+$/.test(empParam) ? empParam : '';
+    setValue('employee_id', empVal);
+    // No dependencies on setValue: want to run whenever location.search changes
+  }, [location.search, setValue]); 
 
   const filterEmployeeId = Number(watch('employee_id')) || null;
   const filterMemberId = watch('member_id');
@@ -116,9 +153,24 @@ export function AppointmentTable() {
     fetchAppointments(date);
   }, []);
 
+  // Whenever `date` or `filterEmployeeId` changes: update URL query param and fetch appointments
   useEffect(() => {
+    const params = new URLSearchParams(location.search);
+    const dateString = date.toISOString().split('T')[0];
+    params.set('date', dateString);
+    // NEW: set or delete employee_id param
+    if (filterEmployeeId) {
+      params.set('employee_id', filterEmployeeId.toString());
+    } else {
+      params.delete('employee_id');
+    }
+    // push updated search
+    navigate({ search: params.toString() }, { replace: true });
+
     fetchAppointments(date);
-  }, [date]);
+    setEmployeePage(0);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [date, filterEmployeeId]);
 
   const filteredAppointments = appointments.filter(app => {
     const matchEmployee = filterEmployeeId ? app.staff === filterEmployeeId : true;
@@ -138,9 +190,9 @@ export function AppointmentTable() {
   const paginatedStaff = filterEmployeeId
     ? staff.filter(emp => emp.id === filterEmployeeId)
     : sortedStaff.slice(
-        employeePage * EMPLOYEES_PER_PAGE,
-        (employeePage + 1) * EMPLOYEES_PER_PAGE
-      );
+      employeePage * EMPLOYEES_PER_PAGE,
+      (employeePage + 1) * EMPLOYEES_PER_PAGE
+    );
 
   useEffect(() => {
     setEmployeePage(0);
@@ -286,7 +338,7 @@ export function AppointmentTable() {
                                 </DropdownMenuTrigger>
                                 <DropdownMenuContent align="start" className="text-sm">
                                   <DropdownMenuItem asChild>
-                                   <Link to={`/appointments/${matchingAppointment.id}`}>View Details</Link>
+                                    <Link to={`/appointments/${matchingAppointment.id}`}>View Details</Link>
                                   </DropdownMenuItem>
                                   <DropdownMenuItem asChild>
                                     <Link to={`/appointments/edit/${matchingAppointment.id}`}>Reschedule</Link>

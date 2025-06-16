@@ -1,6 +1,7 @@
 // src/pages/CreateAppointmentPage.jsx (or .tsx)
 import React, { useEffect, useState } from 'react';
 import { useForm, FormProvider } from 'react-hook-form';
+import { useParams, useNavigate } from 'react-router-dom';
 import { AppSidebar } from '@/components/app-sidebar';
 import { SiteHeader } from '@/components/site-header';
 import { SidebarInset, SidebarProvider } from '@/components/ui/sidebar';
@@ -20,6 +21,7 @@ import useAppointmentDateTimeStore from '@/stores/useAppointmentDateTimeStore';
 import useAppointmentStore from '@/stores/useAppointmentStore';
 
 const CreateAppointmentPage = () => {
+  const navigate = useNavigate();
   const { createAppointment, isCreating, error: storeError, errorMessage: storeErrorMessage } = useAppointmentStore();
 
   const methods = useForm({
@@ -119,22 +121,12 @@ const CreateAppointmentPage = () => {
       setSuccess(true);
       // Reset form after a short delay
       setTimeout(() => {
-        reset({
-          member_id: '',
-          created_at: '',
-          created_by: '',
-          appointments: [
-            {
-              servicing_employee_id: '',
-              appointment_date: '',
-              start_time: '',
-              end_time: '',
-              remarks: '',
-            }
-          ]
-        });
-        resetDateTimeStore();
         setSuccess(false);
+        // Extract first appointment
+        const first = appointmentsPayload[0];
+        navigate(
+          `/appointments?date=${first.appointment_date}&employee_id=${first.servicing_employee_id}`
+        );
       }, 1500);
     } else {
       // storeErrorMessage contains message

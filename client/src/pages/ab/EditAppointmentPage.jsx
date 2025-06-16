@@ -103,14 +103,14 @@ const EditAppointmentPage = () => {
       console.log('Selected appointment data:', selectedAppointment);
 
       const appt = selectedAppointment;
-
+      // Reset form fields first
       reset({
         member_id: appt.member_id?.toString() || '',
         appointment: {
           id: appt.id,
           servicing_employee_id: appt.servicing_employee_id?.toString() || '',
           appointment_date: appt.appointment_date,
-          start_time: appt.start_time,  
+          start_time: appt.start_time,
           end_time: appt.end_time,
           remarks: appt.remarks || '',
         },
@@ -119,10 +119,41 @@ const EditAppointmentPage = () => {
         updated_by: '',
         updated_at: new Date(Date.now() + 8 * 60 * 60 * 1000).toISOString().slice(0, 16),
       });
-
+      // Clear any previous store state
       resetDateTimeStore();
+
+      // fetch start times so Select options include appt.start_time
+      const empId = appt.servicing_employee_id;
+      const apptDate = appt.appointment_date;
+      const excludeId = appt.id;
+      if (empId && apptDate) {
+        // fetchTimeslots expects employeeId possibly string; ensure correct type
+        fetchTimeslots({
+          employeeId: empId,
+          appointmentDate: apptDate,
+          appointmentIndex: 0,
+          excludeAppointmentId: excludeId,
+        }).then((startSlots) => {
+          // After start slots loaded, set start_time again in case cleared earlier
+          if (startSlots.includes(appt.start_time)) {
+            setValue('appointment.start_time', appt.start_time);
+            // Then fetch end times for that start
+            fetchEndTimesForStartTime({
+              employeeId: empId,
+              appointmentDate: apptDate,
+              startTime: appt.start_time,
+              appointmentIndex: 0,
+              excludeAppointmentId: excludeId,
+            }).then((endSlots) => {
+              if (endSlots.includes(appt.end_time)) {
+                setValue('appointment.end_time', appt.end_time);
+              }
+            });
+          }
+        });
+      }
     }
-  }, [selectedAppointment, reset, resetDateTimeStore]);
+  }, [selectedAppointment, reset, resetDateTimeStore, fetchTimeslots, fetchEndTimesForStartTime, setValue]);
 
   // 3. Cleanup *only* on unmount
   useEffect(() => {
@@ -167,7 +198,11 @@ const EditAppointmentPage = () => {
   const handleAppointmentChange = (field, value) => {
     setValue(`appointment.${field}`, value);
     if (field === 'appointment_date') {
-      clearWarningForAppointment(0); // index 0
+      // clear times and warnings
+      setValue('appointment.start_time', '');
+      setValue('appointment.end_time', '');
+      clearWarningForAppointment(0);
+      clearTimeslots(0);
     }
     if (localError) setLocalError('');
     if (success) setSuccess(false);
@@ -213,10 +248,10 @@ const EditAppointmentPage = () => {
     const result = await useAppointmentStore.getState().updateAppointment(payload);
     if (result.success) {
       setSuccess(true);
-      // After success, maybe navigate away or refetch list
+      // After success, navigates to view appointments to see newly updated appointment
       setTimeout(() => {
         setSuccess(false);
-        navigate('/appointments'); // adjust route
+        navigate(`/appointments?date=${appt.appointment_date}&employee_id=${appt.servicing_employee_id}`); 
       }, 1500);
     } else {
       setLocalError(result.error || 'Failed to update appointment');
