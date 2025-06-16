@@ -88,16 +88,16 @@ const data = {
     },
     {
       title: 'Appointments',
-      url: '#',
+      url: '/appointments',
       icon: CalendarDays,
       items: [
         {
           title: 'View Appointments',
-          url: '#',
+          url: '/appointments',
         },
         {
           title: 'Add New Appointment',
-          url: '#',
+          url: '/appointments/create',
         },
       ],
     },
