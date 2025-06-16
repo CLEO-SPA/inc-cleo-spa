@@ -24,4 +24,8 @@ router.post('/sim', roleMiddleware.hasRole(['super_admin', 'data_admin']), sessi
 router.get('/events', sessionController.streamSimEvent);
 router.get('/test-sse', sessionController.testSSE);
 
+// Misc
+router.get('/status', sessionController.getAllStatus);
+router.get('/status/:id', sessionController.getStatusNameById);
+
 export default router;

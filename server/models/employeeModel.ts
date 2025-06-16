@@ -8,6 +8,7 @@ const checkEmployeeCodeExists = async (employee_code: number) => {
 
     return result.rows.length > 0;
   } catch (error) {
+    console.error('Error checking employee code existence', error);
     throw new Error('Error checking employee code existence');
   }
 };
@@ -159,6 +160,7 @@ const getAuthUser = async (identity: string | number) => {
 
     return result.rows[0];
   } catch (error) {
+    console.error('Error fetching employee data', error);
     throw new Error('Error fetching employee data');
   }
 };
@@ -194,6 +196,7 @@ const getUserData = async (identity: string | number) => {
 
     return result.rows[0];
   } catch (error) {
+    console.error('Error fetching employee data', error);
     throw new Error('Error fetching employee data');
   }
 };
