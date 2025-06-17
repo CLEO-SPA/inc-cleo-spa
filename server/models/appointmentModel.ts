@@ -210,7 +210,6 @@ const validateEmployeeIsActive = async (employeeId: number): Promise<boolean> =>
     }
 
     const employee = result.rows[0];
-    console.log('Employee validation result:', employee.employee_is_active);
     return employee.employee_is_active === true;
   } catch (error) {
     console.error('Error validating employee:', error);
@@ -278,9 +277,14 @@ const createAppointment = async (
     await pool().query(query, values);
   } catch (error: any) {
     console.error('Error in createAppointment:', error);
-    // Propagate the error message for controller to handle
-    // If Postgres RAISE EXCEPTION, error.message includes the detail
-    throw new Error(error.message || 'Error creating appointments');
+    // Rethrow preserving code and message
+    const err = new Error(error.message);
+    // Attach SQLSTATE code if exists
+    if (error.code) {
+      // @ts-ignore
+      err.code = error.code;
+    }
+    throw err;
   }
 };
 
@@ -313,7 +317,7 @@ export const updateAppointment = async (
 const getMaxDurationFromStartTimes = async (
   date: Date | string,
   employeeId: number | null,
-  excludeAppointmentId: number | null 
+  excludeAppointmentId: number | null
 ) => {
   try {
     const query = `SELECT * FROM get_max_duration_from_start_time($1, $2, $3)`;

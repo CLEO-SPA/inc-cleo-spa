@@ -67,7 +67,6 @@ const getAppointmentsByDate = async (req: Request, res: Response, next: NextFunc
       data: appointments,
     });
   } catch (error) {
-    console.log('Error getting appointments by date:', error);
     const errorMessage = error instanceof Error ? error.message : String(error);
     res.status(500).json({ message: 'Error getting appointments by date', error: errorMessage });
   }
@@ -133,7 +132,6 @@ const validateEmployeeAndMember = async (
 ): Promise<any> => {
   try {
     const body = req.body as AnyBody;
-    console.log('Validating employee and member:', body);
 
     const { member_id, created_by, updated_by } = body;
 
@@ -148,8 +146,8 @@ const validateEmployeeAndMember = async (
     const memberResult = await model.validateMemberIsActive(member_id);
     if (!memberResult) {
       return res
-        .status(400)
-        .json({ message: `Member ID ${member_id} does not exist` });
+        .status(404)
+        .json({ message: `Member ID ${member_id} was not found` });
     }
 
     // 2) Determine operation: create vs update
@@ -177,8 +175,8 @@ const validateEmployeeAndMember = async (
       const exists = await model.validateEmployeeIsActive(created_by);
       if (!exists) {
         return res
-          .status(400)
-          .json({ message: `created_by employee ID ${created_by} does not exist or is not active` });
+          .status(404)
+          .json({ message: `created_by employee ID ${created_by} was not found or is not active` });
       }
     }
     if (hasUpdatedBy) {
@@ -219,8 +217,8 @@ const validateEmployeeAndMember = async (
         const exists = await model.validateEmployeeIsActive(empId);
         if (!exists) {
           return res
-            .status(400)
-            .json({ message: `Servicing employee ID ${empId} at appointment index ${idx} does not exist or is not active` });
+            .status(404)
+            .json({ message: `Servicing employee ID ${empId} at appointment index ${idx} was not found or is not active` });
         }
       }
     } else if (hasUpdatedBy) {
@@ -239,8 +237,8 @@ const validateEmployeeAndMember = async (
         const exists = await model.validateEmployeeIsActive(empId);
         if (!exists) {
           return res
-            .status(400)
-            .json({ message: `Servicing employee ID ${empId} does not exist or is not active` });
+            .status(404)
+            .json({ message: `Servicing employee ID ${empId} was not found or is not active` });
         }
       }
     }
@@ -289,14 +287,6 @@ const createAppointment = async (req: Request, res: Response, next: NextFunction
       const app = body.appointments[i];
       const idx = i + 1;
 
-      // Validate presence
-      if (app.servicing_employee_id !== null && app.servicing_employee_id !== undefined) {
-        if (typeof app.servicing_employee_id !== 'number' || !Number.isInteger(app.servicing_employee_id) || app.servicing_employee_id <= 0) {
-          return res.status(400).json({ message: `Invalid servicing_employee_id at appointment ${idx}` });
-        }
-      }
-      // else it can be null or undefined -> treated as null for random assignment
-
       if (typeof app.appointment_date !== 'string') {
         return res.status(400).json({ message: `Invalid or missing appointment_date at appointment ${idx}` });
       }
@@ -321,7 +311,6 @@ const createAppointment = async (req: Request, res: Response, next: NextFunction
       // Normalize timestamp helper
       const normalizeTimestamp = (timeStr: string, fieldName: string) => {
         if (timeStr.includes('T')) {
-          // Ideally further validate ISO format?
           return timeStr;
         }
         const hmMatch = timeStr.match(/^(\d{2}):(\d{2})$/);
@@ -405,31 +394,48 @@ const createAppointment = async (req: Request, res: Response, next: NextFunction
     await model.createAppointment(memberId, normAppointments, createdBy, createdAt);
 
     return res.status(201).json({ message: `Successfully created ${normAppointments.length} appointment(s)` });
-  } catch (error) {
+  } catch (error: any) {
     console.error('Error in createAppointment:', error);
-    const msg = error instanceof Error ? error.message : 'Unknown error';
-    const statusCode = /conflict|Invalid/.test(msg) ? 400 : 500;
-    return res.status(statusCode).json({ message: msg });
+    // Determine status by SQLSTATE code if available
+    const code = error.code;  // SQLSTATE from Postgres
+    let statusCode = 500;
+    let message = error.message;
+
+    if (code === 'P0001') {
+      // No available employee
+      statusCode = 409;
+      message = 'No available employee for one or more appointments';
+    } else if (code === 'P0002' || code === 'P0003') {
+      // Conflict detected
+      statusCode = 409;
+      // The error.message from RAISE EXCEPTION already describes which appointment index / time conflict
+      message = error.message;
+    } else if (/Invalid/.test(error.message)) {
+      statusCode = 400;
+    } else {
+      statusCode = 500;
+    }
+    return res.status(statusCode).json({ message });
   }
 };
 
 
 const getAvailableTimeslots = async (req: Request, res: Response, next: NextFunction): Promise<void> => {
   const { employeeId, date, excludeAppointmentId } = req.query;
-  
+
   // Input validation
   const validationErrors = validateTimeslotParams({ employeeId, date });
   if (validationErrors.length > 0) {
-    res.status(400).json({ 
-      message: 'Validation failed', 
-      errors: validationErrors 
+    res.status(400).json({
+      message: 'Validation failed',
+      errors: validationErrors
     });
     return;
   }
 
   // Parse and sanitize inputs
   const parsedEmployeeId = parseEmployeeId(employeeId as string);
-  const excludeId = excludeAppointmentId ? 
+  const excludeId = excludeAppointmentId ?
     parseInt(excludeAppointmentId as string, 10) : null;
 
   try {
@@ -451,10 +457,10 @@ const getAvailableTimeslots = async (req: Request, res: Response, next: NextFunc
     );
 
     res.status(200).json({
-        employeeId: parsedEmployeeId,
-        date,
-        maxDurations: maxDurations,
-        warning,
+      employeeId: parsedEmployeeId,
+      date,
+      maxDurations: maxDurations,
+      warning,
     });
   } catch (error) {
     next(error); // Use error middleware instead of inline handling
@@ -463,19 +469,19 @@ const getAvailableTimeslots = async (req: Request, res: Response, next: NextFunc
 
 const getEndTimesForStartTime = async (req: Request, res: Response, next: NextFunction): Promise<void> => {
   const { employeeId, date, startTime, excludeAppointmentId } = req.query;
-  
+
   // Input validation
   const validationErrors = validateEndTimeParams({ employeeId, date, startTime });
   if (validationErrors.length > 0) {
-    res.status(400).json({ 
-      message: 'Validation failed', 
-      errors: validationErrors 
+    res.status(400).json({
+      message: 'Validation failed',
+      errors: validationErrors
     });
     return;
   }
 
   const parsedEmployeeId = parseEmployeeId(employeeId as string);
-  const excludeId = excludeAppointmentId ? 
+  const excludeId = excludeAppointmentId ?
     parseInt(excludeAppointmentId as string, 10) : null;
 
   try {
@@ -489,10 +495,10 @@ const getEndTimesForStartTime = async (req: Request, res: Response, next: NextFu
     const formattedEndTimes = endTimes.map(row => row.end_time.slice(0, 5));
 
     res.status(200).json({
-        employeeId: parsedEmployeeId,
-        date,
-        startTime,
-        availableEndTimes: formattedEndTimes,
+      employeeId: parsedEmployeeId,
+      date,
+      startTime,
+      availableEndTimes: formattedEndTimes,
     });
   } catch (error) {
     next(error);
@@ -501,9 +507,9 @@ const getEndTimesForStartTime = async (req: Request, res: Response, next: NextFu
 
 // Helper functions for better maintainability
 const parseEmployeeId = (employeeId: string): number | null => {
-  if (employeeId === 'null' || 
-      employeeId === 'undefined' || 
-      employeeId === 'anyAvailableStaff') {
+  if (employeeId === 'null' ||
+    employeeId === 'undefined' ||
+    employeeId === 'anyAvailableStaff') {
     return null;
   }
   return parseInt(employeeId, 10);
@@ -511,21 +517,21 @@ const parseEmployeeId = (employeeId: string): number | null => {
 
 const validateTimeslotParams = (params: any): string[] => {
   const errors: string[] = [];
-  
+
   if (!params.date || !/^\d{4}-\d{2}-\d{2}$/.test(params.date)) {
     errors.push('Invalid date format. Use YYYY-MM-DD.');
   }
-  
+
   return errors;
 };
 
 const validateEndTimeParams = (params: any): string[] => {
   const errors = validateTimeslotParams(params);
-  
+
   if (!params.startTime || !/^\d{2}:\d{2}$/.test(params.startTime)) {
     errors.push('Invalid startTime format. Use HH:MM.');
   }
-  
+
   return errors;
 };
 
@@ -552,7 +558,7 @@ const updateAppointment = async (
     const updatedAt = body.updated_at || new Date().toISOString();
 
     const app = body.appointment;
-    
+
     if (typeof app.id === 'string') {
       app.id = parseInt(app.id, 10);
     }

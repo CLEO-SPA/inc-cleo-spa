@@ -100,7 +100,6 @@ const EditAppointmentPage = () => {
   // 2. Reset form when the store’s appointment changes
   useEffect(() => {
     if (selectedAppointment) {
-      console.log('Selected appointment data:', selectedAppointment);
 
       const appt = selectedAppointment;
       // Reset form fields first

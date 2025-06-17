@@ -58,7 +58,6 @@ export function AppointmentDateTimeSelect({
   useEffect(() => {
     if (isStartTime) {
       if (hasValidDate && hasValidEmployee && currentFetchKey !== lastFetchKey) {
-        console.log('Fetching start times for appointment', appointmentIndex, ':', { employeeId, appointmentDate });
         fetchTimeslots({ employeeId, appointmentDate, appointmentIndex, excludeAppointmentId });
         setLastFetchKey(currentFetchKey);
       } else if (!hasValidDate || !hasValidEmployee) {
@@ -88,7 +87,6 @@ export function AppointmentDateTimeSelect({
       // Clear previous end times if start changed
       // (store will overwrite on fetch)
       if (selectedStartTime && hasValidDate && hasValidEmployee) {
-        console.log('Fetching end times for appointment', appointmentIndex, 'startTime:', selectedStartTime);
         fetchEndTimesForStartTime({
           employeeId,
           appointmentDate,
@@ -160,7 +158,6 @@ export function AppointmentDateTimeSelect({
 
   useEffect(() => {
     if (value && !isCurrentValueValid) {
-      console.log('Clearing invalid time value for appointment', appointmentIndex, ':', value);
       onChange('');
     }
   }, [value, isCurrentValueValid, onChange, appointmentIndex]);
