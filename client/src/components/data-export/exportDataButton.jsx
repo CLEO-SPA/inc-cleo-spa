@@ -99,7 +99,7 @@ const ExportDataButton = () => {
                     break;
                 case "excel":
                     content = convertToExcel(data, selectedTable);
-                    fileType = "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"; // ✅ FIX: Proper MIME type
+                    fileType = "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet";
                     fileExtension = "xlsx";
                     break;
                 default:
