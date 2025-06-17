@@ -124,9 +124,9 @@ const getCarePackagesForDropdown = async (): Promise<FullCarePackage[]> => {
       ORDER BY cp.created_at DESC;
     `;
 
-    const { rows } = await pool().query<{ care_package_data: FullCarePackage }>(sql);
+    const { rows } = await pool().query(sql);
 
-    return rows.map((row) => row.care_package_data);
+    return rows;
   } catch (error) {
     console.error('Error in cpModel.getAllCarePackages (with details):', error);
     throw new Error('Could not retrieve all care packages with details');
