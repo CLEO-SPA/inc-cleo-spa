@@ -60,6 +60,15 @@ const createPaymentMethod = async (input: CreatePaymentMethodInput) => {
   } = input;
 
   try {
+    // Check if name already exists
+    const existing = await pool().query(
+      `SELECT id FROM payment_methods WHERE LOWER(payment_method_name) = LOWER($1);`,
+      [payment_method_name]
+    );
+    if (existing.rows.length > 0) {
+      throw new Error('Another payment method with this name already exists');
+    }
+
     const query = `
       INSERT INTO payment_methods (
         payment_method_name, is_enabled, is_revenue,
@@ -79,15 +88,35 @@ const createPaymentMethod = async (input: CreatePaymentMethodInput) => {
     return result.rows[0];
   } catch (error) {
     console.error('Error creating payment method:', error);
+    if (error instanceof Error) {
+      throw new Error(error.message);
+    }
     throw new Error('Could not create payment method');
   }
 };
 
-
 // Update a payment method
 const updatePaymentMethod = async (input: UpdatePaymentMethodInput) => {
-  const { id, payment_method_name, is_enabled, is_revenue, show_on_payment_page, updated_at } = input;
+  const {
+    id,
+    payment_method_name,
+    is_enabled,
+    is_revenue,
+    show_on_payment_page,
+    updated_at,
+  } = input;
+
   try {
+    // Check if another payment method with the same name already exists
+    const existing = await pool().query(
+      `SELECT id FROM payment_methods WHERE LOWER(payment_method_name) = LOWER($1) AND id != $2;`,
+      [payment_method_name, id]
+    );
+
+    if (existing.rows.length > 0) {
+      throw new Error('Another payment method with this name already exists');
+    }
+
     const query = `
       UPDATE payment_methods
       SET
@@ -99,6 +128,7 @@ const updatePaymentMethod = async (input: UpdatePaymentMethodInput) => {
       WHERE id = $6
       RETURNING *;
     `;
+
     const values = [
       payment_method_name,
       is_enabled,
@@ -107,10 +137,14 @@ const updatePaymentMethod = async (input: UpdatePaymentMethodInput) => {
       updated_at,
       id,
     ];
+
     const result = await pool().query(query, values);
     return result.rows[0];
   } catch (error) {
     console.error('Error updating payment method:', error);
+    if (error instanceof Error) {
+      throw new Error(error.message);
+    }
     throw new Error('Could not update payment method');
   }
 };

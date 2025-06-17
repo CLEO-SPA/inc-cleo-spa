@@ -61,6 +61,7 @@ const getPaymentMethodById = async (req: Request, res: Response): Promise<void> 
   }
 };
 
+
 // Create a new payment method
 const createPaymentMethod = async (req: Request, res: Response) => {
   try {
@@ -68,7 +69,11 @@ const createPaymentMethod = async (req: Request, res: Response) => {
     res.status(201).json(newMethod);
   } catch (error) {
     console.error('Error in createPaymentMethod:', error);
-    res.status(500).json({ message: 'Failed to create payment method' });
+    if (error instanceof Error && error.message === 'Another payment method with this name already exists') {
+      res.status(409).json({ message: error.message });
+    } else {
+      res.status(500).json({ message: 'Failed to create payment method' });
+    }
   }
 };
 
@@ -76,16 +81,20 @@ const createPaymentMethod = async (req: Request, res: Response) => {
 const updatePaymentMethod = async (req: Request, res: Response) => {
   try {
     const { id } = req.params;
-
+    
     const updatedMethod = await model.updatePaymentMethod({
       ...req.body,
       id: Number(id),
     });
-
+    
     res.status(200).json(updatedMethod);
   } catch (error) {
     console.error('Error in updatePaymentMethod:', error);
-    res.status(500).json({ message: 'Failed to update payment method' });
+    if (error instanceof Error && error.message === 'Another payment method with this name already exists') {
+      res.status(409).json({ message: error.message });
+    } else {
+      res.status(500).json({ message: 'Failed to update payment method' });
+    }
   }
 };
 

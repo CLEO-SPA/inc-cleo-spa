@@ -9,7 +9,7 @@ import { Switch } from '@/components/ui/switch';
 import { AppSidebar } from '@/components/app-sidebar';
 import { SiteHeader } from '@/components/site-header';
 import { SidebarInset, SidebarProvider } from '@/components/ui/sidebar';
-import { ArrowLeft, Loader2 } from 'lucide-react';
+import { ArrowLeft, Loader2, AlertTriangle } from 'lucide-react';
 import { useState, useEffect } from 'react';
 import { Link } from 'react-router-dom';
 import {
@@ -34,6 +34,8 @@ const EditPaymentMethodPage = () => {
   const [error, setError] = useState(null);
   const [isInitialLoading, setIsInitialLoading] = useState(true);
   const [showSuccessDialog, setShowSuccessDialog] = useState(false);
+  const [showRevenueWarning, setShowRevenueWarning] = useState(false);
+  const [pendingRevenueValue, setPendingRevenueValue] = useState(null);
   const [updatedPaymentMethod, setUpdatedPaymentMethod] = useState(null);
   const handleGoToPaymentMethods = () => {
     navigate('/payment-method');
@@ -85,6 +87,25 @@ const EditPaymentMethodPage = () => {
 
     loadPaymentMethod();
   }, [id, fetchPaymentMethodById, reset]);
+
+  const handleRevenueToggle = (checked) => {
+    // Store the pending value and show warning dialog
+    setPendingRevenueValue(checked);
+    setShowRevenueWarning(true);
+  };
+
+  const confirmRevenueChange = () => {
+    // Apply the pending revenue value
+    setValue('is_revenue', pendingRevenueValue, { shouldDirty: true });
+    setShowRevenueWarning(false);
+    setPendingRevenueValue(null);
+  };
+
+  const cancelRevenueChange = () => {
+    // Reset and close the dialog
+    setShowRevenueWarning(false);
+    setPendingRevenueValue(null);
+  };
 
   const onSubmit = async (data) => {
     setError(null);
@@ -229,7 +250,7 @@ const EditPaymentMethodPage = () => {
                         <Switch
                           id="is_revenue"
                           checked={isRevenue}
-                          onCheckedChange={(checked) => setValue('is_revenue', checked, { shouldDirty: true })}
+                          onCheckedChange={handleRevenueToggle}
                         />
                       </div>
 
@@ -321,7 +342,48 @@ const EditPaymentMethodPage = () => {
           </SidebarInset>
         </div>
 
-        {<Dialog open={showSuccessDialog} onOpenChange={setShowSuccessDialog}>
+        {/* Revenue Warning Dialog */}
+        <Dialog open={showRevenueWarning} onOpenChange={setShowRevenueWarning}>
+          <DialogContent className="sm:max-w-md">
+            <DialogHeader>
+              <DialogTitle className="flex items-center gap-2 text-amber-600">
+                <AlertTriangle className="w-5 h-5" />
+                Revenue Setting Warning
+              </DialogTitle>
+            </DialogHeader>
+            <div className="py-4">
+              <p className="text-sm text-gray-700 mb-4">
+                Changing the revenue setting for this payment method may affect your revenue reports and financial calculations.
+              </p>
+              <div className="bg-amber-50 border border-amber-200 rounded-lg p-3 mb-4">
+                <p className="text-sm text-amber-800">
+                  <strong>Impact:</strong> This change will affect how transactions using this payment method are calculated in revenue sheets and financial reports.
+                </p>
+              </div>
+              <p className="text-sm text-gray-600">
+                Are you sure you want to {pendingRevenueValue ? 'enable' : 'disable'} revenue generation for this payment method?
+              </p>
+            </div>
+            <DialogFooter className="flex gap-2">
+              <Button 
+                variant="outline" 
+                onClick={cancelRevenueChange}
+                className="flex-1"
+              >
+                Cancel
+              </Button>
+              <Button 
+                onClick={confirmRevenueChange}
+                className="flex-1 bg-amber-600 hover:bg-amber-700"
+              >
+                Continue
+              </Button>
+            </DialogFooter>
+          </DialogContent>
+        </Dialog>
+
+        {/* Success Dialog */}
+        <Dialog open={showSuccessDialog} onOpenChange={setShowSuccessDialog}>
           <DialogContent className="sm:max-w-md">
             <DialogHeader>
               <DialogTitle className="flex items-center gap-2 text-green-600">
@@ -365,11 +427,8 @@ const EditPaymentMethodPage = () => {
             </DialogFooter>
           </DialogContent>
         </Dialog>
-        }
       </SidebarProvider>
     </div>
-
-
   );
 };
 

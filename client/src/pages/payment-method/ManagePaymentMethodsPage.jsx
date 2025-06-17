@@ -34,7 +34,7 @@ import { SidebarInset, SidebarProvider } from '@/components/ui/sidebar';
 function ManagePaymentMethodsPage() {
   const { user } = useAuth();
   const navigate = useNavigate();
-  
+
   const {
     paymentMethods,
     currentPage,
@@ -229,8 +229,8 @@ function ManagePaymentMethodsPage() {
                       <Label htmlFor='limit' className='mb-2'>
                         Items per page:
                       </Label>
-                      <Select 
-                        value={currentLimit.toString()} 
+                      <Select
+                        value={currentLimit.toString()}
                         onValueChange={handleLimitChange}
                         disabled={isFetching}
                       >
@@ -317,38 +317,42 @@ function ManagePaymentMethodsPage() {
                                     </TableCell>
                                   );
                                 }
-                                
-                                if (header.key === 'is_active') {
-                                  return (
-                                    <TableCell key={header.key}>
-                                      <span 
-                                        className={`inline-flex px-2 py-1 text-xs rounded-full ${
-                                          paymentMethod[header.key] 
-                                            ? 'bg-green-100 text-green-800' 
-                                            : 'bg-red-100 text-red-800'
-                                        }`}
-                                      >
-                                        {paymentMethod[header.key] ? 'Active' : 'Inactive'}
-                                      </span>
-                                    </TableCell>
-                                  );
-                                }
-                                
+
+                               
+
                                 if (header.key === 'created_at' || header.key === 'updated_at') {
                                   const date = paymentMethod[header.key];
                                   return (
                                     <TableCell key={header.key}>
-                                      {date ? new Date(date).toLocaleDateString('en-GB') : 'N/A'}
+                                      {date ? new Date(date).toUTCString() : 'N/A'}
                                     </TableCell>
                                   );
                                 }
 
+                                if (header.key === 'is_enabled' || header.key === 'is_revenue' || header.key === 'show_on_payment_page') {
+                                  const status = paymentMethod[header.key];
+                                  const displayText = status === true ? 'True' : status === false ? 'False' : status || 'N/A';
+                                  return (
+                                    <TableCell key={header.key}>
+                                      <span className={`px-2 py-1 rounded-full text-xs font-medium ${status === true
+                                          ? 'bg-green-100 text-green-800'
+                                          : status === false
+                                            ? 'bg-gray-100 text-gray-800'
+                                            : 'bg-red-100 text-red-800'
+                                        }`}>
+                                        {displayText}
+                                      </span>
+                                    </TableCell>
+                                  );
+                                }
                                 return (
                                   <TableCell key={header.key}>
-                                    {paymentMethod[header.key] !== null && paymentMethod[header.key] !== undefined 
-                                      ? paymentMethod[header.key].toString() 
+                                    {paymentMethod[header.key] !== null && paymentMethod[header.key] !== undefined
+                                      ? paymentMethod[header.key].toString()
                                       : 'N/A'}
                                   </TableCell>
+
+
                                 );
                               })}
                             </TableRow>
@@ -393,10 +397,10 @@ function ManagePaymentMethodsPage() {
                             {page}
                           </Button>
                         ))}
-                        <Button 
-                          variant='outline' 
-                          size='sm' 
-                          onClick={goToNextPage} 
+                        <Button
+                          variant='outline'
+                          size='sm'
+                          onClick={goToNextPage}
                           disabled={!hasNextPage || isFetching}
                         >
                           Next
