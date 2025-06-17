@@ -25,10 +25,8 @@ function isSafeInput(input: string) {
 
 // Get services with pagination and filter
 const getServicesPaginationFilter = async (req: Request, res: Response, next: NextFunction) => {
-
   const { page, limit, search, category, status } = req.query;
   try {
-
     const data: { [key: string]: any } = {};
 
     if (typeof page === 'string' && validator.isInt(page)) {
@@ -162,10 +160,19 @@ const validateServiceData = async (req: Request, res: Response, next: NextFuncti
       res.status(400).json({ message: 'Invalid data type' });
       return;
     } else {
-      const service = await serviceModel.getServiceByName(serviceData.service_name);
-      if (service && service.length > 0) {
-        res.status(400).json({ message: 'Service with this name already exists' });
-        return;
+      const service = await serviceModel.getServiceByName(service_name);
+      if (serviceData.id) {
+        // If updating, check if the name is already used by another service{
+        if (service.id !== serviceData.id) {
+          res.status(400).json({ message: 'Service name already exists' });
+          return;
+        }
+      } else {
+        // If creating, check if the name is already used by any service
+        if (service && service.length > 0) {
+          res.status(400).json({ message: 'Service name already exists' });
+          return;
+        }
       }
     }
   }
@@ -208,10 +215,12 @@ const validateServiceData = async (req: Request, res: Response, next: NextFuncti
 const createService = async (req: Request, res: Response, next: NextFunction) => {
   const formData = req.body;
   try {
+    // check if all required fields are present
     if (!validator.isBoolean(formData.service_is_enabled.toString())) {
       res.status(400).json({ message: 'Invalid data type' });
       return;
     }
+
     // get service sequence no (last in the category)
     const service_sequence_no = parseInt(await serviceModel.getServiceSequenceNo(formData.service_category_id)) + 1;
 
@@ -264,11 +273,11 @@ const updateService = async (req: Request, res: Response, next: NextFunction) =>
       updatePayload.service_name = formData.service_name;
     }
 
-    if (formData.service_description && formData.service_description !== service.service_description) {
+    if (formData.service_description !== service.service_description) {
       updatePayload.service_description = formData.service_description;
     }
 
-    if (formData.service_remarks && formData.service_remarks !== service.service_remarks) {
+    if (formData.service_remarks !== service.service_remarks) {
       updatePayload.service_remarks = formData.service_remarks;
     }
 
@@ -285,6 +294,8 @@ const updateService = async (req: Request, res: Response, next: NextFunction) =>
     }
 
     if (formData.created_at && formData.created_at !== service.created_at) {
+      console.log('Updating created_at:', formData.created_at);
+      console.log('Current created_at:', service.created_at);
       updatePayload.created_at = formData.created_at;
     }
 
@@ -292,6 +303,7 @@ const updateService = async (req: Request, res: Response, next: NextFunction) =>
       updatePayload.created_by = formData.created_by;
     }
 
+    console.log('Update Payload:', updatePayload);
     //if no changes detected so far
     if (Object.keys(updatePayload).length === 0) {
       res.status(400).json({ message: 'No changes detected' });
@@ -322,10 +334,10 @@ const reorderService = async (req: Request, res: Response, next: NextFunction) =
 
     const updatedSequence = await serviceModel.reorderServices(services);
 
-    if(updatedSequence.success){
-      res.status(200).json({message: "Reorder Service Sequence Successfully"})
+    if (updatedSequence.success) {
+      res.status(200).json({ message: 'Reorder Service Sequence Successfully' });
     } else {
-      res.status(400).json({message: "Error reordering service sequence"})
+      res.status(400).json({ message: 'Error reordering service sequence' });
     }
   } catch (error) {
     console.error('Error in reorderService:', error);
@@ -336,80 +348,78 @@ const reorderService = async (req: Request, res: Response, next: NextFunction) =
 // update service status
 // disable service
 const disableService = async (req: Request, res: Response, next: NextFunction) => {
-  try{
-    const id = parseInt(req.params.id,10);
+  try {
+    const id = parseInt(req.params.id, 10);
     const data = req.body;
 
     let updateData: { [key: string]: any } = {
       id: id,
       updated_by: data.updated_by,
-      updated_at: data.updated_at
-    }
-    
+      updated_at: data.updated_at,
+    };
+
     // check service exists validation
     // check if disabled or not
     const service = await serviceModel.getServiceById(id);
-    if (!service.service_is_enabled){
-      res.status(400).json({ message: "Service is already disabled."});
+    if (!service.service_is_enabled) {
+      res.status(400).json({ message: 'Service is already disabled.' });
       return;
     }
-    
+
     // check if remarks was updated
     if (data.service_remarks && data.service_remarks !== service.service_remarks) {
       updateData.service_remarks = data.service_remarks;
     }
-    
+
     // change status
     const updatedService = await serviceModel.disableService(updateData);
-    if (updatedService){
-      res.status(200).json({ message: "Disabled Service Successfully"})
+    if (updatedService) {
+      res.status(200).json({ message: 'Disabled Service Successfully' });
     }
-
-  }catch(error){
+  } catch (error) {
     console.error('Error in disableService:', error);
     res.status(500).json({ message: 'Failed to disable service' });
   }
-}
+};
 
 const enableService = async (req: Request, res: Response, next: NextFunction) => {
-  try{
-    const id = parseInt(req.params.id,10);
+  try {
+    const id = parseInt(req.params.id, 10);
     const data = req.body;
 
     let updateData: { [key: string]: any } = {
       id: id,
       updated_by: data.updated_by,
-      updated_at: data.updated_at
-    }
-    
+      updated_at: data.updated_at,
+    };
+
     // check service exists validation
     // check if enabled or not
     const service = await serviceModel.getServiceById(id);
-    if (service.service_is_enabled){
-      res.status(400).json({ message: "Service is already enabled."});
+    if (service.service_is_enabled) {
+      res.status(400).json({ message: 'Service is already enabled.' });
       return;
     }
-    
+
     // check if remarks was updated
     if (data.service_remarks && data.service_remarks !== service.service_remarks) {
       updateData.service_remarks = data.service_remarks;
     }
-    
+
     // get service sequence no (last in the category)
     const service_sequence_no = parseInt(await serviceModel.getServiceSequenceNo(service.service_category_id)) + 1;
     updateData.service_sequence_no = service_sequence_no;
 
     // change status
     const updatedService = await serviceModel.enableService(updateData);
-    if (updatedService){
-      res.status(200).json({ message: "Enabled Service Successfully"})
+    if (updatedService) {
+      res.status(200).json({ message: 'Enabled Service Successfully' });
     }
-
-  }catch(error){
+  } catch (error) {
     console.error('Error in enableService:', error);
     res.status(500).json({ message: 'Failed to enable service' });
   }
-}
+};
 
 // get services by categories
 const getServicesByCategory = async (req: Request, res: Response, next: NextFunction) => {
@@ -454,11 +464,13 @@ const getSalesHistoryByServiceId = async (req: Request, res: Response) => {
     const { month, year } = req.query;
 
     if (isNaN(id)) {
-      return res.status(400).json({ message: 'Invalid service ID' });
+      res.status(400).json({ message: 'Invalid service ID' });
+      return;
     }
 
     if (!month || !year) {
-      return res.status(400).json({ message: 'Month and year are required' });
+      res.status(400).json({ message: 'Month and year are required' });
+      return;
     }
 
     const salesData = await serviceModel.getSalesHistoryByServiceId(
@@ -468,11 +480,12 @@ const getSalesHistoryByServiceId = async (req: Request, res: Response) => {
     );
 
     if (!salesData || salesData.length === 0) {
-      return res.status(404).json({ message: 'No sales history found' });
+      res.status(404).json({ message: 'No sales history found' });
+      return;
     }
 
-    const summary = salesData.find(row => row.result_type === 'monthly_summary');
-    const daily = salesData.filter(row => row.result_type === 'daily_breakdown');
+    const summary = salesData.find((row) => row.result_type === 'monthly_summary');
+    const daily = salesData.filter((row) => row.result_type === 'daily_breakdown');
 
     res.status(200).json({ summary, daily });
   } catch (error) {
@@ -487,7 +500,8 @@ const createServiceCategory = async (req: Request, res: Response, next: NextFunc
 
   try {
     if (!service_category_name || typeof service_category_name !== 'string') {
-      return res.status(400).json({ message: 'Invalid or missing category name' });
+      res.status(400).json({ message: 'Invalid or missing category name' });
+      return;
     }
 
     const newCategory = await serviceModel.createServiceCategory(service_category_name.trim());
@@ -512,25 +526,26 @@ const updateServiceCategory = async (req: Request, res: Response) => {
 
   try {
     if (!name || typeof name !== 'string' || name.trim() === '') {
-      return res.status(400).json({ message: 'Invalid or missing category name' });
+      res.status(400).json({ message: 'Invalid or missing category name' });
+      return;
     }
 
     const updated = await serviceModel.updateServiceCategory(catId, name.trim());
     res.status(200).json({ category: updated[0], message: 'Category name updated successfully.' });
-
   } catch (error) {
     console.error('Error in updateServiceCategory:', error);
 
-    const message =
-      error instanceof Error ? error.message : 'Failed to update category';
+    const message = error instanceof Error ? error.message : 'Failed to update category';
 
     // Translate known errors to appropriate HTTP status
     if (message === 'Category not found') {
-      return res.status(404).json({ message });
+      res.status(404).json({ message });
+      return;
     }
 
     if (message === 'Category already exists') {
-      return res.status(409).json({ message });
+      res.status(409).json({ message });
+      return;
     }
 
     res.status(400).json({ message });
@@ -541,19 +556,21 @@ const updateServiceCategory = async (req: Request, res: Response) => {
 const reorderServiceCategory = async (req: Request, res: Response, next: NextFunction) => {
   const categories = req.body; // expected to be array of { id, service_category_sequence_no }
 
-  if (!Array.isArray(categories) || categories.some(cat => !cat.id || cat.service_category_sequence_no == null)) {
-    return res.status(400).json({ message: 'Invalid category data.' });
+  if (!Array.isArray(categories) || categories.some((cat) => !cat.id || cat.service_category_sequence_no == null)) {
+    res.status(400).json({ message: 'Invalid category data.' });
+    return;
   }
 
   try {
     await serviceModel.reorderServiceCategory(categories);
-    return res.status(200).json({ message: 'Service categories reordered successfully.' });
+    res.status(200).json({ message: 'Service categories reordered successfully.' });
+    return;
   } catch (error) {
     console.error('Error updating category order:', error);
-    return res.status(500).json({ message: 'Failed to update category order.' });
+    res.status(500).json({ message: 'Failed to update category order.' });
+    return;
   }
 };
-
 
 export default {
   getAllServices,
@@ -572,5 +589,5 @@ export default {
   getSalesHistoryByServiceId,
   createServiceCategory,
   updateServiceCategory,
-  reorderServiceCategory
+  reorderServiceCategory,
 };
