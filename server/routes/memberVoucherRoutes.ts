@@ -12,7 +12,9 @@ import controller from '../controllers/memberVoucherController.js';
 // =========================
 // Private routes
 // =========================
-router.use(isAuthenticated);
+// router.use(isAuthenticated);
+
+router.post('/create',  controller.createMemberVoucher);
 
 router.get('/v', controller.getAllMemberVouchers);
 

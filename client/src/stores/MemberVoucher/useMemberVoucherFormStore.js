@@ -10,7 +10,6 @@ const useMemberVoucherFormStore = create(
       selectedTemplate: null,
       memberVoucherDetails: [],
       formData: {
-        voucher_name: '',
         voucher_template_id: '',
         created_by: '',
         creation_datetime: '',
@@ -111,6 +110,7 @@ const useMemberVoucherFormStore = create(
             formData: {
               ...state.formData,
               voucher_template_id: template.id,
+              member_voucher_name: template.voucher_template_name || '',
               starting_balance: parseFloat(template.default_starting_balance) ?? 0,
               free_of_charge: parseFloat(template.default_free_of_charge) ?? 0,
               total_price: parseFloat(template.default_total_price) ?? 0,
@@ -307,7 +307,6 @@ const useMemberVoucherFormStore = create(
           selectedTemplate: null,
           memberVoucherDetails: [],
           formData: {
-            voucher_name: '',
             voucher_template_id: '',
             created_by: '',
             creation_datetime: '',
