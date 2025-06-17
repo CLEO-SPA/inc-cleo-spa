@@ -281,12 +281,12 @@ const updateService = async (formData: any) => {
       conditions.push(`service_name = $${index++}`);
     }
 
-    if (formData.service_description) {
+    if (formData.service_description != null) {
       params.push(formData.service_description);
       conditions.push(`service_description = $${index++}`);
     }
 
-    if (formData.service_remarks) {
+    if (formData.service_remarks != null) {
       params.push(formData.service_remarks);
       conditions.push(`service_remarks = $${index++}`);
     }

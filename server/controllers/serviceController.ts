@@ -136,6 +136,7 @@ const getEnabledServiceById = async (req: Request, res: Response, next: NextFunc
 
 //Data validation for create and update service
 const validateServiceData = async (req: Request, res: Response, next: NextFunction) => {
+  const id = parseInt(req.params.id, 10) || null;
   const serviceData = req.body;
 
   const {
@@ -161,15 +162,15 @@ const validateServiceData = async (req: Request, res: Response, next: NextFuncti
       return;
     } else {
       const service = await serviceModel.getServiceByName(service_name);
-      if (serviceData.id) {
-        // If updating, check if the name is already used by another service{
-        if (service.id !== serviceData.id) {
-          res.status(400).json({ message: 'Service name already exists' });
-          return;
-        }
-      } else {
-        // If creating, check if the name is already used by any service
-        if (service && service.length > 0) {
+      if (service) {
+        if (id) {
+          // Updating: allow only if it's the same service
+          if (parseInt(service.id,10) != id) {
+            res.status(400).json({ message: 'Service name already exists' });
+            return;
+          }
+        } else {
+          // Creating: any existing service with same name is a conflict
           res.status(400).json({ message: 'Service name already exists' });
           return;
         }
@@ -294,8 +295,6 @@ const updateService = async (req: Request, res: Response, next: NextFunction) =>
     }
 
     if (formData.created_at && formData.created_at !== service.created_at) {
-      console.log('Updating created_at:', formData.created_at);
-      console.log('Current created_at:', service.created_at);
       updatePayload.created_at = formData.created_at;
     }
 
@@ -303,7 +302,6 @@ const updateService = async (req: Request, res: Response, next: NextFunction) =>
       updatePayload.created_by = formData.created_by;
     }
 
-    console.log('Update Payload:', updatePayload);
     //if no changes detected so far
     if (Object.keys(updatePayload).length === 0) {
       res.status(400).json({ message: 'No changes detected' });
