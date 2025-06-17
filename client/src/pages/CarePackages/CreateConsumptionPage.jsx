@@ -1,6 +1,6 @@
 import React, { useEffect } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
-import { useConsumptionStore } from '@/stores/useMcpConsumptionStore';
+import { useConsumptionStore } from '@/stores/MemberCarePackage/useMcpConsumptionStore';
 import useAuth from '@/hooks/useAuth';
 
 import { AppSidebar } from '@/components/app-sidebar';

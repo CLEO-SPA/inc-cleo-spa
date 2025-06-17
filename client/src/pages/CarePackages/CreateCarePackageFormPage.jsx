@@ -1,14 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import {
-  Save,
-  X,
-  Package,
-  DollarSign,
-  ArrowLeft,
-  User,
-  Calendar,
-  AlertCircle,
-} from 'lucide-react';
+import { Save, X, Package, DollarSign, ArrowLeft, User, Calendar, AlertCircle } from 'lucide-react';
 import { AppSidebar } from '@/components/app-sidebar';
 import { SiteHeader } from '@/components/site-header';
 import { SidebarInset, SidebarProvider } from '@/components/ui/sidebar';
@@ -16,7 +7,7 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
 import { Button } from '@/components/ui/button';
 import { Alert, AlertDescription } from '@/components/ui/alert';
-import { useCpFormStore } from '@/stores/useCpFormStore';
+import { useCpFormStore } from '@/stores/CarePackage/useCpFormStore';
 import { Textarea } from '@/components/ui/textarea';
 import ServiceItem from '@/pages/CarePackages/ServiceItem';
 import ServiceSelection from '@/pages/CarePackages/ServiceSelection';
@@ -99,7 +90,7 @@ const CarePackageCreateForm = () => {
   // calculate total package price
   const calculateTotalPrice = () => {
     return mainFormData.services.reduce((total, service) => {
-      const customPrice = parseFloat(service.price) || 0; 
+      const customPrice = parseFloat(service.price) || 0;
       const quantity = parseInt(service.quantity, 10) || 0;
       const discountFactor = parseFloat(service.discount) || 1;
 
@@ -109,11 +100,11 @@ const CarePackageCreateForm = () => {
     }, 0);
   };
 
-  // calculate current service total in form 
+  // calculate current service total in form
   const calculateCurrentServiceTotal = () => {
-    const customPrice = parseFloat(serviceForm.price) || 0; 
+    const customPrice = parseFloat(serviceForm.price) || 0;
     const quantity = parseInt(serviceForm.quantity, 10) || 0;
-    const discountFactor = parseFloat(serviceForm.discount) || 1; 
+    const discountFactor = parseFloat(serviceForm.discount) || 1;
 
     const finalUnitPrice = customPrice * discountFactor;
     const lineTotal = quantity * finalUnitPrice;
@@ -149,11 +140,11 @@ const CarePackageCreateForm = () => {
     }
 
     const serviceToSelect = {
-      id: service.id.toString(), 
+      id: service.id.toString(),
       name: service.service_name || service.name || service.label || 'Unknown Service',
       label: service.service_name || service.name || service.label || 'Unknown Service',
-      price: servicePrice, 
-      originalPrice: servicePrice, 
+      price: servicePrice,
+      originalPrice: servicePrice,
       service_name: service.service_name || service.name || service.label,
       service_price: servicePrice,
       service_description: service.service_description || '',
@@ -189,9 +180,9 @@ const CarePackageCreateForm = () => {
   const handleSaveEditedService = (index, updatedData) => {
     const processedData = {
       ...updatedData,
-      price: parseFloat(updatedData.price) || 0, 
+      price: parseFloat(updatedData.price) || 0,
       quantity: parseInt(updatedData.quantity) || 1,
-      discount: parseFloat(updatedData.discount) || 1, 
+      discount: parseFloat(updatedData.discount) || 1,
     };
 
     updateServiceInPackage(index, processedData);
@@ -237,7 +228,7 @@ const CarePackageCreateForm = () => {
           id: service.id.toString(),
           name: service.name,
           quantity: quantity,
-          price: customPrice, 
+          price: customPrice,
           discount: discountFactor,
           finalPrice: customPrice, // final price before discount
         };
@@ -275,7 +266,7 @@ const CarePackageCreateForm = () => {
         employee_id: mainFormData.employee_id.toString(),
         created_at: mainFormData.created_at,
         updated_at: mainFormData.created_at,
-        services: processedServices, 
+        services: processedServices,
       };
 
       if (submitPackage) {

@@ -23,8 +23,8 @@ import {
   ChevronsRight,
   AlertTriangle,
 } from 'lucide-react';
-import { useCpPaginationStore } from '@/stores/useCpPaginationStore';
-import { useCpSpecificStore } from '@/stores/useCpSpecificStore';
+import { useCpPaginationStore } from '@/stores/CarePackage/useCpPaginationStore';
+import { useCpSpecificStore } from '@/stores/CarePackage/useCpSpecificStore';
 import { Card, CardContent, CardHeader, CardTitle, CardFooter } from '@/components/ui/card';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { AppSidebar } from '@/components/app-sidebar';
@@ -196,14 +196,13 @@ function ManageCarePackagesPage() {
       await deletePackage(packageId);
       initializePagination(currentLimit, searchTerm);
       fetchPurchaseCount();
-      
+
       // close dialog and reset state
       setDeleteDialogOpen(false);
       setPackageToDelete(null);
-
     } catch (err) {
       console.error('Failed to delete care package:', err);
-      
+
       // show error message
       let errorMessage = 'Failed to delete care package.';
       if (err.response?.data?.message) {
@@ -211,7 +210,7 @@ function ManageCarePackagesPage() {
       } else if (err.message) {
         errorMessage = err.message;
       }
-      
+
       alert(errorMessage);
     } finally {
       setDeletingPackages((prev) => {
@@ -233,7 +232,7 @@ function ManageCarePackagesPage() {
     const purchaseData = getPurchaseCountForPackage(pkg.id);
     const hasNoPurchases = purchaseData.purchase_count === 0 && !purchaseData.is_purchased;
     const isDisabled = !isPackageEnabled(pkg); // Must be disabled (status_id !== 1)
-    
+
     return hasNoPurchases && isDisabled;
   };
 
@@ -247,7 +246,9 @@ function ManageCarePackagesPage() {
 
     // check purchase count first
     if (purchaseData.purchase_count > 0) {
-      reasons.push(`This package has ${purchaseData.purchase_count} existing purchase${purchaseData.purchase_count > 1 ? 's' : ''}`);
+      reasons.push(
+        `This package has ${purchaseData.purchase_count} existing purchase${purchaseData.purchase_count > 1 ? 's' : ''}`
+      );
     }
 
     // check status
@@ -255,7 +256,7 @@ function ManageCarePackagesPage() {
       reasons.push('This package is currently enabled');
     }
     if (reasons.length === 0) {
-      return null; 
+      return null;
     }
 
     let message = reasons.join(' and ') + ' and cannot be deleted.';
@@ -264,7 +265,8 @@ function ManageCarePackagesPage() {
     } else if (isEnabled && !hasNoPurchases) {
       message += ' You can disable it to prevent new purchases, but it cannot be deleted due to existing purchases.';
     } else if (!isEnabled && !hasNoPurchases) {
-      message += ' You can keep it disabled to prevent new purchases, but it cannot be deleted due to existing purchases.';
+      message +=
+        ' You can keep it disabled to prevent new purchases, but it cannot be deleted due to existing purchases.';
     }
 
     return message;
@@ -531,9 +533,9 @@ function ManageCarePackagesPage() {
                                           <div className='flex items-center gap-2'>
                                             <span>{purchaseData.purchase_count}</span>
                                             {purchaseData.purchase_count > 0 && (
-                                              <AlertTriangle 
-                                                className='h-3 w-3 text-amber-500' 
-                                                title='Has purchases - deletion restricted' 
+                                              <AlertTriangle
+                                                className='h-3 w-3 text-amber-500'
+                                                title='Has purchases - deletion restricted'
                                               />
                                             )}
                                           </div>
@@ -633,19 +635,27 @@ function ManageCarePackagesPage() {
                   onOpenChange={setDeleteDialogOpen}
                   onConfirm={handleDeleteConfirm}
                   onCancel={handleDeleteCancel}
-                  title="Delete Care Package"
+                  title='Delete Care Package'
                   itemName={packageToDelete.care_package_name}
-                  itemType="care package"
+                  itemType='care package'
                   isDeleting={deletingPackages.has(packageToDelete.id)}
                   canDelete={canDeletePackage(packageToDelete)}
                   deleteRestrictionReason={getDeleteRestrictionReason(packageToDelete)}
                   destructiveAction={true}
                   itemDetails={
                     <div>
-                      <div><strong>Package ID:</strong> {packageToDelete.id}</div>
-                      <div><strong>Price:</strong> ${parseFloat(packageToDelete.care_package_price || 0).toFixed(2)}</div>
-                      <div><strong>Status:</strong> {getStatusById(packageToDelete.status_id)?.status_name || 'Unknown'}</div>
-                      <div><strong>Purchase Count:</strong> {getPurchaseCountForPackage(packageToDelete.id).purchase_count}</div>
+                      <div>
+                        <strong>Package ID:</strong> {packageToDelete.id}
+                      </div>
+                      <div>
+                        <strong>Price:</strong> ${parseFloat(packageToDelete.care_package_price || 0).toFixed(2)}
+                      </div>
+                      <div>
+                        <strong>Status:</strong> {getStatusById(packageToDelete.status_id)?.status_name || 'Unknown'}
+                      </div>
+                      <div>
+                        <strong>Purchase Count:</strong> {getPurchaseCountForPackage(packageToDelete.id).purchase_count}
+                      </div>
                     </div>
                   }
                 />

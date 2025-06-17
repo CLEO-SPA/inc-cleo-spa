@@ -6,7 +6,7 @@ import { SidebarInset, SidebarProvider } from '@/components/ui/sidebar';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
 import { Button } from '@/components/ui/button';
-import { useCpFormStore } from '@/stores/useCpFormStore';
+import { useCpFormStore } from '@/stores/CarePackage/useCpFormStore';
 import { Textarea } from '@/components/ui/textarea';
 
 const CarePackageCreateForm = () => {

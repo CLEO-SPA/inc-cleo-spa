@@ -5,7 +5,7 @@ import api from '@/services/api';
 const calculateOverallPackagePrice = (services) =>
   services.reduce((total, service) => total + (service.finalPrice || 0) * (service.quantity || 0), 0);
 
-export const useCpFormStore = create(
+export const useMcpFormStore = create(
   devtools((set, get) => ({
     mainFormData: {
       package_name: '',
@@ -351,15 +351,22 @@ export const useCpFormStore = create(
       set({ isLoading: true, error: null }, false, 'fetchCarePackageOptions/pending');
       try {
         const response = await api('cp/dropdown');
-        const formattedOptions = response.data.map((pkg) => ({
-          id: pkg.id,
-          label: pkg.care_package_name,
-        }));
+
+        // Add null checking and filtering
+        const formattedOptions = (response.data || [])
+          .filter((pkg) => pkg && pkg.id && pkg.care_package_name) // Filter out null/invalid entries
+          .map((pkg) => ({
+            id: pkg.id,
+            label: pkg.care_package_name,
+            value: pkg.id, // Add value field for consistency
+          }));
+
+        console.log('Formatted care package options:', formattedOptions);
         set({ packageOptions: formattedOptions, isLoading: false }, false, 'fetchCarePackageOptions/fulfilled');
       } catch (error) {
         const errorMessage = error.response?.data?.message || error.message || 'An unknown error occurred';
         set({ error: errorMessage, isLoading: false }, false, 'fetchCarePackageOptions/rejected');
-        console.error('Error fetching care package options:', error); // Corrected console message
+        console.error('Error fetching care package options:', error);
       }
     },
   }))

@@ -1,15 +1,6 @@
 import React, { useState, useEffect, useCallback } from 'react';
 import { useParams } from 'react-router-dom';
-import {
-  Save,
-  X,
-  Package,
-  DollarSign,
-  ArrowLeft,
-  Loader,
-  User,
-  AlertCircle,
-} from 'lucide-react';
+import { Save, X, Package, DollarSign, ArrowLeft, Loader, User, AlertCircle } from 'lucide-react';
 import { AppSidebar } from '@/components/app-sidebar';
 import { SiteHeader } from '@/components/site-header';
 import { SidebarInset, SidebarProvider } from '@/components/ui/sidebar';
@@ -17,8 +8,8 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Alert, AlertDescription } from '@/components/ui/alert';
-import { useCpFormStore } from '@/stores/useCpFormStore';
-import { useCpSpecificStore } from '@/stores/useCpSpecificStore';
+import { useCpFormStore } from '@/stores/CarePackage/useCpFormStore';
+import { useCpSpecificStore } from '@/stores/CarePackage/useCpSpecificStore';
 import { NotFoundState } from '@/components/NotFoundState';
 import { ErrorState } from '@/components/ErrorState';
 import { LoadingState } from '@/components/LoadingState';
@@ -124,12 +115,12 @@ const EditCarePackagePage = () => {
     return true;
   };
 
-  // calculate total package price 
+  // calculate total package price
   const calculateTotalPrice = () => {
     return mainFormData.services.reduce((total, service) => {
-      const customPrice = parseFloat(service.price) || 0; 
+      const customPrice = parseFloat(service.price) || 0;
       const quantity = parseInt(service.quantity, 10) || 0;
-      const discountFactor = parseFloat(service.discount) || 1; 
+      const discountFactor = parseFloat(service.discount) || 1;
 
       // ensure discount factor is valid (between 0 and 1)
       const validDiscountFactor = Math.max(0, Math.min(1, discountFactor));
@@ -142,9 +133,9 @@ const EditCarePackagePage = () => {
 
   // calculate current service total in form
   const calculateCurrentServiceTotal = () => {
-    const customPrice = parseFloat(serviceForm.price) || 0; 
+    const customPrice = parseFloat(serviceForm.price) || 0;
     const quantity = parseInt(serviceForm.quantity, 10) || 0;
-    const discountFactor = parseFloat(serviceForm.discount) || 1; 
+    const discountFactor = parseFloat(serviceForm.discount) || 1;
 
     // ensure discount factor is valid
     const validDiscountFactor = Math.max(0, Math.min(1, discountFactor));
@@ -282,8 +273,8 @@ const EditCarePackagePage = () => {
             id: String(service.id),
             name: service.name || '',
             quantity: Number(service.quantity) || 0,
-            price: Number(service.price) || 0, 
-            discount: Number(service.discount) || 1, 
+            price: Number(service.price) || 0,
+            discount: Number(service.discount) || 1,
           }))
           .sort((a, b) => a.id.localeCompare(b.id)),
       };
@@ -303,8 +294,8 @@ const EditCarePackagePage = () => {
             id: String(detail.service_id),
             name: getServiceDisplayName(detail.service_id),
             quantity: Number(detail.care_package_item_details_quantity) || 0,
-            price: Number(detail.care_package_item_details_price) || 0, 
-            discount: Number(detail.care_package_item_details_discount) || 1, 
+            price: Number(detail.care_package_item_details_price) || 0,
+            discount: Number(detail.care_package_item_details_discount) || 1,
           }))
           .sort((a, b) => a.id.localeCompare(b.id)),
       };
@@ -347,8 +338,8 @@ const EditCarePackagePage = () => {
       id: service.id,
       name: service.service_name || service.name || service.label || 'Unknown Service',
       label: service.service_name || service.name || service.label || 'Unknown Service',
-      price: servicePrice, 
-      originalPrice: servicePrice, 
+      price: servicePrice,
+      originalPrice: servicePrice,
       service_name: service.service_name || service.name || service.label,
       service_price: servicePrice,
       service_description: service.service_description,
@@ -382,9 +373,9 @@ const EditCarePackagePage = () => {
   const handleSaveEditedService = (index, updatedData) => {
     const processedData = {
       ...updatedData,
-      price: parseFloat(updatedData.price) || 0, 
+      price: parseFloat(updatedData.price) || 0,
       quantity: parseInt(updatedData.quantity) || 1,
-      discount: parseFloat(updatedData.discount) || 1, 
+      discount: parseFloat(updatedData.discount) || 1,
     };
 
     updateServiceInPackage(index, processedData);
@@ -427,7 +418,7 @@ const EditCarePackagePage = () => {
         const serviceId = service.id;
         const serviceQuantity = Math.max(1, parseInt(service.quantity) || 1);
         const customPrice = Math.max(0, parseFloat(service.price) || 0);
-        
+
         // ensure discount factor is valid (0-1 range)
         let discountFactor = parseFloat(service.discount);
         if (isNaN(discountFactor) || discountFactor < 0 || discountFactor > 1) {
@@ -453,7 +444,7 @@ const EditCarePackagePage = () => {
         package_price: packagePrice, // ensure positive price
         is_customizable: Boolean(mainFormData.customizable),
         employee_id: mainFormData.employee_id,
-        services: processedServices.map(service => ({
+        services: processedServices.map((service) => ({
           id: service.id,
           name: service.name,
           quantity: service.quantity,
@@ -709,9 +700,7 @@ const EditCarePackagePage = () => {
                   <div className='mt-4 pt-4 border-t border-gray-200'>
                     <div className='grid grid-cols-1 md:grid-cols-2 gap-4'>
                       <div>
-                        <label className='block text-xs font-medium text-gray-600 mb-1'>
-                          CALCULATED TOTAL
-                        </label>
+                        <label className='block text-xs font-medium text-gray-600 mb-1'>CALCULATED TOTAL</label>
                         <div className='text-gray-900 font-semibold px-2 py-1 bg-green-50 border border-green-200 rounded text-sm'>
                           ${calculateTotalPrice().toFixed(2)}
                         </div>
@@ -785,37 +774,39 @@ const EditCarePackagePage = () => {
                       />
                     ))}
                   </div>
-                  
+
                   {/* service summary */}
                   <div className='mt-4 pt-4 border-t border-gray-200 bg-gray-50 rounded-lg p-4'>
                     <div className='grid grid-cols-2 md:grid-cols-4 gap-4 text-center'>
                       <div>
                         <div className='text-xs text-gray-600 mb-1'>TOTAL SERVICES</div>
-                        <div className='text-lg font-semibold text-gray-900'>
-                          {mainFormData.services.length}
-                        </div>
+                        <div className='text-lg font-semibold text-gray-900'>{mainFormData.services.length}</div>
                       </div>
                       <div>
                         <div className='text-xs text-gray-600 mb-1'>TOTAL SESSIONS</div>
                         <div className='text-lg font-semibold text-gray-900'>
-                          {mainFormData.services.reduce((total, service) => total + (parseInt(service.quantity) || 0), 0)}
+                          {mainFormData.services.reduce(
+                            (total, service) => total + (parseInt(service.quantity) || 0),
+                            0
+                          )}
                         </div>
                       </div>
                       <div>
                         <div className='text-xs text-gray-600 mb-1'>BEFORE DISCOUNTS</div>
                         <div className='text-lg font-semibold text-gray-900'>
-                          ${mainFormData.services.reduce((total, service) => {
-                            const price = parseFloat(service.price) || 0;
-                            const quantity = parseInt(service.quantity) || 0;
-                            return total + (price * quantity);
-                          }, 0).toFixed(2)}
+                          $
+                          {mainFormData.services
+                            .reduce((total, service) => {
+                              const price = parseFloat(service.price) || 0;
+                              const quantity = parseInt(service.quantity) || 0;
+                              return total + price * quantity;
+                            }, 0)
+                            .toFixed(2)}
                         </div>
                       </div>
                       <div>
                         <div className='text-xs text-gray-600 mb-1'>FINAL TOTAL</div>
-                        <div className='text-lg font-bold text-green-600'>
-                          ${calculateTotalPrice().toFixed(2)}
-                        </div>
+                        <div className='text-lg font-bold text-green-600'>${calculateTotalPrice().toFixed(2)}</div>
                       </div>
                     </div>
                   </div>
