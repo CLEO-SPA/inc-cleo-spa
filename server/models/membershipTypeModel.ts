@@ -1,5 +1,5 @@
-import { pool, getProdPool as prodPool } from '../config/database.js';
-import { MembershipType, NewMembershipType, UpdatedMembershipType, withTransaction } from '../types/model.types.js';
+import { pool, getProdPool as prodPool, withTransaction } from '../config/database.js';
+import { MembershipType, NewMembershipType, UpdatedMembershipType } from '../types/model.types.js';
 
 const getMembershipType = async (): Promise<{ success: boolean, data: MembershipType[] | [], message: string }> => {
   const client = await pool().connect();
