@@ -8,6 +8,7 @@ const checkEmployeeCodeExists = async (employee_code: number) => {
 
     return result.rows.length > 0;
   } catch (error) {
+    console.error('Error checking employee code existence', error);
     throw new Error('Error checking employee code existence');
   }
 };
@@ -75,7 +76,7 @@ const getAuthUser = async (identity: string | number) => {
         e.employee_name,
         m.name AS member_name
       FROM user_auth ua
-      INNER JOIN user_to_role utr ON ua.id = utr.user_id
+      INNER JOIN user_to_role utr ON ua.id = utr.user_auth_id
       INNER JOIN roles r ON utr.role_id = r.id
       LEFT JOIN employees e ON ua.id = e.user_auth_id
       LEFT JOIN members m ON ua.id = m.user_auth_id
@@ -94,6 +95,7 @@ const getAuthUser = async (identity: string | number) => {
 
     return result.rows[0];
   } catch (error) {
+    console.error('Error fetching employee data', error);
     throw new Error('Error fetching employee data');
   }
 };
@@ -110,7 +112,7 @@ const getUserData = async (identity: string | number) => {
         e.employee_name,
         m.name AS member_name
       FROM user_auth ua
-      INNER JOIN user_to_role utr ON ua.id = utr.user_id
+      INNER JOIN user_to_role utr ON ua.id = utr.user_auth_id
       INNER JOIN roles r ON utr.role_id = r.id
       LEFT JOIN employees e ON ua.id = e.user_auth_id
       LEFT JOIN members m ON ua.id = m.user_auth_id
@@ -129,6 +131,7 @@ const getUserData = async (identity: string | number) => {
 
     return result.rows[0];
   } catch (error) {
+    console.error('Error fetching employee data', error);
     throw new Error('Error fetching employee data');
   }
 };
