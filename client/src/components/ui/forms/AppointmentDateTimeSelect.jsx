@@ -59,7 +59,7 @@ export function AppointmentDateTimeSelect({
     if (isStartTime) {
       if (hasValidDate && hasValidEmployee && currentFetchKey !== lastFetchKey) {
         console.log('Fetching start times for appointment', appointmentIndex, ':', { employeeId, appointmentDate });
-        fetchTimeslots({ employeeId, appointmentDate, appointmentIndex, excludeAppointmentId  });
+        fetchTimeslots({ employeeId, appointmentDate, appointmentIndex, excludeAppointmentId });
         setLastFetchKey(currentFetchKey);
       } else if (!hasValidDate || !hasValidEmployee) {
         // reset key so future valid changes trigger fetch
@@ -77,7 +77,7 @@ export function AppointmentDateTimeSelect({
     currentFetchKey,
     lastFetchKey,
     appointmentIndex,
-    excludeAppointmentId, 
+    excludeAppointmentId,
   ]);
 
   // When this is the end-time select, and the start time (`otherTimeValue`) changes,
@@ -94,7 +94,7 @@ export function AppointmentDateTimeSelect({
           appointmentDate,
           startTime: selectedStartTime,
           appointmentIndex,
-          excludeAppointmentId, 
+          excludeAppointmentId,
         });
       } else {
         // If no valid start or inputs missing, clear endTimeSlots for this appointment
@@ -209,15 +209,17 @@ export function AppointmentDateTimeSelect({
           <SelectValue placeholder={getPlaceholder()} />
         </SelectTrigger>
         <SelectContent>
-          {hasValidDate &&
-            hasValidEmployee &&
-            !error &&
-            !isCurrentlyFetching &&
-            filteredTimeslots.map((time) => (
-              <SelectItem key={time} value={time}>
-                {time}
-              </SelectItem>
-            ))}
+          <div className="max-h-48 overflow-y-auto">
+            {hasValidDate &&
+              hasValidEmployee &&
+              !error &&
+              !isCurrentlyFetching &&
+              filteredTimeslots.map((time) => (
+                <SelectItem key={time} value={time}>
+                  {time}
+                </SelectItem>
+              ))}
+          </div>
         </SelectContent>
       </Select>
       {error && errorMessage && (

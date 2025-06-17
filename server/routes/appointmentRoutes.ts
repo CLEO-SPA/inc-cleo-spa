@@ -11,11 +11,17 @@ const router = express.Router();
 
 router.get('/', appointmentController.getAllAppointments);
 router.get('/date/:date', appointmentController.getAppointmentsByDate);
-router.get('/:id', appointmentController.getAppointmentById);
+router.get('/id/:id', appointmentController.getAppointmentById);
 
+/////////////////////////////////////////////////////////////
 // Get appointment timeslots by employee and appointment date
-router.get('/employee/:employeeId/date/:date/max-durations', appointmentController.getMaxDurationFromStartTimes);
-router.get('/employee/:employeeId/date/:date/start-time/:startTime/end-times', appointmentController.getEndTimesForStartTime);
+/////////////////////////////////////////////////////////////
+
+// GET /timeslots?employeeId=11&date=2025-06-12&excludeAppointmentId=1
+router.get('/timeslots', appointmentController.getAvailableTimeslots);
+
+// GET /timeslots/end-times?employeeId=11&date=2025-06-12&startTime=10:00&excludeAppointmentId=1
+router.get('/timeslots/end-times', appointmentController.getEndTimesForStartTime);
 
 
 // Create bulk appointment

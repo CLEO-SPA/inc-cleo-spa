@@ -92,16 +92,19 @@ const useAppointmentDateTimeStore = create((set, get) => ({
     set({ isFetching: true, error: false, errorMessage: null });
     try {
      // Build URL with exclude parameter if provided
-      let url = `/ab/employee/${employeeId || 'null'}/date/${appointmentDate}/max-durations`;
+      let url = `/ab/timeslots?employeeId=${employeeId || 'null'}&date=${appointmentDate}`;
+      console.log('Fetching timeslots with URL:', url);
       if (excludeAppointmentId) {
-        url += `?exclude_appointment_id=${excludeAppointmentId}`;
+        url += `&excludeAppointmentId=${excludeAppointmentId}`;
       }
 
       const response = await api.get(url);
+      console.log('Available start times:', response.data);
 
       // Expect response.data.maxDurations = [{ startTime, maxEndTime, maxDurationMinutes }, ...]
       const maxDurations = Array.isArray(response.data.maxDurations) ? response.data.maxDurations : [];
 
+      console.log('Max durations:', maxDurations);
       // Derive startTimeSlots from maxDurations
       const startTimeSlots = maxDurations.map(item => item.startTime);
 
@@ -154,9 +157,9 @@ const useAppointmentDateTimeStore = create((set, get) => ({
   }) => {
     try {
       // Build URL with exclude parameter if provided
-      let url = `/ab/employee/${employeeId || 'null'}/date/${appointmentDate}/start-time/${startTime}/end-times`;
+      let url = `/ab/timeslots/end-times?employeeId=${employeeId || 'null'}&date=${appointmentDate}&startTime=${startTime}`;
       if (excludeAppointmentId) {
-        url += `?exclude_appointment_id=${excludeAppointmentId}`;
+        url += `&excludeAppointmentId=${excludeAppointmentId}`;
       }
 
       const response = await api.get(url);

@@ -414,117 +414,119 @@ const createAppointment = async (req: Request, res: Response, next: NextFunction
 };
 
 
-// Get max duration info for all start times
-const getMaxDurationFromStartTimes = async (req: Request, res: Response, next: NextFunction): Promise<any> => {
-  const { employeeId, date } = req.params;
-  const excludeId = req.query.exclude_appointment_id ? parseInt(req.query.exclude_appointment_id as string, 10) : null; /// NEW
-
-  // Parse employeeId
-  const parsedEmployeeId =
-    employeeId === 'null' ||
-      employeeId === 'undefined' ||
-      employeeId === 'anyAvailableStaff'
-      ? null
-      : parseInt(employeeId, 10);
-
-  // Validate date format
-  if (!/^\d{4}-\d{2}-\d{2}$/.test(date)) {
-    return res
-      .status(400)
-      .json({ message: 'Invalid date. Use format YYYY-MM-DD.' });
+const getAvailableTimeslots = async (req: Request, res: Response, next: NextFunction): Promise<void> => {
+  const { employeeId, date, excludeAppointmentId } = req.query;
+  
+  // Input validation
+  const validationErrors = validateTimeslotParams({ employeeId, date });
+  if (validationErrors.length > 0) {
+    res.status(400).json({ 
+      message: 'Validation failed', 
+      errors: validationErrors 
+    });
+    return;
   }
+
+  // Parse and sanitize inputs
+  const parsedEmployeeId = parseEmployeeId(employeeId as string);
+  const excludeId = excludeAppointmentId ? 
+    parseInt(excludeAppointmentId as string, 10) : null;
 
   try {
     const rows = await model.getMaxDurationFromStartTimes(
-      date,
+      date as string,
       parsedEmployeeId,
       excludeId
     );
 
-    // Format the response
     const maxDurations = rows.map(row => ({
       startTime: row.start_time.slice(0, 5),
       maxEndTime: row.max_end_time.slice(0, 5),
       maxDurationMinutes: row.max_duration_minutes
     }));
 
-    // 3) Fetch warning as before
     const warning = await model.checkRestdayConflict(
       parsedEmployeeId,
-      date
+      date as string
     );
 
     res.status(200).json({
-      employeeId: parsedEmployeeId,
-      date,
-      maxDurations,
-      warning,
+        employeeId: parsedEmployeeId,
+        date,
+        maxDurations: maxDurations,
+        warning,
     });
   } catch (error) {
-    console.error('Error getting max durations:', error);
-    const msg = error instanceof Error ? error.message : String(error);
-    res.status(500).json({
-      message: 'Error fetching max durations',
-      error: msg,
-    });
+    next(error); // Use error middleware instead of inline handling
   }
 };
 
-// Get available end times for a specific start time
-const getEndTimesForStartTime = async (req: Request, res: Response, next: NextFunction): Promise<any> => {
-  const { employeeId, date, startTime } = req.params;
-  const excludeId = req.query.exclude_appointment_id ? parseInt(req.query.exclude_appointment_id as string, 10) : null;
-
-  // Parse employeeId
-  const parsedEmployeeId =
-    employeeId === 'null' ||
-      employeeId === 'undefined' ||
-      employeeId === 'anyAvailableStaff'
-      ? null
-      : parseInt(employeeId, 10);
-
-  // Validate date format
-  if (!/^\d{4}-\d{2}-\d{2}$/.test(date)) {
-    return res
-      .status(400)
-      .json({ message: 'Invalid date. Use format YYYY-MM-DD.' });
+const getEndTimesForStartTime = async (req: Request, res: Response, next: NextFunction): Promise<void> => {
+  const { employeeId, date, startTime, excludeAppointmentId } = req.query;
+  
+  // Input validation
+  const validationErrors = validateEndTimeParams({ employeeId, date, startTime });
+  if (validationErrors.length > 0) {
+    res.status(400).json({ 
+      message: 'Validation failed', 
+      errors: validationErrors 
+    });
+    return;
   }
 
-  // Validate time format HH:MM
-  if (!/^\d{2}:\d{2}$/.test(startTime)) {
-    return res
-      .status(400)
-      .json({ message: 'Invalid startTime. Use format HH:MM.' });
-  }
+  const parsedEmployeeId = parseEmployeeId(employeeId as string);
+  const excludeId = excludeAppointmentId ? 
+    parseInt(excludeAppointmentId as string, 10) : null;
 
   try {
-    // Fetch available end times for the specific start time
     const endTimes = await model.getEndTimesForStartTime(
-      date,
-      startTime,
+      date as string,
+      startTime as string,
       parsedEmployeeId,
       excludeId
     );
 
-    // Format to HH:MM
-    const formattedEndTimes = endTimes.map(row =>
-      row.end_time.slice(0, 5)
-    );
+    const formattedEndTimes = endTimes.map(row => row.end_time.slice(0, 5));
 
     res.status(200).json({
-      employeeId: parsedEmployeeId,
-      date,
-      startTime,
-      availableEndTimes: formattedEndTimes,
+        employeeId: parsedEmployeeId,
+        date,
+        startTime,
+        availableEndTimes: formattedEndTimes,
     });
   } catch (error) {
-    console.error('Error getting end times for start time:', error);
-    const msg = error instanceof Error ? error.message : String(error);
-    res.status(500).json({
-      message: 'Error fetching end times for start time',
-      error: msg,
-    });
+    next(error);
   }
+};
+
+// Helper functions for better maintainability
+const parseEmployeeId = (employeeId: string): number | null => {
+  if (employeeId === 'null' || 
+      employeeId === 'undefined' || 
+      employeeId === 'anyAvailableStaff') {
+    return null;
+  }
+  return parseInt(employeeId, 10);
+};
+
+const validateTimeslotParams = (params: any): string[] => {
+  const errors: string[] = [];
+  
+  if (!params.date || !/^\d{4}-\d{2}-\d{2}$/.test(params.date)) {
+    errors.push('Invalid date format. Use YYYY-MM-DD.');
+  }
+  
+  return errors;
+};
+
+const validateEndTimeParams = (params: any): string[] => {
+  const errors = validateTimeslotParams(params);
+  
+  if (!params.startTime || !/^\d{2}:\d{2}$/.test(params.startTime)) {
+    errors.push('Invalid startTime format. Use HH:MM.');
+  }
+  
+  return errors;
 };
 
 const updateAppointment = async (
@@ -676,6 +678,6 @@ export default {
   validateEmployeeAndMember,
   createAppointment,
   updateAppointment,
-  getMaxDurationFromStartTimes,
+  getAvailableTimeslots,
   getEndTimesForStartTime
 };

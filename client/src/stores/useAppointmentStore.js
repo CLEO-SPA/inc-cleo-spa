@@ -29,7 +29,7 @@ const useAppointmentStore = create((set, get) => ({
   fetchAppointment: async (id) => {
     set({ isFetching: true, error: false, errorMessage: null });
     try {
-      const response = await api.get(`/ab/${id}`);
+      const response = await api.get(`/ab/id/${id}`);
       // Assuming response.data is the appointment object:
       // { id, member_id, servicing_employee_id, appointment_date, start_time, end_time, remarks, ... }
       set({ selectedAppointment: response.data, isFetching: false });
