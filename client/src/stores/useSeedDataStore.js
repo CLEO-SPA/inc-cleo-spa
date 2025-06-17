@@ -369,7 +369,8 @@ export const useSeedDataStore = create((set, get) => ({
 
       const payload = { targetTable: targetTableName, tablePayload }; // Backend expects targetTable for context
       console.log(payload);
-      // await api.post(`/sa/seed/${dataType}`, payload);
+      await api.post(`/sa/seed/${dataType}`, payload);
+      // console.log(results);
 
       alert(`Seeding ${dataType}-data for ${targetTableName} and its dependencies initiated successfully.`);
       set({ isLoading: false });

@@ -433,14 +433,17 @@ const insertPreDataModel = async (targetTable: string, tablePayload: tablePayloa
 
     const allTableData: AllTableData = {};
 
-    for (const name of sortedOrderForInsert) {
-      const fileName = tablePayload.find((f) => f.table === name);
-      const csvFilePath = path.join(csvFolderPath, 'pre', name, `${fileName}.csv`);
-      if (fs.existsSync(csvFilePath)) {
-        console.log(`Reading data for "${fileName}" from: ${csvFilePath}`);
-        allTableData[name] = await readCSVFile(csvFilePath);
-      } else {
-        throw new Error(`No CSV file found for table "${name}" at ${csvFilePath}. Exiting seeding process.`);
+    for (const tableName of sortedOrderForInsert) {
+      const payloadEntry = tablePayload.find((f) => f.table === tableName);
+      if (payloadEntry) {
+        const fileNameWithoutExtension = payloadEntry.file;
+        const csvFilePath = path.join(csvFolderPath, 'pre', tableName, `${fileNameWithoutExtension}.csv`);
+        if (fs.existsSync(csvFilePath)) {
+          console.log(`Reading data for "${fileNameWithoutExtension}" from: ${csvFilePath}`);
+          allTableData[tableName] = await readCSVFile(csvFilePath);
+        } else {
+          throw new Error(`No CSV file found for table "${tableName}" at ${csvFilePath}. Exiting seeding process.`);
+        }
       }
     }
 
@@ -505,13 +508,16 @@ const insertPostDataModel = async (targetTable: string, tablePayload: tablePaylo
     const allTableData: AllTableData = {};
 
     for (const tableName of sortedOrderForInsert) {
-      const fileName = tablePayload.find((f) => f.table === tableName);
-      const csvFilePath = path.join(csvFolderPath, 'post', tableName, `${fileName}.csv`);
-      if (fs.existsSync(csvFilePath)) {
-        console.log(`Reading data for "${tableName}" from: ${csvFilePath}`);
-        allTableData[tableName] = await readCSVFile(csvFilePath);
-      } else {
-        throw new Error(`No CSV file found for table "${tableName}" at ${csvFilePath}. Exiting seeding process.`);
+      const payloadEntry = tablePayload.find((f) => f.table === tableName);
+      if (payloadEntry) {
+        const fileNameWithoutExtension = payloadEntry.file;
+        const csvFilePath = path.join(csvFolderPath, 'post', tableName, `${fileNameWithoutExtension}.csv`);
+        if (fs.existsSync(csvFilePath)) {
+          console.log(`Reading data for "${fileNameWithoutExtension}" from: ${csvFilePath}`);
+          allTableData[tableName] = await readCSVFile(csvFilePath);
+        } else {
+          throw new Error(`No CSV file found for table "${tableName}" at ${csvFilePath}. Exiting seeding process.`);
+        }
       }
     }
 
