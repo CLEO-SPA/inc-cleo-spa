@@ -12,6 +12,7 @@ import LoginPage from '@/pages/LoginPage';
 import ResetPasswordPage from '@/pages/ResetPasswordPage';
 import NotFoundPage from '@/pages/404Page';
 
+import SalesTransactionPage from '@/pages/sales-transaction/mockSalesTransactionPage';
 function App() {
   return (
     <AuthProvider>
@@ -30,6 +31,11 @@ function App() {
 
             {/* 404 Page */}
             <Route path='*' element={<NotFoundPage />} />
+            <Route path='/strans' element={<SalesTransactionPage />} />
+
+
+            {/*voucher page*/}
+
           </Routes>
         </Router>
       </DateRangeProvider>
