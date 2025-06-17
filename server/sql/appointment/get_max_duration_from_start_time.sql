@@ -1,7 +1,7 @@
 CREATE OR REPLACE FUNCTION get_max_duration_from_start_time(
     p_appointment_date DATE,
     p_employee_id INT DEFAULT NULL,
-	p_exclude_appointment_id INT DEFAULT NULL  -- /// NEW
+	p_exclude_appointment_id INT DEFAULT NULL  
 )
 RETURNS TABLE(
     start_time TIME,

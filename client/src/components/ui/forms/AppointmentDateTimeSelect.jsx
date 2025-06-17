@@ -20,7 +20,7 @@ export function AppointmentDateTimeSelect({
   isStartTime = true,
   otherTimeValue = null,    // for start select: otherTimeValue is selected end; for end select: otherTimeValue is selected start
   appointmentIndex = 0,
-  excludeAppointmentId = null, // New prop for edit mode
+  excludeAppointmentId = null, // Proposed to exclude a specific appointment from the fetch (e.g. when editing an existing appointment)
 }) {
   const {
     // renamed in store:

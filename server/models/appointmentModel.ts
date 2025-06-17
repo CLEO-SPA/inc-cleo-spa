@@ -313,7 +313,7 @@ export const updateAppointment = async (
 const getMaxDurationFromStartTimes = async (
   date: Date | string,
   employeeId: number | null,
-  excludeAppointmentId: number | null /// NEW
+  excludeAppointmentId: number | null 
 ) => {
   try {
     const query = `SELECT * FROM get_max_duration_from_start_time($1, $2, $3)`;
