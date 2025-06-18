@@ -103,12 +103,18 @@ const deletePaymentMethod = async (req: Request, res: Response) => {
   try {
     const { id } = req.params;
     const result = await model.deletePaymentMethod(Number(id));
-    res.status(200).json(result);
+
+    if (result.success) {
+      res.status(200).json(result);
+    } else {
+      res.status(400).json({ message: result.error || 'Failed to delete payment method' });
+    }
   } catch (error) {
     console.error('Error in deletePaymentMethod:', error);
-    res.status(500).json({ message: 'Failed to delete payment method' });
+    res.status(500).json({ message: 'Internal server error while deleting payment method' });
   }
 };
+
 
 // Export all handlers
 export default {

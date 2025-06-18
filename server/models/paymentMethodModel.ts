@@ -150,16 +150,36 @@ const updatePaymentMethod = async (input: UpdatePaymentMethodInput) => {
 };
 
 
-// Delete a payment method
 const deletePaymentMethod = async (id: number) => {
   try {
+    // Step 1: Check for usage in payment_to_sale_transactions
+    const checkResult = await pool().query(
+      `SELECT COUNT(*) AS count FROM payment_to_sale_transactions WHERE payment_method_id = $1`,
+      [id]
+    );
+
+    const usageCount = parseInt(checkResult.rows[0].count, 10);
+
+    if (usageCount > 0) {
+      return {
+        success: false,
+        error: `Cannot delete: This payment method is used in ${usageCount} transaction(s).`,
+      };
+    }
+
+    // Step 2: Proceed with deletion if safe
     await pool().query(`DELETE FROM payment_methods WHERE id = $1`, [id]);
+
     return { success: true };
   } catch (error) {
     console.error('Error deleting payment method:', error);
-    throw new Error('Could not delete payment method');
+    return {
+      success: false,
+      error: 'An error occurred while deleting the payment method.',
+    };
   }
 };
+
 
 const getPaymentMethodsForPaymentPage = async () => {
   try {

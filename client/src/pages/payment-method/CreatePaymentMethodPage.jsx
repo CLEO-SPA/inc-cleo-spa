@@ -230,7 +230,7 @@ const CreatePaymentMethodPage = () => {
                   <Button 
                     type="submit" 
                     disabled={isCreating} 
-                    className="px-12 py-3 bg-blue-600 hover:bg-blue-700 text-white font-medium text-base"
+                    className="px-12 py-3 hover:bg-gray-900 text-white font-medium text-base"
                   >
                     {isCreating ? "Creating Payment Method..." : "Create Payment Method"}
                   </Button>
