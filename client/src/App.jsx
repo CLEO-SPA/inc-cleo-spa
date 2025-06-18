@@ -27,11 +27,7 @@ import ManageVouchersPage from './pages/MemberVoucher/ManageVoucherPage';
 import DatabaseReportPage from '@/pages/DatabaseReportPage';
 import CreateConsumptionPage from '@/pages/CarePackages/CreateConsumptionPage';
 import CreateMemberVoucherConsumptionPage from '@/pages/MemberVoucher/CreateConsumptionPage';
-// Service Management
-import ManageServicePage from '@/pages/ManageServicePage'
-import CreateServicePage from '@/pages/CreateServicePage';
-import UpdateServicePage from '@/pages/UpdateServicePage';
-import ReorderServicePage from '@/pages/ReorderServicePage';
+
 
 function App() {
   return (
@@ -43,11 +39,6 @@ function App() {
             <Route path='/' element={<ProtectedRoute />}>
               <Route index element={<HomePage />} />
 
-              {/* Service Management */}
-              <Route path='/manage-service' element={<ManageServicePage />} />
-              <Route path='/create-service' element={<CreateServicePage />} />
-              <Route path='/update-service/:service_id' element={<UpdateServicePage />} />
-              <Route path='/reorder-service' element={<ReorderServicePage />} />
 
               {/* care packages */}
               <Route path='/mcp' element={<ManageCarePackagesPage />} />
@@ -74,8 +65,6 @@ function App() {
               {/* statistics */}
               <Route path='/dbcr' element={<DatabaseReportPage />} />
 
-              {/* Service Management */}
-              <Route path='/manage-service' element={<ManageServicePage />} />
             </Route>
             <Route path='/login' element={<LoginPage />} />
 
