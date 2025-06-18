@@ -22,8 +22,9 @@ import CreateVoucherTemplatesPage from './pages/voucher-template/CreateVoucherTe
 import ManageVoucherTemplatesPage from './pages/voucher-template/ManageVoucherTemplatesPage';
 import EditVouhcerTemplatePage from './pages/voucher-template/EditVoucherTemplatePage';
 // Service Management
-import ManageServicePage from '@/pages/ManageServicePage'
-import MockSalesTransactionPage from './pages/sale-transaction/mockSaleTransactionPage'; import ManageVouchersPage from './pages/MemberVoucher/ManageVoucherPage';
+import ManageServicePage from '@/pages/ManageServicePage';
+import MockSalesTransactionPage from './pages/sale-transaction/mockSaleTransactionPage';
+import ManageVouchersPage from './pages/MemberVoucher/ManageVoucherPage';
 import DatabaseReportPage from '@/pages/DatabaseReportPage';
 import CreateConsumptionPage from '@/pages/CarePackages/CreateConsumptionPage';
 import CreateMemberVoucherConsumptionPage from '@/pages/MemberVoucher/CreateConsumptionPage';
@@ -56,8 +57,8 @@ function App() {
               <Route path='/mcp/:packageId/consume' element={<CreateConsumptionPage />} />
 
               {/* member vouchers */}
-              <Route path="/mv" element={<ManageVouchersPage />} />
-              <Route path="/mv/:memberId/consume" element={<CreateMemberVoucherConsumptionPage />} />
+              <Route path='/mv' element={<ManageVouchersPage />} />
+              <Route path='/mv/:memberId/consume' element={<CreateMemberVoucherConsumptionPage />} />
 
               {/* membership-type */}
               <Route path='/membership-type' element={<ManageMembershipTypePage />} />
@@ -68,9 +69,11 @@ function App() {
 
               {/* statistics */}
               <Route path='/dbcr' element={<DatabaseReportPage />} />
+
+              {/* Service Management */}
+              <Route path='/manage-service' element={<ManageServicePage />} />
             </Route>
             <Route path='/login' element={<LoginPage />} />
-
 
             {/* Invitation & Reset Password */}
             <Route path='/invites' element={<ResetPasswordPage />} />
@@ -78,9 +81,7 @@ function App() {
 
             {/* 404 Page */}
             <Route path='*' element={<NotFoundPage />} />
-
-            {/* Service Management */}
-            <Route path='/manage-service' element={<ManageServicePage />} />          </Routes>
+          </Routes>
         </Router>
       </DateRangeProvider>
     </AuthProvider>

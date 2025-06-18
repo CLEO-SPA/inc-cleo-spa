@@ -494,9 +494,108 @@ const deleteTransactionLogsByLogId = async (req: Request, res: Response, next: N
   }
 };
 
+
+const createMemberVoucher = async (req: Request, res: Response, next: NextFunction): Promise<void> => {
+  try {
+    const {
+      member_voucher_name,
+      voucher_template_id,
+      member_id,
+      employee_id,
+      default_total_price,
+      free_of_charge,
+      remarks,
+      services,
+      payments, // Added payments field
+      created_at,
+      updated_at,
+      is_bypass,
+      is_partial_payment
+    } = req.body;
+
+    // Validate required fields
+    if (!member_voucher_name || !member_id || !employee_id || !default_total_price  || !Array.isArray(payments)) {
+      res.status(400).json({ message: 'Missing required fields or invalid data format. Required: member_voucher_name, member_id, employee_id, default_total_price, payments (array)' });
+      return;
+    }
+
+    // Validate voucher_template_id is provided unless it's a bypass case
+    if (!is_bypass && !voucher_template_id) {
+      res.status(400).json({ message: 'voucher_template_id is required for non-bypass cases' });
+      return;
+    }
+
+    // Validate payment amounts sum matches expected total
+    const totalPaymentAmount = payments.reduce((sum, payment) => sum + payment.amount, 0);
+    const expectedTotal = parseFloat(default_total_price)
+    
+    // Allow for small floating point differences
+    if (Math.abs(totalPaymentAmount - expectedTotal) > 0.01) {
+      res.status(400).json({ 
+        message: `Payment amounts (${totalPaymentAmount}) do not match expected total (${expectedTotal})` 
+      });
+      return;
+    }
+
+    // Generate timestamps if not provided
+    const currentTimestamp = new Date().toISOString();
+    const finalCreatedAt = created_at || currentTimestamp;
+    const finalUpdatedAt = updated_at || currentTimestamp;
+
+    // Call the model function with all required parameters
+    const results = await model.createMemberVoucher(
+      member_voucher_name,
+      voucher_template_id || '0', // Default to '0' for bypass cases
+      member_id,
+      employee_id,
+      parseFloat(default_total_price),
+      parseFloat(free_of_charge) || 0,
+      remarks || '',
+      services,
+      payments, // Pass payments array to model
+      finalCreatedAt,
+      finalUpdatedAt,
+      Boolean(is_bypass),
+      Boolean(is_partial_payment)
+    );
+
+    res.status(201).json({
+      success: true,
+      message: 'Member voucher created successfully',
+      data: results
+    });
+  } catch (error) {
+    console.error('Error creating member voucher:', error);
+    
+    // Handle specific database errors
+    if (error instanceof Error) {
+      if (error.message.includes('Invalid member_id')) {
+        res.status(400).json({ success: false, message: 'Invalid member ID provided' });
+        return;
+      }
+      if (error.message.includes('Invalid employee_id')) {
+        res.status(400).json({ success: false, message: 'Invalid employee ID provided' });
+        return;
+      }
+      if (error.message.includes('Invalid voucher_template_id')) {
+        res.status(400).json({ success: false, message: 'Invalid voucher template ID provided' });
+        return;
+      }
+      
+      // Return the specific error message for other known errors
+      res.status(400).json({ success: false, message: error.message });
+      return;
+    }
+    
+    // Pass unknown errors to error handler middleware
+    next(error);
+  }
+};
+
 export default {
   getAllMemberVouchers,
   getAllServicesOfMemberVoucherById,
+  createMemberVoucher,
   getAllTransactionLogsOfMemberVoucherById,
   createTransactionLogsByMemberVoucherId,
   checkCurrentBalance,
