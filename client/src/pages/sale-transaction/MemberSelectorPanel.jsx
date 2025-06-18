@@ -324,25 +324,63 @@ export default function MemberSelectorPanel() {
       <div className="bg-gray-50 rounded shadow ">
         {/* Tabs */}
         <div className="flex gap-1">
-          {['info', 'packages', 'vouchers'].map((tab) => (
-            <Button
-              key={tab}
-              onClick={() => setSelectedTab(tab)}
-              disabled={!currentMember}
-              size="xs"
-              className={`min-w-[90px] px-2 py-1 rounded text-xs text-center gap-2
-        ${selectedTab === tab ? '' : 'bg-gray-300 text-gray-800 hover:bg-gray-400'} 
-        ${!currentMember ? 'opacity-50 cursor-not-allowed' : 'hover:opacity-80'}`}
-            >
-              {tab === 'info' && 'Info'}
-              {tab === 'packages' &&
-                `Packages (${currentMember?.member_care_package_count || 0})`}
-              {tab === 'vouchers' &&
-                `Vouchers (${currentMember?.voucher_count || 0})`}
-            </Button>
-          ))}
-        </div>
+          {['info', 'packages', 'vouchers'].map((tab) => {
+            const isActive = selectedTab === tab;
 
+            const getTabContent = () => {
+              switch (tab) {
+                case 'info':
+                  return 'Info';
+                case 'packages':
+                  const packageCount = currentMember?.member_care_package_count || 0;
+                  return (
+                    <div className="flex items-center gap-2">
+                      <span>Packages</span>
+                      {packageCount > 0 && (
+                        <div className={`rounded-full w-4 h-4 flex items-center justify-center text-xs font-medium ${isActive
+                            ? 'bg-white text-gray-800'
+                            : 'bg-gray-800 text-white'
+                          }`}>
+                          {packageCount}
+                        </div>
+                      )}
+                    </div>
+                  );
+                case 'vouchers':
+                  const voucherCount = currentMember?.voucher_count || 0;
+                  return (
+                    <div className="flex items-center gap-2">
+                      <span>Vouchers</span>
+                      {voucherCount > 0 && (
+                        <div className={`rounded-full w-4 h-4 flex items-center justify-center text-xs font-medium ${isActive
+                            ? 'bg-white text-gray-800'
+                            : 'bg-gray-800 text-white'
+                          }`}>
+                          {voucherCount}
+                        </div>
+                      )}
+                    </div>
+                  );
+                default:
+                  return tab;
+              }
+            };
+
+            return (
+              <Button
+                key={tab}
+                onClick={() => setSelectedTab(tab)}
+                disabled={!currentMember}
+                size="xs"
+                className={`min-w-[90px] px-2 py-1 rounded text-xs text-center gap-2
+          ${isActive ? '' : 'bg-gray-300 text-gray-800 hover:bg-gray-400'}
+          ${!currentMember ? 'opacity-50 cursor-not-allowed' : 'hover:opacity-80'}`}
+              >
+                {getTabContent()}
+              </Button>
+            );
+          })}
+        </div>
 
         {/* Tab Content */}
         {!currentMember ? (
