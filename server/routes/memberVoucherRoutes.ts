@@ -15,6 +15,7 @@ import controller from '../controllers/memberVoucherController.js';
 // router.use(isAuthenticated);
 
 router.post('/create',  controller.createMemberVoucher);
+router.delete('/:id/rm', controller.removeMemberVoucher);
 
 router.get('/v', controller.getAllMemberVouchers);
 
