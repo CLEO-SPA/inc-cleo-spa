@@ -85,7 +85,7 @@ export const useCpPaginationStore = create((set, get) => ({
 
     try {
       // Use your imported API service
-      const response = await api.get('/cp/pkgs', { params: queryParams });
+      const response = await api.get('/cp/pkg', { params: queryParams });
 
       console.log(response);
 

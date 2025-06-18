@@ -106,6 +106,16 @@ const getVoucherTemplateById = async (req: Request, res: Response): Promise<void
   }
 };
 
+const getAllVoucherTemplatesForDropdown = async (req: Request, res: Response): Promise<void> => {
+  try {
+    const templates = await model.getAllVoucherTemplatesForDropdown();
+    res.status(200).json(templates);
+  } catch (error) {
+    console.error('Error in getAllVoucherTemplates:', error);
+    res.status(500).json({ message: 'Failed to fetch voucher templates' });
+  }
+};
+
 // Export all handlers in the same pattern
 export default {
   getAllVoucherTemplates,
@@ -113,4 +123,5 @@ export default {
   createVoucherTemplate,
   updateVoucherTemplate,
   deleteVoucherTemplate,
+  getAllVoucherTemplatesForDropdown
 };

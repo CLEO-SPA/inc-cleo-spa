@@ -73,33 +73,36 @@ const getAllMembers = async (
       ${whereClause};
     `;
     const totalResult = await pool().query(totalQuery, countValues);
-    const totalPages = Math.ceil(Number(totalResult.rows[0].count) / limit);
+    const totalCount = Number(totalResult.rows[0].count);
+    const totalPages = Math.ceil(totalCount / limit);
 
     // Get outstanding balances
     const outstandingMap = await getMemberOutstandingAmounts();
     const lastVisitedMap = await getLastVisitedDatesForMembers();
 
     const enrichedMembers = result.rows.map((member: any) => ({
-  ...member,
-  total_amount_owed: outstandingMap[member.id] || 0,
-  last_visit_date: lastVisitedMap[member.id]
-    ? format(new Date(lastVisitedMap[member.id]), 'dd MMM yyyy, hh:mm a')
-    : null,
-  created_at: member.created_at
-    ? format(new Date(member.created_at), 'dd MMM yyyy, hh:mm a')
-    : null,
-  updated_at: member.updated_at
-    ? format(new Date(member.updated_at), 'dd MMM yyyy, hh:mm a')
-    : null,
-  dob: member.dob
-    ? format(new Date(member.dob), 'dd MMM yyyy')
-    : null,
-}));
+      ...member,
+      total_amount_owed: outstandingMap[member.id] || 0,
+      last_visit_date: lastVisitedMap[member.id]
+        ? format(new Date(lastVisitedMap[member.id]), 'dd MMM yyyy, hh:mm a')
+        : null,
+      created_at: member.created_at
+        ? format(new Date(member.created_at), 'dd MMM yyyy, hh:mm a')
+        : null,
+      updated_at: member.updated_at
+        ? format(new Date(member.updated_at), 'dd MMM yyyy, hh:mm a')
+        : null,
+      dob: member.dob
+        ? format(new Date(member.dob), 'dd MMM yyyy')
+        : null,
+    }));
 
     return {
       members: enrichedMembers,
       totalPages,
+      totalCount,
     };
+
   } catch (error) {
     console.error('Error fetching members:', error);
     throw new Error('Error fetching members');
@@ -119,24 +122,31 @@ const createMember = async ({
   created_at,
   updated_at,
   created_by,
-  role_id = 4,
-}: CreateMemberInput) => {
+  role_name = 'member',
+}: CreateMemberInput & { role_name?: string }) => {
   const client = await pool().connect();
 
   try {
     await client.query('BEGIN');
 
-    // 1. Insert into user_auth
+    // 1. Call the get_or_create_roles function
+    const getRoleQuery = `
+      SELECT get_or_create_roles($1) AS role_id;
+    `;
+    const roleResult = await client.query(getRoleQuery, [role_name]);
+    const role_id = roleResult.rows[0].role_id;
+
+    // 2. Insert into user_auth
     const insertUserAuthQuery = `
-      INSERT INTO user_auth (email, password, created_at, updated_at, mobile_number)
+      INSERT INTO user_auth (email, password, created_at, updated_at, phone)
       VALUES ($1, $2, $3, $4, $5)
       RETURNING *;
     `;
-    const userAuthValues = [email, null , created_at, updated_at, contact];
+    const userAuthValues = [email, null, created_at, updated_at, contact];
     const authResult = await client.query(insertUserAuthQuery, userAuthValues);
     const newAuth = authResult.rows[0];
 
-    // 2. Insert into members
+    // 3. Insert into members
     const insertMemberQuery = `
       INSERT INTO members (
         name, email, contact, dob, sex, remarks, address, nric,
@@ -163,15 +173,15 @@ const createMember = async ({
     const memberResult = await client.query(insertMemberQuery, memberValues);
     const newMember = memberResult.rows[0];
 
-    // 3. Insert into user_roles
+    // 4. Insert into user_roles
     const insertUserRoleQuery = `
       INSERT INTO user_to_role (user_auth_id, role_id, created_at, updated_at)
       VALUES ($1, $2, $3, $4)
       RETURNING *;
     `;
     const roleValues = [newAuth.id, role_id, created_at, updated_at];
-    const roleResult = await client.query(insertUserRoleQuery, roleValues);
-    const newUserRole = roleResult.rows[0];
+    const userRoleResult = await client.query(insertUserRoleQuery, roleValues);
+    const newUserRole = userRoleResult.rows[0];
 
     await client.query('COMMIT');
 
@@ -205,8 +215,27 @@ const updateMember = async ({
   const client = await pool().connect();
 
   try {
+    await client.query('BEGIN');
 
-      const updateMemberQuery = `
+    const getAuthIdQuery = `SELECT user_auth_id FROM members WHERE id = $1;`;
+    const authIdResult = await client.query(getAuthIdQuery, [id]);
+
+    if (authIdResult.rows.length === 0) {
+      throw new Error(`Member with ID ${id} not found`);
+    }
+
+    const userAuthId = authIdResult.rows[0].user_auth_id;
+
+    // 2. Update user_auth with new email and phone
+    const updateAuthQuery = `
+      UPDATE user_auth
+      SET email = $1, phone = $2, updated_at = $3
+      WHERE id = $4;
+    `;
+    await client.query(updateAuthQuery, [email, contact, updated_at, userAuthId]);
+
+    // 3. Update the members table
+    const updateMemberQuery = `
       UPDATE members
       SET
         name = $1,
@@ -237,15 +266,20 @@ const updateMember = async ({
       id,
     ];
 
-    const result = await client.query(updateMemberQuery, values);
-    return result.rows[0];
+    const memberResult = await client.query(updateMemberQuery, values);
+
+    await client.query('COMMIT');
+    return memberResult.rows[0];
   } catch (error) {
     console.error('Error updating member:', error);
+    await client.query('ROLLBACK');
     throw new Error('Could not update member');
   } finally {
     client.release();
   }
 };
+
+
 const deleteMember = async (memberId: number) => {
   const client = await pool().connect();
 
@@ -317,10 +351,213 @@ const getMemberById = async (id: number) => {
   }
 };
 
+const searchMemberByNameOrPhone = async (searchTerm: string) => {
+  try {
+    const query = `
+      SELECT 
+        m.*,
+        mt.membership_type_name AS membership_type_name,
+        e.employee_name AS created_by_name,
+        (
+          SELECT COUNT(*) FROM member_vouchers mv
+          WHERE mv.member_id = m.id
+        ) AS voucher_count,
+        (
+          SELECT COUNT(*) FROM member_care_packages mcp
+          WHERE mcp.member_id = m.id
+        ) AS member_care_package_count
+      FROM members m
+      LEFT JOIN membership_types mt ON m.membership_type_id::bigint = mt.id
+      LEFT JOIN employees e ON m.created_by = e.id
+      WHERE m.name ILIKE $1 OR m.contact ILIKE $1;
+    `;
+
+    const result = await pool().query(query, [`%${searchTerm}%`]);
+
+    // Get enrichment maps
+    const outstandingMap = await getMemberOutstandingAmounts();
+    const lastVisitedMap = await getLastVisitedDatesForMembers();
+
+    // Format & enrich each member
+    const enrichedMembers = result.rows.map((member: any) => ({
+      ...member,
+      total_amount_owed: outstandingMap[member.id] || 0,
+      last_visit_date: lastVisitedMap[member.id]
+        ? format(new Date(lastVisitedMap[member.id]), 'dd MMM yyyy, hh:mm a')
+        : null,
+      created_at: member.created_at
+        ? format(new Date(member.created_at), 'dd MMM yyyy, hh:mm a')
+        : null,
+      updated_at: member.updated_at
+        ? format(new Date(member.updated_at), 'dd MMM yyyy, hh:mm a')
+        : null,
+      dob: member.dob
+        ? format(new Date(member.dob), 'dd MMM yyyy')
+        : null,
+    }));
+
+    return {
+      members: enrichedMembers,
+    };
+  } catch (error) {
+    console.error('Error searching member by name or phone:', error);
+    throw new Error('Error searching member by name or phone');
+  }
+};
+
+
+const getMemberVouchers = async (
+  memberId: number,
+  offset: number,
+  limit: number,
+  searchTerm?: string
+) => {
+  try {
+    const hasSearch = !!searchTerm;
+
+    // Build SQL dynamically
+    const baseQuery = `
+      SELECT *
+      FROM member_vouchers
+      WHERE member_id = $1
+      ${hasSearch ? `AND member_voucher_name ILIKE $2` : ''}
+      ORDER BY created_at DESC
+      LIMIT ${hasSearch ? '$3' : '$2'} OFFSET ${hasSearch ? '$4' : '$3'};
+    `;
+
+    const baseValues = hasSearch
+      ? [memberId, `%${searchTerm}%`, limit, offset]
+      : [memberId, limit, offset];
+
+    const result = await pool().query(baseQuery, baseValues);
+
+    // Count query
+    const countQuery = `
+      SELECT COUNT(*)
+      FROM member_vouchers
+      WHERE member_id = $1
+      ${hasSearch ? `AND member_voucher_name ILIKE $2` : ''};
+    `;
+    const countValues = hasSearch
+      ? [memberId, `%${searchTerm}%`]
+      : [memberId];
+
+    const countResult = await pool().query(countQuery, countValues);
+    const totalCount = Number(countResult.rows[0].count);
+    const totalPages = Math.ceil(totalCount / limit);
+
+    // Calculate paid balance for each voucher
+    const vouchersWithBalance = await Promise.all(
+      result.rows.map(async (voucher) => {
+        const balanceQuery = `
+          SELECT st.outstanding_total_payment_amount, mv.current_balance, mv.free_of_charge
+          FROM sale_transactions st
+          JOIN sale_transaction_items sti ON st.id = sti.sale_transaction_id
+          JOIN member_vouchers mv ON sti.member_voucher_id = mv.id
+          WHERE sti.member_voucher_id = $1
+          ORDER BY sti.sale_transaction_id DESC
+          LIMIT 1;
+        `;
+        
+        const balanceResult = await pool().query(balanceQuery, [voucher.id]);
+        
+        let currentPaidBalance = 0;
+        if (balanceResult.rows && balanceResult.rows.length > 0) {
+          const current_balance = parseFloat(balanceResult.rows[0].current_balance);
+          const outstanding_total_payment_amount = parseFloat(balanceResult.rows[0].outstanding_total_payment_amount);
+          const free_of_charge = parseFloat(balanceResult.rows[0].free_of_charge);
+          
+          if (outstanding_total_payment_amount === 0) {
+            currentPaidBalance = current_balance;
+          } else {
+            currentPaidBalance = current_balance - outstanding_total_payment_amount - free_of_charge;
+          }
+        }
+        
+        return {
+          ...voucher,
+          current_paid_balance: currentPaidBalance
+        };
+      })
+    );
+
+    return {
+      vouchers: vouchersWithBalance,
+      totalPages,
+      totalCount,
+    };
+  } catch (error) {
+    console.error('Error fetching member vouchers:', error);
+    throw new Error('Error fetching member vouchers');
+  }
+};
+
+
+const getMemberCarePackages = async (
+  memberId: number,
+  offset: number,
+  limit: number,
+  searchTerm?: string
+) => {
+  try {
+    const hasSearch = !!searchTerm;
+
+    const baseQuery = `
+      SELECT mcp.*
+      FROM member_care_packages mcp
+      WHERE mcp.member_id = $1
+      ${hasSearch ? `AND mcp.package_name ILIKE $2` : ''}
+      ORDER BY mcp.created_at DESC
+      LIMIT ${hasSearch ? '$3' : '$2'} OFFSET ${hasSearch ? '$4' : '$3'};
+    `;
+
+    const baseValues = hasSearch
+      ? [memberId, `%${searchTerm}%`, limit, offset]
+      : [memberId, limit, offset];
+
+    const result = await pool().query(baseQuery, baseValues);
+
+    // Count query
+    const countQuery = `
+      SELECT COUNT(*) FROM member_care_packages mcp
+      WHERE mcp.member_id = $1
+      ${hasSearch ? `AND mcp.package_name ILIKE $2` : ''};
+    `;
+
+    const countValues = hasSearch
+      ? [memberId, `%${searchTerm}%`]
+      : [memberId];
+
+    const countResult = await pool().query(countQuery, countValues);
+    const totalCount = Number(countResult.rows[0].count);
+    const totalPages = Math.ceil(totalCount / limit);
+    const formatted = result.rows.map((row) => ({
+      ...row,
+      created_at: row.created_at
+        ? format(new Date(row.created_at), 'dd MMM yyyy, hh:mm a')
+        : null,
+    }));
+
+    return {
+      carePackages: formatted,
+      totalPages,
+      totalCount,
+    };
+  } catch (error) {
+    console.error('Error fetching member care packages:', error);
+    throw new Error('Error fetching member care packages');
+  }
+};
+
+
+
 export default {
   getAllMembers,
-  getMemberById, 
+  getMemberById,
   createMember,
   updateMember,
-  deleteMember
+  deleteMember,
+  searchMemberByNameOrPhone,
+  getMemberVouchers,
+  getMemberCarePackages,
 };

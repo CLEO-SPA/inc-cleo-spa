@@ -94,7 +94,7 @@ const CreateMembersPage = () => {
         <div className='flex flex-1'>
           <AppSidebar />
           <SidebarInset>
-            <div className="w-full max-w-none p-6">
+            <div className="container mx-auto p-4 space-y-6">
               {/* Header Section */}
               <div className="flex items-center gap-3 mb-6">
                 <Link to="/member">
@@ -110,13 +110,13 @@ const CreateMembersPage = () => {
               
               {/* Form Section */}
               <FormProvider {...methods}>
-                <form onSubmit={handleSubmit(onSubmit)} className="space-y-6">
+                <form onSubmit={handleSubmit(onSubmit)} className="container mx-auto p-4 space-y-6">
                   {/* Basic Information Card */}
                   <Card>
                     <CardHeader>
                       <CardTitle className="text-lg font-medium">Basic Information</CardTitle>
                     </CardHeader>
-                    <CardContent className="space-y-4">
+                    <CardContent className="space-y-6">
                       <div className="grid grid-cols-1 md:grid-cols-3 lg:grid-cols-4 gap-6">
                         <div className="space-y-2">
                           <Label htmlFor="name" className="text-sm font-medium text-gray-700">
@@ -197,7 +197,7 @@ const CreateMembersPage = () => {
                             Gender
                           </Label>
                           <Select onValueChange={(val) => setValue('sex', val)}>
-                            <SelectTrigger>
+                            <SelectTrigger className="w-full">
                               <SelectValue placeholder="Select gender" />
                             </SelectTrigger>
                             <SelectContent>
