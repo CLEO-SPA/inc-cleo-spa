@@ -14,7 +14,6 @@ import membershipType from '../controllers/membershipTypeController.js';
 // =========================
 // Private routes
 // =========================
-
 router.use(isAuthenticated);
 
 router.get('/get', membershipType.getAllMembershipType);

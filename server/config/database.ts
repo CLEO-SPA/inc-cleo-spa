@@ -110,4 +110,4 @@ export async function withTransaction<T>(callback: (client: pg.PoolClient) => Pr
   } finally {
     client.release();
   }
-};
+}
