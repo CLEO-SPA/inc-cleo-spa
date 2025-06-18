@@ -54,7 +54,7 @@ BEGIN
    LIMIT 1;
 
   IF FOUND THEN
-    -- build a clear, localized warning:
+    -- build a clear, localised warning:
     RETURN CONCAT(
       'Warning: ', v_name,
       ' has a rest day on ',

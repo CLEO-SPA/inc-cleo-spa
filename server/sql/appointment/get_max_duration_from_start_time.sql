@@ -1,3 +1,34 @@
+/*
+ * Function: get_max_duration_from_start_time
+ * Purpose : For each possible start time on a given date, determine the maximum 
+ *           end time and maximum possible duration (in minutes), ensuring no 
+ *           conflicts with other existing appointments for the selected employee(s).
+ *
+ * Notes:
+ *   – Generates candidate 30-minute start slots from 10:00 to 18:30.
+ *   – Finds the next conflicting appointment for each slot for the employee(s).
+ *   – Excludes slots that overlap with existing appointments.
+ *   – Picks the employee (or one of multiple available employees) whose 
+ *     next conflict is latest, yielding the longest possible duration.
+ *   – p_employee_id = NULL ⇒ checks all active employees.
+ *   – p_exclude_appointment_id allows ignoring an existing appointment 
+ *     (e.g., when editing).
+ *
+ * Signature:
+ *   get_max_duration_from_start_time(
+ *     p_appointment_date DATE,
+ *     p_employee_id INT DEFAULT NULL,
+ *     p_exclude_appointment_id INT DEFAULT NULL
+ *   ) RETURNS TABLE (
+ *     start_time TIME,
+ *     max_end_time TIME,
+ *     max_duration_minutes INT
+ *   )
+ *
+ * Example:
+ *   SELECT * FROM get_max_duration_from_start_time('2025-05-08', 14, NULL);
+ *   SELECT * FROM get_max_duration_from_start_time('2025-05-08', NULL, 1);
+ */
 CREATE OR REPLACE FUNCTION get_max_duration_from_start_time(
     p_appointment_date DATE,
     p_employee_id INT DEFAULT NULL,

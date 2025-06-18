@@ -1,7 +1,29 @@
 /*
- * Function to get available end times for a specific start time
- * This is more targeted than the general availability function
- * Now handles NULL start_time values
+ * Function: get_available_end_times_for_start
+ * Purpose : Given a selected appointment date and a chosen start time,
+ *           generate all valid possible end times in 30-minute intervals,
+ *           constrained by existing appointments and business hours.
+ *
+ * Notes:
+ *   – If the start time is NULL, returns default slots from 10:30 to 21:00.
+ *   – Otherwise, uses `get_max_duration_from_start_time` to determine the 
+ *     maximum possible end time allowed for that start slot, ensuring no 
+ *     conflicts with other appointments for the same employee.
+ *   – p_employee_id = NULL ⇒ considers any active employee.
+ *   – p_exclude_appointment_id allows ignoring a specific appointment ID 
+ *     (e.g., when editing).
+ *
+ * Signature:
+ *   get_available_end_times_for_start(
+ *     p_appointment_date DATE,
+ *     p_start_time TIME,
+ *     p_employee_id INT DEFAULT NULL,
+ *     p_exclude_appointment_id INT DEFAULT NULL
+ *   ) RETURNS TABLE (end_time TIME)
+ *
+ * Example:
+ *   SELECT * FROM get_available_end_times_for_start('2025-05-08', '14:00', 14, NULL);
+ *   SELECT * FROM get_available_end_times_for_start('2025-05-08', NULL, NULL, 1);
  */
 CREATE OR REPLACE FUNCTION get_available_end_times_for_start(
     p_appointment_date DATE,
