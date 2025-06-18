@@ -53,7 +53,7 @@ const CreateAppointmentPage = () => {
   const { handleSubmit, watch, setValue } = methods;
   const formData = watch();
 
-  // Set default created_at to current SGT time and TODO: created_by to logged-in user
+  // Set default created_at to current SGT time
   useEffect(() => {
     const sgtNow = new Date(Date.now() + 8 * 60 * 60 * 1000);
     const val = sgtNow.toISOString().slice(0, 16); // "YYYY-MM-DDTHH:mm"
