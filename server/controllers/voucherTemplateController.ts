@@ -4,6 +4,8 @@ import model from '../models/voucherTemplateModel.js';
 // Get all voucher templates with filters and pagination
 const getAllVoucherTemplates = async (req: Request, res: Response, next: NextFunction) => {
   try {
+    const { start_date_utc, end_date_utc } = req.session;
+
     const {
       page = '1',
       limit = '10',
@@ -24,7 +26,9 @@ const getAllVoucherTemplates = async (req: Request, res: Response, next: NextFun
       endDate_utc as string,
       createdBy as string,
       search as string,
-      status as string
+      status as string,
+      start_date_utc!,
+      end_date_utc!
     );
 
     res.status(200).json({
@@ -38,10 +42,9 @@ const getAllVoucherTemplates = async (req: Request, res: Response, next: NextFun
     });
   } catch (error) {
     console.error('Error in getAllVoucherTemplates:', error);
-    res.status(500).json({ message: 'Failed to fetch voucher templates' });
-  }
+    next(error);
+}
 };
-
 // Create a new voucher template
 const createVoucherTemplate = async (req: Request, res: Response, next: NextFunction) => {
   try {
@@ -49,7 +52,6 @@ const createVoucherTemplate = async (req: Request, res: Response, next: NextFunc
     res.status(201).json(newVoucherTemplate);
   } catch (error) {
     console.error('Error in createVoucherTemplate:', error);
-    res.status(500).json({ message: 'Failed to create voucher template' });
   }
 };
 
@@ -83,8 +85,9 @@ const deleteVoucherTemplate = async (req: Request, res: Response, next: NextFunc
 };
 
 // Get a single voucher template by ID
-const getVoucherTemplateById = async (req: Request, res: Response): Promise<void> => {
+const getVoucherTemplateById = async (req: Request, res: Response, next: NextFunction): Promise<void> => {
   try {
+      const { start_date_utc, end_date_utc } = req.session;
         const id = parseInt(req.params.id, 10);
 
         if (isNaN(id)) {
@@ -92,7 +95,7 @@ const getVoucherTemplateById = async (req: Request, res: Response): Promise<void
         return;
         }
 
-    const voucherTemplate = await model.getVoucherTemplateById(id);
+    const voucherTemplate = await model.getVoucherTemplateById(id, start_date_utc!, end_date_utc!);
 
     if (!voucherTemplate) {
       res.status(404).json({ message: 'Voucher template not found' });
@@ -102,17 +105,18 @@ const getVoucherTemplateById = async (req: Request, res: Response): Promise<void
     res.status(200).json(voucherTemplate);
   } catch (error) {
     console.error('Error in getVoucherTemplateById:', error);
-    res.status(500).json({ message: 'Failed to fetch voucher template' });
+    next(error);
   }
 };
 
-const getAllVoucherTemplatesForDropdown = async (req: Request, res: Response): Promise<void> => {
+const getAllVoucherTemplatesForDropdown = async (req: Request, res: Response, next: NextFunction): Promise<void> => {
   try {
-    const templates = await model.getAllVoucherTemplatesForDropdown();
+    const { start_date_utc, end_date_utc } = req.session;
+    const templates = await model.getAllVoucherTemplatesForDropdown(start_date_utc!, end_date_utc!);
     res.status(200).json(templates);
   } catch (error) {
     console.error('Error in getAllVoucherTemplates:', error);
-    res.status(500).json({ message: 'Failed to fetch voucher templates' });
+    next(error);
   }
 };
 

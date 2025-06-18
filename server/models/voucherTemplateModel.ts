@@ -8,17 +8,27 @@ import {
 const getAllVoucherTemplates = async (
   offset: number,
   limit: number,
-  startDate_utc?: string,
+  startDate_utc?: string,        // query-level filter
   endDate_utc?: string,
   createdBy?: string,
   search?: string,
-  status?: string
+  status?: string,
+  sessionStartDate_utc?: string, // simulation constraint
+  sessionEndDate_utc?: string
 ) => {
   try {
     const filters: string[] = [];
     const values: any[] = [];
     let idx = 1;
 
+    // Always apply session-based simulation range
+    filters.push(`vt.created_at BETWEEN $${idx++} AND $${idx++}`);
+    values.push(
+      sessionStartDate_utc || '0001-01-01T00:00:00Z',
+      sessionEndDate_utc || '9999-12-31T23:59:59Z'
+    );
+
+    // Apply additional filter only if query range is specified
     if (startDate_utc && endDate_utc) {
       filters.push(`vt.created_at BETWEEN $${idx++} AND $${idx++}`);
       values.push(startDate_utc, endDate_utc);
@@ -55,8 +65,8 @@ const getAllVoucherTemplates = async (
     const baseQuery = `
       SELECT 
         vt.*,
-        e1.employee_name as created_by_name,
-        e2.employee_name as last_updated_by_name
+        e1.employee_name AS created_by_name,
+        e2.employee_name AS last_updated_by_name
       FROM voucher_templates vt
       LEFT JOIN employees e1 ON vt.created_by = e1.id
       LEFT JOIN employees e2 ON vt.last_updated_by = e2.id
@@ -68,7 +78,7 @@ const getAllVoucherTemplates = async (
 
     const result = await pool().query(query, values);
 
-    // Count query
+    // Count query uses same where clause (exclude limit/offset)
     const countValues = values.slice(0, -2);
     const totalQuery = `
       SELECT COUNT(*) 
@@ -344,7 +354,7 @@ const deleteVoucherTemplate = async (templateId: string) => {
   }
 };
 
-const getVoucherTemplateById = async (id: number) => {
+const getVoucherTemplateById = async (id: number, sessionStartDate_utc?: string, sessionEndDate_utc?: string) => {
   try {
     const templateQuery = `
       SELECT 
@@ -354,18 +364,21 @@ const getVoucherTemplateById = async (id: number) => {
       FROM voucher_templates vt
       LEFT JOIN employees e1 ON vt.created_by = e1.id
       LEFT JOIN employees e2 ON vt.last_updated_by = e2.id
-      WHERE vt.id = $1;
+      WHERE vt.id = $1
+        AND vt.created_at BETWEEN $2 AND $3;
     `;
 
-    const templateResult = await pool().query(templateQuery, [id]);
+    const sessionStart = sessionStartDate_utc || '0001-01-01T00:00:00Z';
+    const sessionEnd = sessionEndDate_utc || '9999-12-31T23:59:59Z';
+
+    const templateResult = await pool().query(templateQuery, [id, sessionStart, sessionEnd]);
 
     if (templateResult.rows.length === 0) {
-      throw new Error('Voucher template not found');
+      throw new Error('Voucher template not found or out of session range');
     }
 
     const template = templateResult.rows[0];
 
-    // Get template details
     const detailsQuery = `
       SELECT 
         vtd.*,
@@ -396,26 +409,35 @@ const getVoucherTemplateById = async (id: number) => {
   }
 };
 
-const getAllVoucherTemplatesForDropdown = async () => {
+
+const getAllVoucherTemplatesForDropdown = async (
+  sessionStartDate_utc?: string,
+  sessionEndDate_utc?: string
+) => {
   try {
+    const sessionStart = sessionStartDate_utc || '0001-01-01T00:00:00Z';
+    const sessionEnd = sessionEndDate_utc || '9999-12-31T23:59:59Z';
+
     const query = `
       SELECT 
         id,
         voucher_template_name,
         default_starting_balance
       FROM voucher_templates
-      wHERE status = 'is_enabled'
+      WHERE status = 'is_enabled'
+        AND created_at BETWEEN $1 AND $2
       ORDER BY voucher_template_name;
     `;
 
-    const result = await pool().query(query);
+    const result = await pool().query(query, [sessionStart, sessionEnd]);
 
     return result.rows;
   } catch (error) {
-    console.error('Error fetching all voucher templates:', error);
-    throw new Error('Error fetching all voucher templates');
+    console.error('Error fetching all voucher templates for dropdown:', error);
+    throw new Error('Error fetching all voucher templates for dropdown');
   }
 };
+
 
 export default {
   getAllVoucherTemplates,

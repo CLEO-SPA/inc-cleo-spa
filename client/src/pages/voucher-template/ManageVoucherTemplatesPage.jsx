@@ -265,7 +265,6 @@ function ManageVoucherTemplatesPage() {
                             <SelectValue placeholder="Status" />
                           </SelectTrigger>
                           <SelectContent>
-                            <SelectItem value="all">All Status</SelectItem>
                             <SelectItem value="is_enabled">Enabled</SelectItem>
                             <SelectItem value="disabled">Disabled</SelectItem>
                           </SelectContent>
