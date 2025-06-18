@@ -194,6 +194,36 @@ export function AppointmentDateTimeSelect({
     return placeholder;
   };
 
+  const getDisplayLabel = (time) => {
+    if (isStartTime) {
+      return time;
+    }
+    if (otherTimeValue) {
+      const toMinutes = (t) => {
+        const [h, m] = t.split(':').map(Number);
+        return h * 60 + m;
+      };
+      const startMins = toMinutes(otherTimeValue);
+      const slotMins = toMinutes(time);
+      const diff = slotMins - startMins;
+      if (diff > 0) {
+        if (diff < 60) {
+          // under an hour: show minutes
+          return `${time} (${diff} mins)`;
+        } else {
+          const hrs = Math.floor(diff / 60);
+          const mins = diff % 60;
+          if (mins === 0) {
+            return `${time} (${hrs} hr${hrs > 1 ? 's' : ''})`;
+          } else {
+            return `${time} (${hrs} hr${hrs > 1 ? 's' : ''} ${mins} mins)`;
+          }
+        }
+      }
+    }
+    return time;
+  };
+
   return (
     <div className="space-y-2">
       <Label>{label}</Label>
@@ -213,9 +243,10 @@ export function AppointmentDateTimeSelect({
               !isCurrentlyFetching &&
               filteredTimeslots.map((time) => (
                 <SelectItem key={time} value={time}>
-                  {time}
+                  {getDisplayLabel(time)}
                 </SelectItem>
-              ))}
+              ))
+            }
           </div>
         </SelectContent>
       </Select>
