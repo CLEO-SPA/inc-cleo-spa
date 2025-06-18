@@ -20,3 +20,9 @@ export interface PaginatedReturn<T> {
     totalCount?: number;
   };
 }
+
+export interface FieldMapping<T, N> {
+  payloadKey: keyof T;
+  dbKey: keyof N;
+  transform?: (value: any) => any;
+}

@@ -1,81 +1,205 @@
-import { pool, getProdPool as prodPool } from '../config/database.js';
-import { MembershipTypeData, NewMembershipType, UpdatedMembershipType } from '../types/membershipTypeTypes.js';
-import { MembershipTypePaginationParameter } from '../types/pagination.js';
+import { pool, withTransaction } from '../config/database.js';
+import { MembershipType, NewMembershipType, UpdatedMembershipType } from '../types/model.types.js';
 
-const getMembershipType = async (params: MembershipTypePaginationParameter = {}): Promise<MembershipTypeData> => {
-  const {
-    page = 1,
-    limit = 10
-  } = params
-
-  if (page < 1) {
-    throw new Error('Page must be 1 or greater');
-  }
-  if (limit < 1 || limit > 100) {
-    throw new Error('Limit must be between 1 and 100');
-  }
-
-  const offset = (page - 1) * limit;
+const getMembershipType = async (): Promise<{ success: boolean; data: MembershipType[] | []; message: string }> => {
+  const client = await pool().connect();
 
   try {
     const query = `
-  SELECT 
-    COALESCE(json_agg(mt.*), '[]'::json) AS membershiptypelist,
-    (SELECT COUNT(*) FROM membership_types) AS total
-  FROM (
     SELECT * 
-    FROM membership_types 
-    ORDER BY id ASC
-    LIMIT $1 OFFSET $2
-  ) mt;
-`;
+    FROM membership_types
+    ORDER BY id ASC;
+    `;
 
-    const value = [limit, offset];
+    const result = await client.query(query);
 
-    const result = await pool().query(query, value);
-
-    const totalCount = parseInt(result.rows[0].total);
-    const membershipTypeList = result.rows[0].membershiptypelist;
-    const currentPage = page;
-    const totalPages = Math.ceil(totalCount / limit);
-
-    const isEmpty = !membershipTypeList || membershipTypeList.length === 0;
-
-    return {
-      membershipTypeList: isEmpty ? [] : membershipTypeList,
-      pagination: {
-        total: totalCount,
-        totalPages,
-        currentPage,
-        limit,
-        hasNext: currentPage < totalPages,
-        hasPrevious: currentPage > 1
-      }
-    };
-
+    if (result.rows.length > 0) {
+      return { success: true, data: result.rows, message: 'The membership types have been retrieved successfully.' };
+    } else {
+      return { success: false, data: [], message: 'No membership types found.' };
+    }
   } catch (error) {
     console.error('Error fetching membership types:', error);
-    throw new Error('Failed to fetch membership types'); // To be Improved
+
+    console.error('Full error details:', {
+      error: error instanceof Error ? error.message : 'Unknown error',
+      stack: error instanceof Error ? error.stack : undefined,
+    });
+
+    // Return user-friendly message but also throw for critical errors
+    if (error instanceof Error && error.message.includes('connection')) {
+      throw new Error('Database connection failed. Please try again later.');
+    }
+
+    return { success: false, data: [], message: 'Failed to fetch membership types due to database error.' };
+  } finally {
+    client.release();
   }
 };
 
-const addMembershipType = async (data: NewMembershipType): Promise<{ success: boolean, message: string }> => {
+const addMembershipType = async (data: NewMembershipType): Promise<{ success: boolean; message: string }> => {
+  const {
+    membership_type_name,
+    default_percentage_discount_for_products,
+    default_percentage_discount_for_services,
+    created_by,
+  } = data;
 
-  return { success: true, message: "testing" };
-}
+  const last_updated_by = created_by;
+  const created_at = new Date();
+  const updated_at = created_at;
 
-const setMembershipType = async (data: UpdatedMembershipType): Promise<{ success: boolean, message: string }> => {
+  try {
+    const result = await withTransaction(async (client) => {
+      const query = `
+        INSERT INTO membership_types (
+        membership_type_name,
+        default_percentage_discount_for_products,
+        default_percentage_discount_for_services,
+        created_at,
+        updated_at,
+        created_by,
+        last_updated_by
+        )
+        VALUES (
+        $1, $2, $3, $4, $5, $6, $7
+        )
+        `;
+      const values = [
+        membership_type_name,
+        default_percentage_discount_for_products,
+        default_percentage_discount_for_services,
+        created_at,
+        updated_at,
+        created_by,
+        last_updated_by,
+      ];
 
-  return { success: true, message: "testing" };
+      return await client.query(query, values);
+    });
+
+    if (Number(result.rowCount) > 0) {
+      return { success: true, message: 'The new Membership Type has been created.' };
+    } else {
+      return { success: false, message: 'Failed to create membership type - no rows affected.' };
+    }
+  } catch (error) {
+    console.error('Error creating membership types:', error);
+
+    console.error('Full error details:', {
+      error: error instanceof Error ? error.message : 'Unknown error',
+      stack: error instanceof Error ? error.stack : undefined,
+    });
+
+    // Return user-friendly message but also throw for critical errors
+    if (error instanceof Error && error.message.includes('connection')) {
+      throw new Error('Database connection failed. Please try again later.');
+    }
+
+    return { success: false, message: 'Failed to create membership type due to database error.' };
+  }
 };
 
-const removeMembershipType = async (data: number): Promise<{ success: boolean, message: string }> => {
+const setMembershipType = async (data: UpdatedMembershipType): Promise<{ success: boolean; message: string }> => {
+  const {
+    id,
+    membership_type_name,
+    default_percentage_discount_for_products,
+    default_percentage_discount_for_services,
+    created_by,
+    last_updated_by,
+  } = data;
 
-  return { success: true, message: "testing" };
+  const updated_at = new Date();
+
+  try {
+    const result = await withTransaction(async (client) => {
+      const query = `
+        UPDATE membership_types
+        SET
+        membership_type_name = $1,
+        default_percentage_discount_for_products = $2,
+        default_percentage_discount_for_services = $3,
+        updated_at = $4,
+        created_by = $5,
+        last_updated_by = $6
+        WHERE
+        id = $7
+        ;
+        `;
+
+      const values = [
+        membership_type_name,
+        default_percentage_discount_for_products,
+        default_percentage_discount_for_services,
+        updated_at,
+        created_by,
+        last_updated_by,
+        id,
+      ];
+
+      return await client.query(query, values);
+    });
+
+    if (Number(result.rowCount) > 0) {
+      return { success: true, message: 'The Membership Type has been updated.' };
+    } else {
+      return { success: false, message: 'Failed to update membership type - no rows affected.' };
+    }
+  } catch (error) {
+    console.error('Error updating membership types:', error);
+
+    console.error('Full error details:', {
+      error: error instanceof Error ? error.message : 'Unknown error',
+      stack: error instanceof Error ? error.stack : undefined,
+    });
+
+    // Return user-friendly message but also throw for critical errors
+    if (error instanceof Error && error.message.includes('connection')) {
+      throw new Error('Database connection failed. Please try again later.');
+    }
+
+    return { success: false, message: 'Failed to update membership type due to database error.' };
+  }
 };
+
+const deleteMembershipType = async (id: number): Promise<{ success: boolean; message: string }> => {
+  try {
+    const result = await withTransaction(async (client) => {
+      const query = `
+      DELETE FROM membership_types
+      WHERE id = $1
+      ;
+      `;
+
+      return await client.query(query, [id]);
+    });
+
+    if (Number(result.rowCount) > 0) {
+      return { success: true, message: 'The Membership Type has been deleted.' };
+    } else {
+      return { success: false, message: 'Failed to delete membership type - no rows affected.' };
+    }
+  } catch (error) {
+    console.error('Error deleting membership types:', error);
+
+    console.error('Full error details:', {
+      error: error instanceof Error ? error.message : 'Unknown error',
+      stack: error instanceof Error ? error.stack : undefined,
+    });
+
+    // Return user-friendly message but also throw for critical errors
+    if (error instanceof Error && error.message.includes('connection')) {
+      throw new Error('Database connection failed. Please try again later.');
+    }
+
+    return { success: false, message: 'Failed to delete membership type due to database error.' };
+  }
+};
+
 export default {
   getMembershipType,
   addMembershipType,
   setMembershipType,
-  removeMembershipType,
+  deleteMembershipType,
 };

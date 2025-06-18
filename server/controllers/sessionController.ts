@@ -1,6 +1,6 @@
 import { Request, Response, NextFunction } from 'express';
 import validator from 'validator';
-import { getProdPool as pool } from '../config/database.js';
+import { getProdPool, pool } from '../config/database.js';
 import { addSseClient, testNotification } from '../services/sseService.js';
 import { SystemParameters } from '../types/model.types.js';
 
@@ -18,9 +18,12 @@ const setDateRange = (req: Request, res: Response, next: NextFunction): void => 
   }
 
   if (end_date_utc === null || end_date_utc === undefined) {
+    req.session.end_date_is_default = true;
     delete req.session.end_date_utc;
   } else if (end_date_utc) {
+    req.session.end_date_is_default = false;
     if (!validator.isISO8601(end_date_utc)) {
+      req.session.end_date_is_default = true;
       res.status(400).json({ message: 'Invalid end date format. Expected ISO8601.' });
       return;
     }
@@ -40,7 +43,7 @@ const setDateRange = (req: Request, res: Response, next: NextFunction): void => 
   });
 };
 
-const getDateRange = (req: Request, res: Response, next: NextFunction) => {
+const getDateRange = (req: Request, res: Response, next: NextFunction): void => {
   const { start_date_utc, end_date_utc } = req.session; // These are UTC ISO strings
   res.status(200).json({
     start_date_utc: start_date_utc || null,
@@ -60,7 +63,7 @@ const toggleSimulation = async (req: Request, res: Response, next: NextFunction)
     const funcQuery = `SELECT set_simulation($1, $2, $3)`;
     const values = [is_simulation, start_date_utc, end_date_utc];
 
-    const { rows, rowCount } = await pool().query(funcQuery, values);
+    const { rows, rowCount } = await getProdPool().query(funcQuery, values);
 
     // console.log('\n', typeof rows, rows);
 
@@ -77,8 +80,7 @@ const toggleSimulation = async (req: Request, res: Response, next: NextFunction)
     });
   } catch (error) {
     console.error('Error toggling simulation:', error);
-    res.status(500).json({ message: 'Failed to toggle simulation.' });
-    return;
+    next(error);
   }
 };
 
@@ -87,7 +89,7 @@ const getSimulation = async (req: Request, res: Response, next: NextFunction): P
     const query = 'SELECT * FROM system_parameters WHERE id = $1';
     const values = [1];
 
-    const result = await pool().query<SystemParameters>(query, values);
+    const result = await getProdPool().query<SystemParameters>(query, values);
     if (result.rowCount === 0) {
       res.status(404).json({ message: 'Simulation state not found.' });
       return;
@@ -100,12 +102,13 @@ const getSimulation = async (req: Request, res: Response, next: NextFunction): P
       end_date_utc: simulationState.end_date_utc,
     });
   } catch (error) {
-    throw new Error('Failed to fetch simulation state.');
+    console.error('Error getting simulation:', error);
+    next(error);
   }
 };
 
 // SSE Event
-const streamSimEvent = async (req: Request, res: Response, next: NextFunction) => {
+const streamSimEvent = async (req: Request, res: Response, next: NextFunction): Promise<void> => {
   res.setHeader('Content-Type', 'text/event-stream');
   res.setHeader('Cache-Control', 'no-cache');
   res.setHeader('Connection', 'keep-alive');
@@ -117,7 +120,7 @@ const streamSimEvent = async (req: Request, res: Response, next: NextFunction) =
   res.write('data: {"message": "SSE connection established"}\n\n');
 };
 
-const testSSE = async (req: Request, res: Response, next: NextFunction) => {
+const testSSE = async (req: Request, res: Response, next: NextFunction): Promise<void> => {
   await testNotification();
   res.json({ message: 'Test notification sent' });
 };
@@ -161,4 +164,6 @@ export default {
   getSimulation,
   streamSimEvent,
   testSSE,
+  getAllStatus,
+  getStatusNameById,
 };

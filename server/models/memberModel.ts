@@ -446,8 +446,43 @@ const getMemberVouchers = async (
     const totalCount = Number(countResult.rows[0].count);
     const totalPages = Math.ceil(totalCount / limit);
 
+    // Calculate paid balance for each voucher
+    const vouchersWithBalance = await Promise.all(
+      result.rows.map(async (voucher) => {
+        const balanceQuery = `
+          SELECT st.outstanding_total_payment_amount, mv.current_balance, mv.free_of_charge
+          FROM sale_transactions st
+          JOIN sale_transaction_items sti ON st.id = sti.sale_transaction_id
+          JOIN member_vouchers mv ON sti.member_voucher_id = mv.id
+          WHERE sti.member_voucher_id = $1
+          ORDER BY sti.sale_transaction_id DESC
+          LIMIT 1;
+        `;
+        
+        const balanceResult = await pool().query(balanceQuery, [voucher.id]);
+        
+        let currentPaidBalance = 0;
+        if (balanceResult.rows && balanceResult.rows.length > 0) {
+          const current_balance = parseFloat(balanceResult.rows[0].current_balance);
+          const outstanding_total_payment_amount = parseFloat(balanceResult.rows[0].outstanding_total_payment_amount);
+          const free_of_charge = parseFloat(balanceResult.rows[0].free_of_charge);
+          
+          if (outstanding_total_payment_amount === 0) {
+            currentPaidBalance = current_balance;
+          } else {
+            currentPaidBalance = current_balance - outstanding_total_payment_amount - free_of_charge;
+          }
+        }
+        
+        return {
+          ...voucher,
+          current_paid_balance: currentPaidBalance
+        };
+      })
+    );
+
     return {
-      vouchers: result.rows,
+      vouchers: vouchersWithBalance,
       totalPages,
       totalCount,
     };

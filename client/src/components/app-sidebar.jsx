@@ -1,5 +1,5 @@
 import * as React from 'react';
-import { Command, Users, CalendarDays, ShieldUser, Box, Wand, LayoutDashboard, SquareUserRound, Package, Tickets  } from 'lucide-react';
+import { Command, Users, CalendarDays, ShieldUser, Box, Wand, LayoutDashboard, SquareUserRound, Package, Tickets, ChartColumnStacked  } from 'lucide-react';
 import { NavMain } from '@/components/nav-main';
 import { NavUser } from '@/components/nav-user';
 import {
@@ -52,7 +52,7 @@ const data = {
         },
         {
           title: 'Manage Services',
-          url: '#',
+          url: 'manage-service',
         },
       ],
     },
@@ -77,12 +77,12 @@ const data = {
       icon: Tickets,
       items: [
         {
-          title: 'Create Voucher',
-          url: '#',
+          title: 'Create Voucher Template',
+          url: '/voucher-template/create',
         },
         {
-          title: 'Manage Vouchers',
-          url: '#',
+          title: 'Manage Voucher Templates',
+          url: '/voucher-template',
         },
       ],
     },
@@ -142,6 +142,21 @@ const data = {
         },
         {
           title: 'Add New Appointment',
+          url: '#',
+        },
+      ],
+    },
+    {
+      title: 'Statistics',
+      url: '#',
+      icon: ChartColumnStacked,
+      items: [
+        {
+          title: 'View Database Report',
+          url: '/dbcr',
+        },
+        {
+          title: 'View Monthly Revenue Report',
           url: '#',
         },
       ],
