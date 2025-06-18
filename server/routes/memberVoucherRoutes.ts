@@ -12,7 +12,7 @@ import controller from '../controllers/memberVoucherController.js';
 // =========================
 // Private routes
 // =========================
-// router.use(isAuthenticated);
+router.use(isAuthenticated);
 
 router.post('/create',  controller.createMemberVoucher);
 router.delete('/:id/rm', controller.removeMemberVoucher);
@@ -25,7 +25,12 @@ router.get('/:id/s', controller.getAllServicesOfMemberVoucherById);
 
 router.get('/:id/t', controller.getAllTransactionLogsOfMemberVoucherById);
 
-router.post('/:id/t/create', controller.checkCurrentBalance, controller.checkPaidCurrentBalance ,controller.createTransactionLogsByMemberVoucherId);
+router.post(
+  '/:id/t/create',
+  controller.checkCurrentBalance,
+  controller.checkPaidCurrentBalance,
+  controller.createTransactionLogsByMemberVoucherId
+);
 
 router.put('/:id/t/update', controller.updateTransactionLogsAndCurrentBalanceByLogId);
 

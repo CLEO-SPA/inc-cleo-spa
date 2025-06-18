@@ -1,7 +1,3 @@
-import pg from "pg";
-import { pool } from "../config/database.js";
-
-/* eslint-disable @typescript-eslint/no-explicit-any */
 export interface Employees {
   id?: string;
   user_auth_id: string;
@@ -13,7 +9,7 @@ export interface Employees {
   employee_name: string;
   created_at: string;
   updated_at: string;
-};
+}
 
 export interface CarePackages {
   id?: string;
@@ -26,7 +22,7 @@ export interface CarePackages {
   last_updated_by: string;
   created_at: string;
   updated_at: string;
-};
+}
 
 export interface CarePackageItemDetails {
   id?: string;
@@ -35,7 +31,7 @@ export interface CarePackageItemDetails {
   care_package_item_details_price: number;
   service_id: string;
   care_package_id: string;
-};
+}
 
 export interface MemberCarePackages {
   id?: string;
@@ -47,7 +43,7 @@ export interface MemberCarePackages {
   created_at: string;
   updated_at: string;
   package_remarks: string;
-};
+}
 
 export interface MemberCarePackagesDetails {
   id?: string;
@@ -58,7 +54,7 @@ export interface MemberCarePackagesDetails {
   service_id: string;
   status_id: string;
   quantity: number;
-};
+}
 
 export interface MemberCarePackageTransactionLogs {
   id?: string;
@@ -71,14 +67,14 @@ export interface MemberCarePackageTransactionLogs {
   employee_id: string;
   service_id: string;
   created_at: string;
-};
+}
 
 export interface SystemParameters {
   id: string;
   start_date_utc: string;
   end_date_utc: string;
   is_simulation: boolean;
-};
+}
 
 export interface MemberVouchers {
   id?: number;
@@ -90,13 +86,13 @@ export interface MemberVouchers {
   free_of_charge: number;
   default_total_price: number;
   status: string;
-  remarks: string
+  remarks: string;
   created_by: number;
   handled_by: number;
   last_updated_by: number;
   created_at: string;
   updated_at: string;
-};
+}
 
 export interface MemberVoucherServices {
   id?: number;
@@ -105,7 +101,7 @@ export interface MemberVoucherServices {
   custom_price: number;
   discount: number;
   duration: number;
-};
+}
 
 export interface MemberVoucherTransactionLogs {
   id?: number;
@@ -120,32 +116,16 @@ export interface MemberVoucherTransactionLogs {
   updated_by: number;
   created_at: string;
   updated_at: string;
-};
-
-// generalised function for simple statements that changes the database
-export async function withTransaction<T>(callback: (client: pg.PoolClient) => Promise<T>): Promise<T> {
-  const client = await pool().connect();
-  try {
-    await client.query('BEGIN');
-    const result = await callback(client);
-    await client.query('COMMIT');
-    return result;
-  } catch (error) {
-    await client.query('ROLLBACK');
-    throw error;
-  } finally {
-    client.release();
-  }
-};
+}
 
 export interface Employee {
   id: number;
   employee_name: string;
   position_id: number | null;
-};
+}
 
 export interface MemberVoucherTransactionLogCreateData {
-  id: number,
+  id: number;
   consumptionValue: number;
   remarks: string;
   date: string;
@@ -154,12 +134,12 @@ export interface MemberVoucherTransactionLogCreateData {
   createdBy: number;
   handledBy: number;
   current_balance: number;
-};
+}
 
 export interface MemberName {
-  id?: number,
-  member_name: string
-};
+  id?: number;
+  member_name: string;
+}
 
 export interface MemberVoucherTransactionLogUpdateData {
   member_voucher_id: number;
@@ -172,31 +152,27 @@ export interface MemberVoucherTransactionLogUpdateData {
   createdBy: number;
   handledBy: number;
   lastUpdatedBy: number;
-};
+}
 
 export interface MembershipType {
-    id: number;
-    membership_type_name: string;
-    default_percentage_discount_for_products: number;
-    default_percentage_discount_for_services: number;
-    created_at: Date;
-    updated_at: Date;
-    created_by: number;
-    last_updated_by: number
-};
+  id: number;
+  membership_type_name: string;
+  default_percentage_discount_for_products: number;
+  default_percentage_discount_for_services: number;
+  created_at: Date;
+  updated_at: Date;
+  created_by: number;
+  last_updated_by: number;
+}
 
 // Data set for a new Membership Type
 export type NewMembershipType = Pick<
-    MembershipType,
-    'membership_type_name' |
-    'default_percentage_discount_for_products' |
-    'default_percentage_discount_for_services' |
-    'created_by'
+  MembershipType,
+  | 'membership_type_name'
+  | 'default_percentage_discount_for_products'
+  | 'default_percentage_discount_for_services'
+  | 'created_by'
 >;
 
 // Data set for an updated Membership Type
-export type UpdatedMembershipType = Omit<
-    MembershipType,
-    'created_at' |
-    'updated_at' 
->;
+export type UpdatedMembershipType = Omit<MembershipType, 'created_at' | 'updated_at'>;
