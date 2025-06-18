@@ -28,6 +28,8 @@ import ManageVouchersPage from './pages/MemberVoucher/ManageVoucherPage';
 import DatabaseReportPage from '@/pages/DatabaseReportPage';
 import CreateConsumptionPage from '@/pages/CarePackages/CreateConsumptionPage';
 import CreateMemberVoucherConsumptionPage from '@/pages/MemberVoucher/CreateConsumptionPage';
+// Data Export
+import DataExportPage from './pages/miscellaneous/DateExportPage';
 
 function App() {
   return (
@@ -60,6 +62,10 @@ function App() {
 
               {/* membership-type */}
               <Route path='/membership-type' element={<ManageMembershipTypePage />} />
+
+              {/* data-export */}
+              <Route path='/data-export' element={<DataExportPage />} />
+
 
               {/* statistics */}
               <Route path='/dbcr' element={<DatabaseReportPage />} />

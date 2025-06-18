@@ -13,6 +13,7 @@ import employeeRoutes from './employeeRoutes.js';
 import voucherTemplateRoutes from './voucherTemplateRoutes.js';
 import memberCarePackageRoutes from './mcpRoutes.js';
 import memberVoucherRoutes from './memberVoucherRoutes.js';
+import dataExportRoutes from './dataExportRoutes.js';
 
 // router.use(simulationMiddleware);
 
@@ -26,6 +27,7 @@ router.use('/membership-type', membershipTypeRoutes);
 router.use('/mcp', memberCarePackageRoutes);
 router.use('/em', employeeRoutes);
 router.use('/voucher-template', voucherTemplateRoutes);
+router.use('/de', dataExportRoutes)
 // router.use('/sa', superAdminRoutes);
 
 export default router;
