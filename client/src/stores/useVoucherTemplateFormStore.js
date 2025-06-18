@@ -22,7 +22,9 @@ export const useVoucherTemplateFormStore = create(
       remarks: '',
       status: 'is_enabled',
       created_by: '',
+      last_updated_by: '', // Add updated_by field
       created_at: null,
+      updated_at: null, // Add updated_at field
       details: [],
     },
     // Remove the function-based selectors and make them reactive
@@ -88,9 +90,10 @@ export const useVoucherTemplateFormStore = create(
             default_free_of_charge: 0, // Set to 0 instead of empty string
             default_total_price: starting, // Keep as number
           };
-
           return { mainFormData: fixedForm };
         }
+        console.log(`Updating field ${field} with value:`, value);
+        console.log('Updated form data:', updatedForm);
         // Calculate total price and keep as number
         updatedForm.default_total_price = starting - free;
         return { mainFormData: updatedForm };
@@ -108,9 +111,11 @@ export const useVoucherTemplateFormStore = create(
             default_free_of_charge: templateData.default_free_of_charge || 0,
             default_total_price: templateData.default_total_price || 0,
             remarks: templateData.remarks || '',
-            status: templateData.status || 'active',
-            created_by: templateData.created_by || get().mainFormData.created_by || '', // ✅ Fixed
-            created_at: templateData.created_at || null, // ✅ Added created_at
+            status: templateData.status,
+            created_by: templateData.created_by || '', // Keep original created_by
+            last_updated_by: templateData.last_updated_by || '', // Use last_updated_by for edit mode
+            created_at: templateData.created_at || null,
+            updated_at: templateData.updated_at || null, // Include updated_at
             details: templateData.details || [],
           },
           currentTemplateId: templateData.id,
@@ -131,9 +136,11 @@ export const useVoucherTemplateFormStore = create(
             default_free_of_charge: 0,
             default_total_price: 0,
             remarks: '',
-            status: 'active',
+            status: 'is_enabled',
             created_by: '',
+            last_updated_by: '', // Reset updated_by
             created_at: null,
+            updated_at: null, // Reset updated_at
             details: [],
           },
           currentTemplateId: null,
@@ -348,11 +355,17 @@ export const useVoucherTemplateFormStore = create(
         const free = Number(dataToSubmit.default_free_of_charge) || 0;
         const total = Math.max(starting - free, 0);
 
+        const currentDateTime = new Date().toISOString();
+
+        // For creation, include created_by and set both created_at and updated_at to current datetime
         const cleanedData = emptyStringToNull({
           ...dataToSubmit,
           default_total_price: total,
+          created_at: dataToSubmit.created_at || currentDateTime, // Use form value or current datetime
+          updated_at: currentDateTime, // Always set to current datetime for new templates
+          // Remove updated_by for creation
+          last_updated_by: undefined,
         });
-
 
         const payload = {
           ...cleanedData,
@@ -386,16 +399,19 @@ export const useVoucherTemplateFormStore = create(
         const free = Number(dataToSubmit.default_free_of_charge) || 0;
         const total = Math.max(starting - free, 0);
 
+        // For updates, include updated_by and set updated_at to current datetime
         const cleanedData = emptyStringToNull({
           ...dataToSubmit,
           default_total_price: total,
+          updated_at: new Date().toISOString(), // Set current datetime for updates
+          // Remove created_by for updates, but keep created_at (allow editing of creation datetime)
+          created_by: undefined,
         });
-
 
         const payload = {
           ...cleanedData,
         };
-
+        
         const response = await api.put(`/voucher-template/${templateId}`, payload);
 
         set({ isUpdating: false }, false, 'updateVoucherTemplate/fulfilled');
@@ -433,9 +449,11 @@ export const useVoucherTemplateFormStore = create(
         default_free_of_charge: 0,
         default_total_price: 0,
         remarks: '',
-        status: 'active',
+        status: 'is_enabled',
         created_by: '',
-        created_at: null, // ✅ Added created_at to reset
+        last_updated_by: '', // Reset updated_by
+        created_at: null,
+        updated_at: null, // Reset updated_at
         details: [],
       },
       serviceForm: {

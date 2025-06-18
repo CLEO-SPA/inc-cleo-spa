@@ -70,7 +70,7 @@ export const ServiceRow = ({
                         className="w-20"
                     />
                 ) : (
-                     typeof service.discount === 'number'
+                    typeof service.discount === 'number'
                         ? `$${service.discount.toFixed(2)}`
                         : 'N/A'
                 )}
@@ -389,7 +389,9 @@ export const SuccessDialog = ({
     onClose,
     onGoToTemplates,
     createdTemplate,
-    mainFormData
+    mainFormData,
+    isUpdate = false, // default to false
+
 }) => {
 
     const formatMoney = (val) => {
@@ -407,13 +409,15 @@ export const SuccessDialog = ({
                                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
                             </svg>
                         </div>
-                        Voucher Template Created Successfully!
+                        {isUpdate ? 'Voucher Template Updated Successfully!' : 'Voucher Template Created Successfully!'}
                     </DialogTitle>
+
                 </DialogHeader>
                 <div className="py-4">
                     <p className="text-sm text-gray-600 mb-4">
-                        The voucher template "{createdTemplate?.template.voucher_template_name}" has been created successfully.
+                        The voucher template "{createdTemplate?.template.voucher_template_name}" has been {isUpdate ? 'updated' : 'created'} successfully.
                     </p>
+
                     <div className="bg-gray-50 rounded-lg p-3 space-y-2">
                         <div className="flex justify-between text-sm">
                             <span className="text-gray-600">Template Name:</span>

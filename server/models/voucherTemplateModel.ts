@@ -106,7 +106,7 @@ const createVoucherTemplate = async ({
   default_free_of_charge,
   default_total_price,
   remarks,
-  status = 'active',
+  status,
   created_by,
   created_at,
   updated_at,
@@ -121,9 +121,9 @@ const createVoucherTemplate = async ({
     const insertTemplateQuery = `
       INSERT INTO voucher_templates (
         voucher_template_name, default_starting_balance, default_free_of_charge,
-        default_total_price, remarks, status, created_by, created_at, updated_at
+        default_total_price, remarks, status, created_by, last_updated_by, created_at, updated_at
       )
-      VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9)
+      VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10)
       RETURNING *;
     `;
     const templateValues = [
@@ -133,6 +133,7 @@ const createVoucherTemplate = async ({
       default_total_price,
       remarks,
       status,
+      created_by,
       created_by,
       created_at,
       updated_at,
@@ -192,6 +193,7 @@ const updateVoucherTemplate = async ({
   remarks,
   status,
   last_updated_by,
+  created_at,
   updated_at,
   details
 }: UpdateVoucherTemplateInput) => {
@@ -211,8 +213,9 @@ const updateVoucherTemplate = async ({
         remarks = COALESCE($5, remarks),
         status = COALESCE($6, status),
         last_updated_by = COALESCE($7, last_updated_by),
-        updated_at = COALESCE($8, updated_at)
-      WHERE id = $9
+        created_at = COALESCE($8, created_at),
+        updated_at = COALESCE($9, updated_at)
+      WHERE id = $10
       RETURNING *;
     `;
 
@@ -224,6 +227,7 @@ const updateVoucherTemplate = async ({
       remarks,
       status,
       last_updated_by,
+      created_at,
       updated_at,
       id,
     ];
