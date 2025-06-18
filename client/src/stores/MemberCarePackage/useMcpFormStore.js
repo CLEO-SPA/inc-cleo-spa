@@ -72,7 +72,7 @@ export const useMcpFormStore = create(
     fetchEmployeeOptions: async () => {
       set({ isLoading: true, error: null }, false, 'fetchEmployeeOptions/pending');
       try {
-        const response = await api('/employee/dropdown');
+        const response = await api('/em/dropdown');
         const formattedOptions = response.data.map((emp) => ({
           id: emp.id,
           label: emp.employee_name,
