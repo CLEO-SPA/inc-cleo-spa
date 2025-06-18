@@ -59,7 +59,7 @@ const CreateAppointmentPage = () => {
     const val = sgtNow.toISOString().slice(0, 16); // "YYYY-MM-DDTHH:mm"
     setValue('created_at', val);
   }, [setValue]);
-user
+  user
   const {
     appointmentWarnings,
     reset: resetDateTimeStore,
@@ -190,6 +190,24 @@ user
     setValue('appointments', newAppointments);
   };
 
+  const duplicatePreviousAppointment = () => {
+    const current = formData.appointments || [];
+    if (current.length === 0) return;
+    const last = current[current.length - 1];
+    const duplicated = {
+      servicing_employee_id: last.servicing_employee_id,
+      appointment_date: last.appointment_date,
+      start_time: last.start_time,
+      end_time: last.end_time,
+      remarks: last.remarks,
+    };
+    const newAppointments = [...current, duplicated];
+    setValue('appointments', newAppointments);
+    const newIndex = newAppointments.length - 1;
+    clearWarningForAppointment(newIndex); 
+    clearTimeslots(newIndex); 
+  };
+
   const removeAppointment = (index) => {
     const current = formData.appointments || [];
     if (current.length > 1) {
@@ -274,7 +292,7 @@ user
                             <Label>Appointment Date *</Label>
                             <Input
                               type="date"
-                              min={today}
+
                               value={appointment.appointment_date || ''}
                               onChange={(e) => handleAppointmentChange(index, 'appointment_date', e.target.value)}
                               className="h-12"
@@ -321,14 +339,25 @@ user
                     </Card>
                   ))}
 
-                  <Button
-                    type="button"
-                    variant='outline'
-                    onClick={addAppointment}
-                    className='w-full h-12 border-dashed border-2 mb-4'
-                  >
-                    <Plus className='mr-2 h-4 w-4' />Add more appointment
-                  </Button>
+                  <div className="flex gap-2 mb-4">
+                    <Button
+                      type="button"
+                      variant="outline"
+                      onClick={addAppointment}
+                      className='flex-1 h-12 border-dashed border-2'
+                    >
+                      <Plus className='mr-2 h-4 w-4' /> Add more appointment
+                    </Button>
+                    <Button
+                      type="button"
+                      variant="outline"
+                      onClick={duplicatePreviousAppointment} 
+                      className='flex-1 h-12 border-dashed border-2'
+                      disabled={!(formData.appointments && formData.appointments.length > 0)} 
+                    >
+                      <Plus className='mr-2 h-4 w-4' /> Duplicate previous appointment 
+                    </Button>
+                  </div>
 
                   {(localError || storeError) && (
                     <Alert className='border-red-200 bg-red-50 mb-4'>
