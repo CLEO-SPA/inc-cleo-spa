@@ -18,7 +18,7 @@ export default function ViewAppointmentDetailsPage() {
   useEffect(() => {
     const fetchAppointment = async () => {
       try {
-        const res = await api.get(`/ab/${id}`);
+        const res = await api.get(`/ab/id/${id}`);
         if (!res.data || Object.keys(res.data).length === 0) {
           setError('Appointment does not exist');
         } else {

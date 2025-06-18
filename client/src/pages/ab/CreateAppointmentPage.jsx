@@ -14,6 +14,7 @@ import { Label } from '@/components/ui/label';
 import { Textarea } from '@/components/ui/textarea';
 import { Alert, AlertDescription } from '@/components/ui/alert';
 import { CheckCircle, Plus, Trash2 } from 'lucide-react';
+import { useAuth } from '@/context/AuthContext';
 import EmployeeSelect from '@/components/ui/forms/EmployeeSelect';
 import MemberSelect from '@/components/ui/forms/MemberSelect';
 import AppointmentDateTimeSelect from '@/components/ui/forms/AppointmentDateTimeSelect';
@@ -21,6 +22,15 @@ import useAppointmentDateTimeStore from '@/stores/useAppointmentDateTimeStore';
 import useAppointmentStore from '@/stores/useAppointmentStore';
 
 const CreateAppointmentPage = () => {
+  const { user, isAuthenticated, isLoading } = useAuth();
+
+  if (isLoading) {
+    return <p>Loading...</p>;
+  }
+  if (!isAuthenticated) {
+    return <p>Please log in.</p>;
+  }
+
   const navigate = useNavigate();
   const { createAppointment, isCreating, error: storeError, errorMessage: storeErrorMessage } = useAppointmentStore();
 
@@ -28,10 +38,9 @@ const CreateAppointmentPage = () => {
     defaultValues: {
       member_id: '',
       created_at: '',
-      created_by: '',
+      created_by: user.user_id || '', // Default to logged-in user
       appointments: [
         {
-          // id may not be needed for creation; remove id if backend assigns
           servicing_employee_id: '',
           appointment_date: '',
           start_time: '',
@@ -50,7 +59,7 @@ const CreateAppointmentPage = () => {
     const val = sgtNow.toISOString().slice(0, 16); // "YYYY-MM-DDTHH:mm"
     setValue('created_at', val);
   }, [setValue]);
-
+user
   const {
     appointmentWarnings,
     reset: resetDateTimeStore,

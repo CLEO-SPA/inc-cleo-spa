@@ -274,6 +274,7 @@ const createAppointment = async (
     // p_appointments is jsonb array: pass JSON string or JS object
     const query = `CALL create_appointment_ab($1, $2::jsonb, $3, $4)`;
     const values = [memberId, JSON.stringify(appointments), createdBy, createdAt];
+    console.log('Creating appointment with values:', values);
     await pool().query(query, values);
   } catch (error: any) {
     console.error('Error in createAppointment:', error);

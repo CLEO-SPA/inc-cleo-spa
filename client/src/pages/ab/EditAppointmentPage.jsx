@@ -12,6 +12,7 @@ import { Label } from '@/components/ui/label';
 import { Textarea } from '@/components/ui/textarea';
 import { Alert, AlertDescription } from '@/components/ui/alert';
 import { CheckCircle } from 'lucide-react';
+import { useAuth } from '@/context/AuthContext';
 import EmployeeSelect from '@/components/ui/forms/EmployeeSelect';
 import MemberSelect from '@/components/ui/forms/MemberSelect';
 import AppointmentDateTimeSelect from '@/components/ui/forms/AppointmentDateTimeSelect';
@@ -19,6 +20,15 @@ import useAppointmentDateTimeStore from '@/stores/useAppointmentDateTimeStore';
 import useAppointmentStore from '@/stores/useAppointmentStore';
 
 const EditAppointmentPage = () => {
+  const { user, isAuthenticated, isLoading } = useAuth();
+
+  if (isLoading) {
+    return <p>Loading...</p>;
+  }
+  if (!isAuthenticated) {
+    return <p>Please log in.</p>;
+  }
+
   const { id } = useParams();
   const navigate = useNavigate();
   const {
@@ -115,7 +125,7 @@ const EditAppointmentPage = () => {
         },
         created_by: appt.created_by?.toString() || '',
         created_at: formatDateTimeLocal(appt.created_at),
-        updated_by: '',
+        updated_by: user.user_id || '', // Default to logged-in user
         updated_at: new Date(Date.now() + 8 * 60 * 60 * 1000).toISOString().slice(0, 16),
       });
       // Clear any previous store state
@@ -250,7 +260,7 @@ const EditAppointmentPage = () => {
       // After success, navigates to view appointments to see newly updated appointment
       setTimeout(() => {
         setSuccess(false);
-        navigate(`/appointments?date=${appt.appointment_date}&employee_id=${appt.servicing_employee_id}`); 
+        navigate(`/appointments?date=${appt.appointment_date}&employee_id=${appt.servicing_employee_id}`);
       }, 1500);
     } else {
       setLocalError(result.error || 'Failed to update appointment');

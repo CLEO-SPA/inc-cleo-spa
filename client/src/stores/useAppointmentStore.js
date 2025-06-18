@@ -51,8 +51,8 @@ const useAppointmentStore = create((set, get) => ({
     try {
       // Clean empty strings to null
       const cleaned = emptyStringToNull(payload);
+      console.log('Creating appointments with payload:', cleaned);
       const response = await api.post('/ab/create', cleaned);
-      // Optionally: refetch appointment list or other data here
       set({ isCreating: false });
       return { success: true, data: response.data };
     } catch (err) {
@@ -70,6 +70,7 @@ const useAppointmentStore = create((set, get) => ({
     set({ isUpdating: true, error: false, errorMessage: null });
     try {
       const cleaned = emptyStringToNull(payload);
+      console.log('Updating appointment with payload:', cleaned);
       const response = await api.put('/ab/update', cleaned);
       // Optionally refetch or update local list
       set({ isUpdating: false });
