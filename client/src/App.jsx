@@ -20,7 +20,8 @@ import EditMemberPage from './pages/member/EditMemberPage';
 // Voucher Template
 import CreateVoucherTemplatesPage from './pages/voucher-template/CreateVoucherTemplatePage';
 import ManageVoucherTemplatesPage from './pages/voucher-template/ManageVoucherTemplatesPage';
-import EditVouhcerTemplatePage from './pages/voucher-template/EditVoucherTemplatePage';
+import EditVoucherTemplatePage from './pages/voucher-template/EditVoucherTemplatePage';
+import ViewVoucherTemplatePage from './pages/voucher-template/ViewVoucherTemplatePage';
 // Service Management
 import MockSalesTransactionPage from './pages/sale-transaction/mockSaleTransactionPage';
 import ManageVouchersPage from './pages/MemberVoucher/ManageVoucherPage';
@@ -50,7 +51,8 @@ function App() {
               {/* Voucher Template */}
               <Route path='/voucher-template/create' element={<CreateVoucherTemplatesPage />} />
               <Route path='/voucher-template' element={<ManageVoucherTemplatesPage />} />
-              <Route path='/voucher-template/edit/:id' element={<EditVouhcerTemplatePage />} />
+              <Route path='/voucher-template/edit/:id' element={<EditVoucherTemplatePage />} />
+              <Route path='/voucher-template/:id' element={<ViewVoucherTemplatePage />} />
               <Route path='/cart-test' element={<MockSalesTransactionPage />} />
 
               <Route path='/mcp/:packageId/consume' element={<CreateConsumptionPage />} />
