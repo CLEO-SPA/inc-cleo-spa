@@ -14,7 +14,7 @@ import voucherTemplateRoutes from './voucherTemplateRoutes.js';
 import memberCarePackageRoutes from './mcpRoutes.js';
 import memberVoucherRoutes from './memberVoucherRoutes.js';
 
-router.use(simulationMiddleware);
+// router.use(simulationMiddleware);
 
 router.use('/auth', authRoutes);
 router.use('/session', sessionRoutes);
