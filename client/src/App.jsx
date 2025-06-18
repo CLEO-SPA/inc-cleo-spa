@@ -93,6 +93,9 @@ function App() {
 
               {/* statistics */}
               <Route path='/dbcr' element={<DatabaseReportPage />} />
+
+              {/* Service Management */}
+              <Route path='/manage-service' element={<ManageServicePage />} />
             </Route>
             <Route path='/login' element={<LoginPage />} />
 

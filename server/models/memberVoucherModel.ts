@@ -1,6 +1,6 @@
 import { pool } from '../config/database.js';
 import { PaginatedOptions, PaginatedReturn } from '../types/common.types.js';
-import { MemberVouchers, MemberVoucherServices, MemberVoucherTransactionLogs, MemberVoucherTransactionLogCreateData, MemberName, MemberVoucherTransactionLogUpdateData } from '../types/model.types.js';
+import { MemberVouchers, MemberVoucherServices, MemberVoucherTransactionLogs, MemberVoucherTransactionLogCreateData, MemberName, MemberVoucherTransactionLogUpdateData, Employees } from '../types/model.types.js';
 import { encodeCursor } from '../utils/cursorUtils.js';
 
 
@@ -782,6 +782,283 @@ const deleteTransactionLogsAndCurrentBalanceByLogId = async (transaction_log_id:
   }
 };
 
+
+
+interface ServicePayload {
+  id: string;
+  name: string;
+  original_price: number;
+  custom_price: number;
+  discount: number;
+  final_price: number;
+  duration: number;
+}
+
+interface PaymentPayload {
+  id: string;
+  amount: number;
+}
+
+const createMemberVoucher = async (
+  member_voucher_name: string,
+  voucher_template_id: string,
+  member_id: string,
+  employee_id: string,
+  default_total_price: number,
+  free_of_charge: number,
+  remarks: string,
+  services: ServicePayload[],
+  payments: PaymentPayload[],
+  created_at: string,
+  updated_at: string,
+  is_bypass: boolean = false,
+  is_partial_payment: boolean = false
+) => {
+  const client = await pool().connect();
+
+  try {
+    await client.query('BEGIN');
+
+    // Validation queries
+    const v_member_sql = 'SELECT id FROM members WHERE id = $1';
+    const v_employee_sql = 'SELECT id FROM employees WHERE id = $1';
+    const v_status_sql = 'SELECT get_or_create_status($1) as id';
+
+    let validationPromises = [
+      client.query(v_member_sql, [member_id]),
+      client.query<Employees>(v_employee_sql, [employee_id]),
+      client.query<{ id: string }>(v_status_sql, ['is_enabled']),
+    ];
+
+    // Only validate voucher_template_id if not bypass (voucher_template_id !== '0')
+    let voucherTemplateResult;
+    if (!is_bypass && voucher_template_id !== '0') {
+      const v_voucher_template_sql = 'SELECT id FROM voucher_templates WHERE id = $1';
+      voucherTemplateResult = client.query(v_voucher_template_sql, [voucher_template_id]);
+      validationPromises.push(voucherTemplateResult);
+    }
+
+    const results = await Promise.all(validationPromises);
+    const [memberResult, employeeResult, statusResult] = results;
+    if (voucherTemplateResult) {
+      voucherTemplateResult = results[3];
+    }
+
+    // Validation checks
+    if (memberResult.rowCount === 0) {
+      throw new Error(`Invalid member_id: ${member_id} does not exist.`);
+    }
+    if (employeeResult.rowCount === 0) {
+      throw new Error(`Invalid employee_id: ${employee_id} does not exist.`);
+    }
+    if (voucherTemplateResult && voucherTemplateResult.rowCount === 0) {
+      throw new Error(`Invalid voucher_template_id: ${voucher_template_id} does not exist.`);
+    }
+    if (!statusResult.rows || statusResult.rows.length === 0 || !statusResult.rows[0].id) {
+      throw new Error('Failed to get or create status ID.');
+    }
+
+    // === UPDATED BALANCE CALCULATION LOGIC ===
+    
+    // Check if there's outstanding amount (pending payment)
+    const pendingPayment = payments.find(p => String(p.id) === '7'); // Assuming '7' is the ID for pending payment
+    const outstanding_amount = pendingPayment ? pendingPayment.amount : 0;
+    const is_fully_paid = outstanding_amount === 0;
+    
+    // Calculate balances based on payment status
+    // FOC is only included in balances when fully paid
+    let starting_balance: number;
+    let current_balance: number;
+    
+    if (is_fully_paid) {
+      // Fully paid: include FOC in both balances
+      starting_balance = default_total_price + free_of_charge;
+      current_balance = starting_balance;
+    } else {
+      // Partial payment: exclude FOC from balances
+      starting_balance = default_total_price;
+      current_balance = starting_balance;
+    }
+
+    console.log('Payment Status:', is_fully_paid ? 'FULL' : 'PARTIAL');
+    console.log('Starting Balance:', starting_balance);
+    console.log('Current Balance:', current_balance);
+    console.log('Outstanding Amount:', outstanding_amount);
+
+    // Insert member voucher
+    const i_mv_sql = `
+      INSERT INTO member_vouchers
+      (member_voucher_name, voucher_template_id, member_id, current_balance, starting_balance, 
+       free_of_charge, default_total_price, status, remarks, created_by, handled_by, 
+       last_updated_by, created_at, updated_at)
+      VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14) RETURNING id
+    `;
+
+    const { rows: mvRows } = await client.query<{ id: string }>(i_mv_sql, [
+      member_voucher_name,
+      is_bypass ? 0 : voucher_template_id, // Use 0 for bypass cases
+      member_id,
+      current_balance,
+      starting_balance,
+      free_of_charge,
+      default_total_price,
+      'is_enabled',
+      remarks,
+      employee_id,
+      employee_id,
+      employee_id,
+      created_at,
+      updated_at,
+    ]);
+
+    if (!mvRows || mvRows.length === 0 || !mvRows[0].id) {
+      throw new Error('Failed to insert member voucher or retrieve its ID.');
+    }
+    const memberVoucherId = mvRows[0].id;
+
+    // Insert member voucher details
+    const i_mvd_sql = `
+      INSERT INTO member_voucher_details
+      (member_voucher_id, service_id, service_name, original_price, custom_price, 
+       discount, final_price, duration, created_at, updated_at)
+      VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10) RETURNING id
+    `;
+
+    // Insert member voucher transaction log (initial purchase)
+    const i_mvtl_sql = `
+      INSERT INTO member_voucher_transaction_logs
+      (member_voucher_id, service_description, service_date, current_balance, 
+       amount_change, serviced_by, type, created_by, last_updated_by, created_at, updated_at)
+      VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11) RETURNING id
+    `;
+
+    // Process services
+    const serviceProcessingPromises = services.map(async (service) => {
+      const { rows: mvdRows } = await client.query<{ id: string }>(i_mvd_sql, [
+        memberVoucherId,
+        is_bypass ? 0 : service.id, // Use 0 for service_id in bypass cases
+        service.name,
+        service.original_price,
+        service.custom_price,
+        service.discount,
+        service.final_price,
+        service.duration,
+        created_at,
+        updated_at,
+      ]);
+
+      if (!mvdRows || mvdRows.length === 0 || !mvdRows[0].id) {
+        throw new Error(`Failed to insert detail for service ${service.name} or retrieve its ID.`);
+      }
+    });
+
+    await Promise.all(serviceProcessingPromises);
+
+    // === UPDATED TRANSACTION LOG LOGIC ===
+    
+    // Insert initial transaction log (purchase)
+    // Use the calculated starting_balance which already includes FOC logic
+    await client.query<{ id: string }>(i_mvtl_sql, [
+      memberVoucherId,
+      'N.A',
+      created_at,
+      starting_balance, // Use starting_balance (includes FOC only if fully paid)
+      starting_balance, // amount_change same as current_balance
+      employee_id,
+      'PURCHASE',
+      employee_id,
+      employee_id,
+      created_at,
+      updated_at,
+    ]);
+
+    // === PAYMENT PROCESSING LOGIC ===
+    
+    // Determine customer type and sale transaction status
+    const customer_type = member_id !== '0' ? 'member' : 'walk in customer';
+    const sale_transaction_status = outstanding_amount === 0 ? 'FULL' : 'PARTIAL';
+
+    // Insert into sale_transactions
+    const i_st_sql = `
+      INSERT INTO sale_transactions
+      (customer_type, member_id, total_paid_amount, outstanding_total_payment_amount, 
+       sale_transaction_status, remarks, handled_by, created_by, created_at, updated_at, process_payment)
+      VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11) RETURNING id
+    `;
+
+    const { rows: stRows } = await client.query<{ id: string }>(i_st_sql, [
+      customer_type,
+      member_id !== '0' ? member_id : null,
+      default_total_price,
+      outstanding_amount,
+      sale_transaction_status,
+      remarks,
+      employee_id,
+      employee_id,
+      created_at,
+      updated_at,
+      false
+    ]);
+
+    if (!stRows || stRows.length === 0 || !stRows[0].id) {
+      throw new Error('Failed to insert sale transaction or retrieve its ID.');
+    }
+    const saleTransactionId = stRows[0].id;
+
+    // Insert into sale_transaction_items
+    const i_sti_sql = `
+      INSERT INTO sale_transaction_items
+      (sale_transaction_id, member_voucher_id, quantity, item_type, amount)
+      VALUES ($1, $2, $3, $4, $5) RETURNING id
+    `;
+
+    await client.query<{ id: string }>(i_sti_sql, [
+      saleTransactionId,
+      memberVoucherId,
+      1,
+      'member voucher',
+      default_total_price
+    ]);
+
+    // Insert into payment_to_sale_transactions for each payment
+    const i_ptst_sql = `
+      INSERT INTO payment_to_sale_transactions
+      (payment_method_id, sale_transaction_id, amount, created_by, created_at, updated_by, updated_at)
+      VALUES ($1, $2, $3, $4, $5, $6, $7) RETURNING id
+    `;
+
+    const paymentProcessingPromises = payments.map(async (payment) => {
+      await client.query<{ id: string }>(i_ptst_sql, [
+        payment.id,
+        saleTransactionId,
+        payment.amount,
+        employee_id,
+        created_at,
+        employee_id,
+        updated_at
+      ]);
+    });
+
+    await Promise.all(paymentProcessingPromises);
+
+    await client.query('COMMIT');
+
+    return {
+      memberVoucherId: memberVoucherId,
+      saleTransactionId: saleTransactionId
+    };
+  } catch (error) {
+    console.error('Error creating member voucher:', error);
+    await client.query('ROLLBACK');
+    if (error instanceof Error) {
+      throw error;
+    }
+    throw new Error('An unexpected error occurred while creating the member voucher.');
+  } finally {
+    client.release();
+  }
+};
+
 export default {
   getPaginatedVouchers,
   getServicesOfMemberVoucherById,
@@ -791,5 +1068,6 @@ export default {
   getMemberVoucherPaidCurrentBalance,
   getMemberNameByMemberVoucherId,
   setTransactionLogsAndCurrentBalanceByLogId,
-  deleteTransactionLogsAndCurrentBalanceByLogId
+  deleteTransactionLogsAndCurrentBalanceByLogId,
+  createMemberVoucher
 }
