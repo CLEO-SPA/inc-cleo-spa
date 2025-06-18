@@ -1,11 +1,22 @@
 import express from 'express';
+const router = express.Router();
+
+import isAuthenticated from '../middlewares/authMiddleware.js';
+
 import memberController from '../controllers/memberController.js';
 
-const router = express.Router();
+// =========================
+// Public routes
+// =========================
+
+// =========================
+// Private routes
+// =========================
+router.use(isAuthenticated);
 
 router.get('/', memberController.getAllMembers);
 router.get('/search', memberController.searchMemberByNameOrPhone);
-router.get('/:id', memberController.getMemberById); 
+router.get('/:id', memberController.getMemberById);
 router.post('/', memberController.createMember);
 router.put('/:id', memberController.updateMember);
 router.delete('/:id', memberController.deleteMember);
