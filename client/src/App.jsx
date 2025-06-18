@@ -12,7 +12,6 @@ import LoginPage from '@/pages/LoginPage';
 import ResetPasswordPage from '@/pages/ResetPasswordPage';
 import NotFoundPage from '@/pages/404Page';
 import ManageMembershipTypePage from '@/pages/MembershipType/ManageMembershipTypePage';
-import ManageCarePackagesPage from './pages/CarePackages/ManageCarePackagesPage';
 // Member Management
 import ManageMembersPage from './pages/member/ManageMembersPage';
 import CreateMemberPage from './pages/member/CreateMemberPage';
@@ -25,15 +24,19 @@ import EditVouhcerTemplatePage from './pages/voucher-template/EditVoucherTemplat
 import ManageServicePage from '@/pages/ManageServicePage';
 import MockSalesTransactionPage from './pages/sale-transaction/mockSaleTransactionPage';
 import ManageVouchersPage from './pages/MemberVoucher/ManageVoucherPage';
-import DatabaseReportPage from '@/pages/DatabaseReportPage';
-import CreateConsumptionPage from '@/pages/CarePackages/CreateConsumptionPage';
+import DatabaseReportPage from '@/pages/DatabaseReportPage';;
 import CreateMemberVoucherConsumptionPage from '@/pages/MemberVoucher/CreateConsumptionPage';
-import ViewCarePackageDetailsPage from '@/pages/CarePackages/ViewCarePackageDetailsPage';
-import CreateCarePackageFormPage from '@/pages/CarePackages/CreateCarePackageFormPage';
-import EditCarePackagePage from './pages/CarePackages/EditCarePackagePage';
 import CreateServicePage from '@/pages/CreateServicePage';
 import UpdateServicePage from '@/pages/UpdateServicePage';
 import ReorderServicePage from '@/pages/ReorderServicePage';
+// Care Package Management
+import ManageCarePackagesPage from './pages/CarePackages/ManageCarePackagesPage';
+import ViewCarePackageDetailsPage from '@/pages/CarePackages/ViewCarePackageDetailsPage';
+import CreateCarePackageFormPage from '@/pages/CarePackages/CreateCarePackageFormPage';
+import EditCarePackagePage from './pages/CarePackages/EditCarePackagePage';
+// Member Care Package Management
+import ManageMemberCarePackagesPage from './pages/MemberCarePackages/ManageMemberCarePackagesPage';
+import CreateConsumptionPage from '@/pages/CarePackages/CreateConsumptionPage';
 // import CreateMemberCarePackageFormPage from '@/pages/CarePackages/CreateMemberCarePackageFormPage';
 
 // Employees
@@ -54,17 +57,18 @@ function App() {
               <Route path='/member/create' element={<CreateMemberPage />} />
               <Route path='/member/:id' element={<EditMemberPage />} />
 
-              {/* care packages */}
+              {/* Care Packages Management */}
               <Route path='/cp' element={<ManageCarePackagesPage />} />
               <Route path='/cp/:id' element={<ViewCarePackageDetailsPage />} />
               <Route path='/cp/c' element={<CreateCarePackageFormPage />} />
               <Route path='/cp/:id/edit' element={<EditCarePackagePage />} />
 
-              {/* member care package */}
+              {/* Member Care Package Management */}
               <Route path='/mcp/:id/consume' element={<CreateConsumptionPage />} />
+              <Route path='/mcp' element={<ManageMemberCarePackagesPage />} />
               {/* <Route path='/mcp/c' element={<CreateMemberCarePackageFormPage />} /> */}
 
-              {/* statistics */}
+              {/* Statistics Management */}
               <Route path='/dbcr' element={<DatabaseReportPage />} />
 
               {/* Employees Routes */}
