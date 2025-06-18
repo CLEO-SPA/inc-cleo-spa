@@ -404,8 +404,6 @@ const searchMemberByNameOrPhone = async (searchTerm: string) => {
     throw new Error('Error searching member by name or phone');
   }
 };
-
-
 const getMemberVouchers = async (
   memberId: number,
   offset: number,
@@ -415,11 +413,12 @@ const getMemberVouchers = async (
   try {
     const hasSearch = !!searchTerm;
 
-    // Build SQL dynamically
+    // Build SQL dynamically with status = 'is_enabled'
     const baseQuery = `
       SELECT *
       FROM member_vouchers
       WHERE member_id = $1
+      AND status = 'is_enabled'
       ${hasSearch ? `AND member_voucher_name ILIKE $2` : ''}
       ORDER BY created_at DESC
       LIMIT ${hasSearch ? '$3' : '$2'} OFFSET ${hasSearch ? '$4' : '$3'};
@@ -435,7 +434,8 @@ const getMemberVouchers = async (
     const countQuery = `
       SELECT COUNT(*)
       FROM member_vouchers
-      WHERE member_id = $1
+      WHERE member_id = $1 
+      AND status = 'is_enabled'
       ${hasSearch ? `AND member_voucher_name ILIKE $2` : ''};
     `;
     const countValues = hasSearch

@@ -413,7 +413,6 @@ export default function MemberSelectorPanel() {
                           <TableRow>
                             <TableHead className="text-xs">Name</TableHead>
                             <TableHead className="text-xs">Total Price</TableHead>
-                            <TableHead className="text-xs">Status</TableHead>
                             <TableHead className="text-xs">Remarks</TableHead>
                             <TableHead className="text-xs">Actions</TableHead>
                           </TableRow>
@@ -423,7 +422,6 @@ export default function MemberSelectorPanel() {
                             <TableRow key={mcp.id}>
                               <TableCell className="text-xs">{mcp.package_name}</TableCell>
                               <TableCell className="text-xs">${mcp.total_price}</TableCell>
-                              <TableCell className="text-xs">{mcp.status}</TableCell>
                               <TableCell className="text-xs">{mcp.package_remarks}</TableCell>
                               <TableCell className="text-xs space-x-2">
                                 <button onClick={() => handleViewDetails(mcp)} className="text-blue-600 hover:underline">
@@ -487,7 +485,6 @@ export default function MemberSelectorPanel() {
                             <TableHead className="w-[110px] text-xs">Starting Balance</TableHead>
                             <TableHead className="w-[110px] text-xs">Free of Charge</TableHead>
                             <TableHead className="w-[110px] text-xs">Default Price</TableHead>
-                            <TableHead className="w-[80px] text-xs">Status</TableHead>
                             <TableHead className="w-[150px] text-xs">Remarks</TableHead>
                             <TableHead className="w-[120px] text-xs">Actions</TableHead>
                           </TableRow>
@@ -501,7 +498,6 @@ export default function MemberSelectorPanel() {
                               <TableCell className="text-xs">${voucher.starting_balance}</TableCell>
                               <TableCell className="text-xs">${voucher.free_of_charge}</TableCell>
                               <TableCell className="text-xs">${voucher.default_total_price}</TableCell>
-                              <TableCell className="text-xs">{voucher.status}</TableCell>
                               <TableCell className="text-xs truncate" title={voucher.remarks}>
                                 {voucher.remarks}
                               </TableCell>
