@@ -17,8 +17,6 @@ router.get('/all-page-filter', serviceController.getServicesPaginationFilter);
 
 // for service dropdown
 router.get('/dropdown', serviceController.getAllServicesForDropdown);
-
-// get service by id
-router.get('/:id', serviceController.getServiceById);
+router.get('/enabled-id/:id', serviceController.getEnabledServiceById);
 
 export default router;

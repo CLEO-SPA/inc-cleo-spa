@@ -1,25 +1,25 @@
 import { Request, Response, NextFunction } from 'express';
 import model from '../models/membershipTypeModel.js';
-import { getCurrentSimStatus } from '../services/simulationService.js';
-import validator from 'validator';
-import crypto from 'crypto';
-import jwt from 'jsonwebtoken';
 import 'dotenv/config';
-import { InvJwtPayload } from '../types/auth.types.js';
-import { NewMembershipType, UpdatedMembershipType } from '../types/membershipTypeTypes.js';
+import { NewMembershipType, UpdatedMembershipType } from '../types/model.types.js';
 
 
-const getAllMembershipType = async (req: Request, res: Response): Promise<void> => {
+const getAllMembershipType = async (req: Request, res: Response, next: NextFunction): Promise<void> => {
   try {
-    const response = await model.getMembershipType();
-    console.log("Response on controller: ", response);
-    res.status(200).json({ message: "Get Membership Types was successful.", data: response });
+    const results = await model.getMembershipType();
+    if (results.success) {
+      res.status(200).json({ message: "Get Membership Types was successful.", data: results.data });
+    } else {
+      res.status(400).json({ message: results.message });
+      return;
+    }
   } catch (error) {
-    throw new Error("Error: Get all Membership Types was not successful.");
-  };
+    console.error("Error getting membership types:", error);
+    next(error);
+  }
 };
 
-const createMembershipType = async (req: Request, res: Response): Promise<void> => {
+const createMembershipType = async (req: Request, res: Response, next: NextFunction): Promise<void> => {
 
   const {
     membership_type_name,
@@ -29,35 +29,57 @@ const createMembershipType = async (req: Request, res: Response): Promise<void> 
   } = req.body;
 
   const newMembershipTypeData: NewMembershipType = {
-    membership_type_name,
-    default_percentage_discount_for_products,
-    default_percentage_discount_for_services,
-    created_by
+    membership_type_name: membership_type_name,
+    default_percentage_discount_for_products: parseFloat(default_percentage_discount_for_products),
+    default_percentage_discount_for_services: parseFloat(default_percentage_discount_for_services),
+    created_by: parseInt(created_by, 10)
   };
 
   if (!newMembershipTypeData) {
-    throw new Error("Missing new Membershi Type Body");
+    res.status(400).json({ message: "Missing new Membership Type Body" });
+    return;
   };
 
   for (let property in newMembershipTypeData) {
     const value = newMembershipTypeData[property as keyof typeof newMembershipTypeData];
     if (value === null || value === undefined) {
-      throw new Error(`Property "${property}" is required.`);
+      res.status(400).json({ message: `Error 400: Property "${property}" is required.` });
+      return;
     }
   };
 
-  try {
-    const response = model.addMembershipType(newMembershipTypeData);
-    res.status(201).json({ message: "Create new Membership Type was successful.", data: response });
-  } catch (error) {
-    throw new Error("Error: Create new Membership Type was not successful.");
+  if (isNaN(Number(newMembershipTypeData.default_percentage_discount_for_products))) {
+    res.status(400).json({ message: "Error 400: Default discount for products is invalid" });
+    return;
   };
+
+  if (isNaN(Number(newMembershipTypeData.default_percentage_discount_for_services))) {
+    res.status(400).json({ message: "Error 400: Default discount for services is invalid" });
+    return;
+  };
+
+  if (Number.isNaN(newMembershipTypeData.created_by)) {
+    res.status(400).json({ message: "Error 400: Created By Employee id is invalid." });
+    return;
+  };
+
+  try {
+    const results = await model.addMembershipType(newMembershipTypeData);
+    if (results.success) {
+      res.status(201).json({ message: "Error 400: Create new Membership Type was successful." });
+    } else {
+      res.status(400).json({ message: results.message });
+      return;
+    };
+  } catch (error) {
+    console.error("Error creating membership types:", error);
+    next(error);
+  }
 };
 
-const updateMembershipType = async (req: Request, res: Response): Promise<void> => {
+const updateMembershipType = async (req: Request, res: Response, next: NextFunction): Promise<void> => {
 
   const {
-    membership_type_id,
     membership_type_name,
     default_percentage_discount_for_products,
     default_percentage_discount_for_services,
@@ -65,41 +87,87 @@ const updateMembershipType = async (req: Request, res: Response): Promise<void> 
     last_updated_by
   } = req.body;
 
+  const { id } = req.params;
+
   const updatedMembershipTypeData: UpdatedMembershipType = {
-    membership_type_id,
-    membership_type_name,
-    default_percentage_discount_for_products,
-    default_percentage_discount_for_services,
-    created_by,
-    last_updated_by
+    id: parseInt(id, 10),
+    membership_type_name: membership_type_name,
+    default_percentage_discount_for_products: parseFloat(default_percentage_discount_for_products),
+    default_percentage_discount_for_services: parseFloat(default_percentage_discount_for_services),
+    created_by: created_by,
+    last_updated_by: last_updated_by
   };
 
   if (!updatedMembershipTypeData) {
-    throw new Error("Missing new Membershi Type Body");
+    res.status(400).json({ errorMessage: "Error 400: membership type form is required." });
+    return;
   };
 
   for (let property in updatedMembershipTypeData) {
     const value = updatedMembershipTypeData[property as keyof typeof updatedMembershipTypeData];
     if (value === null || value === undefined) {
-      throw new Error(`Property "${property}" is required.`);
+      res.status(400).json({ errorMessage: `Property "${property}" is required.` });
+      return;
     }
   };
 
-  try {
-    const response = model.setMembershipType(updatedMembershipTypeData);
-    res.status(201).json({ message: "Update Membership Type was successful.", data: response });
-  } catch (error) {
-    throw new Error("Error: Update Membership Type was not successful.");
+  if (isNaN(Number(updatedMembershipTypeData.default_percentage_discount_for_products))) {
+    res.status(400).json({ message: "Error 400: Default discount for products is invalid" });
+    return;
   };
+
+  if (isNaN(Number(updatedMembershipTypeData.default_percentage_discount_for_services))) {
+    res.status(400).json({ message: "Error 400: Default discount for services is invalid" });
+    return;
+  };
+
+  if (Number.isNaN(updatedMembershipTypeData.created_by)) {
+    res.status(400).json({ message: "Error 400: Created By Employee id is invalid." });
+    return;
+  };
+  if (Number.isNaN(updatedMembershipTypeData.last_updated_by)) {
+    res.status(400).json({ message: "Error 400: Last Updated By Employee id is invalid" });
+    return;
+  };
+
+  try {
+    const results = await model.setMembershipType(updatedMembershipTypeData);
+
+    if (results.success) {
+      res.status(201).json({ message: "Update Membership Type was successful." });
+    } else {
+      res.status(400).json({ message: results.message });
+      return;
+    }
+  } catch (error) {
+    console.error("Error updating membership types:", error);
+    next(error);
+  }
 };
 
-const deleteMembershipType = async (req: Request, res: Response): Promise<void> => {
+const deleteMembershipType = async (req: Request, res: Response, next: NextFunction): Promise<void> => {
+  const {
+    id
+  } = req.params
+
+  if (isNaN(Number(id))) {
+    res.status(400).json({ message: "id needs to be a integer" });
+    return;
+  }
+
+  const intId = parseInt(id);
+
   try {
-    const response = model.removeMembershipType(0); // testing
-    res.status(200).json({ message: "Delete Membership Type was successful.", data: response });
+    const results = await model.deleteMembershipType(intId);
+    if (results.success) {
+      res.status(200).json({ message: "Delete Membership Type was successful." });
+    } else {
+      res.status(400).json({ message: results.message });
+    }
   } catch (error) {
-    throw new Error("Error: Delete Membership Type was not successful.");
-  };
+    console.error("Error deleting membership types:", error);
+    next(error)
+  }
 };
 
 export default {
