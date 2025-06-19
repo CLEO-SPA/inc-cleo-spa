@@ -337,6 +337,21 @@ const getEndTimesForStartTime = async (
   }
 };
 
+// Get appointment count by date
+const getAppointmentCountByDate = async (date: string): Promise<number> => {
+  try {
+    const query = `
+      SELECT COUNT(*) FROM appointments
+      WHERE appointment_date = $1
+    `;
+    const result = await pool().query(query, [date]);
+    return parseInt(result.rows[0].count, 10);
+  } catch (error) {
+    console.error('Error getting appointment count by date:', error);
+    throw new Error('Failed to get appointment count');
+  }
+};
+
 export default {
   getAllAppointments,
   getAppointmentsByDate,
