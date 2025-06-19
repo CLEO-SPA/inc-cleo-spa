@@ -23,7 +23,7 @@ router.get('/count', positionController.getPositionCount);
 // Get single position by ID 
 router.get('/:id', positionController.getPositionById);
 
-// Get all positions (paginated) - this should be last among GET routes
+// Get all positions (paginated) 
 router.get('/', positionController.getAllPositions);
 
 // Admin-only routes

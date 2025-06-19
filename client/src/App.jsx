@@ -16,14 +16,6 @@ import ManageMembershipTypePage from '@/pages/MembershipType/ManageMembershipTyp
 import ManageMembersPage from './pages/member/ManageMembersPage';
 import CreateMemberPage from './pages/member/CreateMemberPage';
 import EditMemberPage from './pages/member/EditMemberPage';
-
-import ManageCarePackagesPage from '@/pages/CarePackages/ManageCarePackagesPage';
-import ViewCarePackageDetailsPage from '@/pages/CarePackages/ViewCarePackageDetailsPage';
-import CreateCarePackageFormPage from '@/pages/CarePackages/CreateCarePackageFormPage';
-import EditCarePackagePage from './pages/CarePackages/EditCarePackagePage';
-
-
-// import CreateMemberCarePackageFormPage from '@/pages/CarePackages/CreateMemberCarePackageFormPage';
 // Voucher Template
 import CreateVoucherTemplatesPage from './pages/voucher-template/CreateVoucherTemplatePage';
 import ManageVoucherTemplatesPage from './pages/voucher-template/ManageVoucherTemplatesPage';
@@ -32,9 +24,24 @@ import EditVouhcerTemplatePage from './pages/voucher-template/EditVoucherTemplat
 import MockSalesTransactionPage from './pages/sale-transaction/mockSaleTransactionPage';
 
 import ManageVouchersPage from './pages/MemberVoucher/ManageVoucherPage';
-import DatabaseReportPage from '@/pages/DatabaseReportPage';
-import CreateConsumptionPage from '@/pages/CarePackages/CreateConsumptionPage';
+import DatabaseReportPage from '@/pages/DatabaseReportPage';;
 import CreateMemberVoucherConsumptionPage from '@/pages/MemberVoucher/CreateConsumptionPage';
+import CreateServicePage from '@/pages/CreateServicePage';
+import UpdateServicePage from '@/pages/UpdateServicePage';
+import ReorderServicePage from '@/pages/ReorderServicePage';
+// Care Package Management
+import ManageCarePackagesPage from './pages/CarePackages/ManageCarePackagesPage';
+import ViewCarePackageDetailsPage from '@/pages/CarePackages/ViewCarePackageDetailsPage';
+import CreateCarePackageFormPage from '@/pages/CarePackages/CreateCarePackageFormPage';
+import EditCarePackagePage from './pages/CarePackages/EditCarePackagePage';
+// Member Care Package Management
+import ManageMemberCarePackagesPage from './pages/MemberCarePackages/ManageMemberCarePackagesPage';
+import ViewMemberCarePackageDetailsPage from '@/pages/MemberCarePackages/ViewMemberCarePackageDetailsPage';
+import CreateConsumptionPage from '@/pages/CarePackages/CreateConsumptionPage';
+// import CreateMemberCarePackageFormPage from '@/pages/CarePackages/CreateMemberCarePackageFormPage';
+
+// Employees
+import ManagePositions from '@/pages/em/ManagePositions';
 
 function App() {
   return (
@@ -46,22 +53,34 @@ function App() {
             <Route path='/' element={<ProtectedRoute />}>
               <Route index element={<HomePage />} />
 
-              <Route path='/mcp' element={<ManageCarePackagesPage />} />
               {/* Member Management */}
               <Route path='/member' element={<ManageMembersPage />} />
               <Route path='/member/create' element={<CreateMemberPage />} />
               <Route path='/member/edit/:id' element={<EditMemberPage />} />
 
-              {/* care packages */}
+              {/* Care Packages Management */}
               <Route path='/cp' element={<ManageCarePackagesPage />} />
               <Route path='/cp/:id' element={<ViewCarePackageDetailsPage />} />
               <Route path='/cp/c' element={<CreateCarePackageFormPage />} />
               <Route path='/cp/:id/edit' element={<EditCarePackagePage />} />
 
-              {/* member care package */}
+              {/* Member Care Package Management */}
               <Route path='/mcp/:id/consume' element={<CreateConsumptionPage />} />
+              <Route path='/mcp' element={<ManageMemberCarePackagesPage />} />
+              <Route path='/mcp/:id' element={<ViewMemberCarePackageDetailsPage />} />
               {/* <Route path='/mcp/c' element={<CreateMemberCarePackageFormPage />} /> */}
-              <Route path='/member/:id' element={<EditMemberPage />} />
+
+              {/* Statistics Management */}
+              <Route path='/dbcr' element={<DatabaseReportPage />} />
+
+              {/* Employees Routes */}
+              <Route path='/positions' element={<ManagePositions />} />
+
+              {/* Service Management */}
+              <Route path='/create-service' element={<CreateServicePage />} />
+              <Route path='/update-service/:service_id' element={<UpdateServicePage />} />
+              <Route path='/reorder-service' element={<ReorderServicePage />} />
+
               {/* Voucher Template */}
               <Route path='/voucher-template/create' element={<CreateVoucherTemplatesPage />} />
               <Route path='/voucher-template' element={<ManageVoucherTemplatesPage />} />
@@ -80,7 +99,6 @@ function App() {
               {/* statistics */}
               <Route path='/dbcr' element={<DatabaseReportPage />} />
 
-              {/* Service Management */}
             </Route>
             <Route path='/login' element={<LoginPage />} />
 

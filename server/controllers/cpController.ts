@@ -11,8 +11,6 @@ const getAllCarePackages = async (req: Request, res: Response, next: NextFunctio
   const page = parseInt(req.query.page as string);
   const searchTerm = req.query.searchTerm as string;
 
-  // console.log(`\n${startDate_utc} || ${endDate_utc} \n`);
-
   if (limit <= 0) {
     res.status(400).json({ error: 'Limit must be a positive integer.' });
     return;
@@ -20,6 +18,20 @@ const getAllCarePackages = async (req: Request, res: Response, next: NextFunctio
   if (page && (isNaN(page) || page <= 0)) {
     res.status(400).json({ error: 'Page must be a positive integer.' });
     return;
+  }
+
+  if (afterCursor && !decodeCursor(afterCursor)) {
+    res.status(400).json({ error: 'Invalid "after" cursor.' });
+    return;
+  }
+
+  if (beforeCursor && !decodeCursor(beforeCursor)) {
+    res.status(400).json({ error: 'Invalid "before" cursor.' });
+    return;
+  }
+
+  if (page && (afterCursor || beforeCursor)) {
+    console.warn('Both page and cursor parameters provided. Prioritizing page.');
   }
 
   let after: CursorPayload | null = null;
@@ -226,9 +238,11 @@ const updateCarePackageById = async (req: Request, res: Response, next: NextFunc
   }
 };
 
-const updateCarePackageStatusById = async (req: Request, res: Response, next: NextFunction): Promise<void> => {
+const updateCarePackageStatus = async (req: Request, res: Response, next: NextFunction): Promise<void> => {
   try {
-    const { care_package_id, status_id, employee_id } = req.body;
+    const { care_package_id, status, employee_id } = req.body;
+
+    console.log(req.body);
 
     // validate required fields
     if (!care_package_id) {
@@ -236,14 +250,19 @@ const updateCarePackageStatusById = async (req: Request, res: Response, next: Ne
       return;
     }
 
-    if (!status_id) {
-      res.status(400).json({ message: 'Status ID is required' });
+    if (!status) {
+      res.status(400).json({ message: 'Status is required' });
+      return;
+    }
+
+    if (status !== 'ENABLED' && status !== 'DISABLED') {
+      res.status(400).json({ message: 'Invalid Status' });
       return;
     }
 
     const results = await model.updateCarePackageStatusById(
       care_package_id,
-      status_id,
+      status,
       employee_id || req.session.user_id,
       new Date().toISOString()
     );
@@ -357,7 +376,7 @@ const emulateCarePackage = async (req: Request, res: Response, next: NextFunctio
     }
 
     const isValidService = services.every(
-      (s: any) =>
+      (s: { id: string; name: string; quantity: number; price: number; discount: number }) =>
         s &&
         typeof s.id === 'string' &&
         typeof s.name === 'string' &&
@@ -404,7 +423,7 @@ export default {
   getCarePackagePurchaseCount,
   createCarePackage,
   updateCarePackageById,
-  updateCarePackageStatusById,
+  updateCarePackageStatus,
   emulateCarePackage,
   deleteCarePackageById,
 };

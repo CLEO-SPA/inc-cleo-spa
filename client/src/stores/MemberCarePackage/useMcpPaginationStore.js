@@ -85,7 +85,7 @@ export const useMemberCarePackageStore = create((set, get) => ({
 
     try {
       // Use your imported API service
-      const response = await api.get('/mcp/packages', { params: queryParams });
+      const response = await api.get('/mcp/pkg', { params: queryParams });
 
       console.log(response);
 

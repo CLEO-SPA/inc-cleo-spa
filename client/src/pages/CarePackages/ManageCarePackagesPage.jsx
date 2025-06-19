@@ -21,9 +21,10 @@ import {
   ChevronRight,
   ChevronsLeft,
   ChevronsRight,
+  AlertTriangle,
 } from 'lucide-react';
-import { useCpPaginationStore } from '@/stores/useCpPaginationStore';
-import { useCpSpecificStore } from '@/stores/useCpSpecificStore';
+import { useCpPaginationStore } from '@/stores/CarePackage/useCpPaginationStore';
+import { useCpSpecificStore } from '@/stores/CarePackage/useCpSpecificStore';
 import { Card, CardContent, CardHeader, CardTitle, CardFooter } from '@/components/ui/card';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { AppSidebar } from '@/components/app-sidebar';
@@ -31,9 +32,10 @@ import { SiteHeader } from '@/components/site-header';
 import { SidebarInset, SidebarProvider } from '@/components/ui/sidebar';
 import { ErrorState } from '@/components/ErrorState';
 import { LoadingState } from '@/components/LoadingState';
+import DeleteConfirmationDialog from '@/components/DeleteConfirmationDialog';
 
 function ManageCarePackagesPage() {
-  const { user, statuses } = useAuth();
+  const { user } = useAuth();
   const navigate = useNavigate();
 
   const {
@@ -57,11 +59,14 @@ function ManageCarePackagesPage() {
     purchaseCountError,
     fetchPurchaseCount,
   } = useCpPaginationStore();
-  const { updatePackageStatus } = useCpSpecificStore();
+  const { updatePackageStatus, deletePackage } = useCpSpecificStore();
 
   const [inputSearchTerm, setInputSearchTerm] = useState(searchTerm);
   const [targetPageInput, setTargetPageInput] = useState('');
   const [updatingPackages, setUpdatingPackages] = useState(new Set());
+  const [deletingPackages, setDeletingPackages] = useState(new Set());
+  const [deleteDialogOpen, setDeleteDialogOpen] = useState(false);
+  const [packageToDelete, setPackageToDelete] = useState(null);
 
   useEffect(() => {
     // Initialize with a default limit and empty search term if not already set
@@ -146,11 +151,11 @@ function ManageCarePackagesPage() {
 
   // helper functions to determine if a package is enabled based on status
   const isPackageEnabled = (pkg) => {
-    return pkg.status_id === 1;
+    return pkg.status === 'ENABLED';
   };
 
   const getStatusIdForToggle = (enabled) => {
-    return enabled ? 1 : 2;
+    return enabled ? 'ENABLED' : 'DISABLED';
   };
 
   const handleToggleStatus = async (pkg, newEnabledState) => {
@@ -158,8 +163,8 @@ function ManageCarePackagesPage() {
     setUpdatingPackages((prev) => new Set(prev).add(packageId));
 
     try {
-      const newStatusId = getStatusIdForToggle(newEnabledState);
-      await updatePackageStatus(packageId, newStatusId);
+      const newStatus = getStatusIdForToggle(newEnabledState);
+      await updatePackageStatus(packageId, newStatus);
 
       initializePagination(currentLimit, searchTerm);
     } catch (err) {
@@ -174,20 +179,97 @@ function ManageCarePackagesPage() {
     }
   };
 
-  const handleDelete = async (id) => {
-    // Example: You might want to show a confirmation dialog first
-    if (window.confirm('Are you sure you want to delete this care package?')) {
-      try {
-        // await api.delete(`/care-packages/${id}`); // Replace with your actual API call
-        alert(`Care package ${id} deleted (simulated).`);
-        // Optionally, re-fetch data or update store
-        initializePagination(currentLimit, searchTerm);
-        fetchPurchaseCount();
-      } catch (err) {
-        console.error('Failed to delete care package:', err);
-        alert('Failed to delete care package.');
+  // open delete confirmation dialog
+  const handleDeleteClick = (pkg) => {
+    setPackageToDelete(pkg);
+    setDeleteDialogOpen(true);
+  };
+
+  // handle actual deletion
+  const handleDeleteConfirm = async () => {
+    if (!packageToDelete) return;
+
+    const packageId = packageToDelete.id;
+    setDeletingPackages((prev) => new Set(prev).add(packageId));
+
+    try {
+      await deletePackage(packageId);
+      initializePagination(currentLimit, searchTerm);
+      fetchPurchaseCount();
+
+      // close dialog and reset state
+      setDeleteDialogOpen(false);
+      setPackageToDelete(null);
+    } catch (err) {
+      console.error('Failed to delete care package:', err);
+
+      // show error message
+      let errorMessage = 'Failed to delete care package.';
+      if (err.response?.data?.message) {
+        errorMessage = err.response.data.message;
+      } else if (err.message) {
+        errorMessage = err.message;
       }
+
+      alert(errorMessage);
+    } finally {
+      setDeletingPackages((prev) => {
+        const newSet = new Set(prev);
+        newSet.delete(packageId);
+        return newSet;
+      });
     }
+  };
+
+  // cancel deletion
+  const handleDeleteCancel = () => {
+    setDeleteDialogOpen(false);
+    setPackageToDelete(null);
+  };
+
+  // enhanced check if package can be safely deleted (both purchase count AND status)
+  const canDeletePackage = (pkg) => {
+    const purchaseData = getPurchaseCountForPackage(pkg.id);
+    const hasNoPurchases = purchaseData.purchase_count === 0 && !purchaseData.is_purchased;
+    const isDisabled = !isPackageEnabled(pkg); // Must be disabled (status_id !== 1)
+
+    return hasNoPurchases && isDisabled;
+  };
+
+  // enhanced deletion restriction reason that includes both purchase count AND status
+  const getDeleteRestrictionReason = (pkg) => {
+    const purchaseData = getPurchaseCountForPackage(pkg.id);
+    const hasNoPurchases = purchaseData.purchase_count === 0 && !purchaseData.is_purchased;
+    const isEnabled = isPackageEnabled(pkg);
+
+    const reasons = [];
+
+    // check purchase count first
+    if (purchaseData.purchase_count > 0) {
+      reasons.push(
+        `This package has ${purchaseData.purchase_count} existing purchase${purchaseData.purchase_count > 1 ? 's' : ''}`
+      );
+    }
+
+    // check status
+    if (isEnabled) {
+      reasons.push('This package is currently enabled');
+    }
+    if (reasons.length === 0) {
+      return null;
+    }
+
+    let message = reasons.join(' and ') + ' and cannot be deleted.';
+    if (isEnabled && hasNoPurchases) {
+      message += ' Please disable the package first by changing its status to "Inactive" before attempting deletion.';
+    } else if (isEnabled && !hasNoPurchases) {
+      message += ' You can disable it to prevent new purchases, but it cannot be deleted due to existing purchases.';
+    } else if (!isEnabled && !hasNoPurchases) {
+      message +=
+        ' You can keep it disabled to prevent new purchases, but it cannot be deleted due to existing purchases.';
+    }
+
+    return message;
   };
 
   // --- Role-based access ---
@@ -301,6 +383,8 @@ function ManageCarePackagesPage() {
                             const purchaseData = getPurchaseCountForPackage(pkg.id);
                             const isEnabled = isPackageEnabled(pkg);
                             const isUpdatingThis = updatingPackages.has(pkg.id);
+                            const isDeletingThis = deletingPackages.has(pkg.id);
+                            const isDeletable = canDeletePackage(pkg);
 
                             return (
                               <TableRow key={pkg.id}>
@@ -310,7 +394,7 @@ function ManageCarePackagesPage() {
                                       <TableCell key={header.key} className='text-right'>
                                         <DropdownMenu>
                                           <DropdownMenuTrigger asChild>
-                                            <Button variant='ghost' className='h-8 w-8 p-0'>
+                                            <Button variant='ghost' className='h-8 w-8 p-0' disabled={isDeletingThis}>
                                               <span className='sr-only'>Open menu</span>
                                               <MoreHorizontal className='h-4 w-4' />
                                             </Button>
@@ -330,11 +414,26 @@ function ManageCarePackagesPage() {
                                               <>
                                                 <DropdownMenuSeparator />
                                                 <DropdownMenuItem
-                                                  onClick={() => handleDelete(pkg.id)}
-                                                  className='text-destructive focus:text-destructive focus:bg-destructive/10'
+                                                  onClick={() => handleDeleteClick(pkg)}
+                                                  disabled={!isDeletable || isDeletingThis}
+                                                  className={`${
+                                                    isDeletable && !isDeletingThis
+                                                      ? 'text-destructive focus:text-destructive focus:bg-destructive/10'
+                                                      : 'text-muted-foreground cursor-not-allowed'
+                                                  }`}
+                                                  title={
+                                                    !isDeletable
+                                                      ? isEnabled
+                                                        ? 'Package must be disabled and have no purchases to delete'
+                                                        : 'Package has existing purchases and cannot be deleted'
+                                                      : 'Delete package'
+                                                  }
                                                 >
                                                   <Trash2 className='mr-2 h-4 w-4' />
-                                                  Delete
+                                                  {isDeletingThis ? 'Deleting...' : 'Delete'}
+                                                  {!isDeletable && !isDeletingThis && (
+                                                    <AlertTriangle className='ml-2 h-3 w-3' />
+                                                  )}
                                                 </DropdownMenuItem>
                                               </>
                                             )}
@@ -400,9 +499,19 @@ function ManageCarePackagesPage() {
                                                 />
                                               </button>
                                             )}
-                                            <span className='text-xs text-muted-foreground'>
-                                              {isUpdatingThis ? 'Updating...' : isEnabled ? 'ENABLED' : 'DISABLED'}
-                                            </span>
+                                            <div className='flex items-center gap-1'>
+                                              <span className='text-xs text-muted-foreground'>
+                                                {isUpdatingThis ? 'Updating...' : isEnabled ? 'ENABLED' : 'DISABLED'}
+                                              </span>
+                                              {isEnabled && canDelete && purchaseData.purchase_count === 0 && (
+                                                <div className='group relative'>
+                                                  <AlertTriangle className='h-3 w-3 text-amber-500' />
+                                                  <div className='absolute bottom-full left-1/2 transform -translate-x-1/2 mb-2 px-2 py-1 text-xs text-white bg-gray-800 rounded opacity-0 group-hover:opacity-100 transition-opacity whitespace-nowrap z-10'>
+                                                    Disable to allow deletion
+                                                  </div>
+                                                </div>
+                                              )}
+                                            </div>
                                           </div>
                                         </div>
                                       </TableCell>
@@ -414,7 +523,15 @@ function ManageCarePackagesPage() {
                                         {isPurchaseCountLoading ? (
                                           <span className='text-muted-foreground'>Loading...</span>
                                         ) : (
-                                          <span>{purchaseData.purchase_count}</span>
+                                          <div className='flex items-center gap-2'>
+                                            <span>{purchaseData.purchase_count}</span>
+                                            {purchaseData.purchase_count > 0 && (
+                                              <AlertTriangle
+                                                className='h-3 w-3 text-amber-500'
+                                                title='Has purchases - deletion restricted'
+                                              />
+                                            )}
+                                          </div>
                                         )}
                                       </TableCell>
                                     );
@@ -503,6 +620,39 @@ function ManageCarePackagesPage() {
                   )}
                 </CardFooter>
               </Card>
+
+              {/* delete confirmation dialog */}
+              {packageToDelete && (
+                <DeleteConfirmationDialog
+                  open={deleteDialogOpen}
+                  onOpenChange={setDeleteDialogOpen}
+                  onConfirm={handleDeleteConfirm}
+                  onCancel={handleDeleteCancel}
+                  title='Delete Care Package'
+                  itemName={packageToDelete.care_package_name}
+                  itemType='care package'
+                  isDeleting={deletingPackages.has(packageToDelete.id)}
+                  canDelete={canDeletePackage(packageToDelete)}
+                  deleteRestrictionReason={getDeleteRestrictionReason(packageToDelete)}
+                  destructiveAction={true}
+                  itemDetails={
+                    <div>
+                      <div>
+                        <strong>Package ID:</strong> {packageToDelete.id}
+                      </div>
+                      <div>
+                        <strong>Price:</strong> ${parseFloat(packageToDelete.care_package_price || 0).toFixed(2)}
+                      </div>
+                      <div>
+                        <strong>Status:</strong> {getStatusById(packageToDelete.status_id)?.status_name || 'Unknown'}
+                      </div>
+                      <div>
+                        <strong>Purchase Count:</strong> {getPurchaseCountForPackage(packageToDelete.id).purchase_count}
+                      </div>
+                    </div>
+                  }
+                />
+              )}
             </div>
           </SidebarInset>
         </div>
