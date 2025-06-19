@@ -193,7 +193,7 @@ const SaleTransactionList = () => {
     }, []);
 
     const handleView = useCallback((transactionId) => {
-        navigate(`/transactions/${transactionId}`);
+        navigate(`/sale-transaction/${transactionId}`);
     }, [navigate]);
 
     const handleRefund = useCallback((transaction) => {
@@ -533,6 +533,7 @@ const SaleTransactionList = () => {
                                                                         <Eye className="h-3.5 w-3.5 mr-1" />
                                                                         View
                                                                     </button>
+                                                                    
                                                                     {parseFloat(transaction.total_paid_amount) > 0 && (
                                                                         <button
                                                                             onClick={() => handleRefund(transaction)}
@@ -541,7 +542,7 @@ const SaleTransactionList = () => {
                                                                             Refund
                                                                         </button>
                                                                     )}
-                                                                    {transaction.transaction_status === 'PARTIAL' && (
+                                                                    {(transaction.transaction_status === 'PARTIAL' || transaction.process_payment) && (
                                                                         <button
                                                                             onClick={() => navigate(`/transactions/payment/${transaction.transaction_id}`)}
                                                                             className="inline-flex items-center px-3 py-1.5 bg-green-50 text-green-700 rounded-md text-sm font-medium hover:bg-green-100 transition-colors"
@@ -569,7 +570,7 @@ const SaleTransactionList = () => {
                                                 </tbody>
                                             </table>
                                             
-                                            {/* Use the external PaginationControls component */}
+                                            
                                             <PaginationControls 
                                                 currentPage={currentPage}
                                                 totalPages={totalPages}

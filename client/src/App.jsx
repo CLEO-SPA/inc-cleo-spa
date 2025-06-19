@@ -18,7 +18,11 @@ import CreateMemberPage from './pages/member/CreateMemberPage';
 import EditMemberPage from './pages/member/EditMemberPage';
 import MockSalesTransactionPage from './pages/sale-transaction/mockSaleTransactionPage';
 import SaleTransactionList from './pages/sale-transaction/SaleTransactionList';
-import SaleTest from './pages/sale-transaction/SaleTest'; 
+
+import SaleTransactionDetail from './pages/sale-transaction/SaleTransactionDetail';
+
+
+
 function App() {
   return (
     <AuthProvider>
@@ -35,7 +39,9 @@ function App() {
               <Route path='/member/edit/:id' element={<EditMemberPage />} />
               <Route path='/cart-test' element={<MockSalesTransactionPage/>} />
               <Route path='/sale-transaction/list' element={<SaleTransactionList />} />
-              <Route path ='sale-transaction/mock' element={<SaleTest />} />
+              <Route path='/sale-transaction/:id' element={<SaleTransactionDetail />} />
+              
+              {/* Protected Routes */}
 
             </Route>
             <Route path='/login' element={<LoginPage />} />

@@ -82,11 +82,52 @@ const getSalesTransactionById = async (req: Request, res: Response): Promise<voi
   }
 };
 
+const searchServices = async (req: Request, res: Response): Promise<void> => {
+  try {
+    const query = req.query.query as string;
+    
+    const searchResults = await model.searchServices(query || '');
 
+    res.status(200).json({
+      success: true,
+      data: searchResults,
+      total: searchResults.length
+    });
+  } catch (error: any) {
+    console.error('Error searching services:', error);
+    res.status(500).json({
+      success: false,
+      error: 'Failed to search services',
+      details: error.message
+    });
+  }
+};
 
+const searchProducts = async (req: Request, res: Response): Promise<void> => {
+  try {
+    const query = req.query.query as string;
+    
+    const searchResults = await model.searchProducts(query || '');
+
+    res.status(200).json({
+      success: true,
+      data: searchResults,
+      total: searchResults.length
+    });
+  } catch (error: any) {
+    console.error('Error searching products:', error);
+    res.status(500).json({
+      success: false,
+      error: 'Failed to search products',
+      details: error.message
+    });
+  }
+};
 
 
 export default {
   getSalesTransactionList,
-  getSalesTransactionById
+  getSalesTransactionById,
+  searchServices,
+  searchProducts
 };

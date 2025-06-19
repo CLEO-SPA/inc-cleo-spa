@@ -1,7 +1,8 @@
 import { useState } from 'react';
 import useSalesTransactionStore from '@/stores/useSelectedMemberStore';
 import { Button } from '@/components/ui/button';
-// import ServiceTab from '@/pages/sale-transaction/tabs/ServiceTab';
+import ServiceTab from '@/pages/sale-transaction/tabs/ServiceTab';
+import ProductTab from '@/pages/sale-transaction/tabs/ProductTab';
 
 export default function FormSelectorPanel() {
   const [selectedTab, setSelectedTab] = useState('services');
@@ -19,19 +20,19 @@ export default function FormSelectorPanel() {
   const renderTabContent = () => {
     switch (selectedTab) {
       case 'services':
-        // return <ServiceTab onServiceSelect={(service) => console.log('Service selected:', service)} />;
+        return <ServiceTab onServiceSelect={(service) => console.log('Service selected:', service)} />;
       case 'products':
-        // return <ProductsTab />;
+        return <ProductTab onProductSelect={(product) => console.log('Product selected:', product)} />;
       case 'mcp':
-        // return <McpTab />;
+        return <div className="p-4 text-gray-500">MCP tab content coming soon</div>;
       case 'vouchers':
-        // return <VouchersTab />;
+        return <div className="p-4 text-gray-500">Vouchers tab content coming soon</div>;
       case 'transfer_voucher':
-        // return <TransferVoucherTab />;
+        return <div className="p-4 text-gray-500">Transfer Voucher tab content coming soon</div>;
       case 'transfer_mcp':
-        // return <TransferMcpTab />;
+        return <div className="p-4 text-gray-500">Transfer MCP tab content coming soon</div>;
       default:
-        return <div>Select a tab</div>;
+        return <div className="p-4 text-gray-500">Select a tab</div>;
     }
   };
 
@@ -57,10 +58,8 @@ export default function FormSelectorPanel() {
           <Button
             key={tab.key}
             size="sm"
+            variant={selectedTab === tab.key ? "default" : "outline"}
             onClick={() => setSelectedTab(tab.key)}
-            className={`px-4 py-2 rounded text-sm text-center ${
-              selectedTab === tab.key ? '' : 'bg-gray-300 text-gray-800 hover:bg-gray-400'
-            }`}
           >
             {tab.label}
           </Button>
@@ -68,7 +67,7 @@ export default function FormSelectorPanel() {
       </div>
 
       {/* Tab Content (scrollable) */}
-      <div className="flex-1 overflow-y-auto bg-gray-50 p-4">
+      <div className="flex-1 overflow-y-auto bg-gray-50 p-4 mt-4 rounded-md">
         {renderTabContent()}
       </div>
     </div>

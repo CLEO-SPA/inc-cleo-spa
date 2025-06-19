@@ -1,80 +1,17 @@
 import { pool } from '../config/database.js';
+import {
+  Member,
+  Payment,
+  Employee,
+  PaymentDetail,
+  TransactionItem,
+  SalesTransaction,
+  SalesTransactionDetail,
+  PaginatedResult,
+  Service,
+  Product
+} from '../types/SaleTransactionTypes.js';
 
-// Types
-interface Member {
-  id: string;
-  name: string;
-  email: string;
-  contact: string;
-}
-
-interface Payment {
-  amount: number;
-  payment_method: string;
-}
-
-interface Employee {
-  code: string;
-  name: string;
-}
-
-interface PaymentDetail {
-  id: string;
-  amount: number;
-  payment_method: string;
-  created_at: Date;
-  updated_at: Date;
-  remarks: string;
-  created_by: Employee;
-  updated_by: Employee;
-}
-
-interface TransactionItem {
-  id: string;
-  service_name: string | null;
-  product_name: string | null;
-  member_care_package_id: string | null;
-  member_voucher_id: string | null;
-  original_unit_price: number;
-  custom_unit_price: number;
-  discount_percentage: number;
-  quantity: number;
-  remarks: string;
-  amount: number;
-  item_type: string;
-}
-
-interface SalesTransaction {
-  transaction_id: string;
-  receipt_no: string;
-  customer_type: string;
-  total_transaction_amount: number;
-  total_paid_amount: number;
-  outstanding_total_payment_amount: number;
-  transaction_status: string;
-  transaction_created_at: Date;
-  has_services: boolean;
-  has_products: boolean;
-  has_care_packages: boolean;
-  member: Member | null;
-  payments: Payment[];
-}
-
-interface SalesTransactionDetail extends SalesTransaction {
-  transaction_updated_at: Date;
-  transaction_remark: string;
-  handler: Employee | null;
-  creator: Employee | null;
-  payments: PaymentDetail[];
-  items: TransactionItem[];
-}
-
-interface PaginatedResult<T> {
-  items: T[];
-  total: number;
-  totalPages: number;
-  currentPage: number;
-}
 
 
 const getSalesTransactionList = async (
@@ -116,6 +53,7 @@ const getSalesTransactionList = async (
             SELECT 1 FROM sale_transaction_items sti 
             WHERE sti.sale_transaction_id = st.id 
             AND sti.member_care_package_id IS NULL 
+            AND sti.member_voucher_id IS NULL
             AND sti.service_name IS NOT NULL
           )`);
           break;
@@ -124,6 +62,7 @@ const getSalesTransactionList = async (
             SELECT 1 FROM sale_transaction_items sti 
             WHERE sti.sale_transaction_id = st.id 
             AND sti.member_care_package_id IS NULL 
+            AND sti.member_voucher_id IS NULL
             AND sti.product_name IS NOT NULL
           )`);
           break;
@@ -210,6 +149,7 @@ const getSalesTransactionList = async (
         st.receipt_no,
         st.created_at,
         st.remarks,
+        st.process_payment,
         m.id as member_table_id,
         m.name as member_name,
         m.email as member_email,
@@ -278,6 +218,7 @@ const getSalesTransactionList = async (
         has_services: transaction.has_services,
         has_products: transaction.has_products,
         has_care_packages: transaction.has_care_packages,
+        process_payment: transaction.process_payment,
         member: transaction.member_table_id ? {
           id: transaction.member_table_id.toString(),
           name: transaction.member_name,
@@ -316,6 +257,7 @@ const getSalesTransactionById = async (id: string): Promise<SalesTransactionDeta
         st.created_at,
         st.updated_at,
         st.remarks,
+        st.process_payment,
         st.handled_by,
         st.created_by,
         -- Member information
@@ -409,6 +351,7 @@ const getSalesTransactionById = async (id: string): Promise<SalesTransactionDeta
       has_services: false, // These would need to be calculated if needed
       has_products: false,
       has_care_packages: false,
+      process_payment: transaction.process_payment,
 
       // Member information
       member: transaction.member_table_id ? {
@@ -472,7 +415,148 @@ const getSalesTransactionById = async (id: string): Promise<SalesTransactionDeta
   }
 };
 
+
+const searchServices = async (
+  searchQuery: string
+): Promise<Service[]> => {
+  try {
+    let query = `
+      SELECT 
+        s.id,
+        s.service_name,
+        s.service_description,
+        s.service_remarks,
+        s.service_duration,
+        s.service_price,
+        s.service_is_enabled,
+        s.created_at,
+        s.updated_at,
+        s.service_category_id,
+        s.service_sequence_no,
+        s.created_by,
+        s.updated_by,
+        sc.service_category_name,
+        sc.service_category_sequence_no
+      FROM 
+        services s
+      LEFT JOIN 
+        service_categories sc ON s.service_category_id = sc.id
+      WHERE 
+        s.service_is_enabled = true
+    `;
+
+    let params: any[] = [];
+
+    if (searchQuery && searchQuery.trim() !== '') {
+      query += ` AND (
+        s.service_name ILIKE $1 
+        OR sc.service_category_name ILIKE $1
+      )`;
+      params.push(`%${searchQuery.trim()}%`);
+    }
+
+
+    query += `
+      ORDER BY 
+        sc.service_category_sequence_no ASC,
+        s.service_sequence_no ASC
+    `;
+
+    query += ` LIMIT 10`;
+
+    const result = await pool().query(query, params);
+
+    return result.rows.map((service: any) => ({
+      id: `S${service.id}`,
+      service_id: service.id.toString(),
+      name: service.service_name || 'Unnamed Service',
+      service_name: service.service_name || 'Unnamed Service',
+      description: service.service_description || '',
+      remarks: service.service_remarks || '',
+      duration: service.service_duration || 0,
+      category: service.service_category_name || 'Uncategorized',
+      service_category_name: service.service_category_name || 'Uncategorized',
+      service_category_id: service.service_category_id ? service.service_category_id.toString() : null,
+      price: parseFloat(service.service_price || 0),
+      service_default_price: parseFloat(service.service_price || 0),
+      is_enabled: service.service_is_enabled || false,
+      sequence_no: service.service_sequence_no || 0
+    }));
+  } catch (error: any) {
+    console.error('Detailed error in searchServices:', error);
+    throw new Error(`Error searching services: ${error.message}`);
+  }
+};
+
+const searchProducts = async (
+  searchQuery: string
+): Promise<Product[]> => {
+  try {
+    let query = `
+      SELECT 
+        p.id,
+        p.product_name,
+        p.product_description,
+        p.product_remarks,
+        p.product_selling_price,
+        p.product_cost_price,
+        p.product_is_enabled,
+        p.created_at,
+        p.updated_at,
+        p.product_category_id,
+        p.product_sequence_no,
+        pc.product_category_name,
+        pc.product_category_sequence_no
+      FROM 
+        products p
+      LEFT JOIN 
+        product_categories pc ON p.product_category_id = pc.id
+      WHERE 
+        p.product_is_enabled = true
+    `;
+
+    let params: any[] = [];
+    if (searchQuery && searchQuery.trim() !== '') {
+      query += ` AND (
+        p.product_name ILIKE $1 
+        OR pc.product_category_name ILIKE $1
+      )`;
+      params.push(`%${searchQuery.trim()}%`);
+    }
+    query += `
+      ORDER BY 
+        pc.product_category_sequence_no ASC,
+        p.product_sequence_no ASC
+    `;
+
+    query += ` LIMIT 10`;
+
+    const result = await pool().query(query, params);
+
+    return result.rows.map((product: any) => ({
+      id: `P${product.id}`,
+      product_id: product.id.toString(),
+      name: product.product_name || 'Unnamed Product',
+      product_name: product.product_name || 'Unnamed Product',
+      description: product.product_description || '',
+      remarks: product.product_remarks || '',
+      category: product.product_category_name || 'Uncategorized',
+      product_category_name: product.product_category_name || 'Uncategorized',
+      product_category_id: product.product_category_id ? product.product_category_id.toString() : null,
+      price: parseFloat(product.product_selling_price || 0),
+      cost_price: parseFloat(product.product_cost_price || 0),
+      is_enabled: product.product_is_enabled || false,
+      sequence_no: product.product_sequence_no || 0
+    }));
+  } catch (error: any) {
+    console.error('Detailed error in searchProducts:', error);
+    throw new Error(`Error searching products: ${error.message}`);
+  }
+};
+
 export default {
   getSalesTransactionList,
-  getSalesTransactionById
+  getSalesTransactionById,
+  searchServices,
+  searchProducts
 };
