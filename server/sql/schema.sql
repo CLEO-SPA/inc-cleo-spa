@@ -17,6 +17,7 @@ DROP TABLE IF EXISTS "membership_accounts" CASCADE;
 DROP TABLE IF EXISTS "membership_types" CASCADE;
 DROP TABLE IF EXISTS "payment_methods" CASCADE;
 DROP TABLE IF EXISTS "positions" CASCADE;
+DROP TABLE IF EXISTS "employee_to_position" CASCADE;
 DROP TABLE IF EXISTS "product_categories" CASCADE;
 DROP TABLE IF EXISTS "products" CASCADE;
 DROP TABLE IF EXISTS "roles" CASCADE;
@@ -58,10 +59,10 @@ CREATE TABLE "care_packages" (
     "care_package_name" VARCHAR(200) NOT NULL,
     "care_package_remarks" TEXT,
     "care_package_price" DECIMAL(10,2) NOT NULL,
-    "created_at" TIMESTAMPTZ(6) NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    "created_at" TIMESTAMPTZ(6) NOT NULL,
     "updated_at" TIMESTAMPTZ(6) NOT NULL,
     "care_package_customizable" BOOLEAN NOT NULL DEFAULT false,
-    "status_id" BIGINT NOT NULL,
+    "status" VARCHAR(50) NOT NULL,
     "created_by" BIGINT,
     "last_updated_by" BIGINT,
 
@@ -95,6 +96,17 @@ CREATE TABLE "employees" (
     "position_id" BIGINT,
 
     CONSTRAINT "employees_pkey" PRIMARY KEY ("id")
+);
+
+-- CreateTable
+CREATE TABLE "employee_to_position" (
+    "id" BIGSERIAL NOT NULL,
+    "employee_id" BIGINT NOT NULL,
+    "position_id" BIGINT NOT NULL,
+    "created_at" TIMESTAMPTZ(6) NOT NULL,
+    "updated_at" TIMESTAMPTZ(6) NOT NULL,
+
+    CONSTRAINT "employee_to_position_pkey" PRIMARY KEY ("id")
 );
 
 -- CreateTable
@@ -201,8 +213,9 @@ CREATE TABLE "member_care_packages" (
     "member_id" BIGINT NOT NULL,
     "employee_id" BIGINT NOT NULL,
     "package_name" VARCHAR(100) NOT NULL,
-    "status_id" BIGINT NOT NULL,
+    "status" VARCHAR(50) NOT NULL,
     "total_price" DECIMAL(10,2) NOT NULL,
+    "balance" DECIMAL(10,2) NOT NULL,
     "created_at" TIMESTAMPTZ(6) NOT NULL,
     "updated_at" TIMESTAMPTZ(6) NOT NULL,
     "package_remarks" VARCHAR(255),
@@ -218,7 +231,7 @@ CREATE TABLE "member_care_package_details" (
     "price" DECIMAL(10,2) NOT NULL,
     "member_care_package_id" BIGINT NOT NULL,
     "service_id" BIGINT NOT NULL,
-    "status_id" BIGINT NOT NULL,
+    "status" VARCHAR(50) NOT NULL,
     "quantity" INTEGER NOT NULL,
 
     CONSTRAINT "member_care_package_details_pkey" PRIMARY KEY ("id")
@@ -368,10 +381,15 @@ CREATE TABLE "services" (
     "service_duration" DECIMAL NOT NULL,
     "service_price" DECIMAL(10,2) NOT NULL,
     "service_is_enabled" BOOLEAN NOT NULL,
+    "service_duration" DECIMAL NOT NULL,
+    "service_price" DECIMAL(10,2) NOT NULL,
+    "service_is_enabled" BOOLEAN NOT NULL,
     "service_created_at" TIMESTAMPTZ(6) NOT NULL DEFAULT CURRENT_TIMESTAMP,
     "service_updated_at" TIMESTAMPTZ(6) NOT NULL DEFAULT CURRENT_TIMESTAMP,
     "service_category_id" BIGINT NOT NULL,
     "service_sequence_no" INTEGER NOT NULL,
+    "created_by" BIGINT,
+    "updated_by" BIGINT,
     "created_by" BIGINT,
     "updated_by" BIGINT,
 
@@ -619,7 +637,6 @@ CREATE INDEX "fki_cs_service_service_category_id_fkey" ON "services"("service_ca
 -- Foreign Keys for table "care_packages"
 ALTER TABLE "care_packages" ADD CONSTRAINT "care_packages_created_by_fkey" FOREIGN KEY ("created_by") REFERENCES "employees"("id") ON DELETE SET NULL ON UPDATE CASCADE;
 ALTER TABLE "care_packages" ADD CONSTRAINT "care_packages_last_updated_by_fkey" FOREIGN KEY ("last_updated_by") REFERENCES "employees"("id") ON DELETE SET NULL ON UPDATE CASCADE;
-ALTER TABLE "care_packages" ADD CONSTRAINT "care_packages_status_id_fkey" FOREIGN KEY ("status_id") REFERENCES "statuses"("id") ON DELETE RESTRICT ON UPDATE CASCADE;
 
 -- Foreign Keys for table "care_package_item_details"
 ALTER TABLE "care_package_item_details" ADD CONSTRAINT "care_package_item_details_care_package_id_fkey" FOREIGN KEY ("care_package_id") REFERENCES "care_packages"("id") ON DELETE CASCADE ON UPDATE CASCADE;
@@ -629,6 +646,11 @@ ALTER TABLE "care_package_item_details" ADD CONSTRAINT "care_package_item_detail
 ALTER TABLE "employees" ADD CONSTRAINT "employees_position_id_fkey" FOREIGN KEY ("position_id") REFERENCES "positions"("id") ON DELETE SET NULL ON UPDATE CASCADE;
 ALTER TABLE "employees" ADD CONSTRAINT "employees_user_auth_id_fkey" FOREIGN KEY ("user_auth_id") REFERENCES "user_auth"("id") ON DELETE RESTRICT ON UPDATE CASCADE;
 ALTER TABLE "employees" ADD CONSTRAINT "verified_status_id_fkey" FOREIGN KEY ("verified_status_id") REFERENCES "statuses"("id") ON UPDATE CASCADE;
+ALTER TABLE "employees" ADD CONSTRAINT "verified_status_id_fkey" FOREIGN KEY ("verified_status_id") REFERENCES "statuses"("id") ON UPDATE CASCADE;
+
+-- Foreign Keys for table "employee_to_position"
+ALTER TABLE "employee_to_position" ADD CONSTRAINT "employee_to_position_employee_id_fkey" FOREIGN KEY ("employee_id") REFERENCES "employees"("id") ON DELETE CASCADE ON UPDATE CASCADE;
+ALTER TABLE "employee_to_position" ADD CONSTRAINT "employee_to_position_position_id_fkey" FOREIGN KEY ("position_id") REFERENCES "positions"("id") ON DELETE RESTRICT ON UPDATE CASCADE;
 
 -- Foreign Keys for table "serving_employee_to_invoice_items"
 ALTER TABLE "serving_employee_to_invoice_items" ADD CONSTRAINT "serving_employee_to_invoice_ite_reviewed_by_employee_id_fkey" FOREIGN KEY ("reviewed_by_employee_id") REFERENCES "employees"("id") ON DELETE SET NULL ON UPDATE CASCADE;
@@ -659,12 +681,10 @@ ALTER TABLE "invoices" ADD CONSTRAINT "invoices_member_id_fkey" FOREIGN KEY ("me
 -- Foreign Keys for table "member_care_packages"
 ALTER TABLE "member_care_packages" ADD CONSTRAINT "member_care_packages_employee_id_fkey" FOREIGN KEY ("employee_id") REFERENCES "employees"("id") ON DELETE RESTRICT ON UPDATE CASCADE;
 ALTER TABLE "member_care_packages" ADD CONSTRAINT "member_care_packages_member_id_fkey" FOREIGN KEY ("member_id") REFERENCES "members"("id") ON DELETE CASCADE ON UPDATE CASCADE;
-ALTER TABLE "member_care_packages" ADD CONSTRAINT "member_care_packages_status_fkey" FOREIGN KEY ("status_id") REFERENCES "statuses"("id") ON DELETE RESTRICT ON UPDATE CASCADE;
 
 -- Foreign Keys for table "member_care_package_details"
 ALTER TABLE "member_care_package_details" ADD CONSTRAINT "member_care_package_details_member_care_package_id_fkey" FOREIGN KEY ("member_care_package_id") REFERENCES "member_care_packages"("id") ON DELETE CASCADE ON UPDATE CASCADE;
 ALTER TABLE "member_care_package_details" ADD CONSTRAINT "member_care_package_details_service_id_fkey" FOREIGN KEY ("service_id") REFERENCES "services"("id") ON DELETE SET NULL ON UPDATE CASCADE;
-ALTER TABLE "member_care_package_details" ADD CONSTRAINT "member_care_package_details_status_id_fkey" FOREIGN KEY ("status_id") REFERENCES "statuses"("id") ON DELETE RESTRICT ON UPDATE CASCADE;
 
 -- Foreign Keys for table "member_care_package_transaction_logs"
 ALTER TABLE "member_care_package_transaction_logs" ADD CONSTRAINT "member_care_package_transaction_logs_employee_id_fkey" FOREIGN KEY ("employee_id") REFERENCES "employees"("id") ON DELETE RESTRICT ON UPDATE CASCADE;
