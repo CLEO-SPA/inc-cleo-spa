@@ -12,6 +12,10 @@ import LoginPage from '@/pages/LoginPage';
 import ResetPasswordPage from '@/pages/ResetPasswordPage';
 import NotFoundPage from '@/pages/404Page';
 
+import ViewTranslations from '@/pages/translation/viewTranslation';
+import TranslationPage from '@/pages/translation/TranslationPage';
+import { TranslationProvider } from '@/context/TranslationContext'; // Import TranslationProvider
+
 function App() {
   return (
     <AuthProvider>
@@ -19,15 +23,18 @@ function App() {
       <DateRangeProvider>
         <Router>
           <Routes>
-            <Route path='/' element={<ProtectedRoute />}>
-              <Route index element={<HomePage />} />
-            </Route>
+            {/* <Route path='/' element={<ProtectedRoute />}> */}
+            <Route index element={<HomePage />} />
+            {/* </Route> */}
             <Route path='/login' element={<LoginPage />} />
 
             {/* Invitation & Reset Password */}
             <Route path='/invites' element={<ResetPasswordPage />} />
             <Route path='/reset-password' element={<ResetPasswordPage />} />
 
+
+            <Route path='/translations' element={<TranslationProvider><ViewTranslations /></TranslationProvider>} />
+            <Route path='/create-translation' element={<TranslationPage />} />
             {/* 404 Page */}
             <Route path='*' element={<NotFoundPage />} />
           </Routes>
