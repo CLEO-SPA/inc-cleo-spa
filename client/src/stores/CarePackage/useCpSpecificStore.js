@@ -57,13 +57,13 @@ export const useCpSpecificStore = create((set, get) => ({
   },
 
   // update package status
-  updatePackageStatus: async (id, statusId) => {
+  updatePackageStatus: async (id, status) => {
     set({ isLoading: true, error: null });
 
     try {
       const response = await api.put(`/cp/u/s`, {
         care_package_id: id,
-        status_id: statusId,
+        status: status,
       });
 
       set({

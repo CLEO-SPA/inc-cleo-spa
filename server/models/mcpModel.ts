@@ -1,3 +1,4 @@
+/* eslint-disable @typescript-eslint/no-explicit-any */
 import { QueryResult, PoolClient } from 'pg';
 import { pool } from '../config/database.js';
 import { CursorPayload, FieldMapping, PaginatedOptions, PaginatedReturn } from '../types/common.types.js';
@@ -7,7 +8,7 @@ import {
   MemberCarePackagesDetails,
   MemberCarePackageTransactionLogs,
 } from '../types/model.types.js';
-import { decodeCursor, encodeCursor } from '../utils/cursorUtils.js';
+import { encodeCursor } from '../utils/cursorUtils.js';
 import { getEmployeeIdByUserAuthId } from './employeeModel.js';
 
 const getPaginatedMemberCarePackages = async (
@@ -17,8 +18,8 @@ const getPaginatedMemberCarePackages = async (
   end_date_utc: string | undefined | null
 ): Promise<PaginatedReturn<MemberCarePackages>> => {
   const { searchTerm } = options;
-  const after = options.after ? decodeCursor(options.after) : null;
-  const before = options.before ? decodeCursor(options.before) : null;
+  const after = options.after || null;
+  const before = options.before || null;
   const page = options.page;
 
   try {
@@ -49,8 +50,6 @@ const getPaginatedMemberCarePackages = async (
       // Execute the main data query with CTE for better performance
       const dataQuery = buildDataQuery(finalWhereClause, orderBy, page!, limit, effectiveLimit);
 
-      interface PaginatedReturn {}
-
       const { rows: rawResults } = await client.query(dataQuery, cursorParams);
       const actualFetchedCount = rawResults.length;
 
@@ -59,7 +58,7 @@ const getPaginatedMemberCarePackages = async (
         rawResults,
         before,
         after,
-        page,
+        page!,
         limit,
         totalCount,
         actualFetchedCount
@@ -137,7 +136,7 @@ async function getTotalCount(client: PoolClient, filterWhereClause: string, filt
       SELECT 1 
       ${baseQuery}
       ${filterWhereClause}
-      GROUP BY mcp.id, s.status_name, m.name, e.employee_name
+      GROUP BY mcp.id, m.name, e.employee_name
     ) AS count_subquery
   `;
 
@@ -209,12 +208,12 @@ function buildDataQuery(
         mcp.updated_at,
         mcp.total_price,
         mcp.balance,
-        s.status_name,
+        mcp.status,
         m.name AS member_name,
         e.employee_name
       ${baseQuery}
       ${finalWhereClause}
-      GROUP BY mcp.id, s.status_name, m.name, e.employee_name
+      GROUP BY mcp.id, m.name, e.employee_name
       ${orderBy}
       ${page && page > 0 ? `OFFSET ${(page - 1) * limit}` : ''}
       LIMIT ${effectiveLimit}
@@ -222,7 +221,7 @@ function buildDataQuery(
     SELECT 
       fp.id AS mcp_id,
       fp.package_name,
-      fp.status_name,
+      fp.status,
       fp.package_remarks,
       fp.member_name,
       fp.employee_name,
@@ -297,7 +296,6 @@ function getBaseJoinQuery(): string {
     FROM member_care_packages mcp
     LEFT JOIN employees e ON mcp.member_id = e.id
     LEFT JOIN members m ON mcp.member_id = m.id
-    LEFT JOIN statuses s ON mcp.status_id = s.id
   `;
 }
 
@@ -312,7 +310,7 @@ function getSelectFields(): string {
             'price', mcpd.price,
             'member_care_package_id', mcpd.member_care_package_id,
             'service_id', mcpd.service_id,
-            'status_id', mcpd.status_id,
+            'status', mcpd.status,
             'quantity', mcpd.quantity
           ) ORDER BY mcpd.id ASC
         )
@@ -395,12 +393,10 @@ const createMemberCarePackage = async (
 
     const v_member_sql = 'SELECT id FROM members WHERE id = $1';
     const v_employee_sql = 'SELECT id FROM employees WHERE id = $1';
-    const v_status_sql = 'SELECT get_or_create_status($1) as id';
 
-    const [memberResult, employeeResult, statusResult] = await Promise.all([
+    const [memberResult, employeeResult] = await Promise.all([
       client.query(v_member_sql, [member_id]),
       client.query<Employees>(v_employee_sql, [employee_id]),
-      client.query<{ id: string }>(v_status_sql, ['ENABLED']),
     ]);
 
     if (memberResult.rowCount === 0) {
@@ -409,14 +405,10 @@ const createMemberCarePackage = async (
     if (employeeResult.rowCount === 0) {
       throw new Error(`Invalid employee_id: ${employee_id} does not exist.`);
     }
-    if (!statusResult.rows || statusResult.rows.length === 0 || !statusResult.rows[0].id) {
-      throw new Error('Failed to get or create status ID.');
-    }
-    const statusId = statusResult.rows[0].id;
 
     const i_mcp_sql = `
       INSERT INTO member_care_packages
-      (member_id, employee_id, package_name, package_remarks, status_id, total_price, balance, created_at, updated_at)
+      (member_id, employee_id, package_name, package_remarks, status, total_price, balance, created_at, updated_at)
       VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9) RETURNING id
     `;
     const { rows: mcp } = await client.query<{ id: string }>(i_mcp_sql, [
@@ -424,7 +416,7 @@ const createMemberCarePackage = async (
       employee_id,
       package_name,
       package_remarks,
-      statusId,
+      'ENABLED',
       package_price,
       0,
       created_at,
@@ -438,7 +430,7 @@ const createMemberCarePackage = async (
 
     const i_mcpd_sql = `
       INSERT INTO member_care_package_details
-      (service_name, discount, price, member_care_package_id, service_id, status_id, quantity)
+      (service_name, discount, price, member_care_package_id, service_id, status, quantity)
       VALUES ($1, $2, $3, $4, $5, $6, $7) RETURNING id
     `;
     const i_mcptl_sql = `
@@ -454,7 +446,7 @@ const createMemberCarePackage = async (
         service.price,
         memberCarePackageId,
         service.id,
-        statusId,
+        'ENABLED',
         service.quantity,
       ]);
 
@@ -502,7 +494,7 @@ const updateMemberCarePackage = async (
   package_price: number,
   package_balance: number,
   services: servicePayload[],
-  status_id: string,
+  status: 'ENABLED' | 'DISABLED',
   employee_id: string,
   user_id: string,
   updated_at: string
@@ -543,14 +535,14 @@ const updateMemberCarePackage = async (
         package_remarks = $3,
         total_price = $4,
         balance = $5,
-        status_id = $6,
+        status = $6,
         updated_at = $7
       WHERE
         id = $8;
       `;
     const i_mcpd_sql = `
       INSERT INTO member_care_package_details
-      (service_name, discount, price, member_care_package_id, service_id, status_id, quantity)
+      (service_name, discount, price, member_care_package_id, service_id, status, quantity)
       VALUES ($1, $2, $3, $4, $5, $6, $7) RETURNING id
     `;
     const i_mcptl_sql = `
@@ -565,7 +557,7 @@ const updateMemberCarePackage = async (
       package_remarks,
       package_price,
       package_balance,
-      status_id,
+      status,
       updated_at,
       id,
     ]);
@@ -577,7 +569,7 @@ const updateMemberCarePackage = async (
         service.price,
         id,
         service.id,
-        status_id,
+        status,
         service.quantity,
       ]);
 
@@ -658,16 +650,12 @@ const removeMemberCarePackage = async (id: string) => {
       throw new Error(`Member care package with id ${id} not found for remove.`);
     }
 
-    const { rows: status_id } = await client.query<{ id: string }>('SELECT get_or_create_status($1) as id', [
-      'DISABLED',
-    ]);
-
-    const u_mcp_sql = 'UPDATE member_care_packages SET status_id = $1 WHERE id = $2';
-    const u_mcpd_sql = 'UPDATE member_care_package_details SET status_id = $1 WHERE member_care_package_id = $2';
+    const u_mcp_sql = 'UPDATE member_care_packages SET status = $1 WHERE id = $2';
+    const u_mcpd_sql = 'UPDATE member_care_package_details SET status = $1 WHERE member_care_package_id = $2';
 
     const [mcp, mcpd] = await Promise.all([
-      client.query(u_mcp_sql, [status_id[0].id, id]),
-      client.query(u_mcpd_sql, [status_id[0].id, id]),
+      client.query(u_mcp_sql, ['DISABLED', id]),
+      client.query(u_mcpd_sql, ['DISABLED', id]),
     ]);
 
     await client.query('COMMIT');
@@ -803,7 +791,7 @@ const createConsumption = async (
 
 interface mcpServiceStatusPayload {
   id: string;
-  status_name: string;
+  status_name: 'ENABLED' | 'DISABLED';
 }
 
 const enableMemberCarePackage = async (id: string, payload: mcpServiceStatusPayload[]) => {
@@ -817,20 +805,13 @@ const enableMemberCarePackage = async (id: string, payload: mcpServiceStatusPayl
       throw new Error(`Member care package with id ${id} not found for updating status.`);
     }
 
-    const { rows: status_id } = await client.query<{ id: string }>('SELECT get_or_create_status($1) as id', [
-      'ENABLED',
-    ]);
+    const u_mcp_sql = 'UPDATE member_care_packages SET status = $1 WHERE id = $2';
+    const u_mcpd_sql = 'UPDATE member_care_package_details SET status = $1 WHERE id = $2';
 
-    const u_mcp_sql = 'UPDATE member_care_packages SET status_id = $1 WHERE id = $2';
-    const u_mcpd_sql = 'UPDATE member_care_package_details SET status_id = $1 WHERE id = $2';
-
-    const mcp = await client.query(u_mcp_sql, [status_id[0].id, id]);
+    const mcp = await client.query(u_mcp_sql, ['ENABLED', id]);
     const mcpd: QueryResult[] = [];
     const servicePromise = payload.map(async (service) => {
-      const { rows: status_id } = await client.query<{ id: string }>('SELECT get_or_create_status($1) as id', [
-        service.status_name,
-      ]);
-      const results = await client.query(u_mcpd_sql, [status_id[0].id, service.id]);
+      const results = await client.query(u_mcpd_sql, ['ENABLED', service.id]);
       mcpd.push(results);
     });
 
@@ -892,7 +873,7 @@ interface emulatePayload {
   package_remarks: string;
   package_price: number;
   services: servicePayload[];
-  status_id: string;
+  status: 'ENABLED' | 'DISABLED';
   created_at: string;
   updated_at: string;
 }
@@ -905,13 +886,6 @@ const emulateMemberCarePackage = async (method: string, payload: Partial<emulate
       const lastMcp: MemberCarePackages | undefined = mcp[0];
       const lastMcpId = lastMcpSql && lastMcp.id ? parseInt(lastMcp.id) : 0;
 
-      const statusSql = 'SELECT get_or_create_status($1) as id';
-      const { rows: statusRows } = await pool().query<{ id: string }>(statusSql, ['ENABLED']);
-      if (statusRows.length === 0 || !statusRows[0].id) {
-        throw new Error('Failed to get or create status ID.');
-      }
-      const statusId = statusRows[0].id;
-
       payload.employee_id =
         payload.employee_id || (await getEmployeeIdByUserAuthId(payload.user_id as string)).rows[0].id;
 
@@ -921,7 +895,7 @@ const emulateMemberCarePackage = async (method: string, payload: Partial<emulate
         employee_id: payload.employee_id,
         package_name: payload.package_name,
         package_remarks: payload.package_remarks,
-        status_id: statusId,
+        status: 'ENABLED',
         total_price: payload.package_price,
         balance: 0,
         created_at: payload.created_at || new Date().toISOString(),
@@ -950,7 +924,7 @@ const emulateMemberCarePackage = async (method: string, payload: Partial<emulate
             member_care_package_id: newMcp.id!,
             service_id: service.id,
             service_name: service.name,
-            status_id: statusId,
+            status: 'ENABLED',
             quantity: service.quantity,
             discount: service.discount,
             price: service.price,
@@ -1024,7 +998,7 @@ const emulateMemberCarePackage = async (method: string, payload: Partial<emulate
         { payloadKey: 'package_remarks', dbKey: 'package_remarks' },
         { payloadKey: 'member_id', dbKey: 'member_id' },
         { payloadKey: 'employee_id', dbKey: 'employee_id' },
-        { payloadKey: 'status_id', dbKey: 'status_id' },
+        { payloadKey: 'status', dbKey: 'status' },
         { payloadKey: 'package_price', dbKey: 'total_price' },
         { payloadKey: 'created_at', dbKey: 'created_at' },
       ];
@@ -1059,7 +1033,7 @@ const emulateMemberCarePackage = async (method: string, payload: Partial<emulate
           quantity: servicePayload.quantity,
           discount: servicePayload.discount,
           price: servicePayload.finalPrice,
-          status_id: oldMcp[0].status_id,
+          status: oldMcp[0].status,
         };
         newMcpd.push(tempMcpd);
 
@@ -1173,7 +1147,7 @@ const emulateMemberCarePackage = async (method: string, payload: Partial<emulate
       !payload.package_remarks ||
       payload.package_price === undefined ||
       !payload.services ||
-      !payload.status_id ||
+      !payload.status ||
       !payload.updated_at
     ) {
       throw new Error('Missing required fields in payload for PUT emulation.');

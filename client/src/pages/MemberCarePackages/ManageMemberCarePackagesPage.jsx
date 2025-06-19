@@ -47,7 +47,7 @@ import {
 import { Alert, AlertDescription } from '@/components/ui/alert';
 
 function ManageMemberCarePackageForm() {
-  const { user, statuses } = useAuth();
+  const { user } = useAuth();
   const navigate = useNavigate();
 
   const {
@@ -191,10 +191,10 @@ function ManageMemberCarePackageForm() {
 
   //  helper functions for package status and actions
   const getPackageStatus = (pkg) => {
-    const statusName = pkg.status_name?.toUpperCase();
+    const statusName = pkg.status?.toUpperCase();
     switch (statusName) {
       case 'ENABLED':
-        return { label: 'Active', color: 'bg-slate-100 text-slate-700' };
+        return { label: 'ENABLED', color: 'bg-slate-100 text-slate-700' };
       case 'DISABLED':
         return { label: 'Disabled', color: 'bg-gray-200 text-gray-600' };
       default:

@@ -1,8 +1,9 @@
+/* eslint-disable @typescript-eslint/no-explicit-any */
 import { PoolClient } from 'pg';
 import { pool } from '../config/database.js';
 import { CursorPayload, FieldMapping, PaginatedOptions, PaginatedReturn } from '../types/common.types.js';
 import { CarePackageItemDetails, CarePackages, Employees } from '../types/model.types.js';
-import { decodeCursor, encodeCursor } from '../utils/cursorUtils.js';
+import { encodeCursor } from '../utils/cursorUtils.js';
 import { getEmployeeIdByUserAuthId } from './employeeModel.js';
 
 const getPaginatedCarePackages = async (
@@ -12,8 +13,8 @@ const getPaginatedCarePackages = async (
   end_date_utc: string | undefined | null
 ): Promise<PaginatedReturn<CarePackages>> => {
   const { searchTerm } = options;
-  const after = options.after ? decodeCursor(options.after) : null;
-  const before = options.before ? decodeCursor(options.before) : null;
+  const after = options.after || null;
+  const before = options.before || null;
   const page = options.page;
 
   try {
@@ -233,7 +234,7 @@ const getCarePackagesForDropdown = async (): Promise<CarePackages[]> => {
     const sql = `
       SELECT cp.id, cp.care_package_name
       FROM care_packages cp
-      WHERE cp.status_id = (SELECT get_or_create_status('ENABLED'))
+      WHERE cp.status = 'ENABLED'
       ORDER BY cp.created_at DESC;
     `;
 
@@ -247,7 +248,7 @@ const getCarePackagesForDropdown = async (): Promise<CarePackages[]> => {
 };
 
 interface CarePackagePurchaseCount {
-  care_package_id: string;
+  id: string;
   care_package_name: string;
   purchase_count: string;
   is_purchased: string;
@@ -257,13 +258,32 @@ const getCarePackagePurchaseCount = async (): Promise<
   Record<number, { purchase_count: number; is_purchased: string }>
 > => {
   try {
-    const sql = `SELECT * FROM get_cp_purchase_counts();`;
+    const sql = `
+      SELECT 
+        cp.id,
+        cp.care_package_name,
+        COUNT(mcp.id) AS purchase_count,
+        CASE 
+            WHEN COUNT(mcp.id) > 0 THEN 'Yes'
+            ELSE 'No'
+        END AS is_purchased
+      FROM public.care_packages cp
+      LEFT JOIN public.member_care_packages mcp 
+          ON cp.care_package_name = mcp.package_name
+          AND mcp.status = 'ENABLED'
+      GROUP BY 
+          cp.id,
+          cp.care_package_name
+      ORDER BY 
+          purchase_count DESC,
+          cp.care_package_name;
+    `;
 
     const { rows } = await pool().query<CarePackagePurchaseCount>(sql);
     const purchaseCountsMap: Record<number, { purchase_count: number; is_purchased: string }> = {};
 
     rows.forEach((row) => {
-      const id = parseInt(row.care_package_id.toString());
+      const id = parseInt(row.id.toString());
 
       purchaseCountsMap[id] = {
         purchase_count: parseInt(row.purchase_count.toString()),
@@ -324,24 +344,16 @@ const createCarePackage = async (
     await client.query('BEGIN');
 
     const v_employee_sql = 'SELECT id FROM employees WHERE id = $1';
-    const v_status_sql = 'SELECT get_or_create_status($1) as id';
 
-    const [employeeResult, statusResult] = await Promise.all([
-      client.query<Employees>(v_employee_sql, [employee_id]),
-      client.query<{ id: string }>(v_status_sql, ['ENABLED']),
-    ]);
+    const employeeResult = await client.query<Employees>(v_employee_sql, [employee_id]);
 
     if (employeeResult.rowCount === 0) {
       throw new Error(`Invalid employee_id: ${employee_id} does not exist.`);
     }
-    if (!statusResult.rows || statusResult.rows.length === 0 || !statusResult.rows[0].id) {
-      throw new Error('Failed to get or create status ID.');
-    }
-    const statusId = statusResult.rows[0].id;
 
     const i_cp_sql = `
       INSERT INTO care_packages
-      (care_package_name, care_package_remarks, care_package_price, care_package_customizable, status_id, created_by, last_updated_by, created_at, updated_at)
+      (care_package_name, care_package_remarks, care_package_price, care_package_customizable, status, created_by, last_updated_by, created_at, updated_at)
       VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9) RETURNING id;
     `;
     const { rows: cpRows } = await client.query<{ id: string }>(i_cp_sql, [
@@ -349,7 +361,7 @@ const createCarePackage = async (
       package_remarks,
       package_price,
       is_customizable,
-      statusId,
+      'ENABLED',
       employee_id,
       employee_id,
       created_at,
@@ -420,20 +432,12 @@ const updateCarePackageById = async (
 
     // validate employee exists
     const v_employee_sql = 'SELECT id FROM employees WHERE id = $1';
-    const v_status_sql = 'SELECT get_or_create_status($1) as id';
 
-    const [employeeResult, statusResult] = await Promise.all([
-      client.query<Employees>(v_employee_sql, [employee_id]),
-      client.query<{ id: string }>(v_status_sql, ['ENABLED']),
-    ]);
+    const employeeResult = await client.query<Employees>(v_employee_sql, [employee_id]);
 
     if (employeeResult.rowCount === 0) {
       throw new Error(`Invalid employee_id: ${employee_id} does not exist.`);
     }
-    if (!statusResult.rows || statusResult.rows.length === 0 || !statusResult.rows[0].id) {
-      throw new Error('Failed to get or create status ID.');
-    }
-    const statusId = statusResult.rows[0].id;
 
     // update care package main details
     const u_cp_sql = `
@@ -442,7 +446,7 @@ const updateCarePackageById = async (
           care_package_remarks = $2, 
           care_package_price = $3, 
           care_package_customizable = $4, 
-          status_id = $5, 
+          status = $5, 
           last_updated_by = $6, 
           updated_at = $7
       WHERE id = $8
@@ -453,7 +457,7 @@ const updateCarePackageById = async (
       package_remarks,
       package_price,
       is_customizable,
-      statusId,
+      'ENABLED',
       employee_id,
       updated_at,
       care_package_id,
@@ -502,7 +506,7 @@ const updateCarePackageById = async (
 
 const updateCarePackageStatusById = async (
   care_package_id: string,
-  status_id: string,
+  status: 'ENABLED' | 'DISABLED',
   employee_id: string,
   updated_at: string
 ) => {
@@ -529,20 +533,20 @@ const updateCarePackageStatusById = async (
     // update only the status and tracking fields
     const u_status_sql = `
       UPDATE care_packages 
-      SET status_id = $1, 
+      SET status = $1, 
           last_updated_by = $2, 
           updated_at = $3
       WHERE id = $4
     `;
 
-    await client.query(u_status_sql, [status_id, employee_id, updated_at, care_package_id]);
+    await client.query(u_status_sql, [status, employee_id, updated_at, care_package_id]);
 
     await client.query('COMMIT');
 
     return {
       carePackageId: care_package_id,
       message: 'Care package status updated successfully',
-      status_id: status_id,
+      status: status,
     };
   } catch (error) {
     console.error('Error updating care package status:', error);
@@ -561,6 +565,11 @@ const deleteCarePackageById = async (carePackageId: string) => {
   try {
     await client.query('BEGIN');
 
+    const allPurchaseCounts = await getCarePackagePurchaseCount();
+
+    if (allPurchaseCounts[parseInt(carePackageId)] && allPurchaseCounts[parseInt(carePackageId)].purchase_count > 0) {
+      throw new Error('Cannot Delete Purchased CarePackage');
+    }
     // delete care package item details first (foreign key constraint)
     const d_cpid_sql = 'DELETE FROM care_package_item_details WHERE care_package_id = $1';
     await client.query(d_cpid_sql, [carePackageId]);
@@ -598,7 +607,7 @@ interface emulatePayload {
   package_price: number;
   services: servicePayload[];
   is_customizable: boolean;
-  status_id: string;
+  status: 'ENABLED' | 'DISABLED';
   created_at: string;
   updated_at: string;
   employee_id?: string;
@@ -613,13 +622,6 @@ const emulateCarePackage = async (method: string, payload: Partial<emulatePayloa
       const lastCp: CarePackages | undefined = cpRows[0];
       const lastCpId = lastCp && lastCp.id ? parseInt(lastCp.id) : 0;
 
-      const statusSql = 'SELECT get_or_create_status($1) as id';
-      const { rows: statusRows } = await pool().query<{ id: string }>(statusSql, ['ENABLED']);
-      if (statusRows.length === 0 || !statusRows[0].id) {
-        throw new Error('Failed to get or create status ID.');
-      }
-      const statusId = statusRows[0].id;
-
       payload.employee_id =
         payload.employee_id || (await getEmployeeIdByUserAuthId(payload.user_id as string)).rows[0].id;
 
@@ -629,7 +631,7 @@ const emulateCarePackage = async (method: string, payload: Partial<emulatePayloa
         care_package_remarks: payload.package_remarks,
         care_package_price: payload.package_price,
         care_package_customizable: payload.is_customizable,
-        status_id: statusId,
+        status: 'ENABLED',
         created_by: payload.employee_id,
         last_updated_by: payload.employee_id,
         created_at: payload.created_at || new Date().toISOString(),
@@ -703,7 +705,7 @@ const emulateCarePackage = async (method: string, payload: Partial<emulatePayloa
         { payloadKey: 'package_remarks', dbKey: 'care_package_remarks' },
         { payloadKey: 'package_price', dbKey: 'care_package_price' },
         { payloadKey: 'is_customizable', dbKey: 'care_package_customizable' },
-        { payloadKey: 'status_id', dbKey: 'status_id' },
+        { payloadKey: 'status', dbKey: 'status' },
         { payloadKey: 'created_at', dbKey: 'created_at' },
         { payloadKey: 'updated_at', dbKey: 'updated_at' },
         { payloadKey: 'employee_id', dbKey: 'created_by' },
@@ -764,7 +766,6 @@ const emulateCarePackage = async (method: string, payload: Partial<emulatePayloa
             const existingDbValue = existingItem[m.dbKey];
 
             if (payloadValue !== undefined && payloadValue !== existingDbValue) {
-              // eslint-disable-next-line @typescript-eslint/no-explicit-any
               (updatedDetailFields as any)[m.dbKey] = payloadValue;
               hasChanges = true;
             }
@@ -867,7 +868,7 @@ const emulateCarePackage = async (method: string, payload: Partial<emulatePayloa
       payload.package_price === undefined ||
       !payload.services ||
       typeof payload.is_customizable !== 'boolean' ||
-      !payload.status_id ||
+      !payload.status ||
       !payload.updated_at
     ) {
       throw new Error('Missing required fields in payload for PUT emulation.');

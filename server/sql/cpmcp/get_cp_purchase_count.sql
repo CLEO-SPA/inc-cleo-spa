@@ -18,6 +18,7 @@ BEGIN
     FROM public.care_packages cp
     LEFT JOIN public.member_care_packages mcp 
         ON cp.care_package_name = mcp.package_name
+        AND mcp.status_id = get_or_create_status('ENABLED')
     GROUP BY 
         cp.id,
         cp.care_package_name

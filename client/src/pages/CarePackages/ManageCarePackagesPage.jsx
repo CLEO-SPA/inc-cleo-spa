@@ -35,7 +35,7 @@ import { LoadingState } from '@/components/LoadingState';
 import DeleteConfirmationDialog from '@/components/DeleteConfirmationDialog';
 
 function ManageCarePackagesPage() {
-  const { user, statuses } = useAuth();
+  const { user } = useAuth();
   const navigate = useNavigate();
 
   const {
@@ -151,11 +151,11 @@ function ManageCarePackagesPage() {
 
   // helper functions to determine if a package is enabled based on status
   const isPackageEnabled = (pkg) => {
-    return pkg.status_id === 1;
+    return pkg.status === 'ENABLED';
   };
 
   const getStatusIdForToggle = (enabled) => {
-    return enabled ? 1 : 2;
+    return enabled ? 'ENABLED' : 'DISABLED';
   };
 
   const handleToggleStatus = async (pkg, newEnabledState) => {
@@ -163,8 +163,8 @@ function ManageCarePackagesPage() {
     setUpdatingPackages((prev) => new Set(prev).add(packageId));
 
     try {
-      const newStatusId = getStatusIdForToggle(newEnabledState);
-      await updatePackageStatus(packageId, newStatusId);
+      const newStatus = getStatusIdForToggle(newEnabledState);
+      await updatePackageStatus(packageId, newStatus);
 
       initializePagination(currentLimit, searchTerm);
     } catch (err) {
@@ -270,12 +270,6 @@ function ManageCarePackagesPage() {
     }
 
     return message;
-  };
-
-  // get status display name
-  const getStatusById = (statusId) => {
-    if (!statuses || statuses.length === 0) return null;
-    return statuses.find((status) => status.id == statusId);
   };
 
   // --- Role-based access ---
@@ -391,7 +385,6 @@ function ManageCarePackagesPage() {
                             const isUpdatingThis = updatingPackages.has(pkg.id);
                             const isDeletingThis = deletingPackages.has(pkg.id);
                             const isDeletable = canDeletePackage(pkg);
-                            const currentStatus = getStatusById(pkg.status_id);
 
                             return (
                               <TableRow key={pkg.id}>

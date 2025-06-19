@@ -1,7 +1,7 @@
 import { Request, Response, NextFunction } from 'express';
 import model from '../models/mcpModel.js';
 import { decodeCursor } from '../utils/cursorUtils.js';
-import { PaginatedOptions } from '../types/common.types.js';
+import { CursorPayload, PaginatedOptions } from '../types/common.types.js';
 
 const getAllMemberCarePackages = async (req: Request, res: Response, next: NextFunction): Promise<void> => {
   const { start_date_utc, end_date_utc } = req.session;
@@ -34,9 +34,27 @@ const getAllMemberCarePackages = async (req: Request, res: Response, next: NextF
     console.warn('Both page and cursor parameters provided. Prioritizing page.');
   }
 
+  let after: CursorPayload | null = null;
+  if (afterCursor) {
+    after = decodeCursor(afterCursor);
+    if (!after) {
+      res.status(400).json({ error: 'Invalid "after" cursor.' });
+      return;
+    }
+  }
+
+  let before: CursorPayload | null = null;
+  if (beforeCursor) {
+    before = decodeCursor(beforeCursor);
+    if (!before) {
+      res.status(400).json({ error: 'Invalid "before" cursor.' });
+      return;
+    }
+  }
+
   const options: PaginatedOptions = {
-    after: afterCursor || null,
-    before: beforeCursor || null,
+    after,
+    before,
     page,
     searchTerm,
   };
@@ -126,7 +144,7 @@ const updateMemberCarePackage = async (req: Request, res: Response, next: NextFu
       package_price,
       package_balance,
       services,
-      status_id,
+      status,
       updated_at,
       employee_id,
     } = req.body;
@@ -137,7 +155,8 @@ const updateMemberCarePackage = async (req: Request, res: Response, next: NextFu
     if (!Array.isArray(services) || services.length === 0) {
       requiredFieldsErrorMessages.push('services must be a non-empty array');
     }
-    if (!status_id) requiredFieldsErrorMessages.push('status_id is required');
+    if (!status) requiredFieldsErrorMessages.push('status is required');
+    if (status !== 'ENABLED' && status !== 'DISABLED') requiredFieldsErrorMessages.push('Invalid Status Name');
     if (!updated_at) requiredFieldsErrorMessages.push('updated_at is required');
 
     if (requiredFieldsErrorMessages.length > 0) {
@@ -179,7 +198,7 @@ const updateMemberCarePackage = async (req: Request, res: Response, next: NextFu
       package_price,
       package_balance,
       services,
-      status_id,
+      status,
       employee_id,
       req.session.user_id!,
       updated_at
@@ -266,7 +285,11 @@ const enableMemberCarePackage = async (req: Request, res: Response, next: NextFu
     }
 
     const isValidService = services.every((s) => {
-      return typeof s.id === 'string' && typeof s.status_name === 'string';
+      return (
+        typeof s.id === 'string' &&
+        typeof s.status_name === 'string' &&
+        (s.status_name === 'ENABLED' || s.status_name === 'DISABLED')
+      );
     });
 
     if (!isValidService) {
@@ -301,7 +324,7 @@ interface emulatePayload {
   package_remarks: string;
   package_price: number;
   services: servicePayload[];
-  status_id: string;
+  status: 'ENABLED' | 'DISABLED';
   created_at: string;
   updated_at: string;
 }
@@ -323,7 +346,7 @@ const emulateMemberCarePackage = async (req: Request, res: Response, next: NextF
         return;
       }
 
-      const results = await model.emulateMemberCarePackage(method, { id: deleteId } as emulatePayload);
+      const results = await model.emulateMemberCarePackage(method, { id: deleteId as string });
       res.status(200).json(results);
       return;
     }
@@ -334,7 +357,7 @@ const emulateMemberCarePackage = async (req: Request, res: Response, next: NextF
       package_remarks,
       package_price,
       services,
-      status_id,
+      status,
       created_at,
       updated_at,
       member_id,
@@ -348,7 +371,9 @@ const emulateMemberCarePackage = async (req: Request, res: Response, next: NextF
     if (!Array.isArray(services) || services.length === 0) {
       requiredFieldsErrorMessages.push('services must be a non-empty array');
     }
-    if (method === 'PUT') if (!status_id) requiredFieldsErrorMessages.push('status_id is required');
+    if (method === 'PUT') if (!status) requiredFieldsErrorMessages.push('status is required');
+    if (method === 'PUT')
+      if (status !== 'ENABLED' && status !== 'DISABLED') requiredFieldsErrorMessages.push('Invalid Status Name');
     if (method === 'POST') if (!created_at) requiredFieldsErrorMessages.push('created_at is required');
     if (!updated_at) requiredFieldsErrorMessages.push('updated_at is required');
 
@@ -390,7 +415,7 @@ const emulateMemberCarePackage = async (req: Request, res: Response, next: NextF
       package_remarks: package_remarks || '',
       package_price: numericPackagePrice,
       services,
-      status_id,
+      status,
       created_at,
       updated_at,
       employee_id,

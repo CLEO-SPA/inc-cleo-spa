@@ -1,6 +1,6 @@
 export interface PaginatedOptions {
-  after?: string | null;
-  before?: string | null;
+  after?: CursorPayload | null;
+  before?: CursorPayload | null;
   page?: number | null;
   searchTerm?: string | null;
 }
