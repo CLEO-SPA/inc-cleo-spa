@@ -199,71 +199,107 @@ const getUserData = async (identity: string | number) => {
   }
 };
 
-interface NewEmployeeInput {
-  user_auth_id: number;
+interface NewEmployeeData {
+  email: string;
+  password_hash: string;
+  phone: string;
+  role_name: string;
   employee_code: string;
   employee_name: string;
-  employee_email: string;
-  employee_contact: string;
   employee_is_active: boolean;
-  position_ids?: number[]; // optional: to also link positions
-  created_by: string;
-  updated_by: string;
-  created_at?: string; // optional: defaults to NOW()
-  updated_at?: string; // optional: defaults to NOW()
+  position_ids?: number[];
+  created_at?: string;
+  updated_at?: string;
 }
 
-const createEmployee = async (data: NewEmployeeInput) => {
+const assignPositionsToEmployee = async (
+  employeeId: number,
+  positionIds: number[],
+  created_at: string,
+  updated_at: string
+) => {
   const client = await pool().connect();
   try {
-    await client.query('BEGIN');
-
-    const insertQuery = `
-      INSERT INTO employees (
-        user_auth_id,
-        employee_code,
-        employee_name,
-        employee_email,
-        employee_contact,
-        employee_is_active,
-        created_at,
-        updated_at
-      )
-      VALUES ($1, $2, $3, $4, $5, $6, NOW(), NOW())
-      RETURNING id
-    `;
-    const values = [
-      data.user_auth_id,
-      data.employee_code,
-      data.employee_name,
-      data.employee_email,
-      data.employee_contact,
-      data.employee_is_active,
-    ];
-
-    const result = await client.query(insertQuery, values);
-    const employeeId = result.rows[0].id;
-
-    if (data.position_ids && data.position_ids.length > 0) {
-      const positionInsertQuery = `
-        INSERT INTO employee_to_position (employee_id, position_id)
-        VALUES ${data.position_ids.map((_, i) => `($1, $${i + 2})`).join(',')}
+    const positionInsertQuery = `
+        INSERT INTO employee_to_position (employee_id, created_at, updated_at, position_id)
+        VALUES ${positionIds.map((_, i) => `($1, $2, $3, $${i + 4})`).join(',')}
       `;
-      await client.query(positionInsertQuery, [employeeId, ...data.position_ids]);
-    }
-
-    await client.query('COMMIT');
-    return { id: employeeId };
+    await client.query(positionInsertQuery, [employeeId, created_at, updated_at, ...positionIds]);
   } catch (err) {
-    await client.query('ROLLBACK');
-    console.error('Error creating employee:', err);
-    throw new Error('Failed to create employee');
+    console.error('Error assigning positions to employee:', err);
+    throw new Error('Failed to assign positions');
   } finally {
     client.release();
   }
 };
 
-const updateEmployeePassword = async (email: string, password_hash: string) => {
+const createAuthAndEmployee = async (data: NewEmployeeData) => {
+  const client = await pool().connect();
+  try {
+    await client.query('BEGIN');
+
+    const roleResult = await client.query('SELECT get_or_create_roles($1) as id;', [data.role_name]);
+    if (roleResult.rows.length === 0) {
+      throw new Error(`Role '${data.role_name}' not found.`);
+    }
+    const roleId = roleResult.rows[0].id;
+
+    const userAuthQuery = `
+      INSERT INTO user_auth (email, password, phone, created_at, updated_at)
+      VALUES ($1, $2, $3, $4, $5)
+      RETURNING id
+    `;
+    const userAuthResult = await client.query(userAuthQuery, [
+      data.email,
+      data.password_hash,
+      data.phone,
+      data.created_at,
+      data.updated_at,
+    ]);
+    const userAuthId = userAuthResult.rows[0].id;
+
+    const userToRoleQuery = `
+      INSERT INTO user_to_role (user_auth_id, role_id, created_at, updated_at)
+      VALUES ($1, $2, $3, $4)
+    `;
+    await client.query(userToRoleQuery, [userAuthId, roleId, data.created_at, data.updated_at]);
+
+    const employeeQuery = `
+      INSERT INTO employees (
+        user_auth_id, employee_code, employee_name, employee_email, 
+        employee_contact, employee_is_active, created_at, updated_at, verified_status_id
+      )
+      VALUES ($1, $2, $3, $4, $5, $6, $7, $8, (SELECT id FROM statuses WHERE status_name = 'Verified'))
+      RETURNING id
+    `;
+    const employeeResult = await client.query(employeeQuery, [
+      userAuthId,
+      data.employee_code,
+      data.employee_name,
+      data.email,
+      data.phone,
+      data.employee_is_active,
+      data.created_at,
+      data.updated_at,
+    ]);
+    const employeeId = employeeResult.rows[0].id;
+
+    if (data.position_ids && data.position_ids.length > 0) {
+      await assignPositionsToEmployee(employeeId, data.position_ids, data.created_at!, data.updated_at!);
+    }
+
+    await client.query('COMMIT');
+    return { employeeId, userAuthId };
+  } catch (error) {
+    await client.query('ROLLBACK');
+    console.error('Error creating employee with auth:', error);
+    throw new Error('Failed to create employee with auth');
+  } finally {
+    client.release();
+  }
+};
+
+const updateEmployeePassword = async (email: string, password_hash: string, isInvite: boolean = false) => {
   const client = await pool().connect();
 
   try {
@@ -277,6 +313,16 @@ const updateEmployeePassword = async (email: string, password_hash: string) => {
     const values = [password_hash, email];
     const result = await client.query(query, values);
     const updatedAuth = result.rows[0];
+
+    if (isInvite) {
+      const query = `
+        UPDATE employees
+        SET verified_status_id = (SELECT get_or_create_status('ACTIVE'))
+        WHERE email = $1;
+      `;
+      const values = [email];
+      await client.query(query, values);
+    }
 
     await client.query('COMMIT');
     return updatedAuth;
@@ -316,7 +362,6 @@ const getAllEmployeesForDropdown = async () => {
 };
 
 export default {
-  createEmployee,
   checkEmployeeCodeExists,
   getAuthUser,
   updateEmployeePassword,
@@ -325,4 +370,6 @@ export default {
   getUserCount,
   getUserData,
   getAllEmployeesForDropdown,
+  createAuthAndEmployee,
+  assignPositionsToEmployee,
 };
