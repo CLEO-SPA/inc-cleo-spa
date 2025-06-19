@@ -5,6 +5,7 @@ import simulationMiddleware from '../middlewares/simulationMiddleware.js';
 
 import authRoutes from './authRoutes.js';
 import sessionRoutes from './sessionRoutes.js';
+import translationRoutes from './translationRoutes.js';
 import serviceRoutes from './serviceRoutes.js';
 import memberRoutes from './memberRoutes.js';
 import carePackageRoutes from './cpRoutes.js';
@@ -19,6 +20,7 @@ import dataExportRoutes from './dataExportRoutes.js';
 
 router.use('/auth', authRoutes);
 router.use('/session', sessionRoutes);
+router.use('/trans', translationRoutes)
 router.use('/mv', memberVoucherRoutes);
 router.use('/service', serviceRoutes);
 router.use('/member', memberRoutes);
