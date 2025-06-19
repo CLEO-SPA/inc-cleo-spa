@@ -220,7 +220,7 @@ export default function MemberSelectorPanel() {
   };
 
   const handlePackageConsume = (mcp) => {
-    navigate(`/mcp/${mcp}/consume`);
+    navigate(`/mcp/${mcp.id}/consume`);
   };
 
 
