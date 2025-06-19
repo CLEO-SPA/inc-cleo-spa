@@ -17,6 +17,7 @@ DROP TABLE IF EXISTS "membership_accounts" CASCADE;
 DROP TABLE IF EXISTS "membership_types" CASCADE;
 DROP TABLE IF EXISTS "payment_methods" CASCADE;
 DROP TABLE IF EXISTS "positions" CASCADE;
+DROP TABLE IF EXISTS "employee_to_position" CASCADE;
 DROP TABLE IF EXISTS "product_categories" CASCADE;
 DROP TABLE IF EXISTS "products" CASCADE;
 DROP TABLE IF EXISTS "roles" CASCADE;
@@ -95,6 +96,17 @@ CREATE TABLE "employees" (
     "position_id" BIGINT,
 
     CONSTRAINT "employees_pkey" PRIMARY KEY ("id")
+);
+
+-- CreateTable
+CREATE TABLE "employee_to_position" (
+    "id" BIGSERIAL NOT NULL,
+    "employee_id" BIGINT NOT NULL,
+    "position_id" BIGINT NOT NULL,
+    "created_at" TIMESTAMPTZ(6) NOT NULL,
+    "updated_at" TIMESTAMPTZ(6) NOT NULL,
+
+    CONSTRAINT "employee_to_position_pkey" PRIMARY KEY ("id")
 );
 
 -- CreateTable
@@ -635,6 +647,10 @@ ALTER TABLE "employees" ADD CONSTRAINT "employees_position_id_fkey" FOREIGN KEY 
 ALTER TABLE "employees" ADD CONSTRAINT "employees_user_auth_id_fkey" FOREIGN KEY ("user_auth_id") REFERENCES "user_auth"("id") ON DELETE RESTRICT ON UPDATE CASCADE;
 ALTER TABLE "employees" ADD CONSTRAINT "verified_status_id_fkey" FOREIGN KEY ("verified_status_id") REFERENCES "statuses"("id") ON UPDATE CASCADE;
 ALTER TABLE "employees" ADD CONSTRAINT "verified_status_id_fkey" FOREIGN KEY ("verified_status_id") REFERENCES "statuses"("id") ON UPDATE CASCADE;
+
+-- Foreign Keys for table "employee_to_position"
+ALTER TABLE "employee_to_position" ADD CONSTRAINT "employee_to_position_employee_id_fkey" FOREIGN KEY ("employee_id") REFERENCES "employees"("id") ON DELETE CASCADE ON UPDATE CASCADE;
+ALTER TABLE "employee_to_position" ADD CONSTRAINT "employee_to_position_position_id_fkey" FOREIGN KEY ("position_id") REFERENCES "positions"("id") ON DELETE RESTRICT ON UPDATE CASCADE;
 
 -- Foreign Keys for table "serving_employee_to_invoice_items"
 ALTER TABLE "serving_employee_to_invoice_items" ADD CONSTRAINT "serving_employee_to_invoice_ite_reviewed_by_employee_id_fkey" FOREIGN KEY ("reviewed_by_employee_id") REFERENCES "employees"("id") ON DELETE SET NULL ON UPDATE CASCADE;
