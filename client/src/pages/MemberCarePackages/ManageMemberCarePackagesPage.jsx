@@ -140,7 +140,7 @@ function ManageMemberCarePackageForm() {
 
   // --- action handlers ---
   const handleView = (pkg) => {
-    navigate(`/mcp/${pkg.mcp_id}/view`);
+    navigate(`/mcp/${pkg.mcp_id}`);
   };
 
   // to replace with actual consumption logic

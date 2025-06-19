@@ -36,6 +36,7 @@ import CreateCarePackageFormPage from '@/pages/CarePackages/CreateCarePackageFor
 import EditCarePackagePage from './pages/CarePackages/EditCarePackagePage';
 // Member Care Package Management
 import ManageMemberCarePackagesPage from './pages/MemberCarePackages/ManageMemberCarePackagesPage';
+import ViewMemberCarePackageDetailsPage from '@/pages/MemberCarePackages/ViewMemberCarePackageDetailsPage';
 import CreateConsumptionPage from '@/pages/CarePackages/CreateConsumptionPage';
 // import CreateMemberCarePackageFormPage from '@/pages/CarePackages/CreateMemberCarePackageFormPage';
 
@@ -66,6 +67,7 @@ function App() {
               {/* Member Care Package Management */}
               <Route path='/mcp/:id/consume' element={<CreateConsumptionPage />} />
               <Route path='/mcp' element={<ManageMemberCarePackagesPage />} />
+              <Route path='/mcp/:id' element={<ViewMemberCarePackageDetailsPage />} />
               {/* <Route path='/mcp/c' element={<CreateMemberCarePackageFormPage />} /> */}
 
               {/* Statistics Management */}
