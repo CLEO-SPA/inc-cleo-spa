@@ -1,125 +1,351 @@
-import { QueryResult } from 'pg';
+import { QueryResult, PoolClient } from 'pg';
 import { pool } from '../config/database.js';
-import { FieldMapping, PaginatedOptions, PaginatedReturn } from '../types/common.types.js';
+import { CursorPayload, FieldMapping, PaginatedOptions, PaginatedReturn } from '../types/common.types.js';
 import {
   Employees,
   MemberCarePackages,
   MemberCarePackagesDetails,
   MemberCarePackageTransactionLogs,
 } from '../types/model.types.js';
-import { encodeCursor } from '../utils/cursorUtils.js';
+import { decodeCursor, encodeCursor } from '../utils/cursorUtils.js';
 import { getEmployeeIdByUserAuthId } from './employeeModel.js';
 
 const getPaginatedMemberCarePackages = async (
   limit: number,
   options: PaginatedOptions = {},
   start_date_utc: string | undefined | null,
-  end_date_utc: string
+  end_date_utc: string | undefined | null
 ): Promise<PaginatedReturn<MemberCarePackages>> => {
-  const { after, before, page, searchTerm } = options;
-
-  const params = [
-    limit,
-    searchTerm || null,
-    start_date_utc ? start_date_utc : null,
-    end_date_utc ? end_date_utc : null,
-    after ? after.createdAt : null,
-    after ? after.id : null,
-    before ? before.createdAt : null,
-    before ? before.id : null,
-    page && page > 0 ? page : null,
-  ];
-
-  const sqlFunctionQuery = `
-    SELECT get_mcp_paginated_json(
-      p_limit := $1,
-      p_search_term := $2,
-      p_start_date_utc := $3,
-      p_end_date_utc := $4,
-      p_after_created_at := $5,
-      p_after_id := $6,
-      p_before_created_at := $7,
-      p_before_id := $8,
-      p_page := $9
-    ) AS result;
-  `;
+  const { searchTerm } = options;
+  const after = options.after ? decodeCursor(options.after) : null;
+  const before = options.before ? decodeCursor(options.before) : null;
+  const page = options.page;
 
   try {
-    const { rows: resultRows } = await pool().query(sqlFunctionQuery, params);
+    const client = await pool().connect();
 
-    if (!resultRows[0] || !resultRows[0].result) {
-      console.error('Invalid response from SQL function get_mcp_paginated_json');
-      throw new Error('Could not retrieve paginated member care packages due to invalid DB response.');
-    }
-    const result = resultRows[0].result;
-
-    if (result.error) {
-      console.error('Error reported by SQL function get_mcp_paginated_json:', result.error);
-      throw new Error(`Database error: ${result.error}`);
-    }
-
-    const memberCarePackages = result.data || []; // Ensure data is an array
-    const totalCount = result.totalCount || 0;
-    // actual_fetched_count is how many records the SQL function's data query fetched (typically limit + 1 for cursors)
-    const actualFetchedCount = result.actual_fetched_count || 0;
-
-    let hasNextPage = false;
-    let hasPreviousPage = false;
-    let startCursor = null;
-    let endCursor = null;
-
-    if (page && page > 0) {
-      // Offset-based pagination
-      // totalCount is the count of all items matching filters
-      // limit is items per page
-      // page is current page number (1-indexed)
-      hasNextPage = page * limit < totalCount;
-      hasPreviousPage = page > 1;
-    } else {
-      // Cursor-based pagination
-      if (before) {
-        // `actualFetchedCount` included one extra item if more existed "before" the current set.
-        // The `memberCarePackages` (data) returned by SQL function is already sliced to `limit` and in correct display order.
-        hasPreviousPage = actualFetchedCount > limit;
-        // If 'before' was used and we got results, there's a "next" page (towards more recent items).
-        hasNextPage = memberCarePackages.length > 0;
-      } else {
-        // 'after' or initial load (no cursor)
-        // `actualFetchedCount` included one extra item if more existed "after" the current set.
-        hasNextPage = actualFetchedCount > limit;
-        // If 'after' was used and we received data, a "previous" page exists.
-        hasPreviousPage = !!after && memberCarePackages.length > 0;
-        if (!after && !before) {
-          // Initial load (no cursor)
-          hasPreviousPage = false; // No previous page on the very first fetch.
-        }
-      }
-    }
-
-    if (memberCarePackages.length > 0) {
-      // Ensure created_at is a Date object if needed by encodeCursor, SQL returns ISO strings
-      startCursor = encodeCursor(new Date(memberCarePackages[0].created_at), memberCarePackages[0].id);
-      endCursor = encodeCursor(
-        new Date(memberCarePackages[memberCarePackages.length - 1].created_at),
-        memberCarePackages[memberCarePackages.length - 1].id
+    try {
+      // Build filter conditions
+      const { filterWhereClause, filterParams, paramCounter } = buildFilterConditions(
+        searchTerm!,
+        start_date_utc,
+        end_date_utc
       );
-    }
 
-    return {
-      data: memberCarePackages,
-      pageInfo: {
-        startCursor,
-        endCursor,
-        hasNextPage,
-        hasPreviousPage,
+      // Get total count with optimized query
+      const totalCount = await getTotalCount(client, filterWhereClause, filterParams);
+
+      // Prepare query parameters for pagination
+      const { finalWhereClause, cursorParams, orderBy, effectiveLimit } = preparePaginationParams(
+        filterWhereClause,
+        filterParams,
+        paramCounter,
+        limit,
+        page!,
+        after,
+        before
+      );
+
+      // Execute the main data query with CTE for better performance
+      const dataQuery = buildDataQuery(finalWhereClause, orderBy, page!, limit, effectiveLimit);
+
+      interface PaginatedReturn {}
+
+      const { rows: rawResults } = await client.query(dataQuery, cursorParams);
+      const actualFetchedCount = rawResults.length;
+
+      // Process results based on pagination type
+      const { memberCarePackages, hasNextPage, hasPreviousPage } = processPaginationResults(
+        rawResults,
+        before,
+        after,
+        page,
+        limit,
         totalCount,
-      },
-    };
+        actualFetchedCount
+      );
+
+      // Generate cursors for the result set using the utility function
+      const { startCursor, endCursor } = generateCursors(memberCarePackages);
+
+      return {
+        data: memberCarePackages as any,
+        pageInfo: {
+          startCursor,
+          endCursor,
+          hasNextPage,
+          hasPreviousPage,
+          totalCount,
+        },
+      };
+    } finally {
+      client.release();
+    }
   } catch (error) {
-    console.error('Error in CarePackageModel.getPaginatedMemberCarePackages (with PG function):', error);
+    console.error('Error in CarePackageModel.getPaginatedMemberCarePackages:', error);
     throw new Error('Could not retrieve paginated care packages.');
   }
 };
+
+function buildFilterConditions(
+  searchTerm: string | undefined,
+  start_date_utc: string | null | undefined,
+  end_date_utc: string | null | undefined
+): {
+  filterWhereClause: string;
+  filterParams: any[];
+  paramCounter: number;
+} {
+  const filterConditions: string[] = [];
+  const filterParams: any[] = [];
+  let paramCounter = 1;
+
+  if (searchTerm) {
+    filterConditions.push(
+      `(mcp.package_name ILIKE $${paramCounter} OR 
+        mcp.package_remarks ILIKE $${paramCounter} OR 
+        m.name ILIKE $${paramCounter} OR 
+        e.employee_name ILIKE $${paramCounter})`
+    );
+    filterParams.push(`%${searchTerm}%`);
+    paramCounter++;
+  }
+
+  if (start_date_utc) {
+    filterConditions.push(`mcp.created_at >= $${paramCounter}`);
+    filterParams.push(start_date_utc);
+    paramCounter++;
+  }
+
+  if (end_date_utc) {
+    filterConditions.push(`mcp.created_at <= $${paramCounter}`);
+    filterParams.push(end_date_utc);
+    paramCounter++;
+  }
+
+  const filterWhereClause = filterConditions.length > 0 ? `WHERE ${filterConditions.join(' AND ')}` : '';
+
+  return { filterWhereClause, filterParams, paramCounter };
+}
+
+async function getTotalCount(client: PoolClient, filterWhereClause: string, filterParams: any[]): Promise<number> {
+  const baseQuery = getBaseJoinQuery();
+
+  const countQuery = `
+    SELECT COUNT(*) 
+    FROM (
+      SELECT 1 
+      ${baseQuery}
+      ${filterWhereClause}
+      GROUP BY mcp.id, s.status_name, m.name, e.employee_name
+    ) AS count_subquery
+  `;
+
+  const { rows: countRows } = await client.query<{ count: string }>(countQuery, filterParams);
+  return parseInt(countRows[0].count, 10);
+}
+
+function preparePaginationParams(
+  filterWhereClause: string,
+  filterParams: any[],
+  paramCounter: number,
+  limit: number,
+  page: number | undefined,
+  after: CursorPayload | null,
+  before: CursorPayload | null
+): {
+  finalWhereClause: string;
+  cursorParams: any[];
+  orderBy: string;
+  effectiveLimit: number;
+} {
+  let finalWhereClause = filterWhereClause;
+  let orderBy = 'ORDER BY mcp.created_at ASC, mcp.id ASC';
+  let cursorParams = [...filterParams];
+  let effectiveLimit = page && page > 0 ? limit : limit + 1;
+
+  if (!page && (after || before)) {
+    if (finalWhereClause) {
+      finalWhereClause += ' AND ';
+    } else {
+      finalWhereClause = 'WHERE ';
+    }
+
+    if (after) {
+      finalWhereClause += `(mcp.created_at > $${paramCounter} OR (mcp.created_at = $${paramCounter} AND mcp.id > $${
+        paramCounter + 1
+      }))`;
+      cursorParams.push(after.createdAt, after.id);
+    } else if (before) {
+      finalWhereClause += `(mcp.created_at < $${paramCounter} OR (mcp.created_at = $${paramCounter} AND mcp.id < $${
+        paramCounter + 1
+      }))`;
+      cursorParams.push(before.createdAt, before.id);
+      orderBy = 'ORDER BY mcp.created_at DESC, mcp.id DESC';
+    }
+  }
+
+  return { finalWhereClause, cursorParams, orderBy, effectiveLimit };
+}
+
+function buildDataQuery(
+  finalWhereClause: string,
+  orderBy: string,
+  page: number | undefined,
+  limit: number,
+  effectiveLimit: number
+): string {
+  const baseQuery = getBaseJoinQuery();
+  const selectFields = getSelectFields();
+
+  // Use a CTE for more efficient query execution
+  return `
+    WITH filtered_packages AS (
+      SELECT 
+        mcp.id,
+        mcp.package_name,
+        mcp.package_remarks,
+        mcp.created_at,
+        mcp.updated_at,
+        mcp.total_price,
+        mcp.balance,
+        s.status_name,
+        m.name AS member_name,
+        e.employee_name
+      ${baseQuery}
+      ${finalWhereClause}
+      GROUP BY mcp.id, s.status_name, m.name, e.employee_name
+      ${orderBy}
+      ${page && page > 0 ? `OFFSET ${(page - 1) * limit}` : ''}
+      LIMIT ${effectiveLimit}
+    )
+    SELECT 
+      fp.id AS mcp_id,
+      fp.package_name,
+      fp.status_name,
+      fp.package_remarks,
+      fp.member_name,
+      fp.employee_name,
+      fp.total_price,
+      fp.created_at,
+      fp.updated_at,
+      ${selectFields}
+    FROM filtered_packages fp
+  `;
+}
+
+function processPaginationResults(
+  rawResults: any[],
+  before: CursorPayload | null,
+  after: CursorPayload | null,
+  page: number | undefined,
+  limit: number,
+  totalCount: number,
+  actualFetchedCount: number
+): {
+  memberCarePackages: any[];
+  hasNextPage: boolean;
+  hasPreviousPage: boolean;
+} {
+  // Process results based on pagination type
+  let memberCarePackages = before && !page ? [...rawResults].reverse().slice(0, limit) : rawResults.slice(0, limit);
+
+  let hasNextPage = false;
+  let hasPreviousPage = false;
+
+  if (page && page > 0) {
+    // Offset-based pagination
+    hasNextPage = page * limit < totalCount;
+    hasPreviousPage = page > 1;
+  } else if (before) {
+    // "Before" cursor pagination
+    hasNextPage = memberCarePackages.length > 0;
+    hasPreviousPage = actualFetchedCount > limit;
+  } else if (after) {
+    // "After" cursor pagination
+    hasNextPage = actualFetchedCount > limit;
+    hasPreviousPage = true;
+  } else {
+    // Initial load (no cursor)
+    hasNextPage = actualFetchedCount > limit;
+    hasPreviousPage = false;
+  }
+
+  return { memberCarePackages, hasNextPage, hasPreviousPage };
+}
+
+function generateCursors(memberCarePackages: any[]): {
+  startCursor: string | null;
+  endCursor: string | null;
+} {
+  let startCursor = null;
+  let endCursor = null;
+
+  if (memberCarePackages.length > 0) {
+    const firstItem = memberCarePackages[0];
+    const lastItem = memberCarePackages[memberCarePackages.length - 1];
+
+    startCursor = encodeCursor(new Date(firstItem.created_at), String(firstItem.mcp_id));
+    endCursor = encodeCursor(new Date(lastItem.created_at), String(lastItem.mcp_id));
+  }
+
+  return { startCursor, endCursor };
+}
+
+function getBaseJoinQuery(): string {
+  return `
+    FROM member_care_packages mcp
+    LEFT JOIN employees e ON mcp.member_id = e.id
+    LEFT JOIN members m ON mcp.member_id = m.id
+    LEFT JOIN statuses s ON mcp.status_id = s.id
+  `;
+}
+
+function getSelectFields(): string {
+  return `
+    COALESCE(
+      (
+        SELECT json_agg(
+          json_build_object(
+            'id', mcpd.id,
+            'discount', mcpd.discount,
+            'price', mcpd.price,
+            'member_care_package_id', mcpd.member_care_package_id,
+            'service_id', mcpd.service_id,
+            'status_id', mcpd.status_id,
+            'quantity', mcpd.quantity
+          ) ORDER BY mcpd.id ASC
+        )
+        FROM member_care_package_details mcpd
+        WHERE mcpd.member_care_package_id = fp.id
+      ),
+      '[]'::json
+    ) AS package_details,
+    COALESCE(
+      (
+        SELECT json_agg(
+          json_build_object(
+            'id', mcptl.id,
+            'type', mcptl.type,
+            'description', mcptl.description,
+            'transaction_date', mcptl.transaction_date,
+            'transaction_amount', mcptl.transaction_amount,
+            'amount_changed', mcptl.amount_changed,
+            'created_at', mcptl.created_at,
+            'member_care_package_details_id', mcptl.member_care_package_details_id,
+            'employee_id', mcptl.employee_id,
+            'service_id', mcptl.service_id
+          ) ORDER BY mcptl.created_at ASC
+        )
+        FROM member_care_package_details mcpd2
+        JOIN member_care_package_transaction_logs mcptl
+          ON mcpd2.id = mcptl.member_care_package_details_id
+        WHERE mcpd2.member_care_package_id = fp.id
+      ),
+      '[]'::json
+    ) AS transaction_logs
+  `;
+}
 
 interface FullMemberCarePackage {
   package: MemberCarePackages;

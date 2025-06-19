@@ -1,7 +1,7 @@
 import { Request, Response, NextFunction } from 'express';
 import model from '../models/mcpModel.js';
 import { decodeCursor } from '../utils/cursorUtils.js';
-import { PaginatedOptions, CursorPayload } from '../types/common.types.js';
+import { PaginatedOptions } from '../types/common.types.js';
 
 const getAllMemberCarePackages = async (req: Request, res: Response, next: NextFunction): Promise<void> => {
   const { start_date_utc, end_date_utc } = req.session;
@@ -10,8 +10,6 @@ const getAllMemberCarePackages = async (req: Request, res: Response, next: NextF
   const beforeCursor: string = req.query.before as string;
   const page = parseInt(req.query.page as string);
   const searchTerm = req.query.searchTerm as string;
-
-  // console.log(`\n${startDate_utc} || ${endDate_utc} \n`);
 
   if (limit <= 0) {
     res.status(400).json({ error: 'Limit must be a positive integer.' });
@@ -22,34 +20,23 @@ const getAllMemberCarePackages = async (req: Request, res: Response, next: NextF
     return;
   }
 
-  let after: CursorPayload | null = null;
-  if (afterCursor) {
-    after = decodeCursor(afterCursor);
-    if (!after) {
-      res.status(400).json({ error: 'Invalid "after" cursor.' });
-      return;
-    }
+  if (afterCursor && !decodeCursor(afterCursor)) {
+    res.status(400).json({ error: 'Invalid "after" cursor.' });
+    return;
   }
 
-  let before: CursorPayload | null = null;
-  if (beforeCursor) {
-    before = decodeCursor(beforeCursor);
-    if (!before) {
-      res.status(400).json({ error: 'Invalid "before" cursor.' });
-      return;
-    }
+  if (beforeCursor && !decodeCursor(beforeCursor)) {
+    res.status(400).json({ error: 'Invalid "before" cursor.' });
+    return;
   }
 
-  // Hybrid logic (Prioritize page over cursors if condition met)
-  if (page && (after || before)) {
+  if (page && (afterCursor || beforeCursor)) {
     console.warn('Both page and cursor parameters provided. Prioritizing page.');
-    after = null;
-    before = null;
   }
 
   const options: PaginatedOptions = {
-    after,
-    before,
+    after: afterCursor || null,
+    before: beforeCursor || null,
     page,
     searchTerm,
   };

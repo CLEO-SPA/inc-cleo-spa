@@ -1,17 +1,17 @@
 export interface PaginatedOptions {
-  after?: CursorPayload | null;
-  before?: CursorPayload | null;
+  after?: string | null;
+  before?: string | null;
   page?: number | null;
   searchTerm?: string | null;
 }
 
 export interface CursorPayload {
-  createdAt?: Date;
-  id?: number;
+  createdAt: Date;
+  id: number;
 }
 
 export interface PaginatedReturn<T> {
-  data: [T];
+  data: T[];
   pageInfo: {
     startCursor?: string | null;
     endCursor?: string | null;
