@@ -68,7 +68,8 @@ BEGIN
           idx,
           rec.appointment_date,
           TO_CHAR(rec.start_time, 'HH24:MI'),
-          TO_CHAR(rec.end_time, 'HH24:MI');
+          TO_CHAR(rec.end_time, 'HH24:MI')
+		USING ERRCODE = 'P0001'; 
       END IF;
       
       rec.servicing_employee_id := v_random_employee_id;
@@ -132,7 +133,8 @@ BEGIN
             idx, idx2,
             COALESCE(v_employee_name, 'Unknown'),
             rec.servicing_employee_id,
-            rec.appointment_date;
+            rec.appointment_date
+		  USING ERRCODE = 'P0002'; 
         END IF;
 
         -- 2) Same member overlap? (p_member_id applies to all new appointments)
@@ -145,7 +147,8 @@ BEGIN
             idx, idx2,
 			COALESCE(v_member_name, 'Unknown'),
             p_member_id,
-            rec.appointment_date;
+            rec.appointment_date
+		  USING ERRCODE = 'P0002'; 
         END IF;
       END IF;
     END LOOP;
@@ -188,7 +191,8 @@ BEGIN
         rec.servicing_employee_id,
         rec.appointment_date,
         TO_CHAR(v_conflict_rec.start_time, 'HH24:MI'),
-        TO_CHAR(v_conflict_rec.end_time, 'HH24:MI');
+        TO_CHAR(v_conflict_rec.end_time, 'HH24:MI')
+	  USING ERRCODE = 'P0003'; 
     END IF;
 
     -- 3b) Check existing appointments for the same member
@@ -212,7 +216,8 @@ BEGIN
         p_member_id,
         rec.appointment_date,
         TO_CHAR(v_conflict_rec.start_time, 'HH24:MI'),
-        TO_CHAR(v_conflict_rec.end_time, 'HH24:MI');
+        TO_CHAR(v_conflict_rec.end_time, 'HH24:MI')
+      USING ERRCODE = 'P0003'; 
     END IF;
   END LOOP;
 

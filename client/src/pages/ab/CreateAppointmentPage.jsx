@@ -1,7 +1,7 @@
 // src/pages/CreateAppointmentPage.jsx (or .tsx)
 import React, { useEffect, useState } from 'react';
 import { useForm, FormProvider } from 'react-hook-form';
-import { useParams, useNavigate } from 'react-router-dom';
+import { useNavigate } from 'react-router-dom';
 import { AppSidebar } from '@/components/app-sidebar';
 import { SiteHeader } from '@/components/site-header';
 import { SidebarInset, SidebarProvider } from '@/components/ui/sidebar';
@@ -14,6 +14,7 @@ import { Label } from '@/components/ui/label';
 import { Textarea } from '@/components/ui/textarea';
 import { Alert, AlertDescription } from '@/components/ui/alert';
 import { CheckCircle, Plus, Trash2 } from 'lucide-react';
+import { useAuth } from '@/context/AuthContext';
 import EmployeeSelect from '@/components/ui/forms/EmployeeSelect';
 import MemberSelect from '@/components/ui/forms/MemberSelect';
 import AppointmentDateTimeSelect from '@/components/ui/forms/AppointmentDateTimeSelect';
@@ -21,6 +22,15 @@ import useAppointmentDateTimeStore from '@/stores/useAppointmentDateTimeStore';
 import useAppointmentStore from '@/stores/useAppointmentStore';
 
 const CreateAppointmentPage = () => {
+  const { user, isAuthenticated, isLoading } = useAuth();
+
+  if (isLoading) {
+    return <p>Loading...</p>;
+  }
+  if (!isAuthenticated) {
+    return <p>Please log in.</p>;
+  }
+
   const navigate = useNavigate();
   const { createAppointment, isCreating, error: storeError, errorMessage: storeErrorMessage } = useAppointmentStore();
 
@@ -28,10 +38,9 @@ const CreateAppointmentPage = () => {
     defaultValues: {
       member_id: '',
       created_at: '',
-      created_by: '',
+      created_by: user.user_id || '', // Default to logged-in user
       appointments: [
         {
-          // id may not be needed for creation; remove id if backend assigns
           servicing_employee_id: '',
           appointment_date: '',
           start_time: '',
@@ -41,16 +50,16 @@ const CreateAppointmentPage = () => {
       ]
     }
   });
-  const { handleSubmit, watch, setValue, reset } = methods;
+  const { handleSubmit, watch, setValue } = methods;
   const formData = watch();
 
-  // Set default created_at to current SGT time and TODO: created_by to logged-in user
+  // Set default created_at to current SGT time
   useEffect(() => {
     const sgtNow = new Date(Date.now() + 8 * 60 * 60 * 1000);
     const val = sgtNow.toISOString().slice(0, 16); // "YYYY-MM-DDTHH:mm"
     setValue('created_at', val);
   }, [setValue]);
-
+  user
   const {
     appointmentWarnings,
     reset: resetDateTimeStore,
@@ -181,6 +190,24 @@ const CreateAppointmentPage = () => {
     setValue('appointments', newAppointments);
   };
 
+  const duplicatePreviousAppointment = () => {
+    const current = formData.appointments || [];
+    if (current.length === 0) return;
+    const last = current[current.length - 1];
+    const duplicated = {
+      servicing_employee_id: last.servicing_employee_id,
+      appointment_date: last.appointment_date,
+      start_time: last.start_time,
+      end_time: last.end_time,
+      remarks: last.remarks,
+    };
+    const newAppointments = [...current, duplicated];
+    setValue('appointments', newAppointments);
+    const newIndex = newAppointments.length - 1;
+    clearWarningForAppointment(newIndex); 
+    clearTimeslots(newIndex); 
+  };
+
   const removeAppointment = (index) => {
     const current = formData.appointments || [];
     if (current.length > 1) {
@@ -265,7 +292,7 @@ const CreateAppointmentPage = () => {
                             <Label>Appointment Date *</Label>
                             <Input
                               type="date"
-                              min={today}
+
                               value={appointment.appointment_date || ''}
                               onChange={(e) => handleAppointmentChange(index, 'appointment_date', e.target.value)}
                               className="h-12"
@@ -312,14 +339,25 @@ const CreateAppointmentPage = () => {
                     </Card>
                   ))}
 
-                  <Button
-                    type="button"
-                    variant='outline'
-                    onClick={addAppointment}
-                    className='w-full h-12 border-dashed border-2 mb-4'
-                  >
-                    <Plus className='mr-2 h-4 w-4' />Add more appointment
-                  </Button>
+                  <div className="flex gap-2 mb-4">
+                    <Button
+                      type="button"
+                      variant="outline"
+                      onClick={addAppointment}
+                      className='flex-1 h-12 border-dashed border-2'
+                    >
+                      <Plus className='mr-2 h-4 w-4' /> Add more appointment
+                    </Button>
+                    <Button
+                      type="button"
+                      variant="outline"
+                      onClick={duplicatePreviousAppointment} 
+                      className='flex-1 h-12 border-dashed border-2'
+                      disabled={!(formData.appointments && formData.appointments.length > 0)} 
+                    >
+                      <Plus className='mr-2 h-4 w-4' /> Duplicate previous appointment 
+                    </Button>
+                  </div>
 
                   {(localError || storeError) && (
                     <Alert className='border-red-200 bg-red-50 mb-4'>

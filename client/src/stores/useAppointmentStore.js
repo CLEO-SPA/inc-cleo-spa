@@ -29,7 +29,7 @@ const useAppointmentStore = create((set, get) => ({
   fetchAppointment: async (id) => {
     set({ isFetching: true, error: false, errorMessage: null });
     try {
-      const response = await api.get(`/ab/${id}`);
+      const response = await api.get(`/ab/id/${id}`);
       // Assuming response.data is the appointment object:
       // { id, member_id, servicing_employee_id, appointment_date, start_time, end_time, remarks, ... }
       set({ selectedAppointment: response.data, isFetching: false });
@@ -51,8 +51,8 @@ const useAppointmentStore = create((set, get) => ({
     try {
       // Clean empty strings to null
       const cleaned = emptyStringToNull(payload);
+      console.log('Creating appointments with payload:', cleaned);
       const response = await api.post('/ab/create', cleaned);
-      // Optionally: refetch appointment list or other data here
       set({ isCreating: false });
       return { success: true, data: response.data };
     } catch (err) {
@@ -70,6 +70,7 @@ const useAppointmentStore = create((set, get) => ({
     set({ isUpdating: true, error: false, errorMessage: null });
     try {
       const cleaned = emptyStringToNull(payload);
+      console.log('Updating appointment with payload:', cleaned);
       const response = await api.put('/ab/update', cleaned);
       // Optionally refetch or update local list
       set({ isUpdating: false });

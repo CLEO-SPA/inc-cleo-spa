@@ -92,9 +92,9 @@ const useAppointmentDateTimeStore = create((set, get) => ({
     set({ isFetching: true, error: false, errorMessage: null });
     try {
      // Build URL with exclude parameter if provided
-      let url = `/ab/employee/${employeeId || 'null'}/date/${appointmentDate}/max-durations`;
+      let url = `/ab/timeslots?employeeId=${employeeId || 'null'}&date=${appointmentDate}`;
       if (excludeAppointmentId) {
-        url += `?exclude_appointment_id=${excludeAppointmentId}`;
+        url += `&excludeAppointmentId=${excludeAppointmentId}`;
       }
 
       const response = await api.get(url);
@@ -154,14 +154,12 @@ const useAppointmentDateTimeStore = create((set, get) => ({
   }) => {
     try {
       // Build URL with exclude parameter if provided
-      let url = `/ab/employee/${employeeId || 'null'}/date/${appointmentDate}/start-time/${startTime}/end-times`;
+      let url = `/ab/timeslots/end-times?employeeId=${employeeId || 'null'}&date=${appointmentDate}&startTime=${startTime}`;
       if (excludeAppointmentId) {
-        url += `?exclude_appointment_id=${excludeAppointmentId}`;
+        url += `&excludeAppointmentId=${excludeAppointmentId}`;
       }
 
       const response = await api.get(url);
-
-      console.log('Available end times for start time:', response.data);
 
       // Expect response.data.availableEndTimes = ["18:30", ...]
       const availableEndTimes = Array.isArray(response.data.availableEndTimes)

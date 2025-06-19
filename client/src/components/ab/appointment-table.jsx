@@ -158,7 +158,7 @@ export function AppointmentTable() {
     const params = new URLSearchParams(location.search);
     const dateString = date.toISOString().split('T')[0];
     params.set('date', dateString);
-    // NEW: set or delete employee_id param
+    // Set or delete employee_id param
     if (filterEmployeeId) {
       params.set('employee_id', filterEmployeeId.toString());
     } else {

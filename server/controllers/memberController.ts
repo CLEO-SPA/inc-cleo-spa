@@ -322,7 +322,6 @@ const getMemberById = async (id: number) => {
 import { Request, Response } from 'express';
 
 const getAllMembersForDropdown = async (req: Request, res: Response) => {
-  console.log("Fetching all members for dropdown");
   try {
     const members = await model.getAllMembersForDropdown();
     res.status(200).json(members);

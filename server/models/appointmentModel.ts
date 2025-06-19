@@ -1,4 +1,5 @@
-import { pool, getProdPool as prodPool } from '../config/database.js';
+/* eslint-disable @typescript-eslint/no-explicit-any */
+import { pool } from '../config/database.js';
 import { format } from 'date-fns';
 
 const getAllAppointments = async (
@@ -13,8 +14,14 @@ const getAllAppointments = async (
 ) => {
   try {
     const now = new Date();
-    const toDateStr = (d: Date | string | null | undefined) =>
-      d instanceof Date ? d.toISOString().split('T')[0] : d?.toString().trim();
+    const toDateStr = (d?: Date | string | null): string | null => {
+      if (d == null) return null;
+      if (d instanceof Date) {
+        return d.toISOString().split('T')[0];
+      }
+      const s = d.toString().trim();
+      return s === '' ? null : s;
+    };
 
     const filters: string[] = [];
     const values: (string | number | null)[] = [limit, offset];
@@ -203,7 +210,6 @@ const validateEmployeeIsActive = async (employeeId: number): Promise<boolean> =>
     }
 
     const employee = result.rows[0];
-    console.log('Employee validation result:', employee.employee_is_active);
     return employee.employee_is_active === true;
   } catch (error) {
     console.error('Error validating employee:', error);
@@ -268,12 +274,18 @@ const createAppointment = async (
     // p_appointments is jsonb array: pass JSON string or JS object
     const query = `CALL create_appointment_ab($1, $2::jsonb, $3, $4)`;
     const values = [memberId, JSON.stringify(appointments), createdBy, createdAt];
+    console.log('Creating appointment with values:', values);
     await pool().query(query, values);
   } catch (error: any) {
     console.error('Error in createAppointment:', error);
-    // Propagate the error message for controller to handle
-    // If Postgres RAISE EXCEPTION, error.message includes the detail
-    throw new Error(error.message || 'Error creating appointments');
+    // Rethrow preserving code and message
+    const err = new Error(error.message);
+    // Attach SQLSTATE code if exists
+    if (error.code) {
+      // @ts-ignore
+      err.code = error.code;
+    }
+    throw err;
   }
 };
 
@@ -306,7 +318,7 @@ export const updateAppointment = async (
 const getMaxDurationFromStartTimes = async (
   date: Date | string,
   employeeId: number | null,
-  excludeAppointmentId: number | null /// NEW
+  excludeAppointmentId: number | null
 ) => {
   try {
     const query = `SELECT * FROM get_max_duration_from_start_time($1, $2, $3)`;

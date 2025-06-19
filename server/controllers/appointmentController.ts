@@ -1,3 +1,4 @@
+/* eslint-disable @typescript-eslint/no-explicit-any */
 import { Request, Response, NextFunction } from 'express';
 import model from '../models/appointmentModel.js';
 
@@ -66,7 +67,6 @@ const getAppointmentsByDate = async (req: Request, res: Response, next: NextFunc
       data: appointments,
     });
   } catch (error) {
-    console.log('Error getting appointments by date:', error);
     const errorMessage = error instanceof Error ? error.message : String(error);
     res.status(500).json({ message: 'Error getting appointments by date', error: errorMessage });
   }
@@ -125,14 +125,13 @@ interface AppointmentUpdateBody {
 
 type AnyBody = AppointmentCreateBody & Partial<AppointmentUpdateBody>;
 
-export const validateEmployeeAndMember = async (
+const validateEmployeeAndMember = async (
   req: Request,
   res: Response,
   next: NextFunction
 ): Promise<any> => {
   try {
     const body = req.body as AnyBody;
-    console.log('Validating employee and member:', body);
 
     const { member_id, created_by, updated_by } = body;
 
@@ -147,8 +146,8 @@ export const validateEmployeeAndMember = async (
     const memberResult = await model.validateMemberIsActive(member_id);
     if (!memberResult) {
       return res
-        .status(400)
-        .json({ message: `Member ID ${member_id} does not exist` });
+        .status(404)
+        .json({ message: `Member ID ${member_id} was not found` });
     }
 
     // 2) Determine operation: create vs update
@@ -176,8 +175,8 @@ export const validateEmployeeAndMember = async (
       const exists = await model.validateEmployeeIsActive(created_by);
       if (!exists) {
         return res
-          .status(400)
-          .json({ message: `created_by employee ID ${created_by} does not exist or is not active` });
+          .status(404)
+          .json({ message: `created_by employee ID ${created_by} was not found or is not active` });
       }
     }
     if (hasUpdatedBy) {
@@ -218,8 +217,8 @@ export const validateEmployeeAndMember = async (
         const exists = await model.validateEmployeeIsActive(empId);
         if (!exists) {
           return res
-            .status(400)
-            .json({ message: `Servicing employee ID ${empId} at appointment index ${idx} does not exist or is not active` });
+            .status(404)
+            .json({ message: `Servicing employee ID ${empId} at appointment index ${idx} was not found or is not active` });
         }
       }
     } else if (hasUpdatedBy) {
@@ -238,8 +237,8 @@ export const validateEmployeeAndMember = async (
         const exists = await model.validateEmployeeIsActive(empId);
         if (!exists) {
           return res
-            .status(400)
-            .json({ message: `Servicing employee ID ${empId} does not exist or is not active` });
+            .status(404)
+            .json({ message: `Servicing employee ID ${empId} was not found or is not active` });
         }
       }
     }
@@ -256,25 +255,10 @@ export const validateEmployeeAndMember = async (
   }
 };
 
-interface AppointmentItem {
-  servicing_employee_id: number;
-  appointment_date: string; // "YYYY-MM-DD"
-  start_time: string;       // ISO timestamp or "YYYY-MM-DDTHH:MM:SS+TZ"
-  end_time: string;
-  remarks?: string;
-}
-
-interface BulkAppointmentBody {
-  member_id: number;
-  appointments: AppointmentItem[];
-  created_by: number;
-  created_at?: string;
-}
-
 
 const createAppointment = async (req: Request, res: Response, next: NextFunction): Promise<any> => {
   try {
-    const body = req.body as BulkAppointmentBody;
+    const body = req.body as AnyBody;
 
     // Basic shape validation
     if (
@@ -303,14 +287,6 @@ const createAppointment = async (req: Request, res: Response, next: NextFunction
       const app = body.appointments[i];
       const idx = i + 1;
 
-      // Validate presence
-      if (app.servicing_employee_id !== null && app.servicing_employee_id !== undefined) {
-        if (typeof app.servicing_employee_id !== 'number' || !Number.isInteger(app.servicing_employee_id) || app.servicing_employee_id <= 0) {
-          return res.status(400).json({ message: `Invalid servicing_employee_id at appointment ${idx}` });
-        }
-      }
-      // else it can be null or undefined -> treated as null for random assignment
-
       if (typeof app.appointment_date !== 'string') {
         return res.status(400).json({ message: `Invalid or missing appointment_date at appointment ${idx}` });
       }
@@ -335,7 +311,6 @@ const createAppointment = async (req: Request, res: Response, next: NextFunction
       // Normalize timestamp helper
       const normalizeTimestamp = (timeStr: string, fieldName: string) => {
         if (timeStr.includes('T')) {
-          // Ideally further validate ISO format?
           return timeStr;
         }
         const hmMatch = timeStr.match(/^(\d{2}):(\d{2})$/);
@@ -419,111 +394,105 @@ const createAppointment = async (req: Request, res: Response, next: NextFunction
     await model.createAppointment(memberId, normAppointments, createdBy, createdAt);
 
     return res.status(201).json({ message: `Successfully created ${normAppointments.length} appointment(s)` });
-  } catch (error) {
+  } catch (error: any) {
     console.error('Error in createAppointment:', error);
-    const msg = error instanceof Error ? error.message : 'Unknown error';
-    const statusCode = /conflict|Invalid/.test(msg) ? 400 : 500;
-    return res.status(statusCode).json({ message: msg });
+    // Determine status by SQLSTATE code if available
+    const code = error.code;  // SQLSTATE from Postgres
+    let statusCode = 500;
+    let message = error.message;
+
+    if (code === 'P0001') {
+      // No available employee
+      statusCode = 409;
+      message = 'No available employee for one or more appointments';
+    } else if (code === 'P0002' || code === 'P0003') {
+      // Conflict detected
+      statusCode = 409;
+      // The error.message from RAISE EXCEPTION already describes which appointment index / time conflict
+      message = error.message;
+    } else if (/Invalid/.test(error.message)) {
+      statusCode = 400;
+    } else {
+      statusCode = 500;
+    }
+    return res.status(statusCode).json({ message });
   }
 };
 
 
-// Get max duration info for all start times
-const getMaxDurationFromStartTimes = async (req: Request, res: Response, next: NextFunction): Promise<any> => {
-  const { employeeId, date } = req.params;
-  const excludeId = req.query.exclude_appointment_id ? parseInt(req.query.exclude_appointment_id as string, 10) : null; /// NEW
+const getAvailableTimeslots = async (req: Request, res: Response, next: NextFunction): Promise<void> => {
+  const { employeeId, date, excludeAppointmentId } = req.query;
 
-  // Parse employeeId
-  const parsedEmployeeId =
-    employeeId === 'null' ||
-      employeeId === 'undefined' ||
-      employeeId === 'anyAvailableStaff'
-      ? null
-      : parseInt(employeeId, 10);
-
-  // Validate date format
-  if (!/^\d{4}-\d{2}-\d{2}$/.test(date)) {
-    return res
-      .status(400)
-      .json({ message: 'Invalid date. Use format YYYY-MM-DD.' });
+  // Input validation
+  const validationErrors = validateTimeslotParams({ employeeId, date });
+  if (validationErrors.length > 0) {
+    res.status(400).json({
+      message: 'Validation failed',
+      errors: validationErrors
+    });
+    return;
   }
+
+  // Parse and sanitize inputs
+  const parsedEmployeeId = parseEmployeeId(employeeId as string);
+  const excludeId = excludeAppointmentId ?
+    parseInt(excludeAppointmentId as string, 10) : null;
 
   try {
     const rows = await model.getMaxDurationFromStartTimes(
-      date,
+      date as string,
       parsedEmployeeId,
       excludeId
     );
 
-    // Format the response
     const maxDurations = rows.map(row => ({
       startTime: row.start_time.slice(0, 5),
       maxEndTime: row.max_end_time.slice(0, 5),
       maxDurationMinutes: row.max_duration_minutes
     }));
 
-    // 3) Fetch warning as before
     const warning = await model.checkRestdayConflict(
       parsedEmployeeId,
-      date
+      date as string
     );
 
     res.status(200).json({
       employeeId: parsedEmployeeId,
       date,
-      maxDurations,
+      maxDurations: maxDurations,
       warning,
     });
   } catch (error) {
-    console.error('Error getting max durations:', error);
-    const msg = error instanceof Error ? error.message : String(error);
-    res.status(500).json({
-      message: 'Error fetching max durations',
-      error: msg,
-    });
+    next(error); // Use error middleware instead of inline handling
   }
 };
 
-// Get available end times for a specific start time
-const getEndTimesForStartTime = async (req: Request, res: Response, next: NextFunction): Promise<any> => {
-  const { employeeId, date, startTime } = req.params;
-  const excludeId = req.query.exclude_appointment_id ? parseInt(req.query.exclude_appointment_id as string, 10) : null;
+const getEndTimesForStartTime = async (req: Request, res: Response, next: NextFunction): Promise<void> => {
+  const { employeeId, date, startTime, excludeAppointmentId } = req.query;
 
-  // Parse employeeId
-  const parsedEmployeeId =
-    employeeId === 'null' ||
-      employeeId === 'undefined' ||
-      employeeId === 'anyAvailableStaff'
-      ? null
-      : parseInt(employeeId, 10);
-
-  // Validate date format
-  if (!/^\d{4}-\d{2}-\d{2}$/.test(date)) {
-    return res
-      .status(400)
-      .json({ message: 'Invalid date. Use format YYYY-MM-DD.' });
+  // Input validation
+  const validationErrors = validateEndTimeParams({ employeeId, date, startTime });
+  if (validationErrors.length > 0) {
+    res.status(400).json({
+      message: 'Validation failed',
+      errors: validationErrors
+    });
+    return;
   }
 
-  // Validate time format HH:MM
-  if (!/^\d{2}:\d{2}$/.test(startTime)) {
-    return res
-      .status(400)
-      .json({ message: 'Invalid startTime. Use format HH:MM.' });
-  }
+  const parsedEmployeeId = parseEmployeeId(employeeId as string);
+  const excludeId = excludeAppointmentId ?
+    parseInt(excludeAppointmentId as string, 10) : null;
 
   try {
-    // Fetch available end times for the specific start time
     const endTimes = await model.getEndTimesForStartTime(
-      date,
-      startTime,
+      date as string,
+      startTime as string,
       parsedEmployeeId,
       excludeId
     );
 
-    // Format to HH:MM
-    const formattedEndTimes = endTimes.map(row =>
-      row.end_time.slice(0, 5)
-    );
+    const formattedEndTimes = endTimes.map(row => row.end_time.slice(0, 5));
 
     res.status(200).json({
       employeeId: parsedEmployeeId,
@@ -532,30 +501,39 @@ const getEndTimesForStartTime = async (req: Request, res: Response, next: NextFu
       availableEndTimes: formattedEndTimes,
     });
   } catch (error) {
-    console.error('Error getting end times for start time:', error);
-    const msg = error instanceof Error ? error.message : String(error);
-    res.status(500).json({
-      message: 'Error fetching end times for start time',
-      error: msg,
-    });
+    next(error);
   }
 };
 
-interface AppointmentItemUpdate {
-  id: number;
-  servicing_employee_id: number | null;
-  appointment_date: string; // "YYYY-MM-DD"
-  start_time: string;       // ISO timestamp or "HH:MM"
-  end_time: string;         // same
-  remarks: string;
-}
+// Helper functions for better maintainability
+const parseEmployeeId = (employeeId: string): number | null => {
+  if (employeeId === 'null' ||
+    employeeId === 'undefined' ||
+    employeeId === 'anyAvailableStaff') {
+    return null;
+  }
+  return parseInt(employeeId, 10);
+};
 
-interface UpdateSingleAppointmentBody {
-  member_id: number;
-  appointment: AppointmentItemUpdate; // single object
-  updated_by: number;
-  updated_at?: string;
-}
+const validateTimeslotParams = (params: any): string[] => {
+  const errors: string[] = [];
+
+  if (!params.date || !/^\d{4}-\d{2}-\d{2}$/.test(params.date)) {
+    errors.push('Invalid date format. Use YYYY-MM-DD.');
+  }
+
+  return errors;
+};
+
+const validateEndTimeParams = (params: any): string[] => {
+  const errors = validateTimeslotParams(params);
+
+  if (!params.startTime || !/^\d{2}:\d{2}$/.test(params.startTime)) {
+    errors.push('Invalid startTime format. Use HH:MM.');
+  }
+
+  return errors;
+};
 
 const updateAppointment = async (
   req: Request,
@@ -563,7 +541,7 @@ const updateAppointment = async (
   next: NextFunction
 ): Promise<any> => {
   try {
-    const body = req.body as UpdateSingleAppointmentBody;
+    const body = req.body as AnyBody;
 
     // Basic shape validation
     if (
@@ -580,7 +558,7 @@ const updateAppointment = async (
     const updatedAt = body.updated_at || new Date().toISOString();
 
     const app = body.appointment;
-    
+
     if (typeof app.id === 'string') {
       app.id = parseInt(app.id, 10);
     }
@@ -706,6 +684,6 @@ export default {
   validateEmployeeAndMember,
   createAppointment,
   updateAppointment,
-  getMaxDurationFromStartTimes,
+  getAvailableTimeslots,
   getEndTimesForStartTime
 };

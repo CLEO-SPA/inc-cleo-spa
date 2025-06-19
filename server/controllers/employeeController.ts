@@ -258,7 +258,6 @@ const getAllEmployees = async (req: Request, res: Response, next: NextFunction) 
       data: employees,
     });
   } catch (error) {
-    console.log('Error getting employees:', error);
     res.status(500).json({ message: 'Error getting employees', error: error });
   }
 };
@@ -282,7 +281,6 @@ const regenerateInvitationLink = async (req: Request, res: Response, next: NextF
 };
 
 const getAllEmployeesForDropdown = async (req: Request, res: Response, next: NextFunction) => {
-  console.log('Fetching all employees for dropdown');
   try {
     const employees = await model.getAllEmployeesForDropdown();
     res.status(200).json(employees);

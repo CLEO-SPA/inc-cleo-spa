@@ -26,7 +26,6 @@ export function MemberSelect({
   label = "Assigned Member *",
   disabled: customDisabled = false,
   customOptions = [],
-  // Add these new props for non-form usage
   value,
   onValueChange,
   placeholder,
@@ -59,70 +58,6 @@ export function MemberSelect({
     }
   }, [members.length, loading, fetchDropdownMembers]);
 
-  // If no form context and external props provided, render standalone
-  if (!formContext && (value !== undefined || onValueChange)) {
-    return (
-      <div className="space-y-2">
-        <Label htmlFor={name} className="text-sm font-medium text-gray-700">
-          {label}
-        </Label>
-        <div className="relative">
-          <Select
-            disabled={loading || error || customDisabled}
-            value={value?.toString() || ""}
-            onValueChange={(val) => {
-              onValueChange?.(Number(val));
-              setIsOpen(false);
-              setSearchTerm("");
-            }}
-            open={isOpen}
-            onOpenChange={setIsOpen}
-          >
-            <SelectTrigger>
-              <SelectValue
-                placeholder={
-                  placeholder ||
-                  (loading
-                    ? "Loading members..."
-                    : error
-                    ? "Error loading members"
-                    : "Select member")
-                }
-              />
-            </SelectTrigger>
-            <SelectContent>
-              <div className="p-2 border-b">
-                <Input
-                  placeholder="Search members..."
-                  value={searchTerm}
-                  onChange={(e) => setSearchTerm(e.target.value)}
-                  className="h-8"
-                />
-              </div>
-              <div className="max-h-48 overflow-y-auto">
-                {filteredMembers.length > 0 ? (
-                  filteredMembers.map((member) => (
-                    <SelectItem key={member.id} value={member.id.toString()}>
-                      {formatMemberDisplay(member)}
-                    </SelectItem>
-                  ))
-                ) : (
-                  <div className="p-2 text-sm text-gray-500">
-                    No members found
-                  </div>
-                )}
-              </div>
-            </SelectContent>
-          </Select>
-        </div>
-        {error && (
-          <p className="text-red-500 text-xs">Failed to load members: {error}</p>
-        )}
-      </div>
-    );
-  }
-
-  // Original form-based logic
   const {
     control,
     formState: { errors },

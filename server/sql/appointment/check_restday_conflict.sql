@@ -4,7 +4,7 @@
  *           Returns a user-friendly warning string if there’s a conflict, or NULL otherwise.
  *
  * Context :
- *   – Used by the front end to warn (but not block) booking creation when the employee is off.
+ *   – Used by the front end to warn (but not block unless creating 1 appointment) booking creation when the employee is off.
  *   – Employees remain able to create the appointment despite the warning.
  *
  * Signature:
@@ -54,7 +54,7 @@ BEGIN
    LIMIT 1;
 
   IF FOUND THEN
-    -- build a clear, localized warning:
+    -- build a clear, localised warning:
     RETURN CONCAT(
       'Warning: ', v_name,
       ' has a rest day on ',

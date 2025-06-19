@@ -20,7 +20,7 @@ export function AppointmentDateTimeSelect({
   isStartTime = true,
   otherTimeValue = null,    // for start select: otherTimeValue is selected end; for end select: otherTimeValue is selected start
   appointmentIndex = 0,
-  excludeAppointmentId = null, // New prop for edit mode
+  excludeAppointmentId = null, // Proposed to exclude a specific appointment from the fetch (e.g. when editing an existing appointment)
 }) {
   const {
     // renamed in store:
@@ -58,8 +58,7 @@ export function AppointmentDateTimeSelect({
   useEffect(() => {
     if (isStartTime) {
       if (hasValidDate && hasValidEmployee && currentFetchKey !== lastFetchKey) {
-        console.log('Fetching start times for appointment', appointmentIndex, ':', { employeeId, appointmentDate });
-        fetchTimeslots({ employeeId, appointmentDate, appointmentIndex, excludeAppointmentId  });
+        fetchTimeslots({ employeeId, appointmentDate, appointmentIndex, excludeAppointmentId });
         setLastFetchKey(currentFetchKey);
       } else if (!hasValidDate || !hasValidEmployee) {
         // reset key so future valid changes trigger fetch
@@ -77,7 +76,7 @@ export function AppointmentDateTimeSelect({
     currentFetchKey,
     lastFetchKey,
     appointmentIndex,
-    excludeAppointmentId, 
+    excludeAppointmentId,
   ]);
 
   // When this is the end-time select, and the start time (`otherTimeValue`) changes,
@@ -88,13 +87,12 @@ export function AppointmentDateTimeSelect({
       // Clear previous end times if start changed
       // (store will overwrite on fetch)
       if (selectedStartTime && hasValidDate && hasValidEmployee) {
-        console.log('Fetching end times for appointment', appointmentIndex, 'startTime:', selectedStartTime);
         fetchEndTimesForStartTime({
           employeeId,
           appointmentDate,
           startTime: selectedStartTime,
           appointmentIndex,
-          excludeAppointmentId, 
+          excludeAppointmentId,
         });
       } else {
         // If no valid start or inputs missing, clear endTimeSlots for this appointment
@@ -160,7 +158,6 @@ export function AppointmentDateTimeSelect({
 
   useEffect(() => {
     if (value && !isCurrentValueValid) {
-      console.log('Clearing invalid time value for appointment', appointmentIndex, ':', value);
       onChange('');
     }
   }, [value, isCurrentValueValid, onChange, appointmentIndex]);
@@ -197,6 +194,36 @@ export function AppointmentDateTimeSelect({
     return placeholder;
   };
 
+  const getDisplayLabel = (time) => {
+    if (isStartTime) {
+      return time;
+    }
+    if (otherTimeValue) {
+      const toMinutes = (t) => {
+        const [h, m] = t.split(':').map(Number);
+        return h * 60 + m;
+      };
+      const startMins = toMinutes(otherTimeValue);
+      const slotMins = toMinutes(time);
+      const diff = slotMins - startMins;
+      if (diff > 0) {
+        if (diff < 60) {
+          // under an hour: show minutes
+          return `${time} (${diff} mins)`;
+        } else {
+          const hrs = Math.floor(diff / 60);
+          const mins = diff % 60;
+          if (mins === 0) {
+            return `${time} (${hrs} hr${hrs > 1 ? 's' : ''})`;
+          } else {
+            return `${time} (${hrs} hr${hrs > 1 ? 's' : ''} ${mins} mins)`;
+          }
+        }
+      }
+    }
+    return time;
+  };
+
   return (
     <div className="space-y-2">
       <Label>{label}</Label>
@@ -209,15 +236,18 @@ export function AppointmentDateTimeSelect({
           <SelectValue placeholder={getPlaceholder()} />
         </SelectTrigger>
         <SelectContent>
-          {hasValidDate &&
-            hasValidEmployee &&
-            !error &&
-            !isCurrentlyFetching &&
-            filteredTimeslots.map((time) => (
-              <SelectItem key={time} value={time}>
-                {time}
-              </SelectItem>
-            ))}
+          <div className="max-h-48 overflow-y-auto">
+            {hasValidDate &&
+              hasValidEmployee &&
+              !error &&
+              !isCurrentlyFetching &&
+              filteredTimeslots.map((time) => (
+                <SelectItem key={time} value={time}>
+                  {getDisplayLabel(time)}
+                </SelectItem>
+              ))
+            }
+          </div>
         </SelectContent>
       </Select>
       {error && errorMessage && (
