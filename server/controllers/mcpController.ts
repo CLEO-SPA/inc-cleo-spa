@@ -306,6 +306,24 @@ const enableMemberCarePackage = async (req: Request, res: Response, next: NextFu
   }
 };
 
+const transferMemberCarePackage = async (req: Request, res: Response, next: NextFunction): Promise<void> => {
+  try {
+    const { mcp_id1, mcp_id2 } = req.body;
+
+    if (!mcp_id1 && !mcp_id2) {
+      res.status(400).json({ message: 'Missing required fields or invalid data format' });
+      return;
+    }
+
+    const results = await model.transferMemberCarePackage(mcp_id1, mcp_id2);
+
+    res.status(200).json(results);
+  } catch (error) {
+    console.error('Error transfering member care package', error);
+    next(error);
+  }
+};
+
 interface servicePayload {
   id: string;
   name: string;
@@ -440,5 +458,6 @@ export default {
   createConsumption,
   removeMemberCarePackage,
   enableMemberCarePackage,
+  transferMemberCarePackage,
   emulateMemberCarePackage,
 };

@@ -864,6 +864,53 @@ const checkMcpUpdatable = async (id: string) => {
   }
 };
 
+const transferMemberCarePackage = async (mcp_id1: string, mcp_id2: string) => {
+  const client = await pool().connect();
+  try {
+    await client.query('BEGIN');
+
+    const [mcp1, mcp2] = await Promise.all([
+      client.query<MemberCarePackages>('SELECT * FROM member_care_packages WHERE id = $1', [mcp_id1]),
+      client.query<MemberCarePackages>('SELECT * FROM member_care_packages WHERE id = $1', [mcp_id2]),
+    ]);
+
+    if (mcp1.rowCount === 0) {
+      throw new Error(`Invalid Member Care Package Id: ${mcp_id1} does not exists`);
+    }
+
+    if (mcp2.rowCount === 0) {
+      throw new Error(`Invalid Member Care Package Id: ${mcp_id2} does not exists`);
+    }
+
+    // Check balance to transfer
+    if (mcp1.rows[0].balance <= 0) {
+      throw new Error('Invalid balance to tansfer');
+    }
+
+    const u_mcp = `
+      UPDATE member_care_packages
+      SET balance = $1
+      WHERE id = $2;
+    `;
+
+    await Promise.all([
+      client.query(u_mcp, [0, mcp1.rows[0].id]),
+      client.query(u_mcp, [mcp1.rows[0].balance + mcp2.rows[0].balance, mcp2.rows[0].id]),
+    ]);
+
+    await client.query('COMMIT');
+  } catch (error) {
+    console.error('Error transfering member care package:', error);
+    await client.query('ROLLBACK');
+    if (error instanceof Error) {
+      throw error;
+    }
+    throw new Error('An unexpected error occurred while transfering the member care package.');
+  } finally {
+    client.release();
+  }
+};
+
 interface emulatePayload {
   id?: string;
   package_name: string;
@@ -1173,5 +1220,6 @@ export default {
   createConsumption,
   enableMemberCarePackage,
   checkMcpUpdatable,
+  transferMemberCarePackage,
   emulateMemberCarePackage,
 };

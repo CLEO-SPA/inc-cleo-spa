@@ -23,6 +23,7 @@ router.get('/pkg/:id', controller.getMemberCarePackageById);
 router.post('/create', controller.createMemberCarePackage);
 router.post('/enable', controller.enableMemberCarePackage);
 router.post('/consume', controller.createConsumption);
+router.post('/transfer', controller.transferMemberCarePackage);
 
 router.put('/update', controller.updateMemberCarePackage);
 
