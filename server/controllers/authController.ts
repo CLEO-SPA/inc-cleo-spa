@@ -23,7 +23,7 @@ const isAuthenticated = (req: Request, res: Response, next: NextFunction): void 
         req.session.role = decoded.role;
         req.session.save();
 
-        // console.log('My date from cookie', req.session.end_date_utc);
+        console.log('My date from cookie', req.session.end_date_utc);
       }
       res.status(200).json({
         isAuthenticated: true,
