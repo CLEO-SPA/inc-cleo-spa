@@ -20,7 +20,7 @@ const ViewCarePackageDetailsPage = () => {
   const { currentPackage, isLoading, error, fetchPackageById, clearCurrentPackage, clearError, deletePackage } =
     useCpSpecificStore();
   const { getEnabledServiceById } = useCpFormStore();
-  const { statuses, user } = useAuth();
+  const { user } = useAuth();
   const navigate = useNavigate();
 
   // state for service names and complete service data
@@ -136,9 +136,11 @@ const ViewCarePackageDetailsPage = () => {
     setDeleteDialogOpen(false);
   };
 
-  // check if package is enabled (active)
+  // check if package is enabled (active) - now works with string status
   const isPackageEnabled = (pkg) => {
-    return pkg.status_id === 1; // status_id 1 is enabled
+    if (!pkg) return false;
+    const status = pkg.status || pkg.status_name;
+    return status === 'ENABLED';
   };
 
   // check if package can be deleted
@@ -152,20 +154,19 @@ const ViewCarePackageDetailsPage = () => {
     if (!pkg) return 'Package not found.';
 
     if (isPackageEnabled(pkg)) {
-      return 'This care package is currently enabled and cannot be deleted. Please disable the package first by changing its status to "Inactive" before attempting deletion.';
+      return 'This care package is currently enabled and cannot be deleted. Please disable the package first by changing its status to "DISABLED" before attempting deletion.';
     }
 
     return null;
   };
 
+  // status color mapping
   const getStatusColor = (status) => {
-    switch (status?.toLowerCase()) {
-      case 'active':
-        return 'bg-green-100 text-green-800 border border-green-200';
-      case 'inactive':
-        return 'bg-gray-100 text-gray-700 border border-gray-300';
-      case 'draft':
-        return 'bg-yellow-100 text-yellow-800 border border-yellow-200';
+    switch (status?.toUpperCase()) {
+      case 'ENABLED':
+        return 'bg-slate-100 text-slate-700';
+      case 'DISABLED':
+        return 'bbg-gray-200 text-gray-600';
       default:
         return 'bg-gray-100 text-gray-600 border border-gray-200';
     }
@@ -219,12 +220,8 @@ const ViewCarePackageDetailsPage = () => {
     const packageDetails = currentPackage.details || [];
     const transformedServices = transformPackageDetailsToServices(packageDetails);
 
-    const getStatusById = (id) => {
-      if (!statuses || statuses.length === 0) return null;
-      return statuses.find((status) => status.id == id);
-    };
-
-    const currentStatus = getStatusById(packageData.status_id);
+    // get current status 
+    const currentStatus = packageData.status || packageData.status_name || 'UNKNOWN';
     const isDeletable = canDeletePackage(packageData);
 
     // calculate total package value
@@ -285,7 +282,7 @@ const ViewCarePackageDetailsPage = () => {
         {/* main content */}
         <div className='max-w-7xl mx-auto px-4 py-2'>
           <div className='space-y-3'>
-            {/* Package Information Card */}
+            {/* package information card */}
             <Card className='border-gray-200 shadow-sm'>
               <CardHeader className='border-b border-gray-100 px-4 py-1'>
                 <CardTitle className='flex items-center text-gray-900 text-base font-semibold'>
@@ -313,11 +310,9 @@ const ViewCarePackageDetailsPage = () => {
                     <label className='block text-xs font-medium text-gray-600 mb-1'>STATUS</label>
                     <div className='flex items-center gap-2'>
                       <span
-                        className={`inline-flex px-2 py-1 rounded text-xs font-medium ${getStatusColor(
-                          currentStatus?.status_name
-                        )}`}
+                        className={`inline-flex px-2 py-1 rounded text-xs font-medium ${getStatusColor(currentStatus)}`}
                       >
-                        {currentStatus?.status_name || 'Unknown'}
+                        {currentStatus}
                       </span>
                       {isPackageEnabled(packageData) && canDelete && (
                         <div className='group relative'>
@@ -491,7 +486,7 @@ const ViewCarePackageDetailsPage = () => {
                   <strong>Price:</strong> ${parseFloat(currentPackage.package.care_package_price || 0).toFixed(2)}
                 </div>
                 <div>
-                  <strong>Status:</strong> {currentStatus?.status_name || 'Unknown'}
+                  <strong>Status:</strong> {currentPackage.package.status || currentPackage.package.status_name || 'Unknown'}
                 </div>
                 <div>
                   <strong>Services:</strong> {transformedServices.length} service
