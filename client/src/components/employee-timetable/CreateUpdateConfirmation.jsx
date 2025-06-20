@@ -21,29 +21,6 @@ const CreateUpdateConfirmation = ({
 
   const hasConflicts = conflictDetails.length > 0;
 
-  // Message about existing timetable being updated
-  let previousTimetableMessage = '';
-  if (updatedPreviousTimetable) {
-    previousTimetableMessage = `The timetable with rest day ${
-      dayNames[updatedPreviousTimetable.restday_number - 1]
-    } and effective start date from ${
-      updatedPreviousTimetable.effective_startdate.split('T')[0]
-    } has been updated to end on ${updatedPreviousTimetable.effective_enddate.split('T')[0]}.`;
-  }
-
-  // Message if the new timetable OR current updated timetable is updated with an end date
-  let newTimetableMessage = '';
-  if (updatedNewTimetableEffectiveEndDate) {
-    newTimetableMessage =
-      mode === 'update'
-        ? `The current updated timetable with rest day ${dayNames[restday_number - 1]} and effective start date from ${
-            effective_startdate?.split('T')[0] || '—'
-          } has been set to end on ${updatedNewTimetableEffectiveEndDate.split('T')[0]}.`
-        : `The new timetable with rest day ${dayNames[restday_number - 1]} and effective start date from ${
-            effective_startdate?.split('T')[0] || '—'
-          } has been set to end on ${updatedNewTimetableEffectiveEndDate.split('T')[0]}.`;
-  }
-
   return (
     <div className='space-y-6'>
       <div>
@@ -53,9 +30,14 @@ const CreateUpdateConfirmation = ({
         </p>
       </div>
 
-      <div className='space-y-2 text-sm'>
+      <div className='space-y-2 text-sm py-5 border-b'>
         <table className='min-w-full table-auto'>
           <thead>
+            <tr>
+              <td colSpan={2} className='px-4 py-3 font-semibold text-sm border-t bg-white'>
+                The details of the {mode === 'update' ? 'updated' : 'newly created'} timetable:
+              </td>
+            </tr>
             <tr>
               <th className='px-4 py-2 text-left'>Field</th>
               <th className='px-4 py-2 text-left'>Details</th>
@@ -108,36 +90,62 @@ const CreateUpdateConfirmation = ({
       </div>
 
       {/* Message about existing timetable being updated */}
-      {previousTimetableMessage && (
-        <div className='bg-gray-100 border border-gray-300 p-4 rounded'>
-          <p className='font-semibold'>Updated Existing Timetable:</p>
-          <p>{previousTimetableMessage}</p>
+      {updatedPreviousTimetable && (
+        <div className='p-4 border rounded space-y-2'>
+          <p className='font-semibold'>Existing Timetable Updated</p>
+          <ul className='list-disc pl-6 text-sm leading-relaxed'>
+            <li>Rest Day: {dayNames[updatedPreviousTimetable.restday_number - 1]}</li>
+            <li>Start Date: {updatedPreviousTimetable.effective_startdate.split('T')[0]}</li>
+            <li>
+              <div>
+                <strong>Updated End Date: {updatedPreviousTimetable.effective_enddate.split('T')[0]} </strong>
+                <div className='text-sm text-muted-foreground'>
+                  (The end date is updated to 1 day before the effective start date of the new timetable)
+                </div>
+              </div>
+            </li>
+          </ul>
         </div>
       )}
 
       {/* Message if the new timetable/updated timetable is updated with an end date */}
-      {newTimetableMessage && (
-        <div className='bg-gray-100 border border-gray-300 p-4 rounded'>
+      {updatedNewTimetableEffectiveEndDate && (
+        <div className='p-4 border rounded space-y-2'>
           <p className='font-semibold'>
-            {mode === 'update' ? 'Current Updated Timetable:' : 'New Timetable End Date:'}
+            {mode === 'update' ? 'Timetable End Date Updated' : 'New Timetable End Date Updated'}
           </p>
-          <p>{newTimetableMessage}</p>
+          <ul className='list-disc pl-6 text-sm leading-relaxed'>
+            <li>Rest Day: {dayNames[restday_number - 1]}</li>
+            <li>Start Date: {effective_startdate?.split('T')[0] || '—'}</li>
+            <li>
+              <div>
+                <strong>Updated End Date: {updatedNewTimetableEffectiveEndDate.split('T')[0]}</strong>
+                <div className='text-sm text-muted-foreground'>
+                  (The end date is updated to 1 day before the effective start date of the existing upcoming timetable)
+                </div>
+              </div>
+            </li>
+          </ul>
         </div>
       )}
 
       {/* Appointment conflict warning section */}
       {hasConflicts && (
-        <div className='bg-gray-100 border border-gray-300 p-4 rounded'>
-          <p className='font-semibold mb-2'>Warning: Appointment Conflicts Detected</p>
-          <ul className='list-disc pl-6'>
-            {conflictDetails.map(({ rest_day_date, conflicted_count }, index) => {
-              return (
-                <li key={index}>
-                  {conflicted_count} appointment{conflicted_count > 1 ? 's' : ''} scheduled on {rest_day_date} (
-                  {dayNames[restday_number - 1]})
-                </li>
-              );
-            })}
+        <div className='p-4 border rounded space-y-2'>
+          <p className='font-semibold'>Appointment Conflicts Detected</p>
+          <ul className='list-disc pl-6 text-sm leading-relaxed space-y-1'>
+            {conflictDetails.map(({ rest_day_date, conflicted_count }, index) => (
+              <li key={index}>
+                <strong>
+                  {conflicted_count} appointment{conflicted_count > 1 ? 's' : ''}
+                </strong>{' '}
+                scheduled on{' '}
+                <strong>
+                  {rest_day_date} ({dayNames[restday_number - 1]}
+                </strong>
+                )
+              </li>
+            ))}
           </ul>
         </div>
       )}

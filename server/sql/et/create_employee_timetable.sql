@@ -47,7 +47,7 @@ BEGIN
     END IF;
 
     -- 4. Identify previous timetable (latest timetable with end date before new start date or open-ended)
-    SELECT id, effective_startdate, effective_enddate INTO v_prev_id, v_next_startdate, v_new_enddate FROM timetables
+    SELECT id INTO v_prev_id FROM timetables
     WHERE employee_id = p_employee_id
     AND effective_startdate < p_effective_startdate
     ORDER BY effective_startdate DESC
