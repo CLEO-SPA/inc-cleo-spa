@@ -10,7 +10,7 @@ import { Label } from '@/components/ui/label';
 import { Button } from '@/components/ui/button';
 
 import EmployeeSelect from '@/components/ui/forms/EmployeeSelect';
-import DateTimePicker from '@/components/employee-timetable/DateTimePicker';
+import FormDateTimePicker from '@/components/employee-timetable/FormDateTimePicker';
 import RestDaySelect from '@/components/employee-timetable/RestDaySelect';
 import CurrentDateDisplay, { getCurrentSimulationDate } from '@/components/employee-timetable/CurrentDateDisplay';
 import TimetableReview from '@/components/employee-timetable/TimetableReview';
@@ -48,7 +48,7 @@ export default function UpdateEmployeeTimetablePage() {
 
       try {
         const result = await fetchTimetableById(timetableId);
-        const data = result?.data;
+        const data = result;
 
         if (data) {
           setValue('employee_id', data.employee_id);
@@ -62,8 +62,6 @@ export default function UpdateEmployeeTimetablePage() {
         }
       } catch (err) {
         setError(err.message || 'Failed to fetch timetable.');
-      } finally {
-        setLoading(false);
       }
     };
 
@@ -86,6 +84,7 @@ export default function UpdateEmployeeTimetablePage() {
 
   const handleFinalSubmit = async () => {
     const now = format(getCurrentSimulationDate(), 'yyyy-MM-dd');
+    const updated_at = format(getCurrentSimulationDate(), "yyyy-MM-dd'T'HH:mm:ssxxx");
 
     const getRestDayNumber = (dayName) => {
       const days = ['Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday', 'Sunday'];
@@ -99,7 +98,7 @@ export default function UpdateEmployeeTimetablePage() {
       effective_start_date: startDate,
       effective_end_date: endDate,
       updated_by: updatedBy,
-      updated_at: now,
+      updated_at: updated_at,
     };
 
     try {
@@ -176,14 +175,14 @@ export default function UpdateEmployeeTimetablePage() {
                       </div>
 
                       <div className='grid grid-cols-2 gap-6'>
-                        <DateTimePicker
+                        <FormDateTimePicker
                           label='Effective Start Date'
                           name='start_date'
                           date={startDate}
                           onDateChange={setStartDate}
                           optional
                         />
-                        <DateTimePicker
+                        <FormDateTimePicker
                           label='Effective End Date'
                           name='end_date'
                           date={endDate}
