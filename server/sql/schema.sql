@@ -90,6 +90,7 @@ CREATE TABLE "employees" (
     "employee_contact" VARCHAR(20) NOT NULL,
     "employee_email" VARCHAR(255) NOT NULL,
     "employee_is_active" BOOLEAN NOT NULL,
+    "employee_is_active" BOOLEAN NOT NULL,
     "verified_status_id" BIGINT NOT NULL,
     "employee_name" VARCHAR(100) NOT NULL,
     "updated_at" TIMESTAMPTZ(6) NOT NULL,

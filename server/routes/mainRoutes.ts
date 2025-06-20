@@ -9,11 +9,16 @@ import sessionRoutes from './sessionRoutes.js';
 import serviceRoutes from './serviceRoutes.js';
 import memberRoutes from './memberRoutes.js';
 import carePackageRoutes from './cpRoutes.js';
+<<<<<<< HEAD
 import membershipTypeRoutes from './membershipTypeRoutes.js';
 import memberCarePackageRoutes from './mcpRoutes.js';
 import employeeRoutes from './employeeRoutes.js';
 import voucherTemplateRoutes from './voucherTemplateRoutes.js';
 import memberVoucherRoutes from './memberVoucherRoutes.js';
+=======
+import paymentMethodRoutes from './paymentMethodRoutes.js';
+// import employeeRoutes from './employeeRoutes.js';
+>>>>>>> feature/payment-method
 
 router.use(simulationMiddleware);
 import  stRoutes from './stRoutes.js';
@@ -25,11 +30,17 @@ router.use('/mv', memberVoucherRoutes);
 router.use('/service', serviceRoutes);
 router.use('/member', memberRoutes);
 router.use('/cp', carePackageRoutes);
+<<<<<<< HEAD
 router.use('/membership-type', membershipTypeRoutes);
 router.use('/mcp', memberCarePackageRoutes);
 router.use('/em', employeeRoutes);
 router.use('/voucher-template', voucherTemplateRoutes);
 router.use('/st', stRoutes);
+=======
+router.use('/payment-method', paymentMethodRoutes);
+// router.use('/employee', employeeRoutes);
+
+>>>>>>> feature/payment-method
 // router.use('/sa', superAdminRoutes);
 
 export default router;

@@ -1,5 +1,5 @@
 import * as React from 'react';
-import { Command, Users, CalendarDays, ShieldUser, Box, Wand, LayoutDashboard, SquareUserRound, Package, Tickets, ChartColumnStacked  } from 'lucide-react';
+import { Command, Users, CalendarDays, ShieldUser, Box, Wand, LayoutDashboard, SquareUserRound, Package, Tickets, ChartColumnStacked, CreditCard } from 'lucide-react';
 import { NavMain } from '@/components/nav-main';
 import { NavUser } from '@/components/nav-user';
 import {
@@ -151,6 +151,18 @@ const data = {
         {
           title: 'Add New Appointment',
           url: '#',
+        },
+      ],
+    },
+        {
+      title: 'Payment Methods',
+      url: '/payment-method',
+      icon: CreditCard ,
+      items: [
+        {
+          title: 'Manage Payment Methods',
+          url: '/payment-method',
+
         },
       ],
     },

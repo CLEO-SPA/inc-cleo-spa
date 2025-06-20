@@ -47,6 +47,11 @@ import CreateConsumptionPage from '@/pages/CarePackages/CreateConsumptionPage';
 
 // Employees
 import ManagePositions from '@/pages/em/ManagePositions';
+import ManagePaymentMethodsPage from './pages/payment-method/ManagePaymentMethodsPage';
+import CreatePaymentMethodPage from './pages/payment-method/CreatePaymentMethodPage';
+import EditPaymentMethodPage from './pages/payment-method/EditPaymentMethodPage';
+import TestPMComponent from './pages/sale-transaction/AddPMMComponentTest';
+
 
 function App() {
   return (
@@ -58,6 +63,7 @@ function App() {
             <Route path='/' element={<ProtectedRoute />}>
               <Route index element={<HomePage />} />
 
+              {/* Member Management */}
               {/* Member Management */}
               <Route path='/member' element={<ManageMembersPage />} />
               <Route path='/member/create' element={<CreateMemberPage />} />
@@ -108,6 +114,11 @@ function App() {
               {/* statistics */}
               <Route path='/dbcr' element={<DatabaseReportPage />} />
 
+              {/* Payment Methods Management */}
+              <Route path='/payment-method' element={<ManagePaymentMethodsPage/>} /> 
+              <Route path='/payment-method/create' element={<CreatePaymentMethodPage />} />   
+              <Route path="/payment-method/edit/:id" element={<EditPaymentMethodPage />} />
+              <Route path="/payment-method/test" element={<TestPMComponent />} />
             </Route>
             <Route path='/login' element={<LoginPage />} />
 

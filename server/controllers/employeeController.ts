@@ -28,6 +28,7 @@ const loginEmployee = async (req: Request, res: Response, next: NextFunction) =>
       req.session.start_date_utc = getCurrentSimStatus().isActive ? start_date_utc : null;
       req.session.end_date_utc = getCurrentSimStatus().isActive ? end_date_utc : new Date().toUTCString();
       req.session.end_date_is_default = getCurrentSimStatus().isActive ? false : true;
+      req.session.end_date_is_default = getCurrentSimStatus().isActive ? false : true;
       req.session.user_id = res.locals.user_id;
       req.session.username = res.locals.username;
       req.session.email = res.locals.email;
