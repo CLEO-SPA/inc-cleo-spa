@@ -3,7 +3,7 @@ import { Request, Response, NextFunction } from 'express';
 import timetableModel from '../models/timetableModel.js';
 
 /**
- * Get /api/et/current-and-upcoming/:employeeId
+ * Get /api/et/current-and-upcoming/:employeeId?currentDate=YYYY-MM-DD
  * This endpoint retrieves current and upcoming timetables by employee id
  */
 const getCurrentAndUpcomingTimetables = async (req: Request, res: Response, next: NextFunction) => {
@@ -16,7 +16,6 @@ const getCurrentAndUpcomingTimetables = async (req: Request, res: Response, next
   }
 
   const currentDateTime = new Date(currentDate as string).toISOString();
-  console.log('currentDateTime, ' + currentDateTime);
 
   try {
     const { current, upcoming } = await timetableModel.getCurrentAndUpcomingTimetables(
@@ -31,16 +30,16 @@ const getCurrentAndUpcomingTimetables = async (req: Request, res: Response, next
       upcoming_timetables: upcoming,
     });
   } catch (error) {
-    console.error('Error getting employee timetables:', error);
+    console.error('Error in timetableController.getCurrentAndUpcomingTimetables:', error);
     next(error);
   }
 };
 
 /**
- * Get /api/et/create-employee-timetable
+ * POST /api/et/create-employee-timetable
  * This endpoint insert new timetable record by calling SQL function "create_employee_timetable"
  */
-const createTimetable = async (req: Request, res: Response) => {
+const createTimetable = async (req: Request, res: Response, next: NextFunction) => {
   try {
     const data = await timetableModel.createEmployeeTimetable({
       ...req.body,
@@ -51,7 +50,7 @@ const createTimetable = async (req: Request, res: Response) => {
 
     const errorMessage = error instanceof Error ? error.message : 'Failed to create timetable';
 
-    res.status(500).json({ message: errorMessage });
+    next(errorMessage);
   }
 };
 
@@ -298,50 +297,26 @@ const getActiveRestDaysByPosition = async (req: Request, res: Response) => {
  * GET /api/et/:timetableId
  * This endpoint retrieves the timetable by timetable ID
  */
-const getTimetableById = async (req: Request, res: Response) => {
-  try{
-    const timetableId = req.params.timetableId;
+const getTimetableById = async (req: Request, res: Response, next: NextFunction) => {
+  const timetableId = Number(req.params.timetableId);
+  if (!timetableId) return res.status(400).json({ message: 'Invalid timetable ID.' });
 
-    // Validate timetableId
-    if (!timetableId || isNaN(parseInt(timetableId, 10))) {
-      return res.status(400).json({ 
-        success: false, 
-        error: { code: 'INVALID_ID', message: 'Invalid timetableId ID provided' } 
-      });
-    }
+  try {
+    const timetable = await timetableModel.getTimetableById(timetableId);
+    if (!timetable) return res.status(404).json({ message: 'Timetable not found.' });
 
-    const timetableIdNum = parseInt(timetableId, 10);
-    console.log(`Fetching details for timetable ID: ${req.params.timetableId}`);
-
-    const timetable = await timetableModel.getTimetableById(timetableIdNum);
-    if (!timetable) {
-      console.log(`Timetable with ID ${timetableId} not found`);
-      return res.status(404).json({ 
-        success: false, 
-        error: { code: 'NOT_FOUND', message: 'No timetable found with the given ID' } 
-      });
-    }
-    res.status(200).json({
-      success: true,
-      data: timetable
-    });
+    res.status(200).json(timetable);
   } catch (error) {
-    console.error('Controller error in getTimetableById:', error);
-    res.status(500).json({ 
-      success: false, 
-      error: {
-        code: 'INTERNAL_SERVER_ERROR',
-        message: 'Failed to fetch timetable details by given ID',
-      }
-    });
+    console.error('Error in timetableController.getTimetableById:', error);
+    next(error);
   }
-}
+};
 
 /**
- * Get /api/et/update-employee-timetable/:timetableId
+ * PUT /api/et/update-employee-timetable/:timetableId
  * This endpoint update the timetable record by calling SQL function "update_employee_timetable"
  */
-const updateTimetable = async (req: Request, res: Response) => {
+const updateTimetable = async (req: Request, res: Response, next: NextFunction) => {
   try {
     const { timetableId } = req.params;
 
@@ -355,7 +330,7 @@ const updateTimetable = async (req: Request, res: Response) => {
 
     const errorMessage = error instanceof Error ? error.message : 'Failed to update timetable';
 
-    res.status(500).json({ message: errorMessage });
+    next(errorMessage);
   }
 };
 

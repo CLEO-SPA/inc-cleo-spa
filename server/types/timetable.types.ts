@@ -17,3 +17,12 @@ export interface UpdateTimetableInput {
   updated_by: number;
   updated_at: string;
 }
+
+export interface DetailedTimetable {
+  id: number;
+  employee_id: number;
+  restday_number: number;
+  effective_startdate: string;
+  effective_enddate: string | null;
+  employee_name: string;
+}

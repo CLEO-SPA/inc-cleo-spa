@@ -1,5 +1,5 @@
 import { pool } from '../config/database.js';
-import { CreateTimetableInput, UpdateTimetableInput } from '../types/timetable.types.js';
+import { CreateTimetableInput, UpdateTimetableInput, DetailedTimetable } from '../types/timetable.types.js';
 
 export interface RestDay {
   restday_number: number;
@@ -30,7 +30,7 @@ export interface MonthDateRange {
 }
 
 /**
- * Get /api/et/current-and-upcoming/:employeeId
+ * Get /api/et/current-and-upcoming/:employeeId?currentDate=YYYY-MM-DD
  * This endpoint retrieves current and upcoming timetables by employee id
  */
 const getCurrentAndUpcomingTimetables = async (
@@ -65,10 +65,6 @@ const getCurrentAndUpcomingTimetables = async (
     const upcomingValues = [employeeId, currentDate];
     const upcomingResult = await pool().query(upcomingQuery, upcomingValues);
 
-    if (currentResult.rowCount === 0 && upcomingResult.rowCount === 0) {
-      throw new Error('No timetables found for employee.');
-    }
-
     return {
       current: currentResult.rows,
       upcoming: upcomingResult.rows,
@@ -80,7 +76,7 @@ const getCurrentAndUpcomingTimetables = async (
 };
 
 /**
- * Get /api/et/create-employee-timetable
+ * POST /api/et/create-employee-timetable
  * This endpoint insert a new timetable record by calling SQL function "create_employee_timetable"
  */
 const createEmployeeTimetable = async (input: CreateTimetableInput) => {
@@ -361,13 +357,13 @@ const getTimetableById =  async (timetableId: number): Promise<DetailedTimetable
     const result = await pool().query(query, [timetableId]);
     return result.rows.length > 0 ? result.rows[0] : null;
   } catch (error) {
-    console.error('Database error in getTimetableById: ', error);
+    console.error('Error in timetableModel.getTimetableById: ', error);
     throw new Error('Failed to fetch timetable details from database');
   }
 }
 
 /**
- * Get /api/et/update-employee-timetable/:timetableId
+ * PUT /api/et/update-employee-timetable/:timetableId
  * This endpoint update the timetable record by calling SQL function "update_employee_timetable"
  */
 const updateEmployeeTimetable = async (input: UpdateTimetableInput) => {
