@@ -20,7 +20,6 @@ import {
   DialogFooter,
 } from '@/components/ui/dialog';
 
-
 const EditPaymentMethodPage = () => {
   const { id } = useParams();
   const navigate = useNavigate();
@@ -37,8 +36,59 @@ const EditPaymentMethodPage = () => {
   const [showRevenueWarning, setShowRevenueWarning] = useState(false);
   const [pendingRevenueValue, setPendingRevenueValue] = useState(null);
   const [updatedPaymentMethod, setUpdatedPaymentMethod] = useState(null);
+
   const handleGoToPaymentMethods = () => {
     navigate('/payment-method');
+  };
+
+  // Helper function to format datetime for input field
+  const formatDateTimeForInput = (dateString) => {
+    if (!dateString) return '';
+    try {
+      const date = new Date(dateString);
+      if (isNaN(date.getTime())) return '';
+      
+      // Format to YYYY-MM-DDTHH:mm format for datetime-local input
+      const year = date.getFullYear();
+      const month = String(date.getMonth() + 1).padStart(2, '0');
+      const day = String(date.getDate()).padStart(2, '0');
+      const hours = String(date.getHours()).padStart(2, '0');
+      const minutes = String(date.getMinutes()).padStart(2, '0');
+      
+      return `${year}-${month}-${day}T${hours}:${minutes}`;
+    } catch (error) {
+      console.error('Error formatting date:', error);
+      return '';
+    }
+  };
+
+  // Helper function to validate datetime
+  const validateDateTime = (value) => {
+    if (!value) return "Creation date and time is required";
+    
+    try {
+      const inputDate = new Date(value);
+      const now = new Date();
+      
+      if (isNaN(inputDate.getTime())) {
+        return "Please enter a valid date and time";
+      }
+      
+      // Check if date is not in the future
+      if (inputDate > now) {
+        return "Creation date cannot be in the future";
+      }
+      
+      // Check if date is not too far in the past (e.g., before year 2000)
+      const minDate = new Date('2000-01-01');
+      if (inputDate < minDate) {
+        return "Creation date cannot be before January 1, 2000";
+      }
+      
+      return true;
+    } catch (error) {
+      return "Please enter a valid date and time";
+    }
   };
 
   const {
@@ -53,7 +103,8 @@ const EditPaymentMethodPage = () => {
       payment_method_name: '',
       is_enabled: true,
       is_revenue: false,
-      show_on_payment_page: true
+      show_on_payment_page: true,
+      created_at: ''
     }
   });
 
@@ -76,7 +127,8 @@ const EditPaymentMethodPage = () => {
             payment_method_name: data.payment_method_name || '',
             is_enabled: data.is_enabled !== undefined ? data.is_enabled : true,
             is_revenue: data.is_revenue !== undefined ? data.is_revenue : false,
-            show_on_payment_page: data.show_on_payment_page !== undefined ? data.show_on_payment_page : true
+            show_on_payment_page: data.show_on_payment_page !== undefined ? data.show_on_payment_page : true,
+            created_at: formatDateTimeForInput(data.created_at)
           });
         } else {
           setError(result.error || 'Failed to load payment method');
@@ -109,21 +161,30 @@ const EditPaymentMethodPage = () => {
 
   const onSubmit = async (data) => {
     setError(null);
-    const timestamp = new Date().toISOString();
+    
+    try {
+      // Convert the datetime-local input to ISO string
+      const createdAtISO = new Date(data.created_at).toISOString();
+      const currentTime = new Date().toISOString();
+      
+      const result = await updatePaymentMethod(id, {
+        ...data,
+        created_at: createdAtISO,
+        updated_at: currentTime,
+      });
 
-    const result = await updatePaymentMethod(id, {
-      ...data,
-      updated_at: timestamp,
-    });
-
-    if (result.success) {
-      setUpdatedPaymentMethod(result.data); // Store updated data for summary
-      setShowSuccessDialog(true);           // Show the dialog
-    } else {
-      setError(result.error);
+      if (result.success) {
+        setUpdatedPaymentMethod(result.data);
+        console.log(result) // Store updated data for summary
+        setShowSuccessDialog(true);           // Show the dialog
+      } else {
+        setError(result.error);
+      }
+    } catch (error) {
+      setError('Failed to process the date and time. Please check your input.');
+      console.error('Date processing error:', error);
     }
   };
-
 
   const handleCancel = () => {
     if (isDirty) {
@@ -201,6 +262,14 @@ const EditPaymentMethodPage = () => {
                             minLength: {
                               value: 2,
                               message: "Payment method name must be at least 2 characters"
+                            },
+                            maxLength: {
+                              value: 100,
+                              message: "Payment method name must not exceed 100 characters"
+                            },
+                            pattern: {
+                              value: /^[a-zA-Z0-9\s\-_&()]+$/,
+                              message: "Payment method name contains invalid characters"
                             }
                           })}
                           className={errors.payment_method_name ? "border-red-500" : ""}
@@ -208,6 +277,28 @@ const EditPaymentMethodPage = () => {
                         {errors.payment_method_name && (
                           <p className="text-red-500 text-xs">{errors.payment_method_name.message}</p>
                         )}
+                      </div>
+
+                      <div className="space-y-2">
+                        <Label htmlFor="created_at" className="text-sm font-medium text-gray-700">
+                          Creation Date & Time *
+                        </Label>
+                        <Input
+                          id="created_at"
+                          type="datetime-local"
+                          {...register("created_at", {
+                            required: "Creation date and time is required",
+                            validate: validateDateTime
+                          })}
+                          className={errors.created_at ? "border-red-500" : ""}
+                          max={formatDateTimeForInput(new Date().toISOString())} // Prevent future dates
+                        />
+                        {errors.created_at && (
+                          <p className="text-red-500 text-xs">{errors.created_at.message}</p>
+                        )}
+                        <p className="text-xs text-gray-500">
+                          Specify when this payment method was originally created. Cannot be in the future.
+                        </p>
                       </div>
                     </div>
                   </CardContent>
@@ -302,7 +393,11 @@ const EditPaymentMethodPage = () => {
                 {/* Error Display */}
                 {error && (
                   <div className="bg-red-50 border border-red-200 rounded-md p-4">
-                    <p className="text-red-800 text-sm">{error}</p>
+                    <div className="flex items-center gap-2">
+                      <AlertTriangle className="h-4 w-4 text-red-600" />
+                      <p className="text-red-800 text-sm font-medium">Error</p>
+                    </div>
+                    <p className="text-red-700 text-sm mt-1">{error}</p>
                   </div>
                 )}
 
@@ -365,14 +460,14 @@ const EditPaymentMethodPage = () => {
               </p>
             </div>
             <DialogFooter className="flex gap-2">
-              <Button 
-                variant="outline" 
+              <Button
+                variant="outline"
                 onClick={cancelRevenueChange}
                 className="flex-1"
               >
                 Cancel
               </Button>
-              <Button 
+              <Button
                 onClick={confirmRevenueChange}
                 className="flex-1 bg-amber-600 hover:bg-amber-700"
               >
@@ -416,6 +511,12 @@ const EditPaymentMethodPage = () => {
                   <span className="text-gray-600">Visible to Customers:</span>
                   <span className={`font-medium ${updatedPaymentMethod?.show_on_payment_page ? 'text-purple-600' : 'text-gray-600'}`}>
                     {updatedPaymentMethod?.show_on_payment_page ? 'Yes' : 'No'}
+                  </span>
+                </div>
+                <div className="flex justify-between text-sm">
+                  <span className="text-gray-600">Created:</span>
+                  <span className="font-medium text-gray-900">
+                    {updatedPaymentMethod?.created_at ? new Date(updatedPaymentMethod.created_at).toLocaleString() : 'N/A'}
                   </span>
                 </div>
               </div>

@@ -103,11 +103,12 @@ const updatePaymentMethod = async (input: UpdatePaymentMethodInput) => {
     is_enabled,
     is_revenue,
     show_on_payment_page,
+    created_at,
     updated_at,
   } = input;
 
   try {
-    // Check if another payment method with the same name already exists
+    // Check for duplicate name
     const existing = await pool().query(
       `SELECT id FROM payment_methods WHERE LOWER(payment_method_name) = LOWER($1) AND id != $2;`,
       [payment_method_name, id]
@@ -124,18 +125,20 @@ const updatePaymentMethod = async (input: UpdatePaymentMethodInput) => {
         is_enabled = $2,
         is_revenue = $3,
         show_on_payment_page = $4,
-        updated_at = $5
-      WHERE id = $6
+        updated_at = $5,
+        created_at = $6
+      WHERE id = $7
       RETURNING *;
     `;
 
     const values = [
-      payment_method_name,
-      is_enabled,
-      is_revenue,
-      show_on_payment_page,
-      updated_at,
-      id,
+      payment_method_name, // $1
+      is_enabled,          // $2
+      is_revenue,          // $3
+      show_on_payment_page,// $4
+      updated_at,          // $5
+      created_at,          // $6
+      id                   // $7
     ];
 
     const result = await pool().query(query, values);

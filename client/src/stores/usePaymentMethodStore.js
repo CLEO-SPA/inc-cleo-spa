@@ -109,26 +109,6 @@ const usePaymentMethodStore = create((set, get) => ({
     }
   },
 
-  // // Keep the original method for backward compatibility
-  // fetchVisiblePaymentMethods: async () => {
-  //   set({ isFetching: true, error: false, errorMessage: null });
-
-  //   try {
-  //     const response = await api.get('/payment-method/visible');
-  //     set({
-  //       paymentMethods: response.data, // override with visible-only list
-  //       isFetching: false,
-  //       error: false,
-  //       errorMessage: null,
-  //     });
-  //   } catch (error) {
-  //     set({
-  //       isFetching: false,
-  //       error: true,
-  //       errorMessage: error.response?.data?.message || error.message || 'Failed to fetch visible payment methods',
-  //     });
-  //   }
-  // },
 
   // CRUD Actions
   fetchPaymentMethodById: async (id) => {
@@ -177,11 +157,14 @@ const usePaymentMethodStore = create((set, get) => ({
     set({ isUpdating: true, error: false, errorMessage: null });
 
     try {
-      await api.put(`/payment-method/${id}`, data);
+      const response = await api.put(`/payment-method/${id}`, data); // <-- capture response here
       const { currentPage, currentLimit, searchTerm } = get();
       await get().fetchPaymentMethods({ page: currentPage, limit: currentLimit, search: searchTerm });
       set({ isUpdating: false });
-      return { success: true };
+      return { 
+        success: true,
+        data: response.data  // Return the updated response data
+     };
     } catch (error) {
       set({
         isUpdating: false,
