@@ -10,7 +10,7 @@ import { Button } from '@/components/ui/button';
 
 import EmployeeSelect from '@/components/ui/forms/EmployeeSelect';
 import TimetableDisplay from '@/components/employee-timetable/TimetableDisplay';
-import DateTimePicker from '@/components/employee-timetable/FormDateTimePicker';
+import FormDateTimePicker from '@/components/employee-timetable/FormDateTimePicker';
 import RestDaySelect from '@/components/employee-timetable/RestDaySelect';
 import CurrentDateDisplay, { getCurrentSimulationDate } from '@/components/employee-timetable/CurrentDateDisplay';
 import TimetableReview from '@/components/employee-timetable/TimetableReview';
@@ -225,13 +225,13 @@ export default function CreateEmployeeTimetablePage() {
                       </div>
 
                       <div className='grid grid-cols-2 gap-6'>
-                        <DateTimePicker
+                        <FormDateTimePicker
                           label='Effective Start Date*'
                           name='start_date'
                           date={startDate}
                           onDateChange={(date) => setStartDate(date)}
                         />
-                        <DateTimePicker
+                        <FormDateTimePicker
                           label='Created At*'
                           name='created_at'
                           date={createdAtDate}
@@ -249,7 +249,7 @@ export default function CreateEmployeeTimetablePage() {
 
                       <div className='grid grid-cols-2 gap-6'>
                         <div className='col-start-1'>
-                          <DateTimePicker
+                          <FormDateTimePicker
                             label='Effective End Date'
                             name='end_date'
                             date={endDate}
