@@ -17,6 +17,7 @@ import CreateMembersPage from './pages/member/CreateMemberPage';
 import ManagePaymentMethodsPage from './pages/payment-method/ManagePaymentMethodsPage';
 import CreatePaymentMethodPage from './pages/payment-method/CreatePaymentMethodPage';
 import EditPaymentMethodPage from './pages/payment-method/EditPaymentMethodPage';
+import TestPMComponent from './pages/sale-transaction/AddPMMComponentTest';
 
 
 function App() {
@@ -36,6 +37,7 @@ function App() {
               <Route path='/payment-method' element={<ManagePaymentMethodsPage/>} /> 
               <Route path='/payment-method/create' element={<CreatePaymentMethodPage />} />   
               <Route path="/payment-method/edit/:id" element={<EditPaymentMethodPage />} />
+              <Route path="/payment-method/test" element={<TestPMComponent />} />
             </Route>
             <Route path='/login' element={<LoginPage />} />
 

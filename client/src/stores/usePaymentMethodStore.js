@@ -4,12 +4,13 @@ import api from '@/services/api';
 
 const getInitialState = () => ({
   paymentMethods: [],
+  dropdownPaymentMethods: [], // Separate array for dropdown data
   currentPage: 1,
   currentLimit: 10,
   totalPages: 0,
   totalCount: 0,
   searchTerm: '',
-  loading: false,
+  loading: false, // Add this for dropdown component compatibility
   isFetching: false,
   isCreating: false,
   isUpdating: false,
@@ -86,28 +87,48 @@ const usePaymentMethodStore = create((set, get) => ({
     get().fetchPaymentMethods({ page: 1, limit: newLimit, search: searchTerm });
   },
 
+  // Improved dropdown-specific method
+  fetchDropdownPaymentMethods: async () => {
+    set({ loading: true, error: false, errorMessage: null });
 
-  fetchVisiblePaymentMethods: async () => {
-  set({ isFetching: true, error: false, errorMessage: null });
+    try {
+      const response = await api.get('/payment-method/visible');
+      set({
+        dropdownPaymentMethods: response.data, // Use separate array for dropdown
+        loading: false,
+        error: false,
+        errorMessage: null,
+      });
+    } catch (error) {
+      set({
+        dropdownPaymentMethods: [],
+        loading: false,
+        error: true,
+        errorMessage: error.response?.data?.message || error.message || 'Failed to fetch visible payment methods',
+      });
+    }
+  },
 
-  try {
-    const response = await api.get('/payment-method/visible');
-    set({
-      paymentMethods: response.data, // override with visible-only list
-      isFetching: false,
-      error: false,
-      errorMessage: null,
-    });
-  } catch (error) {
-    set({
-      isFetching: false,
-      error: true,
-      errorMessage: error.response?.data?.message || error.message || 'Failed to fetch visible payment methods',
-    });
-  }
-},
+  // // Keep the original method for backward compatibility
+  // fetchVisiblePaymentMethods: async () => {
+  //   set({ isFetching: true, error: false, errorMessage: null });
 
-
+  //   try {
+  //     const response = await api.get('/payment-method/visible');
+  //     set({
+  //       paymentMethods: response.data, // override with visible-only list
+  //       isFetching: false,
+  //       error: false,
+  //       errorMessage: null,
+  //     });
+  //   } catch (error) {
+  //     set({
+  //       isFetching: false,
+  //       error: true,
+  //       errorMessage: error.response?.data?.message || error.message || 'Failed to fetch visible payment methods',
+  //     });
+  //   }
+  // },
 
   // CRUD Actions
   fetchPaymentMethodById: async (id) => {
@@ -132,7 +153,6 @@ const usePaymentMethodStore = create((set, get) => ({
       return { success: false, error: error.response?.data?.message || error.message };
     }
   },
-
 
   createPaymentMethod: async (data) => {
     set({ isCreating: true, error: false, errorMessage: null });
