@@ -22,9 +22,9 @@ export default function FormSelectorPanel() {
   const renderTabContent = () => { 
     switch (selectedTab) { 
       case 'services': 
-        return <div>Select a tab</div>; 
+        return <ServiceTab /> ;
       case 'products': 
-        return <div>Select a tab</div>; 
+        return <ProductTab />;
       case 'mcp': 
         return <CreateMemberCarePackageForm />; 
       case 'vouchers': 
