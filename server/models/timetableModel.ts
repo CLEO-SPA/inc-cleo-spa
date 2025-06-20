@@ -142,6 +142,124 @@ const getMonthDateRange = (monthInput: string): MonthDateRange => {
  * Get paginated list of employees' timetables for a specific month
  * Optionally filter by position
  */
+// const getActiveRestDays = async(
+//   month: string,
+//   page: number = 1,
+//   limit: number = 20,
+//   positionId?: number
+// ): Promise<PaginatedTimetableResponse> => {
+//   try {
+//     if (!isValidMonthFormat(month)) {
+//       throw new Error('Invalid month format. Use YYYY-MM format.');
+//     }
+//     const { start_date, end_date } = getMonthDateRange(month);
+//     const offset = (page - 1) * limit;
+//     const query = `
+//       WITH filtered_employees AS (
+//         SELECT e.id AS employee_id, e.employee_name AS employee_name
+//         FROM employees e
+//         WHERE e.employee_is_active = true
+//         ${positionId ? 'AND e.position_id = $3' : ''}
+//         ORDER BY e.employee_name
+//         LIMIT $1 OFFSET $2
+//       ),
+//       total_count AS (
+//         SELECT COUNT(*) AS total
+//         FROM employees e
+//         WHERE e.employee_is_active = true
+//         ${positionId ? 'AND e.position_id = $3' : ''}
+//       )
+//       SELECT 
+//         fe.employee_id,
+//         fe.employee_name,
+//         tc.total,
+//         t.restday_number,
+//         CASE t.restday_number
+//           WHEN 1 THEN 'Monday'
+//           WHEN 2 THEN 'Tuesday'
+//           WHEN 3 THEN 'Wednesday'
+//           WHEN 4 THEN 'Thursday'
+//           WHEN 5 THEN 'Friday'
+//           WHEN 6 THEN 'Saturday'
+//           WHEN 7 THEN 'Sunday'
+//         END AS restday_name,
+//         t.effective_startdate,
+//         t.effective_enddate
+//       FROM filtered_employees fe
+//       CROSS JOIN total_count tc
+//       LEFT JOIN timetables t ON fe.employee_id = t.employee_id
+//         AND t.effective_startdate <= $${positionId ? 4 : 3}::timestamptz
+//         AND (t.effective_enddate IS NULL OR t.effective_enddate <= $${positionId ? 5 : 4}::timestamptz)
+//       ORDER BY fe.employee_name, t.effective_startdate;
+//     `;
+
+//     let queryParams: any[];
+//     if (positionId) {
+//       queryParams = [limit, offset, positionId, end_date.toISOString(), start_date.toISOString()];
+//     } else {
+//       queryParams = [limit, offset, end_date.toISOString(), start_date.toISOString()];
+//     }
+
+//     const result = await pool().query(query, queryParams);
+
+//     // Group results by employee
+//     const employeeMap = new Map<number, EmployeeTimetable>();
+//     let totalEmployees = 0;
+//     /**
+//      * Incase if there is any error, check here 
+//      */
+//     if (result.rows.length === 0) {
+//       // If no employees found, return empty data with pagination
+//       const countQuery = `
+//         SELECT COUNT(*) AS total
+//         FROM employees e
+//         WHERE e.employee_is_active = true
+//         ${positionId ? 'AND e.position_id = $1' : ''}
+//       `;
+//       const countParams = positionId ? [positionId] : [];
+//       const countResult = await pool().query(countQuery, countParams);
+//       totalEmployees = parseInt(countResult.rows[0].total, 10);
+//     } else {
+//       result.rows.forEach((row: { total: number; employee_id: number; employee_name: string; restday_number: number; restday_name: string; effective_startdate: any; effective_enddate: any; }) => {
+//         console.log('Row total value:', row.total, typeof row.total); 
+//         totalEmployees = row.total;
+        
+//         if (!employeeMap.has(row.employee_id)) {
+//           employeeMap.set(row.employee_id, {
+//             employee_id: row.employee_id,
+//             employee_name: row.employee_name,
+//             rest_days: []
+//           });
+//         }
+
+//         if (row.restday_number) {
+//           employeeMap.get(row.employee_id)!.rest_days.push({
+//             restday_number: row.restday_number,
+//             restday_name: row.restday_name,
+//             effective_startdate: row.effective_startdate,
+//             effective_enddate: row.effective_enddate
+//           });
+//         }
+//       });
+
+//       const data = Array.from(employeeMap.values());
+//       const totalPages = Math.ceil(totalEmployees / limit);
+
+//       return {
+//         data,
+//         pagination: {
+//           current_page: page,
+//           per_page: limit,
+//           total_employees: totalEmployees,
+//           total_pages: totalPages
+//         }
+//       };
+//     }
+//   } catch (error) {
+//     console.error('Database Error in getActiveRestDays:', error);
+//     throw new Error('Failed to fetch timetable data from the database');
+//   }
+// }
 const getActiveRestDays = async(
   month: string,
   page: number = 1,
@@ -154,20 +272,23 @@ const getActiveRestDays = async(
     }
     const { start_date, end_date } = getMonthDateRange(month);
     const offset = (page - 1) * limit;
+    
     const query = `
       WITH filtered_employees AS (
-        SELECT e.id AS employee_id, e.employee_name AS employee_name
+        SELECT DISTINCT e.id AS employee_id, e.employee_name AS employee_name
         FROM employees e
+        ${positionId ? 'INNER JOIN employee_to_position etp ON e.id = etp.employee_id' : ''}
         WHERE e.employee_is_active = true
-        ${positionId ? 'AND e.position_id = $3' : ''}
+        ${positionId ? 'AND etp.position_id = $3' : ''}
         ORDER BY e.employee_name
         LIMIT $1 OFFSET $2
       ),
       total_count AS (
-        SELECT COUNT(*) AS total
+        SELECT COUNT(DISTINCT e.id) AS total
         FROM employees e
+        ${positionId ? 'INNER JOIN employee_to_position etp ON e.id = etp.employee_id' : ''}
         WHERE e.employee_is_active = true
-        ${positionId ? 'AND e.position_id = $3' : ''}
+        ${positionId ? 'AND etp.position_id = $3' : ''}
       )
       SELECT 
         fe.employee_id,
@@ -188,8 +309,11 @@ const getActiveRestDays = async(
       FROM filtered_employees fe
       CROSS JOIN total_count tc
       LEFT JOIN timetables t ON fe.employee_id = t.employee_id
-        AND t.effective_startdate <= $${positionId ? 4 : 3}::timestamptz
-        AND (t.effective_enddate IS NULL OR t.effective_enddate <= $${positionId ? 5 : 4}::timestamptz)
+        AND (
+          -- Rest day overlaps with the month  
+          t.effective_startdate <= $${positionId ? 4 : 3}::timestamptz 
+          AND (t.effective_enddate IS NULL OR t.effective_enddate >= $${positionId ? 5 : 4}::timestamptz)
+        )
       ORDER BY fe.employee_name, t.effective_startdate;
     `;
 
@@ -205,16 +329,15 @@ const getActiveRestDays = async(
     // Group results by employee
     const employeeMap = new Map<number, EmployeeTimetable>();
     let totalEmployees = 0;
-    /**
-     * Incase if there is any error, check here 
-     */
+    
     if (result.rows.length === 0) {
       // If no employees found, return empty data with pagination
       const countQuery = `
-        SELECT COUNT(*) AS total
+        SELECT COUNT(DISTINCT e.id) AS total
         FROM employees e
+        ${positionId ? 'INNER JOIN employee_to_position etp ON e.id = etp.employee_id' : ''}
         WHERE e.employee_is_active = true
-        ${positionId ? 'AND e.position_id = $1' : ''}
+        ${positionId ? 'AND etp.position_id = $1' : ''}
       `;
       const countParams = positionId ? [positionId] : [];
       const countResult = await pool().query(countQuery, countParams);
@@ -241,20 +364,20 @@ const getActiveRestDays = async(
           });
         }
       });
-
-      const data = Array.from(employeeMap.values());
-      const totalPages = Math.ceil(totalEmployees / limit);
-
-      return {
-        data,
-        pagination: {
-          current_page: page,
-          per_page: limit,
-          total_employees: totalEmployees,
-          total_pages: totalPages
-        }
-      };
     }
+
+    const data = Array.from(employeeMap.values());
+    const totalPages = Math.ceil(totalEmployees / limit);
+
+    return {
+      data,
+      pagination: {
+        current_page: page,
+        per_page: limit,
+        total_employees: totalEmployees,
+        total_pages: totalPages
+      }
+    };
   } catch (error) {
     console.error('Database Error in getActiveRestDays:', error);
     throw new Error('Failed to fetch timetable data from the database');
@@ -272,7 +395,16 @@ const getActiveRestDaysByEmployee = async (
     if(!isValidMonthFormat(month)) {
       throw new Error('Invalid month format. Use YYYY-MM format.');
     }
+    
     const { start_date, end_date } = getMonthDateRange(month);
+    
+    console.log('=== DEBUG TIMETABLE QUERY ===');
+    console.log('Employee ID:', employeeId);
+    console.log('Month:', month);
+    console.log('start_date:', start_date.toISOString());
+    console.log('end_date:', end_date.toISOString());
+    
+    // ✅ FIXED QUERY - Show ALL rest days that overlap with the month
     const query = `
       SELECT 
         e.id AS employee_id,
@@ -291,30 +423,54 @@ const getActiveRestDaysByEmployee = async (
         t.effective_enddate
       FROM employees e
       LEFT JOIN timetables t ON e.id = t.employee_id
-        AND t.effective_startdate <= $2::timestamptz
-        AND (t.effective_enddate IS NULL OR t.effective_enddate >= $3::timestamptz)
+        AND (
+          -- Rest day overlaps with the month
+          t.effective_startdate <= $2::timestamptz 
+          AND (t.effective_enddate IS NULL OR t.effective_enddate >= $3::timestamptz)
+        )
       WHERE e.id = $1 AND e.employee_is_active = true
       ORDER BY t.effective_startdate;
     `;
-    const result = await pool().query(query, [employeeId, end_date.toISOString(), start_date.toISOString()]);
+    
+    const queryParams = [employeeId, end_date.toISOString(), start_date.toISOString()];
+    const result = await pool().query(query, queryParams);
+    console.log('Raw SQL result rows:', JSON.stringify(result.rows, null, 2));
+    
+    // Debug each row's date logic
+    // result.rows.forEach((row, index) => {
+    //   if (row.restday_number) {
+    //     const effectiveStart = new Date(row.effective_startdate);
+    //     const effectiveEnd = row.effective_enddate ? new Date(row.effective_enddate) : null;
+        
+    //     console.log(`\n--- Row ${index + 1} Analysis ---`);
+    //     console.log('restday_number:', row.restday_number);
+    //     console.log('effective_startdate:', effectiveStart.toISOString());
+    //     console.log('effective_enddate:', effectiveEnd ? effectiveEnd.toISOString() : 'NULL (ongoing)');
+        
+    //     // Check overlap logic
+    //     const startsBeforeMonthEnd = effectiveStart <= end_date;
+    //     const endsAfterMonthStart = !effectiveEnd || effectiveEnd >= start_date;
+        
+    //     console.log('Starts before month end:', `${effectiveStart.toISOString()} <= ${end_date.toISOString()}`, '=', startsBeforeMonthEnd);
+    //     console.log('Ends after month start:', effectiveEnd ? `${effectiveEnd.toISOString()} >= ${start_date.toISOString()}` : 'NULL (ongoing)', '=', endsAfterMonthStart);
+    //     console.log('Overlaps with month:', startsBeforeMonthEnd && endsAfterMonthStart);
+    //   }
+    // });
 
-    /**
-     * If no timetable found for the employee, throw an error for now
-     * This can be handled in the controller later
-     * No timetable found for the employee means the employee has no rest days set for the month
-     */
     if (result.rows.length === 0) {
+      console.log('No employee found with ID:', employeeId);
       return null;
     }
 
     const employee = result.rows[0];
-    const restDays = result.rows.filter((row: { restday_number: number; }) => row.restday_number)
-    .map((row: { restday_number: any; restday_name: any; effective_startdate: any; effective_enddate: any; }) => ({
-      restday_number: row.restday_number,
-      restday_name: row.restday_name,
-      effective_startdate: row.effective_startdate,
-      effective_enddate: row.effective_enddate
-    }));
+    const restDays = result.rows
+      .filter((row: { restday_number: number; }) => row.restday_number) // Only rows with rest days
+      .map((row: { restday_number: any; restday_name: any; effective_startdate: any; effective_enddate: any; }) => ({
+        restday_number: row.restday_number,
+        restday_name: row.restday_name,
+        effective_startdate: row.effective_startdate,
+        effective_enddate: row.effective_enddate
+      }));
 
     return {
       employee_id: employee.employee_id,
@@ -334,7 +490,7 @@ const getActiveRestDaysByPosition = async (
   positionId: number,
   month: string,
   page: number = 1,
-  limit: number = 20
+  limit: number = 10
 ): Promise<PaginatedTimetableResponse> => {
   // Reuse the getActiveRestDays function with positionId filter
   return getActiveRestDays(month, page, limit, positionId);

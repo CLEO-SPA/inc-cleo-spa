@@ -4,7 +4,8 @@ export interface Employee {
   id: number;
   employee_code: number;
   employee_name: string;
-  position_id: number | null;
+  position_ids: number[];
+  positions: string[];
 }
 
 export interface EmployeePosition {
@@ -17,8 +18,8 @@ export interface DetailedEmployee {
   employee_name: string;
   employee_code: number;
   employee_is_active: boolean;
-  position_id: number | null;
-  position_name: string | null;
+  position_ids: number[];
+  position_names: string[];
   created_at: Date;
   updated_at: Date;
 }
@@ -262,21 +263,49 @@ const getUserCount = async () => {
  * Get all active employees with basic details
  * This function is used for search functionality in the timetable management system.
  */
+// const getBasicEmployeeDetails = async (): Promise<Employee[]> => {
+//   const query = `
+//     SELECT 
+//       id, 
+//       employee_name, 
+//       position_id 
+//     FROM employees e 
+//     WHERE employee_is_active = true 
+//     ORDER BY employee_name ASC`;
+//   try {
+//     const result = await pool().query(query);
+//     return result.rows.map((row: any) => ({
+//       id: row.id,
+//       employee_name: row.employee_name,
+//       position_id: row.position_id,
+//     }));
+//   } catch (error) {
+//     console.error('Database error in getBasicEmployeeDetails: ', error);
+//     throw new Error('Failed to fetch basic employee details from database');
+//   }
+// }
 const getBasicEmployeeDetails = async (): Promise<Employee[]> => {
   const query = `
     SELECT 
-      id, 
-      employee_name, 
-      position_id 
+      e.id, 
+      e.employee_name,
+      COALESCE(ARRAY_AGG(etp.position_id) FILTER (WHERE etp.position_id IS NOT NULL), '{}') AS position_ids,
+      COALESCE(ARRAY_AGG(p.position_name) FILTER (WHERE p.position_name IS NOT NULL), '{}') AS positions
     FROM employees e 
-    WHERE employee_is_active = true 
-    ORDER BY employee_name ASC`;
+    LEFT JOIN employee_to_position etp ON e.id = etp.employee_id
+    LEFT JOIN positions p ON etp.position_id = p.id
+    WHERE e.employee_is_active = true 
+    GROUP BY e.id, e.employee_name
+    ORDER BY e.employee_name ASC`;
+  
   try {
     const result = await pool().query(query);
     return result.rows.map((row: any) => ({
       id: row.id,
       employee_name: row.employee_name,
-      position_id: row.position_id,
+      employee_code: row.employee_code || 0, 
+      position_ids: row.position_ids || [],
+      positions: row.positions || [],
     }));
   } catch (error) {
     console.error('Database error in getBasicEmployeeDetails: ', error);
@@ -312,6 +341,29 @@ const getAllActivePositions = async (): Promise<EmployeePosition[]> => {
  * Get detailed employee information
  * This function is used to fetch detailed information about employees.
  */
+// const getEmployeeById = async (employeeId: number): Promise<DetailedEmployee | null> => {
+//   const query = `
+//     SELECT
+//       e.id,
+//       e.employee_name,
+//       e.employee_code,
+//       e.employee_is_active,
+//       e.position_id,
+//       p.position_name,
+//       e.created_at,
+//       e.updated_at
+//     FROM employees e
+//     LEFT JOIN positions p ON e.position_id = p.id
+//     WHERE e.id = $1 AND e.employee_is_active = true
+//   `
+//   try {
+//     const result = await pool().query(query, [employeeId]);
+//     return result.rows.length > 0 ? result.rows[0] : null;
+//   } catch (error) {
+//     console.error('Database error in getEmployeeById: ', error);
+//     throw new Error('Failed to fetch employee details from database');
+//   }
+// }
 const getEmployeeById = async (employeeId: number): Promise<DetailedEmployee | null> => {
   const query = `
     SELECT
@@ -319,17 +371,32 @@ const getEmployeeById = async (employeeId: number): Promise<DetailedEmployee | n
       e.employee_name,
       e.employee_code,
       e.employee_is_active,
-      e.position_id,
-      p.position_name,
+      COALESCE(ARRAY_AGG(etp.position_id) FILTER (WHERE etp.position_id IS NOT NULL), '{}') AS position_ids,
+      COALESCE(ARRAY_AGG(p.position_name) FILTER (WHERE p.position_name IS NOT NULL), '{}') AS position_names,
       e.created_at,
       e.updated_at
     FROM employees e
-    LEFT JOIN positions p ON e.position_id = p.id
+    LEFT JOIN employee_to_position etp ON e.id = etp.employee_id
+    LEFT JOIN positions p ON etp.position_id = p.id
     WHERE e.id = $1 AND e.employee_is_active = true
-  `
+    GROUP BY e.id, e.employee_name, e.employee_code, e.employee_is_active, e.created_at, e.updated_at
+  `;
+  
   try {
     const result = await pool().query(query, [employeeId]);
-    return result.rows.length > 0 ? result.rows[0] : null;
+    if (result.rows.length === 0) return null;
+    
+    const row = result.rows[0];
+    return {
+      id: row.id,
+      employee_name: row.employee_name,
+      employee_code: row.employee_code,
+      employee_is_active: row.employee_is_active,
+      position_ids: row.position_ids || [],
+      position_names: row.position_names || [],
+      created_at: row.created_at,
+      updated_at: row.updated_at
+    };
   } catch (error) {
     console.error('Database error in getEmployeeById: ', error);
     throw new Error('Failed to fetch employee details from database');

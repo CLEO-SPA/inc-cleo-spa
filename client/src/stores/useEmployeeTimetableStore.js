@@ -1,4 +1,5 @@
 import {create} from 'zustand';
+import {format} from 'date-fns';
 import api from '@/services/api';
 
 const useEmployeeTimetableStore = create((set, get) => ({
@@ -34,14 +35,22 @@ const useEmployeeTimetableStore = create((set, get) => ({
     setSelectedEmployee: (employee) => set({ selectedEmployee: employee }),
     setSelectedPosition: (position) => set({ 
         selectedPosition: position,
-        searchTerm: '', // Reset search term when position changes
-        selectedEmployee: null, // Reset employee selection when position changes
+        searchTerm: '', 
+        selectedEmployee: null, 
         pagination: { ...get().pagination, currentPage: 1 } // Reset to first page
     }),
-    setCurrentMonth: (month) => set({ 
-        currentMonth: month,
-        pagination: { ...get().pagination, currentPage: 1 } // Reset to first page when month changes
-    }),
+    setCurrentMonth: (month) => {        
+        console.log('🔍 [STORE] setCurrentMonth called with:', month);
+        console.log('🔍 [STORE] Month toString():', month.toString());
+        console.log('🔍 [STORE] Month toISOString():', month.toISOString());
+        console.log('🔍 [STORE] Month getFullYear():', month.getFullYear());
+        console.log('🔍 [STORE] Month getMonth():', month.getMonth()); // 0-based!
+        
+        set({ 
+            currentMonth: month,
+            pagination: { ...get().pagination, currentPage: 1 }
+        });
+    },
     setSearchTerm: (term) => set({ searchTerm: term }),
     setLoading: (key, value) => set((state) => ({
         loading: { ...state.loading, [key]: value }
@@ -126,8 +135,16 @@ const useEmployeeTimetableStore = create((set, get) => ({
             loading: { ...state.loading, timetable: true }
         }));
         try {
-            const monthStr = month.toISOString().slice(0, 7); // Format month as YYYY-MM
+            console.log('🔍 [STORE] loadTimetableData called with month:', month);
+            console.log('🔍 [STORE] Month details:');
+            console.log('  - toString():', month.toString());
+            console.log('  - toISOString():', month.toISOString());
+            console.log('  - getFullYear():', month.getFullYear());
+            console.log('  - getMonth():', month.getMonth(), '(0-based, so add 1 for actual month)');
+
+            const monthStr = format(month, 'yyyy-MM'); // Format month as 'YYYY-MM'
             console.log('Loading timetable data for month:', monthStr);
+
             const { selectedEmployee, selectedPosition, pagination } = get();
 
             // Build URL with pagination parameters
@@ -145,6 +162,7 @@ const useEmployeeTimetableStore = create((set, get) => ({
             }
             
             console.log('Fetching timetable data from URL:', url);
+            console.log('🔍 [STORE] Final API URL:', url);
 
             // const response = await api.get(url);
             const response = await fetch(`http://localhost:3000${url}`);
@@ -169,9 +187,9 @@ const useEmployeeTimetableStore = create((set, get) => ({
                         pagination: {
                             ...state.pagination,
                             totalPages: data.pagination.total_pages,
-                            totalItems: data.pagination.total_employees,  // ✅ Fix
-                            hasNextPage: data.pagination.current_page < data.pagination.total_pages,  // ✅ Calculate
-                            hasPrevPage: data.pagination.current_page > 1  // ✅ Calculate
+                            totalItems: data.pagination.total_employees,  
+                            hasNextPage: data.pagination.current_page < data.pagination.total_pages, 
+                            hasPrevPage: data.pagination.current_page > 1  
                         }
                     }));
                 }
@@ -193,14 +211,15 @@ const useEmployeeTimetableStore = create((set, get) => ({
     getFilteredEmployees: () => {
         const { employees, selectedPosition, searchTerm } = get();
         let filtered = employees;
-        // console.log('filtered employees:', filtered);
-        // Filter by position if selected
+         // Filter by position if selected
         if (selectedPosition) {
             /**
              * Check whether position_id or positionId is used in the employee object
              * It could js be id 
              */
-            filtered = filtered.filter(emp => emp.position_id === selectedPosition.position_id);
+            filtered = filtered.filter(emp => {
+                return emp.position_ids && emp.position_ids.includes(selectedPosition.id);
+            });
         }
 
         // Filter by search term

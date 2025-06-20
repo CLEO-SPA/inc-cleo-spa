@@ -8,7 +8,7 @@ import useEmployeeTimetableStore from '@/stores/useEmployeeTimetableStore';
 export default function EmployeeSearch() {
   const [isOpen, setIsOpen] = useState(false);
   const [inputValue, setInputValue] = useState('');
-  const [isSelected, setIsSelected] = useState(false); // ✅ ADD THIS
+  const [isSelected, setIsSelected] = useState(false); 
   const dropdownRef = useRef(null);
   const inputRef = useRef(null);
   
@@ -36,14 +36,14 @@ export default function EmployeeSearch() {
 
   // Show dropdown when typing (but not when employee is selected)
   useEffect(() => {
-    setIsOpen(inputValue.length > 0 && filteredEmployees.length > 0 && !isSelected); // ✅ FIX
+    setIsOpen(inputValue.length > 0 && filteredEmployees.length > 0 && !isSelected); 
   }, [inputValue, filteredEmployees, isSelected]);
 
   // Handle employee selection
   const handleEmployeeSelect = async (employee) => {
     setSelectedEmployee(employee);
     setInputValue(employee.employee_name);
-    setIsSelected(true); // ✅ ADD THIS
+    setIsSelected(true);
     setIsOpen(false);
     
     // Load that employee's timetable
@@ -55,7 +55,7 @@ export default function EmployeeSearch() {
     setSelectedEmployee(null);
     setInputValue('');
     setSearchTerm('');
-    setIsSelected(false); // ✅ ADD THIS
+    setIsSelected(false); 
     setIsOpen(false);
     
     // Reload all employees' timetables
@@ -65,7 +65,7 @@ export default function EmployeeSearch() {
   // Handle input change - reset selection state when user types
   const handleInputChange = (e) => {
     setInputValue(e.target.value);
-    setIsSelected(false); // ✅ ADD THIS - User is typing, not selected
+    setIsSelected(false); 
   };
 
   // Handle click outside
@@ -84,10 +84,10 @@ export default function EmployeeSearch() {
   useEffect(() => {
     if (selectedEmployee) {
       setInputValue(selectedEmployee.employee_name);
-      setIsSelected(true); // ✅ ADD THIS
+      setIsSelected(true); 
     } else {
       setInputValue('');
-      setIsSelected(false); // ✅ ADD THIS
+      setIsSelected(false); 
     }
   }, [selectedEmployee]);
 
@@ -104,7 +104,7 @@ export default function EmployeeSearch() {
           type="text"
           placeholder="Search employees by name..."
           value={inputValue}
-          onChange={handleInputChange} // ✅ CHANGE THIS
+          onChange={handleInputChange} 
           className="pl-10 pr-10"
         />
         
