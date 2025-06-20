@@ -26,9 +26,10 @@ export const useMcpFormStore = create(
     employeeOptions: [],
     serviceOptions: [],
     packageOptions: [],
-    isCustomizable: true, // Default to true, can be overridden by selected package
+    isCustomizable: true,
     isLoading: false,
     error: null,
+    mcpCreationQueue: [],
 
     updateMainField: (field, value) =>
       set(
@@ -288,9 +289,8 @@ export const useMcpFormStore = create(
     selectCarePackage: async (pkg) => {
       set({ isLoading: true, error: null }, false, 'selectCarePackage/pending');
       try {
-        // Ensure service options are available.
         if (get().serviceOptions.length === 0) {
-          await get().fetchServiceOptions(); // Await the fetch
+          await get().fetchServiceOptions();
         }
         const currentServiceOptions = get().serviceOptions;
 
@@ -300,9 +300,7 @@ export const useMcpFormStore = create(
         const newServices = (data.details || []).map((s) => {
           const serviceOption = currentServiceOptions.find((f) => f.id == s.service_id);
           const price = parseFloat(s.care_package_item_details_price) || 0;
-          const discount = parseFloat(s.care_package_item_details_discount) || 1; // Default discount to 1 if not provided
-          // The API provides final price directly as care_package_item_details_price
-          // and discount separately. The original price would be final_price / discount.
+          const discount = parseFloat(s.care_package_item_details_discount) || 1;
           const originalPrice = discount !== 0 ? price / discount : price;
 
           return {
@@ -311,7 +309,7 @@ export const useMcpFormStore = create(
             quantity: parseInt(s.care_package_item_details_quantity, 10) || 1,
             price: originalPrice,
             discount: discount,
-            finalPrice: price, // This is the price per unit after discount from the backend
+            finalPrice: price,
           };
         });
 
@@ -320,15 +318,14 @@ export const useMcpFormStore = create(
         set(
           {
             mainFormData: {
-              ...get().mainFormData, // Preserve other fields like member_id, employee_id
+              ...get().mainFormData,
               package_name: data.package?.care_package_name || '',
               package_remarks: data.package?.care_package_remarks || '',
-              services: newServices, // Replace existing services
+              services: newServices,
               package_price: packagePrice,
             },
             isCustomizable: data.package?.care_package_customizable ?? true,
             serviceForm: {
-              // Reset service form when a package is selected
               id: '',
               name: '',
               quantity: 1,
@@ -336,6 +333,7 @@ export const useMcpFormStore = create(
               discount: 1,
               finalPrice: 0,
             },
+            isLoading: false,
           },
           false,
           'selectCarePackage/fulfilled'
@@ -352,22 +350,68 @@ export const useMcpFormStore = create(
       try {
         const response = await api('cp/dropdown');
 
-        // Add null checking and filtering
         const formattedOptions = (response.data || [])
-          .filter((pkg) => pkg && pkg.id && pkg.care_package_name) // Filter out null/invalid entries
+          .filter((pkg) => pkg && pkg.id && pkg.care_package_name)
           .map((pkg) => ({
             id: pkg.id,
             label: pkg.care_package_name,
-            value: pkg.id, // Add value field for consistency
+            value: pkg.id,
           }));
 
-        console.log('Formatted care package options:', formattedOptions);
         set({ packageOptions: formattedOptions, isLoading: false }, false, 'fetchCarePackageOptions/fulfilled');
       } catch (error) {
         const errorMessage = error.response?.data?.message || error.message || 'An unknown error occurred';
         set({ error: errorMessage, isLoading: false }, false, 'fetchCarePackageOptions/rejected');
         console.error('Error fetching care package options:', error);
       }
+    },
+
+    addMcpToCreationQueue: (packageData) => {
+      set(
+        (state) => ({
+          mcpCreationQueue: [...state.mcpCreationQueue, packageData],
+        }),
+        false,
+        'addMcpToCreationQueue'
+      );
+
+      console.log('In Queue', get().mcpCreationQueue);
+    },
+
+    removeMcpFromCreationQueue: (mcpId) => {
+      set(
+        (state) => ({
+          mcpCreationQueue: state.mcpCreationQueue.filter((mcp) => mcp.id !== mcpId),
+        }),
+        false,
+        `removeMcpFromCreationQueue/${mcpId}`
+      );
+
+      console.log('In Queue', get().mcpCreationQueue);
+    },
+
+    processMcpCreationQueue: async () => {
+      const queue = get().mcpCreationQueue;
+      if (queue.length === 0) {
+        return { success: true, results: [] };
+      }
+
+      set({ isLoading: true, error: null }, false, 'processMcpCreationQueue/pending');
+      try {
+        const response = await api.post('/mcp/create', { packages: queue });
+        set({ isLoading: false, mcpCreationQueue: [] }, false, 'processMcpCreationQueue/fulfilled');
+        return { success: true, results: response.data };
+      } catch (error) {
+        const errorMessage =
+          error.response?.data?.message || error.message || 'An unknown error occurred during MCP creation';
+        set({ error: errorMessage, isLoading: false }, false, 'processMcpCreationQueue/rejected');
+        console.error('Error processing MCP creation queue:', error);
+        return { success: false, error: errorMessage };
+      }
+    },
+
+    clearMcpCreationQueue: () => {
+      set({ mcpCreationQueue: [] }, false, 'clearMcpCreationQueue');
     },
   }))
 );
