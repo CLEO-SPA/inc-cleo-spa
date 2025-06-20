@@ -1,7 +1,7 @@
 import { create } from 'zustand';
 import api from '@/services/api';
 
-export const useCpPaginationStore = create((set, get) => ({
+export const useMemberCarePackageStore = create((set, get) => ({
   // States
   currentPage: 1,
   currentLimit: 10,
@@ -35,7 +35,7 @@ export const useCpPaginationStore = create((set, get) => ({
       lastAction: null,
     });
     // Fetch initial data after state is set
-    get().fetchCarePackages();
+    get().fetchMemberCarePackages();
   },
 
   setPaginationData: (data, pageInfo, searchTerm) =>
@@ -55,7 +55,7 @@ export const useCpPaginationStore = create((set, get) => ({
       return newState;
     }),
 
-  fetchCarePackages: async () => {
+  fetchMemberCarePackages: async () => {
     set({ isLoading: true, error: null }); // Set loading true, clear previous error
 
     const state = get(); // Get the current state
@@ -85,7 +85,7 @@ export const useCpPaginationStore = create((set, get) => ({
 
     try {
       // Use your imported API service
-      const response = await api.get('/cp/pkg', { params: queryParams });
+      const response = await api.get('/mcp/pkg', { params: queryParams });
 
       console.log(response);
 
@@ -104,7 +104,7 @@ export const useCpPaginationStore = create((set, get) => ({
       isOffsetMode: false,
       lastAction: 'next', // Track the action for `WorkspaceCarePackages`
     }));
-    get().fetchCarePackages(); // Trigger fetch
+    get().fetchMemberCarePackages(); // Trigger fetch
   },
 
   // Action to navigate to the previous page (cursor-based)
@@ -114,7 +114,7 @@ export const useCpPaginationStore = create((set, get) => ({
       isOffsetMode: false,
       lastAction: 'prev', // Track the action for `WorkspaceCarePackages`
     }));
-    get().fetchCarePackages(); // Trigger fetch
+    get().fetchMemberCarePackages(); // Trigger fetch
   },
 
   // Action for direct jump to page (offset-based)
@@ -126,7 +126,7 @@ export const useCpPaginationStore = create((set, get) => ({
       endCursor: null,
       lastAction: 'jump', // Track action
     }));
-    get().fetchCarePackages(); // Trigger fetch
+    get().fetchMemberCarePackages(); // Trigger fetch
   },
 
   // Actions that should reset to the first page and potentially switch mode
@@ -140,7 +140,7 @@ export const useCpPaginationStore = create((set, get) => ({
       isOffsetMode: false, // Reset to cursor mode for new search
       lastAction: 'search', // Track action
     }));
-    get().fetchCarePackages(); // Trigger fetch
+    get().fetchMemberCarePackages(); // Trigger fetch
   },
 
   setLimit: (newLimit) => {
@@ -153,6 +153,6 @@ export const useCpPaginationStore = create((set, get) => ({
       isOffsetMode: false, // Reset to cursor mode for new limit
       lastAction: 'limit', // Track action
     }));
-    get().fetchCarePackages(); // Trigger fetch
+    get().fetchMemberCarePackages(); // Trigger fetch
   },
 }));

@@ -17,12 +17,15 @@ router.use(isAuthenticated);
 
 router.all('/e', roleMiddleware.hasRole(['data_admin', 'super_admin']), controller.emulateCarePackage);
 
+router.get('/dropdown', controller.getCarePackagesForDropDown);
 router.get('/pkg', controller.getAllCarePackages);
 router.get('/pkg/:id', controller.getCarePackageById);
+router.get('/pkgpc', controller.getCarePackagePurchaseCount);
 
-router.post('/create', controller.createCarePackage);
+router.post('/c', controller.createCarePackage);
 
-router.put('/update', controller.updateCarePackageById);
+router.put('/u', controller.updateCarePackageById);
+router.put('/u/s', controller.updateCarePackageStatus);
 
 router.delete('/:id/del', roleMiddleware.hasRole(['data_admin', 'super_admin']), controller.deleteCarePackageById);
 

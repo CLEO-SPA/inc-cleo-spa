@@ -4,6 +4,8 @@ import { Button } from '@/components/ui/button';
 import CreateMemberVoucherForm from './tabs/CreateMemberVoucherForm'; 
 import ServiceTab from '@/pages/sale-transaction/tabs/ServiceTab';
 import ProductTab from '@/pages/sale-transaction/tabs/ProductTab';
+import CreateMemberCarePackageForm from './tabs/CreateMemberCarePackageForm';
+
 export default function FormSelectorPanel() { 
   const [selectedTab, setSelectedTab] = useState('services'); 
   const { error, clearError } = useSelectedMemberStore(); 
@@ -24,7 +26,7 @@ export default function FormSelectorPanel() {
       case 'products': 
         return <div>Select a tab</div>; 
       case 'mcp': 
-        return <div>Select a tab</div>; 
+        return <CreateMemberCarePackageForm />; 
       case 'vouchers': 
         return <CreateMemberVoucherForm />; 
       case 'transfer_voucher': 

@@ -280,8 +280,6 @@ const getAllEmployeesForDropdown = async () => {
     throw new Error('Error fetching employee list');
   }
 };
-
-
 export default {
   // createEmployee,
   checkEmployeeCodeExists,
@@ -293,5 +291,5 @@ export default {
   getUserData,
   getEmployeeIdByUserAuthId,
   getBasicEmployeeDetails,
-  getAllEmployeesForDropdown
+  getAllEmployeesForDropdown,
 };

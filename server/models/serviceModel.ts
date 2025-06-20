@@ -1,9 +1,115 @@
 import { pool, getProdPool as prodPool } from '../config/database.js';
 
+// get all services, sorted by sequence number
+const getAllServices = async () => {
+  try {
+    const query = `
+      SELECT 
+          s.id,
+          s.service_name,
+          s.service_description,
+          s.service_remarks,
+          s.service_duration,
+          s.service_price,
+          s.service_is_enabled,
+          s.created_at,
+          s.updated_at,
+          em_c.employee_name AS created_by,
+          em_u.employee_name AS updated_by,
+          s.service_category_id,
+          s.service_sequence_no,
+          sc.service_category_name,
+          get_total_sale_transactions(s.service_name) AS total_sale_transactions,
+          get_total_care_packages(s.id) AS total_care_packages
+      FROM services AS s
+      LEFT JOIN service_categories AS sc ON s.service_category_id = sc.id
+      INNER JOIN employees AS em_c ON s.created_by = em_c.id
+      INNER JOIN employees AS em_u ON s.updated_by = em_u.id
+      ORDER BY sc.service_category_sequence_no,
+      CASE 
+          WHEN s.service_sequence_no = 0 THEN 1
+          ELSE 0
+      END,
+      s.service_sequence_no
+    `;
+    const result = await pool().query(query);
+    return result.rows;
+  } catch (error) {
+    console.error('Error fetching all services:', error);
+    throw new Error('Error fetching all services');
+  }
+};
+
+const getServicesPaginationFilter = async (
+  page: number,
+  limit: number,
+  search: string | null,
+  category: number | null,
+  status: boolean | null
+) => {
+  try {
+    const query = `
+      SELECT * FROM get_services_with_pagination(
+      $1::INT, 
+      $2::INT,
+      $3::TEXT,
+      $4::BIGINT,
+      $5::BOOLEAN
+      );`;
+    const params = [page, limit, search, category, status];
+    // console.log(query, params);
+    const result = await prodPool().query(query, params);
+    return result.rows;
+  } catch (error) {
+    console.error('Error in getServicesPaginationFilter:', error);
+    throw new Error('Error fetching services with pagination and filter');
+  }
+};
+
+// get total pages for pagination
+const getTotalCount = async (search: string | null, category: number | null, status: boolean | null) => {
+  try {
+    let query = `SELECT COUNT(*) AS total_count FROM services`;
+    const conditions: string[] = [];
+    const params: any[] = [];
+
+    if (search != null) {
+      params.push(search);
+      conditions.push(`service_name ILIKE '%' || $${params.length}::TEXT || '%'`);
+    }
+
+    if (category != null) {
+      params.push(category);
+      conditions.push(`service_category_id = $${params.length}::BIGINT`);
+    }
+
+    if (status != null) {
+      params.push(status);
+      conditions.push(`service_is_enabled = $${params.length}::BOOLEAN`);
+    }
+
+    if (conditions.length > 0) {
+      query += ` WHERE ` + conditions.join(' AND ');
+    }
+
+    const result =
+      search || category || status !== null ? await prodPool().query(query, params) : await prodPool().query(query);
+    if (result.rows.length === 0) {
+      return 0; // No services found
+    }
+
+    return result.rows[0].total_count;
+  } catch (error) {
+    console.error('Error in getTotalPages:', error);
+    throw new Error('Error fetching total number of pages');
+  }
+};
+
+// get id, service_name for dropdown, sorted by service_name
 const getAllServicesForDropdown = async () => {
   try {
     const query = `
-      SELECT id, service_name FROM services
+      SELECT id, service_name, service_price FROM services
       WHERE service_is_enabled = true
       ORDER BY service_name ASC
     `;
@@ -15,6 +121,65 @@ const getAllServicesForDropdown = async () => {
   }
 };
 
+// get service by id, include both enabled and disabled services
+const getServiceById = async (id: number) => {
+  try {
+    const query = `
+        SELECT 
+            s.id,
+            s.service_name,
+            s.service_description,
+            s.service_remarks,
+            s.service_duration,
+            s.service_price,
+            s.service_is_enabled,
+            s.created_at,
+            s.updated_at,
+            s.service_category_id,
+            s.service_sequence_no,
+            s.created_by,
+            s.updated_by,
+            
+            -- Category information
+            sc.service_category_name,
+            
+            -- Creator information
+            em_c.employee_name as created_by,
+            
+            -- Updater information
+            em_u.employee_name as updated_by
+            
+        FROM public.services s
+        LEFT JOIN service_categories AS sc ON s.service_category_id = sc.id
+        INNER JOIN employees AS em_c ON s.created_by = em_c.id
+        INNER JOIN employees AS em_u ON s.updated_by = em_u.id
+        WHERE s.id = $1; 
+    `;
+    const result = await pool().query(query, [id]); // Added id parameter to query
+    return result.rows[0];
+  } catch (error) {
+    console.error('Error fetching service by id:', error);
+    throw new Error('Error fetching service by id');
+  }
+};
+
+// get service by name
+const getServiceByName = async (service_name: string) => {
+  try {
+    const query = `
+        SELECT 
+            s.id,
+            s.service_name
+        FROM services AS s
+        WHERE s.service_name = $1; 
+    `;
+    const result = await pool().query(query, [service_name]); // Added string parameter to query
+    return result.rows[0];
+  } catch (error) {
+    console.error('Error fetching service by name:', error);
+    throw new Error('Error fetching service by name');
+  }
+};
 
 const getEnabledServiceById = async (id: number) => {
   // Added missing id parameter
@@ -59,8 +224,103 @@ const getEnabledServiceById = async (id: number) => {
   }
 };
 
+const getServiceCategories = async () => {
+  try {
+    const query = `
+    SELECT * FROM service_categories
+    ORDER BY service_category_sequence_no;`;
+    const result = await pool().query(query);
+    return result.rows;
+  } catch (error) {
+    console.error('Error fetching service categories:', error);
+    throw new Error('Error fetching service categories');
+  }
+};
+
+const getServiceCategoryById = async (id: number) => {
+  try {
+    const query = `
+        SELECT 
+            id,
+            service_category_name
+        FROM service_categories
+        WHERE id = $1; 
+    `;
+    const result = await pool().query(query, [id]); // Added string parameter to query
+    return result.rows[0];
+  } catch (error) {
+    console.error('Error fetching service category by id:', error);
+    throw new Error('Error fetching service category by id');
+  }
+};
+
+const getServiceSequenceNo = async (service_category_id: number) => {
+  try {
+    const query = `
+    SELECT COUNT(*) AS seq_no FROM services
+    WHERE service_category_id = $1;`;
+    const result = await pool().query(query, [service_category_id]);
+    return result.rows[0].seq_no;
+  } catch (error) {
+    console.error('Error fetching service sequence no:', error);
+    throw new Error('Error fetching service sequence no');
+  }
+};
+
+const createService = async (serviceData: any) => {
+  try {
+    const query = `
+      INSERT INTO services (
+        service_name,
+        service_description,
+        service_remarks,
+        service_duration,
+        service_price,
+        service_is_enabled,
+        created_at,
+        updated_at,
+        service_category_id,
+        service_sequence_no,
+        created_by,
+        updated_by
+      ) VALUES (
+        $1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12
+      )
+      RETURNING *;
+    `;
+    const params = [
+      serviceData.service_name,
+      serviceData.service_description,
+      serviceData.service_remarks,
+      serviceData.service_duration,
+      serviceData.service_price,
+      serviceData.service_is_enabled,
+      serviceData.created_at,
+      serviceData.updated_at,
+      serviceData.service_category_id,
+      serviceData.service_sequence_no,
+      serviceData.created_by,
+      serviceData.updated_by,
+    ];
+    const result = await pool().query(query, params);
+    console.log(result);
+    return result.rows;
+  } catch (error) {
+    console.error('Error creating new service:', error);
+    throw new Error('Error creating new service');
+  }
+};
 
 export default {
+  getAllServices,
+  getServicesPaginationFilter,
+  getTotalCount,
   getAllServicesForDropdown,
-  getEnabledServiceById
+  getServiceById,
+  getServiceByName,
+  getEnabledServiceById,
+  getServiceCategories,
+  getServiceCategoryById,
+  getServiceSequenceNo,
+  createService,
 };
