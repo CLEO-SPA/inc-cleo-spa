@@ -31,7 +31,7 @@ import CreateMemberVoucherConsumptionPage from '@/pages/MemberVoucher/CreateCons
 // Data Export
 import DataExportPage from './pages/miscellaneous/DateExportPage';
 // Revenue Report
-import RevenueReportPage from './pages/RevenueReportPage';
+import RevenueReportPage from './pages/revenue/RevenueReportPage';
 function App() {
   return (
     <AuthProvider>

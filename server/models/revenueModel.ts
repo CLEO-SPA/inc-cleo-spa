@@ -87,18 +87,19 @@ const getAdHocMonthlyReport = async (year: number, month: number) => {
   }
 };
 
-const getEarliestTransactionDate = async () => {
+const getTransactionDateRange = async () => {
   const client = await pool().connect();
   try {
     const result = await client.query(`
       SELECT 
-        TO_CHAR(MIN(created_at AT TIME ZONE 'Asia/Singapore'), 'YYYY-MM-DD') AS earliest_created_at_sgt
+        TO_CHAR(MIN(created_at AT TIME ZONE 'Asia/Singapore'), 'YYYY-MM-DD') AS earliest_created_at_sgt,
+        TO_CHAR(MAX(created_at AT TIME ZONE 'Asia/Singapore'), 'YYYY-MM-DD') AS latest_created_at_sgt
       FROM sale_transactions;
       `
     );
 
     return {
-      earliest_date: result.rows[0],
+      range: result.rows[0],
     };
   } finally {
     client.release();
@@ -108,5 +109,5 @@ export default {
   getMVMonthlyReport,
   getMCPMonthlyReport,
   getAdHocMonthlyReport,
-  getEarliestTransactionDate,
+  getTransactionDateRange,
 }

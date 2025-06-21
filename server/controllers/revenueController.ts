@@ -219,9 +219,9 @@ const getAdHocMonthlyReport = async (req: Request, res: Response) => {
   }
 };
 
-const getEarliestTransactionDate = async (req: Request, res: Response) => {
+const getTransactionDateRange = async (req: Request, res: Response) => {
   try {
-    const data = await model.getEarliestTransactionDate();
+    const data = await model.getTransactionDateRange();
 
     res.json({ success: true, data });
   } catch (error) {
@@ -234,5 +234,5 @@ export default {
   getMVMonthlyReport,
   getMCPMonthlyReport,
   getAdHocMonthlyReport,
-  getEarliestTransactionDate,
+  getTransactionDateRange,
 }
