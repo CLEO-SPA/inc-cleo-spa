@@ -451,12 +451,12 @@ const getServiceCategories = async (req: Request, res: Response, next: NextFunct
     res.status(200).json(serviceCategories);
   } catch (error) {
     console.error('Error in getServiceCategories:', error);
-    res.status(500).json({ message: 'Failed to fetch service categories' });
+    next(error);
   }
 };
 
 // get sales history by service id, selected month and year
-const getSalesHistoryByServiceId = async (req: Request, res: Response) => {
+const getSalesHistoryByServiceId = async (req: Request, res: Response, next: NextFunction) => {
   try {
     const id = parseInt(req.params.serviceId, 10);
     const { month, year } = req.query;
@@ -488,7 +488,7 @@ const getSalesHistoryByServiceId = async (req: Request, res: Response) => {
     res.status(200).json({ summary, daily });
   } catch (error) {
     console.error('Error in getSalesHistoryByServiceId:', error);
-    res.status(500).json({ message: 'Failed to fetch sales history' });
+    next(error);
   }
 };
 
@@ -508,17 +508,17 @@ const createServiceCategory = async (req: Request, res: Response, next: NextFunc
   } catch (error) {
     console.error('Error in createServiceCategory:', error);
 
-    const message =
-      error instanceof Error && error.message === 'Category already exists'
-        ? 'Category already exists'
-        : 'Failed to create category';
+    if (error instanceof Error && error.message === 'Category already exists') {
+      res.status(409).json({ message: 'Category already exists' });
+      return;
+    }
 
-    res.status(400).json({ message });
+    next(error);
   }
 };
 
 // update service category by id
-const updateServiceCategory = async (req: Request, res: Response) => {
+const updateServiceCategory = async (req: Request, res: Response, next: NextFunction) => {
   const catId = parseInt(req.params.catId, 10);
   const { name } = req.body;
 
@@ -533,26 +533,25 @@ const updateServiceCategory = async (req: Request, res: Response) => {
   } catch (error) {
     console.error('Error in updateServiceCategory:', error);
 
-    const message = error instanceof Error ? error.message : 'Failed to update category';
+    if (error instanceof Error) {
+      if (error.message === 'Category not found') {
+        res.status(404).json({ message: error.message });
+        return;
+      }
 
-    // Translate known errors to appropriate HTTP status
-    if (message === 'Category not found') {
-      res.status(404).json({ message });
-      return;
+      if (error.message === 'Category already exists') {
+        res.status(409).json({ message: error.message });
+        return;
+      }
     }
 
-    if (message === 'Category already exists') {
-      res.status(409).json({ message });
-      return;
-    }
-
-    res.status(400).json({ message });
+    next(error); 
   }
 };
 
 // reorder service category sequence no
 const reorderServiceCategory = async (req: Request, res: Response, next: NextFunction) => {
-  const categories = req.body; // expected to be array of { id, service_category_sequence_no }
+  const categories = req.body; 
 
   if (!Array.isArray(categories) || categories.some((cat) => !cat.id || cat.service_category_sequence_no == null)) {
     res.status(400).json({ message: 'Invalid category data.' });
@@ -565,8 +564,7 @@ const reorderServiceCategory = async (req: Request, res: Response, next: NextFun
     return;
   } catch (error) {
     console.error('Error updating category order:', error);
-    res.status(500).json({ message: 'Failed to update category order.' });
-    return;
+    next(error);
   }
 };
 
