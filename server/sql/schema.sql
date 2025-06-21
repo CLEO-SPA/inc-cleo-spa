@@ -368,10 +368,15 @@ CREATE TABLE "services" (
     "service_duration" DECIMAL NOT NULL,
     "service_price" DECIMAL(10,2) NOT NULL,
     "service_is_enabled" BOOLEAN NOT NULL,
+    "service_duration" DECIMAL NOT NULL,
+    "service_price" DECIMAL(10,2) NOT NULL,
+    "service_is_enabled" BOOLEAN NOT NULL,
     "service_created_at" TIMESTAMPTZ(6) NOT NULL DEFAULT CURRENT_TIMESTAMP,
     "service_updated_at" TIMESTAMPTZ(6) NOT NULL DEFAULT CURRENT_TIMESTAMP,
     "service_category_id" BIGINT NOT NULL,
     "service_sequence_no" INTEGER NOT NULL,
+    "created_by" BIGINT,
+    "updated_by" BIGINT,
     "created_by" BIGINT,
     "updated_by" BIGINT,
 
@@ -617,10 +622,12 @@ CREATE UNIQUE INDEX "statuses_status_name_key" ON "statuses"("status_name");
 CREATE INDEX "fki_cs_service_service_category_id_fkey" ON "services"("service_category_id");
 
 -- Foreign Keys for table "care_packages"
+-- Foreign Keys for table "care_packages"
 ALTER TABLE "care_packages" ADD CONSTRAINT "care_packages_created_by_fkey" FOREIGN KEY ("created_by") REFERENCES "employees"("id") ON DELETE SET NULL ON UPDATE CASCADE;
 ALTER TABLE "care_packages" ADD CONSTRAINT "care_packages_last_updated_by_fkey" FOREIGN KEY ("last_updated_by") REFERENCES "employees"("id") ON DELETE SET NULL ON UPDATE CASCADE;
 ALTER TABLE "care_packages" ADD CONSTRAINT "care_packages_status_id_fkey" FOREIGN KEY ("status_id") REFERENCES "statuses"("id") ON DELETE RESTRICT ON UPDATE CASCADE;
 
+-- Foreign Keys for table "care_package_item_details"
 -- Foreign Keys for table "care_package_item_details"
 ALTER TABLE "care_package_item_details" ADD CONSTRAINT "care_package_item_details_care_package_id_fkey" FOREIGN KEY ("care_package_id") REFERENCES "care_packages"("id") ON DELETE CASCADE ON UPDATE CASCADE;
 ALTER TABLE "care_package_item_details" ADD CONSTRAINT "care_package_item_details_service_id_fkey" FOREIGN KEY ("service_id") REFERENCES "services"("id") ON DELETE RESTRICT ON UPDATE CASCADE;
@@ -629,22 +636,28 @@ ALTER TABLE "care_package_item_details" ADD CONSTRAINT "care_package_item_detail
 ALTER TABLE "employees" ADD CONSTRAINT "employees_position_id_fkey" FOREIGN KEY ("position_id") REFERENCES "positions"("id") ON DELETE SET NULL ON UPDATE CASCADE;
 ALTER TABLE "employees" ADD CONSTRAINT "employees_user_auth_id_fkey" FOREIGN KEY ("user_auth_id") REFERENCES "user_auth"("id") ON DELETE RESTRICT ON UPDATE CASCADE;
 ALTER TABLE "employees" ADD CONSTRAINT "verified_status_id_fkey" FOREIGN KEY ("verified_status_id") REFERENCES "statuses"("id") ON UPDATE CASCADE;
+ALTER TABLE "employees" ADD CONSTRAINT "verified_status_id_fkey" FOREIGN KEY ("verified_status_id") REFERENCES "statuses"("id") ON UPDATE CASCADE;
 
+-- Foreign Keys for table "serving_employee_to_invoice_items"
 -- Foreign Keys for table "serving_employee_to_invoice_items"
 ALTER TABLE "serving_employee_to_invoice_items" ADD CONSTRAINT "serving_employee_to_invoice_ite_reviewed_by_employee_id_fkey" FOREIGN KEY ("reviewed_by_employee_id") REFERENCES "employees"("id") ON DELETE SET NULL ON UPDATE CASCADE;
 ALTER TABLE "serving_employee_to_invoice_items" ADD CONSTRAINT "serving_employee_to_invoice_items_invoice_item_id_fkey" FOREIGN KEY ("invoice_item_id") REFERENCES "invoice_items"("id") ON DELETE CASCADE ON UPDATE CASCADE;
 
 -- Foreign Keys for table "refunds"
+-- Foreign Keys for table "refunds"
 ALTER TABLE "refunds" ADD CONSTRAINT "fk_employee" FOREIGN KEY ("employee_id") REFERENCES "employees"("id") ON DELETE NO ACTION ON UPDATE NO ACTION;
 ALTER TABLE "refunds" ADD CONSTRAINT "fk_refunds_invoice_id" FOREIGN KEY ("invoice_id") REFERENCES "invoices"("id") ON DELETE NO ACTION ON UPDATE NO ACTION;
 
+-- Foreign Keys for table "refund_items"
 -- Foreign Keys for table "refund_items"
 ALTER TABLE "refund_items" ADD CONSTRAINT "fk_refund_items_invoice_item_id" FOREIGN KEY ("invoice_item_id") REFERENCES "invoice_items"("id") ON DELETE NO ACTION ON UPDATE NO ACTION;
 ALTER TABLE "refund_items" ADD CONSTRAINT "fk_refund_items_refund_id" FOREIGN KEY ("refund_id") REFERENCES "refunds"("id") ON DELETE NO ACTION ON UPDATE NO ACTION;
 
 -- Foreign Keys for table "invoice_items"
+-- Foreign Keys for table "invoice_items"
 ALTER TABLE "invoice_items" ADD CONSTRAINT "invoice_items_invoice_id_fkey" FOREIGN KEY ("invoice_id") REFERENCES "invoices"("id") ON DELETE CASCADE ON UPDATE NO ACTION;
 
+-- Foreign Keys for table "invoice_payments"
 -- Foreign Keys for table "invoice_payments"
 ALTER TABLE "invoice_payments" ADD CONSTRAINT "invoice_payments_invoice_id_fkey" FOREIGN KEY ("invoice_id") REFERENCES "invoices"("id") ON DELETE CASCADE ON UPDATE NO ACTION;
 ALTER TABLE "invoice_payments" ADD CONSTRAINT "invoice_payments_invoice_payment_created_by_fkey" FOREIGN KEY ("invoice_payment_created_by") REFERENCES "employees"("id") ON DELETE RESTRICT ON UPDATE CASCADE;
@@ -652,31 +665,39 @@ ALTER TABLE "invoice_payments" ADD CONSTRAINT "invoice_payments_invoice_payment_
 ALTER TABLE "invoice_payments" ADD CONSTRAINT "invoice_payments_payment_method_id_fkey" FOREIGN KEY ("payment_method_id") REFERENCES "payment_methods"("id") ON DELETE RESTRICT ON UPDATE CASCADE;
 
 -- Foreign Keys for table "invoices"
+-- Foreign Keys for table "invoices"
 ALTER TABLE "invoices" ADD CONSTRAINT "invoices_invoice_handler_employee_id_fkey" FOREIGN KEY ("invoice_handler_employee_id") REFERENCES "employees"("id") ON DELETE RESTRICT ON UPDATE CASCADE;
 ALTER TABLE "invoices" ADD CONSTRAINT "invoices_invoice_status_fkey" FOREIGN KEY ("invoice_status") REFERENCES "statuses"("id") ON DELETE RESTRICT ON UPDATE CASCADE;
 ALTER TABLE "invoices" ADD CONSTRAINT "invoices_member_id_fkey" FOREIGN KEY ("member_id") REFERENCES "members"("id") ON DELETE CASCADE ON UPDATE CASCADE;
 
+-- Foreign Keys for table "member_care_packages"
 -- Foreign Keys for table "member_care_packages"
 ALTER TABLE "member_care_packages" ADD CONSTRAINT "member_care_packages_employee_id_fkey" FOREIGN KEY ("employee_id") REFERENCES "employees"("id") ON DELETE RESTRICT ON UPDATE CASCADE;
 ALTER TABLE "member_care_packages" ADD CONSTRAINT "member_care_packages_member_id_fkey" FOREIGN KEY ("member_id") REFERENCES "members"("id") ON DELETE CASCADE ON UPDATE CASCADE;
 ALTER TABLE "member_care_packages" ADD CONSTRAINT "member_care_packages_status_fkey" FOREIGN KEY ("status_id") REFERENCES "statuses"("id") ON DELETE RESTRICT ON UPDATE CASCADE;
 
 -- Foreign Keys for table "member_care_package_details"
+-- Foreign Keys for table "member_care_package_details"
 ALTER TABLE "member_care_package_details" ADD CONSTRAINT "member_care_package_details_member_care_package_id_fkey" FOREIGN KEY ("member_care_package_id") REFERENCES "member_care_packages"("id") ON DELETE CASCADE ON UPDATE CASCADE;
 ALTER TABLE "member_care_package_details" ADD CONSTRAINT "member_care_package_details_service_id_fkey" FOREIGN KEY ("service_id") REFERENCES "services"("id") ON DELETE SET NULL ON UPDATE CASCADE;
 ALTER TABLE "member_care_package_details" ADD CONSTRAINT "member_care_package_details_status_id_fkey" FOREIGN KEY ("status_id") REFERENCES "statuses"("id") ON DELETE RESTRICT ON UPDATE CASCADE;
 
+-- Foreign Keys for table "member_care_package_transaction_logs"
 -- Foreign Keys for table "member_care_package_transaction_logs"
 ALTER TABLE "member_care_package_transaction_logs" ADD CONSTRAINT "member_care_package_transaction_logs_employee_id_fkey" FOREIGN KEY ("employee_id") REFERENCES "employees"("id") ON DELETE RESTRICT ON UPDATE CASCADE;
 ALTER TABLE "member_care_package_transaction_logs" ADD CONSTRAINT "member_care_package_transaction_logs_member_care_package_d_fkey" FOREIGN KEY ("member_care_package_details_id") REFERENCES "member_care_package_details"("id") ON DELETE CASCADE ON UPDATE CASCADE;
 ALTER TABLE "member_care_package_transaction_logs" ADD CONSTRAINT "member_care_package_transaction_logs_service_id_fkey" FOREIGN KEY ("service_id") REFERENCES "services"("id") ON DELETE RESTRICT ON UPDATE CASCADE;
 
 -- Foreign Keys for table "members"
+-- Foreign Keys for table "members"
 ALTER TABLE "members" ADD CONSTRAINT "members_user_auth_id_fkey" FOREIGN KEY ("user_auth_id") REFERENCES "user_auth"("id") ON DELETE SET NULL ON UPDATE CASCADE;
 
+-- Foreign Keys for table "membership_accounts"
 -- Foreign Keys for table "membership_accounts"
 ALTER TABLE "membership_accounts" ADD CONSTRAINT "membership_accounts_status_id_fkey" FOREIGN KEY ("status_id") REFERENCES "statuses"("id") ON DELETE RESTRICT ON UPDATE CASCADE;
 
 -- Foreign Keys for table "user_to_role"
+-- Foreign Keys for table "user_to_role"
 ALTER TABLE "user_to_role" ADD CONSTRAINT "user_to_role_role_id_fkey" FOREIGN KEY ("role_id") REFERENCES "roles"("id") ON DELETE RESTRICT ON UPDATE CASCADE;
 ALTER TABLE "user_to_role" ADD CONSTRAINT "user_to_role_user_id_fkey" FOREIGN KEY ("user_auth_id") REFERENCES "user_auth"("id") ON DELETE RESTRICT ON UPDATE CASCADE;
+ALTER TABLE "user_to_role" ADD CONSTRAINT "user_to_role_user_id_fkey" FOREIGN KEY ("user_id") REFERENCES "user_auth"("id") ON DELETE RESTRICT ON UPDATE CASCADE;

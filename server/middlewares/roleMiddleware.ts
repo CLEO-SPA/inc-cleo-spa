@@ -1,7 +1,7 @@
-import { Request, Response, NextFunction } from 'express';
+import { Request, Response, NextFunction, RequestHandler } from 'express';
 import roleModel from '../models/roleModel.js';
 
-const hasRole = (requiredRoles: string | string[]) => {
+const hasRole = (requiredRoles: string | string[]): RequestHandler => {
   return async (req: Request, res: Response, next: NextFunction): Promise<void> => {
     try {
       // Check if user is authenticated
