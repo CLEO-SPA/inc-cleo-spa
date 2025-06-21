@@ -101,6 +101,9 @@ export default function TimetableCalendar() {
                 
                 {/* Actions */}
                 <td className="border border-gray-300 px-2 py-2 text-center">
+                  <Button variant="outline" size="sm" className="w-full text-xs mb-1">
+                    Create
+                  </Button>
                   <Button variant="outline" size="sm" className="w-full text-xs">
                     Update
                   </Button>
