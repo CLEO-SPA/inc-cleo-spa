@@ -10,8 +10,6 @@ import serviceRoutes from './serviceRoutes.js';
 import memberRoutes from './memberRoutes.js';
 import carePackageRoutes from './cpRoutes.js';
 import membershipTypeRoutes from './membershipTypeRoutes.js';
-import memberCarePackageRoutes from './mcpRoutes.js';
-import serviceRoutes from './serviceRoutes.js';
 import employeeRoutes from './employeeRoutes.js';
 import positionRoutes from './positionRoutes.js';
 import voucherTemplateRoutes from './voucherTemplateRoutes.js';
