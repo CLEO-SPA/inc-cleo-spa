@@ -40,19 +40,19 @@ export default function TimetableCalendar() {
 
   return (
     <div className="overflow-x-auto">
-      <table className="w-full border-collapse border border-gray-300">
+      <table className="w-full border-collapse border border-black">
         {/* Header */}
         <thead>
           <tr className="bg-blue-100">
-            <th className="border border-gray-300 px-4 py-2 text-left font-medium min-w-[120px]">
+            <th className="border border-black px-2 py-1 text-left font-medium min-w-[100px]">
               Employee Name
             </th>
             {weekdays.map((day) => (
-              <th key={day} className="border border-gray-300 px-2 py-2 text-center font-medium min-w-[120px]">
+              <th key={day} className="border border-black px-1 py-1 text-center font-medium min-w-[80px]">
                 {day}
               </th>
             ))}
-            <th className="border border-gray-300 px-4 py-2 text-center font-medium min-w-[100px]">
+            <th className="border border-black px-2 py-1 text-center font-medium min-w-[90px]">
               Actions
             </th>
           </tr>
@@ -62,7 +62,7 @@ export default function TimetableCalendar() {
         <tbody>
           {timetableData.length === 0 ? (
             <tr>
-              <td colSpan={9} className="border border-gray-300 px-4 py-8 text-center text-gray-500">
+              <td colSpan={9} className="border border-black px-4 py-8 text-center text-gray-500">
                 No timetable data available for this month
               </td>
             </tr>
@@ -70,7 +70,7 @@ export default function TimetableCalendar() {
             timetableData.map((employee) => (
               <tr key={employee.employee_id}>
                 {/* Employee Name */}
-                <td className="border border-gray-300 px-4 py-2 font-medium bg-gray-50">
+                <td className="border border-black px-2 py-1 font-medium bg-gray-50">
                   {employee.employee_name}
                 </td>
                 
@@ -82,11 +82,11 @@ export default function TimetableCalendar() {
                   return (
                     <td 
                       key={day} 
-                      className={`border border-gray-300 px-2 py-2 h-16 ${restDay ? 'bg-gray-300' : ''}`}
+                      className={`border border-black px-1 py-1 h-10 ${restDay ? 'bg-gray-300' : ''}`}
                     >
                       {restDay && (
                         <div className="text-xs">
-                          <div className="font-medium mb-1">Rest Day</div>
+                          <div className="font-medium mb-0.5">Rest Day</div>
                           <div className="text-[10px] leading-tight">
                             Start: {format(new Date(restDay.effective_startdate), 'dd MMM yyyy')}
                           </div>
@@ -100,13 +100,15 @@ export default function TimetableCalendar() {
                 })}
                 
                 {/* Actions */}
-                <td className="border border-gray-300 px-2 py-2 text-center">
-                  <Button variant="outline" size="sm" className="w-full text-xs mb-1">
-                    Create
-                  </Button>
-                  <Button variant="outline" size="sm" className="w-full text-xs">
-                    Update
-                  </Button>
+                <td className="border border-black px-1 py-1 text-center">
+                  <div className="flex gap-1">
+                    <Button variant="outline" size="sm" className="flex-1 text-[10px] h-6 border-black text-black hover:bg-gray-200">
+                      Create
+                    </Button>
+                    <Button variant="outline" size="sm" className="flex-1 text-[10px] h-6 border-black text-black hover:bg-gray-200">
+                      Edit
+                    </Button>
+                  </div>
                 </td>
               </tr>
             ))
