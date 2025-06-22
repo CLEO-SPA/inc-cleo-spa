@@ -105,7 +105,7 @@ export async function checkAndUpdateSimState(): Promise<SimState> {
 interface CurrentSimStatusInfo {
   isActive: boolean;
   params: SystemParameters | null;
-  lastFetchedISO: string;
+  lastFetchedUTC: string;
   lastFetchedTimestamp: number;
 }
 
@@ -113,7 +113,7 @@ export const getCurrentSimStatus = (): CurrentSimStatusInfo => {
   return {
     isActive: SysParamsCache.isActiveSimulation,
     params: SysParamsCache.data,
-    lastFetchedISO: SysParamsCache.lastFetched === 0 ? 'Never' : new Date(SysParamsCache.lastFetched).toISOString(),
+    lastFetchedUTC: SysParamsCache.lastFetched === 0 ? 'Never' : new Date(SysParamsCache.lastFetched).toUTCString(),
     lastFetchedTimestamp: SysParamsCache.lastFetched,
   };
 };

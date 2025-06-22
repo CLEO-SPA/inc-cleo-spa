@@ -303,6 +303,8 @@ CREATE TABLE "payment_methods" (
     "payment_method_name" TEXT NOT NULL,
     "is_enabled" BOOLEAN NOT NULL,
     "is_revenue" BOOLEAN NOT NULL,
+    "show_on_payment_page" BOOLEAN NOT NULL DEFAULT true,
+    "is_protected" BOOLEAN NOT NULL DEFAULT false,
     "payment_method_created_at" TIMESTAMPTZ(6) NOT NULL,
     "payment_method_updated_at" TIMESTAMPTZ(6) NOT NULL,
 
@@ -368,10 +370,15 @@ CREATE TABLE "services" (
     "service_duration" DECIMAL NOT NULL,
     "service_price" DECIMAL(10,2) NOT NULL,
     "service_is_enabled" BOOLEAN NOT NULL,
+    "service_duration" DECIMAL NOT NULL,
+    "service_price" DECIMAL(10,2) NOT NULL,
+    "service_is_enabled" BOOLEAN NOT NULL,
     "service_created_at" TIMESTAMPTZ(6) NOT NULL DEFAULT CURRENT_TIMESTAMP,
     "service_updated_at" TIMESTAMPTZ(6) NOT NULL DEFAULT CURRENT_TIMESTAMP,
     "service_category_id" BIGINT NOT NULL,
     "service_sequence_no" INTEGER NOT NULL,
+    "created_by" BIGINT,
+    "updated_by" BIGINT,
     "created_by" BIGINT,
     "updated_by" BIGINT,
 
@@ -629,6 +636,7 @@ ALTER TABLE "care_package_item_details" ADD CONSTRAINT "care_package_item_detail
 ALTER TABLE "employees" ADD CONSTRAINT "employees_position_id_fkey" FOREIGN KEY ("position_id") REFERENCES "positions"("id") ON DELETE SET NULL ON UPDATE CASCADE;
 ALTER TABLE "employees" ADD CONSTRAINT "employees_user_auth_id_fkey" FOREIGN KEY ("user_auth_id") REFERENCES "user_auth"("id") ON DELETE RESTRICT ON UPDATE CASCADE;
 ALTER TABLE "employees" ADD CONSTRAINT "verified_status_id_fkey" FOREIGN KEY ("verified_status_id") REFERENCES "statuses"("id") ON UPDATE CASCADE;
+ALTER TABLE "employees" ADD CONSTRAINT "verified_status_id_fkey" FOREIGN KEY ("verified_status_id") REFERENCES "statuses"("id") ON UPDATE CASCADE;
 
 -- Foreign Keys for table "serving_employee_to_invoice_items"
 ALTER TABLE "serving_employee_to_invoice_items" ADD CONSTRAINT "serving_employee_to_invoice_ite_reviewed_by_employee_id_fkey" FOREIGN KEY ("reviewed_by_employee_id") REFERENCES "employees"("id") ON DELETE SET NULL ON UPDATE CASCADE;
@@ -642,6 +650,7 @@ ALTER TABLE "refunds" ADD CONSTRAINT "fk_refunds_invoice_id" FOREIGN KEY ("invoi
 ALTER TABLE "refund_items" ADD CONSTRAINT "fk_refund_items_invoice_item_id" FOREIGN KEY ("invoice_item_id") REFERENCES "invoice_items"("id") ON DELETE NO ACTION ON UPDATE NO ACTION;
 ALTER TABLE "refund_items" ADD CONSTRAINT "fk_refund_items_refund_id" FOREIGN KEY ("refund_id") REFERENCES "refunds"("id") ON DELETE NO ACTION ON UPDATE NO ACTION;
 
+-- Foreign Keys for table "invoice_items"
 -- Foreign Keys for table "invoice_items"
 ALTER TABLE "invoice_items" ADD CONSTRAINT "invoice_items_invoice_id_fkey" FOREIGN KEY ("invoice_id") REFERENCES "invoices"("id") ON DELETE CASCADE ON UPDATE NO ACTION;
 
@@ -680,3 +689,4 @@ ALTER TABLE "membership_accounts" ADD CONSTRAINT "membership_accounts_status_id_
 -- Foreign Keys for table "user_to_role"
 ALTER TABLE "user_to_role" ADD CONSTRAINT "user_to_role_role_id_fkey" FOREIGN KEY ("role_id") REFERENCES "roles"("id") ON DELETE RESTRICT ON UPDATE CASCADE;
 ALTER TABLE "user_to_role" ADD CONSTRAINT "user_to_role_user_id_fkey" FOREIGN KEY ("user_auth_id") REFERENCES "user_auth"("id") ON DELETE RESTRICT ON UPDATE CASCADE;
+ALTER TABLE "user_to_role" ADD CONSTRAINT "user_to_role_user_id_fkey" FOREIGN KEY ("user_id") REFERENCES "user_auth"("id") ON DELETE RESTRICT ON UPDATE CASCADE;
