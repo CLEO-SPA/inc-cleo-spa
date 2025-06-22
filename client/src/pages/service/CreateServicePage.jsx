@@ -229,15 +229,17 @@ export default function CreateService() {
                         <div>
                           <label className="block text-md font-medium">Service Category*</label>
                           <Select value={selectedCategory} onValueChange={setSelectedCategory}>
-                            <SelectTrigger className="w-[200px]">
+                            <SelectTrigger className="w-full">
                               <SelectValue placeholder="Select Category" />
                             </SelectTrigger>
                             <SelectContent>
+                              <div className="max-h-48 overflow-y-auto">
                               {categories.map((category) => (
                                 <SelectItem key={category.id} value={category.id}>
                                   {category.service_category_name}
                                 </SelectItem>
                               ))}
+                              </div>
                             </SelectContent>
                           </Select>
                         </div>
