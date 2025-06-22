@@ -193,12 +193,14 @@ export default function ReorderService() {
                     <SelectValue placeholder="Select Category" />
                   </SelectTrigger>
                   <SelectContent>
+                    <div className="max-h-60 overflow-y-auto">
                     <SelectItem value="0" selected>Select a Category</SelectItem>
                     {categories.map((category) => (
                       <SelectItem key={category.id} value={category.id}>
                         {category.service_category_name}
                       </SelectItem>
                     ))}
+                    </div>
                   </SelectContent>
                 </Select>
               </div>
