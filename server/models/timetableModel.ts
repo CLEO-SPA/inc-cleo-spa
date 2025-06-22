@@ -577,21 +577,18 @@ const resetCreateTimetablePre = async () => {
     // 3. Insert test row with specified values
     await client.query(
       `INSERT INTO timetables (
-        employee_id, restday_number, effective_startdate,
-        effective_enddate, created_by, created_at,
-        updated_by, updated_at
-      ) VALUES (
-        $1, $2, $3, $4, $5, $6, NULL, NULL
-      )`,
-      [
-        11,
-        2,
-        '2025-01-01T00:00:00+08:00', // effective_startdate
-        null,                        // effective_enddate
-        15,
-        '2024-12-24T12:00:00+08:00', // created_at
-      ]
+        id, employee_id, restday_number, effective_startdate, effective_enddate,
+        created_by, created_at, updated_by, updated_at
+      ) VALUES 
+        (1, 11, 2, '2025-01-01T00:00:00+08:00', NULL, 15, '2024-12-24T12:00:00+08:00', NULL, NULL),
+        (2, 13, 6, '2025-01-01T00:00:00+08:00', '2025-01-14T11:59:59+08:00', 15, '2024-12-24T12:00:00+08:00', 15, '2025-01-05T12:00:00+08:00'),
+        (3, 13, 5, '2025-01-15T00:00:00+08:00', NULL, 15, '2025-01-05T12:00:00+08:00', NULL, NULL),
+        (4, 12, 3, '2025-01-01T00:00:00+08:00', NULL, 15, '2024-12-24T12:00:00+08:00', NULL, NULL),
+        (5, 9, 4, '2025-01-01T00:00:00+08:00', NULL, 15, '2024-12-24T12:00:00+08:00', NULL, NULL)`
     );
+
+    // 4. Set sequence to 5 so next ID will be 6
+    await client.query(`SELECT setval('timetables_id_seq', 5, true)`);
 
     await client.query('COMMIT');
   } catch (err) {
