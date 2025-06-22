@@ -1,5 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { useForm, FormProvider } from 'react-hook-form';
+import { useNavigate } from 'react-router-dom';
 import { format } from 'date-fns';
 
 import { AppSidebar } from '@/components/app-sidebar';
@@ -21,6 +22,7 @@ import useEmployeeStore from '@/stores/useEmployeeStore';
 
 export default function CreateEmployeeTimetablePage() {
   const methods = useForm();
+  const navigate = useNavigate();
   const { watch, reset } = methods;
 
   const selectedEmployee = watch('employee_id');
@@ -177,6 +179,7 @@ export default function CreateEmployeeTimetablePage() {
                       setCreatedAtTime('');
                       setCreatedAt(null);
                     }}
+                    onCheckAppointments={() => navigate('/appointments')}
                   />
                 )}
 

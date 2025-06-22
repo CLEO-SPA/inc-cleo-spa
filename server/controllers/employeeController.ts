@@ -331,10 +331,11 @@ const getEmployeeById = async (req: Request, res: Response) => {
 
     // Validate employeeId
     if (!employeeId || isNaN(parseInt(employeeId, 10))) {
-      return res.status(400).json({ 
+      res.status(400).json({ 
         success: false, 
         error: { code: 'INVALID_ID', message: 'Invalid employee ID provided' } 
       });
+      return;
     }
 
     const employeeIdNum = parseInt(employeeId, 10);
@@ -343,10 +344,11 @@ const getEmployeeById = async (req: Request, res: Response) => {
     const employee = await model.getEmployeeById(employeeIdNum);
     if (!employee) {
       console.log(`Employee with ID ${employeeId} not found`);
-      return res.status(404).json({ 
+      res.status(404).json({ 
         success: false, 
         error: { code: 'NOT_FOUND', message: 'No active employee found with the given ID' } 
       });
+      return;
     }
     console.log(`Found employee: ${employee.employee_name}`);
     res.status(200).json({
@@ -400,13 +402,14 @@ const getEmployeeNameByEmployeeId = async (req: Request, res: Response) => {
     const { employeeId } = req.params;
 
     if (!employeeId || isNaN(parseInt(employeeId, 10))) {
-      return res.status(400).json({ 
+      res.status(400).json({ 
         success: false, 
         error: { 
           code: 'INVALID_ID', 
           message: 'Invalid employee ID provided' 
         } 
       });
+      return;
     }
 
     const employeeIdNum = parseInt(employeeId, 10);
@@ -416,23 +419,24 @@ const getEmployeeNameByEmployeeId = async (req: Request, res: Response) => {
 
     if (!employee) {
       console.log(`Employee with ID ${employeeId} not found`);
-      return res.status(404).json({ 
+      res.status(404).json({ 
         success: false, 
         error: { 
           code: 'NOT_FOUND', 
           message: 'No active employee found with the given ID' 
         } 
       });
+      return;
     }
 
     console.log(`Found employee: ${employee.employee_name}`);
-    return res.status(200).json({
+    res.status(200).json({
       success: true,
       data: employee
     });
   } catch (error) {
     console.error('Controller error in getEmployeeNameByEmployeeId:', error);
-    return res.status(500).json({ 
+    res.status(500).json({ 
       success: false, 
       error: {
         code: 'INTERNAL_SERVER_ERROR',

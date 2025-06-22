@@ -12,7 +12,8 @@ const getCurrentAndUpcomingTimetables = async (req: Request, res: Response, next
   const { start_date_utc, end_date_utc } = req.session;
 
   if (!employeeId || !currentDate) {
-    return res.status(400).json({ message: 'Missing employeeId or session date' });
+    res.status(400).json({ message: 'Missing employeeId or session date' });
+    return;
   }
 
   const currentDateTime = new Date(currentDate as string).toISOString();
@@ -45,12 +46,20 @@ const createTimetable = async (req: Request, res: Response, next: NextFunction) 
       ...req.body,
     });
     res.status(201).json(data);
-  } catch (error) {
+  } catch (error:any) {
     console.error('Failed to create timetable:', error);
 
-    const errorMessage = error instanceof Error ? error.message : 'Failed to create timetable';
+    if (error.code === '40000') {
+      res.status(400).json({ status: 'error', code: 400, message: error.message });
+      return;
+    }
 
-    next(errorMessage);
+    if (error.code === '40900') {
+      res.status(409).json({ status: 'error', code: 409, message: error.message });
+      return;
+    }
+
+    next(error);
   }
 };
 
@@ -64,13 +73,14 @@ const getActiveRestDays = async (req: Request, res: Response) => {
 
     // Validate month parameter
     if (!month || typeof month !== 'string') {
-      return res.status(400).json({
+      res.status(400).json({
         success: false,
         error: {
           code: 'INVALID_MONTH',
           message: 'Month parameter is required and must be a string in the format YYYY-MM.',
         }
       });
+      return;
     }
 
     // Parse page and limit parameters
@@ -80,23 +90,25 @@ const getActiveRestDays = async (req: Request, res: Response) => {
 
     // Validate page and limit parameters
     if (isNaN(pageNum) || pageNum < 1 || isNaN(limitNum) || limitNum < 1 || limitNum > 100) {
-      return res.status(400).json({
+      res.status(400).json({
         success: false,
         error: {
           code: 'INVALID_PAGINATION',
           message: 'Page and limit parameters must be positive integers.',
         }
       });
+      return;
     }
 
     if(positionId && isNaN(positionId)) {
-      return res.status(400).json({
+      res.status(400).json({
         success: false,
         error: {
           code: 'INVALID_POSITION_ID',
           message: 'Position ID must be a valid integer.',
         }
       });
+      return;
     }
 
     console.log(`Fetching timetables for month: ${month}, page: ${pageNum}, limit: ${limitNum}, position_id: ${positionId}`);
@@ -112,13 +124,14 @@ const getActiveRestDays = async (req: Request, res: Response) => {
     console.error('Controller error in fetching active rest days:', error);
 
     if(error.message.includes('Invalid month format.')) {
-      return res.status(400).json({
+      res.status(400).json({
         success: false,
         error: {
           code: 'INVALID_MONTH_FORMAT',
           message: 'Month parameter must be in the format YYYY-MM.',
         }
       });
+      return;
     }
 
     res.status(500).json({
@@ -142,23 +155,25 @@ const getActiveRestDaysByEmployee = async (req: Request, res: Response) => {
 
     // Validate employeeId and month parameters
     if (!employeeId || isNaN(parseInt(employeeId as string, 10))) {
-      return res.status(400).json({
+      res.status(400).json({
         success: false,
         error: {
           code: 'INVALID_EMPLOYEE_ID',
           message: 'Employee ID must be a valid integer.',
         }
       });
+      return;
     }
 
     if (!month || typeof month !== 'string') {
-      return res.status(400).json({
+      res.status(400).json({
         success: false,
         error: {
           code: 'INVALID_MONTH',
           message: 'Month parameter is required and must be a string in the format YYYY-MM.',
         }
       });
+      return;
     }
 
     const employeeIdNum = parseInt(employeeId as string, 10);
@@ -171,13 +186,14 @@ const getActiveRestDaysByEmployee = async (req: Request, res: Response) => {
      */
     if(employeeTimetable == null){
       console.log(`No timetable found for employee ID: ${employeeIdNum} in month: ${month}`);
-      return res.status(404).json({
+      res.status(404).json({
         success: false,
         error: {
           code: 'TIMETABLE_NOT_FOUND',
           message: `No timetable found for employee ID: ${employeeIdNum} in month: ${month}`,
         }
       });
+      return;
     }
 
     console.log(`Found timetables for ${employeeTimetable.employee_name} with ${employeeTimetable.rest_days.length} rest days in month: ${month}`);
@@ -196,13 +212,14 @@ const getActiveRestDaysByEmployee = async (req: Request, res: Response) => {
     console.error('Controller error in fetching active rest days by employee:', error);
 
     if (error.message.includes('Invalid month format.')) {
-      return res.status(400).json({
+      res.status(400).json({
         success: false,
         error: {
           code: 'INVALID_MONTH_FORMAT',
           message: 'Month parameter must be in the format YYYY-MM.',
         }
       });
+      return;
     }
 
     res.status(500).json({
@@ -226,23 +243,25 @@ const getActiveRestDaysByPosition = async (req: Request, res: Response) => {
 
     // Validate positionId and month parameters
     if (!positionId || isNaN(parseInt(positionId as string, 10))) {
-      return res.status(400).json({
+      res.status(400).json({
         success: false,
         error: {
           code: 'INVALID_POSITION_ID',
           message: 'Position ID must be a valid integer.',
         }
       });
+      return;
     }
 
     if (!month || typeof month !== 'string') {
-      return res.status(400).json({
+      res.status(400).json({
         success: false,
         error: {
           code: 'INVALID_MONTH',
           message: 'Month parameter is required and must be a string in the format YYYY-MM.',
         }
       });
+      return;
     }
 
     const positionIdNum = parseInt(positionId as string, 10);
@@ -252,13 +271,14 @@ const getActiveRestDaysByPosition = async (req: Request, res: Response) => {
     // Validate page and limit parameters
         // Validate page and limit parameters
     if (isNaN(pageNum) || pageNum < 1 || isNaN(limitNum) || limitNum < 1 || limitNum > 100) {
-      return res.status(400).json({
+      res.status(400).json({
         success: false,
         error: {
           code: 'INVALID_PAGINATION',
           message: 'Page and limit parameters must be positive integers.',
         }
       });
+      return;
     }
 
     console.log(`Fetching timetables for position ID: ${positionIdNum}, month: ${month}, page: ${pageNum}, limit: ${limitNum}`);
@@ -274,13 +294,14 @@ const getActiveRestDaysByPosition = async (req: Request, res: Response) => {
     console.error('Controller error in fetching active rest days by position:', error);
 
     if (error.message.includes('Invalid month format.')) {
-      return res.status(400).json({
+      res.status(400).json({
         success: false,
         error: {
           code: 'INVALID_MONTH_FORMAT',
           message: 'Month parameter must be in the format YYYY-MM.',
         }
       });
+      return;
     }
 
     res.status(500).json({
@@ -299,11 +320,17 @@ const getActiveRestDaysByPosition = async (req: Request, res: Response) => {
  */
 const getTimetableById = async (req: Request, res: Response, next: NextFunction) => {
   const timetableId = Number(req.params.timetableId);
-  if (!timetableId) return res.status(400).json({ message: 'Invalid timetable ID.' });
+  if (!timetableId) {
+    res.status(400).json({ message: 'Invalid timetable ID.' });
+    return;
+  } 
 
   try {
     const timetable = await timetableModel.getTimetableById(timetableId);
-    if (!timetable) return res.status(404).json({ message: 'Timetable not found.' });
+    if (!timetable) {
+      res.status(404).json({ message: 'Timetable not found.' });
+      return;
+    }
 
     res.status(200).json(timetable);
   } catch (error) {
@@ -325,12 +352,20 @@ const updateTimetable = async (req: Request, res: Response, next: NextFunction) 
       ...req.body,
     });
     res.status(200).json(data);
-  } catch (error) {
+  } catch (error: any) {
     console.error('Failed to update timetable:', error);
 
-    const errorMessage = error instanceof Error ? error.message : 'Failed to update timetable';
+    if (error.code === '40000') {
+      res.status(400).json({ status: 'error', code: 400, message: error.message });
+      return;
+    }
 
-    next(errorMessage);
+    if (error.code === '40900') {
+      res.status(409).json({ status: 'error', code: 409, message: error.message });
+      return;
+    }
+
+    next(error);
   }
 };
 
