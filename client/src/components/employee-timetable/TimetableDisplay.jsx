@@ -1,7 +1,7 @@
 import React, { useEffect } from 'react';
 import useTimetableStore from '@/stores/useTimetableStore';
-import { useSimulationStore } from '@/stores/useSimulationStore';
 import { format } from 'date-fns-tz';
+import { getCurrentSimulationDate } from './CurrentDateDisplay'; 
 
 const getRestDayName = (num) => ['Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday', 'Sunday'][num - 1];
 
@@ -10,13 +10,9 @@ const formatToSingaporeDate = (dateString) => {
 };
 
 const TimetableDisplay = ({ employeeId }) => {
-  const { isSimulationActive, simulationStartDate } = useSimulationStore();
   const { timetables, isLoading, error, fetchCurrentAndUpcomingTimetablesByEmployeeId } = useTimetableStore();
 
-  const currentDate =
-    isSimulationActive && simulationStartDate
-      ? format(new Date(simulationStartDate), 'yyyy-MM-dd')
-      : format(new Date(), 'yyyy-MM-dd');
+  const currentDate = format(getCurrentSimulationDate(), 'yyyy-MM-dd');
 
   useEffect(() => {
     if (employeeId) {

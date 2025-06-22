@@ -2,7 +2,6 @@
 import { create } from 'zustand';
 import api from '@/services/api';
 import { format } from 'date-fns';
-import { useSimulationStore } from '@/stores/useSimulationStore';
 
 const useTimetableStore = create((set) => ({
   timetables: {
@@ -35,16 +34,10 @@ const useTimetableStore = create((set) => ({
   resetSubmitStatus: () => set({ isSubmitting: false, submitError: null }),
 
   // Fetch Current and Upcoming Timetables by Employee ID
-  fetchCurrentAndUpcomingTimetablesByEmployeeId: async (employeeId) => {
+  fetchCurrentAndUpcomingTimetablesByEmployeeId: async (employeeId, currentDate) => {
     set({ isLoading: true, error: null });
 
     try {
-      const { isSimulationActive, simulationStartDate } = useSimulationStore.getState();
-
-      const currentDate = isSimulationActive && simulationStartDate
-        ? new Date(simulationStartDate)
-        : new Date();
-
       const formattedDate = format(currentDate, 'yyyy-MM-dd');
 
       const response = await api.get(`/et/current-and-upcoming/${employeeId}?currentDate=${formattedDate}`);
