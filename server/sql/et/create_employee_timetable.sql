@@ -19,18 +19,18 @@ DECLARE
     v_conflict_count INT;
     v_conflict_details JSONB;
     o_response JSONB;
-    v_prev_timetable_details JSONB; -- To store previous timetable details
+    v_prev_timetable_details JSONB; -- To store the updated previous timetable details
     v_updated_new_enddate TIMESTAMPTZ; -- To store the updated new timetable's end date
 BEGIN
-    -- 1. Validate effective_startdate > current date
+    -- 1. Validate effective_startdate not earlier than current date
     IF p_effective_startdate::DATE < p_current_date::DATE THEN
-        RAISE EXCEPTION 'Invalid timetable. The start date cannot be earlier than the current date.';
+        RAISE EXCEPTION USING MESSAGE ='Invalid timetable. The start date cannot be earlier than the current date.', ERRCODE = '40000';
     END IF;
 
-    -- 2. Validate effective_enddate (if given) not earlier than current date AND start date
+    -- 2. Validate effective_enddate (if given) not earlier than current date or start date
     IF p_effective_enddate IS NOT NULL THEN
         IF p_effective_enddate::DATE < p_current_date::DATE OR p_effective_enddate < p_effective_startdate THEN
-            RAISE EXCEPTION 'Invalid timetable. The end date cannot be earlier than the current date and the start date.';
+            RAISE EXCEPTION USING MESSAGE ='Invalid timetable. The end date cannot be earlier than the current date or the start date.', ERRCODE = '40000';
         END IF;
     END IF;
 
@@ -46,14 +46,14 @@ BEGIN
         v_new_enddate := p_effective_enddate + INTERVAL '23 hours 59 minutes 59 seconds';
     END IF;
 
-    -- 4. Identify previous timetable (latest timetable with end date before new start date or open-ended)
+    -- 4. Identify previous timetable (the last timetable with start date before new timetable's start date or open-ended)
     SELECT id INTO v_prev_id FROM timetables
     WHERE employee_id = p_employee_id
     AND effective_startdate < p_effective_startdate
     ORDER BY effective_startdate DESC
     LIMIT 1;
 
-    -- 5. Identify next timetable (earliest timetable with start date after new start date)
+    -- 5. Identify next timetable (the first timetable with start date after new timetable's start date)
     SELECT id, effective_startdate INTO v_next_id, v_next_startdate FROM timetables
     WHERE employee_id = p_employee_id
     AND effective_startdate > p_effective_startdate
@@ -75,9 +75,9 @@ BEGIN
         WHERE t.id = v_prev_id;
 	END IF;
 
-    -- 7. Adjust new timetable's effective_enddate if next timetable exists
+    -- 7. Adjust new timetable's effective_enddate to 1 day before next timetable's start date (if next timetable exists)
     IF v_next_id IS NOT NULL THEN
-        -- Update the new timetable's effective end date based on the next timetable
+        -- Update the new timetable's effective end date
         v_new_enddate := v_next_startdate - INTERVAL '1 day' + INTERVAL '23 hours 59 minutes 59 seconds';
 
         -- Capture the updated effective end date for the new timetable
