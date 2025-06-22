@@ -12,6 +12,7 @@ import {
     DialogFooter,
 } from '@/components/ui/dialog';
 // ServiceRow Component
+
 export const ServiceRow = ({
     service,
     index,
@@ -21,6 +22,21 @@ export const ServiceRow = ({
     onRemove
 }) => {
     const isEditing = editingIndex === index;
+
+    // Helper function to check if a value is a valid number
+    const isValidNumber = (value) => {
+        return value !== null && value !== undefined && value !== '' && !isNaN(Number(value));
+    };
+
+    // Helper function to format currency
+    const formatCurrency = (value) => {
+        return isValidNumber(value) ? `$${Number(value).toFixed(2)}` : 'N/A';
+    };
+
+    // Helper function to format number
+    const formatNumber = (value) => {
+        return isValidNumber(value) ? Number(value).toFixed(2) : 'N/A';
+    };
 
     return (
         <tr className="border-b border-gray-200 hover:bg-gray-50">
@@ -38,9 +54,7 @@ export const ServiceRow = ({
                 )}
             </td>
             <td className="px-4 py-3">
-                {typeof service.original_price === 'number'
-                    ? `$${service.original_price.toFixed(2)}`
-                    : 'N/A'}
+                {formatCurrency(service.original_price)}
             </td>
             <td className="px-4 py-3">
                 {isEditing ? (
@@ -54,9 +68,7 @@ export const ServiceRow = ({
                         className="w-24"
                     />
                 ) : (
-                    typeof service.custom_price === 'number'
-                        ? `$${service.custom_price.toFixed(2)}`
-                        : 'N/A'
+                    formatCurrency(service.custom_price)
                 )}
             </td>
 
@@ -70,15 +82,11 @@ export const ServiceRow = ({
                         className="w-20"
                     />
                 ) : (
-                    typeof service.discount === 'number'
-                        ? `$${service.discount.toFixed(2)}`
-                        : 'N/A'
+                    formatNumber(service.discount)
                 )}
             </td>
             <td className="px-4 py-3">
-                {typeof service.final_price === 'number'
-                    ? `$${service.final_price.toFixed(2)}`
-                    : 'N/A'}
+                {formatCurrency(service.final_price)}
             </td>
             <td className="px-4 py-3">
                 {isEditing ? (
@@ -94,7 +102,7 @@ export const ServiceRow = ({
                         <span className="text-sm text-gray-500">min</span>
                     </div>
                 ) : (
-                    `${service.duration} min`
+                    isValidNumber(service.duration) ? `${service.duration} min` : 'N/A'
                 )}
             </td>
             <td className="px-4 py-3">

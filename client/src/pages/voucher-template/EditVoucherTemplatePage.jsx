@@ -137,18 +137,26 @@ const UpdateVoucherTemplatePage = () => {
     addServiceToTemplate();
   }, [serviceForm.service_id, addServiceToTemplate]);
 
-  const handleServiceFieldChange = useCallback((index, field, value) => {
-    const updatedData = { [field]: value };
+ 
+const handleServiceFieldChange = useCallback((index, field, value) => {
+  const updatedData = {};
 
-    if (field === 'custom_price' || field === 'discount') {
-      const service = mainFormData.details[index];
-      const customPrice = field === 'custom_price' ? value : service.custom_price;
-      const discount = field === 'discount' ? value : service.discount;
-      updatedData.final_price = customPrice - (customPrice * discount / 100);
-    }
+  if (field === 'discount' && value > 1) {
+    value = 1; // Cap discount at 1
+  }
 
-    updateServiceInTemplate(index, updatedData);
-  }, [mainFormData.details, updateServiceInTemplate]);
+  updatedData[field] = value;
+
+  if (field === 'custom_price' || field === 'discount') {
+    const service = mainFormData.details[index];
+    const customPrice = field === 'custom_price' ? value : service.custom_price;
+    const discount = field === 'discount' ? value : service.discount;
+    updatedData.final_price = customPrice * discount;
+  }
+
+  updateServiceInTemplate(index, updatedData);
+}, [mainFormData.details, updateServiceInTemplate]);
+
 
   const handleUpdateService = useCallback((index) => {
     setEditingServiceIndex(current => current === index ? null : index);

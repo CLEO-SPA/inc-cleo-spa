@@ -301,7 +301,7 @@ export const useVoucherTemplateFormStore = create(
 
             // Recalculate final price for this service
             const service = newDetails[index];
-            service.final_price = service.custom_price - (service.custom_price * service.discount / 100);
+            service.final_price = service.custom_price * service.discount ;
           }
 
           return {

@@ -5,7 +5,7 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
-import { Calendar, Plus } from 'lucide-react';
+import { Calendar, Plus, AlertTriangle } from 'lucide-react';
 import DateRangePicker from '@/components/date-range-picker';
 import { format } from 'date-fns';
 
@@ -16,6 +16,13 @@ import {
   DropdownMenuTrigger,
   DropdownMenuSeparator,
 } from '@/components/ui/dropdown-menu';
+import {
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+  DialogFooter,
+} from '@/components/ui/dialog';
 import {
   MoreHorizontal,
   Eye,
@@ -65,7 +72,7 @@ function ManageVoucherTemplatesPage() {
     setStatus,
   } = useVoucherTemplateListStore();
 
-  // Local state for form inputs only
+  // Local state for form inputs
   const [inputSearchTerm, setInputSearchTerm] = useState('');
   const [inputCreatedBy, setInputCreatedBy] = useState('');
   const [inputStatus, setInputStatus] = useState('');
@@ -75,6 +82,10 @@ function ManageVoucherTemplatesPage() {
   });
 
   const [targetPageInput, setTargetPageInput] = useState('');
+
+  // Delete dialog state
+  const [deleteDialogOpen, setDeleteDialogOpen] = useState(false);
+  const [templateToDelete, setTemplateToDelete] = useState(null);
 
   // Initialize search input with store value
   useEffect(() => {
@@ -170,12 +181,25 @@ function ManageVoucherTemplatesPage() {
     navigate('/voucher-template/create');
   };
 
-  const handleDelete = async (id) => {
-    if (window.confirm('Are you sure you want to delete this voucher template?')) {
-      const result = await deleteVoucherTemplate(id);
+  const handleDelete = (template) => {
+    setTemplateToDelete(template);
+    setDeleteDialogOpen(true);
+  };
+
+  const handleDeleteCancel = () => {
+    setDeleteDialogOpen(false);
+    setTemplateToDelete(null);
+  };
+
+  const handleDeleteConfirm = async () => {
+    if (templateToDelete) {
+      const result = await deleteVoucherTemplate(templateToDelete.id);
       if (result.success) {
-        alert('Voucher template deleted successfully.');
+        // Success - dialog will close automatically
+        setDeleteDialogOpen(false);
+        setTemplateToDelete(null);
       } else {
+        // Keep dialog open and show error
         alert(`Failed to delete voucher template: ${result.error}`);
       }
     }
@@ -365,7 +389,7 @@ function ManageVoucherTemplatesPage() {
                                             <>
                                               <DropdownMenuSeparator />
                                               <DropdownMenuItem
-                                                onClick={() => handleDelete(template.id)}
+                                                onClick={() => handleDelete(template)}
                                                 className='text-destructive focus:text-destructive focus:bg-destructive/10'
                                                 disabled={isDeleting}
                                               >
@@ -497,6 +521,40 @@ function ManageVoucherTemplatesPage() {
                   )}
                 </CardFooter>
               </Card>
+
+              {/* Delete Confirmation Dialog */}
+              <Dialog open={deleteDialogOpen} onOpenChange={setDeleteDialogOpen}>
+                <DialogContent className="sm:max-w-md">
+                  <DialogHeader>
+                    <DialogTitle className="flex items-center gap-2 text-red-600">
+                      <AlertTriangle className="w-5 h-5" />
+                      Confirm Deletion
+                    </DialogTitle>
+                  </DialogHeader>
+                  <div className="py-4">
+                    <p className="text-sm text-gray-700 dark:text-gray-300 mb-4">
+                      Are you sure you want to delete <strong>{templateToDelete?.voucher_template_name}</strong>? This action cannot be undone.
+                    </p>
+                    <div className="bg-red-50 dark:bg-red-900/20 border border-red-200 dark:border-red-800 rounded-lg p-3 mb-4">
+                      <p className="text-sm text-red-800 dark:text-red-400">
+                        <strong>Warning:</strong> Deleting this voucher template will permanently remove all its data and any associated vouchers template detail.
+                      </p>
+                    </div>
+                  </div>
+                  <DialogFooter className="flex gap-2">
+                    <Button variant="outline" onClick={handleDeleteCancel} className="flex-1" disabled={isDeleting}>
+                      Cancel
+                    </Button>
+                    <Button
+                      onClick={handleDeleteConfirm}
+                      className="flex-1 bg-red-600 hover:bg-red-700 text-white"
+                      disabled={isDeleting}
+                    >
+                      {isDeleting ? 'Deleting...' : 'Delete'}
+                    </Button>
+                  </DialogFooter>
+                </DialogContent>
+              </Dialog>
             </div>
           </SidebarInset>
         </div>
