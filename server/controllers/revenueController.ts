@@ -232,9 +232,41 @@ const getTransactionDateRange = async (req: Request, res: Response) => {
   }
 };
 
+const getMVDeferredRevenue = async (req: Request, res: Response) => {
+  try {
+    const now = new Date();
+    const year = parseInt(req.query.year as string, 10) || now.getFullYear();
+    const month = parseInt(req.query.month as string, 10) || now.getMonth() + 1;
+
+    const data = await model.getMVDeferredRevenue();
+
+    res.json({ success: true, data: data.result.rows });
+  } catch (error) {
+    console.error(error);
+    res.status(500).json({ success: false, message: 'Failed to fetch AdHoc report' });
+  }
+};
+
+const getMCPDeferredRevenue = async (req: Request, res: Response) => {
+  try {
+    const now = new Date();
+    const year = parseInt(req.query.year as string, 10) || now.getFullYear();
+    const month = parseInt(req.query.month as string, 10) || now.getMonth() + 1;
+
+    const data = await model.getMCPDeferredRevenue();
+
+    res.json({ success: true, data: data.result.rows });
+  } catch (error) {
+    console.error(error);
+    res.status(500).json({ success: false, message: 'Failed to fetch AdHoc report' });
+  }
+};
+
 export default {
   getMVMonthlyReport,
   getMCPMonthlyReport,
   getAdHocMonthlyReport,
   getTransactionDateRange,
+  getMVDeferredRevenue,
+  getMCPDeferredRevenue,
 }

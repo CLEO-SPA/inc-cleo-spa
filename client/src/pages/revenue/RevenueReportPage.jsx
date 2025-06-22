@@ -5,6 +5,7 @@ import { SiteHeader } from '@/components/site-header';
 import { SidebarInset, SidebarProvider } from '@/components/ui/sidebar';
 import { Download, DollarSign, Tickets, Package, Wand } from 'lucide-react';
 import { useRevenueReportStore } from '@/stores/revenue/revenueStore';
+import * as XLSX from 'xlsx';
 
 function parseFloatSafe(val) {
   const num = parseFloat(val);
@@ -86,6 +87,120 @@ function RevenueReportPage() {
 
   const formatAmount = (val) => (val && val !== '0.00' ? parseFloatSafe(val).toFixed(2) : '');
 
+  const handleDownloadExcel = () => {
+    if (!reportData || reportData.length === 0) {
+      alert('No data available to download. Please generate a report first.');
+      return;
+    }
+
+    // Get current date for download timestamp
+    const downloadDate = new Date();
+    const downloadDateStr = downloadDate.toLocaleDateString('en-GB', {
+      day: 'numeric',
+      month: 'long',
+      year: 'numeric'
+    });
+
+    // Create title based on tab type
+    const tabLabels = {
+      combined: 'Combined',
+      mv: 'MV',
+      mcp: 'MCP',
+      adhoc: 'Ad Hoc'
+    };
+
+    const title = `${tabLabels[tab]} Monthly Revenue Report of ${resultMonth} ${resultYear}`;
+    const subtitle = `Downloaded at ${downloadDateStr}`;
+
+    // Prepare data for Excel
+    const excelData = [
+      [title], // Title row
+      [subtitle], // Subtitle row
+      [], // Empty row
+      ['Day', 'Cash', 'Visa', 'PayNow', 'Nets', 'Total', 'FOC', 'VIP', 'Package', 'Net Sales', 'Refund'], // Header row
+      ...reportData.map(row => [
+        row.day,
+        parseFloatSafe(row.cash).toFixed(2),
+        parseFloatSafe(row.visa).toFixed(2),
+        parseFloatSafe(row.payment).toFixed(2),
+        parseFloatSafe(row.nets).toFixed(2),
+        parseFloatSafe(row.total).toFixed(2),
+        parseFloatSafe(row.foc).toFixed(2),
+        parseFloatSafe(row.vip).toFixed(2),
+        parseFloatSafe(row.package).toFixed(2),
+        parseFloatSafe(row.netSales).toFixed(2),
+        parseFloatSafe(row.refund).toFixed(2)
+      ]),
+      // Total row
+      [
+        'Total',
+        (currentTotals.cash || 0).toFixed(2),
+        (currentTotals.visa || 0).toFixed(2),
+        (currentTotals.payment || 0).toFixed(2),
+        (currentTotals.nets || 0).toFixed(2),
+        (currentTotals.total || 0).toFixed(2),
+        (currentTotals.foc || 0).toFixed(2),
+        (currentTotals.vip || 0).toFixed(2),
+        (currentTotals.package || 0).toFixed(2),
+        (currentTotals.netSales || 0).toFixed(2),
+        (currentTotals.refund || 0).toFixed(2)
+      ],
+      [], // Empty row
+      [`Total Revenue Amount: ${((currentTotals.netSales || 0) - (currentTotals.refund || 0)).toFixed(2)} $`]
+    ];
+
+    // Create workbook and worksheet
+    const wb = XLSX.utils.book_new();
+    const ws = XLSX.utils.aoa_to_sheet(excelData);
+
+    // Set column widths
+    const colWidths = [
+      { wch: 5 },  // Day
+      { wch: 10 }, // Cash
+      { wch: 10 }, // Visa
+      { wch: 10 }, // PayNow
+      { wch: 10 }, // Nets
+      { wch: 10 }, // Total
+      { wch: 10 }, // FOC
+      { wch: 10 }, // VIP
+      { wch: 10 }, // Package
+      { wch: 12 }, // Net Sales
+      { wch: 10 }  // Refund
+    ];
+    ws['!cols'] = colWidths;
+
+    // Style the title and subtitle rows
+    if (ws['A1']) {
+      ws['A1'].s = {
+        font: { bold: true, sz: 14 },
+        alignment: { horizontal: 'center' }
+      };
+    }
+    if (ws['A2']) {
+      ws['A2'].s = {
+        font: { italic: true, sz: 10 },
+        alignment: { horizontal: 'center' }
+      };
+    }
+
+    // Merge cells for title and subtitle
+    ws['!merges'] = [
+      { s: { r: 0, c: 0 }, e: { r: 0, c: 10 } }, // Title row
+      { s: { r: 1, c: 0 }, e: { r: 1, c: 10 } }, // Subtitle row
+      { s: { r: excelData.length - 1, c: 0 }, e: { r: excelData.length - 1, c: 10 } } // Total revenue row
+    ];
+
+    // Add worksheet to workbook
+    XLSX.utils.book_append_sheet(wb, ws, 'Revenue Report');
+
+    // Generate filename
+    const timestamp = downloadDate.toISOString().slice(0, 19).replace(/[:.]/g, '-');
+    const filename = `${tabLabels[tab]}_Revenue_Report_${resultMonth}_${resultYear}_${timestamp}.xlsx`;
+
+    // Save file
+    XLSX.writeFile(wb, filename);
+  };
+
   const tabOptions = [
     { key: 'combined', label: 'Combined', icon: DollarSign },
     { key: 'mv', label: 'MV', icon: Tickets },
@@ -134,7 +249,12 @@ function RevenueReportPage() {
             <div className="bg-white rounded-lg shadow-md p-6">
               <div className="flex items-center justify-between mb-6">
                 <h2 className="text-xl font-bold">Revenue Report</h2>
-                <button onClick={handleGetReport} className="bg-gray-300 text-gray-700 p-3 rounded hover:bg-gray-200">
+                <button 
+                  onClick={handleDownloadExcel} 
+                  className="bg-green-600 text-white p-3 rounded hover:bg-green-700 transition-colors"
+                  disabled={!reportData || reportData.length === 0}
+                  title="Download Excel Report"
+                >
                   <Download className="w-5 h-5" />
                 </button>
               </div>
@@ -172,15 +292,13 @@ function RevenueReportPage() {
                 </div>
 
                 {/* Desktop tabs */}
-                {/* Desktop tabs */}
-                {/* Desktop tabs */}
                 <div className="hidden sm:flex">
                   <ul className="inline-flex text-sm font-medium text-black rounded-lg shadow-sm">
                     {tabOptions.map(({ key, label, icon: Icon }, index) => (
                       <li key={key} className="focus-within:z-10">
                         <button
                           onClick={() => setTab(key)}
-                          className={`inline-flex items-center ${getTabClasses(key, index)}`} // Added 'inline-flex items-center'
+                          className={`inline-flex items-center ${getTabClasses(key, index)}`}
                           aria-current={tab === key ? "page" : undefined}
                         >
                           <Icon className="w-4 h-4 mr-2" />
@@ -190,7 +308,6 @@ function RevenueReportPage() {
                     ))}
                   </ul>
                 </div>
-
               </div>
 
               {error && (
