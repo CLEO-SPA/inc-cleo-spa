@@ -103,20 +103,37 @@ const updatePaymentMethod = async (input: UpdatePaymentMethodInput) => {
     is_enabled,
     is_revenue,
     show_on_payment_page,
+    created_at,
     updated_at,
   } = input;
 
   try {
-    // Check if another payment method with the same name already exists
-    const existing = await pool().query(
+    // Step 1: Fetch current payment method
+    const existingMethod = await pool().query(
+      `SELECT payment_method_name, is_protected FROM payment_methods WHERE id = $1;`,
+      [id]
+    );
+
+    if (existingMethod.rows.length === 0) {
+      throw new Error('Payment method not found');
+    }
+
+    // Step 2: Check if it's protected
+    if (existingMethod.rows[0].is_protected) {
+      throw new Error('This payment method is protected and cannot be modified');
+    }
+
+    // Step 3: Check for duplicate name (excluding current id)
+    const duplicateCheck = await pool().query(
       `SELECT id FROM payment_methods WHERE LOWER(payment_method_name) = LOWER($1) AND id != $2;`,
       [payment_method_name, id]
     );
 
-    if (existing.rows.length > 0) {
+    if (duplicateCheck.rows.length > 0) {
       throw new Error('Another payment method with this name already exists');
     }
 
+    // Step 4: Proceed with update
     const query = `
       UPDATE payment_methods
       SET
@@ -124,18 +141,20 @@ const updatePaymentMethod = async (input: UpdatePaymentMethodInput) => {
         is_enabled = $2,
         is_revenue = $3,
         show_on_payment_page = $4,
-        updated_at = $5
-      WHERE id = $6
+        updated_at = $5,
+        created_at = $6
+      WHERE id = $7
       RETURNING *;
     `;
 
     const values = [
-      payment_method_name,
-      is_enabled,
-      is_revenue,
-      show_on_payment_page,
-      updated_at,
-      id,
+      payment_method_name,  // $1
+      is_enabled,           // $2
+      is_revenue,           // $3
+      show_on_payment_page, // $4
+      updated_at,           // $5
+      created_at,           // $6
+      id                    // $7
     ];
 
     const result = await pool().query(query, values);
@@ -150,9 +169,31 @@ const updatePaymentMethod = async (input: UpdatePaymentMethodInput) => {
 };
 
 
+
 const deletePaymentMethod = async (id: number) => {
   try {
-    // Step 1: Check for usage in payment_to_sale_transactions
+    // Step 1: Fetch the payment method
+    const result = await pool().query(
+      `SELECT is_protected FROM payment_methods WHERE id = $1`,
+      [id]
+    );
+
+    if (result.rows.length === 0) {
+      return {
+        success: false,
+        error: 'Payment method not found.',
+      };
+    }
+
+    // Step 2: Check if it's protected
+    if (result.rows[0].is_protected) {
+      return {
+        success: false,
+        error: 'Cannot delete: This payment method is protected by the system.',
+      };
+    }
+
+    // Step 3: Check for usage in transactions
     const checkResult = await pool().query(
       `SELECT COUNT(*) AS count FROM payment_to_sale_transactions WHERE payment_method_id = $1`,
       [id]
@@ -167,7 +208,7 @@ const deletePaymentMethod = async (id: number) => {
       };
     }
 
-    // Step 2: Proceed with deletion if safe
+    // Step 4: Proceed with deletion
     await pool().query(`DELETE FROM payment_methods WHERE id = $1`, [id]);
 
     return { success: true };
@@ -179,6 +220,7 @@ const deletePaymentMethod = async (id: number) => {
     };
   }
 };
+
 
 
 const getPaymentMethodsForPaymentPage = async () => {

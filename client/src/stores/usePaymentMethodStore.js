@@ -4,12 +4,13 @@ import api from '@/services/api';
 
 const getInitialState = () => ({
   paymentMethods: [],
+  dropdownPaymentMethods: [], // Separate array for dropdown data
   currentPage: 1,
   currentLimit: 10,
   totalPages: 0,
   totalCount: 0,
   searchTerm: '',
-  loading: false,
+  loading: false, // Add this for dropdown component compatibility
   isFetching: false,
   isCreating: false,
   isUpdating: false,
@@ -86,27 +87,27 @@ const usePaymentMethodStore = create((set, get) => ({
     get().fetchPaymentMethods({ page: 1, limit: newLimit, search: searchTerm });
   },
 
+  // Improved dropdown-specific method
+  fetchDropdownPaymentMethods: async () => {
+    set({ loading: true, error: false, errorMessage: null });
 
-  fetchVisiblePaymentMethods: async () => {
-  set({ isFetching: true, error: false, errorMessage: null });
-
-  try {
-    const response = await api.get('/payment-method/visible');
-    set({
-      paymentMethods: response.data, // override with visible-only list
-      isFetching: false,
-      error: false,
-      errorMessage: null,
-    });
-  } catch (error) {
-    set({
-      isFetching: false,
-      error: true,
-      errorMessage: error.response?.data?.message || error.message || 'Failed to fetch visible payment methods',
-    });
-  }
-},
-
+    try {
+      const response = await api.get('/payment-method/visible');
+      set({
+        dropdownPaymentMethods: response.data, // Use separate array for dropdown
+        loading: false,
+        error: false,
+        errorMessage: null,
+      });
+    } catch (error) {
+      set({
+        dropdownPaymentMethods: [],
+        loading: false,
+        error: true,
+        errorMessage: error.response?.data?.message || error.message || 'Failed to fetch visible payment methods',
+      });
+    }
+  },
 
 
   // CRUD Actions
@@ -133,11 +134,11 @@ const usePaymentMethodStore = create((set, get) => ({
     }
   },
 
-
   createPaymentMethod: async (data) => {
     set({ isCreating: true, error: false, errorMessage: null });
 
     try {
+      console.log(data)
       await api.post('/payment-method', data);
       const { currentPage, currentLimit, searchTerm } = get();
       await get().fetchPaymentMethods({ page: currentPage, limit: currentLimit, search: searchTerm });
@@ -157,11 +158,14 @@ const usePaymentMethodStore = create((set, get) => ({
     set({ isUpdating: true, error: false, errorMessage: null });
 
     try {
-      await api.put(`/payment-method/${id}`, data);
+      const response = await api.put(`/payment-method/${id}`, data); // <-- capture response here
       const { currentPage, currentLimit, searchTerm } = get();
       await get().fetchPaymentMethods({ page: currentPage, limit: currentLimit, search: searchTerm });
       set({ isUpdating: false });
-      return { success: true };
+      return { 
+        success: true,
+        data: response.data  // Return the updated response data
+     };
     } catch (error) {
       set({
         isUpdating: false,

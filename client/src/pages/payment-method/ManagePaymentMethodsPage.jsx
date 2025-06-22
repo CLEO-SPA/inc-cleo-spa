@@ -5,7 +5,7 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
-import { AlertTriangle, X } from 'lucide-react';
+import { AlertTriangle, X, Shield } from 'lucide-react';
 import { Alert, AlertDescription } from '@/components/ui/alert';
 
 import {
@@ -208,6 +208,7 @@ function ManagePaymentMethodsPage() {
     { key: 'payment_method_name', label: 'Payment Method' },
     { key: 'is_enabled', label: 'Active' },
     { key: 'is_revenue', label: 'Revenue' },
+    { key: 'is_protected', label: 'Protected' },
     { key: 'show_on_payment_page', label: 'Show on payment page' },
     { key: 'created_at', label: 'Created' },
     { key: 'updated_at', label: 'Updated' },
@@ -364,6 +365,26 @@ function ManagePaymentMethodsPage() {
                             <TableRow key={paymentMethod.id}>
                               {tableHeaders.map((header) => {
                                 if (header.key === 'actions') {
+                                  const isProtected = paymentMethod.is_protected === true;
+                                  const hasEditAccess = canEdit && !isProtected;
+                                  const hasDeleteAccess = canDelete && !isProtected;
+                                  
+                                  // If no actions are available, show a disabled state
+                                  if (!hasEditAccess && !hasDeleteAccess) {
+                                    return (
+                                      <TableCell key={header.key} className='text-right'>
+                                        {isProtected ? (
+                                          <div className="flex items-center justify-end gap-1 text-muted-foreground">
+                                            <Shield className="h-3 w-3" />
+                                            <span className="text-xs">Protected</span>
+                                          </div>
+                                        ) : (
+                                          <span className="text-xs text-muted-foreground">No actions</span>
+                                        )}
+                                      </TableCell>
+                                    );
+                                  }
+
                                   return (
                                     <TableCell key={header.key} className='text-right'>
                                       <DropdownMenu modal={false}>
@@ -378,7 +399,7 @@ function ManagePaymentMethodsPage() {
                                           </Button>
                                         </DropdownMenuTrigger>
                                         <DropdownMenuContent align='end' className='w-[160px]'>
-                                          {canEdit && (
+                                          {hasEditAccess && (
                                             <DropdownMenuItem 
                                               onClick={() => handleEdit(paymentMethod.id)}
                                               className='cursor-pointer'
@@ -387,7 +408,7 @@ function ManagePaymentMethodsPage() {
                                               Edit
                                             </DropdownMenuItem>
                                           )}
-                                          {canDelete && (
+                                          {hasDeleteAccess && (
                                             <>
                                               <DropdownMenuSeparator />
                                               <DropdownMenuItem
@@ -397,6 +418,15 @@ function ManagePaymentMethodsPage() {
                                               >
                                                 <Trash2 className='mr-2 h-4 w-4' />
                                                 Delete
+                                              </DropdownMenuItem>
+                                            </>
+                                          )}
+                                          {isProtected && (hasEditAccess || hasDeleteAccess) && (
+                                            <>
+                                              <DropdownMenuSeparator />
+                                              <DropdownMenuItem disabled className="text-muted-foreground">
+                                                <Shield className='mr-2 h-4 w-4' />
+                                                Protected Item
                                               </DropdownMenuItem>
                                             </>
                                           )}
@@ -421,9 +451,25 @@ function ManagePaymentMethodsPage() {
                                   );
                                 }
 
-                                if (header.key === 'is_enabled' || header.key === 'is_revenue' || header.key === 'show_on_payment_page') {
+                                if (header.key === 'is_enabled' || header.key === 'is_revenue' || header.key === 'is_protected' || header.key === 'show_on_payment_page') {
                                   const status = paymentMethod[header.key];
                                   const displayText = status === true ? 'Yes' : status === false ? 'No' : status || 'N/A';
+                                  
+                                  // Special styling for protected status
+                                  if (header.key === 'is_protected') {
+                                    return (
+                                      <TableCell key={header.key}>
+                                        <span className={`px-2 py-1 rounded-full text-xs font-medium inline-flex items-center gap-1 ${status === true
+                                          ? 'bg-amber-100 text-amber-800 dark:bg-amber-900/20 dark:text-amber-400'
+                                          : 'bg-gray-100 text-gray-800 dark:bg-gray-800 dark:text-gray-300'
+                                          }`}>
+                                          {status === true && <Shield className="h-3 w-3" />}
+                                          {displayText}
+                                        </span>
+                                      </TableCell>
+                                    );
+                                  }
+                                  
                                   return (
                                     <TableCell key={header.key}>
                                       <span className={`px-2 py-1 rounded-full text-xs font-medium ${status === true

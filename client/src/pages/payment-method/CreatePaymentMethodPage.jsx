@@ -26,6 +26,17 @@ const CreatePaymentMethodPage = () => {
   const [createdPaymentMethod, setCreatedPaymentMethod] = useState(null);
   const navigate = useNavigate();
 
+  // Get current datetime in local timezone for default value
+  const getCurrentDateTime = () => {
+    const now = new Date();
+    const year = now.getFullYear();
+    const month = String(now.getMonth() + 1).padStart(2, '0');
+    const day = String(now.getDate()).padStart(2, '0');
+    const hours = String(now.getHours()).padStart(2, '0');
+    const minutes = String(now.getMinutes()).padStart(2, '0');
+    return `${year}-${month}-${day}T${hours}:${minutes}`;
+  };
+
   const {
     register,
     handleSubmit,
@@ -38,7 +49,8 @@ const CreatePaymentMethodPage = () => {
       payment_method_name: '',
       is_enabled: true,
       is_revenue: false,
-      show_on_payment_page: true
+      show_on_payment_page: true,
+      created_at: getCurrentDateTime()
     }
   });
 
@@ -49,18 +61,27 @@ const CreatePaymentMethodPage = () => {
 
   const onSubmit = async (data) => {
     setError(null);
-    const timestamp = new Date().toISOString();
+    
+    // Convert the datetime-local input to ISO string
+    const createdAtISO = new Date(data.created_at).toISOString();
+    const currentTime = new Date().toISOString();
 
     const result = await createPaymentMethod({
       ...data,
-      created_at: timestamp,
-      updated_at: timestamp,
+      created_at: createdAtISO,
+      updated_at: currentTime,
     });
 
     if (result.success) {
       setCreatedPaymentMethod(data);
       setShowSuccessDialog(true);
-      reset();
+      reset({
+        payment_method_name: '',
+        is_enabled: true,
+        is_revenue: false,
+        show_on_payment_page: true,
+        created_at: getCurrentDateTime()
+      });
     } else {
       setError(result.error);
     }
@@ -124,6 +145,26 @@ const CreatePaymentMethodPage = () => {
                         {errors.payment_method_name && (
                           <p className="text-red-500 text-xs">{errors.payment_method_name.message}</p>
                         )}
+                      </div>
+
+                      <div className="space-y-2">
+                        <Label htmlFor="created_at" className="text-sm font-medium text-gray-700">
+                          Creation Date & Time *
+                        </Label>
+                        <Input 
+                          id="created_at"
+                          type="datetime-local"
+                          {...register("created_at", { 
+                            required: "Creation date and time is required"
+                          })} 
+                          className={errors.created_at ? "border-red-500" : ""}
+                        />
+                        {errors.created_at && (
+                          <p className="text-red-500 text-xs">{errors.created_at.message}</p>
+                        )}
+                        <p className="text-xs text-gray-500">
+                          Specify when this payment method was originally created
+                        </p>
                       </div>
                     </div>
                   </CardContent>
@@ -274,6 +315,12 @@ const CreatePaymentMethodPage = () => {
                   <span className="text-gray-600">Visible to Customers:</span>
                   <span className={`font-medium ${createdPaymentMethod?.show_on_payment_page ? 'text-purple-600' : 'text-gray-600'}`}>
                     {createdPaymentMethod?.show_on_payment_page ? 'Yes' : 'No'}
+                  </span>
+                </div>
+                <div className="flex justify-between text-sm">
+                  <span className="text-gray-600">Created:</span>
+                  <span className="font-medium text-gray-900">
+                    {createdPaymentMethod?.created_at ? new Date(createdPaymentMethod.created_at).toLocaleString() : 'N/A'}
                   </span>
                 </div>
               </div>
