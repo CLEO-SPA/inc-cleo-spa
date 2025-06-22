@@ -55,6 +55,8 @@ export const useRevenueReportStore = create((set, get) => ({
   earliestDate: null,
   selectedMonth: months[new Date().getMonth()],
   selectedYear: new Date().getFullYear().toString(),
+  resultMonth: months[new Date().getMonth()], // Initialize with current month
+  resultYear: new Date().getFullYear().toString(), // Initialize with current year
   loading: false,
   error: null,
 
@@ -99,7 +101,6 @@ export const useRevenueReportStore = create((set, get) => ({
       const mv = parseRevenueData(mvRes.data.data);
       const mcp = parseRevenueData(mcpRes.data.data);
       const adhoc = parseRevenueData(adhocRes.data.data);
-
       const combined = mergeDataArrays(mv, mcp, adhoc);
 
       set({
@@ -108,6 +109,8 @@ export const useRevenueReportStore = create((set, get) => ({
         adhocData: adhoc,
         combinedData: combined,
         reportData: combined,
+        resultMonth: selectedMonth, // Set to selectedMonth
+        resultYear: selectedYear,  // Set to selectedYear
         totals: {
           mv: calculateTotals(mv),
           mcp: calculateTotals(mcp),

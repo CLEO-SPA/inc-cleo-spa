@@ -57,6 +57,7 @@ const getMVMonthlyReport = async (req: Request, res: Response) => {
     data.netsales.forEach(saleItem => {
       const day = parseInt(saleItem.service_date_gmt8.split('-')[2], 10) - 1;
       if (day >= 0 && day < daysInMonth) {
+        daysArray[day].vip = saleItem.total_revenue_earned;
         daysArray[day].net_sales = saleItem.total_revenue_earned;
         daysArray[day].foc = (parseFloat(saleItem.total_amount_change) - parseFloat(saleItem.total_revenue_earned)).toFixed(2);
       }
@@ -133,6 +134,7 @@ const getMCPMonthlyReport = async (req: Request, res: Response) => {
     data.netsales.forEach(saleItem => {
       const day = parseInt(saleItem.consumption_date_gmt8.split('-')[2], 10) - 1;
       if (day >= 0 && day < daysInMonth) {
+        daysArray[day].vip = saleItem.total_consumed_amount;
         daysArray[day].net_sales = saleItem.total_consumed_amount;
       }
     });

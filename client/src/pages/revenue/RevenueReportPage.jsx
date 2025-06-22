@@ -3,7 +3,7 @@ import React, { useEffect, useMemo, useState } from 'react';
 import { AppSidebar } from '@/components/app-sidebar';
 import { SiteHeader } from '@/components/site-header';
 import { SidebarInset, SidebarProvider } from '@/components/ui/sidebar';
-import { Download } from 'lucide-react';
+import { Download, DollarSign, Tickets, Package, Wand } from 'lucide-react';
 import { useRevenueReportStore } from '@/stores/revenue/revenueStore';
 
 function parseFloatSafe(val) {
@@ -21,6 +21,8 @@ function RevenueReportPage() {
     error,
     setMonth,
     setYear,
+    resultMonth,
+    resultYear,
     fetchEarliestDate,
     fetchRevenueData,
     getMonths,
@@ -85,10 +87,10 @@ function RevenueReportPage() {
   const formatAmount = (val) => (val && val !== '0.00' ? parseFloatSafe(val).toFixed(2) : '');
 
   const tabOptions = [
-    { key: 'combined', label: 'Combined' },
-    { key: 'mv', label: 'MV' },
-    { key: 'mcp', label: 'MCP' },
-    { key: 'adhoc', label: 'Ad Hoc' }
+    { key: 'combined', label: 'Combined', icon: DollarSign },
+    { key: 'mv', label: 'MV', icon: Tickets },
+    { key: 'mcp', label: 'MCP', icon: Package },
+    { key: 'adhoc', label: 'Ad Hoc', icon: Wand }
   ];
 
   const getTabClasses = (tabKey, index) => {
@@ -174,13 +176,14 @@ function RevenueReportPage() {
                 {/* Desktop tabs */}
                 <div className="hidden sm:flex">
                   <ul className="inline-flex text-sm font-medium text-black rounded-lg shadow-sm">
-                    {tabOptions.map(({ key, label }, index) => (
+                    {tabOptions.map(({ key, label, icon: Icon }, index) => (
                       <li key={key} className="focus-within:z-10">
                         <button
                           onClick={() => setTab(key)}
-                          className={getTabClasses(key, index)}
+                          className={`inline-flex items-center ${getTabClasses(key, index)}`} // Added 'inline-flex items-center'
                           aria-current={tab === key ? "page" : undefined}
                         >
+                          <Icon className="w-4 h-4 mr-2" />
                           {label}
                         </button>
                       </li>
@@ -197,7 +200,7 @@ function RevenueReportPage() {
               )}
               <div className="mb-6 p-4 bg-gray-100 rounded-lg">
                 <div className="flex justify-between items-center">
-                  <span className="font-medium">Total Revenue Amount For {selectedMonth}, {selectedYear}</span>
+                  <span className="font-medium">Total Revenue Amount For {resultMonth}, {resultYear}</span>
                   <span className="text-2xl font-bold">{((currentTotals.netSales || 0) - (currentTotals.refund || 0)).toFixed(2)} $</span>
                 </div>
               </div>
