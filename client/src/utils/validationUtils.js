@@ -95,3 +95,41 @@ export const validateMemberVoucherConsumptionCreateData = (formData) => {
         return { isValid: false, error: handleSystemError(error) };
     };
 };
+
+export const validateTimeInput = (value) => {
+    try {
+        if (!value) {
+            return { isValid: false, error: "Time Input is required" };
+        };
+        if (isNaN(Number(value))) {
+            return { isValid: false, error: "Invalid Time Input. Please input a quantity value." };
+        };
+        if (value <= 0) {
+            return { isValid: false, error: "Invalid Time Input. Please input must be greater than 0." };
+        };
+        return { isValid: true, error: "No Errors" }; // No errors
+    } catch (error) {
+        return { isValid: false, error: handleSystemError(error) };
+    }
+};
+
+export const validateForm = (
+    selectedTable,
+    exportFormat,
+    openTimeInput,
+    timeInput
+) => {
+    try {
+        if (!selectedTable) return { isValid: false, error: "Please select a table" };
+
+        if (!exportFormat) return { isValid: false, error: "Please select an export format" };
+
+        if (openTimeInput && !timeInput) {
+            return { isValid: false, error: "Time input is required for this selection" };
+        };
+        return { isValid: true, error: "No Errors" };
+    } catch (error) {
+        return { isValid: false, error: handleSystemError(error) };
+
+    }
+};
