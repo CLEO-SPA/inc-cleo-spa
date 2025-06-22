@@ -46,12 +46,20 @@ const createTimetable = async (req: Request, res: Response, next: NextFunction) 
       ...req.body,
     });
     res.status(201).json(data);
-  } catch (error) {
+  } catch (error:any) {
     console.error('Failed to create timetable:', error);
 
-    const errorMessage = error instanceof Error ? error.message : 'Failed to create timetable';
+    if (error.code === '40000') {
+      res.status(400).json({ status: 'error', code: 400, message: error.message });
+      return;
+    }
 
-    next(errorMessage);
+    if (error.code === '40900') {
+      res.status(409).json({ status: 'error', code: 409, message: error.message });
+      return;
+    }
+
+    next(error);
   }
 };
 
@@ -344,12 +352,20 @@ const updateTimetable = async (req: Request, res: Response, next: NextFunction) 
       ...req.body,
     });
     res.status(200).json(data);
-  } catch (error) {
+  } catch (error: any) {
     console.error('Failed to update timetable:', error);
 
-    const errorMessage = error instanceof Error ? error.message : 'Failed to update timetable';
+    if (error.code === '40000') {
+      res.status(400).json({ status: 'error', code: 400, message: error.message });
+      return;
+    }
 
-    next(errorMessage);
+    if (error.code === '40900') {
+      res.status(409).json({ status: 'error', code: 409, message: error.message });
+      return;
+    }
+
+    next(error);
   }
 };
 
