@@ -1,4 +1,5 @@
 import { Request, Response, NextFunction } from 'express';
+import { RequestHandler } from 'express';
 import model from '../models/refundModel.js';
 
 const viewAllRefundSaleTransactionRecords = async (req: Request, res: Response, next: NextFunction): Promise<void> => {
@@ -70,24 +71,56 @@ const processRefundService = async (req: Request, res: Response, next: NextFunct
     }
   };
 
-  // Middleware: Check if any services remain in the MCP to refund
-  const checkRemainingServices = async (req: Request, res: Response, next: NextFunction) => {
-    try {
-      const { mcpId } = req.body;
-      const services = await model.getRemainingServices(mcpId);
+  // Updated controller
+const verifyRefundableServices = async (req: Request, res: Response, next: NextFunction) => {
+  try {
+    const { mcpId } = req.body;
+    
+    // Get detailed status information
+    const results = await model.fetchMCPStatusById(mcpId);
 
-      if (!services || services.length === 0) {
-        res.status(400).json({ error: 'No remaining services to refund in this Member Care Package.' });
-        return;
-      }
-
-      (req as any).remainingServices = services;
-      next();
-    } catch (error) {
-      console.error('checkRemainingServices error:', error);
-      next(error);
+    if (!results || results.length === 0) {
+      return res.status(404).json({
+        error: 'Package not found',
+        details: `No package found with ID ${mcpId}`
+      });
     }
-  };
+
+    // Filter services that are actually refundable
+    const refundableServices = results
+      .map(service => ({
+        ...service,
+        refundableQuantity: Math.min(
+          service.purchased - service.consumed - service.refunded, // Actually paid and not consumed
+          service.remaining // And still remaining in the package
+        )
+      }))
+      .filter(service => service.refundableQuantity > 0);
+
+    if (refundableServices.length === 0) {
+      return res.status(400).json({
+        error: 'No refundable services',
+        details: 'All services are either unpaid, already consumed, or already refunded'
+      });
+    }
+
+    // Prepare data for the refund processor
+    const refundableDetails = refundableServices.map(service => ({
+      id: service.detail_id || service.id, // Adjust based on your actual schema
+      service_id: service.service_id,
+      service_name: service.service_name,
+      quantity: service.refundableQuantity, // Only the refundable amount
+      price: service.price, // You'll need to include this in your status query
+      discount: service.discount // You'll need to include this in your status query
+    }));
+
+    (req as any).remainingServices = refundableDetails;
+    next();
+  } catch (error) {
+    console.error('verifyRefundableServices error:', error);
+    next(error);
+  }
+};
 
   // Controller: Handle full refund of a Member Care Package
   const processFullRefund = async (req: Request, res: Response, next: NextFunction) => {
@@ -126,11 +159,55 @@ const processRefundService = async (req: Request, res: Response, next: NextFunct
     }
   };
 
-  export default {
-    viewAllRefundSaleTransactionRecords,
-    getServiceTransactionsForRefund,
-    processRefundService,
-    validateMCPExists,
-    checkRemainingServices,
-    processFullRefund
-  };
+const fetchMCPStatus = async (
+  req: Request, res: Response, next: NextFunction) => {
+  try {
+    const id = parseInt(req.params.id, 10);
+
+    if (isNaN(id)) {
+      return res.status(400).json({
+        error: 'Invalid ID',
+        details: 'ID must be a numeric value'
+      });
+    }
+
+    const results = await model.fetchMCPStatusById(id);
+
+    if (!results || results.length === 0) {
+      return res.status(404).json({
+        error: 'Package not found',
+        details: `No package found with ID ${id}`
+      });
+    }
+
+    const { package_id, package_name } = results[0];
+
+    const services = results.map((s) => ({
+      service_id: s.service_id,
+      service_name: s.service_name,
+      totals: {
+        purchased: s.purchased,
+        consumed: s.consumed,
+        refunded: s.refunded,
+        remaining: s.remaining,
+        unpaid: s.unpaid
+      },
+      is_eligible_for_refund: s.consumed > s.refunded
+    }));
+
+    res.status(200).json({ package_id, package_name, services });
+  } catch (error) {
+    console.error('fetchMCPStatus error:', error);
+    next(error);
+  }
+};
+
+export default {
+  viewAllRefundSaleTransactionRecords,
+  getServiceTransactionsForRefund,
+  processRefundService,
+  validateMCPExists,
+  verifyRefundableServices: verifyRefundableServices as RequestHandler,
+  processFullRefund,
+  fetchMCPStatus: fetchMCPStatus as RequestHandler,
+};

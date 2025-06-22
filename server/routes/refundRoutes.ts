@@ -22,11 +22,14 @@ router.post('/service', controller.processRefundService);
 
 /////////////////////////////
 
+//Process a refund for member care packages
 router.post(
   '/mcp',
   controller.validateMCPExists,
-  controller.checkRemainingServices,
+  controller.verifyRefundableServices,  // Replaces checkRemainingServices
   controller.processFullRefund
 );
+
+router.get('/mcp-status/:id', controller.fetchMCPStatus);
 
 export default router;
