@@ -75,7 +75,6 @@ export default function EmployeeTimetablePage() {
                 {/* Filters and Navigation */}
                 <div className='flex flex-col gap-3 border-t pt-3'>
                   <TimetableFilters />
-                  <MonthNavigator />
                 </div>
 
                 {/* Main Calendar View */}

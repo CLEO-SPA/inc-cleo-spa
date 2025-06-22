@@ -32,7 +32,7 @@ export default function DateTimePicker({
           </PopoverTrigger>
           <PopoverContent className='w-auto p-0'>
             <Calendar
-              mode='single'
+              mode= 'single'
               selected={date}
               onSelect={(selectedDate) => onDateChange(selectedDate)}
             />

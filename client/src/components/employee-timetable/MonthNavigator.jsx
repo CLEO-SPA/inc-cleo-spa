@@ -3,7 +3,7 @@ import React from 'react';
 import { format, addMonths, subMonths } from 'date-fns';
 import { Button } from '@/components/ui/button';
 import { ChevronLeft, ChevronRight } from 'lucide-react';
-import DateTimePicker from './DateTimePicker';
+import MonthYearPicker from './MonthYearPicker';
 import useEmployeeTimetableStore from '@/stores/useEmployeeTimetableStore';
 
 export default function MonthNavigator() {
@@ -26,46 +26,41 @@ export default function MonthNavigator() {
     await loadTimetableData(newMonth);
   };
 
-  const handleDateChange = async (newDate) => {
-    if (newDate) {
-      // Set to first day of the selected month
-      const monthStart = new Date(newDate.getFullYear(), newDate.getMonth(), 1);
-      setCurrentMonth(monthStart);
-      await loadTimetableData(monthStart);
+  const handleMonthYearChange = async (selectedDate) => {
+    if (selectedDate) {
+      // selectedDate is already set to first day of the selected month
+      setCurrentMonth(selectedDate);
+      await loadTimetableData(selectedDate);
     }
   };
 
   return (
-    <div className="flex items-center justify-center gap-4 py-4">
+    <div className="flex items-center gap-2">
       {/* Previous Month Button */}
       <Button
         variant="outline"
         size="sm"
         onClick={handlePreviousMonth}
         disabled={loading.timetable}
-        className="flex items-center gap-1"
+        className="flex items-center gap-1 px-3"
       >
-        <ChevronLeft className="h-4 w-4" />
+        <ChevronLeft className="h-3 w-3" />
         Previous
       </Button>
 
-      {/* Month Display with Date Picker */}
-      <div className="flex items-center gap-2">
-        <div className="text-lg font-semibold text-center min-w-[200px]">
-          {format(currentMonth, 'MMMM yyyy').toUpperCase()}
-        </div>
-        
-        {/* Date Picker for Month Selection */}
-        <div className="ml-4">
-          <DateTimePicker
-            label=""
-            date={currentMonth}
-            onDateChange={handleDateChange}
-            // No time picker needed
-            time={undefined}
-            onTimeChange={undefined}
-          />
-        </div>
+      {/* Month Display */}
+      <div className="text-base font-semibold text-center min-w-[140px] px-2">
+        {format(currentMonth, 'MMMM yyyy').toUpperCase()}
+      </div>
+
+      {/* Month/Year Picker */}
+      <div className="flex-shrink-0">
+        <MonthYearPicker
+          value={currentMonth}
+          onSelect={handleMonthYearChange}
+          disabled={loading.timetable}
+          placeholder="Select Month"
+        />
       </div>
 
       {/* Next Month Button */}
@@ -74,10 +69,10 @@ export default function MonthNavigator() {
         size="sm"
         onClick={handleNextMonth}
         disabled={loading.timetable}
-        className="flex items-center gap-1"
+        className="flex items-center gap-1 px-3"
       >
         Next
-        <ChevronRight className="h-4 w-4" />
+        <ChevronRight className="h-3 w-3" />
       </Button>
     </div>
   );
