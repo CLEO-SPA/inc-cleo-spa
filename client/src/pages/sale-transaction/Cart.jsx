@@ -1,6 +1,7 @@
 import { useState } from 'react';
 import { Trash2, ShoppingCart, User, Package, CreditCard, Gift } from 'lucide-react';
 import useTransactionCartStore from '@/stores/useTransactionCartStore';
+import { useNavigate } from 'react-router-dom';
 
 const getItemIcon = (type) => {
   switch (type) {
@@ -50,9 +51,9 @@ const formatItemDetails = (item) => {
       };
     case 'member-voucher':
       return {
-        name: item.data.name,
+        name: item.data.member_voucher_name || 'Unnamed Voucher',
         price: item.data.total_price,
-        details: item.data.sessions ? `${item.data.sessions} sessions` : null
+        details: item.data.starting_balance ? `Starting Balance: $${item.data.starting_balance}` : null
       };
     case 'package':
       return {
@@ -68,14 +69,15 @@ const formatItemDetails = (item) => {
       };
     default:
       return {
-        name: item.data.name || 'Unknown Item',
-        price: item.data.price || 0,
+        name: item.data.name || item.data.member_voucher_name || 'Unknown Item',
+        price: item.data.price || item.data.total_price || 0,
         details: null
       };
   }
 };
 
 export default function TransactionCart() {
+  const navigate = useNavigate();
   const { 
     selectedMember, 
     cartItems, 
@@ -98,10 +100,14 @@ export default function TransactionCart() {
     setShowConfirm(false);
   };
 
+  const handleProceedToPayment = () => {
+    navigate('/sale-transaction/summary');
+  };
+
   const total = getCartTotal();
 
   return (
-    <div className="flex-1 rounded-xl bg-gradient-to-br from-slate-50 to-slate-100 border border-slate-200 shadow-sm">
+    <div className="flex flex-col h-full rounded-xl bg-gradient-to-br from-slate-50 to-slate-100 border border-slate-200 shadow-sm">
       {/* Header */}
       <div className="p-6 border-b border-slate-200 bg-white rounded-t-xl">
         <div className="flex items-center justify-between">
@@ -144,71 +150,73 @@ export default function TransactionCart() {
         )}
       </div>
 
-      {/* Cart Content */}
-      <div className="p-6 max-h-[500px] overflow-y-auto">
-        {cartItems.length === 0 ? (
-          <div className="text-center py-12">
-            <ShoppingCart className="w-12 h-12 text-slate-300 mx-auto mb-4" />
-            <p className="text-slate-500 font-medium">No items in cart</p>
-            <p className="text-sm text-slate-400 mt-1">Add services, products, or vouchers to get started</p>
-          </div>
-        ) : (
-          <div className="space-y-3">
-            {cartItems.map((item) => {
-              const itemDetails = formatItemDetails(item);
-              return (
-                <div
-                  key={item.id}
-                  className="group bg-white rounded-lg border border-slate-200 p-4 hover:shadow-md transition-all duration-200"
-                >
-                  <div className="flex items-start justify-between">
-                    <div className="flex items-start gap-3 flex-1">
-                      <div className="p-2 bg-slate-100 rounded-lg group-hover:bg-slate-200 transition-colors">
-                        {getItemIcon(item.type)}
-                      </div>
-                      <div className="flex-1 min-w-0">
-                        <div className="flex items-center gap-2 mb-1">
-                          <h4 className="font-medium text-slate-900 truncate">
-                            {itemDetails.name}
-                          </h4>
-                          <span className="px-2 py-0.5 text-xs bg-slate-100 text-slate-600 rounded-full">
-                            {getItemTypeLabel(item.type)}
-                          </span>
+      {/* Cart Content - Fix: Added flex-1 and overflow-y-auto directly to this div */}
+      <div className="flex-1 overflow-y-auto">
+        <div className="p-6">
+          {cartItems.length === 0 ? (
+            <div className="text-center py-12">
+              <ShoppingCart className="w-12 h-12 text-slate-300 mx-auto mb-4" />
+              <p className="text-slate-500 font-medium">No items in cart</p>
+              <p className="text-sm text-slate-400 mt-1">Add services, products, or vouchers to get started</p>
+            </div>
+          ) : (
+            <div className="space-y-3">
+              {cartItems.map((item) => {
+                const itemDetails = formatItemDetails(item);
+                return (
+                  <div
+                    key={item.id}
+                    className="group bg-white rounded-lg border border-slate-200 p-4 hover:shadow-md transition-all duration-200"
+                  >
+                    <div className="flex items-start justify-between">
+                      <div className="flex items-start gap-3 flex-1">
+                        <div className="p-2 bg-slate-100 rounded-lg group-hover:bg-slate-200 transition-colors">
+                          {getItemIcon(item.type)}
                         </div>
-                        {itemDetails.details && (
-                          <p className="text-sm text-slate-500 mb-2">
-                            {itemDetails.details}
-                          </p>
-                        )}
-                        <div className="flex items-center justify-between">
-                          <span className="font-semibold text-slate-900">
-                            ${itemDetails.price.toFixed(2)}
-                          </span>
-                          {item.status && (
-                            <span className={`px-2 py-1 text-xs rounded-full ${
-                              item.status === 'pending' 
-                                ? 'bg-yellow-100 text-yellow-700' 
-                                : 'bg-green-100 text-green-700'
-                            }`}>
-                              {item.status}
+                        <div className="flex-1 min-w-0">
+                          <div className="flex items-center gap-2 mb-1">
+                            <h4 className="font-medium text-slate-900 truncate">
+                              {itemDetails.name}
+                            </h4>
+                            <span className="px-2 py-0.5 text-xs bg-slate-100 text-slate-600 rounded-full">
+                              {getItemTypeLabel(item.type)}
                             </span>
+                          </div>
+                          {itemDetails.details && (
+                            <p className="text-sm text-slate-500 mb-2">
+                              {itemDetails.details}
+                            </p>
                           )}
+                          <div className="flex items-center justify-between">
+                            <span className="font-semibold text-slate-900">
+                              ${itemDetails.price.toFixed(2)}
+                            </span>
+                            {item.status && (
+                              <span className={`px-2 py-1 text-xs rounded-full ${
+                                item.status === 'pending' 
+                                  ? 'bg-yellow-100 text-yellow-700' 
+                                  : 'bg-green-100 text-green-700'
+                              }`}>
+                                {item.status}
+                              </span>
+                            )}
+                          </div>
                         </div>
                       </div>
+                      <button
+                        onClick={() => removeCartItem(item.id)}
+                        className="p-2 text-slate-400 hover:text-red-500 hover:bg-red-50 rounded-lg transition-colors opacity-0 group-hover:opacity-100"
+                        title="Remove item"
+                      >
+                        <Trash2 className="w-4 h-4" />
+                      </button>
                     </div>
-                    <button
-                      onClick={() => removeCartItem(item.id)}
-                      className="p-2 text-slate-400 hover:text-red-500 hover:bg-red-50 rounded-lg transition-colors opacity-0 group-hover:opacity-100"
-                      title="Remove item"
-                    >
-                      <Trash2 className="w-4 h-4" />
-                    </button>
                   </div>
-                </div>
-              );
-            })}
-          </div>
-        )}
+                );
+              })}
+            </div>
+          )}
+        </div>
       </div>
 
       {/* Footer with Total */}
@@ -223,9 +231,11 @@ export default function TransactionCart() {
             </div>
           </div>
           
-          {/* Action buttons could go here */}
           <div className="flex gap-2">
-            <button className="flex-1 px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors font-medium">
+            <button 
+              onClick={handleProceedToPayment}
+              className="flex-1 px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors font-medium"
+            >
               Proceed to Payment
             </button>
           </div>

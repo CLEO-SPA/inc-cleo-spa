@@ -553,6 +553,13 @@ const searchProducts = async (
     throw new Error(`Error searching products: ${error.message}`);
   }
 };
+const createServiceProductSaleTransaction = async (
+  SalesTransaction: string
+): Promise<SalesTransaction | null> => {
+  return null;
+};
+
+
 
 export default {
   getSalesTransactionList,

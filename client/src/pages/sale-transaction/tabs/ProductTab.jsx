@@ -1,13 +1,18 @@
 import { useState, useEffect } from 'react';
 import api from '@/services/api';
-import { Search, Loader2 } from 'lucide-react';
+import { Search, Loader2, Package, ShoppingBag } from 'lucide-react';
+import { Card, CardContent } from '@/components/ui/card';
+import useTransactionCartStore from '@/stores/useTransactionCartStore';
 
-const ProductTab = ({ onProductSelect }) => {
+const ProductTab = () => {
     const [loading, setLoading] = useState(false);
     const [error, setError] = useState('');
     const [products, setProducts] = useState([]);
     const [categories, setCategories] = useState([]);
     const [searchQuery, setSearchQuery] = useState('');
+    
+
+    const { selectedMember, addCartItem } = useTransactionCartStore();
 
     useEffect(() => {
         const fetchProducts = async () => {
@@ -50,12 +55,36 @@ const ProductTab = ({ onProductSelect }) => {
     const handleSearchChange = (e) => {
         setSearchQuery(e.target.value);
     };
+    
+    const handleAddToCart = (product) => {
+        if (!selectedMember) {
+            alert('Please select a member first before adding products.');
+            return;
+        }
+        
+        const cartItem = {
+            id: crypto.randomUUID(), 
+            type: 'product',
+            data: {
+                id: product.id,
+                product_id: product.product_id,
+                name: product.product_name,
+                description: product.description,
+                price: parseFloat(product.price),
+                category: product.product_category_name,
+                quantity: 1
+            }
+        };
+        
+        addCartItem(cartItem);
+        alert(`Added ${product.product_name} to cart`);
+    };
 
     const renderProductsList = () => {
         if (loading) {
             return (
                 <div className="flex justify-center items-center p-8">
-                    <Loader2 className="h-8 w-8 animate-spin text-blue-500" />
+                    <Loader2 className="h-8 w-8 animate-spin text-green-500" />
                     <span className="ml-2 text-gray-600">Loading products...</span>
                 </div>
             );
@@ -72,17 +101,41 @@ const ProductTab = ({ onProductSelect }) => {
 
         if (products.length === 0) {
             return (
-                <div className="p-6 text-center text-gray-600">
-                    {searchQuery 
-                        ? `No products found matching "${searchQuery}"`
-                        : "No products available"
-                    }
+                <div className="text-center py-8 text-gray-500 bg-gray-50 rounded-lg border-2 border-dashed border-gray-200">
+                    <ShoppingBag className="h-12 w-12 mx-auto mb-2 text-gray-400" />
+                    <p className="text-sm">
+                        {searchQuery 
+                            ? `No products found matching "${searchQuery}"`
+                            : "No products available"
+                        }
+                    </p>
                 </div>
             );
         }
 
         return (
             <div className="space-y-6">
+                {/* Member selection notice at the top */}
+                {!selectedMember && (
+                    <Card className="border-orange-200 bg-orange-50">
+                        <CardContent className="pt-4">
+                            <p className="text-orange-800 text-sm">
+                                Please select a member first before adding products.
+                            </p>
+                        </CardContent>
+                    </Card>
+                )}
+
+                {selectedMember && (
+                    <Card className="border-green-200 bg-green-50">
+                        <CardContent className="pt-4">
+                            <p className="text-green-800 text-sm">
+                                Adding products for: <strong>{selectedMember.name}</strong>
+                            </p>
+                        </CardContent>
+                    </Card>
+                )}
+                
                 {categories.map((category) => {
                     const categoryProducts = products.filter(
                         product => (product.product_category_name || 'Uncategorized') === category
@@ -92,8 +145,9 @@ const ProductTab = ({ onProductSelect }) => {
                     
                     return (
                         <div key={category} className="bg-white rounded-md shadow-sm overflow-hidden">
-                            <div className="bg-green-50 px-4 py-2 border-b border-green-100">
-                                <h3 className="font-medium text-green-700">{category}</h3>
+                            <div className="bg-gray-100 px-4 py-2 border-b border-gray-200 flex items-center">
+                                <Package className="h-4 w-4 mr-2 text-gray-600" />
+                                <h3 className="font-medium text-gray-700">{category}</h3>
                             </div>
                             <table className="min-w-full divide-y divide-gray-200">
                                 <thead className="bg-gray-50">
@@ -126,17 +180,14 @@ const ProductTab = ({ onProductSelect }) => {
                                             <td className="px-4 py-3 text-center">
                                                 <button
                                                     type="button"
-                                                    onClick={() => onProductSelect({
-                                                        id: product.id,
-                                                        product_id: product.product_id,
-                                                        name: product.product_name,
-                                                        description: product.description,
-                                                        price: product.price,
-                                                        category: product.product_category_name,
-                                                        type: 'product'
-                                                    })}
-                                                    className="inline-flex items-center px-3 py-1.5 border border-transparent text-xs font-medium rounded-md shadow-sm text-white bg-green-600 hover:bg-green-700 focus:outline-none"
+                                                    onClick={() => handleAddToCart(product)}
+                                                    className={`inline-flex items-center px-3 py-1.5 border border-transparent text-xs font-medium rounded-md shadow-sm text-white 
+                                                    ${!selectedMember 
+                                                        ? 'bg-gray-400 cursor-not-allowed' 
+                                                        : 'bg-green-600 hover:bg-green-700 focus:outline-none'}`}
+                                                    disabled={!selectedMember}
                                                 >
+                                                    <ShoppingBag className="h-3 w-3 mr-1" />
                                                     Add
                                                 </button>
                                             </td>

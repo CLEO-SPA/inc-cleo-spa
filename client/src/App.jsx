@@ -21,11 +21,12 @@ import CreateVoucherTemplatesPage from './pages/voucher-template/CreateVoucherTe
 import ManageVoucherTemplatesPage from './pages/voucher-template/ManageVoucherTemplatesPage';
 import EditVouhcerTemplatePage from './pages/voucher-template/EditVoucherTemplatePage';
 
+
+// Sale Transaction
 import MockSalesTransactionPage from './pages/sale-transaction/mockSaleTransactionPage';
 import SaleTransactionList from './pages/sale-transaction/SaleTransactionList';
-
 import SaleTransactionDetail from './pages/sale-transaction/SaleTransactionDetail';
-
+import SaleTransactionSummary from './pages/sale-transaction/SaleTransactionSummary';
 
 
 import ManageVouchersPage from './pages/MemberVoucher/ManageVoucherPage';
@@ -99,7 +100,7 @@ function App() {
               <Route path='/cart-test' element={<MockSalesTransactionPage />} />
               <Route path='/sale-transaction/list' element={<SaleTransactionList />} />
               <Route path='/sale-transaction/:id' element={<SaleTransactionDetail />} />
-              
+              <Route path='/sale-transaction/summary' element={<SaleTransactionSummary />} />
               {/* Protected Routes */}
 
               <Route path='/mcp/:packageId/consume' element={<CreateConsumptionPage />} />
