@@ -88,49 +88,64 @@ const getMemberCarePackageById = async (req: Request, res: Response, next: NextF
 
 const createMemberCarePackage = async (req: Request, res: Response, next: NextFunction): Promise<void> => {
   try {
-    const { package_name, member_id, employee_id, package_remarks, package_price, services, created_at, updated_at } =
-      req.body;
+    const { packages } = req.body;
 
-    if (!package_name || !member_id || !employee_id || !package_price || !Array.isArray(services)) {
-      res.status(400).json({ message: 'Missing required fields or invalid data format' });
+    if (!Array.isArray(packages) || packages.length === 0) {
+      res.status(400).json({ message: 'Request body must contain a non-empty "packages" array.' });
       return;
     }
 
-    const isValidService = services.every((s) => {
-      return (
-        typeof s.id === 'string' &&
-        typeof s.name === 'string' &&
-        typeof s.quantity === 'number' &&
-        s.quantity > 0 &&
-        typeof s.price === 'number' &&
-        s.price >= 0 &&
-        typeof s.finalPrice === 'number' &&
-        s.finalPrice >= 0 &&
-        typeof s.discount === 'number' &&
-        s.discount >= 0 &&
-        s.discount <= 1
+    const creationPromises = packages.map((pkg) => {
+      const { package_name, member_id, employee_id, package_remarks, package_price, services } = pkg;
+
+      if (!package_name || !member_id || !employee_id || package_price === undefined || !Array.isArray(services)) {
+        throw new Error(`Invalid data for package "${package_name || 'Unnamed'}". Missing required fields.`);
+      }
+
+      const isValidService = services.every(
+        (s: { id: string; name: string; quantity: number; price: number; finalPrice: number; discount: number }) => {
+          return (
+            typeof s.id === 'string' &&
+            typeof s.name === 'string' &&
+            typeof s.quantity === 'number' &&
+            s.quantity > 0 &&
+            typeof s.price === 'number' &&
+            s.price >= 0 &&
+            typeof s.finalPrice === 'number' &&
+            s.finalPrice >= 0 &&
+            typeof s.discount === 'number' &&
+            s.discount >= 0 &&
+            s.discount <= 1
+          );
+        }
+      );
+
+      if (!isValidService) {
+        throw new Error(`Invalid service data within package: ${package_name}.`);
+      }
+
+      const now = new Date().toISOString();
+
+      return model.createMemberCarePackage(
+        package_name,
+        member_id,
+        employee_id,
+        package_remarks,
+        parseFloat(package_price),
+        services,
+        now,
+        now
       );
     });
 
-    if (!isValidService) {
-      res.status(400).json({ message: 'Missing required fields or invalid data format' });
-      return;
-    }
+    const results = await Promise.all(creationPromises);
 
-    const results = await model.createMemberCarePackage(
-      package_name,
-      member_id,
-      employee_id,
-      package_remarks,
-      parseFloat(package_price),
-      services,
-      created_at,
-      updated_at
-    );
-
-    res.status(201).json(results);
+    res.status(201).json({
+      message: `${results.length} member care package(s) created successfully.`,
+      createdPackages: results,
+    });
   } catch (error) {
-    console.error('Error creating member care package', error);
+    console.error('Error creating member care package(s) from queue', error);
     next(error);
   }
 };
