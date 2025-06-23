@@ -5,6 +5,7 @@ import { SiteHeader } from '@/components/site-header';
 import { SidebarInset, SidebarProvider } from '@/components/ui/sidebar';
 import { Download, DollarSign, Tickets, Package, Wand } from 'lucide-react';
 import { useRevenueReportStore } from '@/stores/revenue/revenueStore';
+import MonthYearSelector from '@/components/revenue/revenueMonthYearSelector';
 import * as XLSX from 'xlsx';
 
 function parseFloatSafe(val) {
@@ -26,7 +27,6 @@ function RevenueReportPage() {
     resultYear,
     fetchEarliestDate,
     fetchRevenueData,
-    getMonths,
     setReportData,
     mvData,
     mcpData,
@@ -56,30 +56,9 @@ function RevenueReportPage() {
     }
   }, [tab, mvData, mcpData, adhocData, combinedData]);
 
-  const months = getMonths();
-
   const currentTotals = useMemo(() => {
     return totals[tab] || {};
   }, [totals, tab]);
-
-  const generateYears = () => {
-    if (!earliestDate) return [];
-    const years = [];
-    const start = earliestDate.getFullYear();
-    const end = new Date().getFullYear() + 1;
-    for (let y = start; y <= end; y++) years.push(y.toString());
-    return years;
-  };
-
-  const getAvailableMonths = () => {
-    if (!earliestDate) return months;
-    const selectedYearNum = parseInt(selectedYear);
-    const earliestYear = earliestDate.getFullYear();
-    const earliestMonth = earliestDate.getMonth();
-    if (selectedYearNum > earliestYear) return months;
-    if (selectedYearNum === earliestYear) return months.slice(earliestMonth);
-    return [];
-  };
 
   const handleGetReport = () => {
     fetchRevenueData();
@@ -258,21 +237,20 @@ function RevenueReportPage() {
                   <Download className="w-5 h-5" />
                 </button>
               </div>
-              <div className="flex items-center space-x-4 mb-6">
-                <select value={selectedMonth} onChange={e => setMonth(e.target.value)} className="border border-gray-300 rounded px-3 py-2">
-                  {getAvailableMonths().map(month => (
-                    <option key={month} value={month}>{month}</option>
-                  ))}
-                </select>
-                <select value={selectedYear} onChange={e => setYear(e.target.value)} className="border border-gray-300 rounded px-3 py-2">
-                  {generateYears().map(year => (
-                    <option key={year} value={year}>{year}</option>
-                  ))}
-                </select>
-                <button onClick={handleGetReport} className="bg-gray-900 text-white px-4 py-2 rounded hover:bg-gray-600" disabled={loading}>
-                  {loading ? 'Loading...' : 'Get Report'}
-                </button>
-              </div>
+              
+              {/* Using the new MonthYearSelector component */}
+              <MonthYearSelector
+                selectedMonth={selectedMonth}
+                selectedYear={selectedYear}
+                onMonthChange={setMonth}
+                onYearChange={setYear}
+                onGetReport={handleGetReport}
+                loading={loading}
+                earliestDate={earliestDate}
+                buttonText="Get Report"
+                buttonClassName="bg-gray-900 text-white px-4 py-2 rounded hover:bg-gray-600"
+                containerClassName="flex items-center space-x-4 mb-6"
+              />
 
               {/* Enhanced Tab Navigation */}
               <div className="mb-6">

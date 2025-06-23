@@ -42,10 +42,20 @@ const data = {
       ],
     },
     {
-      title: 'Revenue Report',
-      url: '/rr',
+      title: 'Revenue',
+      url: '#',
       icon: DollarSign,
       isActive: true,
+      items: [
+        {
+          title: 'Revenue Report',
+          url: '/rr',
+        },
+        {
+          title: 'Deferred Revenue',
+          url: '/dr',
+        },
+      ],
     },
     {
       title: 'Services',

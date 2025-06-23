@@ -32,6 +32,7 @@ import CreateMemberVoucherConsumptionPage from '@/pages/MemberVoucher/CreateCons
 import DataExportPage from './pages/miscellaneous/DateExportPage';
 // Revenue Report
 import RevenueReportPage from './pages/revenue/RevenueReportPage';
+import DeferredRevenuePage from './pages/revenue/DeferredRevenuePage';
 function App() {
   return (
     <AuthProvider>
@@ -83,6 +84,10 @@ function App() {
             {/* Revenue Report Page */}
             <Route path='/rr' element={<ProtectedRoute />}>
               <Route index element={<RevenueReportPage />} />
+            </Route>
+            {/* Deferred Revenue Page */}
+            <Route path='/dr' element={<ProtectedRoute />}>
+              <Route index element={<DeferredRevenuePage />} />
             </Route>
             {/* 404 Page */}
             <Route path='*' element={<NotFoundPage />} />
