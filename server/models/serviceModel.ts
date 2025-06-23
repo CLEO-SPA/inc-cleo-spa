@@ -1,4 +1,5 @@
 import { pool, getProdPool as prodPool } from '../config/database.js';
+import { createServiceInput, updateServiceInput } from '../types/service.type.js';
 
 // get all services, sorted by sequence number
 const getAllServices = async () => {
@@ -43,9 +44,9 @@ const getAllServices = async () => {
 const getServicesPaginationFilter = async (
   page: number,
   limit: number,
-  search: string | null,
-  category: number | null,
-  status: boolean | null
+  search?: string | null,
+  category?: number | null,
+  status?: boolean | null
 ) => {
   try {
     const query = `
@@ -70,7 +71,7 @@ const getTotalCount = async (search: string | null, category: number | null, sta
   try {
     let query = `SELECT COUNT(*) AS total_count FROM services`;
     const conditions: string[] = [];
-    const params: any[] = [];
+    const params: (string | number | boolean)[] = [];
 
     if (search != null) {
       params.push(search);
@@ -201,7 +202,7 @@ const getServiceSequenceNo = async (service_category_id: number) => {
   try {
     // get sequence number by counting services that are enabled and in same category
     const query = `
-    SELECT COUNT(*) AS seq_no FROM services
+    SELECT COUNT(*) + 1 AS seq_no FROM services
     WHERE service_category_id = $1
     AND service_is_enabled = true;`;
     const result = await pool().query(query, [service_category_id]);
@@ -227,7 +228,20 @@ const getServiceByCategory = async (service_category_id: number) => {
   }
 };
 
-const createService = async (serviceData: any) => {
+const createService = async ({
+  service_name,
+  service_description,
+  service_remarks,
+  service_duration,
+  service_price,
+  service_is_enabled,
+  created_at,
+  updated_at,
+  service_category_id,
+  service_sequence_no,
+  created_by,
+  updated_by,
+}: createServiceInput) => {
   try {
     const query = `
       INSERT INTO services (
@@ -249,18 +263,18 @@ const createService = async (serviceData: any) => {
       RETURNING *;
     `;
     const params = [
-      serviceData.service_name,
-      serviceData.service_description,
-      serviceData.service_remarks,
-      serviceData.service_duration,
-      serviceData.service_price,
-      serviceData.service_is_enabled,
-      serviceData.created_at,
-      serviceData.updated_at,
-      serviceData.service_category_id,
-      serviceData.service_sequence_no,
-      serviceData.created_by,
-      serviceData.updated_by,
+      service_name,
+      service_description,
+      service_remarks,
+      service_duration,
+      service_price,
+      service_is_enabled,
+      created_at,
+      updated_at,
+      service_category_id,
+      service_sequence_no,
+      created_by,
+      updated_by,
     ];
     const result = await pool().query(query, params);
     return result.rows;
@@ -270,64 +284,79 @@ const createService = async (serviceData: any) => {
   }
 };
 
-const updateService = async (formData: any) => {
+const updateService = async ({
+  id,
+  service_name,
+  service_description,
+  service_remarks,
+  service_duration,
+  service_price,
+  created_at,
+  updated_at,
+  service_category_id,
+  service_sequence_no,
+  created_by,
+  updated_by,
+}: Partial<updateServiceInput>) => {
   try {
     const conditions: string[] = [];
-    const params: any[] = [];
+    const params: (string | number | boolean | null)[] = [];
     let index = 1;
 
-    if (formData.service_name) {
-      params.push(formData.service_name);
+    if (service_name) {
+      params.push(service_name);
       conditions.push(`service_name = $${index++}`);
     }
 
-    if (formData.service_description != null) {
-      params.push(formData.service_description);
+    if (service_description != null) {
+      params.push(service_description);
       conditions.push(`service_description = $${index++}`);
     }
 
-    if (formData.service_remarks != null) {
-      params.push(formData.service_remarks);
+    if (service_remarks != null) {
+      params.push(service_remarks);
       conditions.push(`service_remarks = $${index++}`);
     }
 
-    if (formData.service_duration) {
-      params.push(formData.service_duration);
+    if (service_duration) {
+      params.push(service_duration);
       conditions.push(`service_duration = $${index++}`);
     }
 
-    if (formData.service_price) {
-      params.push(formData.service_price);
+    if (service_price) {
+      params.push(service_price);
       conditions.push(`service_price = $${index++}`);
     }
 
-    if (formData.service_category_id) {
-      params.push(formData.service_category_id);
+    if (service_category_id) {
+      params.push(service_category_id);
       conditions.push(`service_category_id = $${index++}`);
-      params.push(formData.service_sequence_no);
-      conditions.push(`service_sequence_no = $${index++}`);
+      if (service_sequence_no) {
+        params.push(service_sequence_no);
+        conditions.push(`service_sequence_no = $${index++}`);
+      }
     }
 
-    if (formData.created_at) {
-      params.push(formData.created_at);
+    if (created_at) {
+      params.push(created_at);
       conditions.push(`created_at = $${index++}`);
     }
 
-    if (formData.created_by) {
-      params.push(formData.created_by);
+    if (created_by) {
+      params.push(created_by);
       conditions.push(`created_by = $${index++}`);
     }
 
     // Always update updated_at and updated_by
-    params.push(formData.updated_at || new Date());
+    params.push(updated_at || new Date().toISOString());
     conditions.push(`updated_at = $${index++}`);
 
-    params.push(formData.updated_by || '');
+    params.push(updated_by || '');
     conditions.push(`updated_by = $${index++}`);
 
     const query = `UPDATE services SET ${conditions.join(', ')} WHERE id = $${index}
     RETURNING *`;
-    params.push(formData.id);
+    params.push(id || 0);
 
     const result = await prodPool().query(query, params);
     return result.rows;
@@ -337,7 +366,7 @@ const updateService = async (formData: any) => {
   }
 };
 
-const reorderServices = async (services: any) => {
+const reorderServices = async (services: [{ id: number; service_sequence_no: number }]) => {
   try {
     const query = `
     UPDATE services
@@ -354,7 +383,12 @@ const reorderServices = async (services: any) => {
   }
 };
 
-const disableService = async (updateData: any) => {
+const disableService = async (updateData: {
+  id: number;
+  updated_at: string;
+  updated_by: number;
+  service_remarks?: string | null;
+}) => {
   try {
     let params = [updateData.updated_by, updateData.updated_at, updateData.id];
     let query = `   
@@ -385,7 +419,13 @@ const disableService = async (updateData: any) => {
   }
 };
 
-const enableService = async (updateData: any) => {
+const enableService = async (updateData: {
+  id: number;
+  updated_at: string;
+  updated_by: number;
+  service_sequence_no: number;
+  service_remarks?: string | null;
+}) => {
   try {
     let params = [updateData.service_sequence_no, updateData.updated_by, updateData.updated_at, updateData.id];
     let query = `   
@@ -485,10 +525,7 @@ const createServiceCategory = async (name: string) => {
 // update service category by id
 const updateServiceCategory = async (id: number, name: string) => {
   try {
-    const result = await prodPool().query(
-      'SELECT * FROM update_service_category($1, $2)',
-      [id, name]
-    );
+    const result = await prodPool().query('SELECT * FROM update_service_category($1, $2)', [id, name]);
     return result.rows;
   } catch (error) {
     console.error('Error updating service category:', error);
@@ -551,5 +588,5 @@ export default {
   getSalesHistoryByServiceId,
   createServiceCategory,
   updateServiceCategory,
-  reorderServiceCategory
+  reorderServiceCategory,
 };
