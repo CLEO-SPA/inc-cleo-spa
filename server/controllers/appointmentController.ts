@@ -84,6 +84,8 @@ const getAppointmentById = async (req: Request, res: Response): Promise<void> =>
 
     const appointment = await model.getAppointmentById(id);
 
+    console.log('Fetched appointment:', appointment);
+
     if (!appointment) {
       res.status(404).json({ message: 'Appointment not found' });
       return;
@@ -571,17 +573,7 @@ const updateAppointment = async (
     ) {
       return res.status(400).json({ message: `Invalid or missing id in appointment` });
     }
-    // 2) servicing_employee_id can be null/undefined or positive integer
-    if (app.servicing_employee_id !== null && app.servicing_employee_id !== undefined) {
-      if (
-        typeof app.servicing_employee_id !== 'number' ||
-        !Number.isInteger(app.servicing_employee_id) ||
-        app.servicing_employee_id <= 0
-      ) {
-        return res.status(400).json({ message: `Invalid servicing_employee_id in appointment` });
-      }
-    }
-    // 3) appointment_date
+    // 2) appointment_date
     if (typeof app.appointment_date !== 'string' ||
       !/^\d{4}-\d{2}-\d{2}$/.test(app.appointment_date)
     ) {
@@ -589,7 +581,7 @@ const updateAppointment = async (
     }
     const appointment_date = app.appointment_date;
 
-    // 4) start_time / end_time
+    // 3) start_time / end_time
     if (typeof app.start_time !== 'string') {
       return res.status(400).json({ message: `Invalid or missing start_time in appointment` });
     }
@@ -597,7 +589,7 @@ const updateAppointment = async (
       return res.status(400).json({ message: `Invalid or missing end_time in appointment` });
     }
 
-    // 5) remarks must be non-empty string
+    // 4) remarks must be non-empty string
     if (typeof app.remarks !== 'string' || app.remarks.trim() === '') {
       return res.status(400).json({ message: `Invalid or missing remarks in appointment` });
     }

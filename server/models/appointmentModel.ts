@@ -168,7 +168,7 @@ const getAppointmentById = async (id: number) => {
     const result = await pool().query(query, [id]);
 
     if (result.rows.length === 0) {
-      throw new Error('Appointment not found');
+      return null;
     }
 
     const appointment = result.rows[0];
