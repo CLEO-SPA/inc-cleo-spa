@@ -193,7 +193,6 @@ const getEnabledServiceById = async (id: number) => {
           
     `;
     const result = await pool().query(query, [id]); // Added id parameter to query
-    const result = await pool().query(query, [id]); // Added id parameter to query
     return result.rows;
   } catch (error) {
     console.error('Error fetching service list:', error);
