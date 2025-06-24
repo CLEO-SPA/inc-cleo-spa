@@ -250,21 +250,6 @@ export default function UpdateService() {
                       <FormProvider {...methods}>
                         <form onSubmit={handleSubmit} className="space-y-3">
                           <div className="grid auto-rows-min gap-3 lg:grid-cols-2">
-                            {/* Date of Creation */}
-                            <div>
-                              <label className="block text-md font-medium">Date of Creation*</label>
-                              <DatePicker
-                                value={createdAt}
-                                onChange={setCreatedAt}
-                                required />
-                            </div>
-
-                            {/* Created By */}
-                            <div>
-                              <label className="block text-md font-medium">Created By*</label>
-                              <EmployeeSelect name='created_by' label='' rules={{ required: 'Created_by is required' }} />
-                            </div>
-
                             {/* Updated At */}
                             <div>
                               <label className="block text-md font-medium">Last Updated at*</label>
@@ -281,6 +266,21 @@ export default function UpdateService() {
                                 name='updated_by'
                                 label=''
                                 rules={{ required: 'Updated_by is required' }} />
+                            </div>
+
+                            {/* Date of Creation */}
+                            <div>
+                              <label className="block text-md font-medium">Date of Creation*</label>
+                              <DatePicker
+                                value={createdAt}
+                                onChange={setCreatedAt}
+                                required />
+                            </div>
+
+                            {/* Created By */}
+                            <div>
+                              <label className="block text-md font-medium">Created By*</label>
+                              <EmployeeSelect name='created_by' label='' rules={{ required: 'Created_by is required' }} />
                             </div>
 
                             {/* Service Name */}
