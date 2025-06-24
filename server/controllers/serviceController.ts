@@ -1,6 +1,7 @@
 import { Request, Response, NextFunction } from 'express';
 import validator from 'validator';
 import serviceModel from '../models/serviceModel.js';
+import { updateServiceInput } from '../types/service.type.js';
 
 // Get all services
 const getAllServices = async (req: Request, res: Response, next: NextFunction) => {
@@ -223,7 +224,7 @@ const createService = async (req: Request, res: Response, next: NextFunction) =>
     }
 
     // get service sequence no (last in the category)
-    const service_sequence_no = parseInt(await serviceModel.getServiceSequenceNo(formData.service_category_id)) + 1;
+    const service_sequence_no = parseInt(await serviceModel.getServiceSequenceNo(formData.service_category_id));
 
     // add service_sequence_no, updated_at, updated_by
     const serviceData = {
@@ -268,7 +269,7 @@ const updateService = async (req: Request, res: Response, next: NextFunction) =>
     }
 
     // Dynamic Update payload
-    const updatePayload: { [key: string]: any } = {};
+    const updatePayload: Partial<updateServiceInput> = {};
 
     if (formData.service_name && formData.service_name !== service.service_name) {
       updatePayload.service_name = formData.service_name;
@@ -291,8 +292,8 @@ const updateService = async (req: Request, res: Response, next: NextFunction) =>
 
     if (formData.service_category_id && formData.service_category_id !== service.service_category_id) {
       updatePayload.service_category_id = formData.service_category_id;
-      updatePayload.service_sequence_no = await serviceModel.getServiceSequenceNo(formData.service_category_id);
-    }
+      updatePayload.service_sequence_no = parseInt(await serviceModel.getServiceSequenceNo(formData.service_category_id));
+      }
 
     if (formData.created_at && formData.created_at !== service.created_at) {
       updatePayload.created_at = formData.created_at;
@@ -330,6 +331,14 @@ const reorderService = async (req: Request, res: Response, next: NextFunction) =
   try {
     const services = req.body;
 
+    if (!Array.isArray(services) || !services.every(service =>
+      typeof service === 'object' &&
+      validator.isInt(service.id) &&
+      validator.isInt(service.service_sequence_no.toString()))) {
+      res.status(400).json({ message: 'Invalid Data' });
+      return;
+    }
+
     const updatedSequence = await serviceModel.reorderServices(services);
 
     if (updatedSequence.success) {
@@ -350,10 +359,10 @@ const disableService = async (req: Request, res: Response, next: NextFunction) =
     const id = parseInt(req.params.id, 10);
     const data = req.body;
 
-    let updateData: { [key: string]: any } = {
+    let updateData: { id: number; updated_by: number; updated_at: string; service_remarks?: string | null } = {
       id: id,
-      updated_by: data.updated_by,
-      updated_at: data.updated_at,
+      updated_by: Number(data.updated_by),
+      updated_at: String(data.updated_at),
     };
 
     // check service exists validation
@@ -385,10 +394,16 @@ const enableService = async (req: Request, res: Response, next: NextFunction) =>
     const id = parseInt(req.params.id, 10);
     const data = req.body;
 
-    let updateData: { [key: string]: any } = {
+    let updateData: {
+      id: number;
+      updated_by: number;
+      updated_at: string;
+      service_sequence_no: number;
+      service_remarks?: string | null } = {
       id: id,
       updated_by: data.updated_by,
       updated_at: data.updated_at,
+      service_sequence_no: 0, // This will be set later
     };
 
     // check service exists validation
@@ -405,7 +420,7 @@ const enableService = async (req: Request, res: Response, next: NextFunction) =>
     }
 
     // get service sequence no (last in the category)
-    const service_sequence_no = parseInt(await serviceModel.getServiceSequenceNo(service.service_category_id)) + 1;
+    const service_sequence_no = parseInt(await serviceModel.getServiceSequenceNo(service.service_category_id));
     updateData.service_sequence_no = service_sequence_no;
 
     // change status

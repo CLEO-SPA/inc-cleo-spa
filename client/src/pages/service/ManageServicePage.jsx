@@ -4,7 +4,6 @@ import { useForm, FormProvider } from 'react-hook-form';
 import api from '@/services/api';
 import { Button } from '@/components/ui/button';
 import { Switch } from '@/components/ui/switch';
-import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { ChevronDownCircle, ChevronUpCircle, FilePenLine, ChevronLeft, ChevronsLeft, ChevronRight, ChevronsRight } from 'lucide-react';
 import DatePicker from "@/components/date-picker";
 import { AppSidebar } from '@/components/app-sidebar';
@@ -24,6 +23,10 @@ export default function ManageService() {
   // Data
   const [services, setServices] = useState([]);
   const [categories, setCategories] = useState([]);
+
+  // Loading data
+  const [serviceLoading, setServiceLoading] = useState(false);
+  const [statusLoading, setStatusLoading] = useState(false);
 
   // Filters
   // For search bar
@@ -59,6 +62,7 @@ export default function ManageService() {
   const [updatedAt, setUpdatedAt] = useState(null);
 
   const getServices = async () => {
+    setServiceLoading(true); // Set loading state to true while fetching data
     try {
       setExpandedRows([]); // Reset expanded rows when fetching new data
 
@@ -86,6 +90,8 @@ export default function ManageService() {
       setTotalPages(response.data.totalPages);
     } catch (err) {
       console.error('Error fetching services:', err);
+    } finally {
+      setServiceLoading(false);
     }
   }
 
@@ -135,6 +141,8 @@ export default function ManageService() {
 
   const handleSubmit = async (e) => {
     e.preventDefault();
+    setStatusLoading(true);
+    setModalOpen(true);
     if (!updateForm.updated_by) {
       setErrorMsg('Please select who updated this service');
       return;
@@ -149,7 +157,6 @@ export default function ManageService() {
           }
         });
         if (response.status === 200) {
-          resetForm();
           setModalOpen(false);
           getServices();
         }
@@ -161,7 +168,6 @@ export default function ManageService() {
           }
         });
         if (response.status === 200) {
-          resetForm();
           setModalOpen(false);
           getServices();
         }
@@ -169,6 +175,9 @@ export default function ManageService() {
     } catch (err) {
       console.error('Error changing service status:', err);
       setErrorMsg(err.response?.data?.message || 'An error occurred');
+    } finally {
+      resetForm();
+      setStatusLoading(false);
     }
   }
 
@@ -251,70 +260,77 @@ export default function ManageService() {
             {modalOpen && (
               <div className="fixed inset-0 flex justify-center items-center bg-opacity-80 z-50">
                 <div className="bg-white border p-6 rounded-md shadow-lg w-full max-w-lg">
-                  <div className="flex justify-between items-center">
-                    <h3 className="text-xl font-bold">{changeStatus ? "Enable Service" : "Disable Service"} "{changeService.service_name}"</h3>
-                    <button
-                      onClick={() => { setModalOpen(false); resetForm(); }}
-                      className="text-xl"
-                      aria-label="Close"
-                    >
-                      X
-                    </button>
-                  </div>
-                  <div className="mt-4">
-                    {errorMsg && (
-                      <span className="text-red-500">{errorMsg}</span>
-                    )}
-                    <FormProvider {...methods}>
-                      <form onSubmit={handleSubmit} className="space-y-3">
+                  {statusLoading ? (
+                    <div className="flex justify-center items-center h-full">
+                      Loading...
+                    </div>
+                  ) : (<>
+                    <div className="flex justify-between items-center">
+                      <h3 className="text-xl font-bold">{changeStatus ? "Enable Service" : "Disable Service"} "{changeService.service_name}"</h3>
+                      <button
+                        onClick={() => { setModalOpen(false); resetForm(); }}
+                        className="text-xl"
+                        aria-label="Close"
+                      >
+                        X
+                      </button>
+                    </div>
+                    <div className="mt-4">
+                      {errorMsg && (
+                        <span className="text-red-500">{errorMsg}</span>
+                      )}
+                      <FormProvider {...methods}>
+                        <form onSubmit={handleSubmit} className="space-y-3">
 
-                        {/* Update At */}
-                        <div>
-                          <label className="block text-md font-medium">Last Updated at*</label>
-                          <DatePicker
-                            value={updatedAt}
-                            onChange={setUpdatedAt}
-                            required />
-                        </div>
+                          {/* Update At */}
+                          <div>
+                            <label className="block text-md font-medium">Last Updated at*</label>
+                            <DatePicker
+                              value={updatedAt}
+                              onChange={setUpdatedAt}
+                              required />
+                          </div>
 
-                        {/* Updated By */}
-                        <div>
-                          <label className="block text-md font-medium">Updated By*</label>
-                          <EmployeeSelect
-                            name='updated_by'
-                            label=''
-                            rules={{ required: 'Updated_by is required' }} />
-                        </div>
+                          {/* Updated By */}
+                          <div>
+                            <label className="block text-md font-medium">Updated By*</label>
+                            <EmployeeSelect
+                              name='updated_by'
+                              label=''
+                              rules={{ required: 'Updated_by is required' }} />
+                          </div>
 
-                        {/* Remarks */}
-                        <div>
-                          <label className="block text-md font-medium ">Remarks</label>
-                          <textarea
-                            name="service_remarks"
-                            value={updateForm.service_remarks || ""}
-                            onChange={(e) => {
-                              setUpdateForm(prevUpdateForm => ({
-                                ...prevUpdateForm,
-                                service_remarks: e.target.value
-                              }))
-                            }}
-                            className="w-full p-2 border rounded-md"
-                            placeholder="Enter remarks"
-                          />
-                        </div>
+                          {/* Remarks */}
+                          <div>
+                            <label className="block text-md font-medium ">Remarks</label>
+                            <textarea
+                              name="service_remarks"
+                              value={updateForm.service_remarks || ""}
+                              onChange={(e) => {
+                                setUpdateForm(prevUpdateForm => ({
+                                  ...prevUpdateForm,
+                                  service_remarks: e.target.value
+                                }))
+                              }}
+                              className="w-full p-2 border rounded-md"
+                              placeholder="Enter remarks"
+                            />
+                          </div>
 
-                        {/* Submit Button */}
-                        <div className="flex justify-center space-x-4">
-                          <Button type="submit" className="bg-blue-600 rounded-md hover:bg-blue-500">
-                            Confirm
-                          </Button>
-                          <Button onClick={() => { setModalOpen(false); resetForm(); }} className="rounded-md hover:bg-gray-500">
-                            Cancel
-                          </Button>
-                        </div>
-                      </form>
-                    </FormProvider>
-                  </div>
+                          {/* Submit Button */}
+                          <div className="flex justify-center space-x-4">
+                            <Button type="submit" className="bg-blue-600 rounded-md hover:bg-blue-500">
+                              Confirm
+                            </Button>
+                            <Button onClick={() => { setModalOpen(false); resetForm(); }} className="rounded-md hover:bg-gray-500">
+                              Cancel
+                            </Button>
+                          </div>
+                        </form>
+                      </FormProvider>
+                    </div>
+                  </>
+                  )}
                 </div>
               </div>
             )}
@@ -345,12 +361,14 @@ export default function ManageService() {
                     <SelectValue placeholder="Select Category" />
                   </SelectTrigger>
                   <SelectContent>
-                    <SelectItem value="0">All Categories</SelectItem>
-                    {categories.map((category) => (
-                      <SelectItem key={category.id} value={category.id}>
-                        {category.service_category_name}
-                      </SelectItem>
-                    ))}
+                    <div className="max-h-60 overflow-y-auto">
+                      <SelectItem value="0">All Categories</SelectItem>
+                      {categories.map((category) => (
+                        <SelectItem key={category.id} value={category.id}>
+                          {category.service_category_name}
+                        </SelectItem>
+                      ))}
+                    </div>
                   </SelectContent>
                 </Select>
                 {/* Select Status */}
@@ -387,86 +405,96 @@ export default function ManageService() {
                     </thead>
                     {/* Table body */}
                     <tbody>
-                      {services.length > 0 ? (
-                        services.map((service, index) => (
-                          <>
-                            <tr key={`${service.id}-basic`}>
-                              <td className="px-2 py-2 border border-gray-200">{service.id}</td>
-                              <td className="px-2 py-2 border border-gray-200 break-words">{service.service_name}</td>
-                              <td className="px-2 py-2 border border-gray-200">{service.service_price}</td>
-                              <td className="px-2 py-2 border border-gray-200">
-                                {new Date(service.created_at).toLocaleDateString()}
-                              </td>
-                              <td className="px-2 py-2 border border-gray-200">{service.service_category_name}</td>
-                              {/* Enabled Row */}
-                              <td className="px-2 py-2 border border-gray-200">
-                                <Switch
-                                  checked={service.service_is_enabled}
-                                  onCheckedChange={() => handleSwitchChange(service)}
-                                />
-                              </td>
-                              {/* Action Row */}
-                              <td className="px-4 py-2 border border-gray-200">
-                                <div className="flex space-x-2 space-y-1">
-                                  <Button className="p-1 bg-green-600 text-white text-sm font-medium rounded-xl hover:bg-green-700" onClick={() => navigate(`/update-service/${service.id}`)}>
-                                    <FilePenLine className="inline-block mr-1" />
-                                  </Button>
-                                  <Button className="px-2 py-1 bg-gray-600 text-white text-sm font-medium rounded-xl hover:bg-blue-700" onClick={() => navigate(`/view-sales-history/${service.id}`)}>
-                                    View Sales History
-                                  </Button>
-                                  <Button className="p-1 text-3xl text-black bg-transparent rounded-xl hover:bg-transparent hover:text-blue-700" onClick={() => toggleRow(index)}>
-                                    {expandedRows.includes(index) ? <ChevronUpCircle /> : <ChevronDownCircle />}
-                                  </Button>
-                                </div>
-                              </td>
-                            </tr>
-
-                            {expandedRows.includes(index) && (
-                              <tr key={`${service.id}-details`}className="bg-gray-100">
-                                <td colSpan="100%" className="px-4 py-2 border border-gray-200">
-                                  <div className="grid grid-cols-2 gap-4">
-                                    {/* More Details */}
-                                    <div>
-                                      <div>
-                                        <strong>Duration:</strong> {service.service_duration} mins
-                                      </div>
-                                      <div>
-                                        <strong>Description:</strong> {service.service_description ? service.service_description : 'No description available.'}
-                                      </div>
-                                      <div>
-                                        <strong>Number of Care Packages with Service:</strong> {service.total_care_packages}
-                                      </div>
-                                      <div>
-                                        <strong>Number of Sales Transactions:</strong> {service.total_sale_transactions}
-                                      </div>
-                                    </div>
-                                    {/* Created and Updated details */}
-                                    <div>
-                                      <div>
-                                        <strong>Created By:</strong> {service.created_by}
-                                      </div>
-                                      <div>
-                                        <strong>Remarks:</strong> {service.service_remarks ? service.service_remarks : 'No remarks available.'}
-                                      </div>
-                                      <div>
-                                        <strong>Last Updated At:</strong> {new Date(service.updated_at).toLocaleDateString()}
-                                      </div>
-                                      <div>
-                                        <strong>Last Updated By:</strong> {service.updated_by}
-                                      </div>
-                                    </div>
-                                  </div>
-                                </td>
-                              </tr>
-                            )}
-                          </>
-                        ))
-                      ) : (
+                      {serviceLoading ? (
                         <tr>
                           <td colSpan="13" className="px-4 py-2 text-center text-gray-500 border border-gray-200">
-                            No services found.
+                            Loading...
                           </td>
                         </tr>
+                      ) : (
+                        <>
+                          {services.length > 0 ? (
+                            services.map((service, index) => (
+                              <>
+                                <tr key={`${service.id}-basic`}>
+                                  <td className="px-2 py-2 border border-gray-200">{service.id}</td>
+                                  <td className="px-2 py-2 border border-gray-200 break-words">{service.service_name}</td>
+                                  <td className="px-2 py-2 border border-gray-200">{service.service_price}</td>
+                                  <td className="px-2 py-2 border border-gray-200">
+                                    {new Date(service.created_at).toLocaleDateString()}
+                                  </td>
+                                  <td className="px-2 py-2 border border-gray-200">{service.service_category_name}</td>
+                                  {/* Enabled Row */}
+                                  <td className="px-2 py-2 border border-gray-200">
+                                    <Switch
+                                      checked={service.service_is_enabled}
+                                      onCheckedChange={() => handleSwitchChange(service)}
+                                    />
+                                  </td>
+                                  {/* Action Row */}
+                                  <td className="px-4 py-2 border border-gray-200">
+                                    <div className="flex space-x-2 space-y-1">
+                                      <Button className="p-1 bg-green-600 text-white text-sm font-medium rounded-xl hover:bg-green-700" onClick={() => navigate(`/update-service/${service.id}`)}>
+                                        <FilePenLine className="inline-block mr-1" />
+                                      </Button>
+                                      <Button className="px-2 py-1 bg-gray-600 text-white text-sm font-medium rounded-xl hover:bg-blue-700" onClick={() => navigate(`/view-sales-history/${service.id}`)}>
+                                        View Sales History
+                                      </Button>
+                                      <Button className="p-1 text-3xl text-black bg-transparent rounded-xl hover:bg-transparent hover:text-blue-700" onClick={() => toggleRow(index)}>
+                                        {expandedRows.includes(index) ? <ChevronUpCircle /> : <ChevronDownCircle />}
+                                      </Button>
+                                    </div>
+                                  </td>
+                                </tr>
+
+                                {expandedRows.includes(index) && (
+                                  <tr key={`${service.id}-details`} className="bg-gray-100">
+                                    <td colSpan="100%" className="px-4 py-2 border border-gray-200">
+                                      <div className="grid grid-cols-2 gap-4">
+                                        {/* More Details */}
+                                        <div>
+                                          <div>
+                                            <strong>Duration:</strong> {service.service_duration} mins
+                                          </div>
+                                          <div>
+                                            <strong>Description:</strong> {service.service_description ? service.service_description : 'No description available.'}
+                                          </div>
+                                          <div>
+                                            <strong>Number of Care Packages with Service:</strong> {service.total_care_packages}
+                                          </div>
+                                          <div>
+                                            <strong>Number of Sales Transactions:</strong> {service.total_sale_transactions}
+                                          </div>
+                                        </div>
+                                        {/* Created and Updated details */}
+                                        <div>
+                                          <div>
+                                            <strong>Created By:</strong> {service.created_by}
+                                          </div>
+                                          <div>
+                                            <strong>Remarks:</strong> {service.service_remarks ? service.service_remarks : 'No remarks available.'}
+                                          </div>
+                                          <div>
+                                            <strong>Last Updated At:</strong> {new Date(service.updated_at).toLocaleDateString()}
+                                          </div>
+                                          <div>
+                                            <strong>Last Updated By:</strong> {service.updated_by}
+                                          </div>
+                                        </div>
+                                      </div>
+                                    </td>
+                                  </tr>
+                                )}
+                              </>
+                            ))
+                          ) : (
+                            <tr>
+                              <td colSpan="13" className="px-4 py-2 text-center text-gray-500 border border-gray-200">
+                                No services found.
+                              </td>
+                            </tr>
+                          )}
+                        </>
                       )}
                     </tbody>
                   </table>

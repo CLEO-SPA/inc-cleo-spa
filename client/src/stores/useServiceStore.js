@@ -48,7 +48,7 @@ const useServiceStore = create(
       }, false, `fetchServiceDetails/${serviceId}/pending`);
 
       try {
-        const response = await api(`/service/${serviceId}`);
+        const response = await api(`/service/enabled-id/${serviceId}`);
         const serviceData = response.data;
         
         set({ 
