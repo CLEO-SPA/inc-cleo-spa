@@ -30,7 +30,10 @@ BEGIN
     FROM jsonb_array_elements(p_appointments) AS arr(item)
   LOOP
 
-    -- 1) Assign random employee if NULL
+    -------------------------------------------------
+    -- STEP 1: Assign random employees where needed
+    -------------------------------------------------
+	  -- 1) Assign random employee if NULL
     IF rec.servicing_employee_id IS NULL THEN
       SELECT e.id INTO v_random_employee_id
       FROM employees e
@@ -58,7 +61,10 @@ BEGIN
       rec.servicing_employee_id := v_random_employee_id;
     END IF;
 
-    -- 2) External conflict check: employee conflicts excluding this appointment
+    -----------------------------------------------------------------
+    -- STEP 2: External conflict checks against existing appointments
+    -----------------------------------------------------------------
+    -- 2a) External conflict check: employee conflicts excluding this appointment
     SELECT INITCAP(e.employee_name) INTO v_employee_name
     FROM employees e WHERE e.id = rec.servicing_employee_id;
 
@@ -80,11 +86,11 @@ BEGIN
         rec.appointment_date,
         TO_CHAR(v_conflict_rec.start_time, 'HH24:MI'),
         TO_CHAR(v_conflict_rec.end_time, 'HH24:MI')
-	    USING ERRCODE = 'P0001'; 
+	    USING ERRCODE = 'P0002'; 
     END IF;
 
-    -- 3) External conflict check: same member cannot have overlapping appointment, excluding this one
-	SELECT INITCAP(m.name) INTO v_member_name
+    -- 2b) External conflict check: same member cannot have overlapping appointment, excluding this one
+	  SELECT INITCAP(m.name) INTO v_member_name
     FROM members m WHERE m.id = p_member_id;
 	
     SELECT a4.start_time, a4.end_time
@@ -105,10 +111,12 @@ BEGIN
         rec.appointment_date,
         TO_CHAR(v_conflict_rec.start_time, 'HH24:MI'),
         TO_CHAR(v_conflict_rec.end_time, 'HH24:MI')
-		USING ERRCODE = 'P0001'; 
+		USING ERRCODE = 'P0002'; 
     END IF;
 
-    -- 4) Perform the update
+    -------------------------------------------------
+    -- STEP 3: Perform the update
+    -------------------------------------------------
     UPDATE appointments
     SET
 	  member_id              = p_member_id,

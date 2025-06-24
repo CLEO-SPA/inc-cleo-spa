@@ -148,7 +148,7 @@ BEGIN
 			COALESCE(v_member_name, 'Unknown'),
             p_member_id,
             rec.appointment_date
-		  USING ERRCODE = 'P0002'; 
+		    USING ERRCODE = 'P0002'; 
         END IF;
       END IF;
     END LOOP;

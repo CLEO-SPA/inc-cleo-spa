@@ -660,7 +660,7 @@ const updateAppointment = async (
       .status(200)
       .json({ message: `Successfully updated appointment id ${normAppointment.id}` });
   } catch (error: any) {
-    console.error('Error in createAppointment:', error);
+    console.error('Error in updateAppointment:', error);
     // Determine status by SQLSTATE code if available
     const code = error.code;  // SQLSTATE from Postgres
     let statusCode = 500;
@@ -670,7 +670,7 @@ const updateAppointment = async (
       // No available employee due to all having conflicting appointments
       statusCode = 409;
       message = error.message;
-    } else if (code === 'P0002' || code === 'P0003') {
+    } else if (code === 'P0002') {
       // Conflict detected
       statusCode = 409;
       message = error.message;
