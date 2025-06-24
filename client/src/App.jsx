@@ -30,6 +30,13 @@ import CreateConsumptionPage from '@/pages/CarePackages/CreateConsumptionPage';
 import CreateMemberVoucherConsumptionPage from '@/pages/MemberVoucher/CreateConsumptionPage';
 // Data Export
 import DataExportPage from './pages/miscellaneous/DateExportPage';
+// Product Management
+import ManageProductPage from '@/pages/product/ManageProductPage';
+import ManageProductCategoryPage from '@/pages/product/ManageProductCategoryPage';
+import ReorderProductPage from '@/pages/product/ReorderProductPage';
+import CreateProductPage from '@/pages/product/CreateProductPage';
+import UpdateProductPage from '@/pages/product/UpdateProductPage';
+
 
 function App() {
   return (
@@ -66,14 +73,21 @@ function App() {
               {/* data-export */}
               <Route path='/data-export' element={<DataExportPage />} />
 
-
               {/* statistics */}
               <Route path='/dbcr' element={<DatabaseReportPage />} />
 
               {/* Service Management */}
               <Route path='/manage-service' element={<ManageServicePage />} />
+
+               {/* Product Management */}
+              <Route path='/manage-product' element={<ManageProductPage />} />
+              <Route path='/create-product' element={<CreateProductPage />} />
+              <Route path='/update-product/:id' element={<UpdateProductPage />} />
+              <Route path='/reorder-product' element={<ReorderProductPage />} />
+              <Route path='/manage-product-category' element={<ManageProductCategoryPage />} />
             </Route>
             <Route path='/login' element={<LoginPage />} />
+
 
             {/* Invitation & Reset Password */}
             <Route path='/invites' element={<ResetPasswordPage />} />
