@@ -30,6 +30,16 @@ router.post(
   controller.processFullRefund
 );
 
+//Return the service info of a member care package
 router.get('/mcp-status/:id', controller.fetchMCPStatus);
+
+//Search for a member via name (searchbar)
+router.get('/members/search', controller.searchMembers);
+
+//Get MCP info
+router.get('/members/get-mcps/:memberId', controller.getMemberCarePackages);
+
+// Search for member care packages
+router.get('/mcp/search', controller.searchMemberCarePackages);
 
 export default router;

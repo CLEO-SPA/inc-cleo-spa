@@ -31,6 +31,11 @@ import CreateMemberVoucherConsumptionPage from '@/pages/MemberVoucher/CreateCons
 // Data Export
 import DataExportPage from './pages/miscellaneous/DateExportPage';
 
+// Add this line with the other page imports (around line 20)
+import RefundPage from '@/pages/Refund/refund';  // Add this line
+import MCPDetail from '@/pages/Refund/MCPDetail';
+import MemberPackagesList from '@/components/refund/MemberPackagesList';
+
 function App() {
   return (
     <AuthProvider>
@@ -43,6 +48,10 @@ function App() {
 
               {/* care packages */}
               <Route path='/mcp' element={<ManageCarePackagesPage />} />
+              {/* Refund */}
+              <Route path='/refunds' element={<RefundPage />} />
+              <Route path='/refunds/member/:memberId' element={<MemberPackagesList />} />
+              <Route path="/refunds/mcp/:packageId" element={<MCPDetail />} />
               {/* Member Management */}
               <Route path='/member' element={<ManageMembersPage />} />
               <Route path='/member/create' element={<CreateMemberPage />} />

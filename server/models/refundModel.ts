@@ -331,9 +331,9 @@ const processFullRefundTransaction = async (params: {
         $3, $4, $5, now(), now()
       ) RETURNING id`,
       [
-        params.memberId, 
+        params.memberId,
         (-totalRefund).toFixed(2),
-        params.refundRemarks, 
+        params.refundRemarks,
         params.refundedBy,
         params.refundedBy  // created_by
       ]
@@ -528,6 +528,130 @@ const fetchMCPStatusById = async (packageId: number) => {
   return rows;
 };
 
+const searchMembers = async (searchQuery: string) => {
+  const query = `
+    SELECT 
+      m.id,
+      m.name, 
+      m.email,
+      m.contact AS phone,  
+      m.membership_type_id AS membership_status
+    FROM members m
+    WHERE 
+      m.membership_type_id IS NOT NULL AND 
+      (
+        m.name ILIKE $1 OR 
+        m.email ILIKE $1 OR
+        m.contact ILIKE $1 OR
+        m.id::TEXT = $1
+      )
+    LIMIT 20
+  `;
+  const { rows } = await pool().query(query, [`%${searchQuery}%`]);
+  return rows;
+};
+
+const getMemberCarePackages = async (memberId: number) => {
+  const query = `
+    WITH package_stats AS (
+      SELECT 
+        mcp.id AS package_id,
+        mcpd.id AS detail_id,
+        COUNT(CASE WHEN mcpctl.type = 'CONSUMPTION' THEN 1 END) AS consumed,
+        COUNT(CASE WHEN mcpctl.type = 'REFUND' THEN 1 END) AS refunded
+      FROM member_care_packages mcp
+      JOIN member_care_package_details mcpd ON mcp.id = mcpd.member_care_package_id
+      LEFT JOIN member_care_package_transaction_logs mcpctl 
+        ON mcpd.id = mcpctl.member_care_package_details_id
+      WHERE mcp.member_id = $1
+      GROUP BY mcp.id, mcpd.id
+    )
+    SELECT 
+      mcp.id,
+      mcp.package_name,
+      mcp.total_price,
+      mcp.package_remarks,
+      mcp.created_at,
+      mcp.updated_at,
+      mem.name AS member_name,
+      emp.employee_name AS employee_name,
+      s.status_name,
+      mcpd.service_name,
+      mcpd.discount,
+      mcpd.price,
+      mcpd.quantity,
+      (mcpd.quantity - COALESCE(ps.consumed, 0)) AS remaining,
+      CASE 
+        WHEN ps.refunded > 0 THEN 'refunded'
+        WHEN (mcpd.quantity - COALESCE(ps.consumed, 0)) > 0 THEN 'eligible'
+        ELSE 'ineligible'
+      END AS is_eligible_for_refund
+    FROM member_care_packages mcp
+    JOIN member_care_package_details mcpd ON mcp.id = mcpd.member_care_package_id
+    JOIN members mem ON mem.id = mcp.member_id
+    JOIN employees emp ON emp.id = mcp.employee_id
+    JOIN statuses s ON s.id = mcp.status_id
+    LEFT JOIN package_stats ps ON mcp.id = ps.package_id AND mcpd.id = ps.detail_id
+    WHERE mcp.member_id = $1
+    ORDER BY mcp.created_at DESC
+  `;
+
+  const { rows } = await pool().query(query, [memberId]);
+  return rows;
+};
+
+const searchMemberCarePackages = async (searchQuery: string, memberId: number | null) => {
+  const query = `
+    WITH package_stats AS (
+      SELECT 
+        mcp.id AS package_id,
+        mcpd.id AS detail_id,
+        COUNT(CASE WHEN mcpctl.type = 'CONSUMPTION' THEN 1 END) AS consumed,
+        COUNT(CASE WHEN mcpctl.type = 'REFUND' THEN 1 END) AS refunded
+      FROM member_care_packages mcp
+      JOIN member_care_package_details mcpd ON mcp.id = mcpd.member_care_package_id
+      LEFT JOIN member_care_package_transaction_logs mcpctl 
+        ON mcpd.id = mcpctl.member_care_package_details_id
+      ${memberId ? 'WHERE mcp.member_id = $2' : ''}
+      GROUP BY mcp.id, mcpd.id
+    )
+    SELECT 
+      mcp.id,
+      mcp.package_name,
+      mcp.total_price,
+      mcp.package_remarks,
+      mcp.created_at,
+      mcp.updated_at,
+      mem.name AS member_name,
+      emp.employee_name,
+      s.status_name,
+      mcpd.service_name,
+      mcpd.discount,
+      mcpd.price,
+      mcpd.quantity,
+      (mcpd.quantity - COALESCE(ps.consumed, 0)) AS remaining,
+      CASE 
+        WHEN ps.refunded > 0 THEN 'refunded'
+        WHEN (mcpd.quantity - COALESCE(ps.consumed, 0)) > 0 THEN 'eligible'
+        ELSE 'ineligible'
+      END AS is_eligible_for_refund
+    FROM member_care_packages mcp
+    JOIN member_care_package_details mcpd ON mcp.id = mcpd.member_care_package_id
+    JOIN members mem ON mem.id = mcp.member_id
+    JOIN employees emp ON emp.id = mcp.employee_id
+    JOIN statuses s ON s.id = mcp.status_id
+    LEFT JOIN package_stats ps ON mcp.id = ps.package_id AND mcpd.id = ps.detail_id
+    WHERE 
+      (mcp.package_name ILIKE $1 OR mcpd.service_name ILIKE $1)
+      ${memberId ? 'AND mcp.member_id = $2' : ''}
+    ORDER BY mcp.created_at DESC
+    LIMIT 20;
+  `;
+
+  const values = memberId ? [`%${searchQuery}%`, memberId] : [`%${searchQuery}%`];
+  const { rows } = await pool().query(query, values);
+  return rows;
+};
 
 export default {
   getAllRefundSaleTransactionRecords,
@@ -538,5 +662,8 @@ export default {
   getStatusId,
   processFullRefundTransaction,
   fetchMCPStatusById,
+  searchMembers,
+  getMemberCarePackages,
+  searchMemberCarePackages
 
 };

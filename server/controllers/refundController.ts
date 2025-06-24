@@ -160,47 +160,122 @@ const verifyRefundableServices = async (req: Request, res: Response, next: NextF
   };
 
 const fetchMCPStatus = async (
-  req: Request, res: Response, next: NextFunction) => {
+  req: Request, res: Response, next: NextFunction
+) => {
   try {
     const id = parseInt(req.params.id, 10);
-
     if (isNaN(id)) {
-      return res.status(400).json({
-        error: 'Invalid ID',
-        details: 'ID must be a numeric value'
-      });
+      return res.status(400).json({ error: 'Invalid ID' });
     }
 
     const results = await model.fetchMCPStatusById(id);
-
-    if (!results || results.length === 0) {
-      return res.status(404).json({
-        error: 'Package not found',
-        details: `No package found with ID ${id}`
-      });
+    if (!results?.length) {
+      return res.status(404).json({ error: 'Package not found' });
     }
 
     const { package_id, package_name } = results[0];
 
-    const services = results.map((s) => ({
-      service_id: s.service_id,
-      service_name: s.service_name,
-      totals: {
-        purchased: s.purchased,
-        consumed: s.consumed,
-        refunded: s.refunded,
-        remaining: s.remaining,
-        unpaid: s.unpaid
-      },
-      is_eligible_for_refund: s.consumed > s.refunded
-    }));
+    const services = results.map((s) => {
+      const purchased = parseInt(s.purchased) || 0;
+      const consumed = parseInt(s.consumed) || 0;
+      const refunded = parseInt(s.refunded) || 0;
+      const remaining = purchased - consumed; // Your definition
+
+      let refundStatus;
+      if (refunded > 0) {
+        refundStatus = 'refunded';
+      } else if (remaining > 0) {
+        refundStatus = 'eligible';
+      } else {
+        refundStatus = 'ineligible';
+      }
+
+      return {
+        service_id: s.service_id,
+        service_name: s.service_name,
+        totals: {
+          purchased,
+          consumed,
+          refunded,
+          remaining,
+          unpaid: s.total_quantity - purchased
+        },
+        is_eligible_for_refund: refundStatus
+      };
+    });
 
     res.status(200).json({ package_id, package_name, services });
   } catch (error) {
-    console.error('fetchMCPStatus error:', error);
     next(error);
   }
 };
+
+const searchMembers = async (req: Request, res: Response, next: NextFunction) => {
+  try {
+    const { q: searchQuery } = req.query;
+    
+    if (!searchQuery) {
+      return res.status(400).json({
+        error: 'Invalid search query'
+      });
+    }
+
+    const results = await model.searchMembers(searchQuery.toString());
+    res.status(200).json(results);
+  } catch (error) {
+    console.error('searchMembers error:', error);
+    next(error);
+  }
+};
+
+const getMemberCarePackages = async (req: Request, res: Response, next: NextFunction) => {
+  try {
+    const memberId = parseInt(req.params.memberId, 10);
+    
+    if (isNaN(memberId)) {
+      return res.status(400).json({
+        error: 'Invalid member ID',
+        details: 'Member ID must be a numeric value'
+      });
+    }
+
+    const packages = await model.getMemberCarePackages(memberId);
+    
+    if (!packages || packages.length === 0) {
+      return res.status(404).json({
+        error: 'No packages found',
+        details: `No packages found for member ID ${memberId}`
+      });
+    }
+
+    res.status(200).json(packages);
+  } catch (error) {
+    console.error('getMemberPackages error:', error);
+    next(error);
+  }
+};
+
+const searchMemberCarePackages = async (req: Request, res: Response, next: NextFunction) => {
+  try {
+    const { q: searchQuery, memberId } = req.query;
+
+    if (!searchQuery) {
+      return res.status(400).json({ error: 'Invalid search query' });
+    }
+
+    const results = await model.searchMemberCarePackages(
+      searchQuery.toString(),
+      memberId ? parseInt(memberId.toString(), 10) : null
+    );
+
+    res.status(200).json(results);
+  } catch (error) {
+    console.error('searchMemberCarePackages error:', error);
+    next(error);
+  }
+};
+
+
 
 export default {
   viewAllRefundSaleTransactionRecords,
@@ -210,4 +285,7 @@ export default {
   verifyRefundableServices: verifyRefundableServices as RequestHandler,
   processFullRefund,
   fetchMCPStatus: fetchMCPStatus as RequestHandler,
+  searchMembers: searchMembers as RequestHandler,
+  getMemberCarePackages: getMemberCarePackages as RequestHandler,
+  searchMemberCarePackages : searchMemberCarePackages as RequestHandler,
 };
