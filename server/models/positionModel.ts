@@ -8,20 +8,16 @@ const checkPositionNameExists = async (position_name: string) => {
     const result = await pool().query(query, values);
     return result.rows.length > 0;
   } catch (error) {
+    console.error(error);
     throw new Error('Error checking position name existence');
   }
 };
 
-const getAllPositions = async (
-  offset: number,
-  limit: number,
-  startDate_utc: string,
-  endDate_utc: string
-) => {
+const getAllPositions = async (offset: number, limit: number, startDate_utc: string, endDate_utc: string) => {
   try {
     const query = `
       SELECT * FROM positions
-      WHERE position_created_at BETWEEN
+      WHERE created_at BETWEEN
         COALESCE($3, '0001-01-01'::timestamp with time zone)
         AND $4
       ORDER BY id ASC
@@ -32,7 +28,7 @@ const getAllPositions = async (
 
     const totalQuery = `
       SELECT COUNT(*) FROM positions
-      WHERE position_created_at BETWEEN
+      WHERE created_at BETWEEN
         COALESCE($1, '0001-01-01'::timestamp with time zone)
         AND $2
     `;
@@ -74,7 +70,7 @@ const createPosition = async ({
     await client.query('BEGIN');
 
     const insertPositionQuery = `
-      INSERT INTO positions (position_name, position_description, position_is_active, position_created_at, position_updated_at)
+      INSERT INTO positions (position_name, position_description, position_is_active, created_at, updated_at)
       VALUES ($1, $2, $3, $4, $5)
       RETURNING *;
     `;
@@ -126,13 +122,20 @@ const updatePosition = async (
         position_name = COALESCE($2, position_name),
         position_description = COALESCE($3, position_description),
         position_is_active = COALESCE($4, position_is_active),
-        position_updated_at = $5,
-        position_created_at = COALESCE($6, position_created_at)
+        updated_at = $5,
+        created_at = COALESCE($6, position_created_at)
 
       WHERE id = $1
       RETURNING *;
     `;
-    const values = [id, position_name, position_description, position_is_active, position_updated_at, position_created_at];
+    const values = [
+      id,
+      position_name,
+      position_description,
+      position_is_active,
+      position_updated_at,
+      position_created_at,
+    ];
     const result = await client.query(updateQuery, values);
 
     if (result.rows.length === 0) {
@@ -188,11 +191,11 @@ const getPositionById = async (id: number) => {
     const query = `SELECT * FROM positions WHERE id = $1`;
     const values = [id];
     const result = await pool().query<Positions>(query, values);
-    
+
     if (result.rows.length === 0) {
       return null;
     }
-    
+
     return result.rows[0];
   } catch (error) {
     console.error('Error fetching position by ID:', error);
@@ -218,7 +221,7 @@ const getAllPositionsForDropdown = async () => {
 const getPositionCount = async () => {
   try {
     const query = `SELECT COUNT(*) FROM positions`;
-    const result = await pool().query<{count:string}>(query);
+    const result = await pool().query<{ count: string }>(query);
     const count = parseInt(result.rows[0].count, 10);
     return count;
   } catch (error) {
@@ -236,7 +239,7 @@ const togglePositionStatus = async (id: number, position_updated_at: string) => 
       UPDATE positions
       SET 
         position_is_active = NOT position_is_active,
-        position_updated_at = $2
+        updated_at = $2
       WHERE id = $1
       RETURNING *;
     `;
