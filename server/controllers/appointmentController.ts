@@ -404,13 +404,12 @@ const createAppointment = async (req: Request, res: Response, next: NextFunction
     let message = error.message;
 
     if (code === 'P0001') {
-      // No available employee
+      // No available employee due to all having conflicting appointments
       statusCode = 409;
-      message = 'No available employee for one or more appointments';
+      message = error.message;
     } else if (code === 'P0002' || code === 'P0003') {
       // Conflict detected
       statusCode = 409;
-      // The error.message from RAISE EXCEPTION already describes which appointment index / time conflict
       message = error.message;
     } else if (/Invalid/.test(error.message)) {
       statusCode = 400;
@@ -660,11 +659,27 @@ const updateAppointment = async (
     return res
       .status(200)
       .json({ message: `Successfully updated appointment id ${normAppointment.id}` });
-  } catch (error) {
-    console.error('Error in updateAppointment:', error);
-    const msg = error instanceof Error ? error.message : 'Unknown error';
-    const statusCode = /conflict|Invalid/.test(msg) ? 400 : 500;
-    return res.status(statusCode).json({ message: msg });
+  } catch (error: any) {
+    console.error('Error in createAppointment:', error);
+    // Determine status by SQLSTATE code if available
+    const code = error.code;  // SQLSTATE from Postgres
+    let statusCode = 500;
+    let message = error.message;
+
+    if (code === 'P0001') {
+      // No available employee due to all having conflicting appointments
+      statusCode = 409;
+      message = error.message;
+    } else if (code === 'P0002' || code === 'P0003') {
+      // Conflict detected
+      statusCode = 409;
+      message = error.message;
+    } else if (/Invalid/.test(error.message)) {
+      statusCode = 400;
+    } else {
+      statusCode = 500;
+    }
+    return res.status(statusCode).json({ message });
   }
 };
 

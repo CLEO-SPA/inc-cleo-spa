@@ -52,7 +52,8 @@ BEGIN
           rec.appointment_id,
           rec.appointment_date,
           TO_CHAR(rec.start_time, 'HH24:MI'),
-          TO_CHAR(rec.end_time, 'HH24:MI');
+          TO_CHAR(rec.end_time, 'HH24:MI')
+	      USING ERRCODE = 'P0001'; 
       END IF;
       rec.servicing_employee_id := v_random_employee_id;
     END IF;
@@ -78,7 +79,8 @@ BEGIN
         rec.servicing_employee_id,
         rec.appointment_date,
         TO_CHAR(v_conflict_rec.start_time, 'HH24:MI'),
-        TO_CHAR(v_conflict_rec.end_time, 'HH24:MI');
+        TO_CHAR(v_conflict_rec.end_time, 'HH24:MI')
+	    USING ERRCODE = 'P0001'; 
     END IF;
 
     -- 3) External conflict check: same member cannot have overlapping appointment, excluding this one
@@ -102,7 +104,8 @@ BEGIN
         p_member_id,
         rec.appointment_date,
         TO_CHAR(v_conflict_rec.start_time, 'HH24:MI'),
-        TO_CHAR(v_conflict_rec.end_time, 'HH24:MI');
+        TO_CHAR(v_conflict_rec.end_time, 'HH24:MI')
+		USING ERRCODE = 'P0001'; 
     END IF;
 
     -- 4) Perform the update

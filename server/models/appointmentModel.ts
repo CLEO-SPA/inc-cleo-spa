@@ -309,8 +309,14 @@ export const updateAppointment = async (
     await pool().query(query, values);
   } catch (error: any) {
     console.error('Error in updateAppointment:', error);
-    // Rethrow with message for controller
-    throw new Error(error.message || 'Error updating appointment(s)');
+    // Rethrow preserving code and message
+    const err = new Error(error.message);
+    // Attach SQLSTATE code if exists
+    if (error.code) {
+      // @ts-ignore
+      err.code = error.code;
+    }
+    throw err;
   }
 };
 
