@@ -4,7 +4,7 @@ import { Button } from '@/components/ui/button';
 import { FilePenLine, Check, X } from 'lucide-react';
 import api from '@/services/api';
 
-export default function CategoryTableEditable({ data = [], loading = false, onRefresh }) {
+export default function CategoryTableEditable({ data = [], loading = false, onRefresh, categoryType = 'service' }) {
   const inputRef = useRef(null);
   const [saving, setSaving] = useState(false);
   const [saveError, setSaveError] = useState('');
@@ -34,7 +34,7 @@ export default function CategoryTableEditable({ data = [], loading = false, onRe
     setSaving(true);
     setSaveError(''); // reset error state
     try {
-      await api.put(`/service/update-service-cat/${id}`, { name: trimmedName });
+      await api.put(`/${categoryType}/update-${categoryType}-cat/${id}`, { name: trimmedName });
       setEditingId(null);
       setEditedName('');
       onRefresh();

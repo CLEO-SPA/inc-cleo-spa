@@ -494,15 +494,15 @@ const getSalesHistoryByServiceId = async (req: Request, res: Response, next: Nex
 
 // create a new service category
 const createServiceCategory = async (req: Request, res: Response, next: NextFunction) => {
-  const { service_category_name } = req.body;
+  const { category_name } = req.body;
 
   try {
-    if (!service_category_name || typeof service_category_name !== 'string') {
+    if (!category_name || typeof category_name !== 'string') {
       res.status(400).json({ message: 'Invalid or missing category name' });
       return;
     }
 
-    const newCategory = await serviceModel.createServiceCategory(service_category_name.trim());
+    const newCategory = await serviceModel.createServiceCategory(category_name.trim());
 
     res.status(201).json({ category: newCategory[0], message: 'Category created successfully' });
   } catch (error) {
