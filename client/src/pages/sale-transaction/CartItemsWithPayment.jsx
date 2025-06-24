@@ -181,7 +181,26 @@ const CartItemsWithPayment = ({
   // Update payment amount
   const updatePaymentAmount = (sectionId, paymentId, amount) => {
     const numAmount = parseFloat(amount) || 0;
-    onPaymentChange('updateAmount', sectionId, { paymentId, amount: numAmount });
+    const section = paymentSections.find(s => s.id === sectionId);
+    const currentPayments = sectionPayments[sectionId] || [];
+    
+    // Calculate total of other payments in this section
+    const otherPaymentsTotal = currentPayments
+      .filter(p => p.id !== paymentId)
+      .reduce((sum, p) => sum + p.amount, 0);
+    
+    // Calculate maximum allowed for this payment
+    const maxAllowed = section ? section.amount - otherPaymentsTotal : numAmount;
+    
+    // Clamp the amount to not exceed the maximum allowed
+    const clampedAmount = Math.min(numAmount, Math.max(0, maxAllowed));
+    
+    // Show warning if amount was adjusted
+    if (numAmount > maxAllowed && maxAllowed >= 0) {
+      console.warn(`Payment amount adjusted from ${numAmount} to ${clampedAmount} for section ${sectionId}`);
+    }
+    
+    onPaymentChange('updateAmount', sectionId, { paymentId, amount: clampedAmount });
   };
 
   // Update payment remark
@@ -321,16 +340,16 @@ const CartItemsWithPayment = ({
                           {formatCurrency(pricing.totalLinePrice)}
                         </td>
                         <td className="px-4 py-3">
-                          {item.type !== 'product' && item.type !== 'member-voucher' ? (
-                            <EmployeeSelect 
-                              label=""
-                              value={itemEmployees[item.id] || ""}
-                              onChange={(id) => handleAssignEmployee(item.id, id)}
-                              errors={{}}
-                            />
-                          ) : (
-                            <span className="text-gray-500">N/A</span>
-                          )}
+                          <EmployeeSelect 
+                            label=""
+                            value={
+                              item.type === 'member-voucher' && item.data?.created_by 
+                                ? item.data.created_by.toString()
+                                : itemEmployees[item.id] || ""
+                            }
+                            onChange={(id) => handleAssignEmployee(item.id, id)}
+                            errors={{}}
+                          />
                         </td>
                       </tr>
                     );
@@ -380,39 +399,53 @@ const CartItemsWithPayment = ({
               {/* Payment Methods List */}
               {sectionPayments[section.id] && sectionPayments[section.id].length > 0 && (
                 <div className="space-y-3">
-                  {sectionPayments[section.id].map((payment) => (
-                    <div key={payment.id} className="flex items-center gap-3 p-3 bg-gray-50 rounded-md">
-                      <div className="flex-shrink-0 w-32">
-                        <span className="text-sm font-medium">{payment.methodName}</span>
+                  {sectionPayments[section.id].map((payment) => {
+                    // Calculate max 
+                    const otherPaymentsTotal = sectionPayments[section.id]
+                      .filter(p => p.id !== payment.id)
+                      .reduce((sum, p) => sum + p.amount, 0);
+                    const maxAllowed = section.amount - otherPaymentsTotal;
+                    
+                    return (
+                      <div key={payment.id} className="flex items-center gap-3 p-3 bg-gray-50 rounded-md">
+                        <div className="flex-shrink-0 w-32">
+                          <span className="text-sm font-medium">{payment.methodName}</span>
+                        </div>
+                        <div className="flex-1">
+                          <input
+                            type="number"
+                            min="0"
+                            max={maxAllowed}
+                            step="0.01"
+                            placeholder="Enter amount"
+                            value={payment.amount || ''}
+                            onChange={(e) => updatePaymentAmount(section.id, payment.id, e.target.value)}
+                            className="w-full p-2 border border-gray-300 rounded-md text-sm"
+                          />
+                          {maxAllowed < section.amount && (
+                            <div className="text-xs text-gray-500 mt-1">
+                              Max: {formatCurrency(maxAllowed)}
+                            </div>
+                          )}
+                        </div>
+                        <div className="flex-1">
+                          <input
+                            type="text"
+                            placeholder="Remark (optional)"
+                            value={payment.remark}
+                            onChange={(e) => updatePaymentRemark(section.id, payment.id, e.target.value)}
+                            className="w-full p-2 border border-gray-300 rounded-md text-sm"
+                          />
+                        </div>
+                        <button
+                          onClick={() => removePaymentMethod(section.id, payment.id)}
+                          className="p-2 text-red-600 hover:bg-red-100 rounded-md"
+                        >
+                          <X className="h-4 w-4" />
+                        </button>
                       </div>
-                      <div className="flex-1">
-                        <input
-                          type="number"
-                          min="0"
-                          step="0.01"
-                          placeholder="Enter amount"
-                          value={payment.amount || ''}
-                          onChange={(e) => updatePaymentAmount(section.id, payment.id, e.target.value)}
-                          className="w-full p-2 border border-gray-300 rounded-md text-sm"
-                        />
-                      </div>
-                      <div className="flex-1">
-                        <input
-                          type="text"
-                          placeholder="Remark (optional)"
-                          value={payment.remark}
-                          onChange={(e) => updatePaymentRemark(section.id, payment.id, e.target.value)}
-                          className="w-full p-2 border border-gray-300 rounded-md text-sm"
-                        />
-                      </div>
-                      <button
-                        onClick={() => removePaymentMethod(section.id, payment.id)}
-                        className="p-2 text-red-600 hover:bg-red-100 rounded-md"
-                      >
-                        <X className="h-4 w-4" />
-                      </button>
-                    </div>
-                  ))}
+                    );
+                  })}
                 </div>
               )}
 

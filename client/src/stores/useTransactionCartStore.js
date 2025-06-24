@@ -13,7 +13,7 @@ const useTransactionCartStore = create(
       cartItems: [],
 
       // Current page/step
-      currentStep: 'selection', // 'selection', 'payment', 'confirmation'
+      currentStep: 'selection', 
 
       // Actions
       setSelectedMember: (member) => {
@@ -28,24 +28,38 @@ const useTransactionCartStore = create(
           id: item.id || Date.now(),
         });
 
-        // For member vouchers, log additional details
+
         if (item.type === 'member-voucher') {
           console.log('🎟️ Member Voucher Details:', {
             name: item.data?.member_voucher_name,
             totalPrice: item.data?.total_price,
             startingBalance: item.data?.starting_balance,
             freeOfCharge: item.data?.free_of_charge,
+            createdBy: item.data?.created_by, 
+            handledBy: item.data?.handled_by,
             hasDetails:
               Array.isArray(item.data?.member_voucher_details) &&
               item.data?.member_voucher_details.length > 0,
+          });
+          
+
+          console.log('Using created_by from voucher directly:', item.data?.created_by);
+        }
+
+
+        if (item.type === 'package') {
+          console.log('📦 Care Package Details:', {
+            name: item.data?.name,
+            price: item.data?.price,
+            employeeId: item.data?.employee_id, 
           });
         }
 
         const newItem = {
           id: item.id || Date.now(),
-          type: item.type, // 'member-voucher', 'product', 'service', 'package', 'transfer'
+          type: item.type, 
           data: item.data,
-          paymentMethod: null, // Will be set in payment step
+          paymentMethod: null, 
           status: 'pending',
         };
 
