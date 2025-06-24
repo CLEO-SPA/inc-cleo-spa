@@ -34,7 +34,6 @@ export function AppointmentDateTimeSelect({
     warning,
     fetchTimeslots,
     fetchEndTimesForStartTime,
-    // optionally you could have a method to clear end times; we'll clear locally
   } = useAppointmentDateTimeStore();
 
   // Local state to avoid refetch flood

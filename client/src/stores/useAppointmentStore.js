@@ -72,7 +72,6 @@ const useAppointmentStore = create((set, get) => ({
       const cleaned = emptyStringToNull(payload);
       console.log('Updating appointment with payload:', cleaned);
       const response = await api.put('/ab/update', cleaned);
-      // Optionally refetch or update local list
       set({ isUpdating: false });
       return { success: true, data: response.data };
     } catch (err) {
