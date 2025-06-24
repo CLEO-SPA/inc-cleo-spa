@@ -47,13 +47,14 @@ export default function ManageProductCategoriesPage() {
               </div>
 
               {showReorderPanel ? (
-                <ReorderCategoryPanel categories={categories} onSave={fetchCategories} />
+                <ReorderCategoryPanel categoryType='product' categories={categories} onSave={fetchCategories} />
               ) : (
                 <CategoryTableEditable
                   title='Product Categories'
                   data={categories}
                   loading={loading}
                   onRefresh={fetchCategories}
+                  categoryType='product'
                 />
               )}
             </div>

@@ -36,7 +36,7 @@ import ManageProductCategoryPage from '@/pages/product/ManageProductCategoryPage
 import ReorderProductPage from '@/pages/product/ReorderProductPage';
 import CreateProductPage from '@/pages/product/CreateProductPage';
 import UpdateProductPage from '@/pages/product/UpdateProductPage';
-
+import ViewProductSalesHistoryPage from '@/pages/product/ViewProductSalesHistoryPage';
 
 function App() {
   return (
@@ -85,6 +85,7 @@ function App() {
               <Route path='/update-product/:id' element={<UpdateProductPage />} />
               <Route path='/reorder-product' element={<ReorderProductPage />} />
               <Route path='/manage-product-category' element={<ManageProductCategoryPage />} />
+              <Route path='/view-product-sales-history/:product_id' element={<ViewProductSalesHistoryPage />} />
             </Route>
             <Route path='/login' element={<LoginPage />} />
 

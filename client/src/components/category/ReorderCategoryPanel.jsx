@@ -3,7 +3,7 @@ import { GripVertical } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import api from '@/services/api';
 
-export default function ReorderCategoryPanel({ categories = [], onSave }) {
+export default function ReorderCategoryPanel({ categories = [], onSave, categoryType = 'service' }) {
   const [items, setItems] = useState([...categories]);
   const [draggedItem, setDraggedItem] = useState(null);
   const [saving, setSaving] = useState(false);
@@ -35,13 +35,13 @@ export default function ReorderCategoryPanel({ categories = [], onSave }) {
   const handleSave = async () => {
     const updatedItems = items.map((item, index) => ({
       ...item,
-      service_category_sequence_no: index + 1,
+      [`${categoryType}_category_sequence_no`]: index + 1,
     }));
     setSaving(true);
     setErrorMsg('');
     setSuccessMsg('');
     try {
-      const response = await api.put('/service/reorder-service-cat', updatedItems);
+      const response = await api.put(`/${categoryType}/reorder-${categoryType}-cat`, updatedItems);
       if (response.status === 200) {
         setSuccessMsg('Changes saved successfully!');
         onSave?.();
@@ -69,14 +69,16 @@ export default function ReorderCategoryPanel({ categories = [], onSave }) {
             className='flex items-center gap-3 p-2 bg-white border rounded cursor-move hover:bg-gray-50'
           >
             <span className='text-sm text-gray-500'>#{index + 1}</span>
-            <span className='text-sm'>{item.service_category_name}</span>
+            <span className='text-sm'>{item[`${categoryType}_category_name`]}</span>
             <GripVertical className='ml-auto text-gray-400' size={16} />
           </div>
         ))}
       </div>
 
       <div className='pt-4 border-t border-gray-200 flex justify-end space-x-2'>
-        <Button onClick={() => setItems(categories)} variant='outline'>Reset</Button>
+        <Button onClick={() => setItems(categories)} variant='outline'>
+          Reset
+        </Button>
         <Button onClick={handleSave} disabled={saving} className='bg-blue-600 hover:bg-blue-500'>
           {saving ? 'Saving...' : 'Save Changes'}
         </Button>

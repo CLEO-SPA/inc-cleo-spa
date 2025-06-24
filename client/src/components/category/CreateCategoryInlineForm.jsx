@@ -18,7 +18,7 @@ export default function CreateCategoryInlineForm({ onCreate, placeholder = 'Ente
     setErrorMsg('');
     try {
       const response = await api.post(apiEndpoint, {
-        service_category_name: name.trim(),
+        category_name: name.trim(),
       });
 
       if (response.status === 201) {
