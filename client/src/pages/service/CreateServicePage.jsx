@@ -18,16 +18,21 @@ import {
 import { SiteHeader } from '@/components/site-header';
 import { SidebarInset, SidebarProvider } from '@/components/ui/sidebar';
 import EmployeeSelect from '@/components/ui/forms/EmployeeSelect';
-import useEmployeeStore from '@/stores/useEmployeeStore';
 
 export default function CreateService() {
+  // Loading
+  const [loading, setLoading] = useState(false);
+  // Modal
+  // Show the result of service creation
   const [modalOpen, setModalOpen] = useState(false);
   const [errorMsg, setErrorMsg] = useState('');
+
+  // Categories for dropdown
+  const [categories, setCategories] = useState([]);
+
+  // For EmployeeSelect
   const methods = useForm();
   const { watch, reset } = methods;
-
-  // get categories for dropdown
-  const [categories, setCategories] = useState([]);
 
   // For form data
   const [formData, setFormData] = useState({
@@ -41,12 +46,11 @@ export default function CreateService() {
     created_at: null,
     created_by: ""
   });
-  const [service, setService] = useState();
-
   const createdBy = watch('created_by');
   const [selectedCategory, setSelectedCategory] = useState(formData.service_category_id);
   const [createdAt, setCreatedAt] = useState(null);
   const [selectedStatus, setSelectedStatus] = useState(formData.service_is_enabled)
+  const [service, setService] = useState();;
 
   const navigate = useNavigate();
 
@@ -70,6 +74,7 @@ export default function CreateService() {
 
   const handleSubmit = async (e) => {
     e.preventDefault();
+    setLoading(true);
     try {
       const response = await api.post(`/service/create-service`, formData, {
         headers: {
@@ -100,6 +105,8 @@ export default function CreateService() {
       console.error('Error creating service:' + err);
       setErrorMsg(err.response.data.message);
       setModalOpen(true);
+    } finally {
+      setLoading(false);
     }
   };
 
@@ -146,7 +153,7 @@ export default function CreateService() {
                           <h3 className="text-xl font-semibold">Create Service Page</h3>
                         )}
                       <button
-                        onClick={() => {setModalOpen(false); setService(null)}}
+                        onClick={() => { setModalOpen(false); setService(null) }}
                         className="text-xl"
                         aria-label="Close"
                       >
@@ -158,27 +165,27 @@ export default function CreateService() {
                         <p className="text-xl text-red-500">{errorMsg}</p>
                       ) : (
                         <>
-                        <p className="text-xl text-green-600">Service was created successfully!</p>
-                        <p>ID: {service.id}</p>
-                        <p>Name: {service.service_name}</p>
-                        <p>Category: {
-                          categories.find(cat => cat.id === service.service_category_id)?.service_category_name || 'Other'
+                          <p className="text-xl text-green-600">Service was created successfully!</p>
+                          <p>ID: {service.id}</p>
+                          <p>Name: {service.service_name}</p>
+                          <p>Category: {
+                            categories.find(cat => cat.id === service.service_category_id)?.service_category_name || 'Other'
                           }</p>
-                        <p>Price: ${service.service_price}</p>
+                          <p>Price: ${service.service_price}</p>
                         </>
                       )}
                     </div>
                     <div className="mt-4 flex justify-end gap-2">
                       {errorMsg ? "" : (
                         <Button
-                        onClick={() => {navigate('/manage-service'); setService(null)}}
+                          onClick={() => { navigate('/manage-service'); setService(null) }}
                           className="bg-blue-600 rounded-md hover:bg-blue-500"
                         >
                           View Services
                         </Button>
                       )}
                       <Button
-                        onClick={() => {setModalOpen(false); setService(null)}}
+                        onClick={() => { setModalOpen(false); setService(null) }}
                         className="text-white py-2 px-4 rounded-md hover:bg-gray-700"
                       >
                         Close
@@ -189,133 +196,144 @@ export default function CreateService() {
               )}
 
               <Card className={"w-full px-4"}>
-                <CardHeader>
-                  <CardTitle><h2 className="text-2xl font-bold">Create a Service</h2></CardTitle>
-                </CardHeader>
-                <CardContent>
-                  <FormProvider {...methods}>
-                    <form onSubmit={handleSubmit} className="space-y-3">
-                      <div className="grid auto-rows-min gap-3 lg:grid-cols-2">
-                        {/* Date of Creation */}
-                        <div>
-                          <label className="block text-md font-medium">Date of Creation*</label>
-                          <DatePicker
-                            value={createdAt}
-                            onChange={setCreatedAt}
-                            required />
-                        </div>
+                {loading ? (
+                  <CardContent>
+                    <div className="flex justify-center items-center h-full">
+                      <span className="text-xl text-gray-500">Loading...</span>
+                    </div>
+                  </CardContent>
+                ) : (
+                  <>
+                    <CardHeader>
+                      <CardTitle><h2 className="text-2xl font-bold">Create a Service</h2></CardTitle>
+                    </CardHeader>
+                    <CardContent>
 
-                        {/* Created By */}
-                        <div>
-                          <label className="block text-md font-medium">Created By*</label>
-                            <EmployeeSelect name='created_by' label='' rules={{ required: 'Created_by is required' }} />
-                        </div>
+                      <FormProvider {...methods}>
+                        <form onSubmit={handleSubmit} className="space-y-3">
+                          <div className="grid auto-rows-min gap-3 lg:grid-cols-2">
+                            {/* Date of Creation */}
+                            <div>
+                              <label className="block text-md font-medium">Date of Creation*</label>
+                              <DatePicker
+                                value={createdAt}
+                                onChange={setCreatedAt}
+                                required />
+                            </div>
 
-                        {/* Service Name */}
-                        <div>
-                          <label className="block text-md font-medium">Service Name*</label>
-                          <Input
-                            type="text"
-                            name="service_name"
-                            value={formData.service_name}
-                            onChange={handleChange}
-                            className="w-[250px] p-2 border rounded-md"
-                            placeholder="Enter service name"
-                            required
-                          />
-                        </div>
+                            {/* Created By */}
+                            <div>
+                              <label className="block text-md font-medium">Created By*</label>
+                              <EmployeeSelect name='created_by' label='' rules={{ required: 'Created_by is required' }} />
+                            </div>
 
-                        {/* Service Category */}
-                        <div>
-                          <label className="block text-md font-medium">Service Category*</label>
-                          <Select value={selectedCategory} onValueChange={setSelectedCategory}>
-                            <SelectTrigger className="w-full">
-                              <SelectValue placeholder="Select Category" />
-                            </SelectTrigger>
-                            <SelectContent>
-                              <div className="max-h-48 overflow-y-auto">
-                              {categories.map((category) => (
-                                <SelectItem key={category.id} value={category.id}>
-                                  {category.service_category_name}
-                                </SelectItem>
-                              ))}
-                              </div>
-                            </SelectContent>
-                          </Select>
-                        </div>
+                            {/* Service Name */}
+                            <div>
+                              <label className="block text-md font-medium">Service Name*</label>
+                              <Input
+                                type="text"
+                                name="service_name"
+                                value={formData.service_name}
+                                onChange={handleChange}
+                                className="w-[250px] p-2 border rounded-md"
+                                placeholder="Enter service name"
+                                required
+                              />
+                            </div>
 
-                        {/* Unit Price */}
-                        <div>
-                          <label className="block text-md font-medium">Unit Price*</label>
-                          <input
-                            type="number"
-                            name="service_price"
-                            value={formData.service_price}
-                            onChange={handleChange}
-                            className="w-40 px-2 py-1 border rounded-md"
-                            placeholder="100"
-                            required
-                          /> SGD
-                        </div>
+                            {/* Service Category */}
+                            <div>
+                              <label className="block text-md font-medium">Service Category*</label>
+                              <Select value={selectedCategory} onValueChange={setSelectedCategory}>
+                                <SelectTrigger className="w-full">
+                                  <SelectValue placeholder="Select Category" />
+                                </SelectTrigger>
+                                <SelectContent>
+                                  <div className="max-h-48 overflow-y-auto">
+                                    {categories.map((category) => (
+                                      <SelectItem key={category.id} value={category.id}>
+                                        {category.service_category_name}
+                                      </SelectItem>
+                                    ))}
+                                  </div>
+                                </SelectContent>
+                              </Select>
+                            </div>
 
-                        {/* Duration */}
-                        <div>
-                          <label className="block text-md font-medium">Duration*</label>
-                          <input
-                            type="number"
-                            name="service_duration"
-                            value={formData.service_duration}
-                            onChange={handleChange}
-                            className="w-40 px-2 py-1 border rounded-md"
-                            placeholder="60"
-                            required
-                          /> Mins
-                        </div>
+                            {/* Unit Price */}
+                            <div>
+                              <label className="block text-md font-medium">Unit Price*</label>
+                              <input
+                                type="number"
+                                name="service_price"
+                                value={formData.service_price}
+                                onChange={handleChange}
+                                className="w-40 px-2 py-1 border rounded-md"
+                                placeholder="100"
+                                required
+                              /> SGD
+                            </div>
 
-                        {/* Status */}
-                        <div className="flex my-2 space-x-3">
-                          <label className="block text-md font-medium ">Enabled</label>
-                          <Switch checked={selectedStatus} onCheckedChange={setSelectedStatus} required />
-                        </div>
+                            {/* Duration */}
+                            <div>
+                              <label className="block text-md font-medium">Duration*</label>
+                              <input
+                                type="number"
+                                name="service_duration"
+                                value={formData.service_duration}
+                                onChange={handleChange}
+                                className="w-40 px-2 py-1 border rounded-md"
+                                placeholder="60"
+                                required
+                              /> Mins
+                            </div>
 
-                      </div>
-                      {/* Service Description */}
-                      <div>
-                        <label className="block text-md font-medium">Service Description</label>
-                        <textarea
-                          name="service_description"
-                          value={formData.service_description}
-                          onChange={handleChange}
-                          className="w-full p-2 border rounded-md"
-                          placeholder="Enter service description"
-                        />
-                      </div>
+                            {/* Status */}
+                            <div className="flex my-2 space-x-3">
+                              <label className="block text-md font-medium ">Enabled</label>
+                              <Switch checked={selectedStatus} onCheckedChange={setSelectedStatus} required />
+                            </div>
 
-                      {/* Remarks */}
-                      <div>
-                        <label className="block text-md font-medium ">Remarks</label>
-                        <textarea
-                          name="service_remarks"
-                          value={formData.service_remarks}
-                          onChange={handleChange}
-                          className="w-full p-2 border rounded-md"
-                          placeholder="Enter remarks"
-                        />
-                      </div>
+                          </div>
+                          {/* Service Description */}
+                          <div>
+                            <label className="block text-md font-medium">Service Description</label>
+                            <textarea
+                              name="service_description"
+                              value={formData.service_description}
+                              onChange={handleChange}
+                              className="w-full p-2 border rounded-md"
+                              placeholder="Enter service description"
+                            />
+                          </div>
 
-                      {/* Submit Button */}
-                      <div className="flex justify-center space-x-4">
-                        <Button type="submit" className="bg-blue-600 rounded-md hover:bg-blue-500">
-                          Create Service
-                        </Button>
-                        <Button onClick={() => navigate(-1)} className="rounded-md hover:bg-gray-500">
-                          Cancel
-                        </Button>
-                      </div>
-                    </form>
-                  </FormProvider>
+                          {/* Remarks */}
+                          <div>
+                            <label className="block text-md font-medium ">Remarks</label>
+                            <textarea
+                              name="service_remarks"
+                              value={formData.service_remarks}
+                              onChange={handleChange}
+                              className="w-full p-2 border rounded-md"
+                              placeholder="Enter remarks"
+                            />
+                          </div>
 
-                </CardContent>
+                          {/* Submit Button */}
+                          <div className="flex justify-center space-x-4">
+                            <Button type="submit" className="bg-blue-600 rounded-md hover:bg-blue-500">
+                              Create Service
+                            </Button>
+                            <Button onClick={() => navigate(-1)} className="rounded-md hover:bg-gray-500">
+                              Cancel
+                            </Button>
+                          </div>
+                        </form>
+                      </FormProvider>
+
+                    </CardContent>
+                  </>
+                )}
               </Card>
             </div>
           </SidebarInset>

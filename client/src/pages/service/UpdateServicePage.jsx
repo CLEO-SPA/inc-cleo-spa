@@ -35,6 +35,9 @@ export default function UpdateService() {
   const [modalOpen, setModalOpen] = useState(false);
   const [errorMsg, setErrorMsg] = useState('');
 
+  // Loading
+  const [loading, setLoading] = useState(false);
+
   // for navigation
   const navigate = useNavigate();
 
@@ -47,24 +50,29 @@ export default function UpdateService() {
 
   // For form data
   const [formData, setFormData] = useState({
-        service_name: "",
-        service_description: "",
-        service_remarks: "",
-        service_duration: "",
-        service_price: "",
-        service_category_id: "",
-        created_at: "",
-        created_by: "",
-        updated_at: new Date(),
-        updated_by: ""
-      });
+    service_name: "",
+    service_description: "",
+    service_remarks: "",
+    service_duration: "",
+    service_price: "",
+    service_category_id: "",
+    created_at: "",
+    created_by: "",
+    updated_at: new Date(),
+    updated_by: ""
+  });
 
   const getService = async (id) => {
+    setLoading(true);
     try {
       const response = await api.get(`/service/${id}`);
       setService(response.data);
     } catch (err) {
       console.error("Error fetching service:" + err);
+      setErrorMsg(err.response.data.message);
+      setModalOpen(true);
+    } finally {
+      setLoading(false);
     }
   }
 
@@ -88,7 +96,8 @@ export default function UpdateService() {
 
   const handleSubmit = async (e) => {
     e.preventDefault();
-    try{
+    setLoading(true);
+    try {
       const response = await api.put(`/service/update-service/${service_id}`, formData, {
         headers: {
           "Content-Type": "application/json"
@@ -97,12 +106,13 @@ export default function UpdateService() {
       if (response.status === 200) {
         setErrorMsg("");
         setService(response.data.service);
-        setModalOpen(true);
       }
-    }catch(err){
+    } catch (err) {
       console.error('Error updating service:' + err);
       setErrorMsg(err.response.data.message);
+    } finally {
       setModalOpen(true);
+      setLoading(false);
     }
   };
 
@@ -116,7 +126,7 @@ export default function UpdateService() {
     }
   }, [service_id])
 
-    useEffect(() => {
+  useEffect(() => {
     // Fixed: Add null check before accessing service properties
     if (service) {
       try {
@@ -135,7 +145,7 @@ export default function UpdateService() {
         setSelectedCategory(service.service_category_id);
         setCreatedAt(service.created_at ? new Date(service.created_at) : new Date());
         setUpdatedAt(formData.updated_at ? new Date(formData.updated_at) : new Date());
-        
+
         // Reset the form with the service data for EmployeeSelect components
         reset({
           created_by: service.created_by
@@ -146,20 +156,20 @@ export default function UpdateService() {
     }
   }, [service, reset])
 
-    useEffect(() => {
-      try {
-        setFormData(prevFormData => ({
-          ...prevFormData,
-          service_category_id: selectedCategory,
-          created_by: createdBy || "",
-          updated_by: updatedBy || "",
-          created_at: createdAt,
-          updated_at: updatedAt,
-        }));
-      } catch (err) {
-        console.error('Error updating form data:', err);
-      }
-    }, [selectedCategory, createdBy, updatedBy, createdAt, updatedAt]);
+  useEffect(() => {
+    try {
+      setFormData(prevFormData => ({
+        ...prevFormData,
+        service_category_id: selectedCategory,
+        created_by: createdBy || "",
+        updated_by: updatedBy || "",
+        created_at: createdAt,
+        updated_at: updatedAt,
+      }));
+    } catch (err) {
+      console.error('Error updating form data:', err);
+    }
+  }, [selectedCategory, createdBy, updatedBy, createdAt, updatedAt]);
 
   return (
     <div className='[--header-height:calc(theme(spacing.14))]'>
@@ -225,145 +235,155 @@ export default function UpdateService() {
               )}
 
               <Card className={"w-full px-4"}>
-                <CardHeader>
-                  <CardTitle><h2 className="text-2xl font-bold">Edit Service Details</h2></CardTitle>
-                </CardHeader>
-                <CardContent>
-                  <FormProvider {...methods}>
-                    <form onSubmit={handleSubmit} className="space-y-3">
-                      <div className="grid auto-rows-min gap-3 lg:grid-cols-2">
-                        {/* Date of Creation */}
-                        <div>
-                          <label className="block text-md font-medium">Date of Creation*</label>
-                          <DatePicker
-                            value={createdAt}
-                            onChange={setCreatedAt}
-                            required />
-                        </div>
+                {loading ? (
+                  <CardContent>
+                    <div className="flex justify-center items-center h-full">
+                      <span className="text-xl text-gray-500">Loading...</span>
+                    </div>
+                  </CardContent>
+                ) : (
+                  <>
+                    <CardHeader>
+                      <CardTitle><h2 className="text-2xl font-bold">Edit Service Details</h2></CardTitle>
+                    </CardHeader>
+                    <CardContent>
+                      <FormProvider {...methods}>
+                        <form onSubmit={handleSubmit} className="space-y-3">
+                          <div className="grid auto-rows-min gap-3 lg:grid-cols-2">
+                            {/* Date of Creation */}
+                            <div>
+                              <label className="block text-md font-medium">Date of Creation*</label>
+                              <DatePicker
+                                value={createdAt}
+                                onChange={setCreatedAt}
+                                required />
+                            </div>
 
-                        {/* Created By */}
-                        <div>
-                          <label className="block text-md font-medium">Created By*</label>
-                          <EmployeeSelect name='created_by' label='' rules={{ required: 'Created_by is required' }} />
-                        </div>
+                            {/* Created By */}
+                            <div>
+                              <label className="block text-md font-medium">Created By*</label>
+                              <EmployeeSelect name='created_by' label='' rules={{ required: 'Created_by is required' }} />
+                            </div>
 
-                        {/* Updated At */}
-                        <div>
-                          <label className="block text-md font-medium">Last Updated at*</label>
-                          <DatePicker
-                            value={updatedAt}
-                            onChange={setUpdatedAt}
-                            required />
-                        </div>
+                            {/* Updated At */}
+                            <div>
+                              <label className="block text-md font-medium">Last Updated at*</label>
+                              <DatePicker
+                                value={updatedAt}
+                                onChange={setUpdatedAt}
+                                required />
+                            </div>
 
-                        {/* Updated By */}
-                        <div>
-                          <label className="block text-md font-medium">Updated By*</label>
-                          <EmployeeSelect
-                            name='updated_by'
-                            label=''
-                            rules={{ required: 'Updated_by is required' }} />
-                        </div>
+                            {/* Updated By */}
+                            <div>
+                              <label className="block text-md font-medium">Updated By*</label>
+                              <EmployeeSelect
+                                name='updated_by'
+                                label=''
+                                rules={{ required: 'Updated_by is required' }} />
+                            </div>
 
-                        {/* Service Name */}
-                        <div>
-                          <label className="block text-md font-medium">Service Name*</label>
-                          <Input
-                            type="text"
-                            name="service_name"
-                            value={formData.service_name}
-                            onChange={handleChange}
-                            className="w-[250px] p-2 border rounded-md"
-                            placeholder="Enter service name"
-                            required
-                          />
-                        </div>
+                            {/* Service Name */}
+                            <div>
+                              <label className="block text-md font-medium">Service Name*</label>
+                              <Input
+                                type="text"
+                                name="service_name"
+                                value={formData.service_name}
+                                onChange={handleChange}
+                                className="w-[250px] p-2 border rounded-md"
+                                placeholder="Enter service name"
+                                required
+                              />
+                            </div>
 
-                        {/* Service Category */}
-                        <div>
-                          <label className="block text-md font-medium">Service Category*</label>
-                          <Select value={selectedCategory} onValueChange={setSelectedCategory}>
-                            <SelectTrigger className="w-full">
-                              <SelectValue placeholder="Select Category" />
-                            </SelectTrigger>
-                            <SelectContent>
-                              <div className="max-h-48 overflow-y-auto">
-                              {categories.map((category) => (
-                                <SelectItem key={category.id} value={category.id}>
-                                  {category.service_category_name}
-                                </SelectItem>
-                              ))}
-                              </div>
-                            </SelectContent>
-                          </Select>
-                        </div>
+                            {/* Service Category */}
+                            <div>
+                              <label className="block text-md font-medium">Service Category*</label>
+                              <Select value={selectedCategory} onValueChange={setSelectedCategory}>
+                                <SelectTrigger className="w-full">
+                                  <SelectValue placeholder="Select Category" />
+                                </SelectTrigger>
+                                <SelectContent>
+                                  <div className="max-h-48 overflow-y-auto">
+                                    {categories.map((category) => (
+                                      <SelectItem key={category.id} value={category.id}>
+                                        {category.service_category_name}
+                                      </SelectItem>
+                                    ))}
+                                  </div>
+                                </SelectContent>
+                              </Select>
+                            </div>
 
-                        {/* Unit Price */}
-                        <div>
-                          <label className="block text-md font-medium">Unit Price*</label>
-                          <input
-                            type="number"
-                            name="service_price"
-                            value={formData.service_price}
-                            onChange={handleChange}
-                            className="w-40 px-2 py-1 border rounded-md"
-                            placeholder="100"
-                            required
-                          /> SGD
-                        </div>
+                            {/* Unit Price */}
+                            <div>
+                              <label className="block text-md font-medium">Unit Price*</label>
+                              <input
+                                type="number"
+                                name="service_price"
+                                value={formData.service_price}
+                                onChange={handleChange}
+                                className="w-40 px-2 py-1 border rounded-md"
+                                placeholder="100"
+                                required
+                              /> SGD
+                            </div>
 
-                        {/* Duration */}
-                        <div>
-                          <label className="block text-md font-medium">Duration*</label>
-                          <input
-                            type="number"
-                            name="service_duration"
-                            value={formData.service_duration}
-                            onChange={handleChange}
-                            className="w-40 px-2 py-1 border rounded-md"
-                            placeholder="60"
-                            required
-                          /> Mins
-                        </div>
+                            {/* Duration */}
+                            <div>
+                              <label className="block text-md font-medium">Duration*</label>
+                              <input
+                                type="number"
+                                name="service_duration"
+                                value={formData.service_duration}
+                                onChange={handleChange}
+                                className="w-40 px-2 py-1 border rounded-md"
+                                placeholder="60"
+                                required
+                              /> Mins
+                            </div>
 
-                      </div>
-                      {/* Service Description */}
-                      <div>
-                        <label className="block text-md font-medium">Service Description</label>
-                        <textarea
-                          name="service_description"
-                          value={formData.service_description}
-                          onChange={handleChange}
-                          className="w-full p-2 border rounded-md"
-                          placeholder="Enter service description"
-                        />
-                      </div>
+                          </div>
+                          {/* Service Description */}
+                          <div>
+                            <label className="block text-md font-medium">Service Description</label>
+                            <textarea
+                              name="service_description"
+                              value={formData.service_description}
+                              onChange={handleChange}
+                              className="w-full p-2 border rounded-md"
+                              placeholder="Enter service description"
+                            />
+                          </div>
 
-                      {/* Remarks */}
-                      <div>
-                        <label className="block text-md font-medium ">Remarks</label>
-                        <textarea
-                          name="service_remarks"
-                          value={formData.service_remarks}
-                          onChange={handleChange}
-                          className="w-full p-2 border rounded-md"
-                          placeholder="Enter remarks"
-                        />
-                      </div>
+                          {/* Remarks */}
+                          <div>
+                            <label className="block text-md font-medium ">Remarks</label>
+                            <textarea
+                              name="service_remarks"
+                              value={formData.service_remarks}
+                              onChange={handleChange}
+                              className="w-full p-2 border rounded-md"
+                              placeholder="Enter remarks"
+                            />
+                          </div>
 
-                      {/* Submit Button */}
-                      <div className="flex justify-center space-x-4">
-                        <Button type="submit" className="bg-blue-600 rounded-md hover:bg-blue-500">
-                          Save Changes
-                        </Button>
-                        <Button onClick={() => navigate(-1)} className="rounded-md hover:bg-gray-500">
-                          Cancel
-                        </Button>
-                      </div>
-                    </form>
-                  </FormProvider>
+                          {/* Submit Button */}
+                          <div className="flex justify-center space-x-4">
+                            <Button type="submit" className="bg-blue-600 rounded-md hover:bg-blue-500">
+                              Save Changes
+                            </Button>
+                            <Button onClick={() => navigate(-1)} className="rounded-md hover:bg-gray-500">
+                              Cancel
+                            </Button>
+                          </div>
+                        </form>
+                      </FormProvider>
 
-                </CardContent>
+                    </CardContent>
+                  </>
+                )}
               </Card>
             </div>
           </SidebarInset>
