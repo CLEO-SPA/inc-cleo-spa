@@ -23,6 +23,12 @@ import ManageVoucherTemplatesPage from './pages/voucher-template/ManageVoucherTe
 import EditVouhcerTemplatePage from './pages/voucher-template/EditVoucherTemplatePage';
 // Service Management
 import ManageServicePage from '@/pages/service/ManageServicePage';
+import CreateServicePage from '@/pages/service/CreateServicePage';
+import UpdateServicePage from '@/pages/service/UpdateServicePage';
+import ReorderServicePage from '@/pages/service/ReorderServicePage';
+import ViewSalesHistoryPage from '@/pages/service/ViewSalesHistoryPage';
+import ManageServiceCategoryPage from '@/pages/service/ManageServiceCategoryPage';
+
 import MockSalesTransactionPage from './pages/sale-transaction/mockSaleTransactionPage';
 import ManageVouchersPage from './pages/MemberVoucher/ManageVoucherPage';
 import DatabaseReportPage from '@/pages/DatabaseReportPage';
@@ -30,11 +36,6 @@ import CreateConsumptionPage from '@/pages/CarePackages/CreateConsumptionPage';
 import CreateMemberVoucherConsumptionPage from '@/pages/MemberVoucher/CreateConsumptionPage';
 // Data Export
 import DataExportPage from './pages/miscellaneous/DateExportPage';
-import CreateServicePage from '@/pages/service/CreateServicePage';
-import UpdateServicePage from '@/pages/service/UpdateServicePage';
-import ReorderServicePage from '@/pages/service/ReorderServicePage';
-import ViewSalesHistoryPage from '@/pages/service/ViewSalesHistoryPage';
-import ManageServiceCategoryPage from '@/pages/service/ManageServiceCategoryPage';
 
 // Employees
 import ManagePositions from '@/pages/em/ManagePositions';
@@ -75,19 +76,15 @@ function App() {
 
 
               {/* statistics */}
-              <Route path='/dbcr' element={<DatabaseReportPage />} />           
+              <Route path='/dbcr' element={<DatabaseReportPage />} />
 
-              {/* Employees Routes */}
-              <Route path='/positions' element={<ManagePositions />} />
-              
               {/* Service Management */}
-            <Route path='/manage-service' element={<ManageServicePage />} />
-            <Route path='/create-service' element={<CreateServicePage />} />
-            <Route path='/update-service/:service_id' element={<UpdateServicePage />} />
-            <Route path='/reorder-service' element={<ReorderServicePage />} />
-            <Route path='/view-sales-history/:service_id' element={<ViewSalesHistoryPage />} />
-            <Route path='/manage-service-category' element={<ManageServiceCategoryPage />} />
-
+              <Route path='/manage-service' element={<ManageServicePage />} />
+              <Route path='/create-service' element={<CreateServicePage />} />
+              <Route path='/update-service/:service_id' element={<UpdateServicePage />} />
+              <Route path='/reorder-service' element={<ReorderServicePage />} />
+              <Route path='/view-sales-history/:service_id' element={<ViewSalesHistoryPage />} />
+              <Route path='/manage-service-category' element={<ManageServiceCategoryPage />} />
             </Route>
             <Route path='/login' element={<LoginPage />} />
 

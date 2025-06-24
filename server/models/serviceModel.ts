@@ -169,6 +169,8 @@ const getEnabledServiceById = async (id: number) => {
             s.service_is_enabled,
             s.created_at,
             s.updated_at,
+            s.created_at,
+            s.updated_at,
             s.service_category_id,
             s.service_sequence_no,
             s.created_by,
@@ -190,6 +192,7 @@ const getEnabledServiceById = async (id: number) => {
         WHERE s.id = $1 AND s.service_is_enabled = true;
           
     `;
+    const result = await pool().query(query, [id]); // Added id parameter to query
     const result = await pool().query(query, [id]); // Added id parameter to query
     return result.rows;
   } catch (error) {

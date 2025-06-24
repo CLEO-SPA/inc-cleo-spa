@@ -210,12 +210,3 @@ export interface MemberDetailsData {
   address: string;
   nric: string;
 }
-
-export interface Positions {
-  id?: string;
-  position_name: string;
-  position_description: string;
-  position_is_active: boolean;
-  position_created_at: string;
-  position_updated_at: string;
-}
