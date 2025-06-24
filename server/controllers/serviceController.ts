@@ -331,6 +331,14 @@ const reorderService = async (req: Request, res: Response, next: NextFunction) =
   try {
     const services = req.body;
 
+    if (!Array.isArray(services) || !services.every(service =>
+      typeof service === 'object' &&
+      validator.isInt(service.id) &&
+      validator.isInt(service.service_sequence_no.toString()))) {
+      res.status(400).json({ message: 'Invalid Data' });
+      return;
+    }
+
     const updatedSequence = await serviceModel.reorderServices(services);
 
     if (updatedSequence.success) {

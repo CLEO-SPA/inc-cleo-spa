@@ -368,7 +368,7 @@ const updateService = async ({
   }
 };
 
-const reorderServices = async (services: [{ id: number; service_sequence_no: number }]) => {
+const reorderServices = async (services: { id: number; service_sequence_no: number }[]) => {
   try {
     const query = `
     UPDATE services
