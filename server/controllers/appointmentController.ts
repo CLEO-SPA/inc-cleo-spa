@@ -627,15 +627,15 @@ const updateAppointment = async (
 
     // Start must be < end
     if (startTime >= endTime) {
-      return res.status(400).json({ message: 'Start time must be earlier than end time' });
+      return res.status(400).json({ message: 'start_time must be earlier than end_time' });
     }
     // Start between 10:00 (10) and 18:30 (18.5)
     if (startHour < 10 || startHour > 18.5) {
-      return res.status(400).json({ message: 'Start time must be between 10:00 and 18:30' });
+      return res.status(400).json({ message: 'start_time must be between 10:00 and 18:30' });
     }
     // End between 10:30 (10.5) and 21:00 (21)
     if (endHour < 10.5 || endHour > 21) {
-      return res.status(400).json({ message: 'End time must be between 10:30 and 21:00' });
+      return res.status(400).json({ message: 'end_time must be between 10:30 and 21:00' });
     }
 
     const normAppointment = {
