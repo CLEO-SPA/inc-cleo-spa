@@ -183,8 +183,8 @@ export interface Positions {
   position_name: string;
   position_description: string;
   position_is_active: boolean;
-  position_created_at: string;
-  position_updated_at: string;
+  created_at: string;
+  updated_at: string;
 }
 
 export interface DataToExportList<L> {
