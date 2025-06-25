@@ -329,6 +329,28 @@ interface servicePayload {
   discount: number;
 }
 
+const checkPackageNameExists = async (packageName: string, excludeId?: string): Promise<boolean> => {
+  const client = await pool().connect();
+  try {
+    let query = 'SELECT id FROM care_packages WHERE LOWER(TRIM(care_package_name)) = LOWER(TRIM($1))';
+    const params: any[] = [packageName];
+
+    // if we're editing an existing package, exclude it from the check
+    if (excludeId) {
+      query += ' AND id != $2';
+      params.push(excludeId);
+    }
+
+    const result = await client.query(query, params);
+    return (result.rowCount ?? 0) > 0;   
+  } catch (error) {
+    console.error('Error checking package name existence:', error);
+    throw new Error('Failed to check package name uniqueness');
+  } finally {
+    client.release();
+  }
+};
+
 const createCarePackage = async (
   package_name: string,
   package_remarks: string,
@@ -894,4 +916,5 @@ export default {
   updateCarePackageStatusById,
   deleteCarePackageById,
   emulateCarePackage,
+  checkPackageNameExists,
 };

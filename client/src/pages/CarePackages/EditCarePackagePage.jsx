@@ -1,6 +1,6 @@
 import React, { useState, useEffect, useCallback } from 'react';
 import { useParams } from 'react-router-dom';
-import { Save, X, Package, DollarSign, ArrowLeft, Loader, User, AlertCircle } from 'lucide-react';
+import { Save, X, Package, DollarSign, ArrowLeft, Loader, User, AlertCircle, Lock } from 'lucide-react';
 import { AppSidebar } from '@/components/app-sidebar';
 import { SiteHeader } from '@/components/site-header';
 import { SidebarInset, SidebarProvider } from '@/components/ui/sidebar';
@@ -646,15 +646,25 @@ const EditCarePackagePage = () => {
                 {/* package details */}
                 <div className='grid grid-cols-1 md:grid-cols-4 gap-4'>
                   <div className='md:col-span-2'>
-                    <label className='block text-xs font-medium text-gray-600 mb-1'>PACKAGE NAME *</label>
-                    <Input
-                      type='text'
-                      value={mainFormData.package_name || ''}
-                      onChange={(e) => updateMainField('package_name', e.target.value)}
-                      className='w-full px-2 py-1 border border-gray-200 rounded text-sm focus:outline-none focus:ring-2 focus:ring-gray-500 focus:border-transparent'
-                      placeholder='Enter package name'
-                      required
-                    />
+                    <label className='block text-xs font-medium text-gray-600 mb-1 flex items-center'>
+                      <Lock className='w-3 h-3 mr-1' />
+                      PACKAGE NAME (read-only)
+                    </label>
+                    <div className='relative'>
+                      <Input
+                        type='text'
+                        value={mainFormData.package_name || ''}
+                        onChange={(e) => {
+                          e.preventDefault();
+                          return false;
+                        }}
+                        className='w-full px-2 py-1 border border-gray-200 rounded text-sm bg-gray-50 text-gray-900 cursor-not-allowed'
+                        placeholder='Package name'
+                        readOnly
+                        disabled
+                      />
+                    </div>
+                    <p className='text-xs text-gray-500 mt-1'>Package names cannot be changed after creation</p>
                   </div>
 
                   <div>
