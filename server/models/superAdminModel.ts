@@ -328,12 +328,8 @@ async function performDbInserts(tablesToTruncate: string[], orderedTables: strin
         const sequenceName = sequenceNameResult.rows[0]?.sequence_name;
 
         if (sequenceName) {
-          const maxIdResult = await client.query(`SELECT COALESCE(MAX("id"), 0) AS max_id FROM "${tableName}";`);
-          const maxId = maxIdResult.rows[0].max_id;
-          await client.query(`SELECT pg_catalog.setval('${sequenceName}', ${maxId}, false);`);
-          console.log(
-            `   Updated sequence "${sequenceName}" for "${tableName}" to ${maxId}. Next ID will be ${maxId + 1}.`
-          );
+          await client.query(`SELECT setval('${sequenceName}', (SELECT MAX(id) FROM ${tableName});`);
+          console.log(`   Updated sequence "${sequenceName}" for "${tableName}".`);
         } else {
           console.warn(`   Could not find sequence for table "${tableName}" on column "id". Skipping sequence update.`);
         }
