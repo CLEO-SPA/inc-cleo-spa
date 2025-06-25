@@ -232,18 +232,43 @@ const getTransactionDateRange = async (req: Request, res: Response) => {
   }
 };
 
+
 const getMVDeferredRevenue = async (req: Request, res: Response) => {
   try {
     const now = new Date();
     const year = parseInt(req.query.year as string, 10) || now.getFullYear();
     const month = parseInt(req.query.month as string, 10) || now.getMonth() + 1;
 
-    const data = await model.getMVDeferredRevenue();
+    const targetMonth = `${year}-${String(month).padStart(2, '0')}`;
 
-    res.json({ success: true, data: data.result.rows });
+    const data = await model.getMVDeferredRevenue();
+    const rows = data.result.rows;
+
+    // Get the exact month's row, or fallback to default values
+    const targetRow =
+      rows.find(row => row.transaction_month === targetMonth) ?? {
+        transaction_month: targetMonth,
+        income: "0.00",
+        net_sale: "0.00",
+        refund: "0.00",
+        deferred_amount: "0.00",
+      };
+
+    // Calculate cumulative deferred_amount for all months BEFORE the target month
+    const prevDeferredAmount = rows
+      .filter(row => row.transaction_month < targetMonth)
+      .reduce((sum, row) => sum + parseFloat(row.deferred_amount), 0);
+
+    const result = {
+      ...targetRow,
+      previous_total_deferred_amount: prevDeferredAmount.toFixed(2),
+    };
+
+    res.json({ success: true, data: result });
+
   } catch (error) {
     console.error(error);
-    res.status(500).json({ success: false, message: 'Failed to fetch AdHoc report' });
+    res.status(500).json({ success: false, message: 'Failed to fetch deferred MV' });
   }
 };
 
@@ -253,12 +278,36 @@ const getMCPDeferredRevenue = async (req: Request, res: Response) => {
     const year = parseInt(req.query.year as string, 10) || now.getFullYear();
     const month = parseInt(req.query.month as string, 10) || now.getMonth() + 1;
 
-    const data = await model.getMCPDeferredRevenue();
+    const targetMonth = `${year}-${String(month).padStart(2, '0')}`;
 
-    res.json({ success: true, data: data.result.rows });
+    const data = await model.getMCPDeferredRevenue();
+    const rows = data.result.rows;
+
+    // Get the exact month's row, or fallback to default values
+    const targetRow =
+      rows.find(row => row.transaction_month === targetMonth) ?? {
+        transaction_month: targetMonth,
+        income: "0.00",
+        net_sale: "0.00",
+        refund: "0.00",
+        deferred_amount: "0.00",
+      };
+
+    // Calculate cumulative deferred_amount for all months BEFORE the target month
+    const prevDeferredAmount = rows
+      .filter(row => row.transaction_month < targetMonth)
+      .reduce((sum, row) => sum + parseFloat(row.deferred_amount), 0);
+
+    const result = {
+      ...targetRow,
+      previous_total_deferred_amount: prevDeferredAmount.toFixed(2),
+    };
+
+    res.json({ success: true, data: result });
+
   } catch (error) {
     console.error(error);
-    res.status(500).json({ success: false, message: 'Failed to fetch AdHoc report' });
+    res.status(500).json({ success: false, message: 'Failed to fetch deferred MCP' });
   }
 };
 

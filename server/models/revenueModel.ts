@@ -190,7 +190,8 @@ SELECT
     COALESCE(i.transaction_month, n.transaction_month, r.transaction_month) AS transaction_month,
     COALESCE(i.income, 0.00)::NUMERIC(10,2) AS income,
     COALESCE(n.net_sale, 0.00)::NUMERIC(10,2) AS net_sale,
-    COALESCE(r.refund, 0.00)::NUMERIC(10,2) AS refund
+    COALESCE(r.refund, 0.00)::NUMERIC(10,2) AS refund,
+    (COALESCE(i.income, 0.00) - COALESCE(n.net_sale, 0.00) - COALESCE(r.refund, 0.00))::NUMERIC(10,2) AS deferred_amount
 FROM 
     income_data i
 FULL OUTER JOIN net_sales n 
@@ -213,10 +214,10 @@ const getMCPDeferredRevenue = async () => {
   const client = await pool().connect();
   try {
     const result = await client.query(`
-      WITH mcp_revenue AS (
+WITH mcp_net_sales AS (
     SELECT 
         TO_CHAR((mcptl.created_at AT TIME ZONE 'Asia/Singapore'), 'YYYY-MM') AS transaction_month,
-        SUM(ABS(mcptl.amount_changed))::NUMERIC(10,2) AS revenue
+        SUM(ABS(mcptl.amount_changed))::NUMERIC(10,2) AS net_sale
     FROM 
         member_care_package_transaction_logs mcptl
     WHERE 
@@ -258,16 +259,18 @@ mcp_refund AS (
 )
 
 SELECT 
-    COALESCE(r.transaction_month, i.transaction_month, f.transaction_month) AS transaction_month,
+    COALESCE(n.transaction_month, i.transaction_month, f.transaction_month) AS transaction_month,
     COALESCE(i.income, 0.00)::NUMERIC(10,2) AS income,
-    COALESCE(r.revenue, 0.00)::NUMERIC(10,2) AS revenue,
-    COALESCE(f.refund, 0.00)::NUMERIC(10,2) AS refund
+    COALESCE(n.net_sale, 0.00)::NUMERIC(10,2) AS net_sale,
+    COALESCE(f.refund, 0.00)::NUMERIC(10,2) AS refund,
+    (COALESCE(i.income, 0.00) - COALESCE(n.net_sale, 0.00) - COALESCE(f.refund, 0.00))::NUMERIC(10,2) AS deferred_amount
 FROM 
-    mcp_revenue r
-FULL OUTER JOIN mcp_income i ON r.transaction_month = i.transaction_month
-FULL OUTER JOIN mcp_refund f ON COALESCE(r.transaction_month, i.transaction_month) = f.transaction_month
+    mcp_net_sales n
+FULL OUTER JOIN mcp_income i ON n.transaction_month = i.transaction_month
+FULL OUTER JOIN mcp_refund f ON COALESCE(n.transaction_month, i.transaction_month) = f.transaction_month
 ORDER BY 
     transaction_month;
+
       `);
 
     return {
