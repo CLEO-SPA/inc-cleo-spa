@@ -20,9 +20,9 @@ import EditMemberPage from './pages/member/EditMemberPage';
 // Voucher Template
 import CreateVoucherTemplatesPage from './pages/voucher-template/CreateVoucherTemplatePage';
 import ManageVoucherTemplatesPage from './pages/voucher-template/ManageVoucherTemplatesPage';
-import EditVouhcerTemplatePage from './pages/voucher-template/EditVoucherTemplatePage';
+import EditVoucherTemplatePage from './pages/voucher-template/EditVoucherTemplatePage';
+import ViewVoucherTemplatePage from './pages/voucher-template/ViewVoucherTemplatePage';
 // Service Management
-import ManageServicePage from '@/pages/ManageServicePage';
 import MockSalesTransactionPage from './pages/sale-transaction/mockSaleTransactionPage';
 import ManageVouchersPage from './pages/MemberVoucher/ManageVoucherPage';
 import DatabaseReportPage from '@/pages/DatabaseReportPage';
@@ -37,6 +37,7 @@ import EditPaymentMethodPage from './pages/payment-method/EditPaymentMethodPage'
 import TestPMComponent from './pages/sale-transaction/AddPMMComponentTest';
 
 
+
 function App() {
   return (
     <AuthProvider>
@@ -46,6 +47,7 @@ function App() {
           <Routes>
             <Route path='/' element={<ProtectedRoute />}>
               <Route index element={<HomePage />} />
+
 
               {/* care packages */}
               <Route path='/mcp' element={<ManageCarePackagesPage />} />
@@ -57,7 +59,8 @@ function App() {
               {/* Voucher Template */}
               <Route path='/voucher-template/create' element={<CreateVoucherTemplatesPage />} />
               <Route path='/voucher-template' element={<ManageVoucherTemplatesPage />} />
-              <Route path='/voucher-template/edit/:id' element={<EditVouhcerTemplatePage />} />
+              <Route path='/voucher-template/edit/:id' element={<EditVoucherTemplatePage />} />
+              <Route path='/voucher-template/:id' element={<ViewVoucherTemplatePage />} />
               <Route path='/cart-test' element={<MockSalesTransactionPage />} />
 
               <Route path='/mcp/:packageId/consume' element={<CreateConsumptionPage />} />
@@ -84,6 +87,7 @@ function App() {
               <Route path='/payment-method/create' element={<CreatePaymentMethodPage />} />   
               <Route path="/payment-method/edit/:id" element={<EditPaymentMethodPage />} />
               <Route path="/payment-method/test" element={<TestPMComponent />} />
+
             </Route>
             <Route path='/login' element={<LoginPage />} />
 
