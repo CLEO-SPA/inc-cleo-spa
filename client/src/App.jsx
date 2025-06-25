@@ -22,7 +22,6 @@ import ViewCarePackageDetailsPage from '@/pages/CarePackages/ViewCarePackageDeta
 import CreateCarePackageFormPage from '@/pages/CarePackages/CreateCarePackageFormPage';
 import EditCarePackagePage from './pages/CarePackages/EditCarePackagePage';
 
-
 // import CreateMemberCarePackageFormPage from '@/pages/CarePackages/CreateMemberCarePackageFormPage';
 // Voucher Template
 import CreateVoucherTemplatesPage from './pages/voucher-template/CreateVoucherTemplatePage';
@@ -45,16 +44,14 @@ import CreateConsumptionPage from '@/pages/CarePackages/CreateConsumptionPage';
 import CreateMemberVoucherConsumptionPage from '@/pages/MemberVoucher/CreateConsumptionPage';
 // Data Export
 import DataExportPage from './pages/miscellaneous/DateExportPage';
-import CreateMembersPage from './pages/member/CreateMemberPage';
 import ManagePaymentMethodsPage from './pages/payment-method/ManagePaymentMethodsPage';
 import CreatePaymentMethodPage from './pages/payment-method/CreatePaymentMethodPage';
 import EditPaymentMethodPage from './pages/payment-method/EditPaymentMethodPage';
 import TestPMComponent from './pages/sale-transaction/AddPMMComponentTest';
 
-
-
 // Employees
 import ManagePositions from '@/pages/em/ManagePositions';
+
 function App() {
   return (
     <AuthProvider>
@@ -101,7 +98,6 @@ function App() {
               {/* data-export */}
               <Route path='/data-export' element={<DataExportPage />} />
 
-
               {/* statistics */}
               <Route path='/dbcr' element={<DatabaseReportPage />} />
 
@@ -112,21 +108,18 @@ function App() {
               <Route path='/reorder-service' element={<ReorderServicePage />} />
               <Route path='/view-sales-history/:service_id' element={<ViewSalesHistoryPage />} />
               <Route path='/manage-service-category' element={<ManageServiceCategoryPage />} />
-                
-              {/* Payment Methods Management */}
-              <Route path='/payment-method' element={<ManagePaymentMethodsPage/>} /> 
-              <Route path='/payment-method/create' element={<CreatePaymentMethodPage />} />   
-              <Route path="/payment-method/edit/:id" element={<EditPaymentMethodPage />} />
-              <Route path="/payment-method/test" element={<TestPMComponent />} />
 
+              {/* Payment Methods Management */}
+              <Route path='/payment-method' element={<ManagePaymentMethodsPage />} />
+              <Route path='/payment-method/create' element={<CreatePaymentMethodPage />} />
+              <Route path='/payment-method/edit/:id' element={<EditPaymentMethodPage />} />
+              <Route path='/payment-method/test' element={<TestPMComponent />} />
             </Route>
             <Route path='/login' element={<LoginPage />} />
 
             {/* Invitation & Reset Password */}
             <Route path='/invites' element={<ResetPasswordPage />} />
             <Route path='/reset-password' element={<ResetPasswordPage />} />
-
-
 
             {/* 404 Page */}
             <Route path='*' element={<NotFoundPage />} />
