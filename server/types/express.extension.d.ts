@@ -7,14 +7,9 @@ declare module 'express-session' {
     username?: string;
     email?: string;
     role?: string;
-<<<<<<< Updated upstream
     start_date_utc?: string | null;
     end_date_utc?: string | null;
     end_date_is_default?: boolean | null;
-=======
-    start_date_utc: string | null;
-    end_date_utc: string;
->>>>>>> Stashed changes
     is_simulation?: boolean | null;
   }
 }

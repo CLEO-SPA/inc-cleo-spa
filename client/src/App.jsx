@@ -20,9 +20,9 @@ import EditMemberPage from './pages/member/EditMemberPage';
 // Voucher Template
 import CreateVoucherTemplatesPage from './pages/voucher-template/CreateVoucherTemplatePage';
 import ManageVoucherTemplatesPage from './pages/voucher-template/ManageVoucherTemplatesPage';
-import EditVouhcerTemplatePage from './pages/voucher-template/EditVoucherTemplatePage';
+import EditVoucherTemplatePage from './pages/voucher-template/EditVoucherTemplatePage';
+import ViewVoucherTemplatePage from './pages/voucher-template/ViewVoucherTemplatePage';
 // Service Management
-import ManageServicePage from '@/pages/ManageServicePage';
 import MockSalesTransactionPage from './pages/sale-transaction/mockSaleTransactionPage';
 import ManageVouchersPage from './pages/MemberVoucher/ManageVoucherPage';
 import DatabaseReportPage from '@/pages/DatabaseReportPage';
@@ -30,6 +30,7 @@ import CreateConsumptionPage from '@/pages/CarePackages/CreateConsumptionPage';
 import CreateMemberVoucherConsumptionPage from '@/pages/MemberVoucher/CreateConsumptionPage';
 // Data Export
 import DataExportPage from './pages/miscellaneous/DateExportPage';
+
 
 function App() {
   return (
@@ -41,6 +42,7 @@ function App() {
             <Route path='/' element={<ProtectedRoute />}>
               <Route index element={<HomePage />} />
 
+
               {/* care packages */}
               <Route path='/mcp' element={<ManageCarePackagesPage />} />
               {/* Member Management */}
@@ -51,7 +53,8 @@ function App() {
               {/* Voucher Template */}
               <Route path='/voucher-template/create' element={<CreateVoucherTemplatesPage />} />
               <Route path='/voucher-template' element={<ManageVoucherTemplatesPage />} />
-              <Route path='/voucher-template/edit/:id' element={<EditVouhcerTemplatePage />} />
+              <Route path='/voucher-template/edit/:id' element={<EditVoucherTemplatePage />} />
+              <Route path='/voucher-template/:id' element={<ViewVoucherTemplatePage />} />
               <Route path='/cart-test' element={<MockSalesTransactionPage />} />
 
               <Route path='/mcp/:packageId/consume' element={<CreateConsumptionPage />} />
@@ -70,8 +73,6 @@ function App() {
               {/* statistics */}
               <Route path='/dbcr' element={<DatabaseReportPage />} />
 
-              {/* Service Management */}
-              <Route path='/manage-service' element={<ManageServicePage />} />
             </Route>
             <Route path='/login' element={<LoginPage />} />
 
