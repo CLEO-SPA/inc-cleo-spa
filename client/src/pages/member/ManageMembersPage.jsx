@@ -19,6 +19,18 @@ import {
   DropdownMenuSeparator,
 } from '@/components/ui/dropdown-menu';
 import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+} from '@/components/ui/dialog';
+import {
+  Alert,
+  AlertDescription,
+} from '@/components/ui/alert';
+import {
   MoreHorizontal,
   Eye,
   Edit,
@@ -27,6 +39,8 @@ import {
   ChevronRight,
   ChevronsLeft,
   ChevronsRight,
+  AlertTriangle,
+  X,
 } from 'lucide-react';
 import useMemberStore from '@/stores/useMemberStore';
 import { Card, CardContent, CardHeader, CardTitle, CardFooter } from '@/components/ui/card';
@@ -63,8 +77,8 @@ function ManageMembersPage() {
     setDateRange,
     setCreatedBy,
     setSearchTerm,
+    clearError, // Add this if it exists in your store
   } = useMemberStore();
-
 
   // Local state for form inputs only
   const [inputSearchTerm, setInputSearchTerm] = useState('');
@@ -76,6 +90,13 @@ function ManageMembersPage() {
 
   const [targetPageInput, setTargetPageInput] = useState('');
 
+  // Delete dialog state
+  const [deleteDialogOpen, setDeleteDialogOpen] = useState(false);
+  const [memberToDelete, setMemberToDelete] = useState(null);
+
+  // Delete error state
+  const [deleteError, setDeleteError] = useState(null);
+
   // Initialize search input with store value
   useEffect(() => {
     setInputSearchTerm(searchTerm || '');
@@ -85,7 +106,6 @@ function ManageMembersPage() {
       to: endDate_utc ? new Date(endDate_utc) : undefined
     });
   }, [searchTerm, createdBy, startDate_utc, endDate_utc]);
-
 
   // Fetch members on component mount
   useEffect(() => {
@@ -164,18 +184,52 @@ function ManageMembersPage() {
     navigate(`/member/edit/${id}`); // Adjust route as needed
   };
 
-
   const handleCreate = () => {
     navigate('/member/create'); // Adjust route as needed
   };
 
-  const handleDelete = async (id) => {
-    if (window.confirm('Are you sure you want to delete this member?')) {
-      const result = await deleteMember(id);
-      if (result.success) {
-        alert('Member deleted successfully.');
-      } else {
-        alert(`Failed to delete member: ${result.error}`);
+  const handleDeleteClick = (member) => {
+    setMemberToDelete(member);
+    setDeleteDialogOpen(true);
+  };
+
+  const handleDeleteConfirm = async () => {
+    if (!memberToDelete) return;
+
+    const result = await deleteMember(memberToDelete.id);
+    setDeleteDialogOpen(false);
+    setMemberToDelete(null);
+
+    if (result.success) {
+      // Clear any previous delete errors on success
+      setDeleteError(null);
+      // You might want to show a success toast here instead of alert
+      alert('Member deleted successfully.');
+    } else {
+      // Set the delete error to be displayed in the alert
+      setDeleteError(result.error || 'Failed to delete member');
+    }
+  };
+
+  const handleDeleteCancel = () => {
+    setDeleteDialogOpen(false);
+    setMemberToDelete(null);
+  };
+
+  const dismissDeleteError = () => {
+    setDeleteError(null);
+    // Clear the store's error state as well
+    if (clearError) {
+      clearError();
+    } else {
+      // If clearError doesn't exist in your store, you'll need to access the store directly
+      // This is a workaround - you should add a clearError function to your store
+      const storeState = useMemberStore.getState();
+      if (storeState && typeof storeState === 'object') {
+        useMemberStore.setState({
+          error: false,
+          errorMessage: null,
+        });
       }
     }
   };
@@ -206,7 +260,8 @@ function ManageMembersPage() {
     return <div className='flex justify-center items-center h-screen'>Loading members...</div>;
   }
 
-  if (error) {
+  // Check if this is specifically a loading error (not a delete error)
+  if (error && !deleteError && !errorMessage?.includes('Cannot delete member')) {
     return (
       <div className='text-red-500 text-center mt-10'>
         Error loading members: {errorMessage || 'Unknown error'}
@@ -240,6 +295,24 @@ function ManageMembersPage() {
                   )}
                 </CardHeader>
                 <CardContent className='space-y-4'>
+                  {/* Delete Error Alert */}
+                  {(deleteError || (error && errorMessage?.includes('Cannot delete member'))) && (
+                    <Alert variant="destructive" className="mb-4">
+                      <AlertTriangle className="h-4 w-4" />
+                      <AlertDescription className="flex items-center justify-between">
+                        <span>{deleteError || errorMessage}</span>
+                        <Button
+                          variant="ghost"
+                          size="sm"
+                          onClick={dismissDeleteError}
+                          className="h-auto p-1 hover:bg-transparent"
+                        >
+                          <X className="h-4 w-4" />
+                        </Button>
+                      </AlertDescription>
+                    </Alert>
+                  )}
+
                   {/* Search and Limit Controls */}
                   <div className='flex flex-col sm:flex-row gap-4 items-end'>
 
@@ -271,7 +344,6 @@ function ManageMembersPage() {
                             onValueChange={setCreatedDateRange}
                           />
                         </div>
-
 
                         <Button type='submit'
                           className='w-25'
@@ -371,7 +443,7 @@ function ManageMembersPage() {
                                             <>
                                               <DropdownMenuSeparator />
                                               <DropdownMenuItem
-                                                onClick={() => handleDelete(member.id)}
+                                                onClick={() => handleDeleteClick(member)}
                                                 className='text-destructive focus:text-destructive focus:bg-destructive/10'
                                                 disabled={isDeleting}
                                               >
@@ -513,6 +585,40 @@ function ManageMembersPage() {
           </SidebarInset>
         </div>
       </SidebarProvider>
+
+      {/* Delete Confirmation Dialog */}
+      <Dialog open={deleteDialogOpen} onOpenChange={setDeleteDialogOpen}>
+        <DialogContent className="sm:max-w-md">
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2 text-red-600">
+              <AlertTriangle className="w-5 h-5" />
+              Confirm Deletion
+            </DialogTitle>
+          </DialogHeader>
+          <div className="py-4">
+            <p className="text-sm text-gray-700 dark:text-gray-300 mb-4">
+              Are you sure you want to delete <strong>{memberToDelete?.name}</strong>? This action cannot be undone.
+            </p>
+            <div className="bg-red-50 dark:bg-red-900/20 border border-red-200 dark:border-red-800 rounded-lg p-3 mb-4">
+              <p className="text-sm text-red-800 dark:text-red-400">
+                <strong>Warning:</strong> Deleting this member will permanently remove all their member data
+              </p>
+            </div>
+          </div>
+          <DialogFooter className="flex gap-2">
+            <Button variant="outline" onClick={handleDeleteCancel} className="flex-1" disabled={isDeleting}>
+              Cancel
+            </Button>
+            <Button
+              onClick={handleDeleteConfirm}
+              className="flex-1 bg-red-600 hover:bg-red-700 text-white"
+              disabled={isDeleting}
+            >
+              {isDeleting ? 'Deleting...' : 'Delete'}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }

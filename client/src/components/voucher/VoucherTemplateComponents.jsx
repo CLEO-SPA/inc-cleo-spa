@@ -12,6 +12,7 @@ import {
     DialogFooter,
 } from '@/components/ui/dialog';
 // ServiceRow Component
+
 export const ServiceRow = ({
     service,
     index,
@@ -21,6 +22,21 @@ export const ServiceRow = ({
     onRemove
 }) => {
     const isEditing = editingIndex === index;
+
+    // Helper function to check if a value is a valid number
+    const isValidNumber = (value) => {
+        return value !== null && value !== undefined && value !== '' && !isNaN(Number(value));
+    };
+
+    // Helper function to format currency
+    const formatCurrency = (value) => {
+        return isValidNumber(value) ? `$${Number(value).toFixed(2)}` : 'N/A';
+    };
+
+    // Helper function to format number
+    const formatNumber = (value) => {
+        return isValidNumber(value) ? Number(value).toFixed(2) : 'N/A';
+    };
 
     return (
         <tr className="border-b border-gray-200 hover:bg-gray-50">
@@ -38,9 +54,7 @@ export const ServiceRow = ({
                 )}
             </td>
             <td className="px-4 py-3">
-                {typeof service.original_price === 'number'
-                    ? `$${service.original_price.toFixed(2)}`
-                    : 'N/A'}
+                {formatCurrency(service.original_price)}
             </td>
             <td className="px-4 py-3">
                 {isEditing ? (
@@ -54,9 +68,7 @@ export const ServiceRow = ({
                         className="w-24"
                     />
                 ) : (
-                    typeof service.custom_price === 'number'
-                        ? `$${service.custom_price.toFixed(2)}`
-                        : 'N/A'
+                    formatCurrency(service.custom_price)
                 )}
             </td>
 
@@ -70,15 +82,11 @@ export const ServiceRow = ({
                         className="w-20"
                     />
                 ) : (
-                     typeof service.discount === 'number'
-                        ? `$${service.discount.toFixed(2)}`
-                        : 'N/A'
+                    formatNumber(service.discount)
                 )}
             </td>
             <td className="px-4 py-3">
-                {typeof service.final_price === 'number'
-                    ? `$${service.final_price.toFixed(2)}`
-                    : 'N/A'}
+                {formatCurrency(service.final_price)}
             </td>
             <td className="px-4 py-3">
                 {isEditing ? (
@@ -94,7 +102,7 @@ export const ServiceRow = ({
                         <span className="text-sm text-gray-500">min</span>
                     </div>
                 ) : (
-                    `${service.duration} min`
+                    isValidNumber(service.duration) ? `${service.duration} min` : 'N/A'
                 )}
             </td>
             <td className="px-4 py-3">
@@ -389,7 +397,9 @@ export const SuccessDialog = ({
     onClose,
     onGoToTemplates,
     createdTemplate,
-    mainFormData
+    mainFormData,
+    isUpdate = false, // default to false
+
 }) => {
 
     const formatMoney = (val) => {
@@ -407,13 +417,15 @@ export const SuccessDialog = ({
                                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
                             </svg>
                         </div>
-                        Voucher Template Created Successfully!
+                        {isUpdate ? 'Voucher Template Updated Successfully!' : 'Voucher Template Created Successfully!'}
                     </DialogTitle>
+
                 </DialogHeader>
                 <div className="py-4">
                     <p className="text-sm text-gray-600 mb-4">
-                        The voucher template "{createdTemplate?.template.voucher_template_name}" has been created successfully.
+                        The voucher template "{createdTemplate?.template.voucher_template_name}" has been {isUpdate ? 'updated' : 'created'} successfully.
                     </p>
+
                     <div className="bg-gray-50 rounded-lg p-3 space-y-2">
                         <div className="flex justify-between text-sm">
                             <span className="text-gray-600">Template Name:</span>
