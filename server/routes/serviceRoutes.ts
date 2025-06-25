@@ -4,7 +4,7 @@ import serviceController from '../controllers/serviceController.js';
 const router = express.Router();
 
 // Get all services
-router.get('/',serviceController.getAllServices);
+router.get('/', serviceController.getAllServices);
 
 // Get services with pagination and filter
 router.get('/all-page-filter', serviceController.getServicesPaginationFilter);
@@ -18,6 +18,7 @@ router.get('/enabled-id/:id', serviceController.getEnabledServiceById);
 // TODO: add service prices for dropdown
 // for service dropdown
 router.get('/dropdown', serviceController.getAllServicesForDropdown);
+
 
 // SERVICE CATEGORIES ROUTES
 //  get all service categories

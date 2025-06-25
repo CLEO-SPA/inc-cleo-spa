@@ -112,11 +112,11 @@ const data = {
       items: [
         {
           title: 'Create Care Package',
-          url: '#',
+          url: '/cp/c',
         },
         {
           title: 'Manage Care Packages',
-          url: '/mcp',
+          url: '/cp',
         },
       ],
     },
