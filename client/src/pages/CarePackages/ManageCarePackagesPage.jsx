@@ -166,10 +166,18 @@ function ManageCarePackagesPage() {
       const newStatus = getStatusIdForToggle(newEnabledState);
       await updatePackageStatus(packageId, newStatus);
 
-      initializePagination(currentLimit, searchTerm);
+      // refresh both the care packages list AND the purchase count data
+      await Promise.all([initializePagination(currentLimit, searchTerm), fetchPurchaseCount()]);
     } catch (err) {
       console.error('Failed to update package status:', err);
       alert(`Failed to ${newEnabledState ? 'enable' : 'disable'} package: ${err.message}`);
+
+      // even if status update fails, try to refresh data to show current state
+      try {
+        await Promise.all([initializePagination(currentLimit, searchTerm), fetchPurchaseCount()]);
+      } catch (refreshErr) {
+        console.error('Failed to refresh data after error:', refreshErr);
+      }
     } finally {
       setUpdatingPackages((prev) => {
         const newSet = new Set(prev);
@@ -522,14 +530,24 @@ function ManageCarePackagesPage() {
                                       <TableCell key={header.key}>
                                         {isPurchaseCountLoading ? (
                                           <span className='text-muted-foreground'>Loading...</span>
+                                        ) : purchaseCountError ? (
+                                          <div className='flex items-center gap-2'>
+                                            <span className='text-red-500 text-xs'>Error</span>
+                                            <AlertTriangle
+                                              className='h-3 w-3 text-red-500'
+                                              title={`Failed to load purchase count: ${purchaseCountError}`}
+                                            />
+                                          </div>
                                         ) : (
                                           <div className='flex items-center gap-2'>
                                             <span>{purchaseData.purchase_count}</span>
                                             {purchaseData.purchase_count > 0 && (
-                                              <AlertTriangle
-                                                className='h-3 w-3 text-amber-500'
-                                                title='Has purchases - deletion restricted'
-                                              />
+                                              <div className='group relative'>
+                                                <AlertTriangle className='h-3 w-3 text-amber-500' />
+                                                <div className='absolute bottom-full left-1/2 transform -translate-x-1/2 mb-2 px-2 py-1 text-xs text-white bg-gray-800 rounded opacity-0 group-hover:opacity-100 transition-opacity whitespace-nowrap z-10'>
+                                                  Cannot delete - package has existing purchases
+                                                </div>
+                                              </div>
                                             )}
                                           </div>
                                         )}
