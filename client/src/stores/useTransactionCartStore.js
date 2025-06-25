@@ -40,16 +40,19 @@ const useTransactionCartStore = create(
       removeCartItem: (id) => {
         const itemToRemove = get().cartItems.find((item) => item.id === id);
 
-        if (itemToRemove && itemToRemove.type === 'package') {
-          useMcpFormStore.getState().removeMcpFromCreationQueue(id);
+        if (itemToRemove) {
+          if (itemToRemove.type === 'package') {
+            useMcpFormStore.getState().removeMcpFromCreationQueue(id);
+          }
+          if (itemToRemove.type === 'transfer') {
+            useMcpFormStore.getState().removeMcpFromTransferQueue(id);
+          }
         }
 
         set((state) => ({
           cartItems: state.cartItems.filter((item) => item.id !== id),
         }));
       },
-
-      setCurrentStep: (step) => set({ currentStep: step }),
 
       // Calculate totals
       getCartTotal: () => {
@@ -64,6 +67,8 @@ const useTransactionCartStore = create(
               return total + (item.data.price || 0);
             case 'package':
               return total + (item.data.price || 0);
+            case 'transfer':
+              return total;
             default:
               return total;
           }

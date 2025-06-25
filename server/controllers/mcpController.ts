@@ -68,6 +68,24 @@ const getAllMemberCarePackages = async (req: Request, res: Response, next: NextF
   }
 };
 
+const getMemberCarePackagesForDropdown = async (req: Request, res: Response, next: NextFunction): Promise<void> => {
+  try {
+    const memberId = req.params.memberId;
+
+    if (!memberId) {
+      res.status(400).json({ message: 'Missing or invalid memberId' });
+      return;
+    }
+
+    const results = await model.getMemberCarePackagesForDropdown(memberId);
+
+    res.status(200).json(results);
+  } catch (error) {
+    console.error('Error in mcpController.getMemberCarePackageForDropDown', error);
+    next(error);
+  }
+};
+
 const getMemberCarePackageById = async (req: Request, res: Response, next: NextFunction): Promise<void> => {
   try {
     const id = req.params.id;
@@ -96,7 +114,8 @@ const createMemberCarePackage = async (req: Request, res: Response, next: NextFu
     }
 
     const creationPromises = packages.map((pkg) => {
-      const { package_name, member_id, employee_id, package_remarks, package_price, services } = pkg;
+      const { package_name, member_id, employee_id, package_remarks, package_price, services, created_at, updated_at } =
+        pkg;
 
       if (!package_name || !member_id || !employee_id || package_price === undefined || !Array.isArray(services)) {
         throw new Error(`Invalid data for package "${package_name || 'Unnamed'}". Missing required fields.`);
@@ -105,7 +124,7 @@ const createMemberCarePackage = async (req: Request, res: Response, next: NextFu
       const isValidService = services.every(
         (s: { id: string; name: string; quantity: number; price: number; finalPrice: number; discount: number }) => {
           return (
-            typeof s.id === 'string' &&
+            (typeof s.id === 'string' || typeof s.id === 'number') &&
             typeof s.name === 'string' &&
             typeof s.quantity === 'number' &&
             s.quantity > 0 &&
@@ -124,8 +143,6 @@ const createMemberCarePackage = async (req: Request, res: Response, next: NextFu
         throw new Error(`Invalid service data within package: ${package_name}.`);
       }
 
-      const now = new Date().toISOString();
-
       return model.createMemberCarePackage(
         package_name,
         member_id,
@@ -133,12 +150,14 @@ const createMemberCarePackage = async (req: Request, res: Response, next: NextFu
         package_remarks,
         parseFloat(package_price),
         services,
-        now,
-        now
+        created_at,
+        updated_at
       );
     });
 
     const results = await Promise.all(creationPromises);
+
+    console.log('Created:', results);
 
     res.status(201).json({
       message: `${results.length} member care package(s) created successfully.`,
@@ -323,16 +342,70 @@ const enableMemberCarePackage = async (req: Request, res: Response, next: NextFu
 
 const transferMemberCarePackage = async (req: Request, res: Response, next: NextFunction): Promise<void> => {
   try {
-    const { mcp_id1, mcp_id2 } = req.body;
+    const { packages } = req.body;
 
-    if (!mcp_id1 && !mcp_id2) {
-      res.status(400).json({ message: 'Missing required fields or invalid data format' });
+    if (!Array.isArray(packages) || packages.length === 0) {
+      res.status(400).json({ message: 'Request body must contain a non-empty "packages" array.' });
       return;
     }
 
-    const results = await model.transferMemberCarePackage(mcp_id1, mcp_id2);
+    const sourceTransferTotals = new Map<string, number>();
 
-    res.status(200).json(results);
+    for (const pkg of packages) {
+      const { mcp_id1, mcp_id2, amount } = pkg;
+
+      if (typeof mcp_id1 !== 'string' || typeof mcp_id2 !== 'string' || typeof amount !== 'number' || amount <= 0) {
+        res
+          .status(400)
+          .json({ message: 'Invalid data for package. mcp_id1, mcp_id2, and a positive amount are required.' });
+        return;
+      }
+
+      if (mcp_id1 === mcp_id2) {
+        res
+          .status(400)
+          .json({ message: `Invalid transfer: mcp_id1 (${mcp_id1}) cannot be the same as mcp_id2 (${mcp_id2}).` });
+        return;
+      }
+
+      const currentTotal = sourceTransferTotals.get(mcp_id1) || 0;
+      sourceTransferTotals.set(mcp_id1, currentTotal + amount);
+    }
+
+    for (const [sourceId, totalAmountToTransfer] of sourceTransferTotals.entries()) {
+      const sourcePackageData = await model.getMemberCarePackageById(sourceId);
+
+      if (!sourcePackageData || !sourcePackageData.package) {
+        res.status(404).json({ message: `Source package with ID ${sourceId} not found.` });
+        return;
+      }
+
+      const sourcePackage = sourcePackageData.package;
+
+      if (totalAmountToTransfer > sourcePackage.balance) {
+        res.status(400).json({
+          message: `Total transfer amount for package ${sourcePackage.package_name} ($${totalAmountToTransfer.toFixed(
+            2
+          )}) exceeds its available balance ($${sourcePackage.balance.toFixed(2)}).`,
+        });
+        return;
+      }
+    }
+
+    const transferPromises = packages.map((pkg) => {
+      const { mcp_id1, mcp_id2, amount } = pkg;
+
+      console.log('Transfering: ', pkg);
+
+      return model.transferMemberCarePackage(mcp_id1, mcp_id2, amount);
+    });
+
+    const results = await Promise.all(transferPromises);
+
+    res.status(200).json({
+      message: `${results.length} member care package(s) transfered successfully.`,
+      transferedPackages: results,
+    });
   } catch (error) {
     console.error('Error transfering member care package', error);
     next(error);
@@ -467,6 +540,7 @@ const emulateMemberCarePackage = async (req: Request, res: Response, next: NextF
 export default {
   getAllMemberCarePackages,
   getMemberCarePackageById,
+  getMemberCarePackagesForDropdown,
   createMemberCarePackage,
   updateMemberCarePackage,
   deleteMemberCarePackage,
