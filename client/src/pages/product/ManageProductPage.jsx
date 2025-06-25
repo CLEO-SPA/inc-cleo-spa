@@ -18,8 +18,13 @@ import { SiteHeader } from '@/components/site-header';
 import { SidebarInset, SidebarProvider } from '@/components/ui/sidebar';
 import EmployeeSelect from '@/components/ui/forms/EmployeeSelect';
 import { useSimulationStore } from "@/stores/useSimulationStore";
+import { set } from "date-fns";
 
 export default function ManageProduct() {
+  // loading state
+  const [dataLoading, setDataLoading] = useState(false);
+  const [statusLoading, setStatusLoading] = useState(false);
+
   // Data
   const [products, setProducts] = useState([]);
   const [categories, setCategories] = useState([]);
@@ -58,6 +63,7 @@ export default function ManageProduct() {
   const [updatedAt, setUpdatedAt] = useState(null);
 
   const getProducts = async () => {
+    setDataLoading(true);
     try {
       setExpandedRows([]); // Reset expanded rows when fetching new data
 
@@ -85,6 +91,8 @@ export default function ManageProduct() {
       setTotalPages(response.data.totalPages);
     } catch (err) {
       console.error('Error fetching products:', err);
+    } finally {
+      setDataLoading(false);
     }
   }
 
@@ -134,6 +142,8 @@ export default function ManageProduct() {
 
   const handleSubmit = async (e) => {
     e.preventDefault();
+    setStatusLoading(true);
+    set
     if (!updateForm.updated_by) {
       setErrorMsg('Please select who updated this product');
       return;
@@ -168,6 +178,9 @@ export default function ManageProduct() {
     } catch (err) {
       console.error('Error changing product status:', err);
       setErrorMsg(err.response?.data?.message || 'An error occurred');
+    } finally {
+      resetForm();
+      setStatusLoading(false);
     }
   }
 
@@ -250,70 +263,78 @@ export default function ManageProduct() {
             {modalOpen && (
               <div className="fixed inset-0 flex justify-center items-center bg-opacity-80 z-50">
                 <div className="bg-white border p-6 rounded-md shadow-lg w-full max-w-lg">
-                  <div className="flex justify-between items-center">
-                    <h3 className="text-xl font-bold">{changeStatus ? "Enable Product" : "Disable Product"} "{changeProduct.product_name}"</h3>
-                    <button
-                      onClick={() => { setModalOpen(false); resetForm(); }}
-                      className="text-xl"
-                      aria-label="Close"
-                    >
-                      X
-                    </button>
-                  </div>
-                  <div className="mt-4">
-                    {errorMsg && (
-                      <span className="text-red-500">{errorMsg}</span>
-                    )}
-                    <FormProvider {...methods}>
-                      <form onSubmit={handleSubmit} className="space-y-3">
+                  {statusLoading ? (
+                    <div className="flex justify-center items-center h-full">
+                      Loading...
+                    </div>
+                  ) : (
+                    <>
+                      <div className="flex justify-between items-center">
+                        <h3 className="text-xl font-bold">{changeStatus ? "Enable Product" : "Disable Product"} "{changeProduct.product_name}"</h3>
+                        <button
+                          onClick={() => { setModalOpen(false); resetForm(); }}
+                          className="text-xl"
+                          aria-label="Close"
+                        >
+                          X
+                        </button>
+                      </div>
+                      <div className="mt-4">
+                        {errorMsg && (
+                          <span className="text-red-500">{errorMsg}</span>
+                        )}
+                        <FormProvider {...methods}>
+                          <form onSubmit={handleSubmit} className="space-y-3">
 
-                        {/* Update At */}
-                        <div>
-                          <label className="block text-md font-medium">Last Updated at*</label>
-                          <DatePicker
-                            value={updatedAt}
-                            onChange={setUpdatedAt}
-                            required />
-                        </div>
+                            {/* Update At */}
+                            <div>
+                              <label className="block text-md font-medium">Last Updated at*</label>
+                              <DatePicker
+                                value={updatedAt}
+                                onChange={setUpdatedAt}
+                                required />
+                            </div>
 
-                        {/* Updated By */}
-                        <div>
-                          <label className="block text-md font-medium">Updated By*</label>
-                          <EmployeeSelect
-                            name='updated_by'
-                            label=''
-                            rules={{ required: 'Updated_by is required' }} />
-                        </div>
+                            {/* Updated By */}
+                            <div>
+                              <label className="block text-md font-medium">Updated By*</label>
+                              <EmployeeSelect
+                                name='updated_by'
+                                label=''
+                                rules={{ required: 'Updated_by is required' }} />
+                            </div>
 
-                        {/* Remarks */}
-                        <div>
-                          <label className="block text-md font-medium ">Remarks</label>
-                          <textarea
-                            name="product_remarks"
-                            value={updateForm.product_remarks || ""}
-                            onChange={(e) => {
-                              setUpdateForm(prevUpdateForm => ({
-                                ...prevUpdateForm,
-                                product_remarks: e.target.value
-                              }))
-                            }}
-                            className="w-full p-2 border rounded-md"
-                            placeholder="Enter remarks"
-                          />
-                        </div>
+                            {/* Remarks */}
+                            <div>
+                              <label className="block text-md font-medium ">Remarks</label>
+                              <textarea
+                                name="product_remarks"
+                                value={updateForm.product_remarks || ""}
+                                onChange={(e) => {
+                                  setUpdateForm(prevUpdateForm => ({
+                                    ...prevUpdateForm,
+                                    product_remarks: e.target.value
+                                  }))
+                                }}
+                                className="w-full p-2 border rounded-md"
+                                placeholder="Enter remarks"
+                              />
+                            </div>
 
-                        {/* Submit Button */}
-                        <div className="flex justify-center space-x-4">
-                          <Button type="submit" className="bg-blue-600 rounded-md hover:bg-blue-500">
-                            Confirm
-                          </Button>
-                          <Button onClick={() => { setModalOpen(false); resetForm(); }} className="rounded-md hover:bg-gray-500">
-                            Cancel
-                          </Button>
-                        </div>
-                      </form>
-                    </FormProvider>
-                  </div>
+                            {/* Submit Button */}
+                            <div className="flex justify-center space-x-4">
+                              <Button type="submit" className="bg-blue-600 rounded-md hover:bg-blue-500">
+                                Confirm
+                              </Button>
+                              <Button onClick={() => { setModalOpen(false); resetForm(); }} className="rounded-md hover:bg-gray-500">
+                                Cancel
+                              </Button>
+                            </div>
+                          </form>
+                        </FormProvider>
+                      </div>
+                    </>
+                  )}
                 </div>
               </div>
             )}
@@ -387,80 +408,90 @@ export default function ManageProduct() {
                     </thead>
                     {/* Table body */}
                     <tbody>
-                      {products.length > 0 ? (
-                        products.map((product, index) => (
-                          <>
-                            <tr key={`${product.id}-basic`}>
-                              <td className="px-2 py-2 border border-gray-200">{product.id}</td>
-                              <td className="px-2 py-2 border border-gray-200 break-words">{product.product_name}</td>
-                              <td className="px-2 py-2 border border-gray-200">{product.product_unit_sale_price}</td>
-                              <td className="px-2 py-2 border border-gray-200">
-                                {new Date(product.created_at).toLocaleDateString()}
-                              </td>
-                              <td className="px-2 py-2 border border-gray-200">{product.product_category_name}</td>
-                              {/* Enabled Row */}
-                              <td className="px-2 py-2 border border-gray-200">
-                                <Switch
-                                  checked={product.product_is_enabled}
-                                  onCheckedChange={() => handleSwitchChange(product)}
-                                />
-                              </td>
-                              {/* Action Row */}
-                              <td className="px-4 py-2 border border-gray-200">
-                                <div className="flex space-x-2 space-y-1">
-                                  <Button className="p-1 bg-green-600 text-white text-sm font-medium rounded-xl hover:bg-green-700" onClick={() => navigate(`/update-product/${product.id}`)}>
-                                    <FilePenLine className="inline-block mr-1" />
-                                  </Button>
-                                  <Button className="px-2 py-1 bg-gray-600 text-white text-sm font-medium rounded-xl hover:bg-blue-700" onClick={() => navigate(`/view-sales-history/${product.id}`)}>
-                                    View Sales History
-                                  </Button>
-                                  <Button className="p-1 text-3xl text-black bg-transparent rounded-xl hover:bg-transparent hover:text-blue-700" onClick={() => toggleRow(index)}>
-                                    {expandedRows.includes(index) ? <ChevronUpCircle /> : <ChevronDownCircle />}
-                                  </Button>
-                                </div>
-                              </td>
-                            </tr>
-
-                            {expandedRows.includes(index) && (
-                              <tr key={`${product.id}-details`} className="bg-gray-100">
-                                <td colSpan="100%" className="px-4 py-2 border border-gray-200">
-                                  <div className="grid grid-cols-2 gap-4">
-                                    {/* More Details */}
-                                    <div>
-                                      <div>
-                                        <strong>Unit Cost Price:</strong> {product.product_unit_cost_price} mins
-                                      </div>
-                                      <div>
-                                        <strong>Description:</strong> {product.product_description ? product.product_description : 'No description available.'}
-                                      </div>
-                                    </div>
-                                    {/* Created and Updated details */}
-                                    <div>
-                                      <div>
-                                        <strong>Created By:</strong> {product.created_by}
-                                      </div>
-                                      <div>
-                                        <strong>Remarks:</strong> {product.product_remarks ? product.product_remarks : 'No remarks available.'}
-                                      </div>
-                                      <div>
-                                        <strong>Last Updated At:</strong> {new Date(product.updated_at).toLocaleDateString()}
-                                      </div>
-                                      <div>
-                                        <strong>Last Updated By:</strong> {product.updated_by}
-                                      </div>
-                                    </div>
-                                  </div>
-                                </td>
-                              </tr>
-                            )}
-                          </>
-                        ))
-                      ) : (
+                      {dataLoading ? (
                         <tr>
                           <td colSpan="13" className="px-4 py-2 text-center text-gray-500 border border-gray-200">
-                            No products found.
+                            Loading...
                           </td>
                         </tr>
+                      ) : (
+                        <>
+                          {products.length > 0 ? (
+                            products.map((product, index) => (
+                              <>
+                                <tr key={`${product.id}-basic`}>
+                                  <td className="px-2 py-2 border border-gray-200">{product.id}</td>
+                                  <td className="px-2 py-2 border border-gray-200 break-words">{product.product_name}</td>
+                                  <td className="px-2 py-2 border border-gray-200">{product.product_unit_sale_price}</td>
+                                  <td className="px-2 py-2 border border-gray-200">
+                                    {new Date(product.created_at).toLocaleDateString()}
+                                  </td>
+                                  <td className="px-2 py-2 border border-gray-200">{product.product_category_name}</td>
+                                  {/* Enabled Row */}
+                                  <td className="px-2 py-2 border border-gray-200">
+                                    <Switch
+                                      checked={product.product_is_enabled}
+                                      onCheckedChange={() => handleSwitchChange(product)}
+                                    />
+                                  </td>
+                                  {/* Action Row */}
+                                  <td className="px-4 py-2 border border-gray-200">
+                                    <div className="flex space-x-2 space-y-1">
+                                      <Button className="p-1 bg-green-600 text-white text-sm font-medium rounded-xl hover:bg-green-700" onClick={() => navigate(`/update-product/${product.id}`)}>
+                                        <FilePenLine className="inline-block mr-1" />
+                                      </Button>
+                                      <Button className="px-2 py-1 bg-gray-600 text-white text-sm font-medium rounded-xl hover:bg-blue-700" onClick={() => navigate(`/view-sales-history/${product.id}`)}>
+                                        View Sales History
+                                      </Button>
+                                      <Button className="p-1 text-3xl text-black bg-transparent rounded-xl hover:bg-transparent hover:text-blue-700" onClick={() => toggleRow(index)}>
+                                        {expandedRows.includes(index) ? <ChevronUpCircle /> : <ChevronDownCircle />}
+                                      </Button>
+                                    </div>
+                                  </td>
+                                </tr>
+
+                                {expandedRows.includes(index) && (
+                                  <tr key={`${product.id}-details`} className="bg-gray-100">
+                                    <td colSpan="100%" className="px-4 py-2 border border-gray-200">
+                                      <div className="grid grid-cols-2 gap-4">
+                                        {/* More Details */}
+                                        <div>
+                                          <div>
+                                            <strong>Unit Cost Price (SGD):</strong> $ {product.product_unit_cost_price}
+                                          </div>
+                                          <div>
+                                            <strong>Description:</strong> {product.product_description ? product.product_description : 'No description available.'}
+                                          </div>
+                                        </div>
+                                        {/* Created and Updated details */}
+                                        <div>
+                                          <div>
+                                            <strong>Created By:</strong> {product.created_by}
+                                          </div>
+                                          <div>
+                                            <strong>Remarks:</strong> {product.product_remarks ? product.product_remarks : 'No remarks available.'}
+                                          </div>
+                                          <div>
+                                            <strong>Last Updated At:</strong> {new Date(product.updated_at).toLocaleDateString()}
+                                          </div>
+                                          <div>
+                                            <strong>Last Updated By:</strong> {product.updated_by}
+                                          </div>
+                                        </div>
+                                      </div>
+                                    </td>
+                                  </tr>
+                                )}
+                              </>
+                            ))
+                          ) : (
+                            <tr>
+                              <td colSpan="13" className="px-4 py-2 text-center text-gray-500 border border-gray-200">
+                                No products found.
+                              </td>
+                            </tr>
+                          )}
+                        </>
                       )}
                     </tbody>
                   </table>
