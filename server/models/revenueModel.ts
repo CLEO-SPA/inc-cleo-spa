@@ -24,9 +24,6 @@ const getMVMonthlyReport = async (year: number, month: number) => {
       [year, month]
     );
 
-    console.log('selected year: ' + year);
-    console.log('selected month: ' + month);
-
     return {
       income: result1.rows,
       refund: result2.rows,
@@ -61,9 +58,6 @@ const getMCPMonthlyReport = async (year: number, month: number) => {
       [year, month]
     );
 
-    console.log('selected year: ' + year);
-    console.log('selected month: ' + month);
-
     return {
       income: result1.rows,
       refund: result2.rows,
@@ -90,9 +84,6 @@ const getAdHocMonthlyReport = async (year: number, month: number) => {
       `,
       [year, month]
     );
-
-    console.log('selected year: ' + year);
-    console.log('selected month: ' + month);
 
     return {
       income: result1.rows,

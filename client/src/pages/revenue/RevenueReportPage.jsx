@@ -36,6 +36,7 @@ function RevenueReportPage() {
   } = useRevenueReportStore();
 
   const [tab, setTab] = useState('combined');
+  const [hoveredRow, setHoveredRow] = useState(null);
 
   useEffect(() => {
     fetchEarliestDate();
@@ -227,9 +228,9 @@ function RevenueReportPage() {
           <SidebarInset>
             <div className="bg-white rounded-lg shadow-md p-6">
               <div className="flex items-center justify-between mb-6">
-                <h2 className="text-xl font-bold">Revenue Report</h2>
-                <button 
-                  onClick={handleDownloadExcel} 
+                <h2 className="text-2xl font-bold">Revenue Report</h2>
+                <button
+                  onClick={handleDownloadExcel}
                   className="bg-green-600 text-white p-3 rounded hover:bg-green-700 transition-colors"
                   disabled={!reportData || reportData.length === 0}
                   title="Download Excel Report"
@@ -237,7 +238,7 @@ function RevenueReportPage() {
                   <Download className="w-5 h-5" />
                 </button>
               </div>
-              
+
               {/* Using the new MonthYearSelector component */}
               <MonthYearSelector
                 selectedMonth={selectedMonth}
@@ -306,7 +307,7 @@ function RevenueReportPage() {
                   <table className="min-w-full border border-gray-200">
                     <thead>
                       <tr className="bg-gray-100">
-                        {['Day', 'Cash', 'Visa', 'PayNow', 'Nets', 'Total', 'FOC', 'VIP', 'Package', 'Net Sales', 'Refund'].map(header => (
+                        {['Day', 'Cash', 'Visa', 'PayNow', 'Nets', 'Total', 'VIP', 'Package', 'Net Sales', 'Refund'].map(header => (
                           <th key={header} className="border border-gray-300 px-4 py-2">{header}</th>
                         ))}
                       </tr>
@@ -314,7 +315,7 @@ function RevenueReportPage() {
                     <tbody>
                       {reportData.length > 0 ? (
                         <>
-                          {reportData.map(row => (
+                          {reportData.map((row, index) => (
                             <tr key={row.day} className="hover:bg-gray-50">
                               <td className="border border-gray-300 px-4 py-2 text-center">{row.day}</td>
                               <td className="border border-gray-300 px-4 py-2 text-center">{formatAmount(row.cash)}</td>
@@ -322,8 +323,21 @@ function RevenueReportPage() {
                               <td className="border border-gray-300 px-4 py-2 text-center">{formatAmount(row.payment)}</td>
                               <td className="border border-gray-300 px-4 py-2 text-center">{formatAmount(row.nets)}</td>
                               <td className="border border-gray-300 px-4 py-2 text-center">{formatAmount(row.total)}</td>
-                              <td className="border border-gray-300 px-4 py-2 text-center">{formatAmount(row.foc)}</td>
-                              <td className="border border-gray-300 px-4 py-2 text-center">{formatAmount(row.vip)}</td>
+                              {/* <td className="border border-gray-300 px-4 py-2 text-center">{formatAmount(row.foc)}</td> */}
+                              <td
+                                className="border border-gray-300 px-4 py-2 text-center relative"
+                                onMouseEnter={() => row.vip !== 0 && row.foc !== 0 && setHoveredRow(index)}
+                                onMouseLeave={() => setHoveredRow(null)}
+                              >
+                                <span className={hoveredRow === index ? 'text-blue-600' : ''}>
+                                  {formatAmount(row.vip)}
+                                </span>
+                                {hoveredRow === index && row.vip !== 0 && (
+                                  <div className="absolute z-10 bg-gray-100 p-2 border border-gray-300 rounded shadow-lg whitespace-nowrap top-full left-1/2 transform -translate-x-1/2">
+                                    {(row.foc + row.vip).toFixed(2)} - FOC {row.foc.toFixed(2)} = {formatAmount(row.vip)}
+                                  </div>
+                                )}
+                              </td>
                               <td className="border border-gray-300 px-4 py-2 text-center">{formatAmount(row.package)}</td>
                               <td className="border border-gray-300 px-4 py-2 text-center">{formatAmount(row.netSales)}</td>
                               <td className="border border-gray-300 px-4 py-2 text-center">{formatAmount(row.refund)}</td>
@@ -336,8 +350,21 @@ function RevenueReportPage() {
                             <td className="border border-gray-300 px-4 py-2 text-center">{(currentTotals.payment || 0).toFixed(2)}</td>
                             <td className="border border-gray-300 px-4 py-2 text-center">{(currentTotals.nets || 0).toFixed(2)}</td>
                             <td className="border border-gray-300 px-4 py-2 text-center">{(currentTotals.total || 0).toFixed(2)}</td>
-                            <td className="border border-gray-300 px-4 py-2 text-center">{(currentTotals.foc || 0).toFixed(2)}</td>
-                            <td className="border border-gray-300 px-4 py-2 text-center">{(currentTotals.vip || 0).toFixed(2)}</td>
+                            {/* <td className="border border-gray-300 px-4 py-2 text-center">{(currentTotals.foc || 0).toFixed(2)}</td> */}
+                            <td
+                                className="border border-gray-300 px-4 py-2 text-center relative"
+                                onMouseEnter={() => currentTotals.vip !== 0 && currentTotals.foc !== 0 && setHoveredRow("vip")}
+                                onMouseLeave={() => setHoveredRow(null)}
+                              >
+                                <span className={hoveredRow === "vip" ? 'text-blue-600' : ''}>
+                                  {(currentTotals.vip || 0).toFixed(2)}
+                                </span>
+                                {hoveredRow === "vip" && currentTotals.vip !== 0 && (
+                                  <div className="absolute z-10 bg-gray-100 p-2 border border-gray-300 rounded shadow-lg whitespace-nowrap bottom-full left-1/2 transform -translate-x-1/2">
+                                    {(currentTotals.foc + currentTotals.vip).toFixed(2)} - FOC {currentTotals.foc.toFixed(2)} = {currentTotals.vip.toFixed(2)}
+                                  </div>
+                                )}
+                              </td>
                             <td className="border border-gray-300 px-4 py-2 text-center">{(currentTotals.package || 0).toFixed(2)}</td>
                             <td className="border border-gray-300 px-4 py-2 text-center">{(currentTotals.netSales || 0).toFixed(2)}</td>
                             <td className="border border-gray-300 px-4 py-2 text-center">{(currentTotals.refund || 0).toFixed(2)}</td>

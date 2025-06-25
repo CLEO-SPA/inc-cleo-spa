@@ -69,6 +69,12 @@ export const useRevenueReportStore = create(persist(
     totals: {
       mv: {}, mcp: {}, adhoc: {}, combined: {}
     },
+    
+    // Add new state for deferred revenue data
+    deferredRevenue: {
+      mv: null,
+      mcp: null
+    },
 
     setMonth: (month) => set({ selectedMonth: month }),
     setYear: (year) => set({ selectedYear: year }),
@@ -93,10 +99,12 @@ export const useRevenueReportStore = create(persist(
 
       set({ loading: true, error: null });
       try {
-        const [mvRes, mcpRes, adhocRes] = await Promise.all([
+        const [mvRes, mcpRes, adhocRes, mvDrRes, mcpDrRes] = await Promise.all([
           api.get(`rr/mrr/mv?year=${selectedYear}&month=${monthIndex}`),
           api.get(`rr/mrr/mcp?year=${selectedYear}&month=${monthIndex}`),
           api.get(`rr/mrr/adhoc?year=${selectedYear}&month=${monthIndex}`),
+          api.get(`rr/dr/mv?year=${selectedYear}&month=${monthIndex}`),
+          api.get(`rr/dr/mcp?year=${selectedYear}&month=${monthIndex}`),
         ]);
 
         const mv = parseRevenueData(mvRes.data.data);
@@ -117,6 +125,25 @@ export const useRevenueReportStore = create(persist(
             mcp: calculateTotals(mcp),
             adhoc: calculateTotals(adhoc),
             combined: calculateTotals(combined),
+          },
+          // Store the deferred revenue data
+          deferredRevenue: {
+            mv: {
+              ...mvDrRes.data.data,
+              income: parseFloat(mvDrRes.data.data.income) || 0,
+              net_sale: parseFloat(mvDrRes.data.data.net_sale) || 0,
+              refund: parseFloat(mvDrRes.data.data.refund) || 0,
+              deferred_amount: parseFloat(mvDrRes.data.data.deferred_amount) || 0,
+              previous_total_deferred_amount: parseFloat(mvDrRes.data.data.previous_total_deferred_amount) || 0
+            },
+            mcp: {
+              ...mcpDrRes.data.data,
+              income: parseFloat(mcpDrRes.data.data.income) || 0,
+              net_sale: parseFloat(mcpDrRes.data.data.net_sale) || 0,
+              refund: parseFloat(mcpDrRes.data.data.refund) || 0,
+              deferred_amount: parseFloat(mcpDrRes.data.data.deferred_amount) || 0,
+              previous_total_deferred_amount: parseFloat(mcpDrRes.data.data.previous_total_deferred_amount) || 0
+            }
           }
         });
       } catch (err) {
@@ -141,6 +168,7 @@ export const useRevenueReportStore = create(persist(
       adhocData: state.adhocData,
       combinedData: state.combinedData,
       totals: state.totals,
+      deferredRevenue: state.deferredRevenue // Add deferred revenue to persisted state
     })
   }
 ));
