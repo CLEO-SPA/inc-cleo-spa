@@ -24,9 +24,6 @@ router.get('/:timetableId', timetableController.getTimetableById);
 // PUT /api/et/update-employee-timetable/:timetableId
 router.put('/update-employee-timetable/:timetableId', timetableController.updateTimetable);
 
-// POST /api/et/reset-create-timetables-pre
-router.post('/reset-create-timetables-pre', timetableController.resetCreateTimetablePre);
-
 // GET /api/et/employee/:employeeId?month=2025-02  
 router.get('/employee/:employeeId', timetableController.getActiveRestDaysByEmployee);
 

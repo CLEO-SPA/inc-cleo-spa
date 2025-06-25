@@ -2,6 +2,7 @@ import { pool } from '../config/database.js';
 import { CreateTimetableInput, UpdateTimetableInput, DetailedTimetable } from '../types/timetable.types.js';
 
 export interface RestDay {
+  timetable_id: number;
   restday_number: number;
   restday_name: string;
   effective_startdate: Date;
@@ -300,6 +301,7 @@ const getActiveRestDays = async(
           WHEN 6 THEN 'Saturday'
           WHEN 7 THEN 'Sunday'
         END AS restday_name,
+        t.id AS timetable_id,
         t.effective_startdate,
         t.effective_enddate
       FROM filtered_employees fe
@@ -339,7 +341,7 @@ const getActiveRestDays = async(
       const countResult = await pool().query(countQuery, countParams);
       totalEmployees = parseInt(countResult.rows[0].total, 10);
     } else {
-      result.rows.forEach((row: { total: number; employee_id: number; employee_name: string; restday_number: number; restday_name: string; effective_startdate: any; effective_enddate: any; }) => {
+      result.rows.forEach((row: { total: number; employee_id: number; employee_name: string; timetable_id: number, restday_number: number; restday_name: string; effective_startdate: any; effective_enddate: any; }) => {
         console.log('Row total value:', row.total, typeof row.total); 
         totalEmployees = row.total;
         
@@ -353,6 +355,7 @@ const getActiveRestDays = async(
 
         if (row.restday_number) {
           employeeMap.get(row.employee_id)!.rest_days.push({
+            timetable_id: row.timetable_id,
             restday_number: row.restday_number,
             restday_name: row.restday_name,
             effective_startdate: row.effective_startdate,
@@ -415,6 +418,7 @@ const getActiveRestDaysByEmployee = async (
           WHEN 6 THEN 'Saturday'
           WHEN 7 THEN 'Sunday'
         END AS restday_name,
+        t.id AS timetable_id,
         t.effective_startdate,
         t.effective_enddate
       FROM employees e
@@ -461,7 +465,8 @@ const getActiveRestDaysByEmployee = async (
     const employee = result.rows[0];
     const restDays = result.rows
       .filter((row: { restday_number: number; }) => row.restday_number) // Only rows with rest days
-      .map((row: { restday_number: any; restday_name: any; effective_startdate: any; effective_enddate: any; }) => ({
+      .map((row: { restday_number: any; restday_name: any; timetable_id: number; effective_startdate: any; effective_enddate: any; }) => ({
+        timetable_id: row.timetable_id,
         restday_number: row.restday_number,
         restday_name: row.restday_name,
         effective_startdate: row.effective_startdate,
@@ -558,49 +563,6 @@ const updateEmployeeTimetable = async (input: UpdateTimetableInput) => {
   }
 };
 
-/**
- * GET /api/et/reset-create-timetables-pre
- * This endpoint resets the timetables db table to its defined pre-condition
- */
-const resetCreateTimetablePre = async () => {
-  const client = await pool().connect();
-
-  try {
-    await client.query('BEGIN');
-
-    // 1. Delete all entries
-    await client.query('DELETE FROM timetables');
-
-    // 2. Reset ID sequence
-    await client.query(`ALTER SEQUENCE timetables_id_seq RESTART WITH 1`);
-
-    // 3. Insert test row with specified values
-    await client.query(
-      `INSERT INTO timetables (
-        employee_id, restday_number, effective_startdate,
-        effective_enddate, created_by, created_at,
-        updated_by, updated_at
-      ) VALUES (
-        $1, $2, $3, $4, $5, $6, NULL, NULL
-      )`,
-      [
-        11,
-        2,
-        '2025-01-01T00:00:00+08:00', // effective_startdate
-        null,                        // effective_enddate
-        15,
-        '2024-12-24T12:00:00+08:00', // created_at
-      ]
-    );
-
-    await client.query('COMMIT');
-  } catch (err) {
-    await client.query('ROLLBACK');
-    throw err;
-  } finally {
-    client.release();
-  }
-};
 
 
 export default {
@@ -611,5 +573,4 @@ export default {
   getActiveRestDaysByPosition,
   getTimetableById,
   updateEmployeeTimetable,
-  resetCreateTimetablePre
 };
