@@ -41,7 +41,6 @@ export default function CreateEmployeeTimetablePage() {
   const isSubmitting = useTimetableStore((state) => state.isSubmitting);
   const submitError = useTimetableStore((state) => state.submitError);
 
-  const resetCreateTimetablePre = useTimetableStore((state) => state.resetCreateTimetablePre);
 
   const updateCreatedAt = (date, timeStr) => {
     if (date && timeStr) {
@@ -131,28 +130,6 @@ export default function CreateEmployeeTimetablePage() {
                 </h2>
                 {!isReviewing && !timetableResult && (
                   <>
-                    <div className='pt-2 text-left'>
-                      <Button
-                        size='sm'
-                        onClick={async () => {
-                          const confirmed = window.confirm(
-                            'Are you sure you want to reset the create timetable pre-conditions?'
-                          );
-                          if (!confirmed) return;
-
-                          try {
-                            await resetCreateTimetablePre();
-                            alert('Pre-conditions reset successfully.');
-                          } catch (err) {
-                            console.error('Reset failed:', err);
-                            alert('Failed to reset. Check console for details.');
-                          }
-                        }}
-                      >
-                        Reset
-                      </Button>
-                    </div>
-
                     <p className='text-sm text-muted-foreground text-right'>* indicates required fields</p>
                   </>
                 )}
@@ -167,7 +144,7 @@ export default function CreateEmployeeTimetablePage() {
                     updatedPreviousTimetable={timetableResult.updated_previous_timetable}
                     updatedNewTimetableEffectiveEndDate={timetableResult.updated_new_timetable_effective_enddate}
                     onViewTimetable={() => {
-                      alert('Redirect to view timetable');
+                      navigate('/et')
                     }}
                     onCreateAnother={() => {
                       setTimetableResult(null);
@@ -266,7 +243,7 @@ export default function CreateEmployeeTimetablePage() {
                       </div>
 
                       <div className='flex justify-end gap-4 pt-6'>
-                        <Button type='button' variant='outline'>
+                        <Button type='button' variant='outline' onClick={() => navigate('/et')}>
                           Cancel
                         </Button>
                         <Button type='submit' onClick={methods.handleSubmit(() => setIsReviewing(true))}>

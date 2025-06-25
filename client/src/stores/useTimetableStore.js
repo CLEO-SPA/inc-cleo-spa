@@ -59,17 +59,6 @@ const useTimetableStore = create((set) => ({
     }
   },
 
-  // Reset the timetables db table to its defined pre-condition
-  resetCreateTimetablePre: async () => {
-    try {
-      await api.post('/et/reset-create-timetables-pre');
-      console.log('Create timetable database pre-condition reset successfully');
-    } catch (error) {
-      console.error('Failed to reset create timetable DB pre-condition:', error);
-      throw error;
-    }
-  },
-
   // Inside the useTimetableStore store
   fetchTimetableById: async (timetableId) => {
     set({ isLoading: true, error: null });

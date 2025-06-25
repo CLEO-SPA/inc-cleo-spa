@@ -369,21 +369,6 @@ const updateTimetable = async (req: Request, res: Response, next: NextFunction) 
   }
 };
 
-/**
- * GET /api/et/reset-create-timetables-pre
- * This endpoint resets the timetables db table to its defined pre-condition
- */
-const resetCreateTimetablePre = async (req: Request, res: Response) => {
-  try {
-    await timetableModel.resetCreateTimetablePre();
-    res.status(200).json({ message: 'Reset successful' });
-  } catch (error) {
-    console.error('Reset pre-condition failed:', error);
-
-    const errorMessage = error instanceof Error ? error.message : 'Reset failed';
-    res.status(500).json({ message: errorMessage });
-  }
-};
 
 export default {
   getCurrentAndUpcomingTimetables,
@@ -393,6 +378,5 @@ export default {
   getActiveRestDaysByPosition,
   getTimetableById,
   updateTimetable,
-  resetCreateTimetablePre
 };
 
