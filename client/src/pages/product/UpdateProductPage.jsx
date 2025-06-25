@@ -200,7 +200,6 @@ export default function UpdateProduct() {
                           <p>Category: {
                             categories.find(cat => cat.id === product.product_category_id)?.product_category_name || 'Other'
                           }</p>
-                          <p>Price: ${product.product_unit_cost_price}</p>
                         </>
                       )}
                     </div>

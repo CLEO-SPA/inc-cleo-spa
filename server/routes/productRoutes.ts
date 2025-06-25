@@ -13,6 +13,9 @@ router.get('/all-page-filter', productController.getProductsPaginationFilter);
 // create product
 router.post('/create-product', productController.validateProductData, productController.createProduct);
 
+// update product by id
+router.put('/update-product/:id', productController.validateProductData, productController.updateProduct);
+
 // PRODUCT CATEGORIES ROUTES
 //  get all product categories
 router.get('/product-cat', productController.getProductCategories)

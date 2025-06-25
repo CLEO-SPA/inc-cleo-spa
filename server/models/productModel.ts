@@ -174,6 +174,89 @@ const createProduct = async ({
   }
 };
 
+// update product
+const updateProduct = async ({
+  id,
+  product_name,
+  product_description,
+  product_remarks,
+  product_unit_sale_price,
+  product_unit_cost_price,
+  created_at,
+  updated_at,
+  product_category_id,
+  product_sequence_no,
+  created_by,
+  updated_by,
+}: Partial<updateProductInput>) => {
+  try {
+    const conditions: string[] = [];
+    const params: (string | number | boolean | null)[] = [];
+    let index = 1;
+
+    if (product_name) {
+      params.push(product_name);
+      conditions.push(`product_name = $${index++}`);
+    }
+
+    if (product_description != null) {
+      params.push(product_description);
+      conditions.push(`product_description = $${index++}`);
+    }
+
+    if (product_remarks != null) {
+      params.push(product_remarks);
+      conditions.push(`product_remarks = $${index++}`);
+    }
+
+    if (product_unit_sale_price) {
+      params.push(product_unit_sale_price);
+      conditions.push(`product_unit_sale_price = $${index++}`);
+    }
+
+    if (product_unit_cost_price) {
+      params.push(product_unit_cost_price);
+      conditions.push(`product_unit_cost_price = $${index++}`);
+    }
+
+    if (product_category_id) {
+      params.push(product_category_id);
+      conditions.push(`product_category_id = $${index++}`);
+      if (product_sequence_no) {
+        params.push(product_sequence_no);
+        conditions.push(`product_sequence_no = $${index++}`);
+      }
+    }
+
+    if (created_at) {
+      params.push(created_at);
+      conditions.push(`created_at = $${index++}`);
+    }
+
+    if (created_by) {
+      params.push(created_by);
+      conditions.push(`created_by = $${index++}`);
+    }
+
+    // Always update updated_at and updated_by
+    params.push(updated_at || new Date().toISOString());
+    conditions.push(`updated_at = $${index++}`);
+
+    params.push(updated_by || '');
+    conditions.push(`updated_by = $${index++}`);
+
+    const query = `UPDATE products SET ${conditions.join(', ')} WHERE id = $${index}
+    RETURNING *`;
+    params.push(id || 0);
+
+    const result = await prodPool().query(query, params);
+    return result.rows;
+  } catch (error) {
+    console.error('Error updating product:', error);
+    throw new Error('Error updating product');
+  }
+};
+
 // PRODUCT CATEGORIES
 const getProductCategories = async () => {
   try {
@@ -294,6 +377,7 @@ export default {
   getProductByName,
   getProductSequenceNo,
   createProduct,
+  updateProduct,
   getProductCategories,
   getProductCategoryById,
   createProductCategory,

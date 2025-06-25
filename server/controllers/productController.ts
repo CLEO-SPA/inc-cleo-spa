@@ -1,6 +1,7 @@
 import { Request, Response, NextFunction } from 'express';
 import validator from 'validator';
 import productModel from '../models/productModel.js';
+import { updateProductInput } from '../types/product.type.js';
 
 //Validation for safe input
 function isSafeInput(input: string) {
@@ -198,6 +199,83 @@ const createProduct = async (req: Request, res: Response, next: NextFunction) =>
   }
 };
 
+// update product
+const updateProduct = async (req: Request, res: Response, next: NextFunction) => {
+  const id = parseInt(req.params.id, 10);
+  const formData = req.body;
+  const { updated_by, updated_at } = formData;
+  try {
+    //check if product exists
+    const product = await productModel.getProductById(id);
+    if (!product) {
+      res.status(404).json({ message: 'Product Not Found' });
+      return;
+    }
+
+    // validate updated by and updated at values
+    if (!updated_by || !updated_at) {
+      res.status(400).json({ message: 'Data missing from required fields.' });
+      return;
+    }
+
+    // Dynamic Update payload
+    const updatePayload: Partial<updateProductInput> = {};
+
+    if (formData.product_name && formData.product_name !== product.product_name) {
+      updatePayload.product_name = formData.product_name;
+    }
+
+    if (formData.product_description !== product.product_description) {
+      updatePayload.product_description = formData.product_description;
+    }
+
+    if (formData.product_remarks !== product.product_remarks) {
+      updatePayload.product_remarks = formData.product_remarks;
+    }
+
+    if (formData.product_unit_sale_price && formData.product_unit_sale_price !== product.product_unit_sale_price) {
+      updatePayload.product_unit_sale_price = formData.product_unit_sale_price;
+    }
+    if (formData.product_unit_cost_price && formData.product_unit_cost_price !== product.product_unit_cost_price) {
+      updatePayload.product_unit_cost_price = formData.product_unit_cost_price;
+    }
+
+    if (formData.product_category_id && formData.product_category_id !== product.product_category_id) {
+      updatePayload.product_category_id = formData.product_category_id;
+      updatePayload.product_sequence_no = parseInt(await productModel.getProductSequenceNo(formData.product_category_id));
+      }
+
+    if (formData.created_at && formData.created_at !== product.created_at) {
+      updatePayload.created_at = formData.created_at;
+    }
+
+    if (formData.created_by && formData.created_by !== product.created_by) {
+      updatePayload.created_by = formData.created_by;
+    }
+
+    //if no changes detected so far
+    if (Object.keys(updatePayload).length === 0) {
+      res.status(400).json({ message: 'No changes detected' });
+    } else {
+      // add in updated at and updated by
+      // because they might be changed
+      updatePayload.updated_at = formData.updated_at;
+      updatePayload.updated_by = formData.updated_by;
+      updatePayload.id = id;
+    }
+
+    const updatedProduct = await productModel.updateProduct(updatePayload);
+    if (updatedProduct) {
+      res.status(200).json({ product: updatedProduct[0], message: 'Product updated successfully' });
+    } else {
+      res.status(400).json({ message: 'Failed to update product' });
+    }
+  } catch (error) {
+    console.error('Error in updateProduct:', error);
+    res.status(500).json({ message: 'Failed to update product' });
+  }
+};
+
 // PRODUCT CATEGORIES ROUTES
 // Get Product Categories
 const getProductCategories = async (req: Request, res: Response, next: NextFunction) => {
@@ -336,6 +414,7 @@ export default {
   getProductCategories,
   validateProductData,
   createProduct,
+  updateProduct,
   createProductCategory,
   updateProductCategory,
   reorderProductCategory,

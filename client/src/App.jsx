@@ -82,7 +82,7 @@ function App() {
                {/* Product Management */}
               <Route path='/manage-product' element={<ManageProductPage />} />
               <Route path='/create-product' element={<CreateProductPage />} />
-              <Route path='/update-product/:id' element={<UpdateProductPage />} />
+              <Route path='/update-product/:product_id' element={<UpdateProductPage />} />
               <Route path='/reorder-product' element={<ReorderProductPage />} />
               <Route path='/manage-product-category' element={<ManageProductCategoryPage />} />
               <Route path='/view-product-sales-history/:product_id' element={<ViewProductSalesHistoryPage />} />
