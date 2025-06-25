@@ -1,5 +1,180 @@
+import { get } from 'http';
 import { pool, getProdPool as prodPool } from '../config/database.js';
+import { createProductInput, updateProductInput } from '../types/product.type.js';
 
+// get products with pagination and filter
+const getProductsPaginationFilter = async (
+  page: number,
+  limit: number,
+  search?: string | null,
+  category?: number | null,
+  status?: boolean | null
+) => {
+  try {
+    const query = `
+      SELECT * FROM get_products_with_pagination(
+      $1::INT, 
+      $2::INT,
+      $3::TEXT,
+      $4::BIGINT,
+      $5::BOOLEAN
+      );`;
+    const params = [page, limit, search, category, status];
+    const result = await prodPool().query(query, params);
+    return result.rows;
+  } catch (error) {
+    console.error('Error in getProductsPaginationFilter:', error);
+    throw new Error('Error fetching products with pagination and filter');
+  }
+};
+
+// get total pages for pagination
+const getTotalCount = async (search?: string | null, category?: number | null, status?: boolean | null) => {
+  try {
+    let query = `SELECT COUNT(*) AS total_count FROM products`;
+    const conditions: string[] = [];
+    const params: (string | number | boolean)[] = [];
+
+    if (search != null) {
+      params.push(search);
+      conditions.push(`product_name ILIKE '%' || $${params.length}::TEXT || '%'`);
+    }
+
+    if (category != null) {
+      params.push(category);
+      conditions.push(`product_category_id = $${params.length}::BIGINT`);
+    }
+
+    if (status != null) {
+      params.push(status);
+      conditions.push(`product_is_enabled = $${params.length}::BOOLEAN`);
+    }
+
+    if (conditions.length > 0) {
+      query += ` WHERE ` + conditions.join(' AND ');
+    }
+
+    const result =
+      search || category || status !== null ? await prodPool().query(query, params) : await prodPool().query(query);
+    if (result.rows.length === 0) {
+      return 0; // No products found
+    }
+
+    return result.rows[0].total_count;
+  } catch (error) {
+    console.error('Error in getTotalPages:', error);
+    throw new Error('Error fetching total number of pages');
+  }
+};
+
+// get product by id, include both enabled and disabled products
+const getProductById = async (id: number) => {
+  try {
+    const query = `
+        SELECT *
+        FROM public.products
+        WHERE id = $1; 
+    `;
+    const result = await pool().query(query, [id]); // Added id parameter to query
+    return result.rows[0];
+  } catch (error) {
+    console.error('Error fetching product by id:', error);
+    throw new Error('Error fetching product by id');
+  }
+};
+
+// get product by name
+const getProductByName = async (product_name: string) => {
+  try {
+    const query = `
+        SELECT 
+            s.id,
+            s.product_name
+        FROM products AS s
+        WHERE s.product_name = $1; 
+    `;
+    const result = await pool().query(query, [product_name]); // Added string parameter to query
+    return result.rows[0];
+  } catch (error) {
+    console.error('Error fetching product by name:', error);
+    throw new Error('Error fetching product by name');
+  }
+};
+
+// get product sequence number by counting products that are enabled and in same category
+const getProductSequenceNo = async (product_category_id: number) => {
+  try {
+    // get sequence number by counting products that are enabled and in same category
+    const query = `
+    SELECT COUNT(*) + 1 AS seq_no FROM products
+    WHERE product_category_id = $1
+    AND product_is_enabled = true;`;
+    const result = await pool().query(query, [product_category_id]);
+    return result.rows[0].seq_no;
+  } catch (error) {
+    console.error('Error fetching product sequence no:', error);
+    throw new Error('Error fetching product sequence no');
+  }
+};
+
+// create product
+const createProduct = async ({
+  product_name,
+  product_description,
+  product_remarks,
+  product_unit_sale_price,
+  product_unit_cost_price,
+  product_is_enabled,
+  created_at,
+  updated_at,
+  product_category_id,
+  product_sequence_no,
+  created_by,
+  updated_by,
+}: createProductInput) => {
+  try {
+    const query = `
+      INSERT INTO products (
+        product_name,
+        product_description,
+        product_remarks,
+        product_unit_sale_price,
+        product_unit_cost_price,
+        product_is_enabled,
+        created_at,
+        updated_at,
+        product_category_id,
+        product_sequence_no,
+        created_by,
+        updated_by
+      ) VALUES (
+        $1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12
+      )
+      RETURNING *;
+    `;
+    const params = [
+      product_name,
+      product_description,
+      product_remarks,
+      product_unit_sale_price,
+      product_unit_cost_price,
+      product_is_enabled,
+      created_at,
+      updated_at,
+      product_category_id,
+      product_sequence_no,
+      created_by,
+      updated_by,
+    ];
+    const result = await pool().query(query, params);
+    return result.rows;
+  } catch (error) {
+    console.error('Error creating new product:', error);
+    throw new Error('Error creating new product');
+  }
+};
+
+// PRODUCT CATEGORIES
 const getProductCategories = async () => {
   try {
     const query = `
@@ -113,6 +288,12 @@ const getSalesHistoryByProductId = async (id: number, month: number, year: numbe
 };
 
 export default {
+  getProductsPaginationFilter,
+  getTotalCount,
+  getProductById,
+  getProductByName,
+  getProductSequenceNo,
+  createProduct,
   getProductCategories,
   getProductCategoryById,
   createProductCategory,

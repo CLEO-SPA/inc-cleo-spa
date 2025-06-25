@@ -2,6 +2,202 @@ import { Request, Response, NextFunction } from 'express';
 import validator from 'validator';
 import productModel from '../models/productModel.js';
 
+//Validation for safe input
+function isSafeInput(input: string) {
+  // Allow only letters, numbers, spaces, and a few symbols
+  return /^[\w\s\,-.&+_()$/]+$/.test(input);
+}
+
+// get products with pagination and filter
+const getProductsPaginationFilter = async (req: Request, res: Response, next: NextFunction) => {
+  const { page, limit, search, category, status } = req.query;
+  try {
+    const data: { [key: string]: any } = {};
+
+    if (typeof page === 'string' && validator.isInt(page)) {
+      data.page = parseInt(page, 10);
+    } else {
+      data.page = 1;
+    }
+
+    if (typeof limit === 'string' && validator.isInt(limit)) {
+      data.limit = parseInt(limit, 10);
+    } else {
+      data.limit = 10;
+    }
+
+    if (typeof search === 'string' && isSafeInput(search)) {
+      data.search = search;
+    } else {
+      data.search = null;
+    }
+
+    if (typeof category === 'string' && validator.isInt(category) && parseInt(category, 10) != 0) {
+      data.category = parseInt(category, 10);
+    } else {
+      data.category = null;
+    }
+
+    if (typeof status === 'string' && validator.isBoolean(status)) {
+      data.status = status.toLowerCase() === 'true'; // convert to boolean
+    } else {
+      data.status = null;
+    }
+
+    const totalCount = await productModel.getTotalCount(data.search, data.category, data.status);
+    const totalPages = Math.ceil(totalCount / data.limit);
+    const products = await productModel.getProductsPaginationFilter(
+      data.page,
+      data.limit,
+      data.search,
+      data.category,
+      data.status
+    );
+    res.status(200).json({ totalPages, products });
+  } catch (error) {
+    console.error('Error in getAllProducts:', error);
+    res.status(500).json({ message: 'Failed to fetch products' });
+  }
+};
+
+// Get product by id
+const getProductById = async (req: Request, res: Response, next: NextFunction) => {
+  try {
+    const id = parseInt(req.params.id, 10);
+
+    if (isNaN(id)) {
+      res.status(400).json({ message: 'Invalid product ID' });
+      return;
+    }
+
+    const product = await productModel.getProductById(id);
+
+    if (!product || product.length === 0) {
+      res.status(404).json({ message: 'Product not found' });
+      return;
+    }
+
+    res.status(200).json(product); // Assuming only one row is returned
+  } catch (error) {
+    console.error('Error in getProductById:', error);
+    res.status(500).json({ message: 'Failed to fetch product' });
+  }
+};
+
+// Validate product data before creating or updating
+const validateProductData = async (req: Request, res: Response, next: NextFunction) => {
+  const id = parseInt(req.params.id, 10) || null;
+  const productData = req.body;
+
+  const {
+    product_name,
+    product_description,
+    product_remarks,
+    product_duration,
+    product_price,
+    product_category_id,
+    created_at,
+    created_by,
+  } = productData;
+
+  //Check if all fields are provided
+  if (!product_name || !product_duration || !product_price || !product_category_id || !created_at || !created_by) {
+    res.status(400).json({ message: 'Data missing from required fields.' });
+    return;
+  }
+
+  if (product_name) {
+    if (!isSafeInput(product_name.trim())) {
+      res.status(400).json({ message: 'Invalid data type' });
+      return;
+    } else {
+      const product = await productModel.getProductByName(product_name);
+      if (product) {
+        if (id) {
+          // Updating: allow only if it's the same product
+          if (parseInt(product.id,10) != id) {
+            res.status(400).json({ message: 'Product name already exists' });
+            return;
+          }
+        } else {
+          // Creating: any existing product with same name is a conflict
+          res.status(400).json({ message: 'Product name already exists' });
+          return;
+        }
+      }
+    }
+  }
+
+  if (product_description && !isSafeInput(product_description.trim())) {
+    res.status(400).json({ message: 'Invalid data type' });
+    return;
+  }
+
+  if (product_remarks && !isSafeInput(product_remarks.trim())) {
+    res.status(400).json({ message: 'Invalid data type' });
+    return;
+  }
+
+  if (product_category_id) {
+    if (!validator.isInt(product_category_id)) {
+      res.status(400).json({ message: 'Invalid data type' });
+      return;
+    } else {
+      const category = await productModel.getProductCategoryById(product_category_id);
+      if (!category || category.length === 0) {
+        res.status(404).json({ message: 'Product Category not found' });
+        return;
+      }
+    }
+  }
+  if (!validator.isInt(product_duration) || !validator.isNumeric(product_price)) {
+    res.status(400).json({ message: 'Invalid data type' });
+    return;
+  }
+
+  if (!validator.isISO8601(created_at)) {
+    throw new Error('Invalid data type');
+  }
+
+  next();
+};
+
+// create product
+const createProduct = async (req: Request, res: Response, next: NextFunction) => {
+  const formData = req.body;
+  try {
+    // check if all required fields are present
+    if (!validator.isBoolean(formData.product_is_enabled.toString())) {
+      res.status(400).json({ message: 'Invalid data type' });
+      return;
+    }
+
+    // get product sequence no (last in the category)
+    const product_sequence_no = parseInt(await productModel.getProductSequenceNo(formData.product_category_id));
+
+    // add product_sequence_no, updated_at, updated_by
+    const productData = {
+      ...formData,
+      created_at: new Date(formData.created_at).toISOString(),
+      product_sequence_no: product_sequence_no,
+      updated_by: formData.created_by,
+      updated_at: req.session.start_date_utc
+        ? new Date(req.session.start_date_utc).toISOString
+        : new Date().toISOString(),
+    };
+
+    const newProduct = await productModel.createProduct(productData);
+    if (newProduct) {
+      res.status(201).json({ product: newProduct[0], message: 'Product created successfully' });
+    } else {
+      res.status(400).json({ message: 'Failed to create product' });
+    }
+  } catch (error) {
+    console.error('Error in createProduct:', error);
+    res.status(500).json({ message: 'Failed to create product' });
+  }
+};
+
 // PRODUCT CATEGORIES ROUTES
 // Get Product Categories
 const getProductCategories = async (req: Request, res: Response, next: NextFunction) => {
@@ -135,7 +331,11 @@ const getSalesHistoryByProductId = async (req: Request, res: Response, next: Nex
 };
 
 export default {
+  getProductsPaginationFilter,
+  getProductById,
   getProductCategories,
+  validateProductData,
+  createProduct,
   createProductCategory,
   updateProductCategory,
   reorderProductCategory,
