@@ -109,7 +109,7 @@ const getTotalCount = async (search: string | null, category: number | null, sta
 const getAllServicesForDropdown = async () => {
   try {
     const query = `
-      SELECT id, service_name FROM services
+      SELECT id, service_name, service_price FROM services
       WHERE service_is_enabled = true
       ORDER BY service_name ASC
     `;
@@ -206,6 +206,18 @@ const getEnabledServiceById = async (id: number) => {
   }
 };
 
+const getServiceCategories = async () => {
+  try{
+    const query = `
+    SELECT * FROM service_categories
+    ORDER BY service_category_sequence_no;`;
+    const result = await pool().query(query);
+    return result.rows;
+  }catch(error){
+    console.error('Error fetching service categories:', error);
+    throw new Error('Error fetching service categories');
+  }
+}
 
 export default {
   getAllServices,
@@ -214,4 +226,5 @@ export default {
   getAllServicesForDropdown,
   getServiceById,
   getEnabledServiceById,
+  getServiceCategories
 };
