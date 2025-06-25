@@ -28,15 +28,27 @@ const formatDisplayTime = (hour, minute) => {
   return `${h}:${minute.toString().padStart(2, '0')} ${ampm}`;
 };
 
-const generateTimeSlots = () => {
+// Configurable business-hour settings
+const START_HOUR   = 10;  // 10 AM
+const END_HOUR     = 21;  // 9 PM  (we’ll add a final 21:00 slot)
+const SLOT_MINUTES = 30;  // 30-minute intervals
+
+const generateTimeSlots = (
+  start = START_HOUR,
+  end   = END_HOUR,
+  step  = SLOT_MINUTES
+) => {
   const slots = [];
-  for (let hour = 10; hour < 21; hour++) { // 10:00 to 20:30
-    for (let minute = 0; minute < 60; minute += 30) {
+
+  for (let hour = start; hour < end; hour++) {
+    for (let minute = 0; minute < 60; minute += step) {
       slots.push({ hour, minute });
     }
   }
-  // Add final slot for 21:00
-  slots.push({ hour: 21, minute: 0 });
+
+  // explicit final slot at end-of-day (end:00)
+  slots.push({ hour: end, minute: 0 });
+
   return slots;
 };
 

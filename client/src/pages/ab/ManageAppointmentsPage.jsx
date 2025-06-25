@@ -6,7 +6,7 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/com
 import { Button } from "@/components/ui/button";
 import { Calendar, Plus, LayoutGrid, List, CalendarDays } from "lucide-react";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { AppointmentTable } from '@/components/ab/appointment-table';
+import { AppointmentTable } from '@/components/ab/AppointmentTable';
 import { Link } from 'react-router-dom';
 import AppointmentList from '@/components/ab/AppointmentList';
 import App from '@/App';

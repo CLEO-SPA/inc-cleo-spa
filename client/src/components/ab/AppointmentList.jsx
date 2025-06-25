@@ -7,6 +7,15 @@ import MemberSelect from '@/components/ui/forms/MemberSelect';
 import { format } from 'date-fns';
 import { ChevronLeft, ChevronRight } from 'lucide-react';
 import { Link } from 'react-router-dom';
+import {
+  Pagination,
+  PaginationContent,
+  PaginationEllipsis,
+  PaginationItem,
+  PaginationLink,
+  PaginationNext,
+  PaginationPrevious,
+} from "@/components/ui/pagination";
 
 export default function AppointmentList() {
   const methods = useForm({ defaultValues: { employee_id: null, member_id: null, start_date: '', end_date: '' } });
@@ -102,25 +111,66 @@ export default function AppointmentList() {
               </div>
             ))}
 
-            <div className="flex justify-between items-center">
-              <Button
-                size="icon"
-                variant="outline"
-                onClick={() => setPage((p) => Math.max(1, p - 1))}
-                disabled={page === 1}
-              >
-                <ChevronLeft className="w-4 h-4" />
-              </Button>
-              <span className="text-sm">Page {page} of {totalPages}</span>
-              <Button
-                size="icon"
-                variant="outline"
-                onClick={() => setPage((p) => Math.min(totalPages, p + 1))}
-                disabled={page === totalPages}
-              >
-                <ChevronRight className="w-4 h-4" />
-              </Button>
-            </div>
+            {/* shadcn pagination – render only when there are results */}
+            {appointments.length > 0 && (
+              <Pagination>
+                <PaginationContent>
+
+                  {/* Previous button */}
+                  <PaginationItem>
+                    <PaginationPrevious
+                      aria-label="Previous page"
+                      onClick={() => setPage((p) => Math.max(1, p - 1))}
+                      disabled={page === 1}
+                    />
+                  </PaginationItem>
+
+                  {/* Page numbers (handles 1-page, small, and large sets) */}
+                  {(() => {
+                    const items = [];
+                    const addNumber = (n) =>
+                      items.push(
+                        <PaginationItem key={n}>
+                          <PaginationLink
+                            isActive={n === page}
+                            onClick={() => setPage(n)}
+                          >
+                            {n}
+                          </PaginationLink>
+                        </PaginationItem>
+                      );
+
+                    if (totalPages <= 5) {
+                      // one-page or small set → show them all
+                      for (let n = 1; n <= totalPages; n++) addNumber(n);
+                    } else {
+                      // large set → first … window … last
+                      addNumber(1);
+                      if (page > 3) items.push(<PaginationEllipsis key="left…" />);
+
+                      const start = Math.max(2, page - 1);
+                      const end = Math.min(totalPages - 1, page + 1);
+                      for (let n = start; n <= end; n++) addNumber(n);
+
+                      if (page < totalPages - 2) items.push(<PaginationEllipsis key="right…" />);
+                      addNumber(totalPages);
+                    }
+
+                    return items;
+                  })()}
+
+                  {/* Next button */}
+                  <PaginationItem>
+                    <PaginationNext
+                      aria-label="Next page"
+                      onClick={() => setPage((p) => Math.min(totalPages, p + 1))}
+                      disabled={page === totalPages}
+                    />
+                  </PaginationItem>
+
+                </PaginationContent>
+              </Pagination>
+            )}
           </div>
         )}
       </div>
