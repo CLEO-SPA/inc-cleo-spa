@@ -30,6 +30,12 @@ import CreateConsumptionPage from '@/pages/CarePackages/CreateConsumptionPage';
 import CreateMemberVoucherConsumptionPage from '@/pages/MemberVoucher/CreateConsumptionPage';
 // Data Export
 import DataExportPage from './pages/miscellaneous/DateExportPage';
+import CreateMembersPage from './pages/member/CreateMemberPage';
+import ManagePaymentMethodsPage from './pages/payment-method/ManagePaymentMethodsPage';
+import CreatePaymentMethodPage from './pages/payment-method/CreatePaymentMethodPage';
+import EditPaymentMethodPage from './pages/payment-method/EditPaymentMethodPage';
+import TestPMComponent from './pages/sale-transaction/AddPMMComponentTest';
+
 
 
 function App() {
@@ -72,6 +78,15 @@ function App() {
 
               {/* statistics */}
               <Route path='/dbcr' element={<DatabaseReportPage />} />
+
+              {/* Service Management */}
+              <Route path='/manage-service' element={<ManageServicePage />} />
+              <Route path='/member/create' element={<CreateMembersPage />} />
+              {/* Payment Methods Management */}
+              <Route path='/payment-method' element={<ManagePaymentMethodsPage/>} /> 
+              <Route path='/payment-method/create' element={<CreatePaymentMethodPage />} />   
+              <Route path="/payment-method/edit/:id" element={<EditPaymentMethodPage />} />
+              <Route path="/payment-method/test" element={<TestPMComponent />} />
 
             </Route>
             <Route path='/login' element={<LoginPage />} />
