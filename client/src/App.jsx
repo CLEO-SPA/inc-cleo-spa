@@ -17,6 +17,7 @@ import ManagePositions from '@/pages/em/ManagePositionsPage';
 import CreatePositionPage from '@/pages/em/CreatePositionPage';
 import EditPositionPage from '@/pages/em/UpdatePositionPage';
 import ManageEmployeesPage from '@/pages/em/ManageEmployeesPage';
+import CreateEmployeePage from '@/pages/em/CreateEmployeePage';
 
 
 function App() {
@@ -33,6 +34,7 @@ function App() {
               <Route path='/positions/create' element={<CreatePositionPage />} />
               <Route path='/positions/update/:id' element={<EditPositionPage />} />
               <Route path='/employees' element={<ManageEmployeesPage />} />
+              <Route path='/employees/create' element={<CreateEmployeePage />} />
 
               {/* Protected Routes */}
 
