@@ -6,6 +6,7 @@ import { format } from 'date-fns';
 import { AppSidebar } from '@/components/app-sidebar';
 import { SiteHeader } from '@/components/site-header';
 import { SidebarInset, SidebarProvider } from '@/components/ui/sidebar';
+import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Button } from '@/components/ui/button';
 
@@ -31,8 +32,6 @@ export default function CreateEmployeeTimetablePage() {
   const [newRestDay, setNewRestDay] = useState('Monday');
   const [startDate, setStartDate] = useState(null);
   const [endDate, setEndDate] = useState(null);
-  const [createdAtDate, setCreatedAtDate] = useState(null);
-  const [createdAtTime, setCreatedAtTime] = useState('');
   const [createdAt, setCreatedAt] = useState(null);
   const [isReviewing, setIsReviewing] = useState(false);
   const [timetableResult, setTimetableResult] = useState(null);
@@ -40,18 +39,6 @@ export default function CreateEmployeeTimetablePage() {
   const createTimetable = useTimetableStore((state) => state.createTimetable);
   const isSubmitting = useTimetableStore((state) => state.isSubmitting);
   const submitError = useTimetableStore((state) => state.submitError);
-
-
-  const updateCreatedAt = (date, timeStr) => {
-    if (date && timeStr) {
-      const [h, m] = timeStr.split(':').map(Number);
-      const dt = new Date(date);
-      dt.setHours(h, m);
-      setCreatedAt(dt);
-    } else {
-      setCreatedAt(null);
-    }
-  };
 
   const [employeeName, setEmployeeName] = useState('');
   const [createdByName, setCreatedByName] = useState('');
@@ -144,7 +131,7 @@ export default function CreateEmployeeTimetablePage() {
                     updatedPreviousTimetable={timetableResult.updated_previous_timetable}
                     updatedNewTimetableEffectiveEndDate={timetableResult.updated_new_timetable_effective_enddate}
                     onViewTimetable={() => {
-                      navigate('/et')
+                      navigate('/et');
                     }}
                     onCreateAnother={() => {
                       setTimetableResult(null);
@@ -152,8 +139,6 @@ export default function CreateEmployeeTimetablePage() {
                       setNewRestDay('Monday');
                       setStartDate(null);
                       setEndDate(null);
-                      setCreatedAtDate(null);
-                      setCreatedAtTime('');
                       setCreatedAt(null);
                     }}
                     onCheckAppointments={() => navigate('/appointments')}
@@ -211,20 +196,20 @@ export default function CreateEmployeeTimetablePage() {
                           date={startDate}
                           onDateChange={(date) => setStartDate(date)}
                         />
-                        <FormDateTimePicker
-                          label='Created At*'
-                          name='created_at'
-                          date={createdAtDate}
-                          time={createdAtTime}
-                          onDateChange={(date) => {
-                            setCreatedAtDate(date);
-                            updateCreatedAt(date, createdAtTime);
-                          }}
-                          onTimeChange={(time) => {
-                            setCreatedAtTime(time);
-                            updateCreatedAt(createdAtDate, time);
-                          }}
-                        />
+                        <div className='grid grid-cols-4 items-center gap-2'>
+                          <Label className='col-span-1' htmlFor='created_at'>
+                            Created At*
+                          </Label>
+                          <div className='col-span-3'>
+                            <Input
+                              id='created_at'
+                              type='datetime-local'
+                              className='w-[250px]'
+                              value={createdAt ? format(createdAt, "yyyy-MM-dd'T'HH:mm") : ''}
+                              onChange={(e) => setCreatedAt(new Date(e.target.value))}
+                            />
+                          </div>
+                        </div>
                       </div>
 
                       <div className='grid grid-cols-2 gap-6'>
