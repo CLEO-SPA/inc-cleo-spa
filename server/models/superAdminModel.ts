@@ -18,7 +18,7 @@ interface HierarchyInterface {
 const hierarchy: HierarchyInterface[] = [
   { id: 1, table: 'employees', dependencies: [9, 37, 16] },
   { id: 2, table: 'care_packages', dependencies: [1] },
-  { id: 3, table: 'care_package_item_details', dependencies: [2] },
+  { id: 3, table: 'care_package_item_details', dependencies: [2, 7] },
   { id: 4, table: 'member_care_packages', dependencies: [1] },
   { id: 5, table: 'member_care_package_details', dependencies: [4, 7] },
   { id: 6, table: 'member_care_package_transaction_logs', dependencies: [1, 5, 7] },
