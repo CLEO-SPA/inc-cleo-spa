@@ -29,14 +29,14 @@ const formatDisplayTime = (hour, minute) => {
 };
 
 // Configurable business-hour settings
-const START_HOUR   = 10;  // 10 AM
-const END_HOUR     = 21;  // 9 PM  (we’ll add a final 21:00 slot)
+const START_HOUR = 10;  // 10 AM
+const END_HOUR = 21;  // 9 PM  (we’ll add a final 21:00 slot)
 const SLOT_MINUTES = 30;  // 30-minute intervals
 
 const generateTimeSlots = (
   start = START_HOUR,
-  end   = END_HOUR,
-  step  = SLOT_MINUTES
+  end = END_HOUR,
+  step = SLOT_MINUTES
 ) => {
   const slots = [];
 
@@ -216,6 +216,8 @@ export function AppointmentTable() {
 
   const hasFilters = !!filterEmployeeId || !!filterMemberId;
 
+  const showPager = !filterEmployeeId && totalPages > 1;
+
   return (
     <FormProvider {...methods}>
       <div className="w-full flex flex-col">
@@ -280,24 +282,26 @@ export function AppointmentTable() {
                   )} of ${sortedStaff.length}`
                 }
               </span>
-              <div className="flex gap-2">
-                <Button
-                  size="icon"
-                  variant="outline"
-                  disabled={employeePage === 0}
-                  onClick={() => setEmployeePage((prev) => Math.max(prev - 1, 0))}
-                >
-                  <ChevronLeft className="h-4 w-4" />
-                </Button>
-                <Button
-                  size="icon"
-                  variant="outline"
-                  disabled={employeePage >= totalPages - 1}
-                  onClick={() => setEmployeePage((prev) => Math.min(prev + 1, totalPages - 1))}
-                >
-                  <ChevronRight className="h-4 w-4" />
-                </Button>
-              </div>
+              {showPager && (
+                <div className="flex gap-2">
+                  <Button
+                    size="icon"
+                    variant="outline"
+                    disabled={employeePage === 0}
+                    onClick={() => setEmployeePage((prev) => Math.max(prev - 1, 0))}
+                  >
+                    <ChevronLeft className="h-4 w-4" />
+                  </Button>
+                  <Button
+                    size="icon"
+                    variant="outline"
+                    disabled={employeePage >= totalPages - 1}
+                    onClick={() => setEmployeePage((prev) => Math.min(prev + 1, totalPages - 1))}
+                  >
+                    <ChevronRight className="h-4 w-4" />
+                  </Button>
+                </div>
+              )}
             </div>
 
             <table className="min-w-full text-sm border-collapse">
