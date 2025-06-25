@@ -31,7 +31,6 @@ export function AppointmentDateTimeSelect({
     isFetching,
     error,
     errorMessage,
-    warning,
     fetchTimeslots,
     fetchEndTimesForStartTime,
   } = useAppointmentDateTimeStore();
@@ -94,10 +93,7 @@ export function AppointmentDateTimeSelect({
           excludeAppointmentId,
         });
       } else {
-        // If no valid start or inputs missing, clear endTimeSlots for this appointment
-        // We can clear by setting an empty array in the store:
-        const { endTimeSlotsByAppointment, reset } = useAppointmentDateTimeStore.getState();
-        // But invoking store setter directly:
+        // Clear endTimeSlots for this appointment
         useAppointmentDateTimeStore.setState((state) => {
           const updated = { ...state.endTimeSlotsByAppointment };
           delete updated[appointmentIndex];
@@ -153,7 +149,7 @@ export function AppointmentDateTimeSelect({
     // If slots not yet loaded (no baseAvailableSlots), skip clearing
     if (!baseAvailableSlots.length) return true;
     return filteredTimeslots.includes(value);
-  }, [value, filteredTimeslots]);
+  }, [value, filteredTimeslots, baseAvailableSlots]);
 
   useEffect(() => {
     if (value && !isCurrentValueValid) {

@@ -7,7 +7,7 @@ const router = express.Router();
 // =========================
 // Private routes
 // =========================
-// router.use(isAuthenticated);
+router.use(isAuthenticated);
 
 router.get('/', appointmentController.getAllAppointments);
 router.get('/date/:date', appointmentController.getAppointmentsByDate);

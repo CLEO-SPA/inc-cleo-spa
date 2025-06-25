@@ -1,4 +1,5 @@
-// src/pages/CreateAppointmentPage.jsx (or .tsx)
+// src/pages/CreateAppointmentPage.jsx
+/* eslint-disable no-unused-vars */
 import React, { useEffect, useState } from 'react';
 import { useForm, FormProvider } from 'react-hook-form';
 import { useNavigate } from 'react-router-dom';
@@ -22,16 +23,9 @@ import useAppointmentDateTimeStore from '@/stores/useAppointmentDateTimeStore';
 import useAppointmentStore from '@/stores/useAppointmentStore';
 
 const CreateAppointmentPage = () => {
+  const navigate = useNavigate();
   const { user, isAuthenticated, isLoading } = useAuth();
 
-  if (isLoading) {
-    return <p>Loading...</p>;
-  }
-  if (!isAuthenticated) {
-    return <p>Please log in.</p>;
-  }
-
-  const navigate = useNavigate();
   const { createAppointment, isCreating, error: storeError, errorMessage: storeErrorMessage } = useAppointmentStore();
 
   const methods = useForm({
@@ -53,13 +47,6 @@ const CreateAppointmentPage = () => {
   const { handleSubmit, watch, setValue } = methods;
   const formData = watch();
 
-  // Set default created_at to current SGT time
-  useEffect(() => {
-    const sgtNow = new Date(Date.now() + 8 * 60 * 60 * 1000);
-    const val = sgtNow.toISOString().slice(0, 16); // "YYYY-MM-DDTHH:mm"
-    setValue('created_at', val);
-  }, [setValue]);
-  user
   const {
     appointmentWarnings,
     reset: resetDateTimeStore,
@@ -71,6 +58,20 @@ const CreateAppointmentPage = () => {
 
   const [localError, setLocalError] = useState('');
   const [success, setSuccess] = useState(false);
+
+  // Set default created_at to current SGT time
+  useEffect(() => {
+    const sgtNow = new Date(Date.now() + 8 * 60 * 60 * 1000);
+    const val = sgtNow.toISOString().slice(0, 16); // "YYYY-MM-DDTHH:mm"
+    setValue('created_at', val);
+  }, [setValue]);
+
+  if (isLoading) {
+    return <p>Loading...</p>;
+  }
+  if (!isAuthenticated) {
+    return <p>Please log in.</p>;
+  }
 
   const today = new Date().toISOString().split('T')[0];
 
@@ -204,8 +205,8 @@ const CreateAppointmentPage = () => {
     const newAppointments = [...current, duplicated];
     setValue('appointments', newAppointments);
     const newIndex = newAppointments.length - 1;
-    clearWarningForAppointment(newIndex); 
-    clearTimeslots(newIndex); 
+    clearWarningForAppointment(newIndex);
+    clearTimeslots(newIndex);
   };
 
   const removeAppointment = (index) => {
@@ -351,11 +352,11 @@ const CreateAppointmentPage = () => {
                     <Button
                       type="button"
                       variant="outline"
-                      onClick={duplicatePreviousAppointment} 
+                      onClick={duplicatePreviousAppointment}
                       className='flex-1 h-12 border-dashed border-2'
-                      disabled={!(formData.appointments && formData.appointments.length > 0)} 
+                      disabled={!(formData.appointments && formData.appointments.length > 0)}
                     >
-                      <Plus className='mr-2 h-4 w-4' /> Duplicate previous appointment 
+                      <Plus className='mr-2 h-4 w-4' /> Duplicate previous appointment
                     </Button>
                   </div>
 

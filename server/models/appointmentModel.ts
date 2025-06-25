@@ -282,7 +282,7 @@ const createAppointment = async (
     const err = new Error(error.message);
     // Attach SQLSTATE code if exists
     if (error.code) {
-      // @ts-ignore
+      // @ts-expect-error: Error type doesn’t include `code`, but we attach SQLSTATE here
       err.code = error.code;
     }
     throw err;
@@ -313,7 +313,7 @@ export const updateAppointment = async (
     const err = new Error(error.message);
     // Attach SQLSTATE code if exists
     if (error.code) {
-      // @ts-ignore
+      // @ts-expect-error: Error type doesn’t include `code`, but we attach SQLSTATE here
       err.code = error.code;
     }
     throw err;

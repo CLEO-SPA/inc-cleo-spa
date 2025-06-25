@@ -26,9 +26,6 @@ export function MemberSelect({
   label = "Assigned Member *",
   disabled: customDisabled = false,
   customOptions = [],
-  value,
-  onValueChange,
-  placeholder,
 }) {
   const formContext = useFormContext();
   const members = useMemberStore((state) => state.members);

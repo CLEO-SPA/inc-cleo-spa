@@ -20,17 +20,10 @@ import useAppointmentDateTimeStore from '@/stores/useAppointmentDateTimeStore';
 import useAppointmentStore from '@/stores/useAppointmentStore';
 
 const EditAppointmentPage = () => {
+  const navigate = useNavigate();
   const { user, isAuthenticated, isLoading } = useAuth();
 
-  if (isLoading) {
-    return <p>Loading...</p>;
-  }
-  if (!isAuthenticated) {
-    return <p>Please log in.</p>;
-  }
-
   const { id } = useParams();
-  const navigate = useNavigate();
   const {
     fetchAppointment,
     selectedAppointment,
@@ -45,7 +38,6 @@ const EditAppointmentPage = () => {
     appointmentWarnings,
     reset: resetDateTimeStore,
     clearWarningForAppointment,
-    shiftAppointmentWarnings,
     clearTimeslots,
     getRestDayConflictMessage,
     fetchTimeslots,
@@ -162,7 +154,7 @@ const EditAppointmentPage = () => {
         });
       }
     }
-  }, [selectedAppointment, reset, resetDateTimeStore, fetchTimeslots, fetchEndTimesForStartTime, setValue]);
+  }, [selectedAppointment, reset, resetDateTimeStore, fetchTimeslots, fetchEndTimesForStartTime, setValue, user.user_id]);
 
   // 3. Cleanup *only* on unmount
   useEffect(() => {
@@ -170,6 +162,14 @@ const EditAppointmentPage = () => {
       resetAppointmentStore();
     };
   }, [resetAppointmentStore]);
+
+
+  if (isLoading) {
+    return <p>Loading...</p>;
+  }
+  if (!isAuthenticated) {
+    return <p>Please log in.</p>;
+  }
 
   // Validation logic 
   const validateForm = (data) => {
