@@ -115,6 +115,41 @@ const getCarePackageById = async (req: Request, res: Response, next: NextFunctio
   }
 };
 
+const checkPackageNameUniqueness = async (req: Request, res: Response, next: NextFunction): Promise<void> => {
+  try {
+    const { package_name, care_package_id } = req.body;
+
+    if (!package_name || typeof package_name !== 'string') {
+      res.status(400).json({ message: 'Package name is required' });
+      return;
+    }
+
+    const trimmedName = package_name.trim();
+    if (trimmedName === '') {
+      res.status(400).json({ message: 'Package name cannot be empty' });
+      return;
+    }
+
+    // for updates, exclude the current package ID
+    const excludeId = care_package_id || req.params.id;
+    
+    const nameExists = await model.checkPackageNameExists(trimmedName, excludeId);
+    
+    if (nameExists) {
+      res.status(400).json({ 
+        message: `A care package with the name "${trimmedName}" already exists. Please choose a different name.` 
+      });
+      return;
+    }
+
+    // if validation passes, continue to the main controller
+    next();
+  } catch (error) {
+    console.error('Error checking package name uniqueness:', error);
+    next(error);
+  }
+};
+
 const createCarePackage = async (req: Request, res: Response, next: NextFunction): Promise<void> => {
   try {
     const {
@@ -426,4 +461,5 @@ export default {
   updateCarePackageStatus,
   emulateCarePackage,
   deleteCarePackageById,
+  checkPackageNameUniqueness,
 };
