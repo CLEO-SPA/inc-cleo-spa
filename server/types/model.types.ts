@@ -177,6 +177,14 @@ export type NewMembershipType = Pick<
 // Data set for an updated Membership Type
 export type UpdatedMembershipType = Omit<MembershipType, 'created_at' | 'updated_at'>;
 
+export interface Positions {
+  id?: string;
+  position_name: string;
+  position_description: string;
+  position_is_active: boolean;
+  position_created_at: string;
+  position_updated_at: string;
+}
 export interface DataToExportList<L> {
   dataToExportList: L[];
 }

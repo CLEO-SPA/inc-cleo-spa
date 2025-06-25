@@ -115,6 +115,54 @@ const getPaginatedCarePackages = async (
   }
 };
 
+const getCarePackagesForDropdown = async (): Promise<FullCarePackage[]> => {
+  try {
+    const sql = `
+      SELECT cp.id, cp.care_package_name
+      FROM care_packages cp
+      WHERE cp.status_id = (SELECT get_or_create_status('ENABLED'))
+      ORDER BY cp.created_at DESC;
+    `;
+
+    const { rows } = await pool().query<{ care_package_data: FullCarePackage }>(sql);
+
+    return rows.map((row) => row.care_package_data);
+  } catch (error) {
+    console.error('Error in cpModel.getAllCarePackages (with details):', error);
+    throw new Error('Could not retrieve all care packages with details');
+  }
+};
+
+interface CarePackagePurchaseCount {
+  care_package_id: string;
+  care_package_name: string;
+  purchase_count: string;  
+  is_purchased: string;
+}
+
+const getCarePackagePurchaseCount = async (): Promise<Record<number, { purchase_count: number; is_purchased: string }>> => {
+  try {
+    const sql = `SELECT * FROM get_cp_purchase_counts();`;
+
+    const { rows } = await pool().query<CarePackagePurchaseCount>(sql);
+    const purchaseCountsMap: Record<number, { purchase_count: number; is_purchased: string }> = {};
+    
+    rows.forEach((row) => {
+      const id = parseInt(row.care_package_id.toString());
+      
+      purchaseCountsMap[id] = {
+        purchase_count: parseInt(row.purchase_count.toString()),
+        is_purchased: row.is_purchased
+      };
+    });
+
+    return purchaseCountsMap;
+  } catch (error) {
+    console.error('Error in getCarePackagePurchaseCounts:', error);
+    throw new Error('Could not retrieve care package purchase counts');
+  }
+};
+
 interface FullCarePackage {
   package: CarePackages;
   details: CarePackageItemDetails[];
@@ -136,6 +184,7 @@ const getCarePackageById = async (id: string): Promise<FullCarePackage | null> =
   }
 };
 
+// NOTE: price is original price of service, finalPrice is price x discount
 interface servicePayload {
   id: string;
   name: string;
@@ -331,6 +380,67 @@ const updateCarePackageById = async (
       throw error;
     }
     throw new Error('An unexpected error occurred while updating the care package.');
+  } finally {
+    client.release();
+  }
+};
+
+const updateCarePackageStatusById = async (
+  care_package_id: string,
+  status_id: string,
+  employee_id: string,
+  updated_at: string
+) => {
+  const client = await pool().connect();
+  try {
+    await client.query('BEGIN');
+
+    // validate that the care package exists
+    const v_cp_sql = 'SELECT id FROM care_packages WHERE id = $1';
+    const cpResult = await client.query(v_cp_sql, [care_package_id]);
+
+    if (cpResult.rowCount === 0) {
+      throw new Error(`Care package with ID ${care_package_id} does not exist.`);
+    }
+
+    // validate employee exists
+    const v_employee_sql = 'SELECT id FROM employees WHERE id = $1';
+    const employeeResult = await client.query(v_employee_sql, [employee_id]);
+
+    if (employeeResult.rowCount === 0) {
+      throw new Error(`Invalid employee_id: ${employee_id} does not exist.`);
+    }
+
+    // update only the status and tracking fields
+    const u_status_sql = `
+      UPDATE care_packages 
+      SET status_id = $1, 
+          last_updated_by = $2, 
+          updated_at = $3
+      WHERE id = $4
+    `;
+
+    await client.query(u_status_sql, [
+      status_id,
+      employee_id,
+      updated_at,
+      care_package_id,
+    ]);
+
+    await client.query('COMMIT');
+
+    return {
+      carePackageId: care_package_id,
+      message: 'Care package status updated successfully',
+      status_id: status_id,
+    };
+  } catch (error) {
+    console.error('Error updating care package status:', error);
+    await client.query('ROLLBACK');
+    if (error instanceof Error) {
+      throw error;
+    }
+    throw new Error('An unexpected error occurred while updating the care package status.');
   } finally {
     client.release();
   }
@@ -663,9 +773,12 @@ const emulateCarePackage = async (method: string, payload: Partial<emulatePayloa
 
 export default {
   getPaginatedCarePackages,
+  getCarePackagesForDropdown,
   getCarePackageById,
+  getCarePackagePurchaseCount,
   createCarePackage,
   updateCarePackageById,
+  updateCarePackageStatusById,
   deleteCarePackageById,
   emulateCarePackage,
 };

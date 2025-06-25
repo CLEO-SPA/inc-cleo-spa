@@ -15,7 +15,7 @@ import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert'; // 
 import { Loader2 } from 'lucide-react'; // For loading spinner
 
 export default function CreateConsumptionPage() {
-  const { packageId } = useParams();
+  const { id } = useParams();
   const navigate = useNavigate();
   const { user } = useAuth();
 
@@ -34,8 +34,8 @@ export default function CreateConsumptionPage() {
   } = useConsumptionStore();
 
   useEffect(() => {
-    if (packageId) {
-      fetchPackageData(packageId);
+    if (id) {
+      fetchPackageData(id);
     }
     if (user && user.id) {
       updateMainField('employee_id', user.id);
@@ -43,7 +43,7 @@ export default function CreateConsumptionPage() {
     return () => {
       // resetMainForm();
     };
-  }, [packageId, fetchPackageData, user, updateMainField]);
+  }, [id, fetchPackageData, user, updateMainField]);
 
   const handleServiceChange = (serviceDetailId) => {
     if (serviceDetailId) {

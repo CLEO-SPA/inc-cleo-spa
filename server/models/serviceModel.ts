@@ -58,6 +58,7 @@ const getServicesPaginationFilter = async (
       $5::BOOLEAN
       );`;
     const params = [page, limit, search, category, status];
+
     const result = await prodPool().query(query, params);
     return result.rows;
   } catch (error) {

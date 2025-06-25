@@ -24,21 +24,21 @@ import {
 
 const EditMembersPage = () => {
   const { id } = useParams();
-  const { 
-    getMemberById, 
-    updateMember, 
-    isUpdating, 
+  const {
+    getMemberById,
+    updateMember,
+    isUpdating,
     selectedMember, // Access the member from store state
     isFetchingSingle,
     error: storeError,
     errorMessage: storeErrorMessage
   } = useMemberStore();
-  
+
   const [error, setError] = useState(null);
   const [showSuccessDialog, setShowSuccessDialog] = useState(false);
   const [updatedMember, setUpdatedMember] = useState(null);
   const navigate = useNavigate();
-  
+
   // Use only one useForm instance
   const methods = useForm({
     defaultValues: {
@@ -68,7 +68,7 @@ const EditMembersPage = () => {
   // Helper function to parse date strings from API
   const parseDateString = (dateStr) => {
     if (!dateStr) return '';
-    
+
     try {
       // Handle different date formats
       if (dateStr.includes(',')) {
@@ -88,13 +88,13 @@ const EditMembersPage = () => {
     } catch (error) {
       console.error('Date parsing error:', error);
     }
-    
+
     return '';
   };
 
   const parseDateTimeString = (dateStr) => {
     if (!dateStr) return '';
-    
+
     try {
       // Handle format: "11 Aug 2024, 08:46 PM"
       if (dateStr.includes(',')) {
@@ -112,7 +112,7 @@ const EditMembersPage = () => {
     } catch (error) {
       console.error('DateTime parsing error:', error);
     }
-    
+
     return '';
   };
 
@@ -140,7 +140,7 @@ const EditMembersPage = () => {
   useEffect(() => {
     if (selectedMember) {
       console.log('Selected member data:', selectedMember); // Debug log
-      
+
       const formattedDob = parseDateString(selectedMember.dob);
       const formattedCreatedAt = parseDateTimeString(selectedMember.created_at);
 
@@ -298,7 +298,7 @@ const EditMembersPage = () => {
                   </p>
                 </div>
               </div>
-              
+
               {/* Form Section */}
               <FormProvider {...methods}>
                 <form onSubmit={handleSubmit(onSubmit)} className="space-y-6">
@@ -313,10 +313,10 @@ const EditMembersPage = () => {
                           <Label htmlFor="name" className="text-sm font-medium text-gray-700">
                             Full Name *
                           </Label>
-                          <Input 
+                          <Input
                             id="name"
-                            placeholder="Enter full name" 
-                            {...register("name", { required: "Name is required" })} 
+                            placeholder="Enter full name"
+                            {...register("name", { required: "Name is required" })}
                             className={errors.name ? "border-red-500" : ""}
                           />
                           {errors.name && (
@@ -328,17 +328,17 @@ const EditMembersPage = () => {
                           <Label htmlFor="email" className="text-sm font-medium text-gray-700">
                             Email Address *
                           </Label>
-                          <Input 
+                          <Input
                             id="email"
-                            placeholder="Enter email address" 
-                            type="email" 
-                            {...register("email", { 
+                            placeholder="Enter email address"
+                            type="email"
+                            {...register("email", {
                               required: "Email is required",
                               pattern: {
                                 value: /^[A-Z0-9._%+-]+@[A-Z0-9.-]+\.[A-Z]{2,}$/i,
                                 message: "Invalid email address"
                               }
-                            })} 
+                            })}
                             className={errors.email ? "border-red-500" : ""}
                           />
                           {errors.email && (
@@ -350,10 +350,10 @@ const EditMembersPage = () => {
                           <Label htmlFor="contact" className="text-sm font-medium text-gray-700">
                             Contact Number *
                           </Label>
-                          <Input 
+                          <Input
                             id="contact"
-                            placeholder="Enter contact number" 
-                            {...register("contact", { required: "Contact number is required" })} 
+                            placeholder="Enter contact number"
+                            {...register("contact", { required: "Contact number is required" })}
                             className={errors.contact ? "border-red-500" : ""}
                           />
                           {errors.contact && (
@@ -365,10 +365,10 @@ const EditMembersPage = () => {
                           <Label htmlFor="nric" className="text-sm font-medium text-gray-700">
                             NRIC/ID Number
                           </Label>
-                          <Input 
+                          <Input
                             id="nric"
-                            placeholder="Enter NRIC/ID number" 
-                            {...register("nric")} 
+                            placeholder="Enter NRIC/ID number"
+                            {...register("nric")}
                           />
                         </div>
 
@@ -376,10 +376,10 @@ const EditMembersPage = () => {
                           <Label htmlFor="dob" className="text-sm font-medium text-gray-700">
                             Date of Birth
                           </Label>
-                          <Input 
+                          <Input
                             id="dob"
-                            type="date" 
-                            {...register("dob")} 
+                            type="date"
+                            {...register("dob")}
                           />
                         </div>
 
@@ -387,7 +387,7 @@ const EditMembersPage = () => {
                           <Label className="text-sm font-medium text-gray-700">
                             Gender
                           </Label>
-                          <Select 
+                          <Select
                             onValueChange={(val) => setValue('sex', val)}
                             value={watch('sex')} // Use watch to get current value
                           >
@@ -408,10 +408,10 @@ const EditMembersPage = () => {
                           <Label htmlFor="address" className="text-sm font-medium text-gray-700">
                             Address
                           </Label>
-                          <Textarea 
+                          <Textarea
                             id="address"
-                            placeholder="Enter full address" 
-                            {...register("address")} 
+                            placeholder="Enter full address"
+                            {...register("address")}
                             rows={3}
                           />
                         </div>
@@ -435,23 +435,13 @@ const EditMembersPage = () => {
                             id="created_at"
                             type="datetime-local"
                             {...register("created_at")}
-                            readOnly
-                            className="bg-gray-50"
                           />
                           <p className="text-xs text-gray-500">This field cannot be modified</p>
                         </div>
 
                         {/* Created By (Read-only display) */}
                         <div className="space-y-2">
-                          <Label className="text-sm font-medium text-gray-700">
-                            Created By
-                          </Label>
-                          <Input
-                            readOnly
-                            value={selectedMember?.created_by_name || 'Unknown'}
-                            className="bg-gray-50"
-                          />
-                          <p className="text-xs text-gray-500">This field cannot be modified</p>
+                          <EmployeeSelect name="created_by" label="Created By *" />
                         </div>
 
                         {/* Membership Type */}
@@ -466,10 +456,10 @@ const EditMembersPage = () => {
                           <Label htmlFor="remarks" className="text-sm font-medium text-gray-700">
                             Remarks
                           </Label>
-                          <Textarea 
+                          <Textarea
                             id="remarks"
-                            placeholder="Enter any additional remarks or notes" 
-                            {...register("remarks")} 
+                            placeholder="Enter any additional remarks or notes"
+                            {...register("remarks")}
                             rows={3}
                           />
                         </div>
@@ -495,9 +485,9 @@ const EditMembersPage = () => {
                           Cancel
                         </Button>
                       </Link>
-                      <Button 
-                        type="submit" 
-                        disabled={isUpdating} 
+                      <Button
+                        type="submit"
+                        disabled={isUpdating}
                         className="px-12 py-3 bg-blue-600 hover:bg-blue-700 text-white font-medium text-base"
                       >
                         {isUpdating ? (
@@ -565,7 +555,7 @@ const EditMembersPage = () => {
                   <div className="flex justify-between text-sm">
                     <span className="text-gray-600">Date of Birth:</span>
                     <span className="font-medium text-gray-900">
-                      {new Date(updatedMember?.dob).toLocaleDateString()}
+                      {new Date(updatedMember?.dob).toLocaleDateString('en-GB')}
                     </span>
                   </div>
                 )}

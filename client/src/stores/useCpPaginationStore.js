@@ -16,6 +16,9 @@ export const useCpPaginationStore = create((set, get) => ({
   isLoading: false,
   error: null,
   lastAction: null,
+  purchaseCountData: [],
+  isPurchaseCountLoading: false,
+  purchaseCountError: null,
 
   // Actions
   initializePagination: (initialLimit = 10, initialSearchTerm = '') => {
@@ -33,6 +36,9 @@ export const useCpPaginationStore = create((set, get) => ({
       isLoading: false,
       error: null,
       lastAction: null,
+      purchaseCountData: [],
+      isPurchaseCountLoading: false,
+      purchaseCountError: null,
     });
     // Fetch initial data after state is set
     get().fetchCarePackages();
@@ -154,5 +160,33 @@ export const useCpPaginationStore = create((set, get) => ({
       lastAction: 'limit', // Track action
     }));
     get().fetchCarePackages(); // Trigger fetch
+  },
+
+  // used to fetch purchase count data
+  fetchPurchaseCount: async () => {
+    set({ isPurchaseCountLoading: true, purchaseCountError: null });
+
+    try {
+      const response = await api.get('/cp/pkgpc');
+
+      const purchaseCountArray = Object.entries(response.data).map(([packageId, data]) => ({
+        packageId: packageId,
+        purchase_count: data.purchase_count,
+        is_purchased: data.is_purchased,
+      }));
+
+      set({
+        purchaseCountData: response.data, 
+        purchaseCountArray: purchaseCountArray,
+        isPurchaseCountLoading: false,
+        purchaseCountError: null,
+      });
+    } catch (err) {
+      console.error('Failed to fetch purchase count data:', err);
+      set({
+        purchaseCountError: err.message || 'Failed to fetch purchase count data',
+        isPurchaseCountLoading: false,
+      });
+    }
   },
 }));
