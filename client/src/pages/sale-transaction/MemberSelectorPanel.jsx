@@ -594,7 +594,7 @@ export default function MemberSelectorPanel() {
                                   <DropdownMenuContent align='start'>
                                     <DropdownMenuItem onClick={() => handlePackageCancel(mcp)}>
                                       <X className='mr-2 h-4 w-4' />
-                                      Cancel
+                                      Void
                                     </DropdownMenuItem>
                                     <DropdownMenuItem onClick={() => handlePackageConsume(mcp)}>
                                       <Package className='mr-2 h-4 w-4' />
@@ -689,7 +689,7 @@ export default function MemberSelectorPanel() {
                                   <DropdownMenuContent align='start'>
                                     <DropdownMenuItem onClick={() => handleVoucherCancel(voucher)}>
                                       <X className='mr-2 h-4 w-4' />
-                                      Cancel
+                                      Void
                                     </DropdownMenuItem>
                                     <DropdownMenuItem onClick={() => handleVoucherConsume(voucher.id)}>
                                       <Package className='mr-2 h-4 w-4' />
