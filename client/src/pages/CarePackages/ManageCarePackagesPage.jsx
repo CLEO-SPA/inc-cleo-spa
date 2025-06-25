@@ -238,8 +238,8 @@ function ManageCarePackagesPage() {
   // enhanced check if package can be safely deleted (both purchase count AND status)
   const canDeletePackage = (pkg) => {
     const purchaseData = getPurchaseCountForPackage(pkg.id);
-    const hasNoPurchases = purchaseData.purchase_count === 0 && !purchaseData.is_purchased;
-    const isDisabled = !isPackageEnabled(pkg); // Must be disabled (status_id !== 1)
+    const hasNoPurchases = purchaseData.purchase_count === 0 && purchaseData.is_purchased === 'No';
+    const isDisabled = !isPackageEnabled(pkg);
 
     return hasNoPurchases && isDisabled;
   };
@@ -247,9 +247,8 @@ function ManageCarePackagesPage() {
   // enhanced deletion restriction reason that includes both purchase count AND status
   const getDeleteRestrictionReason = (pkg) => {
     const purchaseData = getPurchaseCountForPackage(pkg.id);
-    const hasNoPurchases = purchaseData.purchase_count === 0 && !purchaseData.is_purchased;
+    const hasNoPurchases = purchaseData.purchase_count === 0 && purchaseData.is_purchased === 'No';
     const isEnabled = isPackageEnabled(pkg);
-
     const reasons = [];
 
     // check purchase count first
@@ -263,6 +262,7 @@ function ManageCarePackagesPage() {
     if (isEnabled) {
       reasons.push('This package is currently enabled');
     }
+
     if (reasons.length === 0) {
       return null;
     }
@@ -545,7 +545,7 @@ function ManageCarePackagesPage() {
                                               <div className='group relative'>
                                                 <AlertTriangle className='h-3 w-3 text-amber-500' />
                                                 <div className='absolute bottom-full left-1/2 transform -translate-x-1/2 mb-2 px-2 py-1 text-xs text-white bg-gray-800 rounded opacity-0 group-hover:opacity-100 transition-opacity whitespace-nowrap z-10'>
-                                                  Cannot delete - package has existing purchases
+                                                  Package has existing purchases and cannot be deleted
                                                 </div>
                                               </div>
                                             )}
@@ -662,7 +662,7 @@ function ManageCarePackagesPage() {
                         <strong>Price:</strong> ${parseFloat(packageToDelete.care_package_price || 0).toFixed(2)}
                       </div>
                       <div>
-                        <strong>Status:</strong> {getStatusById(packageToDelete.status_id)?.status_name || 'Unknown'}
+                        <strong>Status:</strong> {packageToDelete.status || 'Unknown'}
                       </div>
                       <div>
                         <strong>Purchase Count:</strong> {getPurchaseCountForPackage(packageToDelete.id).purchase_count}
