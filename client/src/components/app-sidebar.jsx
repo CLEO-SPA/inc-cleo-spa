@@ -112,7 +112,7 @@ const data = {
         },
         {
           title: 'Manage Timetable',
-          url: '#',
+          url: '/et',
         },
       ],
     },

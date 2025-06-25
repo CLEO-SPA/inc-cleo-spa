@@ -3,6 +3,7 @@ import React from 'react';
 import { format } from 'date-fns';
 import { Button } from '@/components/ui/button';
 import useEmployeeTimetableStore from '@/stores/useEmployeeTimetableStore';
+import { useNavigate } from 'react-router-dom';
 
 export default function TimetableCalendar() {
   const {
@@ -10,6 +11,7 @@ export default function TimetableCalendar() {
     timetableData = [], // ✅ Default to empty array
     selectedEmployee
   } = useEmployeeTimetableStore();
+  const navigate = useNavigate();
 
   // Get weekdays (Mon-Sun)
   const weekdays = ['Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday', 'Sunday'];
@@ -52,9 +54,6 @@ export default function TimetableCalendar() {
                 {day}
               </th>
             ))}
-            <th className="border border-black px-2 py-1 text-center font-medium min-w-[90px]">
-              Actions
-            </th>
           </tr>
         </thead>
 
@@ -93,23 +92,20 @@ export default function TimetableCalendar() {
                           <div className="text-[10px] leading-tight">
                             End: {restDay.effective_enddate ? format(new Date(restDay.effective_enddate), 'dd MMM yyyy') : 'Ongoing'}
                           </div>
+                          <Button
+                            variant="outline"
+                            size="sm"
+                            className="mt-1 text-[10px] h-5 border-black text-black hover:bg-gray-200"
+                            onClick={() => navigate(`/et/update-employee-timetable/${restDay.timetable_id}`)}
+                          >
+                            Edit
+                          </Button>
                         </div>
                       )}
                     </td>
                   );
                 })}
                 
-                {/* Actions */}
-                <td className="border border-black px-1 py-1 text-center">
-                  <div className="flex gap-1">
-                    <Button variant="outline" size="sm" className="flex-1 text-[10px] h-6 border-black text-black hover:bg-gray-200">
-                      Create
-                    </Button>
-                    <Button variant="outline" size="sm" className="flex-1 text-[10px] h-6 border-black text-black hover:bg-gray-200">
-                      Edit
-                    </Button>
-                  </div>
-                </td>
               </tr>
             ))
           )}

@@ -25,7 +25,7 @@ export default function EmployeeTimetablePage() {
   }, [initialize]);
 
   const handleCreateNew = () => {
-    navigate('/employee-timetable/create');
+    navigate('/et/create-employee-timetable');
   };
 
   const handleExport = () => {

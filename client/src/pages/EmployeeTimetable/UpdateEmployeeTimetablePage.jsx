@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { useForm, FormProvider } from 'react-hook-form';
-import { useParams } from 'react-router-dom';
+import { useParams, useNavigate } from 'react-router-dom';
 import { format } from 'date-fns';
 
 import { AppSidebar } from '@/components/app-sidebar';
@@ -23,6 +23,7 @@ export default function UpdateEmployeeTimetablePage() {
   const { timetableId } = useParams();
   const methods = useForm();
   const { setValue, watch } = methods;
+  const navigate = useNavigate();
 
   const updatedBy = watch('updated_by');
   const updatedAt = format(getCurrentSimulationDate(), 'yyyy-MM-dd');
@@ -136,7 +137,7 @@ export default function UpdateEmployeeTimetablePage() {
                     updatedPreviousTimetable={timetableResult.updated_previous_timetable}
                     updatedNewTimetableEffectiveEndDate={timetableResult.updated_current_timetable_enddate}
                     onViewTimetable={() => {
-                      alert('Redirect to view timetable');
+                      navigate('/et')
                     }}
                   />
                 )}
@@ -201,7 +202,7 @@ export default function UpdateEmployeeTimetablePage() {
                       </div>
 
                       <div className='flex justify-end gap-4 pt-6'>
-                        <Button type='button' variant='outline'>
+                        <Button type='button' variant='outline' onClick={() => navigate('/et')}>
                           Cancel
                         </Button>
                         <Button type='submit' onClick={methods.handleSubmit(() => setIsReviewing(true))}>

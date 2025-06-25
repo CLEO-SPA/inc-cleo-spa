@@ -38,7 +38,7 @@ function App() {
 
             {/* 404 Page */}
             <Route path='*' element={<NotFoundPage />} />
-            <Route path='/tt' element={<EmployeeTimetablePage />} />
+            <Route path='/et' element={<EmployeeTimetablePage />} />
           </Routes>
         </Router>
       </DateRangeProvider>
