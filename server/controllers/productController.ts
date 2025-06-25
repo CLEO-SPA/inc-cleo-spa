@@ -12,7 +12,7 @@ function isSafeInput(input: string) {
 const getProductsPaginationFilter = async (req: Request, res: Response, next: NextFunction) => {
   const { page, limit, search, category, status } = req.query;
   try {
-    const data: { [key: string]: any } = {};
+    const data: { [key: string]: (string | number | boolean | null) } = {};
 
     if (typeof page === 'string' && validator.isInt(page)) {
       data.page = parseInt(page, 10);
@@ -93,15 +93,15 @@ const validateProductData = async (req: Request, res: Response, next: NextFuncti
     product_name,
     product_description,
     product_remarks,
-    product_duration,
-    product_price,
+    product_unit_sale_price,
+    product_unit_cost_price,
     product_category_id,
     created_at,
     created_by,
   } = productData;
 
   //Check if all fields are provided
-  if (!product_name || !product_duration || !product_price || !product_category_id || !created_at || !created_by) {
+  if (!product_name || !product_unit_sale_price || !product_unit_cost_price || !product_category_id || !created_at || !created_by) {
     res.status(400).json({ message: 'Data missing from required fields.' });
     return;
   }
@@ -150,7 +150,7 @@ const validateProductData = async (req: Request, res: Response, next: NextFuncti
       }
     }
   }
-  if (!validator.isInt(product_duration) || !validator.isNumeric(product_price)) {
+  if (!validator.isNumeric(product_unit_sale_price) || !validator.isNumeric(product_unit_cost_price)) {
     res.status(400).json({ message: 'Invalid data type' });
     return;
   }
