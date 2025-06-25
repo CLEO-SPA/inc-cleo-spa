@@ -40,9 +40,32 @@ const processRefundService = async (req: Request, res: Response, next: NextFunct
     // 4: serving_employee_to_sale_transaction_item
     const refundResult = await model.processRefundService(req.body);
 
-    res.status(201).json({ message: 'Refund processed successfully', refundTransactionId: refundResult.refundTransactionId });
+    res.status(200).json({ message: 'Refund processed successfully', refundTransactionId: refundResult.refundTransactionId });
   } catch (error) {
     console.error('Error in RefundController.processRefund:', error);
+    next(error);
+  }
+};
+
+const processRefundMemberVoucher = async (req: Request, res: Response, next: NextFunction) => {
+  try {
+    const refundResult = await model.processRefundMemberVoucher(req.body);
+
+    res.status(200).json({ message: 'Refund processed successfully', refundTransactionId: refundResult.refundTransactionId });
+  } catch (error) {
+    console.error('Error in RefundController.processRefund:', error);
+    next(error);
+  }
+};
+
+const getEligibleMemberVoucherForRefund = async (req: Request, res: Response, next: NextFunction) => {
+  try {
+    const memberId = Number(req.params.memberId);
+    const results = await model.getEligibleMemberVoucherForRefund(memberId);
+
+    res.status(200).json(results);
+  } catch (error) {
+    console.error('Error in RefundController.getMemberVoucherByMemberId:', error);
     next(error);
   }
 };
@@ -51,4 +74,6 @@ export default {
   viewAllRefundSaleTransactionRecords,
   getServiceTransactionsForRefund,
   processRefundService,
+  processRefundMemberVoucher,
+  getEligibleMemberVoucherForRefund,
 };
