@@ -100,7 +100,7 @@ const CreateUpdateConfirmation = ({
               <div>
                 <strong>Updated End Date: {updatedPreviousTimetable.effective_enddate.split('T')[0]} </strong>
                 <div className='text-sm text-muted-foreground'>
-                  (The end date is updated to 1 day before the effective start date of the new timetable)
+                  (The end date is updated to 1 day before the effective start date of the {mode === 'update' ? 'updated' : 'new'} timetable)
                 </div>
               </div>
             </li>
