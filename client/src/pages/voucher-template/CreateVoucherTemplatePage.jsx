@@ -1,5 +1,5 @@
 // pages/CreateVoucherTemplatePage.jsx
-import { useForm, FormProvider } from 'react-hook-form';
+import { useForm, FormProvider, Controller } from 'react-hook-form';
 import { useVoucherTemplateFormStore } from '@/stores/useVoucherTemplateFormStore';
 import { Input } from '@/components/ui/input';
 import { Button } from '@/components/ui/button';
@@ -71,7 +71,7 @@ const CreateVoucherTemplatePage = () => {
   }), []);
 
   const methods = useForm({ defaultValues });
-  const { register, handleSubmit, reset, formState: { errors } } = methods;
+  const { register, handleSubmit, reset, formState: { errors }, control } = methods;
 
   // Event handlers
   const handleServiceSelect = useCallback(async (serviceData) => {
@@ -90,18 +90,27 @@ const CreateVoucherTemplatePage = () => {
     addServiceToTemplate();
   }, [serviceForm.service_id, addServiceToTemplate]);
 
-  const handleServiceFieldChange = useCallback((index, field, value) => {
-    const updatedData = { [field]: value };
+const handleServiceFieldChange = useCallback((index, field, value) => {
+  const updatedData = {};
 
-    if (field === 'custom_price' || field === 'discount') {
-      const service = mainFormData.details[index];
-      const customPrice = field === 'custom_price' ? value : service.custom_price;
-      const discount = field === 'discount' ? value : service.discount;
-      updatedData.final_price = customPrice - (customPrice * discount / 100);
-    }
+  if (field === 'discount' && value > 1) {
+    value = 1; // Cap discount at 1
+  }
 
-    updateServiceInTemplate(index, updatedData);
-  }, [mainFormData.details, updateServiceInTemplate]);
+  updatedData[field] = value;
+
+  if (field === 'custom_price' || field === 'discount') {
+    const service = mainFormData.details[index];
+    const customPrice = field === 'custom_price' ? value : service.custom_price;
+    const discount = field === 'discount' ? value : service.discount;
+    updatedData.final_price = customPrice * discount;
+        console.log(updatedData.final_price)
+
+  }
+
+  updateServiceInTemplate(index, updatedData);
+}, [mainFormData.details, updateServiceInTemplate]);
+
 
   const handleUpdateService = useCallback((index) => {
     setEditingServiceIndex(current => current === index ? null : index);
@@ -238,18 +247,28 @@ const CreateVoucherTemplatePage = () => {
                           <Label className="text-sm font-medium text-gray-700">
                             Status
                           </Label>
-                          <Select
-                            onValueChange={(val) => handleFieldChange('status', val)}
-                            defaultValue="is_enabled"
-                          >
-                            <SelectTrigger className="w-full h-9">
-                              <SelectValue placeholder="Select status" />
-                            </SelectTrigger>
-                            <SelectContent>
-                              <SelectItem value="is_enabled">Enabled</SelectItem>
-                              <SelectItem value="disabled">Disabled</SelectItem>
-                            </SelectContent>
-                          </Select>
+                          <Controller
+                            name="status" // This name must match the field name in your form data
+                            control={control} // Pass the control object from useForm
+                            defaultValue={mainFormData.status} // Set initial value from Zustand store
+                            render={({ field }) => ( // <--- 'field' is defined here
+                              <Select
+                                onValueChange={(val) => {
+                                  field.onChange(val); // <--- 'field' is accessible here
+                                  updateMainField('status', val); // Update your Zustand store
+                                }}
+                                value={field.value} // <--- 'field' is accessible here
+                              >
+                                <SelectTrigger className="w-full h-9">
+                                  <SelectValue placeholder="Select status" />
+                                </SelectTrigger>
+                                <SelectContent>
+                                  <SelectItem value="is_enabled">Enabled</SelectItem>
+                                  <SelectItem value="disabled">Disabled</SelectItem>
+                                </SelectContent>
+                              </Select>
+                            )}
+                          />
                         </div>
                         <div className="space-y-1">
                           <EmployeeSelect name="created_by" label="Created By *" />

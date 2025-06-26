@@ -592,10 +592,47 @@ const createMemberVoucher = async (req: Request, res: Response, next: NextFuncti
   }
 };
 
+const removeMemberVoucher = async (req: Request, res: Response, next: NextFunction): Promise<void> => {
+  try {
+    const { id } = req.params;
+
+    // Validate presence of ID
+    if (!id) {
+      res.status(400).json({ success: false, message: 'Missing member voucher ID in request' });
+      return;
+    }
+
+    // Call the model function to perform soft delete
+    const result = await model.removeMemberVoucher(id);
+
+    res.status(200).json({
+      success: true,
+      message: 'Member voucher deleted (soft) successfully',
+      data: result,
+    });
+  } catch (error) {
+    console.error('Error deleting member voucher:', error);
+
+    if (error instanceof Error) {
+      if (error.message.includes('not found')) {
+        res.status(404).json({ success: false, message: error.message });
+        return;
+      }
+
+      res.status(400).json({ success: false, message: error.message });
+      return;
+    }
+
+    next(error); // Forward unexpected errors
+  }
+};
+
+
 export default {
   getAllMemberVouchers,
   getAllServicesOfMemberVoucherById,
   createMemberVoucher,
+  removeMemberVoucher,
   getAllTransactionLogsOfMemberVoucherById,
   createTransactionLogsByMemberVoucherId,
   checkCurrentBalance,
