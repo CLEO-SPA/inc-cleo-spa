@@ -18,7 +18,7 @@ interface HierarchyInterface {
 const hierarchy: HierarchyInterface[] = [
   { id: 1, table: 'employees', dependencies: [9, 37, 16] },
   { id: 2, table: 'care_packages', dependencies: [1] },
-  { id: 3, table: 'care_package_item_details', dependencies: [2] },
+  { id: 3, table: 'care_package_item_details', dependencies: [2, 7] },
   { id: 4, table: 'member_care_packages', dependencies: [1] },
   { id: 5, table: 'member_care_package_details', dependencies: [4, 7] },
   { id: 6, table: 'member_care_package_transaction_logs', dependencies: [1, 5, 7] },
@@ -32,8 +32,8 @@ const hierarchy: HierarchyInterface[] = [
   { id: 14, table: 'invoice_payments', dependencies: [15, 1, 20] },
   { id: 15, table: 'invoices', dependencies: [1, 16, 17] },
   { id: 16, table: 'statuses', dependencies: [] },
-  { id: 17, table: 'members', dependencies: [37] },
-  { id: 18, table: 'membership_accounts', dependencies: [] },
+  { id: 17, table: 'members', dependencies: [37, 19] },
+  { id: 18, table: 'membership_accounts', dependencies: [17, 19, 16] },
   { id: 19, table: 'membership_types', dependencies: [] },
   { id: 20, table: 'payment_methods', dependencies: [] },
   { id: 21, table: 'product_categories', dependencies: [] },
@@ -41,16 +41,16 @@ const hierarchy: HierarchyInterface[] = [
   { id: 23, table: 'roles', dependencies: [] },
   { id: 24, table: 'translations', dependencies: [] },
   { id: 25, table: 'user_to_role', dependencies: [23, 37] },
-  { id: 26, table: 'appointments', dependencies: [] },
-  { id: 27, table: 'member_voucher_details', dependencies: [] },
-  { id: 28, table: 'member_voucher_transaction_logs', dependencies: [] },
-  { id: 29, table: 'member_vouchers', dependencies: [] },
-  { id: 30, table: 'payment_to_sale_transactions', dependencies: [] },
-  { id: 31, table: 'sale_transaction_items', dependencies: [] },
-  { id: 32, table: 'sale_transactions', dependencies: [] },
+  { id: 26, table: 'appointments', dependencies: [17, 1] },
+  { id: 27, table: 'member_voucher_details', dependencies: [29, 7] },
+  { id: 28, table: 'member_voucher_transaction_logs', dependencies: [29, 1] },
+  { id: 29, table: 'member_vouchers', dependencies: [35, 1, 17] },
+  { id: 30, table: 'payment_to_sale_transactions', dependencies: [20, 32, 1] },
+  { id: 31, table: 'sale_transaction_items', dependencies: [32, 4, 29] },
+  { id: 32, table: 'sale_transactions', dependencies: [17, 1] },
   { id: 33, table: 'timetables', dependencies: [] },
-  { id: 34, table: 'voucher_template_details', dependencies: [] },
-  { id: 35, table: 'voucher_templates', dependencies: [] },
+  { id: 34, table: 'voucher_template_details', dependencies: [35, 7, 8] },
+  { id: 35, table: 'voucher_templates', dependencies: [1] },
   { id: 36, table: 'system_parameters', dependencies: [] },
   { id: 37, table: 'user_auth', dependencies: [] },
   { id: 38, table: 'employee_to_position', dependencies: [1, 9] },
@@ -328,12 +328,8 @@ async function performDbInserts(tablesToTruncate: string[], orderedTables: strin
         const sequenceName = sequenceNameResult.rows[0]?.sequence_name;
 
         if (sequenceName) {
-          const maxIdResult = await client.query(`SELECT COALESCE(MAX("id"), 0) AS max_id FROM "${tableName}";`);
-          const maxId = maxIdResult.rows[0].max_id;
-          await client.query(`SELECT pg_catalog.setval('${sequenceName}', ${maxId}, false);`);
-          console.log(
-            `   Updated sequence "${sequenceName}" for "${tableName}" to ${maxId}. Next ID will be ${maxId + 1}.`
-          );
+          await client.query(`SELECT setval('${sequenceName}', (SELECT MAX(id) FROM ${tableName});`);
+          console.log(`   Updated sequence "${sequenceName}" for "${tableName}".`);
         } else {
           console.warn(`   Could not find sequence for table "${tableName}" on column "id". Skipping sequence update.`);
         }
@@ -421,6 +417,45 @@ const insertPreDataModel = async (targetTable: string, tablePayload: tablePayloa
     );
     const sortedOrderForInsert = getSeedingOrder(filteredHierarchyForInsert);
 
+    let allFilesAreAlreadyActive = true;
+    for (const tableName of sortedOrderForInsert) {
+      const payloadEntry = tablePayload.find((p) => p.table === tableName);
+      if (payloadEntry && payloadEntry.file) {
+        const fileNameWithoutExtension = payloadEntry.file;
+        const csvFilePath = path.join(csvFolderPath, 'pre', tableName, `${fileNameWithoutExtension}.csv`);
+
+        if (!fs.existsSync(csvFilePath)) {
+          allFilesAreAlreadyActive = false;
+          break;
+        }
+
+        const activeInfo = await getActiveSeedInfo(tableName, 'pre');
+        const currentHash = await calculateFileHash(csvFilePath);
+
+        if (
+          !activeInfo ||
+          activeInfo.file_name !== fileNameWithoutExtension ||
+          activeInfo.file_content_hash !== currentHash
+        ) {
+          allFilesAreAlreadyActive = false;
+          break;
+        }
+      } else {
+        allFilesAreAlreadyActive = false;
+        break;
+      }
+    }
+
+    if (allFilesAreAlreadyActive && sortedOrderForInsert.length > 0) {
+      console.log(
+        `[saModel] All required seed files for target "${targetTable}" are already active. Skipping seeding process.`
+      );
+      return {
+        message: `Seeding for target "${targetTable}" skipped as all required files are already active.`,
+        tables: sortedOrderForInsert,
+      };
+    }
+
     const affectedTableIdsForTruncate = getDescendants(targetTableInfo.id, hierarchy);
 
     const fullSortedOrder = getSeedingOrder(hierarchy);
@@ -494,6 +529,45 @@ const insertPostDataModel = async (targetTable: string, tablePayload: tablePaylo
       requiredTableIdsForInsert.has(tableInfo.id)
     );
     const sortedOrderForInsert = getSeedingOrder(filteredHierarchyForInsert);
+
+    let allFilesAreAlreadyActive = true;
+    for (const tableName of sortedOrderForInsert) {
+      const payloadEntry = tablePayload.find((p) => p.table === tableName);
+      if (payloadEntry && payloadEntry.file) {
+        const fileNameWithoutExtension = payloadEntry.file;
+        const csvFilePath = path.join(csvFolderPath, 'post', tableName, `${fileNameWithoutExtension}.csv`);
+
+        if (!fs.existsSync(csvFilePath)) {
+          allFilesAreAlreadyActive = false;
+          break;
+        }
+
+        const activeInfo = await getActiveSeedInfo(tableName, 'post');
+        const currentHash = await calculateFileHash(csvFilePath);
+
+        if (
+          !activeInfo ||
+          activeInfo.file_name !== fileNameWithoutExtension ||
+          activeInfo.file_content_hash !== currentHash
+        ) {
+          allFilesAreAlreadyActive = false;
+          break;
+        }
+      } else {
+        allFilesAreAlreadyActive = false;
+        break;
+      }
+    }
+
+    if (allFilesAreAlreadyActive && sortedOrderForInsert.length > 0) {
+      console.log(
+        `[saModel] All required post-seed files for target "${targetTable}" are already active. Skipping seeding process.`
+      );
+      return {
+        message: `Post-seeding for target "${targetTable}" skipped as all required files are already active.`,
+        tables: sortedOrderForInsert,
+      };
+    }
 
     const affectedTableIdsForTruncate = getDescendants(targetTableInfo.id, hierarchy);
 

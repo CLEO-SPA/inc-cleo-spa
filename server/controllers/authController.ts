@@ -16,11 +16,14 @@ const isAuthenticated = (req: Request, res: Response, next: NextFunction): void 
       if (!req.session.user_id) {
         req.session.start_date_utc = getCurrentSimStatus().isActive ? start_date_utc : null;
         req.session.end_date_utc = getCurrentSimStatus().isActive ? end_date_utc : new Date().toUTCString();
+        req.session.end_date_is_default = getCurrentSimStatus().isActive ? false : true;
         req.session.user_id = decoded.user_id;
         req.session.username = decoded.username;
         req.session.email = decoded.email;
         req.session.role = decoded.role;
         req.session.save();
+
+        console.log('My date from cookie', req.session.end_date_utc);
       }
       res.status(200).json({
         isAuthenticated: true,
@@ -72,6 +75,7 @@ const decodeSuperUserToken = async (req: Request, res: Response, next: NextFunct
 
     next();
   } catch (error) {
+    console.error('Error decoding token', error);
     throw new Error('Error decoding token');
   }
 };
@@ -92,6 +96,7 @@ const setUpSuperUser = async (req: Request, res: Response, next: NextFunction): 
 
     res.status(201).json({ message: 'Super user created successfully' });
   } catch (error) {
+    console.error('Error creating super user', error);
     throw new Error('Error creating super user');
   }
 };

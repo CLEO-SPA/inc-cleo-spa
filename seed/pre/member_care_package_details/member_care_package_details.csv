@@ -1,0 +1,26 @@
+"id","service_name","discount","price","member_care_package_id","service_id","status","quantity"
+"1","Gold Lift Treatment","0.20","580.00","1","1","ENABLED",8
+"2","Eyebrow Reshaping","0.00","12.00","2","2","ENABLED",15
+"3","Classic Pedi","0.15","38.00","3","3","ENABLED",12
+"4","Classic Gel Mani","0.00","48.00","4","4","ENABLED",10
+"5","Classic Gel Pedi","0.25","68.00","5","5","ENABLED",8
+"6","Eyebrow Touch Up","0.00","159.00","6","6","ENABLED",6
+"7","Fungus Treatment","0.10","108.00","7","7","ENABLED",10
+"8","Refreshing Facial Treatment","0.30","88.00","8","8","ENABLED",6
+"9","Eye Hot Mask","0.00","45.00","9","9","ENABLED",8
+"10","Face Soft Mask","0.00","38.00","10","10","ENABLED",10
+"11","Rejuvenating Treatment","0.20","168.00","11","11","ENABLED",5
+"12","Vello Treatment","0.15","168.00","12","12","ENABLED",5
+"13","Lenitive Treatment","0.25","178.00","13","13","ENABLED",4
+"14","Vitamin & Mineral Treatment","0.20","178.00","14","14","ENABLED",4
+"15","Advance Acne Treatment","0.35","178.00","15","15","ENABLED",3
+"16","Proteinase Repair Treatment","0.30","198.00","16","16","ENABLED",3
+"17","Biocell Treatment","0.25","298.00","17","17","ENABLED",2
+"18","Omega Firming Treatment","0.30","298.00","18","18","ENABLED",2
+"19","RF Facial Treatment","0.15","398.00","19","19","ENABLED",2
+"20","Cell Renewal Treatment","0.10","480.00","20","20","ENABLED",2
+"21","Hydro Dewy Skin Booster Treatment","0.00","580.00","21","21","ENABLED",1
+"22","PDRN Baby Skin Booster Treatment","0.00","680.00","22","22","ENABLED",1
+"23","B-Tox Renewal Treatment","0.00","680.00","23","23","ENABLED",1
+"24","Macaron Rejuvenating Treatment","0.00","680.00","24","24","ENABLED",1
+"25","Collagen Rejuvenating Treatment","0.00","780.00","25","25","ENABLED",1

@@ -400,6 +400,23 @@ export const useSeedDataStore = create((set, get) => ({
     }));
   },
 
+  deleteRow: () => {
+    const activeTable = get().activeTableForDisplay;
+    if (!activeTable || !get().data[activeTable]) return;
+
+    const currentTableData = get().data[activeTable];
+    if (currentTableData.length <= 1) {
+      return;
+    }
+
+    set((state) => ({
+      data: {
+        ...state.data,
+        [activeTable]: currentTableData.slice(0, -1),
+      },
+    }));
+  },
+
   addColumn: () => {
     const activeTable = get().activeTableForDisplay;
     if (!activeTable || !get().data[activeTable]) return;
@@ -416,6 +433,25 @@ export const useSeedDataStore = create((set, get) => ({
       data: {
         ...state.data,
         [activeTable]: currentTableData,
+      },
+    }));
+  },
+
+  deleteColumn: () => {
+    const activeTable = get().activeTableForDisplay;
+    if (!activeTable || !get().data[activeTable]) return;
+
+    const currentTableData = get().data[activeTable];
+    if (currentTableData.length === 0 || currentTableData[0].length <= 1) {
+      return;
+    }
+
+    const newTableData = currentTableData.map((row) => row.slice(0, -1));
+
+    set((state) => ({
+      data: {
+        ...state.data,
+        [activeTable]: newTableData,
       },
     }));
   },

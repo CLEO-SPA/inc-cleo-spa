@@ -1,4 +1,4 @@
-id,position_name,position_description,position_is_active,position_created_at,position_updated_at
+id,position_name,position_description,position_is_active,created_at,updated_at
 1,Beauty Technician,Manage beauty services,true,2020-04-30 06:30:00+00,2021-04-30 08:30:00+00
 2,Nail Artist,Service nail art,true,2020-04-10 05:00:00+00,2021-04-10 07:00:00+00
 3,Massage Therapist,Offer massage therapy,true,2020-04-06 08:00:00+00,2021-04-06 10:00:00+00
