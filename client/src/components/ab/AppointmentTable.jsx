@@ -131,7 +131,7 @@ export function AppointmentTable() {
 
   const fetchStaff = async () => {
     try {
-      const response = await api.get('/employee/dropdown');
+      const response = await api.get('/em/dropdown');
       const data = await response.data;
       const transformed = data.map((emp) => ({
         id: parseInt(emp.id),

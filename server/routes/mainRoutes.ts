@@ -23,15 +23,13 @@ router.use(simulationMiddleware);
 
 router.use('/auth', authRoutes);
 router.use('/session', sessionRoutes);
-router.use('/employee', employeeRoutes);
+router.use('/em', employeeRoutes);
 router.use('/member', memberRoutes);
 router.use('/mv', memberVoucherRoutes);
 router.use('/service', serviceRoutes);
-router.use('/member', memberRoutes);
 router.use('/cp', carePackageRoutes);
 router.use('/membership-type', membershipTypeRoutes);
 router.use('/mcp', memberCarePackageRoutes);
-router.use('/em', employeeRoutes);
 router.use('/voucher-template', voucherTemplateRoutes);
 router.use('/position', positionRoutes);
 router.use('/de', dataExportRoutes);

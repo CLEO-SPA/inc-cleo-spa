@@ -22,7 +22,6 @@ router.get('/dropdown', employeeController.getAllEmployeesForDropdown);
 router.get('/basic-details', employeeController.getBasicEmployeeDetails);
 
 router.get('/', employeeController.getAllEmployees);
-router.get('/dropdown', employeeController.getAllEmployeesForDropdown);
 
 // router.post(
 //   '/create',
