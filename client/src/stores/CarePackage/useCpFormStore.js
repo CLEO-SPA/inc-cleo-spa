@@ -185,6 +185,8 @@ export const useCpFormStore = create(
         return;
       }
 
+      // console.log(currentServiceForm);
+
       set(
         (state) => ({
           mainFormData: {
@@ -239,6 +241,8 @@ export const useCpFormStore = create(
               }
             }
 
+            // console.log(price, discountFactor);
+
             newServices[index] = {
               ...mergedData,
               finalPrice: price * discountFactor,
@@ -282,6 +286,8 @@ export const useCpFormStore = create(
     submitPackage: async (packageData) => {
       set({ isLoading: true, error: null });
       try {
+        // console.log(packageData);
+
         const response = await api.post('/cp/c', packageData);
         set({ isLoading: false });
         return response.data;
