@@ -1,325 +1,251 @@
-import { pool, getProdPool as prodPool } from '../config/database.js';
-import { CreateMemberInput, UpdateMemberInput } from '../types/member.types.js';
-import { getMemberOutstandingAmounts } from '../services/paymentService.js';
-import { getLastVisitedDatesForMembers } from '../services/getLastVisitedDatesForMember.js';
-import { format } from 'date-fns';
-
+import { Request, Response, NextFunction } from 'express';
 import model from '../models/memberModel.js';
 
-
-const getAllMembers = async (
-  offset: number,
-  limit: number,
-  startDate_utc?: string,
-  endDate_utc?: string,
-  createdBy?: string,
-  search?: string
-) => {
+// Get all members with filters and pagination
+const getAllMembers = async (req: Request, res: Response, next: NextFunction) => {
   try {
-    const filters: string[] = [];
-    const values: any[] = [];
-    let idx = 1;
+    const { start_date_utc, end_date_utc } = req.session;
 
-    if (startDate_utc && endDate_utc) {
-      filters.push(`m.created_at BETWEEN $${idx++} AND $${idx++}`);
-      values.push(startDate_utc, endDate_utc);
-    }
+    const {
+      page = '1',
+      limit = '10',
+      startDate_utc,
+      endDate_utc,
+      createdBy,
+      search
+    } = req.query;
 
-    if (createdBy) {
-      const empResult = await pool().query(
-        `SELECT id FROM employees WHERE employee_name ILIKE $1`,
-        [`%${createdBy}%`]
-      );
-      const empIds = empResult.rows.map(row => row.id);
+    const offset = (parseInt(page as string) - 1) * parseInt(limit as string);
+    const pageLimit = parseInt(limit as string);
 
-      if (empIds.length > 0) {
-        filters.push(`m.created_by = ANY($${idx++}::int[])`);
-        values.push(empIds);
-      } else {
-        return { members: [], totalPages: 0 };
+    const result = await model.getAllMembers(
+      offset,
+      pageLimit,
+      startDate_utc as string,
+      endDate_utc as string,
+      createdBy as string,
+      search as string,
+      start_date_utc!,
+      end_date_utc!
+    );
+
+    res.status(200).json({
+      data: result.members,
+      pageInfo: {
+        currentPage: parseInt(page as string),
+        totalPages: result.totalPages,
+        totalCount: result.totalCount,
+        limit: pageLimit
+      }
+    });
+  } catch (error) {
+    console.error('Error in getAllMembers:', error);
+    next(error);
+  }
+};
+
+
+// Create a new member
+const createMember = async (req: Request, res: Response) => {
+  try {
+    const newMember = await model.createMember(req.body);
+    res.status(201).json(newMember);
+  } catch (error) {
+    console.error('Error in createMember:', error);
+
+    // Check for specific validation errors
+    if (error instanceof Error) {
+      if (error.message === 'Email already exists') {
+        return res.status(409).json({ message: 'Email already exists' });
+      }
+      if (error.message === 'Contact number already exists') {
+        return res.status(409).json({ message: 'Contact number already exists' });
+      }
+      if (error.message === 'Error creating member') {
+        return res.status(500).json({ message: 'Failed to create member' });
       }
     }
 
-    if (search) {
-      filters.push(`(m.name ILIKE $${idx} OR m.contact ILIKE $${idx})`);
-      values.push(`%${search}%`);
-      idx++;
+    // Generic error fallback
+    res.status(500).json({ message: 'Failed to create member' });
+  }
+};
+
+// Update an existing member
+const updateMember = async (req: Request, res: Response) => {
+  try {
+    const { id } = req.params;
+
+    const updatedMember = await model.updateMember({
+      ...req.body,
+      id: Number(id),
+    });
+
+    res.status(200).json(updatedMember);
+  } catch (error) {
+    console.error('Error in updateMember:', error);
+
+    // Check for specific validation errors
+    if (error instanceof Error) {
+      if (error.message === 'Email already exists') {
+        return res.status(409).json({ message: 'Email already exists' });
+      }
+      if (error.message === 'Contact number already exists') {
+        return res.status(409).json({ message: 'Contact number already exists' });
+      }
+      if (error.message.includes('Member with ID') && error.message.includes('not found')) {
+        return res.status(404).json({ message: error.message });
+      }
+      if (error.message === 'Could not update member') {
+        return res.status(500).json({ message: 'Failed to update member' });
+      }
     }
 
-
-    const whereClause = filters.length > 0 ? `WHERE ${filters.join(' AND ')}` : '';
-
-    const baseQuery = `
-      SELECT 
-        m.*,
-        mt.membership_type_name as membership_type_name,
-        e.employee_name as created_by_name
-      FROM members m
-      LEFT JOIN membership_types mt ON m.membership_type_id::bigint = mt.id
-      LEFT JOIN employees e ON m.created_by = e.id
-      ${whereClause}
-    `;
-
-    values.push(limit, offset);
-    const query = `${baseQuery} ORDER BY m.id ASC LIMIT $${idx++} OFFSET $${idx++};`;
-
-    const result = await pool().query(query, values);
-
-    // Count query
-    const countValues = values.slice(0, -2);
-    const totalQuery = `
-      SELECT COUNT(*) 
-      FROM members m
-      LEFT JOIN membership_types mt ON m.membership_type_id::bigint = mt.id
-      LEFT JOIN employees e ON m.created_by = e.id
-      ${whereClause};
-    `;
-    const totalResult = await pool().query(totalQuery, countValues);
-    const totalPages = Math.ceil(Number(totalResult.rows[0].count) / limit);
-
-    // Get outstanding balances
-    const outstandingMap = await getMemberOutstandingAmounts();
-    const lastVisitedMap = await getLastVisitedDatesForMembers();
-
-    const enrichedMembers = result.rows.map((member: any) => ({
-  ...member,
-  total_amount_owed: outstandingMap[member.id] || 0,
-  last_visit_date: lastVisitedMap[member.id]
-    ? format(new Date(lastVisitedMap[member.id]), 'dd MMM yyyy, hh:mm a')
-    : null,
-  created_at: member.created_at
-    ? format(new Date(member.created_at), 'dd MMM yyyy, hh:mm a')
-    : null,
-  updated_at: member.updated_at
-    ? format(new Date(member.updated_at), 'dd MMM yyyy, hh:mm a')
-    : null,
-  dob: member.dob
-    ? format(new Date(member.dob), 'dd MMM yyyy')
-    : null,
-}));
-
-    return {
-      members: enrichedMembers,
-      totalPages,
-    };
-  } catch (error) {
-    console.error('Error fetching members:', error);
-    throw new Error('Error fetching members');
+    // Generic error fallback
+    res.status(500).json({ message: 'Failed to update member' });
   }
 };
 
-const createMember = async ({
-  name,
-  email,
-  contact,
-  dob,
-  sex,
-  remarks,
-  address,
-  nric,
-  membership_type_id,
-  created_at,
-  updated_at,
-  created_by,
-  role_id = 4,
-}: CreateMemberInput) => {
-  const client = await pool().connect();
 
+// Delete a member by ID
+const deleteMember = async (req: Request, res: Response, next: NextFunction) => {
   try {
-    await client.query('BEGIN');
-
-    // 1. Insert into user_auth
-    const insertUserAuthQuery = `
-      INSERT INTO user_auth (email, password, created_at, updated_at, mobile_number)
-      VALUES ($1, $2, $3, $4, $5)
-      RETURNING *;
-    `;
-    const userAuthValues = [email, null , created_at, updated_at, contact];
-    const authResult = await client.query(insertUserAuthQuery, userAuthValues);
-    const newAuth = authResult.rows[0];
-
-    // 2. Insert into members
-    const insertMemberQuery = `
-      INSERT INTO members (
-        name, email, contact, dob, sex, remarks, address, nric,
-        membership_type_id, created_at, updated_at, created_by, user_auth_id
-      )
-      VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13)
-      RETURNING *;
-    `;
-    const memberValues = [
-      name,
-      email,
-      contact,
-      dob,
-      sex,
-      remarks,
-      address,
-      nric,
-      membership_type_id,
-      created_at,
-      updated_at,
-      created_by,
-      newAuth.id,
-    ];
-    const memberResult = await client.query(insertMemberQuery, memberValues);
-    const newMember = memberResult.rows[0];
-
-    // 3. Insert into user_roles
-    const insertUserRoleQuery = `
-      INSERT INTO user_to_role (user_auth_id, role_id, created_at, updated_at)
-      VALUES ($1, $2, $3, $4)
-      RETURNING *;
-    `;
-    const roleValues = [newAuth.id, role_id, created_at, updated_at];
-    const roleResult = await client.query(insertUserRoleQuery, roleValues);
-    const newUserRole = roleResult.rows[0];
-
-    await client.query('COMMIT');
-
-    return {
-      member: newMember,
-      auth: newAuth,
-      role: newUserRole,
-    };
+    const { id } = req.params;
+    const result = await model.deleteMember(Number(id));
+    res.status(200).json(result);
   } catch (error) {
-    console.error('Error creating member:', error);
-    await client.query('ROLLBACK');
-    throw new Error('Error creating member');
-  } finally {
-    client.release();
+    console.error('Error in deleteMember:', error);
+
+    // Pass specific error message if it's an Error instance
+    if (error instanceof Error) {
+      res.status(400).json({ message: error.message });
+    } else {
+      res.status(500).json({ message: 'Failed to delete member' });
+    }
   }
 };
 
-const updateMember = async ({
-  id,
-  name,
-  email,
-  contact,
-  dob,
-  sex,
-  remarks,
-  address,
-  nric,
-  membership_type_id,
-  updated_at,
-}: UpdateMemberInput) => {
-  const client = await pool().connect();
 
+// Get a single member by ID
+const getMemberById = async (req: Request, res: Response, next: NextFunction): Promise<void> => {
   try {
+    const { start_date_utc, end_date_utc } = req.session;
+    const id = parseInt(req.params.id, 10);
 
-      const updateMemberQuery = `
-      UPDATE members
-      SET
-        name = $1,
-        email = $2,
-        contact = $3,
-        dob = $4,
-        sex = $5,
-        remarks = $6,
-        address = $7,
-        nric = $8,
-        membership_type_id = $9,
-        updated_at = $10
-      WHERE id = $11
-      RETURNING *;
-    `;
-
-    const values = [
-      name,
-      email,
-      contact,
-      dob,
-      sex,
-      remarks,
-      address,
-      nric,
-      membership_type_id,
-      updated_at,
-      id,
-    ];
-
-    const result = await client.query(updateMemberQuery, values);
-    return result.rows[0];
-  } catch (error) {
-    console.error('Error updating member:', error);
-    throw new Error('Could not update member');
-  } finally {
-    client.release();
-  }
-};
-const deleteMember = async (memberId: number) => {
-  const client = await pool().connect();
-
-  try {
-    await client.query('BEGIN');
-
-    // Step 1: Get associated user_auth_id
-    const getAuthIdQuery = `SELECT user_auth_id FROM members WHERE id = $1`;
-    const { rows } = await client.query(getAuthIdQuery, [memberId]);
-    if (rows.length === 0) throw new Error('Member not found');
-    const userAuthId = rows[0].user_auth_id;
-
-    // Step 2: Delete from user_roles
-    await client.query(`DELETE FROM user_to_role WHERE user_auth_id = $1`, [userAuthId]);
-
-    // Step 3: Delete from members
-    await client.query(`DELETE FROM members WHERE id = $1`, [memberId]);
-
-    // Step 4: Delete from user_auth
-    await client.query(`DELETE FROM user_auth WHERE id = $1`, [userAuthId]);
-
-    await client.query('COMMIT');
-    return { success: true };
-  } catch (error) {
-    await client.query('ROLLBACK');
-    console.error('Error deleting member:', error);
-    throw new Error('Could not delete member');
-  } finally {
-    client.release();
-  }
-};
-
-const getMemberById = async (id: number) => {
-  try {
-    const query = `
-      SELECT 
-        m.*,
-        mt.membership_type_name as membership_type_name,
-        e.employee_name as created_by_name
-      FROM members m
-      LEFT JOIN membership_types mt ON m.membership_type_id::bigint = mt.id
-      LEFT JOIN employees e ON m.created_by = e.id
-      WHERE m.id = $1;
-    `;
-
-    const result = await pool().query(query, [id]);
-
-    if (result.rows.length === 0) {
-      throw new Error('Member not found');
+    if (isNaN(id)) {
+      res.status(400).json({ message: 'Invalid member ID' });
+      return;
     }
 
-    const member = result.rows[0];
+    const member = await model.getMemberById(id, start_date_utc!, end_date_utc!);
 
-    return {
-      ...member,
-      created_at: member.created_at
-        ? format(new Date(member.created_at), 'dd MMM yyyy, hh:mm a')
-        : null,
-      updated_at: member.updated_at
-        ? format(new Date(member.updated_at), 'dd MMM yyyy, hh:mm a')
-        : null,
-      dob: member.dob
-        ? format(new Date(member.dob), 'dd MMM yyyy')
-        : null,
-    };
+    if (!member) {
+      res.status(404).json({ message: 'Member not found' });
+      return;
+    }
+
+    res.status(200).json(member);
   } catch (error) {
-    console.error('Error fetching member by ID:', error);
-    throw new Error('Error fetching member by ID');
+    console.error('Error in getMemberById:', error);
+    next(error);
   }
 };
 
-import { Request, Response } from 'express';
+const searchMemberByNameOrPhone = async (req: Request, res: Response, next: NextFunction): Promise<void> => {
+  try {
+    const { start_date_utc, end_date_utc } = req.session;
+    const searchTerm = req.query.q as string;
+
+    if (!searchTerm || searchTerm.trim() === '') {
+      res.status(400).json({ message: 'Search term is required' });
+      return;
+    }
+
+    const result = await model.searchMemberByNameOrPhone(searchTerm, start_date_utc!, end_date_utc!);
+
+    res.status(200).json(result);
+  } catch (error) {
+    console.error('Error in searchMemberByNameOrPhone:', error);
+    next(error);
+  }
+};
+
+
+const getMemberVouchers = async (req: Request, res: Response, next: NextFunction): Promise<void> => {
+  try {
+    const memberId = parseInt(req.params.memberId, 10);
+    const page = parseInt(req.query.page as string, 10) || 1;
+    const limit = parseInt(req.query.limit as string, 10) || 10;
+    const searchTerm = (req.query.searchTerm as string)?.trim() || undefined;
+
+    if (isNaN(memberId)) {
+      res.status(400).json({ message: 'Invalid member ID' });
+      return;
+    }
+
+    const offset = (page - 1) * limit;
+
+    const { vouchers, totalPages, totalCount } = await model.getMemberVouchers(
+      memberId,
+      offset,
+      limit,
+      searchTerm
+    );
+
+    res.status(200).json({
+      data: vouchers,
+      pageInfo: {
+        currentPage: page,
+        totalPages,
+        totalCount,
+        limit
+      }
+    });
+  } catch (error) {
+    console.error('Error in getMemberVouchers:', error);
+    next(error);
+  }
+};
+
+
+const getMemberCarePackages = async (req: Request, res: Response, next: NextFunction): Promise<void> => {
+  try {
+    const { start_date_utc, end_date_utc } = req.session;
+    const memberId = parseInt(req.params.memberId, 10);
+    const page = parseInt(req.query.page as string, 10) || 1;
+    const limit = parseInt(req.query.limit as string, 10) || 10;
+    const searchTerm = (req.query.searchTerm as string)?.trim() || undefined;
+
+    if (isNaN(memberId)) {
+      res.status(400).json({ message: 'Invalid member ID' });
+      return;
+    }
+
+    const offset = (page - 1) * limit;
+
+    const { carePackages, totalPages, totalCount } = await model.getMemberCarePackages(
+      memberId,
+      offset,
+      limit,
+      searchTerm,
+      start_date_utc!,
+      end_date_utc!
+    );
+
+    res.status(200).json({
+      data: carePackages,
+      pageInfo: {
+        currentPage: page,
+        totalPages,
+        totalCount,
+        limit
+      }
+    });
+  } catch (error) {
+    console.error('Error in getMemberCarePackages:', error);
+    next(error);
+  }
+};
 
 const getAllMembersForDropdown = async (req: Request, res: Response) => {
   try {
@@ -332,11 +258,15 @@ const getAllMembersForDropdown = async (req: Request, res: Response) => {
 };
 
 
+// Export all handlers in the same pattern
 export default {
   getAllMembers,
-  getMemberById, 
+  getMemberById,
   createMember,
   updateMember,
   deleteMember,
+  searchMemberByNameOrPhone,
+  getMemberVouchers,
+  getMemberCarePackages,
   getAllMembersForDropdown
 };

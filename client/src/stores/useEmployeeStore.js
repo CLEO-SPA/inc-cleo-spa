@@ -16,7 +16,7 @@ const useEmployeeStore = create((set) => ({
     set({ isFetching: true, error: false, errorMessage: null });
 
     try {
-      const response = await api.get('/employee/dropdown');
+      const response = await api.get('/em/dropdown');
       set({
         employees: response.data,
         isFetching: false,
