@@ -7,8 +7,7 @@
  * - URL-agnostic (no query-string syncing here – purely internal state)
  * - Uses react-hook-form to manage filter controls.
  *
- * Author: <your-name>
- * Date:   <yyyy-mm-dd>
+ * Author: Arkar Phyo
  */
 
 // -------------------------
