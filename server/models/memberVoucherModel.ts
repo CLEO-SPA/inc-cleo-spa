@@ -812,7 +812,6 @@ const createMemberVoucher = async (
   created_at: string,
   updated_at: string,
   is_bypass: boolean = false,
-  is_partial_payment: boolean = false
 ) => {
   const client = await pool().connect();
 
@@ -1027,6 +1026,7 @@ const createMemberVoucher = async (
       VALUES ($1, $2, $3, $4, $5, $6, $7) RETURNING id
     `;
 
+    // Process regular payments
     const paymentProcessingPromises = payments.map(async (payment) => {
       await client.query<{ id: string }>(i_ptst_sql, [
         payment.id,
@@ -1040,6 +1040,21 @@ const createMemberVoucher = async (
     });
 
     await Promise.all(paymentProcessingPromises);
+
+    // Add FOC as a payment if it's a full payment and FOC amount > 0
+    if (is_fully_paid && free_of_charge > 0) {
+      await client.query<{ id: string }>(i_ptst_sql, [
+        '6', // Payment method ID for "Free"
+        saleTransactionId,
+        free_of_charge,
+        employee_id,
+        created_at,
+        employee_id,
+        updated_at
+      ]);
+      
+      console.log('Added FOC payment:', free_of_charge);
+    }
 
     await client.query('COMMIT');
 
