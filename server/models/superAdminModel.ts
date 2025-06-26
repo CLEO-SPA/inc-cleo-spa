@@ -417,6 +417,45 @@ const insertPreDataModel = async (targetTable: string, tablePayload: tablePayloa
     );
     const sortedOrderForInsert = getSeedingOrder(filteredHierarchyForInsert);
 
+    let allFilesAreAlreadyActive = true;
+    for (const tableName of sortedOrderForInsert) {
+      const payloadEntry = tablePayload.find((p) => p.table === tableName);
+      if (payloadEntry && payloadEntry.file) {
+        const fileNameWithoutExtension = payloadEntry.file;
+        const csvFilePath = path.join(csvFolderPath, 'pre', tableName, `${fileNameWithoutExtension}.csv`);
+
+        if (!fs.existsSync(csvFilePath)) {
+          allFilesAreAlreadyActive = false;
+          break;
+        }
+
+        const activeInfo = await getActiveSeedInfo(tableName, 'pre');
+        const currentHash = await calculateFileHash(csvFilePath);
+
+        if (
+          !activeInfo ||
+          activeInfo.file_name !== fileNameWithoutExtension ||
+          activeInfo.file_content_hash !== currentHash
+        ) {
+          allFilesAreAlreadyActive = false;
+          break;
+        }
+      } else {
+        allFilesAreAlreadyActive = false;
+        break;
+      }
+    }
+
+    if (allFilesAreAlreadyActive && sortedOrderForInsert.length > 0) {
+      console.log(
+        `[saModel] All required seed files for target "${targetTable}" are already active. Skipping seeding process.`
+      );
+      return {
+        message: `Seeding for target "${targetTable}" skipped as all required files are already active.`,
+        tables: sortedOrderForInsert,
+      };
+    }
+
     const affectedTableIdsForTruncate = getDescendants(targetTableInfo.id, hierarchy);
 
     const fullSortedOrder = getSeedingOrder(hierarchy);
@@ -490,6 +529,45 @@ const insertPostDataModel = async (targetTable: string, tablePayload: tablePaylo
       requiredTableIdsForInsert.has(tableInfo.id)
     );
     const sortedOrderForInsert = getSeedingOrder(filteredHierarchyForInsert);
+
+    let allFilesAreAlreadyActive = true;
+    for (const tableName of sortedOrderForInsert) {
+      const payloadEntry = tablePayload.find((p) => p.table === tableName);
+      if (payloadEntry && payloadEntry.file) {
+        const fileNameWithoutExtension = payloadEntry.file;
+        const csvFilePath = path.join(csvFolderPath, 'post', tableName, `${fileNameWithoutExtension}.csv`);
+
+        if (!fs.existsSync(csvFilePath)) {
+          allFilesAreAlreadyActive = false;
+          break;
+        }
+
+        const activeInfo = await getActiveSeedInfo(tableName, 'post');
+        const currentHash = await calculateFileHash(csvFilePath);
+
+        if (
+          !activeInfo ||
+          activeInfo.file_name !== fileNameWithoutExtension ||
+          activeInfo.file_content_hash !== currentHash
+        ) {
+          allFilesAreAlreadyActive = false;
+          break;
+        }
+      } else {
+        allFilesAreAlreadyActive = false;
+        break;
+      }
+    }
+
+    if (allFilesAreAlreadyActive && sortedOrderForInsert.length > 0) {
+      console.log(
+        `[saModel] All required post-seed files for target "${targetTable}" are already active. Skipping seeding process.`
+      );
+      return {
+        message: `Post-seeding for target "${targetTable}" skipped as all required files are already active.`,
+        tables: sortedOrderForInsert,
+      };
+    }
 
     const affectedTableIdsForTruncate = getDescendants(targetTableInfo.id, hierarchy);
 
