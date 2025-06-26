@@ -7,6 +7,7 @@ export interface Employees {
   employee_email: string;
   employee_name: string;
   employee_is_active: boolean;
+  verified_status_id: string;
   created_at: string;
   updated_at: string;
 }

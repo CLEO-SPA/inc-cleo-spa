@@ -1,17 +1,6 @@
 import { create } from 'zustand';
 import api from '@/services/api';
 
-const getDefaultDateTime = () => {
-  const now = new Date();
-  now.setHours(10, 0, 0, 0);
-  const year = now.getFullYear();
-  const month = String(now.getMonth() + 1).padStart(2, '0');
-  const day = String(now.getDate()).padStart(2, '0');
-  const hours = String(now.getHours()).padStart(2, '0');
-  const minutes = String(now.getMinutes()).padStart(2, '0');
-  return `${year}-${month}-${day}T${hours}:${minutes}`;
-};
-
 const getInitialState = () => ({
   employeeData: {
     employee_name: '',
@@ -20,9 +9,10 @@ const getInitialState = () => ({
     employee_code: '',
     role_name: '',
     position_ids: [],
-    created_at: getDefaultDateTime(),
-    updated_at: getDefaultDateTime(),
+    created_at: 0,
+    updated_at: 0,
   },
+  inviteLink: null,
   employees: [],
   pagination: {
     currentPage: 1,
@@ -34,7 +24,7 @@ const getInitialState = () => ({
   success: null,
   isCreating: false,
   isFetchingList: false,
-  isRegenerating: null, // Will hold employee id
+  isRegenerating: null,
 });
 
 const useEmployeeStore = create((set, get) => ({
@@ -67,8 +57,11 @@ const useEmployeeStore = create((set, get) => ({
     const { pagination } = get();
     set({ isFetchingList: true, error: null });
     try {
-      const res = await api.get(`/employee?page=${pagination.currentPage}&limit=${pagination.pageSize}`);
+      const res = await api.get(`/em?page=${pagination.currentPage}&limit=${pagination.pageSize}`);
       const data = res.data;
+
+      console.log(data);
+
       set({
         employees: data.data || [],
         pagination: {
@@ -88,15 +81,16 @@ const useEmployeeStore = create((set, get) => ({
   },
 
   createAndInviteEmployee: async (data) => {
-    set({ isCreating: true, error: null, success: null });
+    set({ isCreating: true, error: null, success: null, inviteLink: null });
 
     console.log(data);
 
     try {
-      // await api.post('/employee/create-invite', data);
+      const response = await api.post('/em/create-invite', data);
       set({
         isCreating: false,
-        success: 'Employee created and invited successfully!',
+        success: 'Employee created and invited successfully! The invite link is ready.',
+        inviteLink: response.data.resetUrl,
       });
     } catch (err) {
       const apiMessage = err?.response?.data?.message || 'Failed to create employee';
@@ -108,13 +102,14 @@ const useEmployeeStore = create((set, get) => ({
   regenerateInviteLink: async (employee) => {
     set({ isRegenerating: employee.id, error: null, success: null });
     try {
-      const res = await api.post('/employee/regenerate-uri', { email: employee.employee_email });
+      const res = await api.post('/em/regenerate-uri', { email: employee.employee_email });
       const { callbackUrl } = res.data;
       await navigator.clipboard.writeText(callbackUrl);
       set({
         isRegenerating: null,
         success: `New invite link for ${employee.employee_name} copied to clipboard!`,
       });
+      get().fetchAllEmployees();
     } catch (err) {
       set({
         isRegenerating: null,
@@ -144,7 +139,7 @@ const useEmployeeStore = create((set, get) => ({
     }
   },
 
-  resetMessages: () => set({ error: null, success: null }),
+  resetMessages: () => set({ error: null, success: null, inviteLink: null }),
   reset: () => set(getInitialState()),
 }));
 

@@ -51,6 +51,12 @@ export default function ManageEmployeePage() {
     };
   }, [fetchAllEmployees, resetMessages]);
 
+  const isInviteExpired = (employee) => {
+    if (employee.verification_status === 'Verified') return false;
+    const expiryTime = new Date(employee.updated_at).getTime() + 3 * 24 * 60 * 60 * 1000; // 3 days
+    return Date.now() > expiryTime;
+  };
+
   const handleRegenerate = async (employee) => {
     await regenerateInviteLink(employee);
   };
@@ -162,11 +168,9 @@ export default function ManageEmployeePage() {
                                       : 'bg-muted text-muted-foreground'
                                   }
                                 >
-                                  {employee.verification_status === 'Verified'
-                                    ? 'Invited'
-                                    : employee.employee_is_active
+                                  {employee.verification_status === 'Verified' && employee.employee_is_active
                                     ? 'Active'
-                                    : 'Inactive'}
+                                    : 'UnVerified'}
                                 </Badge>
                               </TableCell>
                               <TableCell>
@@ -191,7 +195,7 @@ export default function ManageEmployeePage() {
                                     <DropdownMenuItem onClick={() => navigateToEdit(employee)}>
                                       <Edit className='mr-2 h-4 w-4' /> Edit
                                     </DropdownMenuItem>
-                                    {employee.verification_status === 'Verified' && (
+                                    {isInviteExpired(employee) && (
                                       <DropdownMenuItem
                                         onClick={() => handleRegenerate(employee)}
                                         disabled={regenerateLoading === employee.id}

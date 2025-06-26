@@ -48,11 +48,10 @@ const getAllEmployees = async (offset: number, limit: number, startDate_utc: str
         e.updated_at,
         p.id AS position_id,
         p.position_name,
-        s.status_name as verification_status
+        (SELECT st.status_name FROM statuses st WHERE st.id = e.verified_status_id) AS status_name
       FROM employees e
       LEFT JOIN employee_to_position ep ON e.id = ep.employee_id
       LEFT JOIN positions p ON ep.position_id = p.id
-      LEFT JOIN statuses s ON e.verified_status_id = s.id
       WHERE e.id = ANY($1)
       ORDER BY e.id ASC
     `;
@@ -74,7 +73,7 @@ const getAllEmployees = async (offset: number, limit: number, startDate_utc: str
           employee_is_active: row.employee_is_active,
           created_at: row.created_at,
           updated_at: row.updated_at,
-          verification_status: row.verification_status,
+          verification_status: row.status_name,
           positions: [],
         };
       }
@@ -210,31 +209,10 @@ interface NewEmployeeData {
   employee_code: string;
   employee_name: string;
   employee_is_active: boolean;
-  position_ids?: number[];
+  position_ids: string[];
   created_at?: string;
   updated_at?: string;
 }
-
-const assignPositionsToEmployee = async (
-  employeeId: number,
-  positionIds: number[],
-  created_at: string,
-  updated_at: string
-) => {
-  const client = await pool().connect();
-  try {
-    const positionInsertQuery = `
-        INSERT INTO employee_to_position (employee_id, created_at, updated_at, position_id)
-        VALUES ${positionIds.map((_, i) => `($1, $2, $3, $${i + 4})`).join(',')}
-      `;
-    await client.query(positionInsertQuery, [employeeId, created_at, updated_at, ...positionIds]);
-  } catch (err) {
-    console.error('Error assigning positions to employee:', err);
-    throw new Error('Failed to assign positions');
-  } finally {
-    client.release();
-  }
-};
 
 const createAuthAndEmployee = async (data: NewEmployeeData) => {
   const client = await pool().connect();
@@ -272,7 +250,7 @@ const createAuthAndEmployee = async (data: NewEmployeeData) => {
         user_auth_id, employee_code, employee_name, employee_email, 
         employee_contact, employee_is_active, created_at, updated_at, verified_status_id
       )
-      VALUES ($1, $2, $3, $4, $5, $6, $7, $8, (SELECT id FROM statuses WHERE status_name = 'Verified'))
+      VALUES ($1, $2, $3, $4, $5, $6, $7, $8, (SELECT get_or_create_status('UnVerified')))
       RETURNING id
     `;
     const employeeResult = await client.query(employeeQuery, [
@@ -288,7 +266,14 @@ const createAuthAndEmployee = async (data: NewEmployeeData) => {
     const employeeId = employeeResult.rows[0].id;
 
     if (data.position_ids && data.position_ids.length > 0) {
-      await assignPositionsToEmployee(employeeId, data.position_ids, data.created_at!, data.updated_at!);
+      const positionInsertQuery = `
+      INSERT INTO employee_to_position (employee_id, position_id, created_at, updated_at)
+      SELECT $1, unnested_position_id, $2, $3
+      FROM unnest($4::bigint[]) AS unnested_position_id
+    `;
+      const params = [employeeId, data.created_at, data.updated_at, data.position_ids];
+
+      await client.query(positionInsertQuery, params);
     }
 
     await client.query('COMMIT');
@@ -299,6 +284,15 @@ const createAuthAndEmployee = async (data: NewEmployeeData) => {
     throw new Error('Failed to create employee with auth');
   } finally {
     client.release();
+  }
+};
+
+const touchEmployee = async (email: string) => {
+  try {
+    await pool().query(`UPDATE employees SET updated_at = NOW() WHERE employee_email = $1`, [email]);
+  } catch (error) {
+    console.error('Error touching employee:', error);
+    throw new Error('Error touching employee');
   }
 };
 
@@ -320,8 +314,8 @@ const updateEmployeePassword = async (email: string, password_hash: string, isIn
     if (isInvite) {
       const query = `
         UPDATE employees
-        SET verified_status_id = (SELECT get_or_create_status('ACTIVE'))
-        WHERE email = $1;
+        SET verified_status_id = (SELECT get_or_create_status('Verified'))
+        WHERE employee_email = $1;
       `;
       const values = [email];
       await client.query(query, values);
@@ -420,6 +414,6 @@ export default {
   getBasicEmployeeDetails,
   getAllEmployeesForDropdown,
   createAuthAndEmployee,
-  assignPositionsToEmployee,
   getAllRolesForDropdown,
+  touchEmployee,
 };

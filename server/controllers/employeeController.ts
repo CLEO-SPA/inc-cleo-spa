@@ -292,6 +292,14 @@ const regenerateInvitationLink = async (req: Request, res: Response, next: NextF
   }
 
   try {
+    const user = await model.getUserData(email);
+    if (!user) {
+      res.status(404).json({ message: 'Employee not found.' });
+      return;
+    }
+
+    await model.touchEmployee(email);
+
     const token = jwt.sign({ email: email }, process.env.INV_JWT_SECRET as string, {
       expiresIn: '3d',
     });
@@ -300,7 +308,7 @@ const regenerateInvitationLink = async (req: Request, res: Response, next: NextF
     res.status(200).json({ message: 'Invitation link regenerated successfully', callbackUrl });
   } catch (error) {
     console.error('Error regenerating invitation link', error);
-    throw new Error('Error regenerating invitation link');
+    next(error);
   }
 };
 

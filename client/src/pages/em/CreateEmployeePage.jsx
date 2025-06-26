@@ -1,4 +1,4 @@
-import { useEffect } from 'react';
+import { useEffect, useState } from 'react';
 import { useForm, FormProvider } from 'react-hook-form';
 import { AppSidebar } from '@/components/app-sidebar';
 import { SiteHeader } from '@/components/site-header';
@@ -8,22 +8,11 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Alert, AlertDescription } from '@/components/ui/alert';
-import { AlertCircle, CheckCircle, Loader2 } from 'lucide-react';
+import { AlertCircle, CheckCircle, Loader2, Copy } from 'lucide-react';
 import { DateTimeSelector } from '@/components/custom/DateTimeSelector';
 import PositionSelect from '@/components/ui/forms/PositionSelect';
 import { RoleSelect } from '@/components/ui/forms/RoleSelect';
 import useEmployeeStore from '@/stores/useEmployeeStore';
-
-const getDefaultDateTime = () => {
-  const now = new Date();
-  now.setHours(10, 0, 0, 0);
-  const year = now.getFullYear();
-  const month = String(now.getMonth() + 1).padStart(2, '0');
-  const day = String(now.getDate()).padStart(2, '0');
-  const hours = String(now.getHours()).padStart(2, '0');
-  const minutes = String(now.getMinutes()).padStart(2, '0');
-  return `${year}-${month}-${day}T${hours}:${minutes}`;
-};
 
 export default function CreateEmployeePage() {
   const {
@@ -33,13 +22,15 @@ export default function CreateEmployeePage() {
     success,
     resetMessages,
     employeeData,
+    inviteLink,
   } = useEmployeeStore();
+
+  const [copied, setCopied] = useState(false);
 
   const methods = useForm({
     defaultValues: {
       ...employeeData,
-      created_at: getDefaultDateTime(),
-      updated_at: getDefaultDateTime(),
+      created_at: 0,
     },
   });
   const {
@@ -57,13 +48,19 @@ export default function CreateEmployeePage() {
     };
   }, [resetMessages]);
 
+  useEffect(() => {
+    if (inviteLink) {
+      navigator.clipboard.writeText(inviteLink);
+      setCopied(true);
+      const timer = setTimeout(() => setCopied(false), 3000);
+      return () => clearTimeout(timer);
+    }
+  }, [inviteLink]);
+
   const onSubmit = async (data) => {
     try {
       await createAndInviteEmployee(data);
       reset();
-      // setTimeout(() => {
-      //   window.location.href = '/employees';
-      // }, 1500);
     } catch (err) {
       console.error(err);
     }
@@ -89,6 +86,29 @@ export default function CreateEmployeePage() {
                 <Alert variant='success'>
                   <CheckCircle className='h-4 w-4' />
                   <AlertDescription>{success}</AlertDescription>
+                </Alert>
+              )}
+
+              {inviteLink && (
+                <Alert variant='success' className='mt-4'>
+                  <AlertDescription className='flex items-center justify-between'>
+                    <input
+                      type='text'
+                      readOnly
+                      value={inviteLink}
+                      className='flex-grow bg-transparent text-sm outline-none'
+                    />
+                    <Button
+                      variant='ghost'
+                      size='icon'
+                      onClick={() => {
+                        navigator.clipboard.writeText(inviteLink);
+                        setCopied(true);
+                      }}
+                    >
+                      {copied ? <CheckCircle className='h-4 w-4 text-green-600' /> : <Copy className='h-4 w-4' />}
+                    </Button>
+                  </AlertDescription>
                 </Alert>
               )}
 
