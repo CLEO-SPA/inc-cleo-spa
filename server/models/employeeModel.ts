@@ -238,6 +238,47 @@ const getUserCount = async () => {
   }
 };
 
+export const getEmployeeIdByUserAuthId = async (id: string) => {
+  const employee_sql = 'SELECT id FROM employees WHERE user_auth_id = $1';
+  const params = [id];
+
+  return await pool().query<{ id: string }>(employee_sql, params);
+};
+
+const getBasicEmployeeDetails = async (): Promise<Employee[]> => {
+  const query = `
+    SELECT 
+      id, 
+      employee_name 
+    FROM employees e 
+    WHERE employee_is_active = true 
+    ORDER BY employee_name ASC`;
+  try {
+    const result = await pool().query(query);
+    return result.rows.map((row: any) => ({
+      id: row.id,
+      employee_name: row.employee_name,
+      position_id: row.position_id,
+    }));
+  } catch (error) {
+    console.error('Database error in getBasicEmployeeDetails: ', error);
+    throw new Error('Failed to fetch basic employee details from database');
+  }
+};
+
+const getAllEmployeesForDropdown = async () => {
+  try {
+    const query = `
+      SELECT id, employee_name FROM employees
+      ORDER BY employee_name ASC
+    `;
+    const result = await pool().query(query);
+    return result.rows;
+  } catch (error) {
+    console.error('Error fetching employee list:', error);
+    throw new Error('Error fetching employee list');
+  }
+};
 export default {
   // createEmployee,
   checkEmployeeCodeExists,
@@ -247,4 +288,7 @@ export default {
   createSuperUser,
   getUserCount,
   getUserData,
+  getEmployeeIdByUserAuthId,
+  getBasicEmployeeDetails,
+  getAllEmployeesForDropdown,
 };
