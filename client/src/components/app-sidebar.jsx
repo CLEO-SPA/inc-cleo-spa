@@ -1,5 +1,18 @@
 import * as React from 'react';
-import { Command, Users, CalendarDays, ShieldUser, Box, Wand, LayoutDashboard } from 'lucide-react';
+import {
+  Command,
+  Users,
+  CalendarDays,
+  ShieldUser,
+  Box,
+  Wand,
+  LayoutDashboard,
+  SquareUserRound,
+  Package,
+  Tickets,
+  ChartColumnStacked,
+  CreditCard,
+} from 'lucide-react';
 import { NavMain } from '@/components/nav-main';
 import { NavUser } from '@/components/nav-user';
 import {
@@ -50,11 +63,11 @@ const data = {
       items: [
         {
           title: 'Add New Service',
-          url: '#',
+          url: '/create-service',
         },
         {
           title: 'Manage Services',
-          url: '#',
+          url: '/manage-service',
         },
       ],
     },
@@ -74,17 +87,74 @@ const data = {
       ],
     },
     {
+      title: 'Vouchers',
+      url: '#',
+      icon: Tickets,
+      items: [
+        {
+          title: 'Create Voucher Template',
+          url: '/voucher-template/create',
+        },
+        {
+          title: 'Manage Voucher Templates',
+          url: '/voucher-template',
+        },
+      ],
+    },
+    {
+      title: 'Members',
+      url: '/member',
+      icon: SquareUserRound,
+      items: [
+        {
+          title: 'Manage Member',
+          url: '/member',
+        },
+        {
+          title: 'Create Member',
+          url: '/member/create',
+        },
+        {
+          title: 'Manage Membership Type',
+          url: '/membership-type',
+        },
+      ],
+    },
+    {
+      title: 'Care Packages',
+      url: '#',
+      icon: Package,
+      items: [
+        {
+          title: 'Create Care Package',
+          url: '/cp/c',
+        },
+        {
+          title: 'Manage Care Packages',
+          url: '/cp',
+        },
+      ],
+    },
+    {
       title: 'Employees',
       url: '',
       icon: Users,
       items: [
         {
-          title: 'Add New Employee',
+          title: 'Add new employee',
           url: '#',
         },
         {
-          title: 'Manage Employees',
+          title: 'Manage employees',
           url: '#',
+        },
+        {
+          title: 'Add new position',
+          url: '/positions/add',
+        },
+        {
+          title: 'Manage positions',
+          url: '/positions',
         },
       ],
     },
@@ -100,6 +170,43 @@ const data = {
         {
           title: 'Add New Appointment',
           url: '#',
+        },
+      ],
+    },
+    {
+      title: 'Payment Methods',
+      url: '/payment-method',
+      icon: CreditCard,
+      items: [
+        {
+          title: 'Manage Payment Methods',
+          url: '/payment-method',
+        },
+      ],
+    },
+    {
+      title: 'Statistics',
+      url: '#',
+      icon: ChartColumnStacked,
+      items: [
+        {
+          title: 'View Database Report',
+          url: '/dbcr',
+        },
+        {
+          title: 'View Monthly Revenue Report',
+          url: '#',
+        },
+      ],
+    },
+    {
+      title: 'Others',
+      url: '#',
+      icon: ChartColumnStacked,
+      items: [
+        {
+          title: 'Data Export',
+          url: '/data-export',
         },
       ],
     },

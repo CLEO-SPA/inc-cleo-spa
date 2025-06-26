@@ -20,15 +20,17 @@
     "connect-pg-simple": "^10.0.0",
     "cookie-parser": "^1.4.7",
     "cors": "^2.8.5",
+    "date-fns": "^4.1.0",
     "dotenv": "^16.5.0",
     "express": "^5.1.0",
     "express-session": "^1.18.1",
+    "joi": "^17.13.3",
     "jsonwebtoken": "^9.0.2",
     "multer": "^2.0.1",
     "pg": "^8.14.1",
     "server": "file:",
     "sqlite3": "^5.1.7",
-    "validator": "^13.15.0"
+    "validator": "^13.15.15"
   },
   "devDependencies": {
     "@eslint/js": "^9.26.0",
