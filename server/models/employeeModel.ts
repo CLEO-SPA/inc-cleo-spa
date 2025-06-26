@@ -47,10 +47,12 @@ const getAllEmployees = async (offset: number, limit: number, startDate_utc: str
         e.created_at,
         e.updated_at,
         p.id AS position_id,
-        p.position_name
+        p.position_name,
+        s.status_name as verification_status
       FROM employees e
       LEFT JOIN employee_to_position ep ON e.id = ep.employee_id
       LEFT JOIN positions p ON ep.position_id = p.id
+      LEFT JOIN statuses s ON e.verified_status_id = s.id
       WHERE e.id = ANY($1)
       ORDER BY e.id ASC
     `;
@@ -72,6 +74,7 @@ const getAllEmployees = async (offset: number, limit: number, startDate_utc: str
           employee_is_active: row.employee_is_active,
           created_at: row.created_at,
           updated_at: row.updated_at,
+          verification_status: row.verification_status,
           positions: [],
         };
       }
@@ -361,6 +364,20 @@ const getAllEmployeesForDropdown = async () => {
   }
 };
 
+const getAllRolesForDropdown = async () => {
+  try {
+    const query = `
+      SELECT id, role_name FROM roles
+      ORDER BY role_name ASC
+    `;
+    const result = await pool().query(query);
+    return result.rows;
+  } catch (error) {
+    console.error('Error fetching role list:', error);
+    throw new Error('Error fetching role list');
+  }
+};
+
 export default {
   checkEmployeeCodeExists,
   getAuthUser,
@@ -372,4 +389,5 @@ export default {
   getAllEmployeesForDropdown,
   createAuthAndEmployee,
   assignPositionsToEmployee,
+  getAllRolesForDropdown,
 };

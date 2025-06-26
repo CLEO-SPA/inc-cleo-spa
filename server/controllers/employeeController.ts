@@ -285,14 +285,14 @@ const getAllEmployees = async (req: Request, res: Response, next: NextFunction):
 };
 
 const regenerateInvitationLink = async (req: Request, res: Response, next: NextFunction): Promise<void> => {
-  const employeeEmail = req.body;
-  if (!employeeEmail) {
+  const { email } = req.body;
+  if (!email) {
     res.status(400).json({ message: 'Email is required' });
     return;
   }
 
   try {
-    const token = jwt.sign({ email: employeeEmail }, process.env.INV_JWT_SECRET as string, {
+    const token = jwt.sign({ email: email }, process.env.INV_JWT_SECRET as string, {
       expiresIn: '3d',
     });
     const callbackUrl = `${process.env.LOCAL_FRONTEND_URL as string}/reset-password?token=${token}`;
@@ -314,6 +314,17 @@ const getAllEmployeesForDropdown = async (req: Request, res: Response, next: Nex
   }
 };
 
+const getAllRolesForDropdown = async (req: Request, res: Response, next: NextFunction) => {
+  try {
+    const roles = await model.getAllRolesForDropdown();
+
+    res.status(200).json(roles);
+  } catch (error) {
+    console.error('Error fetching getAllRolesForDropdown', error);
+    next(error);
+  }
+};
+
 export default {
   defaultPassword,
   getAuthUser,
@@ -325,5 +336,6 @@ export default {
   getAllEmployees,
   regenerateInvitationLink,
   getAllEmployeesForDropdown,
+  getAllRolesForDropdown,
   verifyInviteURL,
 };
