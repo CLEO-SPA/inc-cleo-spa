@@ -7,6 +7,7 @@ import { SidebarInset, SidebarProvider } from '@/components/ui/sidebar';
 import CreateCategoryInlineForm from '@/components/category/CreateCategoryInlineForm';
 import CategoryTableEditable from '@/components/category/CategoryTableEditable';
 import ReorderCategoryPanel from '@/components/category/ReorderCategoryPanel';
+import useAuth from '@/hooks/useAuth';
 
 export default function ManageProductCategoriesPage() {
   const [allCategories, setAllCategories] = useState([]);
@@ -14,6 +15,10 @@ export default function ManageProductCategoriesPage() {
   const [loading, setLoading] = useState(true);
   const [reorderLoading, setReorderLoading] = useState(false);
   const [showReorderPanel, setShowReorderPanel] = useState(false);
+
+  // --- Role-based access ---
+  const { user } = useAuth();
+  const canCreate = user?.role === 'super_admin' || user?.role === 'data_admin';
 
   // Pagination + Search
   const [searchQuery, setSearchQuery] = useState('');
@@ -68,6 +73,7 @@ export default function ManageProductCategoriesPage() {
           <AppSidebar />
           <SidebarInset>
             <div className='flex flex-col p-6 gap-6'>
+              {canCreate && (
               <div className='flex items-center space-x-4'>
                 <CreateCategoryInlineForm apiEndpoint='/product/create-product-cat' onCreate={fetchCategories} />
                 <Button
@@ -86,6 +92,7 @@ export default function ManageProductCategoriesPage() {
                   {showReorderPanel ? 'Back to List' : 'Reorder Categories'}
                 </Button>
               </div>
+              )}
 
               {showReorderPanel ? (
                 reorderLoading ? (
@@ -95,7 +102,7 @@ export default function ManageProductCategoriesPage() {
                 )
               ) : (
                 <CategoryTableEditable
-                  title='Service Categories'
+                  title='Product Categories'
                   data={categories}
                   loading={loading}
                   onRefresh={fetchCategories}
