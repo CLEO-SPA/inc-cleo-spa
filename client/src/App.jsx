@@ -1,5 +1,6 @@
 import { BrowserRouter as Router, Routes, Route } from 'react-router-dom';
 import { AuthProvider } from '@/context/AuthContext';
+import useAuth from '@/hooks/useAuth';
 import { DateRangeProvider } from '@/context/DateRangeContext';
 import ProtectedRoute from '@/components/ProtectedRoute';
 
@@ -55,6 +56,14 @@ import TestPMComponent from './pages/sale-transaction/AddPMMComponentTest';
 // Employees
 import ManagePositions from '@/pages/em/ManagePositions';
 
+const SuperAdminRoute = ({ children }) => {
+  const { user } = useAuth();
+  if (user && user.role === 'super_admin') {
+    return children;
+  }
+  return <NotFoundPage />;
+};
+
 function App() {
   return (
     <AuthProvider>
@@ -64,7 +73,14 @@ function App() {
           <Routes>
             <Route path='/' element={<ProtectedRoute />}>
               <Route index element={<HomePage />} />
-              <Route path='/seed' element={<DataSeedingPage />} />
+              <Route
+                path='/seed'
+                element={
+                  <SuperAdminRoute>
+                    <DataSeedingPage />
+                  </SuperAdminRoute>
+                }
+              />
 
               {/* Member Management */}
               <Route path='/member' element={<ManageMembersPage />} />

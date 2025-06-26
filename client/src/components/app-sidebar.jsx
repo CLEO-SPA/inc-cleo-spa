@@ -217,6 +217,25 @@ export function AppSidebar({ className: propsClassName, ...props }) {
   const { user } = useAuth();
   const { isSimulationActive } = useSimulationStore();
 
+  const dataForUser = React.useMemo(() => {
+    const navData = {
+      navMain: data.navMain.map((item) => ({
+        ...item,
+        items: item.items ? item.items.map((subItem) => ({ ...subItem })) : undefined,
+      })),
+    };
+    if (user && user.role === 'super_admin') {
+      const othersSection = navData.navMain.find((item) => item.title === 'Others');
+      if (othersSection) {
+        othersSection.items.push({
+          title: 'Data Seeding',
+          url: '/seed',
+        });
+      }
+    }
+    return navData;
+  }, [user]);
+
   const topClass = isSimulationActive
     ? 'top-[calc(var(--header-height)+var(--sim-bar-height))]'
     : 'top-[var(--header-height)]';
@@ -245,7 +264,7 @@ export function AppSidebar({ className: propsClassName, ...props }) {
         </SidebarMenu>
       </SidebarHeader>
       <SidebarContent>
-        <NavMain items={data.navMain} />
+        <NavMain items={dataForUser.navMain} />
       </SidebarContent>
       <SidebarFooter>
         <NavUser user={user} />
