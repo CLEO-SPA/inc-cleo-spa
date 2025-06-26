@@ -286,13 +286,19 @@ const createConsumption = async (req: Request, res: Response, next: NextFunction
   try {
     const { mcp_id, mcp_details, employee_id } = req.body;
 
+    // console.log(req.body);
+
     if (!mcp_id || !Array.isArray(mcp_details)) {
       res.status(400).json({ message: 'Missing or Invalid Required Field' });
       return;
     }
 
     const isValidDetails = mcp_details.every((s) => {
-      return typeof s.mcpd_id === 'string' && typeof s.mcpd_quantity === 'number' && typeof s.mcpd_date === 'string';
+      return (
+        (typeof s.mcpd_id === 'string' || typeof s.mcpd_id === 'number') &&
+        typeof s.mcpd_quantity === 'number' &&
+        typeof s.mcpd_date === 'string'
+      );
     });
 
     if (!isValidDetails) {

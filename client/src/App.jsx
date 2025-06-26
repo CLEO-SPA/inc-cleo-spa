@@ -42,7 +42,7 @@ import EditCarePackagePage from '@/pages/CarePackages/EditCarePackagePage';
 // Member Care Package Management
 import ManageMemberCarePackagesPage from './pages/MemberCarePackages/ManageMemberCarePackagesPage';
 import ViewMemberCarePackageDetailsPage from '@/pages/MemberCarePackages/ViewMemberCarePackageDetailsPage';
-import CreateConsumptionPage from '@/pages/CarePackages/CreateConsumptionPage';
+import CreateMcpConsumptionPage from '@/pages/MemberCarePackages/CreateConsumptionPage';
 // import CreateMemberCarePackageFormPage from '@/pages/CarePackages/CreateMemberCarePackageFormPage';
 // Data Export
 import DataExportPage from './pages/miscellaneous/DateExportPage';
@@ -73,10 +73,10 @@ function App() {
               <Route path='/cp' element={<ManageCarePackagesPage />} />
               <Route path='/cp/:id' element={<ViewCarePackageDetailsPage />} />
               <Route path='/cp/c' element={<CreateCarePackageFormPage />} />
-              <Route path='/cp/:id/edit' element={<EditCarePackagePage />} />
+              <Route path='/cp/:memberId/edit' element={<EditCarePackagePage />} />
 
               {/* Member Care Package Management */}
-              <Route path='/mcp/:id/consume' element={<CreateConsumptionPage />} />
+              <Route path='/mcp/:id/consume' element={<CreateMcpConsumptionPage />} />
               <Route path='/mcp' element={<ManageMemberCarePackagesPage />} />
               <Route path='/mcp/:id' element={<ViewMemberCarePackageDetailsPage />} />
               {/* <Route path='/mcp/c' element={<CreateMemberCarePackageFormPage />} /> */}
