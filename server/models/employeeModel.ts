@@ -357,7 +357,7 @@ export const getEmployeeIdByUserAuthId = async (id: string) => {
   return await pool().query<{ id: string }>(employee_sql, params);
 };
 
-const getBasicEmployeeDetails = async (): Promise<Employee[]> => {
+const getBasicEmployeeDetails = async () => {
   const query = `
     SELECT 
       id, 
@@ -367,6 +367,8 @@ const getBasicEmployeeDetails = async (): Promise<Employee[]> => {
     ORDER BY employee_name ASC`;
   try {
     const result = await pool().query(query);
+
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
     return result.rows.map((row: any) => ({
       id: row.id,
       employee_name: row.employee_name,
