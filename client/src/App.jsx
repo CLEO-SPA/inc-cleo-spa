@@ -123,13 +123,9 @@ function App() {
               <Route path='/payment-method/test' element={<TestPMComponent />} />
 
               {/* Revenue Report Page */}
-              <Route path='/rr' element={<ProtectedRoute />}>
-                <Route index element={<RevenueReportPage />} />
-              </Route>
+              <Route path='/rr' element={<RevenueReportPage />} />
               {/* Deferred Revenue Page */}
-              <Route path='/dr' element={<ProtectedRoute />}>
-                <Route index element={<DeferredRevenuePage />} />
-              </Route>
+              <Route path='/dr' element={<DeferredRevenuePage />} />
             </Route>
             <Route path='/login' element={<LoginPage />} />
 
