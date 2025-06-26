@@ -2,6 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { useForm, FormProvider } from 'react-hook-form';
 import { useNavigate } from 'react-router-dom';
 import { format } from 'date-fns';
+import useAuth from '@/hooks/useAuth';
 
 import { AppSidebar } from '@/components/app-sidebar';
 import { SiteHeader } from '@/components/site-header';
@@ -25,6 +26,15 @@ export default function CreateEmployeeTimetablePage() {
   const methods = useForm();
   const navigate = useNavigate();
   const { watch, reset } = methods;
+
+  // --- Role-based access ---
+  const { user } = useAuth();
+  const allowedRoles = ['super_admin', 'data_admin'];
+  useEffect(() => {
+    if (!user || !allowedRoles.includes(user.role)) {
+      navigate('*'); 
+    }
+  }, [user, navigate]);
 
   const selectedEmployee = watch('employee_id');
   const createdBy = watch('created_by');

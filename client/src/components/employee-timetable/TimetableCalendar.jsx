@@ -4,6 +4,7 @@ import { format } from 'date-fns';
 import { Button } from '@/components/ui/button';
 import useEmployeeTimetableStore from '@/stores/useEmployeeTimetableStore';
 import { useNavigate } from 'react-router-dom';
+import useAuth from '@/hooks/useAuth';
 
 export default function TimetableCalendar() {
   const {
@@ -12,6 +13,10 @@ export default function TimetableCalendar() {
     selectedEmployee
   } = useEmployeeTimetableStore();
   const navigate = useNavigate();
+
+  // --- Role-based access ---
+  const { user } = useAuth();
+  const canEdit = user?.role === 'super_admin' || user?.role === 'data_admin';
 
   // Get weekdays (Mon-Sun)
   const weekdays = ['Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday', 'Sunday'];
@@ -92,6 +97,7 @@ export default function TimetableCalendar() {
                           <div className="text-[10px] leading-tight">
                             End: {restDay.effective_enddate ? format(new Date(restDay.effective_enddate), 'dd MMM yyyy') : 'Ongoing'}
                           </div>
+                          {canEdit && (
                           <Button
                             variant="outline"
                             size="sm"
@@ -100,6 +106,7 @@ export default function TimetableCalendar() {
                           >
                             Edit
                           </Button>
+                          )}
                         </div>
                       )}
                     </td>

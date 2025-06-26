@@ -13,10 +13,14 @@ import MonthNavigator from '@/components/employee-timetable/MonthNavigator';
 import TimetableCalendar from '@/components/employee-timetable/TimetableCalendar';
 import TimetablePagination from '@/components/employee-timetable/TimetablePagination';
 import CurrentDateDisplay from '@/components/employee-timetable/CurrentDateDisplay';
+import useAuth from '@/hooks/useAuth';
 
 export default function EmployeeTimetablePage() {
   const navigate = useNavigate();
   
+  // --- Role-based access ---
+  const { user } = useAuth();
+  const canCreate = user?.role === 'super_admin' || user?.role === 'data_admin';
   const initialize = useEmployeeTimetableStore((state) => state.initialize);
   const loading = useEmployeeTimetableStore((state) => state.loading);
 
@@ -61,6 +65,7 @@ export default function EmployeeTimetablePage() {
                       <Download className='h-3 w-3' />
                       Export
                     </Button>
+                  {canCreate && (
                     <Button 
                       size='sm'
                       onClick={handleCreateNew}
@@ -69,6 +74,7 @@ export default function EmployeeTimetablePage() {
                       <Plus className='h-3 w-3' />
                       Create New
                     </Button>
+                  )}
                   </div>
                 </div>
 

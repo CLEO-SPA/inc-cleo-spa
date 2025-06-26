@@ -8,6 +8,7 @@ import { SiteHeader } from '@/components/site-header';
 import { SidebarInset, SidebarProvider } from '@/components/ui/sidebar';
 import { Label } from '@/components/ui/label';
 import { Button } from '@/components/ui/button';
+import useAuth from '@/hooks/useAuth';
 
 import EmployeeSelect from '@/components/ui/forms/EmployeeSelect';
 import FormDateTimePicker from '@/components/employee-timetable/FormDateTimePicker';
@@ -24,6 +25,15 @@ export default function UpdateEmployeeTimetablePage() {
   const methods = useForm();
   const { setValue, watch } = methods;
   const navigate = useNavigate();
+
+  // --- Role-based access ---
+  const { user } = useAuth();
+  const allowedRoles = ['super_admin', 'data_admin'];
+  useEffect(() => {
+    if (!user || !allowedRoles.includes(user.role)) {
+      navigate('*'); 
+    }
+  }, [user, navigate]);
 
   const updatedBy = watch('updated_by');
   const updatedAt = format(getCurrentSimulationDate(), 'yyyy-MM-dd');
