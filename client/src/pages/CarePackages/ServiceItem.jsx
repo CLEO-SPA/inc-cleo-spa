@@ -2,14 +2,18 @@ import React, { useState, useEffect } from 'react';
 import { Trash2, Edit3, Save, X, Clock, Tag } from 'lucide-react';
 import ServiceSelect from '@/components/ui/forms/ServiceSelect';
 import { FormProvider, useForm } from 'react-hook-form';
+import useServiceStore from '@/stores/useServiceStore';
 
 const ServiceItem = ({ service, index, isEditing, onEdit, onSave, onCancel, onRemove }) => {
   const [editData, setEditData] = useState({
     quantity: service.quantity,
-    price: service.price, 
+    price: service.price,
     discount: service.discount,
     service_id: service.id,
   });
+
+  const [priceError, setPriceError] = useState('');
+  const [discountError, setDiscountError] = useState('');
 
   const originalServicePrice = service.originalPrice || service.service_price || service.price;
   const methods = useForm({
@@ -36,9 +40,12 @@ const ServiceItem = ({ service, index, isEditing, onEdit, onSave, onCancel, onRe
     onSave({
       ...editData,
       service_id: formData.service_id,
-      price: parseFloat(editData.price) || 0, 
+      price: parseFloat(editData.price) || 0,
       quantity: parseInt(editData.quantity) || 1,
-      discount: parseFloat(editData.discount) || 1, 
+      discount:
+        editData.discount !== undefined && editData.discount !== null && editData.discount !== ''
+          ? parseFloat(editData.discount)
+          : 1,
       originalPrice: originalServicePrice,
     });
   };
@@ -76,24 +83,67 @@ const ServiceItem = ({ service, index, isEditing, onEdit, onSave, onCancel, onRe
         [field]: processedValue,
       }));
     } else if (field === 'price') {
-      const processedValue = value === '' ? '' : parseFloat(value) || '';
-      setEditData((prev) => ({
-        ...prev,
-        [field]: processedValue,
-      }));
+      if (value === '') {
+        setEditData((prev) => ({
+          ...prev,
+          [field]: '',
+        }));
+        setPriceError('');
+      } else {
+        const numValue = parseFloat(value);
+
+        if (isNaN(numValue)) {
+          setPriceError('Please enter a valid number');
+          return;
+        }
+
+        if (numValue < 0) {
+          setPriceError('Price cannot be negative');
+          return;
+        }
+
+        // valid price (0 or positive)
+        setPriceError('');
+        setEditData((prev) => ({
+          ...prev,
+          [field]: numValue,
+        }));
+      }
     } else if (field === 'discount') {
       if (value === '') {
         setEditData((prev) => ({
           ...prev,
           [field]: '',
         }));
+        setDiscountError('');
       } else {
         const numValue = parseFloat(value);
-        const processedValue = !isNaN(numValue) ? numValue : value;
-        setEditData((prev) => ({
-          ...prev,
-          [field]: processedValue,
-        }));
+        if (isNaN(numValue)) {
+          setDiscountError('Please enter a valid number');
+          return;
+        }
+
+        if (numValue < 0) {
+          setDiscountError('Discount factor cannot be negative');
+          const clampedValue = 0;
+          setEditData((prev) => ({
+            ...prev,
+            [field]: clampedValue,
+          }));
+        } else if (numValue > 1) {
+          setDiscountError('Discount factor cannot exceed 1.0');
+          const clampedValue = 1;
+          setEditData((prev) => ({
+            ...prev,
+            [field]: clampedValue,
+          }));
+        } else {
+          setDiscountError('');
+          setEditData((prev) => ({
+            ...prev,
+            [field]: numValue,
+          }));
+        }
       }
     } else {
       setEditData((prev) => ({
@@ -113,43 +163,47 @@ const ServiceItem = ({ service, index, isEditing, onEdit, onSave, onCancel, onRe
         }));
       }
     } else if (field === 'price') {
-      if (value === '') {
+      if (value === '' || value === null || value === undefined) {
         setEditData((prev) => ({
           ...prev,
           [field]: 0,
         }));
+        setPriceError('');
       }
     } else if (field === 'discount') {
-      if (value === '') {
+      if (value === '' || value === null || value === undefined) {
         setEditData((prev) => ({
           ...prev,
-          [field]: 1, // Default to 1 (no discount)
+          [field]: 1,
         }));
+        setDiscountError('');
       }
     }
   };
 
-  // calculate display values for edit mode
-  const customPriceInEdit = parseFloat(editData.price) || 0; 
-  const discountFactor = parseFloat(editData.discount) || 1;
+  const customPriceInEdit = parseFloat(editData.price) || 0;
+  const discountFactor =
+    editData.discount !== undefined && editData.discount !== null && editData.discount !== ''
+      ? parseFloat(editData.discount)
+      : 1;
   const quantityInEdit = parseInt(editData.quantity) || 0;
 
   // final unit price = custom price × discount factor (frontend calculation)
   const finalUnitPriceInEdit = customPriceInEdit * discountFactor;
   const totalLineAmountInEdit = quantityInEdit * finalUnitPriceInEdit;
 
-  // calculate display values for display mode
-  const customPriceInDisplay = parseFloat(service.price) || 0; 
-  const discountFactorDisplay = parseFloat(service.discount) || 1;
+  const customPriceInDisplay = parseFloat(service.price) || 0;
+  const discountFactorDisplay =
+    service.discount !== undefined && service.discount !== null && service.discount !== ''
+      ? parseFloat(service.discount)
+      : 1;
   const quantityInDisplay = parseInt(service.quantity, 10) || 0;
 
-  // final unit price = custom price × discount factor (for created service)
   const finalUnitPriceInDisplay = customPriceInDisplay * discountFactorDisplay;
   const totalLineAmountInDisplay = quantityInDisplay * finalUnitPriceInDisplay;
 
-  // helper function to calculate discount percentage for display
   const getDiscountPercentage = (discountFactor) => {
-    if (!discountFactor || discountFactor === '') return '0';
+    if (discountFactor === undefined || discountFactor === null || discountFactor === '') return '0';
     const factor = parseFloat(discountFactor);
     if (isNaN(factor)) return '0';
     const discountPercent = (1 - factor) * 100;
@@ -268,11 +322,41 @@ const ServiceItem = ({ service, index, isEditing, onEdit, onSave, onCancel, onRe
                 value={editData.price !== undefined ? editData.price : ''}
                 onChange={(e) => handleEditDataChange('price', e.target.value)}
                 onBlur={(e) => handleBlur('price', e.target.value)}
-                className='w-full px-3 py-2 border border-gray-300 rounded-md text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent'
+                className={`w-full px-3 py-2 border rounded-md text-sm focus:outline-none focus:ring-2 focus:border-transparent ${
+                  priceError ? 'border-red-300 focus:ring-red-500' : 'border-gray-300 focus:ring-blue-500'
+                }`}
                 min='0'
                 step='0.01'
-                placeholder='Enter price before discount'
+                placeholder='Enter price'
               />
+              {priceError && <div className='text-xs text-red-600 mt-1'>{priceError}</div>}
+            </div>
+
+            {/* discount factor with existing error handling */}
+            <div>
+              <label className='block text-xs font-medium text-gray-600 mb-1'>Discount Factor</label>
+              <input
+                type='number'
+                value={editData.discount !== undefined && editData.discount !== null ? editData.discount : ''}
+                onChange={(e) => handleEditDataChange('discount', e.target.value)}
+                onBlur={(e) => handleBlur('discount', e.target.value)}
+                className={`w-full px-3 py-2 border rounded-md text-sm focus:outline-none focus:ring-2 focus:border-transparent ${
+                  discountError ? 'border-red-300 focus:ring-red-500' : 'border-gray-300 focus:ring-blue-500'
+                }`}
+                min='0'
+                max='1'
+                step='0.01'
+                placeholder='1.0'
+              />
+              <div className='text-xs mt-1'>
+                {discountError ? (
+                  <span className='text-red-600'>{discountError}</span>
+                ) : editData.discount !== undefined && editData.discount !== null && editData.discount !== '' ? (
+                  <span className='text-gray-500'>{getDiscountPercentage(editData.discount)}% off</span>
+                ) : (
+                  <span className='text-gray-500'>Range: 0.0-1.0 (1.0 = full price, 0.0 = 100% off)</span>
+                )}
+              </div>
             </div>
 
             {/* discount factor */}
@@ -280,7 +364,7 @@ const ServiceItem = ({ service, index, isEditing, onEdit, onSave, onCancel, onRe
               <label className='block text-xs font-medium text-gray-600 mb-1'>Discount Factor</label>
               <input
                 type='number'
-                value={editData.discount !== undefined ? editData.discount : ''}
+                value={editData.discount !== undefined && editData.discount !== null ? editData.discount : ''}
                 onChange={(e) => handleEditDataChange('discount', e.target.value)}
                 onBlur={(e) => handleBlur('discount', e.target.value)}
                 className='w-full px-3 py-2 border border-gray-300 rounded-md text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent'
@@ -290,9 +374,9 @@ const ServiceItem = ({ service, index, isEditing, onEdit, onSave, onCancel, onRe
                 placeholder='1.0'
               />
               <div className='text-xs text-gray-500 mt-1'>
-                {editData.discount
+                {editData.discount !== undefined && editData.discount !== null && editData.discount !== ''
                   ? `${getDiscountPercentage(editData.discount)}% off`
-                  : '1.0 = full price, 0.5 = half price'}
+                  : 'Range: 0.0-1.0 (1.0 = full price, 0.0 = 100% off)'}
               </div>
             </div>
 
@@ -393,7 +477,7 @@ const ServiceItem = ({ service, index, isEditing, onEdit, onSave, onCancel, onRe
           <div>
             <label className='block text-xs font-medium text-gray-600 mb-1'>Duration (min)</label>
             <div className='w-full px-3 py-2 border border-gray-300 rounded-md text-sm bg-gray-50 text-gray-700'>
-              {service.service_duration || service.duration || 45}
+              {service.service_duration || service.duration || 0}
             </div>
           </div>
 

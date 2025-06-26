@@ -1,6 +1,7 @@
 import React, { useState } from 'react';
 import { Plus, X, Search, ChevronDown, DollarSign } from 'lucide-react';
 import { Button } from '@/components/ui/button';
+import useServiceStore from '@/stores/useServiceStore';
 
 const ServiceSelection = ({
   serviceForm,
@@ -17,6 +18,9 @@ const ServiceSelection = ({
 }) => {
   const [showServiceDropdown, setShowServiceDropdown] = useState(false);
   const [serviceSearch, setServiceSearch] = useState('');
+  const [discountError, setDiscountError] = useState('');
+  const [priceError, setPriceError] = useState('');
+  const fetchServiceDetails = useServiceStore((state) => state.fetchServiceDetails);
 
   // filter service options based on search input
   const filteredServiceOptions = serviceOptions.filter(
@@ -28,33 +32,52 @@ const ServiceSelection = ({
   );
 
   // handle service selection from dropdown
-  const handleServiceSelect = (service) => {
-    const servicePrice = parseFloat(service.service_price || service.originalPrice || 0);
+  const handleServiceSelect = async (service) => {
+    try {
+      console.log('Selected service:', service);
+      // fetch full service details including correct duration
+      const fullServiceData = await fetchServiceDetails(service.id);
 
-    const normalizedService = {
-      id: service.id,
-      name: service.service_name || service.label || service.name,
-      label: service.service_name || service.label || service.name,
-      price: servicePrice,
-      // original properties for backward compatibility
-      service_name: service.service_name || service.name || service.label,
-      service_price: servicePrice,
-      originalPrice: servicePrice, // set original price for reference
-      service_description: service.service_description,
-      service_remarks: service.service_remarks,
-      duration: parseInt(service.service_duration || service.duration || 45),
-      service_duration: service.service_duration || service.duration,
-      updated_at: service.updated_at,
-      created_at: service.created_at,
-      service_category_id: service.service_category_id,
-      service_category_name: service.service_category_name,
-      created_by_name: service.created_by_name,
-      updated_by_name: service.updated_by_name,
-    };
+      const servicePrice = parseFloat(fullServiceData.service_price || 0);
 
-    onServiceSelect(normalizedService);
-    setShowServiceDropdown(false);
-    setServiceSearch('');
+      const normalizedService = {
+        id: fullServiceData.id,
+        name: fullServiceData.service_name,
+        label: fullServiceData.service_name,
+        price: servicePrice,
+        service_name: fullServiceData.service_name,
+        service_price: servicePrice,
+        originalPrice: servicePrice,
+        service_description: fullServiceData.service_description,
+        service_remarks: fullServiceData.service_remarks,
+        duration: parseInt(fullServiceData.service_duration || 0), 
+        service_duration: fullServiceData.service_duration,
+        updated_at: fullServiceData.updated_at,
+        created_at: fullServiceData.created_at,
+        service_category_id: fullServiceData.service_category_id,
+        service_category_name: fullServiceData.service_category_name,
+        created_by_name: fullServiceData.created_by_name,
+        updated_by_name: fullServiceData.updated_by_name,
+      };
+
+      onServiceSelect(normalizedService);
+      setShowServiceDropdown(false);
+      setServiceSearch('');
+    } catch (error) {
+      console.error('Failed to fetch service details:', error);
+      // fallback to basic service data if API fails
+      const servicePrice = parseFloat(service.service_price || 0);
+      const normalizedService = {
+        id: service.id,
+        name: service.service_name || service.label || service.name,
+        price: servicePrice,
+        duration: 45, // use 45 as fallback
+        // ... other basic fields
+      };
+      onServiceSelect(normalizedService);
+      setShowServiceDropdown(false);
+      setServiceSearch('');
+    }
   };
 
   // handle adding service
@@ -75,7 +98,7 @@ const ServiceSelection = ({
     }
   };
 
-  // Always use the 6-column layout (edit mode layout)
+  // always use the 6-column layout (edit mode layout)
   const gridCols = 'md:grid-cols-6';
 
   return (
@@ -168,23 +191,56 @@ const ServiceSelection = ({
               type='number'
               value={serviceForm.price || ''}
               onChange={(e) => {
-                const newPrice = parseFloat(e.target.value) || 0;
-                onFieldUpdate('price', newPrice);
-                // FIXED: Don't automatically update discount when price changes
-                // Let user control both price and discount independently
+                const value = e.target.value;
+
+                if (value === '') {
+                  onFieldUpdate('price', '');
+                  setPriceError('');
+                } else {
+                  const numValue = parseFloat(value);
+
+                  if (isNaN(numValue)) {
+                    setPriceError('Please enter a valid number');
+                    return;
+                  }
+
+                  if (numValue < 0) {
+                    setPriceError('Price cannot be negative');
+                    return;
+                  }
+
+                  // valid price (0 or positive)
+                  setPriceError('');
+                  onFieldUpdate('price', numValue);
+                }
               }}
-              className='w-full pl-7 pr-2 py-1 border border-gray-200 rounded text-sm focus:outline-none focus:ring-2 focus:ring-gray-500 focus:border-transparent'
+              onBlur={(e) => {
+                const value = e.target.value;
+                if (value === '' || value === null || value === undefined) {
+                  onFieldUpdate('price', 0);
+                  setPriceError('');
+                }
+              }}
+              className={`w-full pl-7 pr-2 py-1 border rounded text-sm focus:outline-none focus:ring-2 focus:border-transparent ${
+                priceError ? 'border-red-300 focus:ring-red-500' : 'border-gray-200 focus:ring-gray-500'
+              }`}
               min='0'
               step='0.01'
               placeholder='Enter custom price'
             />
           </div>
-          <div className='text-xs text-gray-500 mt-1'>
-            {serviceForm.price &&
-            serviceForm.originalPrice &&
-            parseFloat(serviceForm.price) !== parseFloat(serviceForm.originalPrice)
-              ? 'Using custom pricing'
-              : 'Using standard pricing'}
+          <div className='text-xs mt-1'>
+            {priceError ? (
+              <span className='text-red-600'>{priceError}</span>
+            ) : serviceForm.price !== undefined && serviceForm.price !== null && serviceForm.price !== '' ? (
+              serviceForm.originalPrice && parseFloat(serviceForm.price) !== parseFloat(serviceForm.originalPrice) ? (
+                <span className='text-gray-500'>Using custom pricing</span>
+              ) : (
+                <span className='text-gray-500'>Using standard pricing</span>
+              )
+            ) : (
+              <span className='text-gray-500'>Enter 0 or positive amount</span>
+            )}
           </div>
         </div>
 
@@ -194,21 +250,57 @@ const ServiceSelection = ({
           <div className='relative'>
             <input
               type='number'
-              value={serviceForm.discount !== undefined ? serviceForm.discount : ''}
+              value={serviceForm.discount !== undefined && serviceForm.discount !== null ? serviceForm.discount : ''}
               onChange={(e) => {
-                onFieldUpdate('discount', e.target.value === '' ? '' : parseFloat(e.target.value) || 0);
+                const value = e.target.value;
+                if (value === '') {
+                  onFieldUpdate('discount', '');
+                  setDiscountError('');
+                } else {
+                  const numValue = parseFloat(value);
+                  if (isNaN(numValue)) {
+                    setDiscountError('Please enter a valid number');
+                    return;
+                  }
+
+                  if (numValue < 0) {
+                    setDiscountError('Discount factor cannot be negative');
+                    const clampedValue = 0;
+                    onFieldUpdate('discount', clampedValue);
+                  } else if (numValue > 1) {
+                    setDiscountError('Discount factor cannot exceed 1.0 (use 0.5 for 50% off)');
+                    const clampedValue = 1;
+                    onFieldUpdate('discount', clampedValue);
+                  } else {
+                    setDiscountError('');
+                    onFieldUpdate('discount', numValue);
+                  }
+                }
               }}
-              className='w-full px-2 py-1 border border-gray-200 rounded text-sm focus:outline-none focus:ring-2 focus:ring-gray-500 focus:border-transparent'
+              onBlur={(e) => {
+                const value = e.target.value;
+                if (value === '' || value === null || value === undefined) {
+                  onFieldUpdate('discount', 1);
+                  setDiscountError('');
+                }
+              }}
+              className={`w-full px-2 py-1 border rounded text-sm focus:outline-none focus:ring-2 focus:border-transparent ${
+                discountError ? 'border-red-300 focus:ring-red-500' : 'border-gray-200 focus:ring-gray-500'
+              }`}
               min='0'
               max='1'
               step='0.01'
               placeholder='1.0'
             />
-          </div>
-          <div className='text-xs text-gray-500 mt-1'>
-            {serviceForm.discount
-              ? `${((1 - parseFloat(serviceForm.discount)) * 100).toFixed(1)}% off`
-              : 'Enter factor (1.0 = full price, 0.5 = half price)'}
+            <div className='text-xs mt-1'>
+              {discountError ? (
+                <span className='text-red-600'>{discountError}</span>
+              ) : serviceForm.discount !== undefined && serviceForm.discount !== null && serviceForm.discount !== '' ? (
+                <span className='text-gray-500'>{((1 - parseFloat(serviceForm.discount)) * 100).toFixed(1)}% off</span>
+              ) : (
+                <span className='text-gray-500'>Enter factor between 0.0-1.0 (1.0 = full price, 0.0 = 100% off)</span>
+              )}
+            </div>
           </div>
         </div>
 
