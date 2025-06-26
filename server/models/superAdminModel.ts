@@ -46,7 +46,7 @@ const hierarchy: HierarchyInterface[] = [
   { id: 28, table: 'member_voucher_transaction_logs', dependencies: [29, 1] },
   { id: 29, table: 'member_vouchers', dependencies: [35, 1, 17] },
   { id: 30, table: 'payment_to_sale_transactions', dependencies: [20, 32, 1] },
-  { id: 31, table: 'sale_transaction_items', dependencies: [32] },
+  { id: 31, table: 'sale_transaction_items', dependencies: [32, 4, 29] },
   { id: 32, table: 'sale_transactions', dependencies: [17, 1] },
   { id: 33, table: 'timetables', dependencies: [] },
   { id: 34, table: 'voucher_template_details', dependencies: [35, 7, 8] },
