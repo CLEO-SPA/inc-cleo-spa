@@ -183,7 +183,12 @@ const ViewCarePackageDetailsPage = () => {
         quantity: parseInt(detail.care_package_item_details_quantity) || 1,
         price: parseFloat(detail.care_package_item_details_price) || 0,
         originalPrice: parseFloat(serviceInfo.service_price) || parseFloat(detail.care_package_item_details_price) || 0,
-        discount: parseFloat(detail.care_package_item_details_discount) || 1,
+        discount:
+          detail.care_package_item_details_discount !== undefined &&
+          detail.care_package_item_details_discount !== null &&
+          detail.care_package_item_details_discount !== ''
+            ? parseFloat(detail.care_package_item_details_discount)
+            : 1,
         service_description: serviceInfo.service_description || '',
         service_remarks: serviceInfo.service_remarks || detail.care_package_item_details_remarks || '',
         service_duration: serviceInfo.service_duration || 45,
@@ -220,15 +225,22 @@ const ViewCarePackageDetailsPage = () => {
     const packageDetails = currentPackage.details || [];
     const transformedServices = transformPackageDetailsToServices(packageDetails);
 
-    // get current status 
+    // get current status
     const currentStatus = packageData.status || packageData.status_name || 'UNKNOWN';
     const isDeletable = canDeletePackage(packageData);
 
     // calculate total package value
     const calculateTotalValue = () => {
       return transformedServices.reduce((total, service) => {
-        const unitPrice = service.price * service.discount;
-        return total + unitPrice * service.quantity;
+        const customPrice = parseFloat(service.price) || 0;
+        const quantity = parseInt(service.quantity) || 0;
+        const discountFactor =
+          service.discount !== undefined && service.discount !== null && service.discount !== ''
+            ? parseFloat(service.discount)
+            : 1;
+
+        const finalUnitPrice = customPrice * discountFactor;
+        return total + finalUnitPrice * quantity;
       }, 0);
     };
 
@@ -486,7 +498,8 @@ const ViewCarePackageDetailsPage = () => {
                   <strong>Price:</strong> ${parseFloat(currentPackage.package.care_package_price || 0).toFixed(2)}
                 </div>
                 <div>
-                  <strong>Status:</strong> {currentPackage.package.status || currentPackage.package.status_name || 'Unknown'}
+                  <strong>Status:</strong>{' '}
+                  {currentPackage.package.status || currentPackage.package.status_name || 'Unknown'}
                 </div>
                 <div>
                   <strong>Services:</strong> {transformedServices.length} service

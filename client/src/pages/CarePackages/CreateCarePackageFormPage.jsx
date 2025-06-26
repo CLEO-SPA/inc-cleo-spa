@@ -92,7 +92,10 @@ const CarePackageCreateForm = () => {
     return mainFormData.services.reduce((total, service) => {
       const customPrice = parseFloat(service.price) || 0;
       const quantity = parseInt(service.quantity, 10) || 0;
-      const discountFactor = parseFloat(service.discount) || 1;
+      const discountFactor =
+        service.discount !== undefined && service.discount !== null && service.discount !== ''
+          ? parseFloat(service.discount)
+          : 1;
 
       const finalUnitPrice = customPrice * discountFactor;
       const lineTotal = quantity * finalUnitPrice;
@@ -104,7 +107,10 @@ const CarePackageCreateForm = () => {
   const calculateCurrentServiceTotal = () => {
     const customPrice = parseFloat(serviceForm.price) || 0;
     const quantity = parseInt(serviceForm.quantity, 10) || 0;
-    const discountFactor = parseFloat(serviceForm.discount) || 1;
+    const discountFactor =
+      serviceForm.discount !== undefined && serviceForm.discount !== null && serviceForm.discount !== ''
+        ? parseFloat(serviceForm.discount)
+        : 1;
 
     const finalUnitPrice = customPrice * discountFactor;
     const lineTotal = quantity * finalUnitPrice;
@@ -182,7 +188,10 @@ const CarePackageCreateForm = () => {
       ...updatedData,
       price: parseFloat(updatedData.price) || 0,
       quantity: parseInt(updatedData.quantity) || 1,
-      discount: parseFloat(updatedData.discount) || 1,
+      discount:
+        updatedData.discount !== undefined && updatedData.discount !== null && updatedData.discount !== ''
+          ? parseFloat(updatedData.discount)
+          : 1,
     };
 
     updateServiceInPackage(index, processedData);
@@ -220,9 +229,14 @@ const CarePackageCreateForm = () => {
         if (isNaN(customPrice) || customPrice < 0) {
           throw new Error(`Service ${index + 1}: Invalid price (${service.price})`);
         }
-        const discountFactor = parseFloat(service.discount);
-        if (isNaN(discountFactor) || discountFactor < 0) {
-          throw new Error(`Service ${index + 1}: Invalid discount (${service.discount})`);
+        let discountFactor;
+        if (service.discount === undefined || service.discount === null || service.discount === '') {
+          discountFactor = 1;
+        } else {
+          discountFactor = parseFloat(service.discount);
+          if (isNaN(discountFactor) || discountFactor < 0) {
+            throw new Error(`Service ${index + 1}: Invalid discount (${service.discount})`);
+          }
         }
         return {
           id: service.id.toString(),

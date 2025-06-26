@@ -120,7 +120,10 @@ const EditCarePackagePage = () => {
     return mainFormData.services.reduce((total, service) => {
       const customPrice = parseFloat(service.price) || 0;
       const quantity = parseInt(service.quantity, 10) || 0;
-      const discountFactor = parseFloat(service.discount) || 1;
+      const discountFactor =
+        service.discount !== undefined && service.discount !== null && service.discount !== ''
+          ? parseFloat(service.discount)
+          : 1;
 
       // ensure discount factor is valid (between 0 and 1)
       const validDiscountFactor = Math.max(0, Math.min(1, discountFactor));
@@ -130,12 +133,14 @@ const EditCarePackagePage = () => {
       return total + lineTotal;
     }, 0);
   };
-
   // calculate current service total in form
   const calculateCurrentServiceTotal = () => {
     const customPrice = parseFloat(serviceForm.price) || 0;
     const quantity = parseInt(serviceForm.quantity, 10) || 0;
-    const discountFactor = parseFloat(serviceForm.discount) || 1;
+    const discountFactor =
+      serviceForm.discount !== undefined && serviceForm.discount !== null && serviceForm.discount !== ''
+        ? parseFloat(serviceForm.discount)
+        : 1;
 
     // ensure discount factor is valid
     const validDiscountFactor = Math.max(0, Math.min(1, discountFactor));
@@ -197,7 +202,12 @@ const EditCarePackagePage = () => {
         const originalServicePrice = getOriginalServicePrice(serviceId);
 
         const customPrice = parseFloat(detail.care_package_item_details_price) || 0;
-        const discountFactor = parseFloat(detail.care_package_item_details_discount) || 1;
+        const discountFactor =
+          detail.care_package_item_details_discount !== undefined &&
+          detail.care_package_item_details_discount !== null &&
+          detail.care_package_item_details_discount !== ''
+            ? parseFloat(detail.care_package_item_details_discount)
+            : 1;
 
         return {
           id: String(serviceId),

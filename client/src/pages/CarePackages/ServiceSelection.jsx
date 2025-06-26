@@ -17,6 +17,7 @@ const ServiceSelection = ({
 }) => {
   const [showServiceDropdown, setShowServiceDropdown] = useState(false);
   const [serviceSearch, setServiceSearch] = useState('');
+  const [discountError, setDiscountError] = useState('');
 
   // filter service options based on search input
   const filteredServiceOptions = serviceOptions.filter(
@@ -170,8 +171,6 @@ const ServiceSelection = ({
               onChange={(e) => {
                 const newPrice = parseFloat(e.target.value) || 0;
                 onFieldUpdate('price', newPrice);
-                // FIXED: Don't automatically update discount when price changes
-                // Let user control both price and discount independently
               }}
               className='w-full pl-7 pr-2 py-1 border border-gray-200 rounded text-sm focus:outline-none focus:ring-2 focus:ring-gray-500 focus:border-transparent'
               min='0'
@@ -194,21 +193,57 @@ const ServiceSelection = ({
           <div className='relative'>
             <input
               type='number'
-              value={serviceForm.discount !== undefined ? serviceForm.discount : ''}
+              value={serviceForm.discount !== undefined && serviceForm.discount !== null ? serviceForm.discount : ''}
               onChange={(e) => {
-                onFieldUpdate('discount', e.target.value === '' ? '' : parseFloat(e.target.value) || 0);
+                const value = e.target.value;
+                if (value === '') {
+                  onFieldUpdate('discount', '');
+                  setDiscountError('');
+                } else {
+                  const numValue = parseFloat(value);
+                  if (isNaN(numValue)) {
+                    setDiscountError('Please enter a valid number');
+                    return;
+                  }
+
+                  if (numValue < 0) {
+                    setDiscountError('Discount factor cannot be negative');
+                    const clampedValue = 0;
+                    onFieldUpdate('discount', clampedValue);
+                  } else if (numValue > 1) {
+                    setDiscountError('Discount factor cannot exceed 1.0 (use 0.5 for 50% off)');
+                    const clampedValue = 1;
+                    onFieldUpdate('discount', clampedValue);
+                  } else {
+                    setDiscountError('');
+                    onFieldUpdate('discount', numValue);
+                  }
+                }
               }}
-              className='w-full px-2 py-1 border border-gray-200 rounded text-sm focus:outline-none focus:ring-2 focus:ring-gray-500 focus:border-transparent'
+              onBlur={(e) => {
+                const value = e.target.value;
+                if (value === '' || value === null || value === undefined) {
+                  onFieldUpdate('discount', 1);
+                  setDiscountError('');
+                }
+              }}
+              className={`w-full px-2 py-1 border rounded text-sm focus:outline-none focus:ring-2 focus:border-transparent ${
+                discountError ? 'border-red-300 focus:ring-red-500' : 'border-gray-200 focus:ring-gray-500'
+              }`}
               min='0'
               max='1'
               step='0.01'
               placeholder='1.0'
             />
-          </div>
-          <div className='text-xs text-gray-500 mt-1'>
-            {serviceForm.discount
-              ? `${((1 - parseFloat(serviceForm.discount)) * 100).toFixed(1)}% off`
-              : 'Enter factor (1.0 = full price, 0.5 = half price)'}
+            <div className='text-xs mt-1'>
+              {discountError ? (
+                <span className='text-red-600'>{discountError}</span>
+              ) : serviceForm.discount !== undefined && serviceForm.discount !== null && serviceForm.discount !== '' ? (
+                <span className='text-gray-500'>{((1 - parseFloat(serviceForm.discount)) * 100).toFixed(1)}% off</span>
+              ) : (
+                <span className='text-gray-500'>Enter factor between 0.0-1.0 (1.0 = full price, 0.0 = 100% off)</span>
+              )}
+            </div>
           </div>
         </div>
 

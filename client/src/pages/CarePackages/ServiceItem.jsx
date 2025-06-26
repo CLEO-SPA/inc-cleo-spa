@@ -38,7 +38,9 @@ const ServiceItem = ({ service, index, isEditing, onEdit, onSave, onCancel, onRe
       service_id: formData.service_id,
       price: parseFloat(editData.price) || 0, 
       quantity: parseInt(editData.quantity) || 1,
-      discount: parseFloat(editData.discount) || 1, 
+      discount: editData.discount !== undefined && editData.discount !== null && editData.discount !== '' 
+        ? parseFloat(editData.discount) 
+        : 1,
       originalPrice: originalServicePrice,
     });
   };
@@ -89,10 +91,13 @@ const ServiceItem = ({ service, index, isEditing, onEdit, onSave, onCancel, onRe
         }));
       } else {
         const numValue = parseFloat(value);
-        const processedValue = !isNaN(numValue) ? numValue : value;
+        if (isNaN(numValue)) {
+          return;
+        }
+        const clampedValue = Math.max(0, Math.min(1, numValue));
         setEditData((prev) => ({
           ...prev,
-          [field]: processedValue,
+          [field]: clampedValue,
         }));
       }
     } else {
@@ -129,27 +134,27 @@ const ServiceItem = ({ service, index, isEditing, onEdit, onSave, onCancel, onRe
     }
   };
 
-  // calculate display values for edit mode
   const customPriceInEdit = parseFloat(editData.price) || 0; 
-  const discountFactor = parseFloat(editData.discount) || 1;
+  const discountFactor = editData.discount !== undefined && editData.discount !== null && editData.discount !== '' 
+    ? parseFloat(editData.discount) 
+    : 1;
   const quantityInEdit = parseInt(editData.quantity) || 0;
 
   // final unit price = custom price × discount factor (frontend calculation)
   const finalUnitPriceInEdit = customPriceInEdit * discountFactor;
   const totalLineAmountInEdit = quantityInEdit * finalUnitPriceInEdit;
 
-  // calculate display values for display mode
   const customPriceInDisplay = parseFloat(service.price) || 0; 
-  const discountFactorDisplay = parseFloat(service.discount) || 1;
+  const discountFactorDisplay = service.discount !== undefined && service.discount !== null && service.discount !== '' 
+    ? parseFloat(service.discount) 
+    : 1;
   const quantityInDisplay = parseInt(service.quantity, 10) || 0;
 
-  // final unit price = custom price × discount factor (for created service)
   const finalUnitPriceInDisplay = customPriceInDisplay * discountFactorDisplay;
   const totalLineAmountInDisplay = quantityInDisplay * finalUnitPriceInDisplay;
 
-  // helper function to calculate discount percentage for display
   const getDiscountPercentage = (discountFactor) => {
-    if (!discountFactor || discountFactor === '') return '0';
+    if (discountFactor === undefined || discountFactor === null || discountFactor === '') return '0';
     const factor = parseFloat(discountFactor);
     if (isNaN(factor)) return '0';
     const discountPercent = (1 - factor) * 100;
@@ -280,7 +285,7 @@ const ServiceItem = ({ service, index, isEditing, onEdit, onSave, onCancel, onRe
               <label className='block text-xs font-medium text-gray-600 mb-1'>Discount Factor</label>
               <input
                 type='number'
-                value={editData.discount !== undefined ? editData.discount : ''}
+                value={editData.discount !== undefined && editData.discount !== null ? editData.discount : ''}
                 onChange={(e) => handleEditDataChange('discount', e.target.value)}
                 onBlur={(e) => handleBlur('discount', e.target.value)}
                 className='w-full px-3 py-2 border border-gray-300 rounded-md text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent'
@@ -290,9 +295,9 @@ const ServiceItem = ({ service, index, isEditing, onEdit, onSave, onCancel, onRe
                 placeholder='1.0'
               />
               <div className='text-xs text-gray-500 mt-1'>
-                {editData.discount
+                {editData.discount !== undefined && editData.discount !== null && editData.discount !== ''
                   ? `${getDiscountPercentage(editData.discount)}% off`
-                  : '1.0 = full price, 0.5 = half price'}
+                  : 'Range: 0.0-1.0 (1.0 = full price, 0.0 = 100% off)'}
               </div>
             </div>
 
