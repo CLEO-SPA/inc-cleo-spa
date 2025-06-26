@@ -63,11 +63,11 @@ const data = {
       items: [
         {
           title: 'Create Product',
-          url: '#',
+          url: '/create-product',
         },
         {
           title: 'Manage Products',
-          url: '#',
+          url: '/manage-product',
         },
       ],
     },
