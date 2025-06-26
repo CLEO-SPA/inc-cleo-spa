@@ -117,7 +117,9 @@ export default function ManageProduct() {
       setModalOpen(true);
       let updateData = {
         ...updateForm,
+        enabled: !product.product_is_enabled,
         updated_at: isSimulationActive ? new Date(simulationStartDate) : new Date(),
+        updatedBy: updatedBy || "",
         product_remarks: product.product_remarks
       }
       setUpdateForm(updateData);
@@ -133,6 +135,7 @@ export default function ManageProduct() {
     setUpdatedAt(null);
     reset();
     setUpdateForm({
+      enabled: false,
       updated_at: "",
       updated_by: "",
       product_remarks: ""
@@ -149,31 +152,17 @@ export default function ManageProduct() {
       return;
     }
     try {
-      if (changeStatus) {
-        // Enabled if True
-        // Disabled if False
-        const response = await api.put(`/product/enable-product/${changeProduct.id}`, updateForm, {
-          headers: {
-            "Content-Type": "application/json"
-          }
-        });
-        if (response.status === 200) {
-          resetForm();
-          setModalOpen(false);
-          getProducts();
+      // Enabled if True
+      // Disabled if False
+      const response = await api.put(`/product/product-status/${changeProduct.id}`, updateForm, {
+        headers: {
+          "Content-Type": "application/json"
         }
-      } else {
-        // Disabled if False
-        const response = await api.put(`/product/disable-product/${changeProduct.id}`, updateForm, {
-          headers: {
-            "Content-Type": "application/json"
-          }
-        });
-        if (response.status === 200) {
-          resetForm();
-          setModalOpen(false);
-          getProducts();
-        }
+      })
+      if (response.status === 200) {
+        resetForm();
+        setModalOpen(false);
+        getProducts();
       }
     } catch (err) {
       console.error('Error changing product status:', err);

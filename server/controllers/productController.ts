@@ -321,6 +321,54 @@ const reorderProduct = async (req: Request, res: Response, next: NextFunction) =
 };
 
 // enable/disable product by id
+const changeProductStatus = async (req: Request, res: Response, next: NextFunction) => {
+  try {
+    const id = parseInt(req.params.id, 10);
+    const data = req.body;
+
+    let updateData: { id: number;
+      enabled:boolean;
+      updated_by: number;
+      updated_at: string;
+      product_sequence_no?: number;
+      product_remarks?: string | null } = {
+      id: id,
+      enabled: data.enabled,
+      updated_by: Number(data.updated_by),
+      updated_at: String(data.updated_at),
+      product_sequence_no: 0,
+    };
+
+    // check product exists validation
+    // check if disabled or not
+    const product = await productModel.getProductById(id);
+    if (data.enabled == product.product_is_enabled) {
+      res.status(400).json({ message: 'Product is already disabled.' });
+      return;
+    }
+
+    // check if remarks was updated
+    if (data.product_remarks && data.product_remarks !== product.product_remarks) {
+      updateData.product_remarks = data.product_remarks;
+    }
+
+    // get product sequence no if enabling the product
+    if (data.enabled){
+      const product_sequence_no = parseInt(await productModel.getProductSequenceNo(product.product_category_id));
+      updateData.product_sequence_no = product_sequence_no;
+    }
+
+    // change status
+    const updatedProduct = await productModel.changeProductStatus(updateData);
+    if (updatedProduct) {
+      const statusMsg = data.enabled ? 'Enabled' : 'Disabled';
+      res.status(200).json({ message: `${statusMsg} Product Successfully` });
+    }
+  } catch (error) {
+    console.error('Error in changeStatusProduct:', error);
+    res.status(500).json({ message: 'Failed to change product status' });
+  }
+};
 
 // PRODUCT CATEGORIES ROUTES
 // Get Product Categories
@@ -463,6 +511,7 @@ export default {
   createProduct,
   updateProduct,
   reorderProduct,
+  changeProductStatus,
   createProductCategory,
   updateProductCategory,
   reorderProductCategory,

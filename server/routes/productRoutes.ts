@@ -19,6 +19,9 @@ router.put('/update-product/:id', productController.validateProductData, product
 // update product sequence no
 router.put('/reorder-product', productController.reorderProduct);
 
+// update product status
+router.put('/product-status/:id', productController.changeProductStatus);
+
 // PRODUCT CATEGORIES ROUTES
 //  get all product categories
 router.get('/product-cat', productController.getProductCategories)

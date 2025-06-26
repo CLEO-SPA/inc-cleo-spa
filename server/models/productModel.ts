@@ -291,7 +291,48 @@ const reorderProducts = async (products: { id: number; product_sequence_no: numb
   }
 };
 
+// enable/disable product by id
+const changeProductStatus = async (updateData: {
+  id: number;
+  enabled: boolean;
+  updated_at: string;
+  updated_by: number;
+  product_sequence_no: number;
+  product_remarks?: string | null;
+}) => {
+  try {
+    let params = [
+      updateData.enabled,
+      updateData.product_sequence_no,
+      updateData.updated_by,
+      updateData.updated_at,
+      updateData.id,
+    ];
+    let query = `   
+    UPDATE products
+    SET
+      product_is_enabled = $1,
+      product_sequence_no = $2,
+      updated_by = $3,
+      updated_at = $4`;
 
+    if (updateData.product_remarks) {
+      query += `,
+        remarks = $6
+      `;
+      params.push(updateData.product_remarks);
+    }
+    query += `
+      WHERE id = $5
+      RETURNING *`;
+
+    const result = await pool().query(query, params);
+    return result.rows[0];
+  } catch (error) {
+    console.error('Error changing product status:', error);
+    throw new Error('Error changing product status');
+  }
+};
 
 // PRODUCT CATEGORIES
 const getProductCategories = async () => {
@@ -416,6 +457,7 @@ export default {
   createProduct,
   updateProduct,
   reorderProducts,
+  changeProductStatus,
   getProductCategories,
   getProductCategoryById,
   createProductCategory,
