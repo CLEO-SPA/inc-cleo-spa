@@ -1,5 +1,7 @@
+/* eslint-disable @typescript-eslint/no-explicit-any */
+import { PoolClient } from 'pg';
 import { pool } from '../config/database.js';
-import { FieldMapping, PaginatedOptions, PaginatedReturn } from '../types/common.types.js';
+import { CursorPayload, FieldMapping, PaginatedOptions, PaginatedReturn } from '../types/common.types.js';
 import { CarePackageItemDetails, CarePackages, Employees } from '../types/model.types.js';
 import { encodeCursor } from '../utils/cursorUtils.js';
 import { getEmployeeIdByUserAuthId } from './employeeModel.js';
@@ -8,125 +10,237 @@ const getPaginatedCarePackages = async (
   limit: number,
   options: PaginatedOptions = {},
   start_date_utc: string | undefined | null,
-  end_date_utc: string
+  end_date_utc: string | undefined | null
 ): Promise<PaginatedReturn<CarePackages>> => {
-  const { after, before, page, searchTerm } = options;
-
-  const params = [
-    limit,
-    searchTerm || null,
-    start_date_utc ? start_date_utc : null,
-    end_date_utc ? end_date_utc : null,
-    after ? after.createdAt : null,
-    after ? after.id : null,
-    before ? before.createdAt : null,
-    before ? before.id : null,
-    page && page > 0 ? page : null,
-  ];
-
-  const sqlFunctionQuery = `
-    SELECT get_cp_paginated_json(
-      p_limit := $1,
-      p_search_term := $2,
-      p_start_date_utc := $3,
-      p_end_date_utc := $4,
-      p_after_created_at := $5,
-      p_after_id := $6,
-      p_before_created_at := $7,
-      p_before_id := $8,
-      p_page := $9
-    ) AS result;
-  `;
+  const { searchTerm } = options;
+  const after = options.after || null;
+  const before = options.before || null;
+  const page = options.page;
 
   try {
-    const { rows: resultRows } = await pool().query(sqlFunctionQuery, params);
-
-    if (!resultRows[0] || !resultRows[0].result) {
-      console.error('Invalid response from SQL function get_cp_paginated_json');
-      throw new Error('Could not retrieve paginated care packages due to invalid DB response.');
-    }
-    const result = resultRows[0].result;
-
-    if (result.error) {
-      console.error('Error reported by SQL function get_cp_paginated_json:', result.error);
-      throw new Error(`Database error: ${result.error}`);
-    }
-
-    const carePackages = result.data || []; // Ensure data is an array
-    const totalCount = result.totalCount || 0;
-    // actual_fetched_count is how many records the SQL function's data query fetched (typically limit + 1 for cursors)
-    const actualFetchedCount = result.actual_fetched_count || 0;
-
-    let hasNextPage = false;
-    let hasPreviousPage = false;
-    let startCursor = null;
-    let endCursor = null;
-
-    if (page && page > 0) {
-      // Offset-based pagination
-      // totalCount is the count of all items matching filters
-      // limit is items per page
-      // page is current page number (1-indexed)
-      hasNextPage = page * limit < totalCount;
-      hasPreviousPage = page > 1;
-    } else {
-      // Cursor-based pagination
-      if (before) {
-        // `actualFetchedCount` included one extra item if more existed "before" the current set.
-        // The `carePackages` (data) returned by SQL function is already sliced to `limit` and in correct display order.
-        hasPreviousPage = actualFetchedCount > limit;
-        // If 'before' was used and we got results, there's a "next" page (towards more recent items).
-        hasNextPage = carePackages.length > 0;
-      } else {
-        // 'after' or initial load (no cursor)
-        // `actualFetchedCount` included one extra item if more existed "after" the current set.
-        hasNextPage = actualFetchedCount > limit;
-        // If 'after' was used and we received data, a "previous" page exists.
-        hasPreviousPage = !!after && carePackages.length > 0;
-        if (!after && !before) {
-          // Initial load (no cursor)
-          hasPreviousPage = false; // No previous page on the very first fetch.
-        }
-      }
-    }
-
-    if (carePackages.length > 0) {
-      // Ensure created_at is a Date object if needed by encodeCursor, SQL returns ISO strings
-      startCursor = encodeCursor(new Date(carePackages[0].created_at), carePackages[0].id);
-      endCursor = encodeCursor(
-        new Date(carePackages[carePackages.length - 1].created_at),
-        carePackages[carePackages.length - 1].id
+    const client = await pool().connect();
+    try {
+      const { filterWhereClause, filterParams, paramCounter } = buildCpFilterConditions(
+        searchTerm,
+        start_date_utc,
+        end_date_utc
       );
-    }
 
-    return {
-      data: carePackages,
-      pageInfo: {
-        startCursor,
-        endCursor,
-        hasNextPage,
-        hasPreviousPage,
+      const totalCount = await getCpTotalCount(client, filterWhereClause, filterParams);
+
+      const { finalWhereClause, cursorParams, orderBy, effectiveLimit } = prepareCpPaginationParams(
+        filterWhereClause,
+        filterParams,
+        paramCounter,
+        limit,
+        page,
+        after,
+        before
+      );
+
+      const dataQuery = buildCpDataQuery(finalWhereClause, orderBy, page, limit, effectiveLimit);
+
+      const { rows: rawResults } = await client.query(dataQuery, cursorParams);
+      const actualFetchedCount = rawResults.length;
+
+      const { carePackages, hasNextPage, hasPreviousPage } = processCpPaginationResults(
+        rawResults,
+        before,
+        after,
+        page,
+        limit,
         totalCount,
-      },
-    };
-  } catch (error: unknown) {
-    console.error('Error in CarePackageModel.getPaginatedCarePackages (with PG function):', error);
+        actualFetchedCount
+      );
+
+      const { startCursor, endCursor } = generateCpCursors(carePackages);
+
+      return {
+        data: carePackages,
+        pageInfo: {
+          startCursor,
+          endCursor,
+          hasNextPage,
+          hasPreviousPage,
+          totalCount,
+        },
+      };
+    } finally {
+      client.release();
+    }
+  } catch (error) {
+    console.error('Error in CarePackageModel.getPaginatedCarePackages:', error);
     throw new Error('Could not retrieve paginated care packages.');
   }
 };
 
-const getCarePackagesForDropdown = async (): Promise<FullCarePackage[]> => {
+function buildCpFilterConditions(
+  searchTerm: string | null | undefined,
+  start_date_utc: string | null | undefined,
+  end_date_utc: string | null | undefined
+): {
+  filterWhereClause: string;
+  filterParams: any[];
+  paramCounter: number;
+} {
+  const filterConditions: string[] = [];
+  const filterParams: any[] = [];
+  let paramCounter = 1;
+
+  if (searchTerm) {
+    filterConditions.push(
+      `(cp.care_package_name ILIKE $${paramCounter} OR cp.care_package_remarks ILIKE $${paramCounter})`
+    );
+    filterParams.push(`%${searchTerm}%`);
+    paramCounter++;
+  }
+
+  if (start_date_utc) {
+    filterConditions.push(`cp.created_at >= $${paramCounter}`);
+    filterParams.push(start_date_utc);
+    paramCounter++;
+  }
+
+  if (end_date_utc) {
+    filterConditions.push(`cp.created_at <= $${paramCounter}`);
+    filterParams.push(end_date_utc);
+    paramCounter++;
+  }
+
+  const filterWhereClause = filterConditions.length > 0 ? `WHERE ${filterConditions.join(' AND ')}` : '';
+  return { filterWhereClause, filterParams, paramCounter };
+}
+
+async function getCpTotalCount(client: PoolClient, filterWhereClause: string, filterParams: any[]): Promise<number> {
+  const countQuery = `SELECT COUNT(*) FROM care_packages cp ${filterWhereClause}`;
+  const { rows } = await client.query<{ count: string }>(countQuery, filterParams);
+  return parseInt(rows[0].count, 10);
+}
+
+function prepareCpPaginationParams(
+  filterWhereClause: string,
+  filterParams: any[],
+  paramCounter: number,
+  limit: number,
+  page: number | null | undefined,
+  after: CursorPayload | null,
+  before: CursorPayload | null
+): {
+  finalWhereClause: string;
+  cursorParams: any[];
+  orderBy: string;
+  effectiveLimit: number;
+} {
+  let finalWhereClause = filterWhereClause;
+  let orderBy = 'ORDER BY cp.created_at ASC, cp.id ASC';
+  let cursorParams = [...filterParams];
+  let effectiveLimit = page && page > 0 ? limit : limit + 1;
+
+  if (!page && (after || before)) {
+    if (finalWhereClause) {
+      finalWhereClause += ' AND ';
+    } else {
+      finalWhereClause = 'WHERE ';
+    }
+
+    if (after) {
+      finalWhereClause += `(cp.created_at > $${paramCounter} OR (cp.created_at = $${paramCounter} AND cp.id > $${
+        paramCounter + 1
+      }))`;
+      cursorParams.push(after.createdAt, after.id);
+    } else if (before) {
+      finalWhereClause += `(cp.created_at < $${paramCounter} OR (cp.created_at = $${paramCounter} AND cp.id < $${
+        paramCounter + 1
+      }))`;
+      cursorParams.push(before.createdAt, before.id);
+      orderBy = 'ORDER BY cp.created_at DESC, cp.id DESC';
+    }
+  }
+
+  return { finalWhereClause, cursorParams, orderBy, effectiveLimit };
+}
+
+function buildCpDataQuery(
+  finalWhereClause: string,
+  orderBy: string,
+  page: number | null | undefined,
+  limit: number,
+  effectiveLimit: number
+): string {
+  return `
+    SELECT cp.*
+    FROM care_packages cp
+    ${finalWhereClause}
+    ${orderBy}
+    ${page && page > 0 ? `OFFSET ${(page - 1) * limit}` : ''}
+    LIMIT ${effectiveLimit}
+  `;
+}
+
+function processCpPaginationResults(
+  rawResults: any[],
+  before: CursorPayload | null,
+  after: CursorPayload | null,
+  page: number | null | undefined,
+  limit: number,
+  totalCount: number,
+  actualFetchedCount: number
+): {
+  carePackages: CarePackages[];
+  hasNextPage: boolean;
+  hasPreviousPage: boolean;
+} {
+  let carePackages = before && !page ? [...rawResults].reverse().slice(0, limit) : rawResults.slice(0, limit);
+
+  let hasNextPage = false;
+  let hasPreviousPage = false;
+
+  if (page && page > 0) {
+    hasNextPage = page * limit < totalCount;
+    hasPreviousPage = page > 1;
+  } else if (before) {
+    hasNextPage = carePackages.length > 0;
+    hasPreviousPage = actualFetchedCount > limit;
+  } else if (after) {
+    hasNextPage = actualFetchedCount > limit;
+    hasPreviousPage = true;
+  } else {
+    hasNextPage = actualFetchedCount > limit;
+    hasPreviousPage = false;
+  }
+
+  return { carePackages, hasNextPage, hasPreviousPage };
+}
+
+function generateCpCursors(carePackages: CarePackages[]): {
+  startCursor: string | null;
+  endCursor: string | null;
+} {
+  let startCursor = null;
+  let endCursor = null;
+
+  if (carePackages.length > 0) {
+    const firstItem = carePackages[0];
+    const lastItem = carePackages[carePackages.length - 1];
+    startCursor = encodeCursor(new Date(firstItem.created_at), firstItem.id!);
+    endCursor = encodeCursor(new Date(lastItem.created_at), lastItem.id!);
+  }
+
+  return { startCursor, endCursor };
+}
+
+const getCarePackagesForDropdown = async (): Promise<CarePackages[]> => {
   try {
     const sql = `
       SELECT cp.id, cp.care_package_name
       FROM care_packages cp
-      WHERE cp.status_id = (SELECT get_or_create_status('ENABLED'))
+      WHERE cp.status = 'ENABLED'
       ORDER BY cp.created_at DESC;
     `;
 
-    const { rows } = await pool().query<{ care_package_data: FullCarePackage }>(sql);
+    const { rows } = await pool().query(sql);
 
-    return rows.map((row) => row.care_package_data);
+    return rows;
   } catch (error) {
     console.error('Error in cpModel.getAllCarePackages (with details):', error);
     throw new Error('Could not retrieve all care packages with details');
@@ -134,25 +248,46 @@ const getCarePackagesForDropdown = async (): Promise<FullCarePackage[]> => {
 };
 
 interface CarePackagePurchaseCount {
-  care_package_id: string;
+  id: string;
   care_package_name: string;
-  purchase_count: string;  
+  purchase_count: string;
   is_purchased: string;
 }
 
-const getCarePackagePurchaseCount = async (): Promise<Record<number, { purchase_count: number; is_purchased: string }>> => {
+const getCarePackagePurchaseCount = async (): Promise<
+  Record<number, { purchase_count: number; is_purchased: string }>
+> => {
   try {
-    const sql = `SELECT * FROM get_cp_purchase_counts();`;
+    const sql = `
+      SELECT 
+        cp.id,
+        cp.care_package_name,
+        COUNT(mcp.id) AS purchase_count,
+        CASE 
+            WHEN COUNT(mcp.id) > 0 THEN 'Yes'
+            ELSE 'No'
+        END AS is_purchased
+      FROM public.care_packages cp
+      LEFT JOIN public.member_care_packages mcp 
+          ON cp.care_package_name = mcp.package_name
+          AND mcp.status = 'ENABLED'
+      GROUP BY 
+          cp.id,
+          cp.care_package_name
+      ORDER BY 
+          purchase_count DESC,
+          cp.care_package_name;
+    `;
 
     const { rows } = await pool().query<CarePackagePurchaseCount>(sql);
     const purchaseCountsMap: Record<number, { purchase_count: number; is_purchased: string }> = {};
-    
+
     rows.forEach((row) => {
-      const id = parseInt(row.care_package_id.toString());
-      
+      const id = parseInt(row.id.toString());
+
       purchaseCountsMap[id] = {
         purchase_count: parseInt(row.purchase_count.toString()),
-        is_purchased: row.is_purchased
+        is_purchased: row.is_purchased,
       };
     });
 
@@ -194,6 +329,28 @@ interface servicePayload {
   discount: number;
 }
 
+const checkPackageNameExists = async (packageName: string, excludeId?: string): Promise<boolean> => {
+  const client = await pool().connect();
+  try {
+    let query = 'SELECT id FROM care_packages WHERE LOWER(TRIM(care_package_name)) = LOWER(TRIM($1))';
+    const params: any[] = [packageName];
+
+    // if we're editing an existing package, exclude it from the check
+    if (excludeId) {
+      query += ' AND id != $2';
+      params.push(excludeId);
+    }
+
+    const result = await client.query(query, params);
+    return (result.rowCount ?? 0) > 0;
+  } catch (error) {
+    console.error('Error checking package name existence:', error);
+    throw new Error('Failed to check package name uniqueness');
+  } finally {
+    client.release();
+  }
+};
+
 const createCarePackage = async (
   package_name: string,
   package_remarks: string,
@@ -209,24 +366,16 @@ const createCarePackage = async (
     await client.query('BEGIN');
 
     const v_employee_sql = 'SELECT id FROM employees WHERE id = $1';
-    const v_status_sql = 'SELECT get_or_create_status($1) as id';
 
-    const [employeeResult, statusResult] = await Promise.all([
-      client.query<Employees>(v_employee_sql, [employee_id]),
-      client.query<{ id: string }>(v_status_sql, ['ENABLED']),
-    ]);
+    const employeeResult = await client.query<Employees>(v_employee_sql, [employee_id]);
 
     if (employeeResult.rowCount === 0) {
       throw new Error(`Invalid employee_id: ${employee_id} does not exist.`);
     }
-    if (!statusResult.rows || statusResult.rows.length === 0 || !statusResult.rows[0].id) {
-      throw new Error('Failed to get or create status ID.');
-    }
-    const statusId = statusResult.rows[0].id;
 
     const i_cp_sql = `
       INSERT INTO care_packages
-      (care_package_name, care_package_remarks, care_package_price, care_package_customizable, status_id, created_by, last_updated_by, created_at, updated_at)
+      (care_package_name, care_package_remarks, care_package_price, care_package_customizable, status, created_by, last_updated_by, created_at, updated_at)
       VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9) RETURNING id;
     `;
     const { rows: cpRows } = await client.query<{ id: string }>(i_cp_sql, [
@@ -234,7 +383,7 @@ const createCarePackage = async (
       package_remarks,
       package_price,
       is_customizable,
-      statusId,
+      'ENABLED',
       employee_id,
       employee_id,
       created_at,
@@ -256,7 +405,7 @@ const createCarePackage = async (
       await client.query<{ id: string }>(i_cpid_sql, [
         service.quantity,
         service.discount,
-        service.finalPrice,
+        service.price,
         service.id,
         carePackageId,
       ]);
@@ -305,20 +454,12 @@ const updateCarePackageById = async (
 
     // validate employee exists
     const v_employee_sql = 'SELECT id FROM employees WHERE id = $1';
-    const v_status_sql = 'SELECT get_or_create_status($1) as id';
 
-    const [employeeResult, statusResult] = await Promise.all([
-      client.query<Employees>(v_employee_sql, [employee_id]),
-      client.query<{ id: string }>(v_status_sql, ['ENABLED']),
-    ]);
+    const employeeResult = await client.query<Employees>(v_employee_sql, [employee_id]);
 
     if (employeeResult.rowCount === 0) {
       throw new Error(`Invalid employee_id: ${employee_id} does not exist.`);
     }
-    if (!statusResult.rows || statusResult.rows.length === 0 || !statusResult.rows[0].id) {
-      throw new Error('Failed to get or create status ID.');
-    }
-    const statusId = statusResult.rows[0].id;
 
     // update care package main details
     const u_cp_sql = `
@@ -327,7 +468,7 @@ const updateCarePackageById = async (
           care_package_remarks = $2, 
           care_package_price = $3, 
           care_package_customizable = $4, 
-          status_id = $5, 
+          status = $5, 
           last_updated_by = $6, 
           updated_at = $7
       WHERE id = $8
@@ -338,7 +479,7 @@ const updateCarePackageById = async (
       package_remarks,
       package_price,
       is_customizable,
-      statusId,
+      'ENABLED',
       employee_id,
       updated_at,
       care_package_id,
@@ -359,7 +500,7 @@ const updateCarePackageById = async (
       await client.query<{ id: string }>(i_cpid_sql, [
         service.quantity,
         service.discount,
-        service.finalPrice,
+        service.price,
         service.id,
         care_package_id,
       ]);
@@ -387,7 +528,7 @@ const updateCarePackageById = async (
 
 const updateCarePackageStatusById = async (
   care_package_id: string,
-  status_id: string,
+  status: 'ENABLED' | 'DISABLED',
   employee_id: string,
   updated_at: string
 ) => {
@@ -414,25 +555,20 @@ const updateCarePackageStatusById = async (
     // update only the status and tracking fields
     const u_status_sql = `
       UPDATE care_packages 
-      SET status_id = $1, 
+      SET status = $1, 
           last_updated_by = $2, 
           updated_at = $3
       WHERE id = $4
     `;
 
-    await client.query(u_status_sql, [
-      status_id,
-      employee_id,
-      updated_at,
-      care_package_id,
-    ]);
+    await client.query(u_status_sql, [status, employee_id, updated_at, care_package_id]);
 
     await client.query('COMMIT');
 
     return {
       carePackageId: care_package_id,
       message: 'Care package status updated successfully',
-      status_id: status_id,
+      status: status,
     };
   } catch (error) {
     console.error('Error updating care package status:', error);
@@ -451,6 +587,11 @@ const deleteCarePackageById = async (carePackageId: string) => {
   try {
     await client.query('BEGIN');
 
+    const allPurchaseCounts = await getCarePackagePurchaseCount();
+
+    if (allPurchaseCounts[parseInt(carePackageId)] && allPurchaseCounts[parseInt(carePackageId)].purchase_count > 0) {
+      throw new Error('Cannot Delete Purchased CarePackage');
+    }
     // delete care package item details first (foreign key constraint)
     const d_cpid_sql = 'DELETE FROM care_package_item_details WHERE care_package_id = $1';
     await client.query(d_cpid_sql, [carePackageId]);
@@ -488,7 +629,7 @@ interface emulatePayload {
   package_price: number;
   services: servicePayload[];
   is_customizable: boolean;
-  status_id: string;
+  status: 'ENABLED' | 'DISABLED';
   created_at: string;
   updated_at: string;
   employee_id?: string;
@@ -503,13 +644,6 @@ const emulateCarePackage = async (method: string, payload: Partial<emulatePayloa
       const lastCp: CarePackages | undefined = cpRows[0];
       const lastCpId = lastCp && lastCp.id ? parseInt(lastCp.id) : 0;
 
-      const statusSql = 'SELECT get_or_create_status($1) as id';
-      const { rows: statusRows } = await pool().query<{ id: string }>(statusSql, ['ENABLED']);
-      if (statusRows.length === 0 || !statusRows[0].id) {
-        throw new Error('Failed to get or create status ID.');
-      }
-      const statusId = statusRows[0].id;
-
       payload.employee_id =
         payload.employee_id || (await getEmployeeIdByUserAuthId(payload.user_id as string)).rows[0].id;
 
@@ -519,7 +653,7 @@ const emulateCarePackage = async (method: string, payload: Partial<emulatePayloa
         care_package_remarks: payload.package_remarks,
         care_package_price: payload.package_price,
         care_package_customizable: payload.is_customizable,
-        status_id: statusId,
+        status: 'ENABLED',
         created_by: payload.employee_id,
         last_updated_by: payload.employee_id,
         created_at: payload.created_at || new Date().toISOString(),
@@ -593,7 +727,7 @@ const emulateCarePackage = async (method: string, payload: Partial<emulatePayloa
         { payloadKey: 'package_remarks', dbKey: 'care_package_remarks' },
         { payloadKey: 'package_price', dbKey: 'care_package_price' },
         { payloadKey: 'is_customizable', dbKey: 'care_package_customizable' },
-        { payloadKey: 'status_id', dbKey: 'status_id' },
+        { payloadKey: 'status', dbKey: 'status' },
         { payloadKey: 'created_at', dbKey: 'created_at' },
         { payloadKey: 'updated_at', dbKey: 'updated_at' },
         { payloadKey: 'employee_id', dbKey: 'created_by' },
@@ -721,6 +855,7 @@ const emulateCarePackage = async (method: string, payload: Partial<emulatePayloa
     }
   }
 
+  // eslint-disable-next-line @typescript-eslint/no-unsafe-function-type
   const handlers: { [key: string]: Function } = {
     POST: em_post,
     PUT: em_put,
@@ -755,7 +890,7 @@ const emulateCarePackage = async (method: string, payload: Partial<emulatePayloa
       payload.package_price === undefined ||
       !payload.services ||
       typeof payload.is_customizable !== 'boolean' ||
-      !payload.status_id ||
+      !payload.status ||
       !payload.updated_at
     ) {
       throw new Error('Missing required fields in payload for PUT emulation.');
@@ -781,4 +916,5 @@ export default {
   updateCarePackageStatusById,
   deleteCarePackageById,
   emulateCarePackage,
+  checkPackageNameExists,
 };
