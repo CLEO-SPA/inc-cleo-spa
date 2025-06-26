@@ -121,6 +121,15 @@ function App() {
               <Route path='/payment-method/create' element={<CreatePaymentMethodPage />} />
               <Route path='/payment-method/edit/:id' element={<EditPaymentMethodPage />} />
               <Route path='/payment-method/test' element={<TestPMComponent />} />
+
+              {/* Revenue Report Page */}
+              <Route path='/rr' element={<ProtectedRoute />}>
+                <Route index element={<RevenueReportPage />} />
+              </Route>
+              {/* Deferred Revenue Page */}
+              <Route path='/dr' element={<ProtectedRoute />}>
+                <Route index element={<DeferredRevenuePage />} />
+              </Route>
             </Route>
             <Route path='/login' element={<LoginPage />} />
 
@@ -128,14 +137,6 @@ function App() {
             <Route path='/invites' element={<ResetPasswordPage />} />
             <Route path='/reset-password' element={<ResetPasswordPage />} />
 
-            {/* Revenue Report Page */}
-            <Route path='/rr' element={<ProtectedRoute />}>
-              <Route index element={<RevenueReportPage />} />
-            </Route>
-            {/* Deferred Revenue Page */}
-            <Route path='/dr' element={<ProtectedRoute />}>
-              <Route index element={<DeferredRevenuePage />} />
-            </Route>
             {/* 404 Page */}
             <Route path='*' element={<NotFoundPage />} />
           </Routes>
