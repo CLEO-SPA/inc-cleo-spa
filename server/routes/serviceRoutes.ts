@@ -50,4 +50,7 @@ router.get('/:id', serviceController.getServiceById);
 // get sales history by service id, selected month and year
 router.get('/sales-history/:serviceId', serviceController.getSalesHistoryByServiceId);
 
+// Get service categories with pagination and search filter
+router.get('/service-cat/page-filter', serviceController.getServiceCategoriesPaginationFilter);
+
 export default router;
