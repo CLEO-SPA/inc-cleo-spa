@@ -2,7 +2,7 @@ import { useState, useEffect, useCallback } from 'react';
 import api from '@/services/refundService';
 import { debounce } from 'lodash';
 
-const MemberMCPSearch = ({ onSelectMember }) => {
+const MemberSearch = ({ onViewMCP, onRefundServices }) => {
   const [searchTerm, setSearchTerm] = useState('');
   const [searchResults, setSearchResults] = useState([]);
   const [isSearching, setIsSearching] = useState(false);
@@ -91,16 +91,23 @@ const MemberMCPSearch = ({ onSelectMember }) => {
                       <span>ID: {member.id}</span>
                       {member.phone && <span>Phone: {member.phone}</span>}
                       {member.email && <span>Email: {member.email}</span>}
-                      
+
                     </div>
                   </div>
-                  <button
-                    onClick={() => onSelectMember(member)}
-                    className="px-3 py-1 bg-blue-200 text-blue-600 rounded-lg transition-colors
-                         group-hover:bg-green-100 group-hover:text-green-600"
-                  >
-                    View Member Care Packages
-                  </button>
+                  <div className="flex gap-2">
+                    <button
+                      onClick={() => onViewMCP(member)}
+                      className="px-3 py-1 bg-blue-100 text-blue-700 rounded hover:bg-blue-200"
+                    >
+                      View Member Care Packages
+                    </button>
+                    <button
+                      onClick={() => onRefundServices(member)}
+                      className="px-3 py-1 bg-blue-100 text-blue-700 rounded hover:bg-blue-200"
+                    >
+                      Refund Services
+                    </button>
+                  </div>
                 </div>
               </li>
             ))}
@@ -117,4 +124,4 @@ const MemberMCPSearch = ({ onSelectMember }) => {
   );
 };
 
-export default MemberMCPSearch;
+export default MemberSearch;

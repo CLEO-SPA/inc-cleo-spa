@@ -46,15 +46,16 @@ import CreateConsumptionPage from '@/pages/CarePackages/CreateConsumptionPage';
 // import CreateMemberCarePackageFormPage from '@/pages/CarePackages/CreateMemberCarePackageFormPage';
 // Data Export
 import DataExportPage from './pages/miscellaneous/DateExportPage';
-
-// Add this line with the other page imports (around line 20)
-import RefundPage from '@/pages/Refund/refund';  // Add this line
-import MCPDetail from '@/pages/Refund/MCPDetail';
-import MemberPackagesList from '@/components/refund/MemberPackagesList';
 import ManagePaymentMethodsPage from './pages/payment-method/ManagePaymentMethodsPage';
 import CreatePaymentMethodPage from './pages/payment-method/CreatePaymentMethodPage';
 import EditPaymentMethodPage from './pages/payment-method/EditPaymentMethodPage';
 import TestPMComponent from './pages/sale-transaction/AddPMMComponentTest';
+
+// Refund
+import RefundPage from '@/pages/Refund/Refund';
+import MCPDetail from '@/pages/Refund/MCPDetail';
+import MemberPackagesList from '@/components/refund/MemberPackagesList';
+import RefundServicesPage from '@/pages/Refund/RefundServicesPage';
 
 // Employees
 import ManagePositions from '@/pages/em/ManagePositions';
@@ -69,12 +70,6 @@ function App() {
             <Route path='/' element={<ProtectedRoute />}>
               <Route index element={<HomePage />} />
 
-              {/* care packages */}
-              <Route path='/mcp' element={<ManageCarePackagesPage />} />
-              {/* Refund */}
-              <Route path='/refunds' element={<RefundPage />} />
-              <Route path='/refunds/member/:memberId' element={<MemberPackagesList />} />
-              <Route path="/refunds/mcp/:packageId" element={<MCPDetail />} />
               {/* Member Management */}
               <Route path='/member' element={<ManageMembersPage />} />
               <Route path='/member/create' element={<CreateMemberPage />} />
@@ -131,6 +126,13 @@ function App() {
               <Route path='/payment-method/create' element={<CreatePaymentMethodPage />} />
               <Route path='/payment-method/edit/:id' element={<EditPaymentMethodPage />} />
               <Route path='/payment-method/test' element={<TestPMComponent />} />
+
+              {/* Refund */}
+              <Route path='/refunds' element={<RefundPage />} />
+              <Route path='/refunds/member/:memberId' element={<MemberPackagesList />} />
+              <Route path="/refunds/mcp/:packageId" element={<MCPDetail />} />
+              <Route path='/refunds/services/:memberId' element={<RefundServicesPage />} />
+
             </Route>
             <Route path='/login' element={<LoginPage />} />
 
