@@ -1,6 +1,6 @@
 import React, { useEffect, useState } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
-import { ArrowLeft, Edit, Trash2, Package, AlertTriangle } from 'lucide-react';
+import { ArrowLeft, Trash2, Package, AlertTriangle, User, CreditCard } from 'lucide-react';
 import { AppSidebar } from '@/components/app-sidebar';
 import { SiteHeader } from '@/components/site-header';
 import { SidebarInset, SidebarProvider } from '@/components/ui/sidebar';
@@ -9,16 +9,15 @@ import { Button } from '@/components/ui/button';
 import { ErrorState } from '@/components/ErrorState';
 import { LoadingState } from '@/components/LoadingState';
 import { NotFoundState } from '@/components/NotFoundState';
-import { useCpSpecificStore } from '@/stores/CarePackage/useCpSpecificStore';
+import { useMcpSpecificStore } from '@/stores/MemberCarePackage/useMcpSpecificStore';
 import { useCpFormStore } from '@/stores/CarePackage/useCpFormStore';
-import ServiceItem from '@/pages/CarePackages/ServiceItem';
 import DeleteConfirmationDialog from '@/components/DeleteConfirmationDialog';
 import useAuth from '@/hooks/useAuth';
 
-const ViewCarePackageDetailsPage = () => {
+const ViewMemberCarePackageDetailsPage = () => {
   const { id } = useParams();
   const { currentPackage, isLoading, error, fetchPackageById, clearCurrentPackage, clearError, deletePackage } =
-    useCpSpecificStore();
+    useMcpSpecificStore();
   const { getEnabledServiceById } = useCpFormStore();
   const { user } = useAuth();
   const navigate = useNavigate();
@@ -34,7 +33,7 @@ const ViewCarePackageDetailsPage = () => {
 
   useEffect(() => {
     if (id) {
-      // console.log(`Fetching care package with ID: ${id}`);
+      console.log(`Fetching member care package with ID: ${id}`);
       fetchPackageById(id);
     }
 
@@ -97,10 +96,6 @@ const ViewCarePackageDetailsPage = () => {
     fetchServiceNames();
   }, [currentPackage?.details, getEnabledServiceById]);
 
-  const handleEdit = (id) => {
-    navigate(`/cp/${id}/edit`);
-  };
-
   // open delete confirmation dialog
   const handleDeleteClick = () => {
     setDeleteDialogOpen(true);
@@ -114,10 +109,10 @@ const ViewCarePackageDetailsPage = () => {
 
     try {
       await deletePackage(currentPackage.package.id);
-      navigate('/cp');
+      navigate('/mcp');
     } catch (err) {
-      console.error('Failed to delete care package:', err);
-      let errorMessage = 'Failed to delete care package.';
+      console.error('Failed to delete member care package:', err);
+      let errorMessage = 'Failed to delete member care package.';
       if (err.response?.data?.message) {
         errorMessage = err.response.data.message;
       } else if (err.message) {
@@ -154,7 +149,7 @@ const ViewCarePackageDetailsPage = () => {
     if (!pkg) return 'Package not found.';
 
     if (isPackageEnabled(pkg)) {
-      return 'This care package is currently enabled and cannot be deleted. Please disable the package first by changing its status to "DISABLED" before attempting deletion.';
+      return 'This member care package is currently enabled and cannot be deleted. Please disable the package first by changing its status to "DISABLED" before attempting deletion.';
     }
 
     return null;
@@ -166,7 +161,7 @@ const ViewCarePackageDetailsPage = () => {
       case 'ENABLED':
         return 'bg-slate-100 text-slate-700';
       case 'DISABLED':
-        return 'bbg-gray-200 text-gray-600';
+        return 'bg-gray-200 text-gray-600';
       default:
         return 'bg-gray-100 text-gray-600 border border-gray-200';
     }
@@ -180,29 +175,40 @@ const ViewCarePackageDetailsPage = () => {
       return {
         id: detail.service_id,
         name: serviceNames[detail.service_id] || `Service ${detail.service_id}`,
-        quantity: parseInt(detail.care_package_item_details_quantity) || 1,
-        price: parseFloat(detail.care_package_item_details_price) || 0,
-        originalPrice: parseFloat(serviceInfo.service_price) || parseFloat(detail.care_package_item_details_price) || 0,
-        discount:
-          detail.care_package_item_details_discount !== undefined &&
-          detail.care_package_item_details_discount !== null &&
-          detail.care_package_item_details_discount !== ''
-            ? parseFloat(detail.care_package_item_details_discount)
-            : 1,
+        quantity: parseInt(detail.quantity) || 1,
+        price: parseFloat(detail.price) || 0,
+        originalPrice: parseFloat(serviceInfo.service_price) || parseFloat(detail.price) || 0,
+        discount: parseFloat(detail.discount) || 1,
         service_description: serviceInfo.service_description || '',
-        service_remarks: serviceInfo.service_remarks || detail.care_package_item_details_remarks || '',
+        service_remarks: serviceInfo.service_remarks || detail.service_remarks || '',
         service_duration: serviceInfo.service_duration || 45,
         service_category_name: serviceInfo.service_category_name || '',
         updated_at: serviceInfo.updated_at || null,
         updated_by_name: serviceInfo.last_updated_by_name || null,
         created_at: serviceInfo.created_at || null,
         created_by_name: serviceInfo.created_by_name || null,
+        remaining_quantity: detail.remaining_quantity || detail.quantity, // member packages track remaining quantity
       };
     });
   };
 
+  // calculate total package value
+  const calculateTotalValue = (transformedServices) => {
+    return transformedServices.reduce((total, service) => {
+      const unitPrice = service.price * service.discount;
+      return total + unitPrice * service.quantity;
+    }, 0);
+  };
+
+  // calculate total remaining balance
+  const calculateRemainingBalance = (transformedServices) => {
+    return transformedServices.reduce((total, service) => {
+      const unitPrice = service.price * service.discount;
+      return total + unitPrice * (service.remaining_quantity || 0);
+    }, 0);
+  };
+
   // role-based access control
-  const canEdit = user?.role === 'super_admin' || user?.role === 'data_admin';
   const canDelete = user?.role === 'super_admin';
 
   const renderMainContent = () => {
@@ -225,24 +231,12 @@ const ViewCarePackageDetailsPage = () => {
     const packageDetails = currentPackage.details || [];
     const transformedServices = transformPackageDetailsToServices(packageDetails);
 
-    // get current status
+    // get current status 
     const currentStatus = packageData.status || packageData.status_name || 'UNKNOWN';
     const isDeletable = canDeletePackage(packageData);
 
-    // calculate total package value
-    const calculateTotalValue = () => {
-      return transformedServices.reduce((total, service) => {
-        const customPrice = parseFloat(service.price) || 0;
-        const quantity = parseInt(service.quantity) || 0;
-        const discountFactor =
-          service.discount !== undefined && service.discount !== null && service.discount !== ''
-            ? parseFloat(service.discount)
-            : 1;
-
-        const finalUnitPrice = customPrice * discountFactor;
-        return total + finalUnitPrice * quantity;
-      }, 0);
-    };
+    const totalValue = calculateTotalValue(transformedServices);
+    const remainingBalance = calculateRemainingBalance(transformedServices);
 
     return (
       <div className='min-h-screen bg-gray-50'>
@@ -258,18 +252,9 @@ const ViewCarePackageDetailsPage = () => {
                 <ArrowLeft className='w-4 h-4 mr-1' />
                 Back
               </Button>
-              <h1 className='text-lg font-semibold text-gray-900'>Care Package Details</h1>
+              <h1 className='text-lg font-semibold text-gray-900'>Member Care Package Details</h1>
             </div>
             <div className='flex space-x-2'>
-              {canEdit && (
-                <Button
-                  onClick={() => handleEdit(packageData.id)}
-                  className='flex items-center bg-gray-900 hover:bg-black text-white text-sm px-3 py-2'
-                >
-                  <Edit className='w-4 h-4 mr-1' />
-                  Edit
-                </Button>
-              )}
               {canDelete && (
                 <Button
                   onClick={handleDeleteClick}
@@ -314,7 +299,7 @@ const ViewCarePackageDetailsPage = () => {
                   <div className='md:col-span-2'>
                     <label className='block text-xs font-medium text-gray-600 mb-1'>PACKAGE NAME</label>
                     <div className='text-gray-900 px-2 py-1 bg-white border border-gray-200 rounded text-sm'>
-                      {packageData.care_package_name}
+                      {packageData.package_name}
                     </div>
                   </div>
 
@@ -338,76 +323,64 @@ const ViewCarePackageDetailsPage = () => {
                   </div>
                 </div>
 
-                <div className='grid grid-cols-1 md:grid-cols-4 gap-4 mt-4'>
+                <div className='grid grid-cols-1 md:grid-cols-2 gap-4 mt-4'>
                   <div>
-                    <label className='block text-xs font-medium text-gray-600 mb-1'>CUSTOMIZABLE</label>
-                    <div className='text-gray-900 px-2 py-1 bg-white border border-gray-200 rounded text-sm'>
-                      {packageData.care_package_customizable ? 'Yes' : 'No'}
+                    <label className='block text-xs font-medium text-gray-600 mb-1'>MEMBER ID</label>
+                    <div className='text-gray-900 px-2 py-1 bg-blue-50 border border-blue-200 rounded text-sm flex items-center'>
+                      <User className='w-3 h-3 mr-1 text-blue-600' />
+                      {packageData.member_id}
                     </div>
                   </div>
 
                   <div>
-                    <label className='block text-xs font-medium text-gray-600 mb-1'>PACKAGE PRICE</label>
+                    <label className='block text-xs font-medium text-gray-600 mb-1'>EMPLOYEE ID</label>
+                    <div className='text-gray-900 px-2 py-1 bg-white border border-gray-200 rounded text-sm'>
+                      {packageData.employee_id || 'N/A'}
+                    </div>
+                  </div>
+                </div>
+
+                <div className='grid grid-cols-1 md:grid-cols-4 gap-4 mt-4'>
+                  <div>
+                    <label className='block text-xs font-medium text-gray-600 mb-1'>TOTAL PRICE</label>
                     <div className='text-gray-900 font-semibold px-2 py-1 bg-white border border-gray-200 rounded text-sm'>
-                      ${parseFloat(packageData.care_package_price || 0).toFixed(2)}
+                      ${parseFloat(packageData.total_price || 0).toFixed(2)}
                     </div>
                   </div>
 
                   <div>
                     <label className='block text-xs font-medium text-gray-600 mb-1'>CALCULATED TOTAL</label>
                     <div className='text-gray-900 font-semibold px-2 py-1 bg-green-50 border border-green-200 rounded text-sm'>
-                      ${calculateTotalValue().toFixed(2)}
+                      ${totalValue.toFixed(2)}
                     </div>
                   </div>
 
                   <div>
-                    <label className='block text-xs font-medium text-gray-600 mb-1'>PRICE VARIANCE</label>
-                    <div
-                      className={`px-2 py-1 rounded text-sm font-medium ${
-                        Math.abs(parseFloat(packageData.care_package_price || 0) - calculateTotalValue()) < 0.01
-                          ? 'bg-green-50 border border-green-200 text-green-700'
-                          : 'bg-yellow-50 border border-yellow-200 text-yellow-700'
-                      }`}
-                    >
-                      {Math.abs(parseFloat(packageData.care_package_price || 0) - calculateTotalValue()) < 0.01
-                        ? 'Matches'
-                        : `$${(parseFloat(packageData.care_package_price || 0) - calculateTotalValue()).toFixed(2)}`}
+                    <label className='block text-xs font-medium text-gray-600 mb-1'>CURRENT BALANCE</label>
+                    <div className='text-gray-900 font-semibold px-2 py-1 bg-yellow-50 border border-yellow-200 rounded text-sm flex items-center'>
+                      <CreditCard className='w-3 h-3 mr-1 text-yellow-600' />
+                      ${parseFloat(packageData.balance || 0).toFixed(2)}
+                    </div>
+                  </div>
+
+                  <div>
+                    <label className='block text-xs font-medium text-gray-600 mb-1'>REMAINING VALUE</label>
+                    <div className='text-gray-900 font-semibold px-2 py-1 bg-purple-50 border border-purple-200 rounded text-sm'>
+                      ${remainingBalance.toFixed(2)}
                     </div>
                   </div>
                 </div>
 
-                {packageData.care_package_remarks && (
+                {packageData.package_remarks && (
                   <div className='mt-4'>
                     <label className='block text-xs font-medium text-gray-600 mb-1'>REMARKS</label>
                     <div className='text-gray-700 px-2 py-2 bg-gray-50 rounded border border-gray-200 text-sm'>
-                      {packageData.care_package_remarks}
+                      {packageData.package_remarks}
                     </div>
                   </div>
                 )}
 
-                <div className='grid grid-cols-1 md:grid-cols-4 gap-4 mt-4 pt-4 border-t border-gray-200'>
-                  <div>
-                    <label className='block text-xs font-medium text-gray-600 mb-1'>CREATED BY</label>
-                    <div className='text-gray-700 px-2 py-1 bg-gray-50 rounded text-xs'>
-                      {packageData.created_by_name ? (
-                        <span>{packageData.created_by_name}</span>
-                      ) : (
-                        <span>User ID: {packageData.created_by}</span>
-                      )}
-                    </div>
-                  </div>
-
-                  <div>
-                    <label className='block text-xs font-medium text-gray-600 mb-1'>UPDATED BY</label>
-                    <div className='text-gray-700 px-2 py-1 bg-gray-50 rounded text-xs'>
-                      {packageData.last_updated_by_name ? (
-                        <span>{packageData.last_updated_by_name}</span>
-                      ) : (
-                        <span>User ID: {packageData.last_updated_by}</span>
-                      )}
-                    </div>
-                  </div>
-
+                <div className='grid grid-cols-1 md:grid-cols-2 gap-4 mt-4 pt-4 border-t border-gray-200'>
                   <div>
                     <label className='block text-xs font-medium text-gray-600 mb-1'>CREATED AT</label>
                     <div className='text-gray-600 text-sm px-2 py-1 bg-gray-50 rounded border border-gray-200'>
@@ -441,22 +414,69 @@ const ViewCarePackageDetailsPage = () => {
 
                     <style jsx>{`
                       .view-only-service-item .action-buttons,
-                      .view-only-service-item button[title='Edit service'],
                       .view-only-service-item button[title='Remove service'] {
                         display: none !important;
                       }
                     `}</style>
                     {transformedServices.map((service, index) => (
                       <div key={`${service.id}-${index}`} className='view-only-service-item'>
-                        <ServiceItem
-                          service={service}
-                          index={index}
-                          isEditing={false}
-                          onEdit={() => {}}
-                          onSave={() => {}}
-                          onCancel={() => {}}
-                          onRemove={() => {}}
-                        />
+                        {/* Member care package specific service display */}
+                        <div className='border border-gray-200 rounded-lg p-4 bg-white shadow-sm'>
+                          <div className='flex items-center justify-between mb-4'>
+                            <div className='flex items-center space-x-3'>
+                              <h4 className='text-sm font-semibold text-gray-900'>{service.name}</h4>
+                              <span className='text-xs text-gray-500 bg-gray-100 px-2 py-1 rounded'>ID: {service.id}</span>
+                              {service.service_category_name && (
+                                <span className='text-xs text-blue-600 bg-blue-50 px-2 py-1 rounded'>
+                                  {service.service_category_name}
+                                </span>
+                              )}
+                            </div>
+                          </div>
+
+                          <div className='grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4'>
+                            <div>
+                              <label className='block text-xs font-medium text-gray-600 mb-1'>Original Quantity</label>
+                              <div className='w-full px-3 py-2 border border-gray-300 rounded-md text-sm bg-gray-50 text-gray-700'>
+                                {service.quantity}
+                              </div>
+                            </div>
+
+                            <div>
+                              <label className='block text-xs font-medium text-gray-600 mb-1'>Remaining Quantity</label>
+                              <div className={`w-full px-3 py-2 border rounded-md text-sm font-medium ${
+                                service.remaining_quantity > 0 
+                                  ? 'bg-green-50 border-green-200 text-green-700'
+                                  : 'bg-red-50 border-red-200 text-red-700'
+                              }`}>
+                                {service.remaining_quantity || 0}
+                              </div>
+                            </div>
+
+                            <div>
+                              <label className='block text-xs font-medium text-gray-600 mb-1'>Unit Price</label>
+                              <div className='w-full px-3 py-2 border border-gray-300 rounded-md text-sm bg-gray-50 text-gray-700'>
+                                ${(service.price * service.discount).toFixed(2)}
+                              </div>
+                            </div>
+
+                            <div>
+                              <label className='block text-xs font-medium text-gray-600 mb-1'>Total Value</label>
+                              <div className='w-full px-3 py-2 bg-blue-50 border border-blue-200 rounded-md text-sm font-medium text-blue-700'>
+                                ${(service.price * service.discount * service.quantity).toFixed(2)}
+                              </div>
+                            </div>
+                          </div>
+
+                          {service.discount < 1 && (
+                            <div className='mt-3 p-2 bg-yellow-50 border border-yellow-200 rounded-md'>
+                              <div className='text-xs text-yellow-700'>
+                                Discount Applied: {((1 - service.discount) * 100).toFixed(1)}% off
+                                (Original: ${service.originalPrice.toFixed(2)})
+                              </div>
+                            </div>
+                          )}
+                        </div>
                       </div>
                     ))}
                   </div>
@@ -482,9 +502,9 @@ const ViewCarePackageDetailsPage = () => {
             onOpenChange={setDeleteDialogOpen}
             onConfirm={handleDeleteConfirm}
             onCancel={handleDeleteCancel}
-            title='Delete Care Package'
-            itemName={currentPackage.package.care_package_name}
-            itemType='care package'
+            title='Delete Member Care Package'
+            itemName={currentPackage.package.package_name}
+            itemType='member care package'
             isDeleting={isDeleting}
             canDelete={canDeletePackage(currentPackage.package)}
             deleteRestrictionReason={getDeleteRestrictionReason(currentPackage.package)}
@@ -495,11 +515,16 @@ const ViewCarePackageDetailsPage = () => {
                   <strong>Package ID:</strong> {currentPackage.package.id}
                 </div>
                 <div>
-                  <strong>Price:</strong> ${parseFloat(currentPackage.package.care_package_price || 0).toFixed(2)}
+                  <strong>Member ID:</strong> {currentPackage.package.member_id}
                 </div>
                 <div>
-                  <strong>Status:</strong>{' '}
-                  {currentPackage.package.status || currentPackage.package.status_name || 'Unknown'}
+                  <strong>Total Price:</strong> ${parseFloat(currentPackage.package.total_price || 0).toFixed(2)}
+                </div>
+                <div>
+                  <strong>Current Balance:</strong> ${parseFloat(currentPackage.package.balance || 0).toFixed(2)}
+                </div>
+                <div>
+                  <strong>Status:</strong> {currentPackage.package.status || currentPackage.package.status_name || 'Unknown'}
                 </div>
                 <div>
                   <strong>Services:</strong> {transformedServices.length} service
@@ -526,4 +551,4 @@ const ViewCarePackageDetailsPage = () => {
   );
 };
 
-export default ViewCarePackageDetailsPage;
+export default ViewMemberCarePackageDetailsPage;

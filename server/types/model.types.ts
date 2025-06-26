@@ -17,7 +17,7 @@ export interface CarePackages {
   care_package_remarks: string;
   care_package_price: number;
   care_package_customizable: boolean;
-  status_id: string;
+  status: 'ENABLED' | 'DISABLED';
   created_by: string;
   last_updated_by: string;
   created_at: string;
@@ -38,8 +38,9 @@ export interface MemberCarePackages {
   member_id: string;
   employee_id: string;
   package_name: string;
-  status_id: string;
+  status: 'ENABLED' | 'DISABLED';
   total_price: number;
+  balance: number;
   created_at: string;
   updated_at: string;
   package_remarks: string;
@@ -52,7 +53,7 @@ export interface MemberCarePackagesDetails {
   price: number;
   member_care_package_id: string;
   service_id: string;
-  status_id: string;
+  status: 'ENABLED' | 'DISABLED';
   quantity: number;
 }
 
@@ -182,9 +183,10 @@ export interface Positions {
   position_name: string;
   position_description: string;
   position_is_active: boolean;
-  position_created_at: string;
-  position_updated_at: string;
+  created_at: string;
+  updated_at: string;
 }
+
 export interface DataToExportList<L> {
   dataToExportList: L[];
 }

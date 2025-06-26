@@ -1,18 +1,12 @@
-import React, { useState, useEffect } from "react";
-import { useNavigate } from "react-router-dom";
+import React, { useState, useEffect } from 'react';
+import { useNavigate } from 'react-router-dom';
 import { Button } from '@/components/ui/button';
-import { Input } from "@/components/ui/input";
-import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
-import { ToggleSwitch } from '@/components/ui/switch';
-import DatePicker from "@/components/date-picker";
+import { Input } from '@/components/ui/input';
+import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
+import { Switch } from '@/components/ui/switch';
+import DatePicker from '@/components/date-picker';
 import { AppSidebar } from '@/components/app-sidebar';
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from "@/components/ui/select";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { SiteHeader } from '@/components/site-header';
 import { SidebarInset, SidebarProvider } from '@/components/ui/sidebar';
 
@@ -22,14 +16,14 @@ export default function CreateService() {
 
   // For form data
   const [formData, setFormData] = useState({
-    service_name: "",
-    service_description: "",
-    remarks: "",
-    service_duration: "",
-    service_default_price: "",
+    service_name: '',
+    service_description: '',
+    remarks: '',
+    service_duration: '',
+    service_default_price: '',
     service_is_active: false,
-    service_category_id: "",
-    service_created_at: new Date()
+    service_category_id: '',
+    service_created_at: new Date(),
   });
 
   const navigate = useNavigate();
@@ -41,7 +35,7 @@ export default function CreateService() {
 
   const handleSubmit = async (e) => {
     e.preventDefault();
-    console.log("Form Submitted!")
+    console.log('Form Submitted!');
   };
 
   return (
@@ -52,136 +46,137 @@ export default function CreateService() {
           <AppSidebar />
           <SidebarInset>
             <div className='flex flex-1 flex-col gap-4 p-3'>
-              <Card className={"w-full px-4"}>
+              <Card className={'w-full px-4'}>
                 <CardHeader>
-                  <CardTitle><h2 className="text-2xl font-bold">Create a Service</h2></CardTitle>
+                  <CardTitle>
+                    <h2 className='text-2xl font-bold'>Create a Service</h2>
+                  </CardTitle>
                 </CardHeader>
                 <CardContent>
-                  <form onSubmit={handleSubmit} className="space-y-3">
-                    <div className="grid auto-rows-min gap-3 lg:grid-cols-2">
+                  <form onSubmit={handleSubmit} className='space-y-3'>
+                    <div className='grid auto-rows-min gap-3 lg:grid-cols-2'>
                       {/* Date of Creation */}
                       <div>
-                        <label className="block text-md font-medium">Date of Creation*</label>
+                        <label className='block text-md font-medium'>Date of Creation*</label>
                         <DatePicker />
                       </div>
 
                       {/* Created By */}
                       <div>
-                        <label className="block text-md font-medium">Created By*</label>
+                        <label className='block text-md font-medium'>Created By*</label>
                         <Select value={selectedCategory} onValueChange={setSelectedCategory}>
-                          <SelectTrigger className="w-[200px]">
-                            <SelectValue placeholder="Select Employee" />
+                          <SelectTrigger className='w-[200px]'>
+                            <SelectValue placeholder='Select Employee' />
                           </SelectTrigger>
                           <SelectContent>
-                            <SelectItem value="1">Employee 1</SelectItem>
-                            <SelectItem value="2">Employee 2</SelectItem>
+                            <SelectItem value='1'>Employee 1</SelectItem>
+                            <SelectItem value='2'>Employee 2</SelectItem>
                           </SelectContent>
                         </Select>
                       </div>
 
                       {/* Service Name */}
                       <div>
-                        <label className="block text-md font-medium">Service Name*</label>
+                        <label className='block text-md font-medium'>Service Name*</label>
                         <Input
-                          type="text"
-                          name="service_name"
+                          type='text'
+                          name='service_name'
                           value={formData.service_name}
                           onChange={handleChange}
-                          className="w-[250px] p-2 border rounded-md"
-                          placeholder="Enter service name"
+                          className='w-[250px] p-2 border rounded-md'
+                          placeholder='Enter service name'
                           required
                         />
                       </div>
 
                       {/* Service Category */}
                       <div>
-                        <label className="block text-md font-medium">Service Category*</label>
+                        <label className='block text-md font-medium'>Service Category*</label>
                         <Select value={selectedCategory} onValueChange={setSelectedCategory}>
-                          <SelectTrigger className="w-[200px]">
-                            <SelectValue placeholder="Select Category" />
+                          <SelectTrigger className='w-[200px]'>
+                            <SelectValue placeholder='Select Category' />
                           </SelectTrigger>
                           <SelectContent>
-                            <SelectItem value="1">Face Care</SelectItem>
-                            <SelectItem value="2">Body Care</SelectItem>
+                            <SelectItem value='1'>Face Care</SelectItem>
+                            <SelectItem value='2'>Body Care</SelectItem>
                           </SelectContent>
                         </Select>
                       </div>
 
                       {/* Unit Price */}
                       <div>
-                        <label className="block text-md font-medium">Unit Price*</label>
+                        <label className='block text-md font-medium'>Unit Price*</label>
                         <input
-                          type="number"
-                          name="service_default_price"
+                          type='number'
+                          name='service_default_price'
                           value={formData.service_default_price}
                           onChange={handleChange}
-                          className="w-40 p-2 border rounded-md"
-                          placeholder="100"
+                          className='w-40 p-2 border rounded-md'
+                          placeholder='100'
                           required
-                        /> SGD
+                        />{' '}
+                        SGD
                       </div>
 
                       {/* Duration */}
                       <div>
-                        <label className="block text-md font-medium">Duration*</label>
+                        <label className='block text-md font-medium'>Duration*</label>
                         <input
-                          type="number"
-                          name="service_duration"
+                          type='number'
+                          name='service_duration'
                           value={formData.service_duration}
                           onChange={handleChange}
-                          className="w-40 p-2 border rounded-md"
-                          placeholder="60"
+                          className='w-40 p-2 border rounded-md'
+                          placeholder='60'
                           required
-                        /> Mins
+                        />{' '}
+                        Mins
                       </div>
 
                       {/* Status */}
-                      <div className="flex my-2 space-x-3">
-                        <label className="block text-md font-medium ">Enabled</label>
+                      <div className='flex my-2 space-x-3'>
+                        <label className='block text-md font-medium '>Enabled</label>
                         <ToggleSwitch />
                       </div>
-
                     </div>
                     {/* Service Description */}
                     <div>
-                      <label className="block text-md font-medium">Service Description</label>
+                      <label className='block text-md font-medium'>Service Description</label>
                       <textarea
-                        name="service_description"
+                        name='service_description'
                         value={formData.service_description}
                         onChange={handleChange}
-                        className="w-full p-2 border rounded-md"
-                        placeholder="Enter service description"
+                        className='w-full p-2 border rounded-md'
+                        placeholder='Enter service description'
                         required
                       />
                     </div>
 
                     {/* Remarks */}
                     <div>
-                      <label className="block text-md font-medium ">Remarks</label>
+                      <label className='block text-md font-medium '>Remarks</label>
                       <textarea
-                        name="remarks"
+                        name='remarks'
                         value={formData.remarks}
                         onChange={handleChange}
-                        className="w-full p-2 border rounded-md"
-                        placeholder="Enter remarks"
+                        className='w-full p-2 border rounded-md'
+                        placeholder='Enter remarks'
                         required
                       />
                     </div>
 
                     {/* Submit Button */}
-                    <div className="flex justify-center space-x-4">
-                      <Button type="submit" className="bg-blue-600 rounded-md hover:bg-blue-500">
+                    <div className='flex justify-center space-x-4'>
+                      <Button type='submit' className='bg-blue-600 rounded-md hover:bg-blue-500'>
                         Create Service
                       </Button>
-                      <Button onClick={() => navigate(-1)} className="rounded-md hover:bg-gray-500">
+                      <Button onClick={() => navigate(-1)} className='rounded-md hover:bg-gray-500'>
                         Cancel
                       </Button>
                     </div>
                   </form>
                 </CardContent>
-
               </Card>
-
             </div>
           </SidebarInset>
         </div>

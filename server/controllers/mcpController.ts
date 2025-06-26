@@ -1,7 +1,7 @@
 import { Request, Response, NextFunction } from 'express';
 import model from '../models/mcpModel.js';
 import { decodeCursor } from '../utils/cursorUtils.js';
-import { PaginatedOptions, CursorPayload } from '../types/common.types.js';
+import { CursorPayload, PaginatedOptions } from '../types/common.types.js';
 
 const getAllMemberCarePackages = async (req: Request, res: Response, next: NextFunction): Promise<void> => {
   const { start_date_utc, end_date_utc } = req.session;
@@ -11,8 +11,6 @@ const getAllMemberCarePackages = async (req: Request, res: Response, next: NextF
   const page = parseInt(req.query.page as string);
   const searchTerm = req.query.searchTerm as string;
 
-  // console.log(`\n${startDate_utc} || ${endDate_utc} \n`);
-
   if (limit <= 0) {
     res.status(400).json({ error: 'Limit must be a positive integer.' });
     return;
@@ -20,6 +18,20 @@ const getAllMemberCarePackages = async (req: Request, res: Response, next: NextF
   if (page && (isNaN(page) || page <= 0)) {
     res.status(400).json({ error: 'Page must be a positive integer.' });
     return;
+  }
+
+  if (afterCursor && !decodeCursor(afterCursor)) {
+    res.status(400).json({ error: 'Invalid "after" cursor.' });
+    return;
+  }
+
+  if (beforeCursor && !decodeCursor(beforeCursor)) {
+    res.status(400).json({ error: 'Invalid "before" cursor.' });
+    return;
+  }
+
+  if (page && (afterCursor || beforeCursor)) {
+    console.warn('Both page and cursor parameters provided. Prioritizing page.');
   }
 
   let after: CursorPayload | null = null;
@@ -38,13 +50,6 @@ const getAllMemberCarePackages = async (req: Request, res: Response, next: NextF
       res.status(400).json({ error: 'Invalid "before" cursor.' });
       return;
     }
-  }
-
-  // Hybrid logic (Prioritize page over cursors if condition met)
-  if (page && (after || before)) {
-    console.warn('Both page and cursor parameters provided. Prioritizing page.');
-    after = null;
-    before = null;
   }
 
   const options: PaginatedOptions = {
@@ -132,7 +137,17 @@ const createMemberCarePackage = async (req: Request, res: Response, next: NextFu
 
 const updateMemberCarePackage = async (req: Request, res: Response, next: NextFunction): Promise<void> => {
   try {
-    const { id, package_name, package_remarks, package_price, services, status_id, updated_at, employee_id } = req.body;
+    const {
+      id,
+      package_name,
+      package_remarks,
+      package_price,
+      package_balance,
+      services,
+      status,
+      updated_at,
+      employee_id,
+    } = req.body;
 
     const requiredFieldsErrorMessages: string[] = [];
     if (!package_name) requiredFieldsErrorMessages.push('package_name is required');
@@ -140,7 +155,8 @@ const updateMemberCarePackage = async (req: Request, res: Response, next: NextFu
     if (!Array.isArray(services) || services.length === 0) {
       requiredFieldsErrorMessages.push('services must be a non-empty array');
     }
-    if (!status_id) requiredFieldsErrorMessages.push('status_id is required');
+    if (!status) requiredFieldsErrorMessages.push('status is required');
+    if (status !== 'ENABLED' && status !== 'DISABLED') requiredFieldsErrorMessages.push('Invalid Status Name');
     if (!updated_at) requiredFieldsErrorMessages.push('updated_at is required');
 
     if (requiredFieldsErrorMessages.length > 0) {
@@ -157,7 +173,7 @@ const updateMemberCarePackage = async (req: Request, res: Response, next: NextFu
     }
 
     const isValidService = services.every(
-      (s: any) =>
+      (s: { id: string; name: string; quantity: number; price: number; discount: number }) =>
         s &&
         typeof s.id === 'string' &&
         typeof s.name === 'string' &&
@@ -180,8 +196,9 @@ const updateMemberCarePackage = async (req: Request, res: Response, next: NextFu
       package_name,
       package_remarks,
       package_price,
+      package_balance,
       services,
-      status_id,
+      status,
       employee_id,
       req.session.user_id!,
       updated_at
@@ -249,19 +266,14 @@ const createConsumption = async (req: Request, res: Response, next: NextFunction
       return;
     }
 
-    await model.createConsumption(mcp_id, mcp_details, employee_id, req.session.user_id!);
+    const results = await model.createConsumption(mcp_id, mcp_details, employee_id, req.session.user_id!);
 
-    res.status(200).json({ success: true });
+    res.status(200).json(results);
   } catch (error) {
     console.error('Error creating consumption', error);
     next(error);
   }
 };
-
-interface mcpServiceStatusPayload {
-  id: string;
-  status_name: string;
-}
 
 const enableMemberCarePackage = async (req: Request, res: Response, next: NextFunction): Promise<void> => {
   try {
@@ -273,7 +285,11 @@ const enableMemberCarePackage = async (req: Request, res: Response, next: NextFu
     }
 
     const isValidService = services.every((s) => {
-      return typeof s.id === 'string' && typeof s.status_name === 'string';
+      return (
+        typeof s.id === 'string' &&
+        typeof s.status_name === 'string' &&
+        (s.status_name === 'ENABLED' || s.status_name === 'DISABLED')
+      );
     });
 
     if (!isValidService) {
@@ -286,6 +302,24 @@ const enableMemberCarePackage = async (req: Request, res: Response, next: NextFu
     res.status(200).json(results);
   } catch (error) {
     console.error('Error enabling member care package', error);
+    next(error);
+  }
+};
+
+const transferMemberCarePackage = async (req: Request, res: Response, next: NextFunction): Promise<void> => {
+  try {
+    const { mcp_id1, mcp_id2 } = req.body;
+
+    if (!mcp_id1 && !mcp_id2) {
+      res.status(400).json({ message: 'Missing required fields or invalid data format' });
+      return;
+    }
+
+    const results = await model.transferMemberCarePackage(mcp_id1, mcp_id2);
+
+    res.status(200).json(results);
+  } catch (error) {
+    console.error('Error transfering member care package', error);
     next(error);
   }
 };
@@ -308,7 +342,7 @@ interface emulatePayload {
   package_remarks: string;
   package_price: number;
   services: servicePayload[];
-  status_id: string;
+  status: 'ENABLED' | 'DISABLED';
   created_at: string;
   updated_at: string;
 }
@@ -330,7 +364,7 @@ const emulateMemberCarePackage = async (req: Request, res: Response, next: NextF
         return;
       }
 
-      const results = await model.emulateMemberCarePackage(method, { id: deleteId } as emulatePayload);
+      const results = await model.emulateMemberCarePackage(method, { id: deleteId as string });
       res.status(200).json(results);
       return;
     }
@@ -341,7 +375,7 @@ const emulateMemberCarePackage = async (req: Request, res: Response, next: NextF
       package_remarks,
       package_price,
       services,
-      status_id,
+      status,
       created_at,
       updated_at,
       member_id,
@@ -355,7 +389,9 @@ const emulateMemberCarePackage = async (req: Request, res: Response, next: NextF
     if (!Array.isArray(services) || services.length === 0) {
       requiredFieldsErrorMessages.push('services must be a non-empty array');
     }
-    if (method === 'PUT') if (!status_id) requiredFieldsErrorMessages.push('status_id is required');
+    if (method === 'PUT') if (!status) requiredFieldsErrorMessages.push('status is required');
+    if (method === 'PUT')
+      if (status !== 'ENABLED' && status !== 'DISABLED') requiredFieldsErrorMessages.push('Invalid Status Name');
     if (method === 'POST') if (!created_at) requiredFieldsErrorMessages.push('created_at is required');
     if (!updated_at) requiredFieldsErrorMessages.push('updated_at is required');
 
@@ -373,7 +409,7 @@ const emulateMemberCarePackage = async (req: Request, res: Response, next: NextF
     }
 
     const isValidService = services.every(
-      (s: any) =>
+      (s: { id: string; name: string; quantity: number; price: number; discount: number }) =>
         s &&
         typeof s.id === 'string' &&
         typeof s.name === 'string' &&
@@ -397,7 +433,7 @@ const emulateMemberCarePackage = async (req: Request, res: Response, next: NextF
       package_remarks: package_remarks || '',
       package_price: numericPackagePrice,
       services,
-      status_id,
+      status,
       created_at,
       updated_at,
       employee_id,
@@ -422,5 +458,6 @@ export default {
   createConsumption,
   removeMemberCarePackage,
   enableMemberCarePackage,
+  transferMemberCarePackage,
   emulateMemberCarePackage,
 };

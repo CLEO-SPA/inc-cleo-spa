@@ -298,16 +298,15 @@ const getBasicEmployeeDetails = async (req: Request, res: Response) => {
     });
   } catch (error) {
     console.error('Controller error in getBasicEmployeeDetails:', error);
-    res.status(500).json({ 
-      success: false, 
+    res.status(500).json({
+      success: false,
       error: {
         code: 'INTERNAL_SERVER_ERROR',
         message: 'Failed to fetch basic employee details for search',
-      }
+      },
     });
-  } 
+  }
 };
-
 
 const getAllEmployeesForDropdown = async (req: Request, res: Response, next: NextFunction) => {
   try {
@@ -331,5 +330,5 @@ export default {
   // getAllEmployees,
   regenerateInvitationLink,
   getBasicEmployeeDetails,
-  getAllEmployeesForDropdown
+  getAllEmployeesForDropdown,
 };
