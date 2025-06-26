@@ -11,8 +11,7 @@
  * - AppSidebar: app left nav
  * - SidebarInset: main content container
  *
- * Author: <your-name>
- * Date:   <yyyy-mm-dd>
+ * Author: Arkar Phyo
  */
 
 // -------------------------
