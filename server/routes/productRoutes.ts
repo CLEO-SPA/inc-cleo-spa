@@ -37,4 +37,7 @@ router.get('/sales-history/:productId', productController.getSalesHistoryByProdu
 // get Product by id
 router.get('/:id', productController.getProductById);
 
+// Get product categories with pagination and search filter
+router.get('/product-cat/page-filter', productController.getProductCategoriesPaginationFilter);
+
 export default router;

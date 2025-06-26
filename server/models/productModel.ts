@@ -447,6 +447,66 @@ const getSalesHistoryByProductId = async (id: number, month: number, year: numbe
   }
 };
 
+// get total pages for pagination
+const getProductCategoriesCount = async (search: string | null) => {
+  try {
+    let query = `SELECT COUNT(*) AS total_count FROM product_categories`;
+    const conditions: string[] = [];
+    const params: any[] = [];
+
+    if (search != null) {
+      params.push(search);
+      conditions.push(`product_category_name ILIKE '%' || $${params.length}::TEXT || '%'`);
+    }
+
+    if (conditions.length > 0) {
+      query += ` WHERE ` + conditions.join(' AND ');
+    }
+
+    const result = await pool().query(query, params);
+    return result.rows[0].total_count;
+  } catch (error) {
+    console.error('Error in getProductCategoriesCount:', error);
+    throw new Error('Error fetching category count');
+  }
+};
+
+// Get prodcut categories with pagination and search filter
+const getProductCategoriesPaginationFilter = async (
+  page: number,
+  limit: number,
+  search: string | null
+) => {
+  try {
+    const offset = (page - 1) * limit;
+    const params: any[] = [limit, offset];
+    let filterClause = '';
+
+    if (search != null) {
+      params.push(`%${search}%`);
+      filterClause = `WHERE pc.product_category_name ILIKE $${params.length}::TEXT`;
+    }
+
+    const query = `
+      SELECT 
+        pc.*,
+        COUNT(p.id) AS total_products
+      FROM product_categories pc
+      LEFT JOIN products p ON p.product_category_id = pc.id
+      ${filterClause}
+      GROUP BY pc.id
+      ORDER BY pc.product_category_sequence_no
+      LIMIT $1 OFFSET $2;
+    `;
+
+    const result = await pool().query(query, params);
+    return result.rows;
+  } catch (error) {
+    console.error('Error in getProductCategoriesPaginationFilter:', error);
+    throw new Error('Error fetching product categories with pagination');
+  }
+};
+
 export default {
   getProductsPaginationFilter,
   getTotalCount,
@@ -464,4 +524,6 @@ export default {
   updateProductCategory,
   reorderProductCategory,
   getSalesHistoryByProductId,
+  getProductCategoriesCount,
+  getProductCategoriesPaginationFilter
 };

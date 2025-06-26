@@ -502,6 +502,32 @@ const getSalesHistoryByProductId = async (req: Request, res: Response, next: Nex
   }
 };
 
+// Get product categories with pagination and search filter
+const getProductCategoriesPaginationFilter = async (req: Request, res: Response, next: NextFunction) => {
+  const { page, limit, search } = req.query;
+  try {
+    const data: { [key: string]: any } = {};
+
+    data.page = typeof page === 'string' && validator.isInt(page) ? parseInt(page, 10) : 1;
+    data.limit = typeof limit === 'string' && validator.isInt(limit) ? parseInt(limit, 10) : 10;
+    data.search = typeof search === 'string' && isSafeInput(search) ? search : null;
+
+    const totalCount = await productModel.getProductCategoriesCount(data.search);
+    const totalPages = Math.ceil(totalCount / data.limit);
+
+    const productCategories = await productModel.getProductCategoriesPaginationFilter(
+      data.page,
+      data.limit,
+      data.search
+    );
+
+    res.status(200).json({ totalPages, productCategories });
+  } catch (error) {
+    console.error('Error in getProductCategoriesPaginationFilter:', error);
+    res.status(500).json({ message: 'Failed to fetch product categories' });
+  }
+};
+
 export default {
   getProductsPaginationFilter,
   getProductById,
@@ -516,4 +542,5 @@ export default {
   updateProductCategory,
   reorderProductCategory,
   getSalesHistoryByProductId,
+  getProductCategoriesPaginationFilter
 };
