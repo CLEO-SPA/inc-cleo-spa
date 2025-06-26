@@ -101,6 +101,17 @@ const data = {
         },
       ],
     },
+    {
+      title: 'Settings',
+      url: '#',
+      icon: ShieldUser,
+      items: [
+        {
+          title: "View Translations",
+          url: '/translations'
+        },
+      ],
+    },
   ],
 };
 

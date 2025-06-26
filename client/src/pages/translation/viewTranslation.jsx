@@ -61,10 +61,7 @@ const ViewTranslations = () => {
     const saveEdit = async () => {
         if (!isChineseText(editInput)) {
             setEditError(
-                t(
-                    "Chinese field must contain only Chinese characters.",
-                    "中文字段只能包含汉字。"
-                )
+                t("Chinese field must contain only Chinese characters.", "中文字段只能包含汉字。")
             );
             return;
         }
@@ -118,12 +115,12 @@ const ViewTranslations = () => {
     );
 
     return (
-        <div className="bg-gray-100 text-black min-h-screen flex flex-col relative">
-            <SidebarProvider className="flex flex-col min-h-screen">
+        <div className="h-screen overflow-hidden [--header-height:calc(theme(spacing.14))] bg-gray-100 text-black">
+            <SidebarProvider className="flex flex-col h-full">
                 <SiteHeader />
-                <div className="flex flex-1">
+                <div className="flex flex-1 min-h-0">
                     <AppSidebar />
-                    <div className="flex-1 flex flex-col items-center px-6 py-8">
+                    <div className="flex-1 flex flex-col items-center px-6 py-8 overflow-y-auto">
                         <h1 className="text-3xl font-bold mb-6">{t("All Translations", "所有翻译")}</h1>
 
                         {error && <div className="text-red-500 mb-4">{error}</div>}
@@ -227,8 +224,8 @@ const ViewTranslations = () => {
                                             onClick={handleDelete}
                                             disabled={confirmInput !== selectedTranslation.english}
                                             className={`${confirmInput === selectedTranslation.english
-                                                    ? "bg-red-600 hover:bg-red-700"
-                                                    : "bg-red-300 cursor-not-allowed"
+                                                ? "bg-red-600 hover:bg-red-700"
+                                                : "bg-red-300 cursor-not-allowed"
                                                 } text-white px-4 py-2 rounded`}
                                         >
                                             {t("Delete", "删除")}
