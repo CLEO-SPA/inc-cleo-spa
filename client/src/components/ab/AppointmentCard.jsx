@@ -6,7 +6,6 @@
  * state and re-fetches whenever the `date` prop changes.
  *
  * Author: Arkar Phyo
- * Updated: <yyyy-mm-dd>
  */
 
 import { useEffect, useState } from "react";
