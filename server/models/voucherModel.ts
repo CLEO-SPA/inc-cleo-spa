@@ -1,5 +1,5 @@
 import { pool, getProdPool as prodPool } from '../config/database.js';
-
+import { VoucherTemplate, VoucherTemplateDetail, MemberName, MemberVouchers } from '../types/model.types.js';
 
 // Helper to recursively convert BigInt to string
 const normalizeBigInts = (data: any): any =>
@@ -7,36 +7,7 @@ const normalizeBigInts = (data: any): any =>
         typeof value === "bigint" ? value.toString() : value
     ));
 
-// Types
-type VoucherTemplate = {
-    id: number;
-    voucher_template_name: string;
-    [key: string]: any;
-};
 
-type VoucherTemplateDetail = {
-    service_id: number;
-    service_name: string;
-    original_price: number;
-    custom_price: number;
-    discount: number;
-    final_price: number;
-    duration: number;
-};
-
-type Member = {
-    id: number;
-    name: string;
-    [key: string]: any;
-};
-
-type MemberVoucher = {
-    id: number;
-    members_id: number;
-    balance: number;
-    free_of_charge: number;
-    [key: string]: any;
-};
 const getVoucherTemplatesDetails = async (name: string | null = null): Promise<any[]> => {
     try {
         const templatesQuery = name
@@ -81,21 +52,30 @@ const getMemberVoucherWithDetails = async (name: string | null = null): Promise<
             throw new Error("Member name is required");
         }
 
-        const memberQuery = `SELECT * FROM members WHERE LOWER(name) LIKE LOWER($1) LIMIT 1`;
+        const memberQuery = `
+  SELECT * 
+  FROM members 
+  WHERE LOWER(name) LIKE LOWER($1) 
+  LIMIT 1
+`;
         const memberResult = await pool().query(memberQuery, [`%${name}%`]);
-        const member: Member = memberResult.rows[0];
+        const member: MemberName = memberResult.rows[0];
 
         if (!member) {
             throw new Error(`Member with name "${name}" not found`);
         }
 
-        const vouchersQuery = `SELECT * FROM member_vouchers WHERE members_id = $1`;
+        const vouchersQuery = `
+  SELECT * 
+  FROM member_vouchers 
+  WHERE member_id = $1 
+    AND status = 'is_enabled'
+`;
         // const vouchersQuery = `SELECT * FROM member_vouchers WHERE member_id = $1`;
 
         const vouchersResult = await pool().query(vouchersQuery, [member.id]);
-        const vouchers: MemberVoucher[] = vouchersResult.rows;
+        const vouchers: MemberVouchers[] = vouchersResult.rows;
 
-        console.log(vouchersResult.rows)
         const result = await Promise.all(
             vouchers.map(async (voucher) => {
                 const detailQuery = `
@@ -133,15 +113,15 @@ const getAllVoucherTemplateNames = async (): Promise<any[]> => {
 
 const checkIfFreeOfChargeIsUsed = async (
     memberId: number,
-    voucherId: number
+    voucher_template_name: string
 ): Promise<boolean> => {
     try {
         const query = `
-      SELECT current_balance, free_of_charge
+      SELECT id, current_balance, free_of_charge
       FROM member_vouchers
-      WHERE member_id = $1 AND voucher_id = $2
+      WHERE member_id = $1 AND member_voucher_name = $2
     `;
-        const values = [memberId, voucherId];
+        const values = [memberId, voucher_template_name];
         const result = await pool().query(query, values);
 
         if (result.rows.length === 0) {
@@ -158,15 +138,15 @@ const checkIfFreeOfChargeIsUsed = async (
 
 const removeFOCFromVoucher = async (
     memberId: number,
-    voucherId: number
-): Promise<{ id: number; newBalance: number }> => {
+    member_voucher_name: string
+): Promise<{ member_voucher_name: string; newBalance: number }> => {
     try {
         const fetchQuery = `
-      SELECT id, current_balance, free_of_charge
+      SELECT *
       FROM member_vouchers
-      WHERE id = $1 AND members_id = $2
+      WHERE member_voucher_name = $1 AND member_id = $2
     `;
-        const fetchValues = [voucherId, memberId];
+        const fetchValues = [member_voucher_name, memberId];
         const fetchResult = await pool().query(fetchQuery, fetchValues);
 
         if (fetchResult.rows.length === 0) {
@@ -174,16 +154,18 @@ const removeFOCFromVoucher = async (
         }
 
         const { id: memberVoucherId, current_balance, free_of_charge } = fetchResult.rows[0];
-        const foc = free_of_charge || 0;
-        const newBalance = current_balance - foc;
+        const current_balance_num = parseFloat(current_balance);
+        const free_of_charge_num = parseFloat(free_of_charge);
+        const foc = free_of_charge_num;
+        const newBalance = current_balance_num - foc;
 
 
         const updateQuery = `
       UPDATE member_vouchers
       SET current_balance = $1, updated_at = NOW()
-      WHERE id = $2
+      WHERE member_voucher_name = $2
     `;
-        await pool().query(updateQuery, [newBalance, voucherId]);
+        await pool().query(updateQuery, [newBalance, member_voucher_name]);
 
         const insertLogQuery = `
        INSERT INTO member_voucher_transaction_logs (
@@ -202,7 +184,7 @@ const removeFOCFromVoucher = async (
 
         await pool().query(insertLogQuery, insertValues);
 
-        return { id: voucherId, newBalance };
+        return { member_voucher_name, newBalance };
     } catch (error) {
         console.error("Error removing FOC from member voucher:", error);
         throw new Error("Failed to remove FOC from member voucher.");
@@ -211,38 +193,42 @@ const removeFOCFromVoucher = async (
 
 const setMemberVoucherBalanceAfterTransfer = async (
     memberId: number,
-    voucherId: number,
+    member_voucher_name: string,
     transferredBalance: number
-): Promise<{ id: number; newBalance: number }> => {
+): Promise<{ member_voucher_name: string; newBalance: number }> => {
     try {
         const selectQuery = `
-      SELECT balance
+      SELECT current_balance
       FROM member_vouchers
-      WHERE id = $1 AND members_id = $2
-            `;
-        const selectValues = [voucherId, memberId];
+      WHERE member_voucher_name = $1 AND member_id = $2
+    `;
+        const selectValues = [member_voucher_name, memberId];
         const result = await pool().query(selectQuery, selectValues);
 
         if (result.rows.length === 0) {
             throw new Error("Member voucher not found.");
         }
 
-        const newBalance = result.rows[0].balance - transferredBalance;
-
+        const currentBalance = result.rows[0].current_balance;
+        const newBalance = 0;
         const updateQuery = `
       UPDATE member_vouchers
-      SET balance = $1, updated_at = NOW()
-      WHERE id = $2
-            `;
-        const updateValues = [newBalance, voucherId];
+      SET current_balance = $1, updated_at = NOW(), status = 'disabled'
+      WHERE member_voucher_name = $2 AND member_id = $3
+    `;
+        const updateValues = [newBalance, member_voucher_name, memberId];
         await pool().query(updateQuery, updateValues);
 
-        return { id: voucherId, newBalance };
+        return {
+            member_voucher_name,
+            newBalance,
+        };
     } catch (error) {
         console.error("Error updating member voucher balance:", error);
         throw new Error("Failed to update member voucher balance.");
     }
 };
+
 
 export default {
     getVoucherTemplatesDetails,

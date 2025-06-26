@@ -5,11 +5,14 @@ import { Button } from '@/components/ui/button';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Input } from '@/components/ui/input';
 import { ChevronLeft, ChevronRight, ChevronsLeft, ChevronsRight, Search } from 'lucide-react';
+import useTransferVoucherStore from '@/stores/useTransferVoucherStore';
 
-export default function MemberSelectorPanel() {
+export default function MemberSelectorPanel({ transferFormData }) {
     const [searchInput, setSearchInput] = useState('');
     const [notFound, setNotFound] = useState(false);
     const [selectedTab, setSelectedTab] = useState('info');
+
+    const [selectedMember, setSelectedMember] = useState(null);
 
     // Store state and actions - Updated to match new store structure
     const {
@@ -45,6 +48,8 @@ export default function MemberSelectorPanel() {
         setVouchersSearchTerm
     } = useSelectedMemberStore();
 
+    const setTransferFormData = useTransferVoucherStore(state => state.setTransferFormData);
+
     const handleSearch = async () => {
         if (!searchInput.trim()) return;
 
@@ -54,6 +59,10 @@ export default function MemberSelectorPanel() {
             if (member) {
                 setNotFound(false);
                 setSelectedTab('info');
+
+                setTransferFormData({ member_name: member.name }); // <-- zustand store update
+
+                setSelectedMember(member);
             } else {
                 setNotFound(true);
             }
@@ -102,17 +111,17 @@ export default function MemberSelectorPanel() {
     };
 
     // Placeholder handlers for voucher actions
-    const handleViewDetails = (voucher) => {
-        console.log('View details for voucher:', voucher);
-    };
+    // const handleViewDetails = (voucher) => {
+    //     console.log('View details for voucher:', voucher);
+    // };
 
-    const handleRefund = (voucher) => {
-        console.log('Refund voucher:', voucher);
-    };
+    // const handleRefund = (voucher) => {
+    //     console.log('Refund voucher:', voucher);
+    // };
 
-    const handleConsume = (voucher) => {
-        console.log('Consume voucher:', voucher);
-    };
+    // const handleConsume = (voucher) => {
+    //     console.log('Consume voucher:', voucher);
+    // };
 
     // Enhanced Pagination component
     const PaginationControls = ({
@@ -331,6 +340,15 @@ export default function MemberSelectorPanel() {
                     </div>
                 ) : (
                     <>
+                        {transferFormData?.member_name && (
+                            <div className="hidden">
+                                <TransferVoucherForm
+                                    memberName={transferFormData.member_name}
+                                    setTransferFormData={setTransferFormData}
+                                />
+                            </div>
+                        )}
+
                         {selectedTab === 'info' && (
                             <div className="grid grid-cols-3 gap-0 text-sm border-collapse">
                                 <div className="flex border border-gray-300 p-2">
@@ -549,10 +567,18 @@ export default function MemberSelectorPanel() {
                                         <p className="text-gray-500">No vouchers found.</p>
                                     </div>
                                 )}
+
                             </div>
                         )}
+
+
                     </>
+
                 )}
+
+
+
+
             </div>
         </div>
     );

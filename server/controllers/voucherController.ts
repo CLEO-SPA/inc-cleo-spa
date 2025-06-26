@@ -2,6 +2,7 @@ import { Request, Response, NextFunction } from "express";
 import voucherModel from "../models/voucherModel.js";
 import memberVoucherTransactionLogsModel from "../models/memberVoucherTransactionLogsModel.js";
 import memberModel from "../models/memberModel.js";
+import memberVoucherModel from "../models/memberVoucher.js";
 
 // Simple sanitization helper
 const sanitizeInput = (input: unknown): string => {
@@ -71,65 +72,6 @@ interface OldVoucherDetail {
     voucher_id: number;
     balance_to_transfer: number;
 }
-const checkIfFreeOfChargeIsUsedHandler = async (
-    req: Request,
-    res: Response,
-    next: NextFunction
-): Promise<void> => {
-    try {
-        // Extract memberId and voucher_id from query params (or body/params)
-        const memberId = Number(req.query.memberId);
-        const voucher_id = Number(req.query.voucher_id);
-
-        // Basic validation
-        if (isNaN(memberId) || isNaN(voucher_id)) {
-            res.status(400).json({ success: false, message: "Invalid memberId or voucher_id" });
-            return;
-        }
-
-        const isFOCUsed = await voucherModel.checkIfFreeOfChargeIsUsed(memberId, voucher_id);
-
-        console.log(isFOCUsed)
-
-        res.status(200).json({ success: true, isFOCUsed });
-    } catch (error) {
-        console.error("Error checking FOC usage:", error);
-        res.status(500).json({ success: false, message: "Failed to check Free of Charge usage" });
-    }
-};
-
-const removeFOCFromVoucherHandler = async (
-    req: Request,
-    res: Response,
-    next: NextFunction
-): Promise<void> => {
-    try {
-        const memberId = Number(req.query.memberId);
-        const voucherId = Number(req.query.voucher_id); // use consistent naming
-        // Basic validation
-        if (isNaN(memberId) || isNaN(voucherId)) {
-            res.status(400).json({
-                success: false,
-                message: "Invalid memberId or voucher_id",
-            });
-            return
-        }
-
-        await voucherModel.removeFOCFromVoucher(memberId, voucherId);
-
-        res.status(200).json({
-            success: true,
-            message: "FOC successfully removed from voucher",
-        });
-    } catch (error) {
-        console.error("Error removing FOC from voucher:", error);
-        res.status(500).json({
-            success: false,
-            message: "Failed to remove FOC from voucher",
-        });
-    }
-};
-
 
 const transferVoucherDetailsHandler = async (
     req: Request,
@@ -144,54 +86,73 @@ const transferVoucherDetailsHandler = async (
             foc,
             old_voucher_names,
             old_voucher_details,
+            is_bypass, // ✅ NEW FIELD
         }: {
             member_name: string;
             voucher_template_name: string;
             price: number;
             foc: number;
             old_voucher_names: string[];
-            old_voucher_details: OldVoucherDetail[];
+            old_voucher_details: {
+                voucher_id: number;
+                member_voucher_name: string;
+                balance_to_transfer: number;
+            }[];
+            is_bypass?: boolean; // ✅ make optional for backward compatibility
         } = req.body;
 
         const members = await memberModel.searchMemberByNameOrPhone(member_name);
-        if (!members) {
+        if (!members || members.members.length === 0) {
             res.status(404).json({ success: false, message: "Member not found" });
             return;
         }
 
         const memberId = members.members[0].id;
 
-        const voucherTemplates = await voucherModel.getVoucherTemplatesDetails(voucher_template_name);
+        let voucherTemplateId = 0;
 
-        if (!voucherTemplates || voucherTemplates.length === 0) {
-            res.status(404).json({ success: false, message: "Voucher template not found" });
-            return;
+        if (!is_bypass) {
+            const voucherTemplates = await voucherModel.getVoucherTemplatesDetails(voucher_template_name);
+            if (!voucherTemplates || voucherTemplates.length === 0) {
+                res.status(404).json({ success: false, message: "Voucher template not found" });
+                return;
+            }
+
+            voucherTemplateId = voucherTemplates[0].id;
         }
 
-        const voucherId = voucherTemplates[0].id;
+        const createdVoucher = await memberVoucherModel.createMemberVoucherForTransfer(
+            memberId,
+            voucher_template_name,
+            voucherTemplateId,
+            price,
+            foc
+        );
 
-        for (const { voucher_id, balance_to_transfer } of old_voucher_details) {
-            const isFOCUsed = await voucherModel.checkIfFreeOfChargeIsUsed(memberId, voucher_id);
+        const newVoucherId = createdVoucher.id;
 
+        for (const { member_voucher_name, balance_to_transfer } of old_voucher_details) {
+            const isFOCUsed = await voucherModel.checkIfFreeOfChargeIsUsed(memberId, member_voucher_name);
             if (!isFOCUsed) {
-                await voucherModel.removeFOCFromVoucher(memberId, voucher_id);
+                await voucherModel.removeFOCFromVoucher(memberId, member_voucher_name);
             }
 
             await memberVoucherTransactionLogsModel.addTransferMemberVoucherTransactionLog(
                 memberId,
-                voucherId
+                voucher_template_name
             );
 
             await voucherModel.setMemberVoucherBalanceAfterTransfer(
                 memberId,
-                voucher_id,
+                member_voucher_name,
                 balance_to_transfer
             );
         }
 
         res.status(200).json({
             success: true,
-            message: "Voucher transfer processed successfully",
+            message: "Voucher transfer processed and new voucher created successfully",
+            newVoucherId,
         });
     } catch (error) {
         console.error("Error in transferVoucherDetailsHandler:", error);
@@ -202,11 +163,12 @@ const transferVoucherDetailsHandler = async (
     }
 };
 
+
+
+
 export default {
     getVoucherTemplatesDetailsHandler,
     getMemberVoucherDetailsHandler,
     getVoucherTemplateNamesHandler,
     transferVoucherDetailsHandler,
-    checkIfFreeOfChargeIsUsedHandler,
-    removeFOCFromVoucherHandler,
 };

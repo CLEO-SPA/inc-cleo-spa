@@ -1,37 +1,33 @@
 import { useState } from 'react';
 import { Trash2, ShoppingCart, User, Package, CreditCard, Gift } from 'lucide-react';
 import useTransactionCartStore from '@/stores/useTransactionCartStore';
+import useSelectedMemberStore from '@/stores/useSelectedMemberStore';
+
 
 const getItemIcon = (type) => {
     switch (type) {
-        case 'service':
-            return <Package className="w-4 h-4" />;
-        case 'product':
-            return <ShoppingCart className="w-4 h-4" />;
-        case 'member-voucher':
-            return <Gift className="w-4 h-4" />;
-        case 'package':
-            return <CreditCard className="w-4 h-4" />;
-        default:
-            return <Package className="w-4 h-4" />;
+        case 'service': return <Package className="w-4 h-4" />;
+        case 'product': return <ShoppingCart className="w-4 h-4" />;
+        case 'member-voucher': return <Gift className="w-4 h-4" />;
+        case 'package': return <CreditCard className="w-4 h-4" />;
+        case 'transfer': return <Gift className="w-4 h-4" />;
+        default: return <Package className="w-4 h-4" />;
     }
 };
 
 const getItemTypeLabel = (type) => {
     switch (type) {
-        case 'service':
-            return 'Service';
-        case 'product':
-            return 'Product';
-        case 'member-voucher':
-            return 'Voucher';
-        case 'package':
-            return 'Package';
-        case 'transfer':
-            return 'Transfer';
-        default:
-            return 'Item';
+        case 'service': return 'Service';
+        case 'product': return 'Product';
+        case 'member-voucher': return 'Voucher';
+        case 'package': return 'Package';
+        case 'transfer': return 'Transfer';
+        default: return 'Item';
     }
+};
+
+const handleSelectMember = (member) => {
+    useTransactionCartStore.getState().setSelectedMember(member);
 };
 
 const formatItemDetails = (item) => {
@@ -76,29 +72,21 @@ const formatItemDetails = (item) => {
 };
 
 export default function TransactionCart() {
-    const {
-        selectedMember,
-        cartItems,
-        currentStep,
-        removeCartItem,
-        getCartTotal,
-        clearCart
-    } = useTransactionCartStore();
+    const { cartItems, currentStep, removeCartItem, getCartTotal, clearCart } = useTransactionCartStore();
+    const selectedMember = useSelectedMemberStore((state) => state.currentMember);
+
 
     const [showConfirm, setShowConfirm] = useState(false);
+    const total = getCartTotal();
 
     const handleClearCart = () => {
-        if (cartItems.length > 0) {
-            setShowConfirm(true);
-        }
+        if (cartItems.length > 0) setShowConfirm(true);
     };
 
     const confirmClearCart = () => {
         clearCart();
         setShowConfirm(false);
     };
-
-    const total = getCartTotal();
 
     return (
         <div className="flex-1 rounded-xl bg-gradient-to-br from-slate-50 to-slate-100 border border-slate-200 shadow-sm">
@@ -111,9 +99,7 @@ export default function TransactionCart() {
                         </div>
                         <div>
                             <h3 className="font-semibold text-lg text-slate-900">Transaction Cart</h3>
-                            <p className="text-sm text-slate-500">
-                                Step: {currentStep.charAt(0).toUpperCase() + currentStep.slice(1)}
-                            </p>
+                            <p className="text-sm text-slate-500">Step: {currentStep.charAt(0).toUpperCase() + currentStep.slice(1)}</p>
                         </div>
                     </div>
                     {cartItems.length > 0 && (
@@ -144,7 +130,7 @@ export default function TransactionCart() {
                 )}
             </div>
 
-            {/* Cart Content */}
+            {/* Cart Items */}
             <div className="p-6 max-h-[500px] overflow-y-auto">
                 {cartItems.length === 0 ? (
                     <div className="text-center py-12">
@@ -168,22 +154,16 @@ export default function TransactionCart() {
                                             </div>
                                             <div className="flex-1 min-w-0">
                                                 <div className="flex items-center gap-2 mb-1">
-                                                    <h4 className="font-medium text-slate-900 truncate">
-                                                        {itemDetails.name}
-                                                    </h4>
+                                                    <h4 className="font-medium text-slate-900 truncate">{itemDetails.name}</h4>
                                                     <span className="px-2 py-0.5 text-xs bg-slate-100 text-slate-600 rounded-full">
                                                         {getItemTypeLabel(item.type)}
                                                     </span>
                                                 </div>
                                                 {itemDetails.details && (
-                                                    <p className="text-sm text-slate-500 mb-2">
-                                                        {itemDetails.details}
-                                                    </p>
+                                                    <p className="text-sm text-slate-500 mb-2">{itemDetails.details}</p>
                                                 )}
                                                 <div className="flex items-center justify-between">
-                                                    <span className="font-semibold text-slate-900">
-                                                        ${itemDetails.price.toFixed(2)}
-                                                    </span>
+                                                    <span className="font-semibold text-slate-900">${itemDetails.price.toFixed(2)}</span>
                                                     {item.status && (
                                                         <span className={`px-2 py-1 text-xs rounded-full ${item.status === 'pending'
                                                             ? 'bg-yellow-100 text-yellow-700'
@@ -210,23 +190,19 @@ export default function TransactionCart() {
                 )}
             </div>
 
-            {/* Footer with Total */}
+            {/* Footer */}
             {cartItems.length > 0 && (
                 <div className="p-6 border-t border-slate-200 bg-white rounded-b-xl">
                     <div className="flex items-center justify-between mb-4">
                         <div className="text-right flex-1">
                             <p className="text-sm text-slate-500 mb-1">Total Amount</p>
-                            <p className="text-2xl font-bold text-slate-900">
-                                ${total.toFixed(2)}
-                            </p>
+                            <p className="text-2xl font-bold text-slate-900">${total.toFixed(2)}</p>
                         </div>
                     </div>
-
-
                 </div>
             )}
 
-            {/* Confirmation Modal */}
+            {/* Confirm Modal */}
             {showConfirm && (
                 <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
                     <div className="bg-white rounded-lg p-6 max-w-sm w-full mx-4">

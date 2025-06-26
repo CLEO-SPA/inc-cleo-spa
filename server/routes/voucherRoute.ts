@@ -12,8 +12,8 @@ router.post("/transfer", voucherController.transferVoucherDetailsHandler);
 
 // Testing purposes
 // http://localhost:3000/api/v/cFoc?memberId=51&voucher_id=32
-router.get("/cFOC", voucherController.checkIfFreeOfChargeIsUsedHandler);
+// router.get("/cFOC", voucherController.checkIfFreeOfChargeIsUsedHandler);
 
-router.get("/FOCgone", voucherController.removeFOCFromVoucherHandler);
+// router.get("/FOCgone", voucherController.removeFOCFromVoucherHandler);
 
 export default router;

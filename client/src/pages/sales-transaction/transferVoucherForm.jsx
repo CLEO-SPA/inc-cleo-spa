@@ -1,180 +1,201 @@
 import React, { useEffect, useState } from "react";
-import api from '@/services/api';
 import { IoAddOutline } from "react-icons/io5";
+import useTransferVoucherStore from "@/stores/useTransferVoucherStore";
+import useTransactionCartStore from "@/stores/useTransactionCartStore";
+import useSelectedMemberStore from "@/stores/useSelectedMemberStore";
 
-const TransferVoucherForm = ({ setTransferFormData }) => {
-    const [voucherTemplates, setVoucherTemplates] = useState([]);
-    const [selectedVoucherName, setSelectedVoucherName] = useState("");
-    const [selectedVoucher, setSelectedVoucher] = useState(null);
-    const [memberVouchers, setMemberVouchers] = useState([]);
+const TransferVoucherForm = () => {
+    const currentMember = useSelectedMemberStore((state) => state.currentMember);
 
-    const [bypassTemplate, setBypassTemplate] = useState(false);
-    const [price, setPrice] = useState("");
-    const [foc, setFoc] = useState("");
-    const [error, setError] = useState("");
+    const {
+        voucherTemplates,
+        selectedVoucherName,
+        memberVouchers,
+        bypassTemplate,
+        price,
+        foc,
+        oldVouchers,
+        fetchVoucherTemplates,
+        fetchMemberVoucher,
+        setSelectedVoucherName,
+        toggleBypassTemplate,
+        setPrice,
+        setFoc,
+        setOldVouchers,
+        getTotalOldBalance,
+        getTopUpBalance,
+        setSelectedMember,
+        setTransferFormData,
+    } = useTransferVoucherStore();
 
-    const [oldVouchers, setOldVouchers] = useState([""]);
+    const { addCartItem, clearCart } = useTransactionCartStore();
 
-    const [members, setMembers] = useState([]);
-    const [memberQuery, setMemberQuery] = useState("");
-    const [filteredMembers, setFilteredMembers] = useState([]);
-    const [selectedMember, setSelectedMember] = useState(null);
-
-    const fetchMembers = async () => {
-        try {
-            const res = await api.get("/m/all");
-            if (res.status === 200) setMembers(res.data);
-        } catch (err) {
-            console.error("Failed to fetch members:", err);
-        }
-    };
-
-    useEffect(() => {
-        fetchMembers();
-    }, []);
-
-    const fetchAllVoucherNames = async () => {
-        try {
-            const response = await api.get("/voucher/vm");
-            if (response.status === 200) {
-                const sorted = response.data.data.sort((a, b) =>
-                    a.voucher_template_name.localeCompare(b.voucher_template_name)
-                );
-                setVoucherTemplates(sorted);
-                setError("");
-            } else {
-                setError("Failed to load voucher templates.");
-            }
-        } catch (err) {
-            console.error("Failed to fetch voucher names:", err);
-            setError("Failed to load voucher templates.");
-        }
-    };
+    const [customVoucherName, setCustomVoucherName] = useState("");
+    const [hasCustomPrice, setHasCustomPrice] = useState(false);
+    const [hasCustomFoc, setHasCustomFoc] = useState(false);
 
     useEffect(() => {
-        fetchAllVoucherNames();
-    }, []);
-
-    const handleVoucherChange = async (e) => {
-        const selectedName = e.target.value;
-        setSelectedVoucherName(selectedName);
-        try {
-            const res = await api.get(`/voucher?name=${encodeURIComponent(selectedName)}`);
-            const vouchers = res.data.data;
-            if (!vouchers || vouchers.length === 0) {
-                setSelectedVoucher(null);
-                setPrice("");
-                setFoc("");
-                return;
-            }
-            const voucher = vouchers[0];
-            setSelectedVoucher(voucher);
-
-            if (!bypassTemplate) {
-                setPrice(voucher.default_total_price || "");
-                setFoc(voucher.default_free_of_charge || "");
-            }
-        } catch (err) {
-            console.error("Error fetching voucher details:", err);
-            setError("Failed to fetch voucher details.");
-        }
-    };
-
-    const handleBypassToggle = () => {
-        const newBypass = !bypassTemplate;
-        setBypassTemplate(newBypass);
-        if (newBypass) {
-            setPrice("");
-            setFoc("");
-        } else if (selectedVoucher) {
-            setPrice(selectedVoucher.default_total_price || "");
-            setFoc(selectedVoucher.default_free_of_charge || "");
-        }
-    };
-
-    const fetchMemberVoucher = async (name) => {
-        if (!name) return;
-        try {
-            const response = await api.get(`/voucher/m?name=${encodeURIComponent(name)}`);
-            if (response.status === 200) {
-                setMemberVouchers(response.data.data);
-            } else {
-                setMemberVouchers([]);
-            }
-        } catch (error) {
-            console.error("Error fetching member vouchers:", error);
-            setMemberVouchers([]);
-        }
-    };
-
-    const totalOldBalance = oldVouchers.reduce((acc, voucherName) => {
-        const voucher = memberVouchers.find(mv => mv.member_vouchers_name === voucherName);
-        return acc + (voucher ? Number(voucher.current_balance) : 0);
-    }, 0);
-
-    const priceNumber = Number(price) || 0;
-    const isBalanceGreater = totalOldBalance > priceNumber;
-    const topUpBalance = Math.max(0, priceNumber - totalOldBalance);
+        fetchVoucherTemplates();
+    }, [fetchVoucherTemplates]);
 
     useEffect(() => {
-        if (!selectedMember || !selectedVoucherName) return;
+        if (currentMember?.name) {
+            fetchMemberVoucher(currentMember.name);
+            setSelectedMember({ name: currentMember.name });
+        }
+    }, [currentMember, fetchMemberVoucher, setSelectedMember]);
+
+    useEffect(() => {
+        if (!bypassTemplate && selectedVoucherName) {
+            const template = voucherTemplates.find(
+                (v) => v.voucher_template_name === selectedVoucherName
+            );
+            if (template) {
+                if (!hasCustomPrice) setPrice(template.price || 0);
+                if (!hasCustomFoc) setFoc(template.foc || 0);
+            }
+        }
+    }, [
+        selectedVoucherName,
+        voucherTemplates,
+        bypassTemplate,
+        hasCustomPrice,
+        hasCustomFoc,
+        setPrice,
+        setFoc,
+    ]);
+
+    useEffect(() => {
+        setHasCustomPrice(false);
+        setHasCustomFoc(false);
+        clearCart();
+    }, [bypassTemplate, clearCart]);
+
+    useEffect(() => {
+        const voucherNameToUse = bypassTemplate ? customVoucherName : selectedVoucherName;
+        if (!voucherNameToUse || !price) return;
+
+        const cartPayload = {
+            id: "transfer-auto",
+            type: "transfer",
+            data: {
+                name: voucherNameToUse,
+                amount: Number(price),
+                description: `Transferred from: ${oldVouchers.join(", ")}`,
+            },
+        };
+
+        clearCart();
+        addCartItem(cartPayload);
+    }, [customVoucherName, selectedVoucherName, price, bypassTemplate, oldVouchers, clearCart, addCartItem]);
+
+    useEffect(() => {
+        const memberName = currentMember?.name;
+        if (!memberName) {
+            setTransferFormData(null);
+            return;
+        }
+
+        const voucherNameToUse = bypassTemplate ? customVoucherName : selectedVoucherName;
+        if (!voucherNameToUse) {
+            setTransferFormData(null);
+            return;
+        }
 
         const oldVoucherDetails = oldVouchers
-            .map(name => memberVouchers.find(v => v.member_vouchers_name === name))
-            .filter(Boolean);
+            .map((name) =>
+                memberVouchers.find(
+                    (v) => v.member_voucher_name.trim().toLowerCase() === name.trim().toLowerCase()
+                )
+            )
+            .filter(Boolean)
+            .map((v) => ({
+                voucher_id: v.id,
+                member_voucher_name: v.member_voucher_name,
+                balance_to_transfer: Number(v.current_balance),
+            }));
 
         const payload = {
-            member_name: selectedMember.member_name,
-            voucher_template_name: selectedVoucherName,
+            member_name: memberName,
+            voucher_template_name: voucherNameToUse,
             price: Number(price),
             foc: Number(foc),
             old_voucher_names: oldVouchers,
             old_voucher_details: oldVoucherDetails,
+            is_bypass: bypassTemplate,
         };
 
         setTransferFormData(payload);
-    }, [selectedMember, selectedVoucherName, price, foc, oldVouchers, memberVouchers, setTransferFormData]);
+    }, [
+        currentMember,
+        selectedVoucherName,
+        price,
+        foc,
+        oldVouchers,
+        memberVouchers,
+        bypassTemplate,
+        customVoucherName,
+        setTransferFormData,
+    ]);
+
+    const handleVoucherSelect = (e) => {
+        setSelectedVoucherName(e.target.value);
+    };
+
+    const handleDecimalInput = (e, setter, setCustomFlag) => {
+        const value = e.target.value;
+        if (/^\d*(\.\d{0,2})?$/.test(value)) {
+            setCustomFlag(true);
+            setter(value);
+        }
+    };
+
+    const totalOldBalance = getTotalOldBalance();
+    const isBalanceGreater = totalOldBalance > Number(price);
+    const topUpBalance = getTopUpBalance();
 
     return (
-        <div className="flex flex-col lg:flex-row gap-6 p-6">
-            <div className="lg:w-1/3 bg-white shadow p-4 rounded-lg">
-                <h2 className="text-xl font-semibold mb-4">Cart</h2>
-                <div className="flex justify-between items-center border-b py-2">
-                    <span>All Back Facial</span>
-                    <span className="text-sm text-gray-400">$118.00</span>
-                </div>
-                <button className="text-red-500 text-sm mt-2">Remove</button>
-            </div>
-
-            <div className="lg:w-2/3 bg-white shadow p-6 rounded-lg">
+        <div className="p-6">
+            <div className="bg-white shadow p-6 rounded-lg">
                 <h2 className="text-xl font-semibold mb-4">Transfer Voucher</h2>
 
                 <div className="mb-6">
                     <label className="block font-medium mb-1">New Voucher Name</label>
-                    <select
-                        className="w-full border px-3 py-2 rounded"
-                        value={selectedVoucherName}
-                        onChange={handleVoucherChange}
-                    >
-                        <option value="" disabled>Select a voucher template</option>
-                        {voucherTemplates.map((voucher) => (
-                            <option key={voucher.id} value={voucher.voucher_template_name}>
-                                {voucher.voucher_template_name}
+                    {bypassTemplate ? (
+                        <input
+                            type="text"
+                            className="w-full border px-3 py-2 rounded"
+                            placeholder="Enter custom voucher name"
+                            value={customVoucherName}
+                            onChange={(e) => setCustomVoucherName(e.target.value)}
+                        />
+                    ) : (
+                        <select
+                            className="w-full border px-3 py-2 rounded"
+                            value={selectedVoucherName}
+                            onChange={handleVoucherSelect}
+                        >
+                            <option value="" disabled>
+                                Select a voucher template
                             </option>
-                        ))}
-                    </select>
+                            {voucherTemplates.map((voucher) => (
+                                <option key={voucher.id} value={voucher.voucher_template_name}>
+                                    {voucher.voucher_template_name}
+                                </option>
+                            ))}
+                        </select>
+                    )}
                 </div>
 
                 <div className="mb-6 flex flex-col md:flex-row md:items-end gap-4">
                     <div className="flex-1">
                         <label className="block font-medium mb-1">Price of New Voucher</label>
                         <input
-                            type="number"
+                            type="text"
                             className="w-full border px-3 py-2 rounded"
                             value={price}
-                            onChange={(e) => setPrice(e.target.value)}
-                            disabled={!bypassTemplate}
-                            placeholder={bypassTemplate ? "Enter price" : ""}
+                            onChange={(e) => handleDecimalInput(e, setPrice, setHasCustomPrice)}
+                            placeholder={bypassTemplate ? "Enter price" : "Auto-filled unless changed"}
                         />
                     </div>
                     <div className="flex flex-col items-center">
@@ -184,7 +205,7 @@ const TransferVoucherForm = ({ setTransferFormData }) => {
                                 type="checkbox"
                                 className="sr-only peer"
                                 checked={bypassTemplate}
-                                onChange={handleBypassToggle}
+                                onChange={toggleBypassTemplate}
                             />
                             <div className="w-11 h-6 bg-gray-300 rounded-full peer peer-checked:bg-blue-500 relative">
                                 <div className="w-5 h-5 bg-white rounded-full absolute top-0.5 left-0.5 transition peer-checked:translate-x-5"></div>
@@ -196,12 +217,11 @@ const TransferVoucherForm = ({ setTransferFormData }) => {
                 <div className="mb-6">
                     <label className="block font-medium mb-1">FOC</label>
                     <input
-                        type="number"
+                        type="text"
                         className="w-full border px-3 py-2 rounded"
                         value={foc}
-                        onChange={(e) => setFoc(e.target.value)}
-                        disabled={!bypassTemplate}
-                        placeholder={bypassTemplate ? "Enter FOC" : ""}
+                        onChange={(e) => handleDecimalInput(e, setFoc, setHasCustomFoc)}
+                        placeholder={bypassTemplate ? "Enter FOC" : "Auto-filled unless changed"}
                     />
                 </div>
 
@@ -222,12 +242,12 @@ const TransferVoucherForm = ({ setTransferFormData }) => {
                                 {memberVouchers
                                     .filter(
                                         (mv) =>
-                                            !oldVouchers.includes(mv.member_vouchers_name) ||
-                                            mv.member_vouchers_name === voucherName
+                                            !oldVouchers.includes(mv.member_voucher_name) ||
+                                            mv.member_voucher_name === voucherName
                                     )
                                     .map((mv) => (
-                                        <option key={mv.id} value={mv.member_vouchers_name}>
-                                            {mv.member_vouchers_name} (Balance: {mv.current_balance})
+                                        <option key={mv.id} value={mv.member_voucher_name}>
+                                            {mv.member_voucher_name} (Balance: {mv.current_balance})
                                         </option>
                                     ))}
                             </select>

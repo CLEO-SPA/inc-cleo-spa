@@ -1,31 +1,36 @@
-// stores/transactionCartStore.js - Main cart store
-import { create } from 'zustand'
-import { devtools, subscribeWithSelector } from 'zustand/middleware'
+// stores/transactionCartStore.js
+import { create } from 'zustand';
+import { devtools, subscribeWithSelector } from 'zustand/middleware';
 
 const useTransactionCartStore = create(
     devtools(
         subscribeWithSelector((set, get) => ({
-            // Selected member for the entire transaction
             selectedMember: null,
-
-            // Cart items - different transaction types
             cartItems: [],
+            currentStep: 'selection',
 
-            // Current page/step
-            currentStep: 'selection', // 'selection', 'payment', 'confirmation'
-
-            // Actions
             setSelectedMember: (member) => set({ selectedMember: member }),
 
-            addCartItem: (item) => set((state) => ({
-                cartItems: [...state.cartItems, {
-                    id: Date.now(),
-                    type: item.type, // 'member-voucher', 'product', 'service', 'package', 'transfer'
-                    data: item.data,
-                    paymentMethod: null, // Will be set in payment step
-                    status: 'pending'
-                }]
-            })),
+            addCartItem: (item) => set((state) => {
+                const isTransfer = item.type === 'transfer';
+                const data = {
+                    ...item,
+                    id: isTransfer ? 'transfer-auto' : Date.now(),
+                    paymentMethod: null,
+                    status: 'pending',
+                };
+
+                const existingIndex = state.cartItems.findIndex(i => i.id === data.id);
+                const updatedCart = [...state.cartItems];
+
+                if (existingIndex !== -1) {
+                    updatedCart[existingIndex] = data;
+                } else {
+                    updatedCart.push(data);
+                }
+
+                return { cartItems: updatedCart };
+            }),
 
             updateCartItem: (id, updates) => set((state) => ({
                 cartItems: state.cartItems.map(item =>
@@ -39,7 +44,6 @@ const useTransactionCartStore = create(
 
             setCurrentStep: (step) => set({ currentStep: step }),
 
-            // Calculate totals
             getCartTotal: () => {
                 const state = get();
                 return state.cartItems.reduce((total, item) => {
@@ -50,20 +54,20 @@ const useTransactionCartStore = create(
                             return total + (item.data.price * item.data.quantity || 0);
                         case 'service':
                             return total + (item.data.price || 0);
+                        case 'transfer':
+                            return total + (item.data.amount || 0);
                         default:
                             return total;
                     }
                 }, 0);
             },
 
-            // Clear cart
             clearCart: () => set({
                 cartItems: [],
                 selectedMember: null,
-                currentStep: 'selection'
+                currentStep: 'selection',
             }),
 
-            // Get items by type
             getItemsByType: (type) => {
                 const state = get();
                 return state.cartItems.filter(item => item.type === type);
@@ -71,6 +75,6 @@ const useTransactionCartStore = create(
         })),
         { name: 'transaction-cart-store' }
     )
-)
+);
 
 export default useTransactionCartStore;
