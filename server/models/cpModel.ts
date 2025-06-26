@@ -342,7 +342,7 @@ const checkPackageNameExists = async (packageName: string, excludeId?: string): 
     }
 
     const result = await client.query(query, params);
-    return (result.rowCount ?? 0) > 0;   
+    return (result.rowCount ?? 0) > 0;
   } catch (error) {
     console.error('Error checking package name existence:', error);
     throw new Error('Failed to check package name uniqueness');
@@ -405,7 +405,7 @@ const createCarePackage = async (
       await client.query<{ id: string }>(i_cpid_sql, [
         service.quantity,
         service.discount,
-        service.finalPrice,
+        service.price,
         service.id,
         carePackageId,
       ]);
@@ -500,7 +500,7 @@ const updateCarePackageById = async (
       await client.query<{ id: string }>(i_cpid_sql, [
         service.quantity,
         service.discount,
-        service.finalPrice,
+        service.price,
         service.id,
         care_package_id,
       ]);
