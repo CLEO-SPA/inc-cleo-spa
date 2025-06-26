@@ -1,6 +1,7 @@
 import React, { useState } from 'react';
 import { Plus, X, Search, ChevronDown, DollarSign } from 'lucide-react';
 import { Button } from '@/components/ui/button';
+import useServiceStore from '@/stores/useServiceStore';
 
 const ServiceSelection = ({
   serviceForm,
@@ -19,6 +20,7 @@ const ServiceSelection = ({
   const [serviceSearch, setServiceSearch] = useState('');
   const [discountError, setDiscountError] = useState('');
   const [priceError, setPriceError] = useState('');
+  const fetchServiceDetails = useServiceStore((state) => state.fetchServiceDetails);
 
   // filter service options based on search input
   const filteredServiceOptions = serviceOptions.filter(
@@ -30,33 +32,52 @@ const ServiceSelection = ({
   );
 
   // handle service selection from dropdown
-  const handleServiceSelect = (service) => {
-    const servicePrice = parseFloat(service.service_price || service.originalPrice || 0);
+  const handleServiceSelect = async (service) => {
+    try {
+      console.log('Selected service:', service);
+      // fetch full service details including correct duration
+      const fullServiceData = await fetchServiceDetails(service.id);
 
-    const normalizedService = {
-      id: service.id,
-      name: service.service_name || service.label || service.name,
-      label: service.service_name || service.label || service.name,
-      price: servicePrice,
-      // original properties for backward compatibility
-      service_name: service.service_name || service.name || service.label,
-      service_price: servicePrice,
-      originalPrice: servicePrice, // set original price for reference
-      service_description: service.service_description,
-      service_remarks: service.service_remarks,
-      duration: parseInt(service.service_duration || service.duration || 45),
-      service_duration: service.service_duration || service.duration,
-      updated_at: service.updated_at,
-      created_at: service.created_at,
-      service_category_id: service.service_category_id,
-      service_category_name: service.service_category_name,
-      created_by_name: service.created_by_name,
-      updated_by_name: service.updated_by_name,
-    };
+      const servicePrice = parseFloat(fullServiceData.service_price || 0);
 
-    onServiceSelect(normalizedService);
-    setShowServiceDropdown(false);
-    setServiceSearch('');
+      const normalizedService = {
+        id: fullServiceData.id,
+        name: fullServiceData.service_name,
+        label: fullServiceData.service_name,
+        price: servicePrice,
+        service_name: fullServiceData.service_name,
+        service_price: servicePrice,
+        originalPrice: servicePrice,
+        service_description: fullServiceData.service_description,
+        service_remarks: fullServiceData.service_remarks,
+        duration: parseInt(fullServiceData.service_duration || 0), 
+        service_duration: fullServiceData.service_duration,
+        updated_at: fullServiceData.updated_at,
+        created_at: fullServiceData.created_at,
+        service_category_id: fullServiceData.service_category_id,
+        service_category_name: fullServiceData.service_category_name,
+        created_by_name: fullServiceData.created_by_name,
+        updated_by_name: fullServiceData.updated_by_name,
+      };
+
+      onServiceSelect(normalizedService);
+      setShowServiceDropdown(false);
+      setServiceSearch('');
+    } catch (error) {
+      console.error('Failed to fetch service details:', error);
+      // fallback to basic service data if API fails
+      const servicePrice = parseFloat(service.service_price || 0);
+      const normalizedService = {
+        id: service.id,
+        name: service.service_name || service.label || service.name,
+        price: servicePrice,
+        duration: 45, // use 45 as fallback
+        // ... other basic fields
+      };
+      onServiceSelect(normalizedService);
+      setShowServiceDropdown(false);
+      setServiceSearch('');
+    }
   };
 
   // handle adding service

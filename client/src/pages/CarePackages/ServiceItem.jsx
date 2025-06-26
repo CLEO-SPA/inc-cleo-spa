@@ -2,6 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { Trash2, Edit3, Save, X, Clock, Tag } from 'lucide-react';
 import ServiceSelect from '@/components/ui/forms/ServiceSelect';
 import { FormProvider, useForm } from 'react-hook-form';
+import useServiceStore from '@/stores/useServiceStore';
 
 const ServiceItem = ({ service, index, isEditing, onEdit, onSave, onCancel, onRemove }) => {
   const [editData, setEditData] = useState({
@@ -357,7 +358,7 @@ const ServiceItem = ({ service, index, isEditing, onEdit, onSave, onCancel, onRe
                 )}
               </div>
             </div>
-            
+
             {/* discount factor */}
             <div>
               <label className='block text-xs font-medium text-gray-600 mb-1'>Discount Factor</label>
@@ -476,7 +477,7 @@ const ServiceItem = ({ service, index, isEditing, onEdit, onSave, onCancel, onRe
           <div>
             <label className='block text-xs font-medium text-gray-600 mb-1'>Duration (min)</label>
             <div className='w-full px-3 py-2 border border-gray-300 rounded-md text-sm bg-gray-50 text-gray-700'>
-              {service.service_duration || service.duration || 45}
+              {service.service_duration || service.duration || 0}
             </div>
           </div>
 

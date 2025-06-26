@@ -18,6 +18,7 @@ import ServiceSelection from '@/pages/CarePackages/ServiceSelection';
 import EmployeeSelect from '@/components/ui/forms/EmployeeSelect';
 import { FormProvider, useForm } from 'react-hook-form';
 import useAuth from '@/hooks/useAuth';
+import useServiceStore from '@/stores/useServiceStore';
 
 const EditCarePackagePage = () => {
   const { id: packageId } = useParams();
@@ -56,6 +57,7 @@ const EditCarePackagePage = () => {
   const [isInitialized, setIsInitialized] = useState(false);
   const [employeeError, setEmployeeError] = useState('');
   const [packagePriceError, setPackagePriceError] = useState('');
+  const fetchServiceDetails = useServiceStore((state) => state.fetchServiceDetails);
 
   // form methods for employee selection
   const methods = useForm({
@@ -336,36 +338,50 @@ const EditCarePackagePage = () => {
   ]);
 
   // handle service selection from dropdown
-  const handleServiceSelect = (service) => {
+  const handleServiceSelect = async (service) => {
+    // console.log('Selected service:', service);
     if (!service || !service.id) {
       console.error('Invalid service object:', service);
       return;
     }
 
-    const servicePrice = parseFloat(service.service_price || service.originalPrice || 0);
+    try {
+      // fetch full service details including correct duration
+      const fullServiceData = await fetchServiceDetails(service.id);
 
-    // create normalized service object
-    const serviceToSelect = {
-      id: service.id,
-      name: service.service_name || service.name || service.label || 'Unknown Service',
-      label: service.service_name || service.name || service.label || 'Unknown Service',
-      price: servicePrice,
-      originalPrice: servicePrice,
-      service_name: service.service_name || service.name || service.label,
-      service_price: servicePrice,
-      service_description: service.service_description,
-      service_remarks: service.service_remarks,
-      duration: parseInt(service.service_duration || service.duration || 45),
-      service_duration: service.service_duration || service.duration,
-      updated_at: service.updated_at,
-      created_at: service.created_at,
-      service_category_id: service.service_category_id,
-      service_category_name: service.service_category_name,
-      created_by_name: service.created_by_name,
-      updated_by_name: service.updated_by_name,
-    };
+      const serviceToSelect = {
+        id: fullServiceData.id,
+        name: fullServiceData.service_name || 'Unknown Service',
+        label: fullServiceData.service_name || 'Unknown Service',
+        price: parseFloat(fullServiceData.service_price || 0),
+        originalPrice: parseFloat(fullServiceData.service_price || 0),
+        service_name: fullServiceData.service_name,
+        service_price: parseFloat(fullServiceData.service_price || 0),
+        service_description: fullServiceData.service_description,
+        service_remarks: fullServiceData.service_remarks,
+        duration: parseInt(fullServiceData.service_duration || 0),
+        service_duration: fullServiceData.service_duration,
+        updated_at: fullServiceData.updated_at,
+        created_at: fullServiceData.created_at,
+        service_category_id: fullServiceData.service_category_id,
+        service_category_name: fullServiceData.service_category_name,
+        created_by_name: fullServiceData.created_by_name,
+        updated_by_name: fullServiceData.updated_by_name,
+      };
 
-    selectService(serviceToSelect);
+      selectService(serviceToSelect);
+    } catch (error) {
+      console.error('Failed to fetch service details:', error);
+      // fallback to basic service data if API fails
+      const servicePrice = parseFloat(service.service_price || 0);
+      const serviceToSelect = {
+        id: service.id.toString(),
+        name: service.service_name || service.name || 'Unknown Service',
+        price: servicePrice,
+        duration: 45, // only use 45 as absolute fallback
+      };
+      selectService(serviceToSelect);
+    }
   };
 
   // handle adding service to package
