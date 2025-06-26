@@ -34,7 +34,7 @@ const ServiceSelection = ({
   // handle service selection from dropdown
   const handleServiceSelect = async (service) => {
     try {
-      console.log('Selected service:', service);
+      // console.log('Selected service:', service);
       // fetch full service details including correct duration
       const fullServiceData = await fetchServiceDetails(service.id);
 
@@ -50,7 +50,7 @@ const ServiceSelection = ({
         originalPrice: servicePrice,
         service_description: fullServiceData.service_description,
         service_remarks: fullServiceData.service_remarks,
-        duration: parseInt(fullServiceData.service_duration || 0), 
+        duration: parseInt(fullServiceData.service_duration || 0),
         service_duration: fullServiceData.service_duration,
         updated_at: fullServiceData.updated_at,
         created_at: fullServiceData.created_at,
@@ -89,12 +89,12 @@ const ServiceSelection = ({
     if (hasValidId && hasValidName && hasValidQuantity) {
       onAddService();
     } else {
-      console.log('Cannot add service - missing required fields:', {
-        id: serviceForm.id,
-        name: serviceForm.name,
-        quantity: serviceForm.quantity,
-        checks: { hasValidId, hasValidName, hasValidQuantity },
-      });
+      // console.log('Cannot add service - missing required fields:', {
+      //   id: serviceForm.id,
+      //   name: serviceForm.name,
+      //   quantity: serviceForm.quantity,
+      //   checks: { hasValidId, hasValidName, hasValidQuantity },
+      // });
     }
   };
 
