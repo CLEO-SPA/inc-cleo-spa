@@ -33,7 +33,7 @@ const loginEmployee = async (req: Request, res: Response, next: NextFunction) =>
       req.session.email = res.locals.email;
       req.session.role = res.locals.role;
 
-      // console.log('My Date: ', req.session.end_date_utc);
+      console.log('My Date: ', req.session.end_date_utc);
 
       const userPayload = {
         user_id: res.locals.user_id,
@@ -286,6 +286,38 @@ const regenerateInvitationLink = async (req: Request, res: Response, next: NextF
   }
 };
 
+const getBasicEmployeeDetails = async (req: Request, res: Response) => {
+  try {
+    console.log('Fetching basic employee details for search');
+    const employees = await model.getBasicEmployeeDetails();
+    console.log(`Found ${employees.length} active employees`);
+    res.status(200).json({
+      success: true,
+      data: employees,
+      total: employees.length,
+    });
+  } catch (error) {
+    console.error('Controller error in getBasicEmployeeDetails:', error);
+    res.status(500).json({ 
+      success: false, 
+      error: {
+        code: 'INTERNAL_SERVER_ERROR',
+        message: 'Failed to fetch basic employee details for search',
+      }
+    });
+  } 
+};
+
+const getAllEmployeesForDropdown = async (req: Request, res: Response) => {
+  try {
+    const employees = await model.getAllEmployeesForDropdown();
+    res.status(200).json(employees);
+  } catch (error) {
+    console.error('Error in getAllEmployeesForDropdown:', error);
+    res.status(500).json({ message: 'Failed to fetch employees for dropdown' });
+  }
+};
+
 export default {
   defaultPassword,
   // createEmployee,
@@ -297,4 +329,6 @@ export default {
   updateEmployeePassword,
   // getAllEmployees,
   regenerateInvitationLink,
+  getBasicEmployeeDetails,
+  getAllEmployeesForDropdown
 };
