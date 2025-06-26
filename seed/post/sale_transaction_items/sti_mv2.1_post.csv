@@ -1,0 +1,2 @@
+id,sale_transaction_id,service_name,product_name,member_care_package_id,member_voucher_id,original_unit_price,custom_unit_price,discount_percentage,quantity,remarks,amount,item_type
+1001,101,,,,31,,,,1,NA,1888.00,member voucher

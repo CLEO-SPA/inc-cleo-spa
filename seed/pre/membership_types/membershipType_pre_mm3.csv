@@ -1,0 +1,4 @@
+id,membership_type_name,default_percentage_discount_for_products,default_percentage_discount_for_service,created_at,updated_at,created_by,last_created_by,status,,,
+1,Package,6,6,2025-01-01 10:00:00+08,2025-01-01 10:00:00+08,14,14,is_enabled,,,
+"
+",,,,,,,,,,,
