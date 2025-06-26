@@ -2,7 +2,6 @@ export const handleApiError = (error) => {
     if (!navigator.onLine) {
         return "No internet connection. Please check your network.";
     }
-
     if (error.response?.status) {
         switch (error.response.status) {
             case 400:
@@ -12,9 +11,9 @@ export const handleApiError = (error) => {
             case 403:
                 return "You don't have permission for this action.";
             case 404:
-                return "Membership type not found.";
+                return "Endpoint not found";
             case 409:
-                return "This membership type name already exists.";
+                return "This entry already exists.";
             case 422:
                 return "Please check your input and try again.";
             case 500:
