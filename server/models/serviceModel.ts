@@ -386,70 +386,38 @@ const reorderServices = async (services: { id: number; service_sequence_no: numb
   }
 };
 
-const disableService = async (updateData: {
+const changeServiceStatus = async (updateData: {
   id: number;
-  updated_at: string;
-  updated_by: number;
-  service_remarks?: string | null;
-}) => {
-  try {
-    let params = [updateData.updated_by, updateData.updated_at, updateData.id];
-    let query = `   
-    UPDATE services
-    SET
-      service_is_enabled = false,
-      service_sequence_no = 0,
-      updated_by = $1,
-      updated_at = $2`;
-
-    if (updateData.service_remarks) {
-      query += `,
-        remarks = $4
-      WHERE id = $3
-      RETURNING *`;
-      params.push(updateData.service_remarks);
-    } else {
-      query += `
-      WHERE id = $3
-      RETURNING *`;
-    }
-
-    const result = await pool().query(query, params);
-    return result.rows[0];
-  } catch (error) {
-    console.error('Error disabling service:', error);
-    throw new Error('Error disabling service');
-  }
-};
-
-const enableService = async (updateData: {
-  id: number;
+  enabled: boolean;
   updated_at: string;
   updated_by: number;
   service_sequence_no: number;
   service_remarks?: string | null;
 }) => {
   try {
-    let params = [updateData.service_sequence_no, updateData.updated_by, updateData.updated_at, updateData.id];
+    let params = [
+      updateData.enabled,
+      updateData.service_sequence_no,
+      updateData.updated_by,
+      updateData.updated_at,
+      updateData.id,
+    ];
     let query = `   
     UPDATE services
     SET
-      service_is_enabled = true,
-      service_sequence_no = $1,
-      updated_by = $2,
-      updated_at = $3`;
+      service_is_enabled = $1,
+      service_sequence_no = $2,
+      updated_by = $3,
+      updated_at = $4`;
 
     if (updateData.service_remarks) {
       query += `,
-        remarks = $5
-      WHERE id = $4
-      RETURNING *`;
+        remarks = $6`;
       params.push(updateData.service_remarks);
-    } else {
-      query += `
-      WHERE id = $4
-      RETURNING *`;
     }
+    query += `
+      WHERE id = $5
+      RETURNING *`;
 
     const result = await pool().query(query, params);
     return result.rows[0];
@@ -596,11 +564,7 @@ const getServiceCategoriesCount = async (search: string | null) => {
 };
 
 // Get service categories with pagination and search filter
-const getServiceCategoriesPaginationFilter = async (
-  page: number,
-  limit: number,
-  search: string | null
-) => {
+const getServiceCategoriesPaginationFilter = async (page: number, limit: number, search: string | null) => {
   try {
     const offset = (page - 1) * limit;
     const params: any[] = [limit, offset];
@@ -631,7 +595,6 @@ const getServiceCategoriesPaginationFilter = async (
   }
 };
 
-
 export default {
   getAllServices,
   getServicesPaginationFilter,
@@ -645,8 +608,7 @@ export default {
   createService,
   updateService,
   reorderServices,
-  disableService,
-  enableService,
+  changeServiceStatus,
   getServiceCategories,
   getServiceCategoryById,
   getSalesHistoryByServiceId,
@@ -654,5 +616,5 @@ export default {
   updateServiceCategory,
   reorderServiceCategory,
   getServiceCategoriesCount,
-  getServiceCategoriesPaginationFilter
+  getServiceCategoriesPaginationFilter,
 };

@@ -124,6 +124,7 @@ export default function ManageService() {
       setModalOpen(true);
       let updateData = {
         ...updateForm,
+        enabled: !service.service_is_enabled,
         updated_at: isSimulationActive ? new Date(simulationStartDate) : new Date(),
         service_remarks: service.service_remarks
       }
@@ -158,30 +159,16 @@ export default function ManageService() {
       return;
     }
     try {
-      if (changeStatus) {
-        // Enabled if True
-        // Disabled if False
-        const response = await api.put(`/service/enable-service/${changeService.id}`, updateForm, {
+        const response = await api.put(`/service/service-status/${changeService.id}`, updateForm, {
           headers: {
             "Content-Type": "application/json"
           }
         });
         if (response.status === 200) {
+          setErrorMsg('');
           setModalOpen(false);
           getServices();
         }
-      } else {
-        // Disabled if False
-        const response = await api.put(`/service/disable-service/${changeService.id}`, updateForm, {
-          headers: {
-            "Content-Type": "application/json"
-          }
-        });
-        if (response.status === 200) {
-          setModalOpen(false);
-          getServices();
-        }
-      }
     } catch (err) {
       console.error('Error changing service status:', err);
       setErrorMsg(err.response?.data?.message || 'An error occurred');

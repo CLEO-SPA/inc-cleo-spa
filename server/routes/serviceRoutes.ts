@@ -28,11 +28,7 @@ router.put('/update-service/:id', serviceController.validateServiceData, service
 router.put('/reorder-service', serviceController.reorderService);
 
 // update service status
-// disable service
-router.put('/disable-service/:id', serviceController.disableService);
-
-// enable service
-router.put('/enable-service/:id', serviceController.enableService);
+router.put('/service-status/:id', serviceController.changeServiceStatus);
 
 // SERVICE CATEGORIES ROUTES
 //  get all service categories

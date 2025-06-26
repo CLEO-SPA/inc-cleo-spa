@@ -166,7 +166,7 @@ const validateServiceData = async (req: Request, res: Response, next: NextFuncti
       if (service) {
         if (id) {
           // Updating: allow only if it's the same service
-          if (parseInt(service.id,10) != id) {
+          if (parseInt(service.id, 10) != id) {
             res.status(400).json({ message: 'Service name already exists' });
             return;
           }
@@ -292,8 +292,10 @@ const updateService = async (req: Request, res: Response, next: NextFunction) =>
 
     if (formData.service_category_id && formData.service_category_id !== service.service_category_id) {
       updatePayload.service_category_id = formData.service_category_id;
-      updatePayload.service_sequence_no = parseInt(await serviceModel.getServiceSequenceNo(formData.service_category_id));
-      }
+      updatePayload.service_sequence_no = parseInt(
+        await serviceModel.getServiceSequenceNo(formData.service_category_id)
+      );
+    }
 
     if (formData.created_at && formData.created_at !== service.created_at) {
       updatePayload.created_at = formData.created_at;
@@ -331,10 +333,15 @@ const reorderService = async (req: Request, res: Response, next: NextFunction) =
   try {
     const services = req.body;
 
-    if (!Array.isArray(services) || !services.every(service =>
-      typeof service === 'object' &&
-      validator.isInt(service.id) &&
-      validator.isInt(service.service_sequence_no.toString()))) {
+    if (
+      !Array.isArray(services) ||
+      !services.every(
+        (service) =>
+          typeof service === 'object' &&
+          validator.isInt(service.id) &&
+          validator.isInt(service.service_sequence_no.toString())
+      )
+    ) {
       res.status(400).json({ message: 'Invalid Data' });
       return;
     }
@@ -353,64 +360,32 @@ const reorderService = async (req: Request, res: Response, next: NextFunction) =
 };
 
 // update service status
-// disable service
-const disableService = async (req: Request, res: Response, next: NextFunction) => {
-  try {
-    const id = parseInt(req.params.id, 10);
-    const data = req.body;
-
-    let updateData: { id: number; updated_by: number; updated_at: string; service_remarks?: string | null } = {
-      id: id,
-      updated_by: Number(data.updated_by),
-      updated_at: String(data.updated_at),
-    };
-
-    // check service exists validation
-    // check if disabled or not
-    const service = await serviceModel.getServiceById(id);
-    if (!service.service_is_enabled) {
-      res.status(400).json({ message: 'Service is already disabled.' });
-      return;
-    }
-
-    // check if remarks was updated
-    if (data.service_remarks && data.service_remarks !== service.service_remarks) {
-      updateData.service_remarks = data.service_remarks;
-    }
-
-    // change status
-    const updatedService = await serviceModel.disableService(updateData);
-    if (updatedService) {
-      res.status(200).json({ message: 'Disabled Service Successfully' });
-    }
-  } catch (error) {
-    console.error('Error in disableService:', error);
-    res.status(500).json({ message: 'Failed to disable service' });
-  }
-};
-
-const enableService = async (req: Request, res: Response, next: NextFunction) => {
+const changeServiceStatus = async (req: Request, res: Response, next: NextFunction) => {
   try {
     const id = parseInt(req.params.id, 10);
     const data = req.body;
 
     let updateData: {
       id: number;
+      enabled: boolean;
       updated_by: number;
       updated_at: string;
       service_sequence_no: number;
-      service_remarks?: string | null } = {
+      service_remarks?: string | null;
+    } = {
       id: id,
+      enabled: data.enabled,
       updated_by: data.updated_by,
       updated_at: data.updated_at,
-      service_sequence_no: 0, // This will be set later
+      service_sequence_no: 0,
     };
 
     // check service exists validation
     // check if enabled or not
     const service = await serviceModel.getServiceById(id);
-    if (service.service_is_enabled) {
-      res.status(400).json({ message: 'Service is already enabled.' });
+    if (data.enabled == service.service_is_enabled) {
+      const statusMsg = data.enabled ? 'enabled' : 'disabled';
+      res.status(400).json({ message: `Service is already ${statusMsg}` });
       return;
     }
 
@@ -420,13 +395,16 @@ const enableService = async (req: Request, res: Response, next: NextFunction) =>
     }
 
     // get service sequence no (last in the category)
-    const service_sequence_no = parseInt(await serviceModel.getServiceSequenceNo(service.service_category_id));
-    updateData.service_sequence_no = service_sequence_no;
+    if (data.enabled) {
+      const service_sequence_no = parseInt(await serviceModel.getServiceSequenceNo(service.service_category_id));
+      updateData.service_sequence_no = service_sequence_no;
+    }
 
     // change status
-    const updatedService = await serviceModel.enableService(updateData);
+    const updatedService = await serviceModel.changeServiceStatus(updateData);
     if (updatedService) {
-      res.status(200).json({ message: 'Enabled Service Successfully' });
+      const statusMsg = data.enabled ? 'Enabled' : 'Disabled';
+      res.status(200).json({ message: `${statusMsg} Product Successfully` });
     }
   } catch (error) {
     console.error('Error in enableService:', error);
@@ -560,13 +538,13 @@ const updateServiceCategory = async (req: Request, res: Response, next: NextFunc
       }
     }
 
-    next(error); 
+    next(error);
   }
 };
 
 // reorder service category sequence no
 const reorderServiceCategory = async (req: Request, res: Response, next: NextFunction) => {
-  const categories = req.body; 
+  const categories = req.body;
 
   if (!Array.isArray(categories) || categories.some((cat) => !cat.id || cat.service_category_sequence_no == null)) {
     res.status(400).json({ message: 'Invalid category data.' });
@@ -609,7 +587,6 @@ const getServiceCategoriesPaginationFilter = async (req: Request, res: Response,
   }
 };
 
-
 export default {
   getAllServices,
   getServicesPaginationFilter,
@@ -621,12 +598,11 @@ export default {
   createService,
   updateService,
   reorderService,
-  disableService,
-  enableService,
+  changeServiceStatus,
   getServiceCategories,
   getSalesHistoryByServiceId,
   createServiceCategory,
   updateServiceCategory,
   reorderServiceCategory,
-  getServiceCategoriesPaginationFilter
+  getServiceCategoriesPaginationFilter,
 };
