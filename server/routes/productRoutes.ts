@@ -8,13 +8,16 @@ const router = express.Router();
 router.get('/all-page-filter', productController.getProductsPaginationFilter);
 
 // get product by category
-
+router.get('/all-by-cat/:category_id', productController.getProductsByCategory);
 
 // create product
 router.post('/create-product', productController.validateProductData, productController.createProduct);
 
 // update product by id
 router.put('/update-product/:id', productController.validateProductData, productController.updateProduct);
+
+// update product sequence no
+router.put('/reorder-product', productController.reorderProduct);
 
 // PRODUCT CATEGORIES ROUTES
 //  get all product categories

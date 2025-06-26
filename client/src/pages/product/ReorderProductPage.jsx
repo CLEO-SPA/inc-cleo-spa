@@ -214,6 +214,11 @@ export default function ReorderProduct() {
                     </div>
                   ) : (
                     <div className="space-y-2">
+                      {products.length === 0 && (
+                        <div className="flex items-center gap-3 p-2 bg-white border rounded cursor-move hover:bg-gray-50 justify-center">
+                          <span className="text-sm text-gray-500">No products found in this category.</span>
+                        </div>
+                      )}
                       {products.map((product, productIndex) => (
                         <div
                           key={product.product_id}

@@ -85,6 +85,24 @@ const getProductById = async (req: Request, res: Response, next: NextFunction) =
   }
 };
 
+// get product by category
+const getProductsByCategory = async (req: Request, res: Response, next: NextFunction) => {
+  try {
+    const category_id = parseInt(req.params.category_id, 10);
+
+    if (isNaN(category_id)) {
+      res.status(400).json({ message: 'Invalid product category ID' });
+      return;
+    }
+
+    const products = await productModel.getProductByCategory(category_id);
+    res.status(200).json(products);
+  } catch (error) {
+    console.error('Error in getProductById:', error);
+    res.status(500).json({ message: 'Failed to fetch product' });
+  }
+};
+
 // Validate product data before creating or updating
 const validateProductData = async (req: Request, res: Response, next: NextFunction) => {
   const id = parseInt(req.params.id, 10) || null;
@@ -276,6 +294,34 @@ const updateProduct = async (req: Request, res: Response, next: NextFunction) =>
   }
 };
 
+// reorder product
+const reorderProduct = async (req: Request, res: Response, next: NextFunction) => {
+  try {
+    const products = req.body;
+
+    if (!Array.isArray(products) || !products.every(product =>
+      typeof product === 'object' &&
+      validator.isInt(product.id) &&
+      validator.isInt(product.product_sequence_no.toString()))) {
+      res.status(400).json({ message: 'Invalid Data' });
+      return;
+    }
+
+    const updatedSequence = await productModel.reorderProducts(products);
+
+    if (updatedSequence.success) {
+      res.status(200).json({ message: 'Reorder Product Sequence Successfully' });
+    } else {
+      res.status(400).json({ message: 'Error reordering product sequence' });
+    }
+  } catch (error) {
+    console.error('Error in reorderProduct:', error);
+    res.status(500).json({ message: 'Failed to reorder product sequence' });
+  }
+};
+
+// enable/disable product by id
+
 // PRODUCT CATEGORIES ROUTES
 // Get Product Categories
 const getProductCategories = async (req: Request, res: Response, next: NextFunction) => {
@@ -411,10 +457,12 @@ const getSalesHistoryByProductId = async (req: Request, res: Response, next: Nex
 export default {
   getProductsPaginationFilter,
   getProductById,
+  getProductsByCategory,
   getProductCategories,
   validateProductData,
   createProduct,
   updateProduct,
+  reorderProduct,
   createProductCategory,
   updateProductCategory,
   reorderProductCategory,

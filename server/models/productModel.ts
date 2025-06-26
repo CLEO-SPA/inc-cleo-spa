@@ -101,6 +101,22 @@ const getProductByName = async (product_name: string) => {
   }
 };
 
+// get products by category id
+const getProductByCategory = async (product_category_id: number) => {
+  try {
+    const query = `
+    SELECT id, product_name, product_sequence_no FROM products
+    WHERE product_category_id = $1
+    AND product_is_enabled = true
+    ORDER BY product_sequence_no ASC;`;
+    const result = await pool().query(query, [product_category_id]);
+    return result.rows;
+  } catch (error) {
+    console.error('Error fetching products:', error);
+    throw new Error('Error fetching products');
+  }
+};
+
 // get product sequence number by counting products that are enabled and in same category
 const getProductSequenceNo = async (product_category_id: number) => {
   try {
@@ -257,6 +273,26 @@ const updateProduct = async ({
   }
 };
 
+// reorder product
+const reorderProducts = async (products: { id: number; product_sequence_no: number }[]) => {
+  try {
+    const query = `
+    UPDATE products
+    SET product_sequence_no = $1
+    WHERE id = $2`;
+    for (const product of products) {
+      const params = [product.product_sequence_no, product.id];
+      await prodPool().query(query, params);
+    }
+    return { success: true, updatedCount: products.length };
+  } catch (error) {
+    console.error('Error updating product sequence:', error);
+    throw new Error('Error updating product sequence');
+  }
+};
+
+
+
 // PRODUCT CATEGORIES
 const getProductCategories = async () => {
   try {
@@ -375,9 +411,11 @@ export default {
   getTotalCount,
   getProductById,
   getProductByName,
+  getProductByCategory,
   getProductSequenceNo,
   createProduct,
   updateProduct,
+  reorderProducts,
   getProductCategories,
   getProductCategoryById,
   createProductCategory,
