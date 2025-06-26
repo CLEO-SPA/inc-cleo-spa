@@ -18,6 +18,7 @@ DROP TABLE IF EXISTS "membership_types" CASCADE;
 DROP TABLE IF EXISTS "payment_methods" CASCADE;
 DROP TABLE IF EXISTS "positions" CASCADE;
 DROP TABLE IF EXISTS "employee_to_position" CASCADE;
+DROP TABLE IF EXISTS "employee_to_position" CASCADE;
 DROP TABLE IF EXISTS "product_categories" CASCADE;
 DROP TABLE IF EXISTS "products" CASCADE;
 DROP TABLE IF EXISTS "roles" CASCADE;
@@ -315,8 +316,8 @@ CREATE TABLE "payment_methods" (
     "payment_method_name" TEXT NOT NULL,
     "is_enabled" BOOLEAN NOT NULL,
     "is_revenue" BOOLEAN NOT NULL,
-    "show_on_payment_page" BOOLEAN NOT NULL,
-    "is_protected" BOOLEAN NOT NULL,
+    "show_on_payment_page" BOOLEAN NOT NULL DEFAULT true,
+    "is_protected" BOOLEAN NOT NULL DEFAULT false,
     "created_at" TIMESTAMPTZ(6) NOT NULL,
     "updated_at" TIMESTAMPTZ(6) NOT NULL,
 

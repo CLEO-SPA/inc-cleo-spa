@@ -123,6 +123,27 @@ const useEmployeeStore = create((set, get) => ({
     }
   },
 
+  fetchDropdownEmployees: async () => {
+    set({ isFetching: true, error: false, errorMessage: null });
+
+    try {
+      const response = await api.get('/em/dropdown');
+      set({
+        employees: response.data,
+        isFetching: false,
+        error: false,
+        errorMessage: null,
+      });
+    } catch (error) {
+      set({
+        employees: [],
+        isFetching: false,
+        error: true,
+        errorMessage: error.response?.data?.message || error.message || 'Failed to fetch employees',
+      });
+    }
+  },
+
   resetMessages: () => set({ error: null, success: null }),
   reset: () => set(getInitialState()),
 }));
