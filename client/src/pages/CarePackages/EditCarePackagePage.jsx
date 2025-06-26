@@ -55,6 +55,7 @@ const EditCarePackagePage = () => {
   const [originalData, setOriginalData] = useState(null);
   const [isInitialized, setIsInitialized] = useState(false);
   const [employeeError, setEmployeeError] = useState('');
+  const [packagePriceError, setPackagePriceError] = useState('');
 
   // form methods for employee selection
   const methods = useForm({
@@ -684,18 +685,59 @@ const EditCarePackagePage = () => {
                       <Input
                         type='number'
                         value={mainFormData.package_price || 0}
-                        onChange={(e) => updateMainField('package_price', parseFloat(e.target.value) || 0)}
-                        className='w-full pl-7 pr-2 py-1 border border-gray-200 rounded text-sm focus:outline-none focus:ring-2 focus:ring-gray-500 focus:border-transparent'
+                        onChange={(e) => {
+                          const value = e.target.value;
+
+                          if (value === '') {
+                            updateMainField('package_price', '');
+                            setPackagePriceError('');
+                          } else {
+                            const numValue = parseFloat(value);
+
+                            if (isNaN(numValue)) {
+                              setPackagePriceError('Please enter a valid number');
+                              return;
+                            }
+
+                            if (numValue < 0) {
+                              setPackagePriceError('Package price cannot be negative');
+                              return;
+                            }
+
+                            // valid price (0 or positive)
+                            setPackagePriceError('');
+                            updateMainField('package_price', numValue);
+                          }
+                        }}
+                        onBlur={(e) => {
+                          const value = e.target.value;
+                          if (value === '' || value === null || value === undefined) {
+                            updateMainField('package_price', 0);
+                            setPackagePriceError('');
+                          }
+                        }}
+                        className={`w-full pl-7 pr-2 py-1 border rounded text-sm focus:outline-none focus:ring-2 focus:border-transparent ${
+                          packagePriceError
+                            ? 'border-red-300 focus:ring-red-500'
+                            : 'border-gray-200 focus:ring-gray-500'
+                        }`}
                         placeholder='0.00'
                         min='0'
                         step='0.01'
                       />
                     </div>
                     <div className='flex justify-between text-xs mt-1'>
-                      <span className='text-gray-500'>Calculated: ${calculateTotalPrice().toFixed(2)}</span>
+                      {packagePriceError ? (
+                        <span className='text-red-600'>{packagePriceError}</span>
+                      ) : (
+                        <span className='text-gray-500'>Calculated: ${calculateTotalPrice().toFixed(2)}</span>
+                      )}
                       <button
                         type='button'
-                        onClick={() => updateMainField('package_price', calculateTotalPrice())}
+                        onClick={() => {
+                          updateMainField('package_price', calculateTotalPrice());
+                          setPackagePriceError('');
+                        }}
                         className='text-blue-600 hover:text-blue-800 underline'
                       >
                         Use Calculated

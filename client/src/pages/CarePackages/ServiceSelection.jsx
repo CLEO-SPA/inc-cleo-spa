@@ -18,6 +18,7 @@ const ServiceSelection = ({
   const [showServiceDropdown, setShowServiceDropdown] = useState(false);
   const [serviceSearch, setServiceSearch] = useState('');
   const [discountError, setDiscountError] = useState('');
+  const [priceError, setPriceError] = useState('');
 
   // filter service options based on search input
   const filteredServiceOptions = serviceOptions.filter(
@@ -76,7 +77,7 @@ const ServiceSelection = ({
     }
   };
 
-  // Always use the 6-column layout (edit mode layout)
+  // always use the 6-column layout (edit mode layout)
   const gridCols = 'md:grid-cols-6';
 
   return (
@@ -169,21 +170,56 @@ const ServiceSelection = ({
               type='number'
               value={serviceForm.price || ''}
               onChange={(e) => {
-                const newPrice = parseFloat(e.target.value) || 0;
-                onFieldUpdate('price', newPrice);
+                const value = e.target.value;
+
+                if (value === '') {
+                  onFieldUpdate('price', '');
+                  setPriceError('');
+                } else {
+                  const numValue = parseFloat(value);
+
+                  if (isNaN(numValue)) {
+                    setPriceError('Please enter a valid number');
+                    return;
+                  }
+
+                  if (numValue < 0) {
+                    setPriceError('Price cannot be negative');
+                    return;
+                  }
+
+                  // valid price (0 or positive)
+                  setPriceError('');
+                  onFieldUpdate('price', numValue);
+                }
               }}
-              className='w-full pl-7 pr-2 py-1 border border-gray-200 rounded text-sm focus:outline-none focus:ring-2 focus:ring-gray-500 focus:border-transparent'
+              onBlur={(e) => {
+                const value = e.target.value;
+                if (value === '' || value === null || value === undefined) {
+                  onFieldUpdate('price', 0);
+                  setPriceError('');
+                }
+              }}
+              className={`w-full pl-7 pr-2 py-1 border rounded text-sm focus:outline-none focus:ring-2 focus:border-transparent ${
+                priceError ? 'border-red-300 focus:ring-red-500' : 'border-gray-200 focus:ring-gray-500'
+              }`}
               min='0'
               step='0.01'
               placeholder='Enter custom price'
             />
           </div>
-          <div className='text-xs text-gray-500 mt-1'>
-            {serviceForm.price &&
-            serviceForm.originalPrice &&
-            parseFloat(serviceForm.price) !== parseFloat(serviceForm.originalPrice)
-              ? 'Using custom pricing'
-              : 'Using standard pricing'}
+          <div className='text-xs mt-1'>
+            {priceError ? (
+              <span className='text-red-600'>{priceError}</span>
+            ) : serviceForm.price !== undefined && serviceForm.price !== null && serviceForm.price !== '' ? (
+              serviceForm.originalPrice && parseFloat(serviceForm.price) !== parseFloat(serviceForm.originalPrice) ? (
+                <span className='text-gray-500'>Using custom pricing</span>
+              ) : (
+                <span className='text-gray-500'>Using standard pricing</span>
+              )
+            ) : (
+              <span className='text-gray-500'>Enter 0 or positive amount</span>
+            )}
           </div>
         </div>
 

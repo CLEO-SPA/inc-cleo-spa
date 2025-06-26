@@ -39,6 +39,7 @@ const CarePackageCreateForm = () => {
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [submitStatus, setSubmitStatus] = useState({ type: '', message: '' });
   const [employeeError, setEmployeeError] = useState('');
+  const [packagePriceError, setPackagePriceError] = useState('');
 
   const methods = useForm({
     defaultValues: {
@@ -225,9 +226,10 @@ const CarePackageCreateForm = () => {
         if (isNaN(quantity) || quantity <= 0) {
           throw new Error(`Service ${index + 1}: Invalid quantity (${service.quantity})`);
         }
-        const customPrice = parseFloat(service.price); // ORIGINAL custom price (before discount)
+        const customPrice = parseFloat(service.price);
+        // ensure custom price is not negative
         if (isNaN(customPrice) || customPrice < 0) {
-          throw new Error(`Service ${index + 1}: Invalid price (${service.price})`);
+          throw new Error(`Service ${index + 1}: Invalid price (${service.price}). Price must be 0 or positive.`);
         }
         let discountFactor;
         if (service.discount === undefined || service.discount === null || service.discount === '') {
@@ -244,7 +246,7 @@ const CarePackageCreateForm = () => {
           quantity: quantity,
           price: customPrice,
           discount: discountFactor,
-          finalPrice: customPrice, // final price before discount
+          finalPrice: customPrice,
         };
       });
 
@@ -259,17 +261,20 @@ const CarePackageCreateForm = () => {
         throw new Error('Creation date is required');
       }
 
-      // calculate package price
+      // calculate package price and ensure it's not negative
       const calculatedTotal = calculateTotalPrice();
       let finalPackagePrice = calculatedTotal;
 
       if (
         mainFormData.package_price &&
         mainFormData.package_price !== '' &&
-        !isNaN(parseFloat(mainFormData.package_price)) &&
-        parseFloat(mainFormData.package_price) !== calculatedTotal
+        !isNaN(parseFloat(mainFormData.package_price))
       ) {
-        finalPackagePrice = parseFloat(mainFormData.package_price);
+        const overridePrice = parseFloat(mainFormData.package_price);
+        if (overridePrice < 0) {
+          throw new Error('Package price cannot be negative');
+        }
+        finalPackagePrice = overridePrice;
       }
 
       const payload = {
@@ -466,20 +471,62 @@ const CarePackageCreateForm = () => {
                       <Input
                         type='number'
                         value={mainFormData.package_price || ''}
-                        onChange={(e) => updateMainField('package_price', e.target.value)}
-                        className='w-full pl-10 pr-3 py-2 border border-gray-200 rounded text-sm focus:outline-none focus:ring-2 focus:ring-gray-500 focus:border-transparent'
+                        onChange={(e) => {
+                          const value = e.target.value;
+
+                          if (value === '') {
+                            updateMainField('package_price', '');
+                            setPackagePriceError('');
+                          } else {
+                            const numValue = parseFloat(value);
+
+                            if (isNaN(numValue)) {
+                              setPackagePriceError('Please enter a valid number');
+                              return;
+                            }
+
+                            if (numValue < 0) {
+                              setPackagePriceError('Package price cannot be negative');
+                              return;
+                            }
+
+                            // valid price (0 or positive)
+                            setPackagePriceError('');
+                            updateMainField('package_price', value);
+                          }
+                        }}
+                        onBlur={(e) => {
+                          const value = e.target.value;
+                          if (value !== '' && (parseFloat(value) < 0 || isNaN(parseFloat(value)))) {
+                            updateMainField('package_price', '');
+                            setPackagePriceError('');
+                          }
+                        }}
+                        className={`w-full pl-10 pr-3 py-2 border rounded text-sm focus:outline-none focus:ring-2 focus:border-transparent ${
+                          packagePriceError
+                            ? 'border-red-300 focus:ring-red-500'
+                            : 'border-gray-200 focus:ring-gray-500'
+                        }`}
                         placeholder={calculateTotalPrice().toFixed(2)}
+                        min='0'
                         step='0.01'
                       />
                     </div>
-                    <div className='text-xs text-gray-500 mt-1'>
-                      {!mainFormData.package_price || mainFormData.package_price === ''
-                        ? `Will use calculated total: $${calculateTotalPrice().toFixed(2)}`
-                        : parseFloat(mainFormData.package_price) === calculateTotalPrice()
-                        ? 'Matches calculated total'
-                        : `Override: $${parseFloat(mainFormData.package_price || 0).toFixed(
-                            2
-                          )} (vs calculated: $${calculateTotalPrice().toFixed(2)})`}
+                    <div className='text-xs mt-1'>
+                      {packagePriceError ? (
+                        <span className='text-red-600'>{packagePriceError}</span>
+                      ) : !mainFormData.package_price || mainFormData.package_price === '' ? (
+                        <span className='text-gray-500'>
+                          Will use calculated total: ${calculateTotalPrice().toFixed(2)}
+                        </span>
+                      ) : parseFloat(mainFormData.package_price) === calculateTotalPrice() ? (
+                        <span className='text-gray-500'>Matches calculated total</span>
+                      ) : (
+                        <span className='text-gray-500'>
+                          Override: ${parseFloat(mainFormData.package_price || 0).toFixed(2)}
+                          (vs calculated: ${calculateTotalPrice().toFixed(2)})
+                        </span>
+                      )}
                     </div>
                   </div>
 
