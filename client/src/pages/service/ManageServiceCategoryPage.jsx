@@ -7,6 +7,7 @@ import { SidebarInset, SidebarProvider } from '@/components/ui/sidebar';
 import CreateCategoryInlineForm from '@/components/category/CreateCategoryInlineForm';
 import CategoryTableEditable from '@/components/category/CategoryTableEditable';
 import ReorderCategoryPanel from '@/components/category/ReorderCategoryPanel';
+import useAuth from '@/hooks/useAuth';
 
 export default function ManageServiceCategoriesPage() {
   const [allCategories, setAllCategories] = useState([]);
@@ -14,6 +15,10 @@ export default function ManageServiceCategoriesPage() {
   const [loading, setLoading] = useState(true);
   const [reorderLoading, setReorderLoading] = useState(false);
   const [showReorderPanel, setShowReorderPanel] = useState(false);
+
+  // --- Role-based access ---
+  const { user } = useAuth();
+  const canCreate = user?.role === 'super_admin' || user?.role === 'data_admin';
 
   // Pagination + Search
   const [searchQuery, setSearchQuery] = useState('');
@@ -68,6 +73,7 @@ export default function ManageServiceCategoriesPage() {
           <AppSidebar />
           <SidebarInset>
             <div className='flex flex-col p-6 gap-6'>
+              {canCreate && (
               <div className='flex items-center space-x-4'>
                 <CreateCategoryInlineForm apiEndpoint='/service/create-service-cat' onCreate={fetchCategories} />
                 <Button
@@ -86,6 +92,7 @@ export default function ManageServiceCategoriesPage() {
                   {showReorderPanel ? 'Back to List' : 'Reorder Categories'}
                 </Button>
               </div>
+              )}
 
               {showReorderPanel ? (
                 reorderLoading ? (

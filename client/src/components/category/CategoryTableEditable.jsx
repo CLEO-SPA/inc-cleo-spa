@@ -3,6 +3,7 @@ import { Input } from '@/components/ui/input';
 import { Button } from '@/components/ui/button';
 import { FilePenLine, Check, X, ChevronsLeft, ChevronLeft, ChevronRight, ChevronsRight } from 'lucide-react';
 import api from '@/services/api';
+import useAuth from '@/hooks/useAuth';
 
 export default function CategoryTableEditable({ 
   data = [],
@@ -22,6 +23,10 @@ export default function CategoryTableEditable({
   const [saveError, setSaveError] = useState('');
   const [editingId, setEditingId] = useState(null);
   const [editedName, setEditedName] = useState('');
+  
+  // --- Role-based access ---
+  const { user } = useAuth();
+  const canEdit = user?.role === 'super_admin' || user?.role === 'data_admin';
 
   const startEditing = (cat) => {
     setEditingId(cat.id);
@@ -88,7 +93,9 @@ export default function CategoryTableEditable({
             <th className='px-4 py-2 border border-gray-300'>ID</th>
             <th className='px-4 py-2 border border-gray-300'>Name</th>
             <th className='px-4 py-2 border border-gray-300'># of Items</th>
+            {canEdit && (
             <th className='px-4 py-2 border border-gray-300'>Actions</th>
+            )}
           </tr>
         </thead>
         <tbody>
@@ -118,6 +125,7 @@ export default function CategoryTableEditable({
                   )}
                 </td>
                 <td className='px-4 py-2 border border-gray-300'>{cat.total_services || cat.total_products || 0}</td>
+                {canEdit && (
                 <td className='px-4 py-2 border border-gray-300 space-x-2'>
                   {editingId === cat.id ? (
                     <>
@@ -147,6 +155,7 @@ export default function CategoryTableEditable({
                     </Button>
                   )}
                 </td>
+                )}
               </tr>
             ))
           ) : (
