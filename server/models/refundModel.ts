@@ -320,17 +320,23 @@ const processFullRefundTransaction = async (params: {
       return sum + ((service.price - service.discount) * service.quantity);
     }, 0).toFixed(2));
 
-    // 2. Create refund transaction with "REFUND" status
+    // 2. Get next ID for sale_transactions and create refund transaction
+    const { rows: saleTransactionIdRows } = await client.query(
+      `SELECT COALESCE(MAX(id), 0) + 1 AS next_id FROM sale_transactions`
+    );
+    const saleTransactionNextId = saleTransactionIdRows[0].next_id;
+
     const { rows: txRows } = await client.query(
       `INSERT INTO sale_transactions (
-        customer_type, member_id, total_paid_amount, 
+        id, customer_type, member_id, total_paid_amount, 
         outstanding_total_payment_amount, sale_transaction_status,
         remarks, handled_by, created_by, created_at, updated_at
       ) VALUES (
-        'MEMBER', $1, $2, 0, 'REFUND',
-        $3, $4, $5, now(), now()
+        $1, 'MEMBER', $2, $3, 0, 'REFUND',
+        $4, $5, $6, now(), now()
       ) RETURNING id`,
       [
+        saleTransactionNextId,
         params.memberId,
         (-totalRefund).toFixed(2),
         params.refundRemarks,
@@ -359,13 +365,13 @@ const processFullRefundTransaction = async (params: {
         custom_unit_price: service.price
       };
 
-      // Get next ID for sale_transaction_items
+      // Get next ID for sale_transaction_items (manual ID generation)
       const { rows: itemIdRows } = await client.query(
         `SELECT COALESCE(MAX(id), 0) + 1 AS next_id FROM sale_transaction_items`
       );
       const itemNextId = itemIdRows[0].next_id;
 
-      // Insert transaction item with custom_unit_price
+      // Insert transaction item with explicit ID
       await client.query(
         `INSERT INTO sale_transaction_items (
           id, sale_transactions_id, service_name, member_care_package_id,
@@ -386,18 +392,24 @@ const processFullRefundTransaction = async (params: {
         ]
       );
 
-      // Insert transaction log with specific timestamp format
+      // Get next ID for member_care_package_transaction_logs and insert transaction log
+      const { rows: logIdRows } = await client.query(
+        `SELECT COALESCE(MAX(id), 0) + 1 AS next_id FROM member_care_package_transaction_logs`
+      );
+      const logNextId = logIdRows[0].next_id;
+
       await client.query(
         `INSERT INTO member_care_package_transaction_logs (
-          type, description, transaction_amount,
+          id, type, description, transaction_amount,
           amount_changed, member_care_package_details_id,
           employee_id, service_id, transaction_date, created_at
         ) VALUES (
-          'REFUND', $1, $2, $3, $4, $5, $6, 
+          $1, 'REFUND', $2, $3, $4, $5, $6, $7, 
           to_char(now(), 'YYYY-MM-DD HH24:MI:SS')::timestamp, 
           to_char(now(), 'YYYY-MM-DD HH24:MI:SS')::timestamp
         )`,
         [
+          logNextId,
           `Refunded ${service.quantity} session(s) of ${service.service_name}`,
           -amount,
           amount,
@@ -422,7 +434,7 @@ const processFullRefundTransaction = async (params: {
       );
     }
 
-    // 4. Insert refund payment with all required fields
+    // 4. Get next ID for payment_to_sale_transactions and insert refund payment
     const { rows: paymentIdRows } = await client.query(
       `SELECT COALESCE(MAX(id), 0) + 1 AS next_id FROM payment_to_sale_transactions`
     );

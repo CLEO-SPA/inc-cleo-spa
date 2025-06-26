@@ -124,40 +124,45 @@ const verifyRefundableServices = async (req: Request, res: Response, next: NextF
 
   // Controller: Handle full refund of a Member Care Package
   const processFullRefund = async (req: Request, res: Response, next: NextFunction) => {
-    try {
-      const { mcpId, refundedBy, refundRemarks } = req.body;
+  try {
+    const { mcpId, refundRemarks } = req.body;
+    const refundedBy = req.session.user_id; // From session
 
-      const reqWithExtras = req as Request & {
-        mcpData: { id: number; member_id: number; status_id: number };
-        remainingServices: {
-          id: number;
-          service_id: number;
-          service_name: string;
-          quantity: number;
-          price: number;
-          discount: number;
-        }[];
-      };
-
-      const result = await model.processFullRefundTransaction({
-        mcpId,
-        memberId: reqWithExtras.mcpData.member_id,
-        remainingServices: reqWithExtras.remainingServices,
-        refundedBy,
-        refundRemarks
-      });
-
-      res.status(201).json({
-        message: 'Full Member Care Package refund processed successfully.',
-        refundTransactionId: result.refundTransactionId,
-        totalRefundAmount: result.totalRefund,
-        refundedServices: result.refundedServices
-      });
-    } catch (error) {
-      console.error('processFullRefund error:', error);
-      next(error);
+    if (!refundedBy) {
+      return res.status(401).json({ error: 'Authentication required' });
     }
-  };
+
+    const reqWithExtras = req as Request & {
+      mcpData: { id: number; member_id: number; status_id: number };
+      remainingServices: Array<{
+        id: number;
+        service_id: number;
+        service_name: string;
+        quantity: number;
+        price: number;
+        discount: number;
+      }>;
+    };
+
+    const result = await model.processFullRefundTransaction({
+      mcpId,
+      memberId: reqWithExtras.mcpData.member_id,
+      remainingServices: reqWithExtras.remainingServices,
+      refundedBy: Number(refundedBy),
+      refundRemarks
+    });
+
+    res.status(201).json({
+      message: 'Refund processed successfully',
+      refundTransactionId: result.refundTransactionId,
+      totalRefundAmount: result.totalRefund,
+      refundedServices: result.refundedServices
+    });
+  } catch (error) {
+    console.error('Refund processing error:', error);
+    next(error);
+  }
+};
 
 const fetchMCPStatus = async (
   req: Request, res: Response, next: NextFunction
@@ -283,7 +288,7 @@ export default {
   processRefundService,
   validateMCPExists,
   verifyRefundableServices: verifyRefundableServices as RequestHandler,
-  processFullRefund,
+  processFullRefund: processFullRefund as RequestHandler,
   fetchMCPStatus: fetchMCPStatus as RequestHandler,
   searchMembers: searchMembers as RequestHandler,
   getMemberCarePackages: getMemberCarePackages as RequestHandler,
