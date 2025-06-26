@@ -1,10 +1,42 @@
 import { useParams, useNavigate } from 'react-router-dom';
 import { useEffect, useState } from 'react';
-import { ArrowLeft, AlertCircle, CheckCircle, DollarSign, Package, FileText, Clock } from 'lucide-react';
+import { ArrowLeft, AlertCircle, CheckCircle, DollarSign, Package, FileText, Clock, Calendar } from 'lucide-react';
 import api from '@/services/refundService';
 import { AppSidebar } from '@/components/app-sidebar';
 import { SiteHeader } from '@/components/site-header';
 import { SidebarInset, SidebarProvider } from '@/components/ui/sidebar';
+
+// Simple DateTimePicker component using native HTML inputs
+const DateTimePicker = ({ value, onChange, className }) => {
+  const formatDateTimeLocal = (date) => {
+    if (!date) return '';
+    const d = new Date(date);
+    const year = d.getFullYear();
+    const month = String(d.getMonth() + 1).padStart(2, '0');
+    const day = String(d.getDate()).padStart(2, '0');
+    const hours = String(d.getHours()).padStart(2, '0');
+    const minutes = String(d.getMinutes()).padStart(2, '0');
+    return `${year}-${month}-${day}T${hours}:${minutes}`;
+  };
+
+  const handleChange = (e) => {
+    const dateTimeValue = e.target.value;
+    if (dateTimeValue) {
+      onChange(new Date(dateTimeValue));
+    } else {
+      onChange(null);
+    }
+  };
+
+  return (
+    <input
+      type="datetime-local"
+      value={formatDateTimeLocal(value)}
+      onChange={handleChange}
+      className={className}
+    />
+  );
+};
 
 const MCPDetail = () => {
   const { packageId } = useParams();
@@ -13,6 +45,8 @@ const MCPDetail = () => {
   const [isLoading, setIsLoading] = useState(true);
   const [isProcessing, setIsProcessing] = useState(false);
   const [remarks, setRemarks] = useState('');
+  const [refundDate, setRefundDate] = useState(null);
+  const [useCustomDate, setUseCustomDate] = useState(false);
   const [error, setError] = useState(null);
   const [successMessage, setSuccessMessage] = useState('');
 
@@ -43,12 +77,21 @@ const MCPDetail = () => {
     setSuccessMessage('');
 
     try {
-      await api.processRefund(packageId, remarks);
+      await api.processRefund(
+        packageId, 
+        remarks,
+        useCustomDate ? refundDate : null
+      );
       const updatedData = await api.getPackageDetails(packageId);
       setPackageData(updatedData);
       setRemarks('');
+      setRefundDate(null);
+      setUseCustomDate(false);
       setSuccessMessage('Refund has been processed successfully');
-      setTimeout(() => setSuccessMessage(''), 5000);
+      setTimeout(() => {
+        setSuccessMessage('');
+        navigate(-1);
+      }, 2000);
     } catch (err) {
       console.error('Refund processing failed:', err);
       setError(err.response?.data?.message || 'Failed to process refund. Please try again.');
@@ -202,7 +245,7 @@ const MCPDetail = () => {
                     <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-6 sticky top-8">
                       <div className="flex items-center mb-4">
                         <FileText className="w-5 h-5 text-blue-600 mr-2" />
-                        <h2 className="text-xl font-semibold text-gray-900">Refund Remarks</h2>
+                        <h2 className="text-xl font-semibold text-gray-900">Refund Details</h2>
                       </div>
                       <div className="space-y-4">
                         <div>
@@ -220,6 +263,37 @@ const MCPDetail = () => {
                           <p className="text-xs text-gray-500 mt-1">
                             Provide clear documentation for audit purposes
                           </p>
+                        </div>
+
+                        <div className="space-y-2">
+                          <div className="flex items-center">
+                            <input
+                              type="checkbox"
+                              id="useCustomDate"
+                              checked={useCustomDate}
+                              onChange={(e) => setUseCustomDate(e.target.checked)}
+                              className="h-4 w-4 text-blue-600 focus:ring-blue-500 border-gray-300 rounded"
+                            />
+                            <label htmlFor="useCustomDate" className="ml-2 block text-sm text-gray-700">
+                              Set custom refund date
+                            </label>
+                          </div>
+
+                          {useCustomDate && (
+                            <div className="mt-2">
+                              <label htmlFor="refundDate" className="block text-sm font-medium text-gray-700 mb-1">
+                                Refund Date & Time
+                              </label>
+                              <DateTimePicker
+                                value={refundDate}
+                                onChange={setRefundDate}
+                                className="w-full p-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                              />
+                              <p className="text-xs text-gray-500 mt-1">
+                                If not set, current date and time will be used
+                              </p>
+                            </div>
+                          )}
                         </div>
                       </div>
                     </div>

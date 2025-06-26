@@ -31,13 +31,13 @@ export default {
     return api.get(url).then(response => response.data);
   },
 
-  processRefund: (packageId, remarks) => {
+  processRefund: (packageId, remarks, refundDate) => {
     return api.post('api/refund/mcp', {
       mcpId: packageId,
-      refundRemarks: remarks
-      // No need for user ID anymore!
+      refundRemarks: remarks,
+      refundDate: refundDate ? refundDate.toISOString() : null
     }, {
-      withCredentials: true // Ensures cookies are sent
+      withCredentials: true
     }).catch(error => {
       console.error('[REFUND FAILED]', error.response?.data || error.message);
       throw error;

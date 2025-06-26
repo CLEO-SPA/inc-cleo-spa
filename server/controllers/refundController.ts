@@ -123,13 +123,22 @@ const verifyRefundableServices = async (req: Request, res: Response, next: NextF
 };
 
   // Controller: Handle full refund of a Member Care Package
-  const processFullRefund = async (req: Request, res: Response, next: NextFunction) => {
+const processFullRefund = async (req: Request, res: Response, next: NextFunction) => {
   try {
-    const { mcpId, refundRemarks } = req.body;
-    const refundedBy = req.session.user_id; // From session
+    const { mcpId, refundRemarks, refundDate } = req.body;
+    const refundedBy = req.session.user_id;
 
     if (!refundedBy) {
       return res.status(401).json({ error: 'Authentication required' });
+    }
+
+    // Validate refundDate if provided
+    let processedRefundDate = new Date();
+    if (refundDate) {
+      processedRefundDate = new Date(refundDate);
+      if (isNaN(processedRefundDate.getTime())) {
+        return res.status(400).json({ error: 'Invalid refund date format' });
+      }
     }
 
     const reqWithExtras = req as Request & {
@@ -149,14 +158,16 @@ const verifyRefundableServices = async (req: Request, res: Response, next: NextF
       memberId: reqWithExtras.mcpData.member_id,
       remainingServices: reqWithExtras.remainingServices,
       refundedBy: Number(refundedBy),
-      refundRemarks
+      refundRemarks,
+      refundDate: processedRefundDate
     });
 
     res.status(201).json({
       message: 'Refund processed successfully',
       refundTransactionId: result.refundTransactionId,
       totalRefundAmount: result.totalRefund,
-      refundedServices: result.refundedServices
+      refundedServices: result.refundedServices,
+      refundDate: processedRefundDate.toISOString()
     });
   } catch (error) {
     console.error('Refund processing error:', error);

@@ -310,17 +310,22 @@ const processFullRefundTransaction = async (params: {
   }>;
   refundedBy: number;
   refundRemarks?: string;
+  refundDate?: Date;
 }) => {
   const client = await pool().connect();
   try {
     await client.query('BEGIN');
 
-    // 1. Calculate total refund (rounded to 2 decimal places)
+    // Format the refund date (use current date if not provided)
+    const refundDate = params.refundDate || new Date();
+    const formattedRefundDate = refundDate.toISOString();
+
+    // Calculate total refund
     const totalRefund = parseFloat(params.remainingServices.reduce((sum, service) => {
       return sum + ((service.price - service.discount) * service.quantity);
     }, 0).toFixed(2));
 
-    // 2. Get next ID for sale_transactions and create refund transaction
+    // Create refund transaction
     const { rows: saleTransactionIdRows } = await client.query(
       `SELECT COALESCE(MAX(id), 0) + 1 AS next_id FROM sale_transactions`
     );
@@ -333,7 +338,7 @@ const processFullRefundTransaction = async (params: {
         remarks, handled_by, created_by, created_at, updated_at
       ) VALUES (
         $1, 'MEMBER', $2, $3, 0, 'REFUND',
-        $4, $5, $6, now(), now()
+        $4, $5, $6, $7, $7
       ) RETURNING id`,
       [
         saleTransactionNextId,
@@ -341,17 +346,18 @@ const processFullRefundTransaction = async (params: {
         (-totalRefund).toFixed(2),
         params.refundRemarks,
         params.refundedBy,
-        params.refundedBy  // created_by
+        params.refundedBy,
+        formattedRefundDate
       ]
     );
     const refundTxId = txRows[0].id;
 
-    // 3. Process each service with custom_unit_price
+    // Process each service
     const refundedServices = [];
     for (const service of params.remainingServices) {
       const amount = parseFloat(((service.price - service.discount) * service.quantity).toFixed(2));
 
-      // Get original purchase details for this service
+      // Get original purchase details
       const { rows: originalPurchaseRows } = await client.query(
         `SELECT original_unit_price, discount_percentage, custom_unit_price
          FROM sale_transaction_items 
@@ -365,19 +371,18 @@ const processFullRefundTransaction = async (params: {
         custom_unit_price: service.price
       };
 
-      // Get next ID for sale_transaction_items (manual ID generation)
+      // Insert transaction item
       const { rows: itemIdRows } = await client.query(
         `SELECT COALESCE(MAX(id), 0) + 1 AS next_id FROM sale_transaction_items`
       );
       const itemNextId = itemIdRows[0].next_id;
 
-      // Insert transaction item with explicit ID
       await client.query(
         `INSERT INTO sale_transaction_items (
-          id, sale_transactions_id, service_name, member_care_package_id,
-          original_unit_price, custom_unit_price, discount_percentage, 
-          quantity, amount, item_type, remarks
-        ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, 'MEMBER_CARE_PACKAGE', $10)`,
+    id, sale_transactions_id, service_name, member_care_package_id,
+    original_unit_price, custom_unit_price, discount_percentage, 
+    quantity, amount, item_type, remarks
+  ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, 'MEMBER_CARE_PACKAGE', $10)`,
         [
           itemNextId,
           refundTxId,
@@ -392,7 +397,7 @@ const processFullRefundTransaction = async (params: {
         ]
       );
 
-      // Get next ID for member_care_package_transaction_logs and insert transaction log
+      // Insert transaction log
       const { rows: logIdRows } = await client.query(
         `SELECT COALESCE(MAX(id), 0) + 1 AS next_id FROM member_care_package_transaction_logs`
       );
@@ -404,9 +409,7 @@ const processFullRefundTransaction = async (params: {
           amount_changed, member_care_package_details_id,
           employee_id, service_id, transaction_date, created_at
         ) VALUES (
-          $1, 'REFUND', $2, $3, $4, $5, $6, $7, 
-          to_char(now(), 'YYYY-MM-DD HH24:MI:SS')::timestamp, 
-          to_char(now(), 'YYYY-MM-DD HH24:MI:SS')::timestamp
+          $1, 'REFUND', $2, $3, $4, $5, $6, $7, $8, $8
         )`,
         [
           logNextId,
@@ -415,7 +418,8 @@ const processFullRefundTransaction = async (params: {
           amount,
           service.id,
           params.refundedBy,
-          service.service_id
+          service.service_id,
+          formattedRefundDate
         ]
       );
 
@@ -434,7 +438,7 @@ const processFullRefundTransaction = async (params: {
       );
     }
 
-    // 4. Get next ID for payment_to_sale_transactions and insert refund payment
+    // Create refund payment
     const { rows: paymentIdRows } = await client.query(
       `SELECT COALESCE(MAX(id), 0) + 1 AS next_id FROM payment_to_sale_transactions`
     );
@@ -444,19 +448,20 @@ const processFullRefundTransaction = async (params: {
       `INSERT INTO payment_to_sale_transactions (
         id, payment_method_id, sale_transaction_id, amount,
         remarks, created_by, updated_by, created_at, updated_at
-      ) VALUES ($1, $2, $3, $4, $5, $6, $7, now(), now())`,
+      ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $8)`,
       [
         paymentNextId,
-        14, // Payment method ID 14 for refunds
+        14,
         refundTxId,
         -totalRefund,
         params.refundRemarks || 'Refund processed',
         params.refundedBy,
-        params.refundedBy
+        params.refundedBy,
+        formattedRefundDate
       ]
     );
 
-    // 5. Update MCP status
+    // Update MCP status
     await client.query(
       `UPDATE member_care_packages
        SET status_id = (SELECT id FROM statuses WHERE status_name = 'Refunded')
@@ -469,18 +474,13 @@ const processFullRefundTransaction = async (params: {
     return {
       refundTransactionId: refundTxId,
       totalRefund,
-      refundedServices
+      refundedServices,
+      refundDate: refundDate.toISOString()
     };
 
   } catch (error) {
     await client.query('ROLLBACK');
-    console.error('Refund processing failed:', {
-      error,
-      mcpId: params.mcpId,
-      memberId: params.memberId,
-      refundedBy: params.refundedBy,
-      timestamp: new Date().toISOString()
-    });
+    console.error('Refund processing failed:', error);
     throw error;
   } finally {
     client.release();
