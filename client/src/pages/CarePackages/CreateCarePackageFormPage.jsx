@@ -237,10 +237,15 @@ const CarePackageCreateForm = () => {
         if (isNaN(quantity) || quantity <= 0) {
           throw new Error(`Service ${index + 1}: Invalid quantity (${service.quantity})`);
         }
-        const customPrice = parseFloat(service.price);
+        const price = parseFloat(service.price);
         // ensure custom price is not negative
-        if (isNaN(customPrice) || customPrice < 0) {
+        if (isNaN(price) || price < 0) {
           throw new Error(`Service ${index + 1}: Invalid price (${service.price}). Price must be 0 or positive.`);
+        }
+        const finalPrice = parseFloat(service.finalPrice);
+        // ensure custom price is not negative
+        if (isNaN(finalPrice) || price < 0) {
+          throw new Error(`Service ${index + 1}: Invalid price (${service.finalPrice}). Price must be 0 or positive.`);
         }
         let discountFactor;
         if (service.discount === undefined || service.discount === null || service.discount === '') {
@@ -255,9 +260,9 @@ const CarePackageCreateForm = () => {
           id: service.id.toString(),
           name: service.name,
           quantity: quantity,
-          price: customPrice,
+          price: price,
           discount: discountFactor,
-          finalPrice: customPrice,
+          finalPrice: finalPrice,
         };
       });
 
