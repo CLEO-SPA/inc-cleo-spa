@@ -59,6 +59,8 @@ const DataSeedingPage = () => {
     seedCurrentSet,
     addRow,
     addColumn,
+    deleteRow,
+    deleteColumn,
     deleteTableDataFile,
     copyTableDataFile,
   } = useSeedDataStore();
@@ -498,6 +500,32 @@ const DataSeedingPage = () => {
                           </Button>
                         </TooltipTrigger>
                         <TooltipContent side='bottom'>Add Column to {activeTableForDisplay}</TooltipContent>
+                      </Tooltip>
+                      <Tooltip>
+                        <TooltipTrigger asChild>
+                          <Button
+                            variant='outline'
+                            onClick={deleteRow}
+                            disabled={isLoading || !activeTableForDisplay}
+                            className='flex items-center gap-2'
+                          >
+                            <Trash2 className='h-4 w-4' /> Delete Row
+                          </Button>
+                        </TooltipTrigger>
+                        <TooltipContent side='bottom'>Delete Last Row from {activeTableForDisplay}</TooltipContent>
+                      </Tooltip>
+                      <Tooltip>
+                        <TooltipTrigger asChild>
+                          <Button
+                            variant='outline'
+                            onClick={deleteColumn}
+                            disabled={isLoading || !activeTableForDisplay}
+                            className='flex items-center gap-2'
+                          >
+                            <Trash2 className='h-4 w-4' /> Delete Column
+                          </Button>
+                        </TooltipTrigger>
+                        <TooltipContent side='bottom'>Delete Last Column from {activeTableForDisplay}</TooltipContent>
                       </Tooltip>
                       <Tooltip>
                         <TooltipTrigger asChild>
