@@ -243,6 +243,11 @@ export default function ReorderService() {
                         </div>
                       ) : (
                         <div className="space-y-2">
+                          {services.length === 0 && (
+                        <div className="flex items-center gap-3 p-2 bg-white border rounded cursor-move hover:bg-gray-50 justify-center">
+                          <span className="text-sm text-gray-500">No services found in this category.</span>
+                        </div>
+                      )}
                           {services.map((service, serviceIndex) => (
                             <div
                               key={service.service_id}

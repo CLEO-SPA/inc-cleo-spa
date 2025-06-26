@@ -399,7 +399,7 @@ export default function ManageService() {
                 {/* Reset Button */}
                 <Button onClick={() => handleReset()} className="rounded-xl">Clear</Button>
                 {/* View all details */}
-                <Button onClick={handleViewAllDetails} className="rounded-xl">View All Details</Button>
+                <Button onClick={handleViewAllDetails} className="rounded-xl">{expandedRows.length === services.length ? 'Hide' : 'View'} All Details</Button>
               </div>
               <div className="p-4 h-[60vh] flex flex-col rounded-xl bg-muted/50">
                 <div className="overflow-y-auto flex-1">
