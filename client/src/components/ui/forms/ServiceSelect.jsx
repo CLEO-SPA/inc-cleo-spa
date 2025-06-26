@@ -10,7 +10,7 @@ import {
 import { Label } from "@/components/ui/label";
 import { Input } from "@/components/ui/input";
 import useServiceStore from "@/stores/useServiceStore";
-import { cn } from "@/lib/utils"; 
+import { cn } from "@/lib/utils";
 
 export function ServiceSelect({
   name = "service_id",
@@ -154,7 +154,7 @@ export function ServiceSelect({
                       filteredServices.map((svc) => (
                         <SelectItem key={svc.id} value={svc.id.toString()}>
                           <div className="flex items-center justify-between w-full">
-                            <span>{svc.service_name}</span>
+                            <span>{svc.service_name} (${svc.service_price})</span>
                             {isServiceDetailsLoading(svc.id) && (
                               <span className="text-xs text-gray-500 ml-2">Loading...</span>
                             )}

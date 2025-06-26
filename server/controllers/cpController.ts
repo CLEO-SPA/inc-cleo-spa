@@ -11,8 +11,6 @@ const getAllCarePackages = async (req: Request, res: Response, next: NextFunctio
   const page = parseInt(req.query.page as string);
   const searchTerm = req.query.searchTerm as string;
 
-  // console.log(`\n${startDate_utc} || ${endDate_utc} \n`);
-
   if (limit <= 0) {
     res.status(400).json({ error: 'Limit must be a positive integer.' });
     return;
@@ -20,6 +18,20 @@ const getAllCarePackages = async (req: Request, res: Response, next: NextFunctio
   if (page && (isNaN(page) || page <= 0)) {
     res.status(400).json({ error: 'Page must be a positive integer.' });
     return;
+  }
+
+  if (afterCursor && !decodeCursor(afterCursor)) {
+    res.status(400).json({ error: 'Invalid "after" cursor.' });
+    return;
+  }
+
+  if (beforeCursor && !decodeCursor(beforeCursor)) {
+    res.status(400).json({ error: 'Invalid "before" cursor.' });
+    return;
+  }
+
+  if (page && (afterCursor || beforeCursor)) {
+    console.warn('Both page and cursor parameters provided. Prioritizing page.');
   }
 
   let after: CursorPayload | null = null;
@@ -63,6 +75,28 @@ const getAllCarePackages = async (req: Request, res: Response, next: NextFunctio
   }
 };
 
+const getCarePackagesForDropDown = async (req: Request, res: Response, next: NextFunction): Promise<void> => {
+  try {
+    const results = await model.getCarePackagesForDropdown();
+
+    res.status(200).json(results);
+  } catch (error) {
+    console.error('Error in CarePackageController.getAllCarePackagesV2', error);
+    next(error);
+  }
+};
+
+const getCarePackagePurchaseCount = async (req: Request, res: Response, next: NextFunction): Promise<void> => {
+  try {
+    const results = await model.getCarePackagePurchaseCount();
+
+    res.status(200).json(results);
+  } catch (error) {
+    console.error('Error in CarePackageController.getCarePackagePurchaseCount', error);
+    next(error);
+  }
+};
+
 const getCarePackageById = async (req: Request, res: Response, next: NextFunction): Promise<void> => {
   try {
     const id = req.params.id;
@@ -77,6 +111,41 @@ const getCarePackageById = async (req: Request, res: Response, next: NextFunctio
     res.status(200).json(results);
   } catch (error) {
     console.error('Error getting carePackage By Id', error);
+    next(error);
+  }
+};
+
+const checkPackageNameUniqueness = async (req: Request, res: Response, next: NextFunction): Promise<void> => {
+  try {
+    const { package_name, care_package_id } = req.body;
+
+    if (!package_name || typeof package_name !== 'string') {
+      res.status(400).json({ message: 'Package name is required' });
+      return;
+    }
+
+    const trimmedName = package_name.trim();
+    if (trimmedName === '') {
+      res.status(400).json({ message: 'Package name cannot be empty' });
+      return;
+    }
+
+    // for updates, exclude the current package ID
+    const excludeId = care_package_id || req.params.id;
+    
+    const nameExists = await model.checkPackageNameExists(trimmedName, excludeId);
+    
+    if (nameExists) {
+      res.status(400).json({ 
+        message: `A care package with the name "${trimmedName}" already exists. Please choose a different name.` 
+      });
+      return;
+    }
+
+    // if validation passes, continue to the main controller
+    next();
+  } catch (error) {
+    console.error('Error checking package name uniqueness:', error);
     next(error);
   }
 };
@@ -204,6 +273,42 @@ const updateCarePackageById = async (req: Request, res: Response, next: NextFunc
   }
 };
 
+const updateCarePackageStatus = async (req: Request, res: Response, next: NextFunction): Promise<void> => {
+  try {
+    const { care_package_id, status, employee_id } = req.body;
+
+    console.log(req.body);
+
+    // validate required fields
+    if (!care_package_id) {
+      res.status(400).json({ message: 'Care package ID is required' });
+      return;
+    }
+
+    if (!status) {
+      res.status(400).json({ message: 'Status is required' });
+      return;
+    }
+
+    if (status !== 'ENABLED' && status !== 'DISABLED') {
+      res.status(400).json({ message: 'Invalid Status' });
+      return;
+    }
+
+    const results = await model.updateCarePackageStatusById(
+      care_package_id,
+      status,
+      employee_id || req.session.user_id,
+      new Date().toISOString()
+    );
+
+    res.status(200).json(results);
+  } catch (error) {
+    console.error('Error updating care package status:', error);
+    next(error);
+  }
+};
+
 const deleteCarePackageById = async (req: Request, res: Response, next: NextFunction): Promise<void> => {
   try {
     const { id } = req.params;
@@ -306,7 +411,7 @@ const emulateCarePackage = async (req: Request, res: Response, next: NextFunctio
     }
 
     const isValidService = services.every(
-      (s: any) =>
+      (s: { id: string; name: string; quantity: number; price: number; discount: number }) =>
         s &&
         typeof s.id === 'string' &&
         typeof s.name === 'string' &&
@@ -348,9 +453,13 @@ const emulateCarePackage = async (req: Request, res: Response, next: NextFunctio
 
 export default {
   getAllCarePackages,
+  getCarePackagesForDropDown,
   getCarePackageById,
+  getCarePackagePurchaseCount,
   createCarePackage,
   updateCarePackageById,
+  updateCarePackageStatus,
   emulateCarePackage,
   deleteCarePackageById,
+  checkPackageNameUniqueness,
 };

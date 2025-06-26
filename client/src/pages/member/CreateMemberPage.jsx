@@ -28,7 +28,7 @@ const CreateMembersPage = () => {
   const [showSuccessDialog, setShowSuccessDialog] = useState(false);
   const [createdMember, setCreatedMember] = useState(null);
   const navigate = useNavigate();
-  
+
   // Use only one useForm instance
   const methods = useForm({
     defaultValues: {
@@ -98,16 +98,16 @@ const CreateMembersPage = () => {
               {/* Header Section */}
               <div className="flex items-center gap-3 mb-6">
                 <Link to="/member">
-                <Button variant="ghost" size="sm" className="p-2">
-                  <ArrowLeft className="h-4 w-4" />
-                </Button>
+                  <Button variant="ghost" size="sm" className="p-2">
+                    <ArrowLeft className="h-4 w-4" />
+                  </Button>
                 </Link>
                 <div>
                   <h1 className="text-2xl font-semibold text-gray-900">Create New Member</h1>
                   <p className="text-sm text-gray-600 mt-1">Add member details and information</p>
                 </div>
               </div>
-              
+
               {/* Form Section */}
               <FormProvider {...methods}>
                 <form onSubmit={handleSubmit(onSubmit)} className="container mx-auto p-4 space-y-6">
@@ -122,10 +122,10 @@ const CreateMembersPage = () => {
                           <Label htmlFor="name" className="text-sm font-medium text-gray-700">
                             Full Name *
                           </Label>
-                          <Input 
+                          <Input
                             id="name"
-                            placeholder="Enter full name" 
-                            {...register("name", { required: "Name is required" })} 
+                            placeholder="Enter full name"
+                            {...register("name", { required: "Name is required" })}
                             className={errors.name ? "border-red-500" : ""}
                           />
                           {errors.name && (
@@ -137,17 +137,17 @@ const CreateMembersPage = () => {
                           <Label htmlFor="email" className="text-sm font-medium text-gray-700">
                             Email Address *
                           </Label>
-                          <Input 
+                          <Input
                             id="email"
-                            placeholder="Enter email address" 
-                            type="email" 
-                            {...register("email", { 
+                            placeholder="Enter email address"
+                            type="email"
+                            {...register("email", {
                               required: "Email is required",
                               pattern: {
                                 value: /^[A-Z0-9._%+-]+@[A-Z0-9.-]+\.[A-Z]{2,}$/i,
                                 message: "Invalid email address"
                               }
-                            })} 
+                            })}
                             className={errors.email ? "border-red-500" : ""}
                           />
                           {errors.email && (
@@ -159,10 +159,10 @@ const CreateMembersPage = () => {
                           <Label htmlFor="contact" className="text-sm font-medium text-gray-700">
                             Contact Number *
                           </Label>
-                          <Input 
+                          <Input
                             id="contact"
-                            placeholder="Enter contact number" 
-                            {...register("contact", { required: "Contact number is required" })} 
+                            placeholder="Enter contact number"
+                            {...register("contact", { required: "Contact number is required" })}
                             className={errors.contact ? "border-red-500" : ""}
                           />
                           {errors.contact && (
@@ -174,10 +174,10 @@ const CreateMembersPage = () => {
                           <Label htmlFor="nric" className="text-sm font-medium text-gray-700">
                             NRIC/ID Number
                           </Label>
-                          <Input 
+                          <Input
                             id="nric"
-                            placeholder="Enter NRIC/ID number" 
-                            {...register("nric")} 
+                            placeholder="Enter NRIC/ID number"
+                            {...register("nric")}
                           />
                         </div>
 
@@ -185,10 +185,10 @@ const CreateMembersPage = () => {
                           <Label htmlFor="dob" className="text-sm font-medium text-gray-700">
                             Date of Birth
                           </Label>
-                          <Input 
+                          <Input
                             id="dob"
-                            type="date" 
-                            {...register("dob")} 
+                            type="date"
+                            {...register("dob")}
                           />
                         </div>
 
@@ -214,10 +214,10 @@ const CreateMembersPage = () => {
                           <Label htmlFor="address" className="text-sm font-medium text-gray-700">
                             Address
                           </Label>
-                          <Textarea 
+                          <Textarea
                             id="address"
-                            placeholder="Enter full address" 
-                            {...register("address")} 
+                            placeholder="Enter full address"
+                            {...register("address")}
                             rows={3}
                           />
                         </div>
@@ -227,54 +227,54 @@ const CreateMembersPage = () => {
 
                   {/* Membership Information Card */}
                   <Card>
-                  <CardHeader>
-                    <CardTitle className="text-lg font-medium">Membership Information</CardTitle>
-                  </CardHeader>
-                  <CardContent className="space-y-4">
-                    <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-                      {/* Creation Date & Time */}
-                      <div className="space-y-2">
-                        <Label htmlFor="created_at" className="text-sm font-medium text-gray-700">
-                          Creation Date & Time *
-                        </Label>
-                        <Input
-                          id="created_at"
-                          type="datetime-local"
-                          {...register("created_at", { required: "Creation datetime is required" })}
-                          className={errors.created_at ? "border-red-500" : ""}
-                        />
-                        {errors.created_at && (
-                          <p className="text-red-500 text-xs">{errors.created_at.message}</p>
-                        )}
+                    <CardHeader>
+                      <CardTitle className="text-lg font-medium">Membership Information</CardTitle>
+                    </CardHeader>
+                    <CardContent className="space-y-4">
+                      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+                        {/* Creation Date & Time */}
+                        <div className="space-y-2">
+                          <Label htmlFor="created_at" className="text-sm font-medium text-gray-700">
+                            Creation Date & Time *
+                          </Label>
+                          <Input
+                            id="created_at"
+                            type="datetime-local"
+                            {...register("created_at", { required: "Creation datetime is required" })}
+                            className={errors.created_at ? "border-red-500" : ""}
+                          />
+                          {errors.created_at && (
+                            <p className="text-red-500 text-xs">{errors.created_at.message}</p>
+                          )}
+                        </div>
+
+                        {/* Created By */}
+                        <div className="space-y-2">
+                          <EmployeeSelect name="created_by" label="Created By *" />
+                        </div>
+
+                        {/* Membership Type */}
+                        <div className="space-y-2">
+                          <MembershipTypeSelect />
+                        </div>
                       </div>
 
-                      {/* Created By */}
-                      <div className="space-y-2">
-                      <EmployeeSelect name="created_by" label="Created By *" />
-                       </div>
-
-                      {/* Membership Type */}
-                      <div className="space-y-2">
-                        <MembershipTypeSelect />
+                      {/* Remarks Section */}
+                      <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                        <div className="space-y-2">
+                          <Label htmlFor="remarks" className="text-sm font-medium text-gray-700">
+                            Remarks
+                          </Label>
+                          <Textarea
+                            id="remarks"
+                            placeholder="Enter any additional remarks or notes"
+                            {...register("remarks")}
+                            rows={3}
+                          />
+                        </div>
                       </div>
-                    </div>
-
-                    {/* Remarks Section */}
-                    <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                      <div className="space-y-2">
-                        <Label htmlFor="remarks" className="text-sm font-medium text-gray-700">
-                          Remarks
-                        </Label>
-                        <Textarea 
-                          id="remarks"
-                          placeholder="Enter any additional remarks or notes" 
-                          {...register("remarks")} 
-                          rows={3}
-                        />
-                      </div>
-                    </div>
-                  </CardContent>
-                </Card>
+                    </CardContent>
+                  </Card>
 
                   {/* Error Display */}
                   {error && (
@@ -288,9 +288,9 @@ const CreateMembersPage = () => {
                     <div className="text-sm text-gray-500">
                       All fields marked with * are required
                     </div>
-                    <Button 
-                      type="submit" 
-                      disabled={isCreating} 
+                    <Button
+                      type="submit"
+                      disabled={isCreating}
                       className="px-12 py-3 bg-blue-600 hover:bg-blue-700 text-white font-medium text-base"
                     >
                       {isCreating ? "Creating Member..." : "Create Member"}
@@ -350,7 +350,7 @@ const CreateMembersPage = () => {
                   <div className="flex justify-between text-sm">
                     <span className="text-gray-600">Date of Birth:</span>
                     <span className="font-medium text-gray-900">
-                      {new Date(createdMember?.dob).toLocaleDateString()}
+                      {new Date(createdMember?.dob).toLocaleDateString('en-GB')}
                     </span>
                   </div>
                 )}

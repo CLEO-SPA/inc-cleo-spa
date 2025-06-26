@@ -6,12 +6,12 @@ export interface PaginatedOptions {
 }
 
 export interface CursorPayload {
-  createdAt?: Date;
-  id?: number;
+  createdAt: Date;
+  id: number;
 }
 
 export interface PaginatedReturn<T> {
-  data: [T];
+  data: T[];
   pageInfo: {
     startCursor?: string | null;
     endCursor?: string | null;

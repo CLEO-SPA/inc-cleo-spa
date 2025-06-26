@@ -1059,6 +1059,52 @@ const createMemberVoucher = async (
   }
 };
 
+/**
+ * Soft Delete (status changed to DISABLED)
+ * @param {string} id - member_voucher ID
+ */
+const removeMemberVoucher = async (id: string) => {
+  const client = await pool().connect();
+  try {
+    await client.query('BEGIN');
+
+    // Check if the voucher exists
+    const { rows } = await client.query('SELECT id FROM member_vouchers WHERE id = $1', [id]);
+    if (rows.length === 0) {
+      throw new Error(`Member voucher with id ${id} not found for removal.`);
+    }
+
+    // Use status name directly — no need to resolve an ID
+    const disabledStatus = 'disabled';
+
+    const updateVoucherSql = `
+      UPDATE member_vouchers
+      SET status = $1
+      WHERE id = $2
+    `;
+    const result = await client.query(updateVoucherSql, [disabledStatus, id]);
+
+    await client.query('COMMIT');
+
+    return {
+      success: true,
+      message: `Member voucher with ID ${id} has been soft deleted (status set to DISABLED).`,
+      updated_rows: result.rowCount,
+    };
+  } catch (error) {
+    console.error('Error removing member voucher:', error);
+    await client.query('ROLLBACK');
+    if (error instanceof Error) {
+      throw error;
+    }
+    throw new Error('Unexpected error occurred while removing member voucher.');
+  } finally {
+    client.release();
+  }
+};
+
+
+
 export default {
   getPaginatedVouchers,
   getServicesOfMemberVoucherById,
@@ -1069,5 +1115,6 @@ export default {
   getMemberNameByMemberVoucherId,
   setTransactionLogsAndCurrentBalanceByLogId,
   deleteTransactionLogsAndCurrentBalanceByLogId,
-  createMemberVoucher
+  createMemberVoucher,
+  removeMemberVoucher,
 }
