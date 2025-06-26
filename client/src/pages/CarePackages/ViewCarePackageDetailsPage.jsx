@@ -34,7 +34,7 @@ const ViewCarePackageDetailsPage = () => {
 
   useEffect(() => {
     if (id) {
-      console.log(`Fetching care package with ID: ${id}`);
+      // console.log(`Fetching care package with ID: ${id}`);
       fetchPackageById(id);
     }
 

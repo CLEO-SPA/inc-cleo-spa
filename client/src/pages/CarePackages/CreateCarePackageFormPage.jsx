@@ -35,8 +35,8 @@ const CarePackageCreateForm = () => {
   } = useCpFormStore();
 
   const [editingService, setEditingService] = useState(null);
-  const [showServiceDropdown, setShowServiceDropdown] = useState(false);
-  const [serviceSearch, setServiceSearch] = useState('');
+  // const [showServiceDropdown, setShowServiceDropdown] = useState(false);
+  // const [serviceSearch, setServiceSearch] = useState('');
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [submitStatus, setSubmitStatus] = useState({ type: '', message: '' });
   const [employeeError, setEmployeeError] = useState('');
