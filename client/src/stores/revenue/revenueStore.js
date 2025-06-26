@@ -1,4 +1,3 @@
-// --- File: revenueStore.js ---
 import { create } from 'zustand';
 import { persist } from 'zustand/middleware';
 import api from '@/services/api';
@@ -69,7 +68,7 @@ export const useRevenueReportStore = create(persist(
     totals: {
       mv: {}, mcp: {}, adhoc: {}, combined: {}
     },
-    
+
     // Add new state for deferred revenue data
     deferredRevenue: {
       mv: null,

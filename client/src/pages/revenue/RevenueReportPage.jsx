@@ -1,4 +1,3 @@
-// --- File: RevenueReportPage.jsx ---
 import React, { useEffect, useMemo, useState } from 'react';
 import { AppSidebar } from '@/components/app-sidebar';
 import { SiteHeader } from '@/components/site-header';
@@ -352,19 +351,19 @@ function RevenueReportPage() {
                             <td className="border border-gray-300 px-4 py-2 text-center">{(currentTotals.total || 0).toFixed(2)}</td>
                             {/* <td className="border border-gray-300 px-4 py-2 text-center">{(currentTotals.foc || 0).toFixed(2)}</td> */}
                             <td
-                                className="border border-gray-300 px-4 py-2 text-center relative"
-                                onMouseEnter={() => currentTotals.vip !== 0 && currentTotals.foc !== 0 && setHoveredRow("vip")}
-                                onMouseLeave={() => setHoveredRow(null)}
-                              >
-                                <span className={hoveredRow === "vip" ? 'text-blue-600' : ''}>
-                                  {(currentTotals.vip || 0).toFixed(2)}
-                                </span>
-                                {hoveredRow === "vip" && currentTotals.vip !== 0 && (
-                                  <div className="absolute z-10 bg-gray-100 p-2 border border-gray-300 rounded shadow-lg whitespace-nowrap bottom-full left-1/2 transform -translate-x-1/2">
-                                    {(currentTotals.foc + currentTotals.vip).toFixed(2)} - FOC {currentTotals.foc.toFixed(2)} = {currentTotals.vip.toFixed(2)}
-                                  </div>
-                                )}
-                              </td>
+                              className="border border-gray-300 px-4 py-2 text-center relative"
+                              onMouseEnter={() => currentTotals.vip !== 0 && currentTotals.foc !== 0 && setHoveredRow("vip")}
+                              onMouseLeave={() => setHoveredRow(null)}
+                            >
+                              <span className={hoveredRow === "vip" ? 'text-blue-600' : ''}>
+                                {(currentTotals.vip || 0).toFixed(2)}
+                              </span>
+                              {hoveredRow === "vip" && currentTotals.vip !== 0 && (
+                                <div className="absolute z-10 bg-gray-100 p-2 border border-gray-300 rounded shadow-lg whitespace-nowrap bottom-full left-1/2 transform -translate-x-1/2">
+                                  {(currentTotals.foc + currentTotals.vip).toFixed(2)} - FOC {currentTotals.foc.toFixed(2)} = {currentTotals.vip.toFixed(2)}
+                                </div>
+                              )}
+                            </td>
                             <td className="border border-gray-300 px-4 py-2 text-center">{(currentTotals.package || 0).toFixed(2)}</td>
                             <td className="border border-gray-300 px-4 py-2 text-center">{(currentTotals.netSales || 0).toFixed(2)}</td>
                             <td className="border border-gray-300 px-4 py-2 text-center">{(currentTotals.refund || 0).toFixed(2)}</td>

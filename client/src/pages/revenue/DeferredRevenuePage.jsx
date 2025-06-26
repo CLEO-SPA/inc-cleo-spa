@@ -4,7 +4,8 @@ import { SiteHeader } from '@/components/site-header';
 import { SidebarInset, SidebarProvider } from '@/components/ui/sidebar';
 import { useRevenueReportStore } from '@/stores/revenue/revenueStore';
 import MonthYearSelector from '@/components/revenue/revenueMonthYearSelector';
-import { CheckCircle, AlertCircle } from 'lucide-react';
+import { CheckCircle, AlertCircle, Download } from 'lucide-react';
+import * as XLSX from 'xlsx';
 
 function DeferredRevenuePage() {
     const {
@@ -55,6 +56,55 @@ function DeferredRevenuePage() {
         return <div className="p-6 text-center text-red-500">Error loading date: {error}</div>;
     }
 
+    const handleDownloadExcel = () => {
+        const downloadDate = new Date();
+        const downloadDateStr = downloadDate.toLocaleDateString('en-GB', {
+            day: 'numeric',
+            month: 'long',
+            year: 'numeric'
+        });
+
+        const title = `Deferred Revenue Report of ${resultMonth} ${resultYear}`;
+        const subtitle = `Downloaded at ${downloadDateStr}`;
+
+        const accountingData = [
+            [title],
+            [subtitle],
+            [],
+            ['Summary', '', '', '', ''],
+            ['Previous Total Deferred', '', '', '', previousTotalDeferred],
+            ['Monthly Change', '', '', '', totalCurrentActivity],
+            ['Current Total Deferred', '', '', '', apiTotalDeferred],
+            ['', '', '', '', ''],
+            ['Product Breakdown', 'Member Voucher', 'Member Care Package', 'Total', ''],
+            ['Previous Deferred', mvPreviousDeferred, mcpPreviousDeferred, previousTotalDeferred, ''],
+            ['Income Received', deferredRevenue.mv?.income || 0, deferredRevenue.mcp?.income || 0, (deferredRevenue.mv?.income || 0) + (deferredRevenue.mcp?.income || 0), ''],
+            ['Revenue Recognized', deferredRevenue.mv?.net_sale || 0, deferredRevenue.mcp?.net_sale || 0, (deferredRevenue.mv?.net_sale || 0) + (deferredRevenue.mcp?.net_sale || 0), ''],
+            ['Refunds Issued', deferredRevenue.mv?.refund || 0, deferredRevenue.mcp?.refund || 0, (deferredRevenue.mv?.refund || 0) + (deferredRevenue.mcp?.refund || 0), ''],
+            ['Monthly Change', mvCurrentActivity, mcpCurrentActivity, totalCurrentActivity, ''],
+            ['Current Deferred', deferredRevenue.mv?.deferred_amount || 0, deferredRevenue.mcp?.deferred_amount || 0, apiTotalDeferred, ''],
+            ['', '', '', '', ''],
+        ];
+
+        const ws = XLSX.utils.aoa_to_sheet(accountingData);
+        const wb = XLSX.utils.book_new();
+        XLSX.utils.book_append_sheet(wb, ws, "Deferred Revenue");
+
+        ws['!cols'] = [
+            { wch: 25 },
+            { wch: 20 },
+            { wch: 20 },
+            { wch: 15 },
+            { wch: 15 },
+        ];
+
+        const timestamp = downloadDate.toISOString().slice(0, 19).replace(/[:.]/g, '-');
+        const filename = `Deferred_Revenue_Report_${resultMonth}_${resultYear}_${timestamp}.xlsx`;
+
+        XLSX.writeFile(wb, filename);
+    };
+
+
     return (
         <div className="[--header-height:calc(theme(spacing.14))] bg-white dark:bg-black min-h-screen text-black dark:text-white">
             <SidebarProvider className="flex flex-col">
@@ -65,6 +115,13 @@ function DeferredRevenuePage() {
                         <div className="bg-white dark:bg-zinc-900 rounded-xl shadow p-6 animate-fadeIn">
                             <div className="flex items-center justify-between mb-6">
                                 <h2 className="text-2xl font-bold">Deferred Revenue Report</h2>
+                                <button
+                                    onClick={handleDownloadExcel}
+                                    className="bg-green-600 text-white p-3 rounded hover:bg-green-700 transition-colors"
+                                    title="Download Excel Report"
+                                >
+                                    <Download className="w-5 h-5" />
+                                </button>
                             </div>
 
                             <MonthYearSelector
