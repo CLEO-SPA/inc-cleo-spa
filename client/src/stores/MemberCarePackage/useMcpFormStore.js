@@ -33,6 +33,8 @@ export const useMcpFormStore = create(
     mcpCreationQueue: [],
     mcpTransferQueue: [],
 
+    setBypassMode: (isBypass) => set({ isByPass: isBypass }, false, 'setBypassMode'),
+
     updateMainField: (field, value) =>
       set(
         (state) => ({
@@ -55,6 +57,7 @@ export const useMcpFormStore = create(
             services: [],
           },
           isCustomizable: true, // Reset to default customizable state
+          isByPass: false,
           serviceForm: {
             id: '',
             name: '',
@@ -93,7 +96,11 @@ export const useMcpFormStore = create(
     // ==============================================================================================================
 
     updateServiceFormField: (field, value) => {
-      if (!get().isCustomizable && (field === 'price' || field === 'discount' || field === 'quantity')) {
+      if (
+        !get().isCustomizable &&
+        !get().isByPass &&
+        (field === 'price' || field === 'discount' || field === 'quantity')
+      ) {
         console.warn('Package is not customizable. Cannot update service form field:', field);
         return;
       }
@@ -303,15 +310,15 @@ export const useMcpFormStore = create(
           const serviceOption = currentServiceOptions.find((f) => f.id == s.service_id);
           const price = parseFloat(s.care_package_item_details_price) || 0;
           const discount = parseFloat(s.care_package_item_details_discount) || 1;
-          const originalPrice = discount !== 0 ? price / discount : price;
+          const finalPrice = discount !== 0 ? price * discount : price;
 
           return {
             id: s.service_id,
             name: serviceOption?.label || 'Unknown Service',
             quantity: parseInt(s.care_package_item_details_quantity, 10) || 1,
-            price: originalPrice,
+            price: price,
             discount: discount,
-            finalPrice: price,
+            finalPrice: finalPrice,
           };
         });
 
