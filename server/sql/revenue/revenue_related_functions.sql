@@ -9,7 +9,34 @@ DROP FUNCTION IF EXISTS get_mcp_net_sales_by_month(INT, INT);
 DROP FUNCTION IF EXISTS get_adhoc_service_refund_by_month(INT, INT);
 DROP FUNCTION IF EXISTS get_adhoc_income_by_month(INT, INT);
 DROP FUNCTION IF EXISTS get_total_paid_of_member_voucher_before(BIGINT, TIMESTAMPTZ);
----------------------------------------
+--------------------------------------------------------------------------------
+-- function to get total paid amount of MV before certain date
+CREATE OR REPLACE FUNCTION get_total_paid_of_member_voucher_before(
+    p_member_voucher_id BIGINT,
+    p_timestamp TIMESTAMPTZ
+)
+RETURNS NUMERIC(10,2) AS $$
+BEGIN
+    RETURN (
+        SELECT 
+            COALESCE(SUM(ptst.amount), 0)::numeric(10,2)
+        FROM 
+            sale_transaction_items sti
+        INNER JOIN 
+            payment_to_sale_transactions ptst
+            ON sti.sale_transaction_id = ptst.sale_transaction_id
+        INNER JOIN 
+            payment_methods pm
+            ON ptst.payment_method_id = pm.id
+        WHERE 
+            sti.item_type = 'member voucher'
+            AND sti.member_voucher_id = p_member_voucher_id
+            AND ptst.payment_method_id IN (1, 2, 3, 4, 9)
+            AND ptst.created_at <= p_timestamp
+    );
+END;
+$$ LANGUAGE plpgsql;
+--------------------------------------------------------------------------------
 -- create 
 -- db function to filter out MV net sales (updated to return date as string)
 CREATE OR REPLACE FUNCTION get_mv_net_sales_by_month(
@@ -268,31 +295,3 @@ WHERE ptst.payment_method_id IN (1,2,3,4)
 GROUP BY payment_date_gmt8
 ORDER BY payment_date_gmt8;
 $$;
-
---------------------------------------------------------------------------------
--- function to get total paid amount of MV before certain date
-CREATE OR REPLACE FUNCTION get_total_paid_of_member_voucher_before(
-    p_member_voucher_id BIGINT,
-    p_timestamp TIMESTAMPTZ
-)
-RETURNS NUMERIC(10,2) AS $$
-BEGIN
-    RETURN (
-        SELECT 
-            COALESCE(SUM(ptst.amount), 0)::numeric(10,2)
-        FROM 
-            sale_transaction_items sti
-        INNER JOIN 
-            payment_to_sale_transactions ptst
-            ON sti.sale_transaction_id = ptst.sale_transaction_id
-        INNER JOIN 
-            payment_methods pm
-            ON ptst.payment_method_id = pm.id
-        WHERE 
-            sti.item_type = 'member voucher'
-            AND sti.member_voucher_id = p_member_voucher_id
-            AND ptst.payment_method_id IN (1, 2, 3, 4, 9)
-            AND ptst.created_at <= p_timestamp
-    );
-END;
-$$ LANGUAGE plpgsql;
