@@ -394,4 +394,5 @@ export default {
   updateAppointment,
   getEndTimesForStartTime,
   getMaxDurationFromStartTimes,
+  getAppointmentCountByDate
 };
