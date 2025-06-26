@@ -18,8 +18,14 @@ import { SiteHeader } from '@/components/site-header';
 import { SidebarInset, SidebarProvider } from '@/components/ui/sidebar';
 import EmployeeSelect from '@/components/ui/forms/EmployeeSelect';
 import { useSimulationStore } from "@/stores/useSimulationStore";
+import { useAuth } from "@/context/AuthContext";
 
 export default function ManageService() {
+  // Check user role
+  const { user } = useAuth();
+   const allowedRoles = ['super_admin', 'data_admin'];
+  const isAdmin = user && allowedRoles.includes(user.role);
+
   // Data
   const [services, setServices] = useState([]);
   const [categories, setCategories] = useState([]);
@@ -61,6 +67,7 @@ export default function ManageService() {
   const updatedBy = watch('updated_by');
   const [updatedAt, setUpdatedAt] = useState(null);
 
+  // get services
   const getServices = async () => {
     setServiceLoading(true); // Set loading state to true while fetching data
     try {
@@ -95,6 +102,7 @@ export default function ManageService() {
     }
   }
 
+  // get service categories
   const getCategories = async () => {
     try {
       const response = await api.get('/service/service-cat');
@@ -126,6 +134,7 @@ export default function ManageService() {
     }
   }
 
+  // Reset form fields and state for enable/disable service modal
   const resetForm = async () => {
     setChangeService(null);
     setChangeStatus(null);
@@ -139,6 +148,7 @@ export default function ManageService() {
     setErrorMsg('');
   }
 
+  // Handle form submission for enabling/disabling service
   const handleSubmit = async (e) => {
     e.preventDefault();
     setStatusLoading(true);
@@ -249,6 +259,7 @@ export default function ManageService() {
     }
   }, [updatedAt, updatedBy])
 
+
   return (
     <div className='[--header-height:calc(theme(spacing.14))]'>
       <SidebarProvider className='flex flex-col'>
@@ -334,13 +345,16 @@ export default function ManageService() {
                 </div>
               </div>
             )}
+
+
             <div className='flex flex-1 flex-col gap-4 p-4'>
               {/* Buttons for other Functionalities */}
               <div className="flex space-x-4 p-4 bg-muted/50 rounded-lg">
-                <Button onClick={() => navigate("/create-service")} className="rounded-xl">Create Service</Button>
-                <Button onClick={() => navigate("/reorder-service")} className="rounded-xl">Reorder Service</Button>
+                <Button onClick={() => navigate("/create-service")} className="rounded-xl" disabled={!isAdmin}>Create Service</Button>
+                <Button onClick={() => navigate("/reorder-service")} className="rounded-xl" disabled={!isAdmin}>Reorder Service</Button>
                 <Button onClick={() => navigate("/manage-service-category")} className="rounded-xl">Manage Categories</Button>
               </div>
+
               {/* Filter */}
               <div className="flex space-x-4 p-4 bg-muted/50 rounded-lg">
                 {/* Search bar */}
@@ -428,15 +442,19 @@ export default function ManageService() {
                                   <td className="px-2 py-2 border border-gray-200">
                                     <Switch
                                       checked={service.service_is_enabled}
-                                      onCheckedChange={() => handleSwitchChange(service)}
+                                      onCheckedChange={() => handleSwitchChange(service)
+                                      }
+                                      disabled={!isAdmin}
                                     />
                                   </td>
                                   {/* Action Row */}
                                   <td className="px-4 py-2 border border-gray-200">
                                     <div className="flex space-x-2 space-y-1">
-                                      <Button className="p-1 bg-green-600 text-white text-sm font-medium rounded-xl hover:bg-green-700" onClick={() => navigate(`/update-service/${service.id}`)}>
+                                      { isAdmin && (
+                                        <Button className="p-1 bg-green-600 text-white text-sm font-medium rounded-xl hover:bg-green-700" onClick={() => navigate(`/update-service/${service.id}`)}>
                                         <FilePenLine className="inline-block mr-1" />
                                       </Button>
+                                      )}
                                       <Button className="px-2 py-1 bg-gray-600 text-white text-sm font-medium rounded-xl hover:bg-blue-700" onClick={() => navigate(`/view-sales-history/${service.id}`)}>
                                         View Sales History
                                       </Button>

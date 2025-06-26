@@ -13,10 +13,13 @@ import {
 } from "@/components/ui/select";
 import { SiteHeader } from '@/components/site-header';
 import { SidebarInset, SidebarProvider } from '@/components/ui/sidebar';
-import { Label } from "@radix-ui/react-select";
-import { set } from "date-fns";
+import { useAuth } from '@/context/AuthContext';
 
 export default function ReorderService() {
+  //Role-based access
+    const { user } = useAuth();
+    const allowedRoles = ['super_admin', 'data_admin'];
+  
   // loading
   const [loading, setLoading] = useState(false);
   const [catLoading, setCatLoading] = useState(false);
@@ -129,6 +132,12 @@ export default function ReorderService() {
       console.error('Error fetching categories:' + err);
     }
   }, [])
+
+  useEffect(() => {
+      if (!user || !allowedRoles.includes(user.role)) {
+        navigate('*'); 
+      }
+    }, [user, navigate]);
 
   // upon category being selected
   useEffect(() => {
