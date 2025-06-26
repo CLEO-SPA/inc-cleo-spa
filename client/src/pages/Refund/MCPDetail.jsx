@@ -1,0 +1,331 @@
+import { useParams, useNavigate } from 'react-router-dom';
+import { useEffect, useState } from 'react';
+import { ArrowLeft, AlertCircle, CheckCircle, DollarSign, Package, FileText, Clock } from 'lucide-react';
+import api from '@/services/refundService';
+import { AppSidebar } from '@/components/app-sidebar';
+import { SiteHeader } from '@/components/site-header';
+import { SidebarInset, SidebarProvider } from '@/components/ui/sidebar';
+
+const MCPDetail = () => {
+  const { packageId } = useParams();
+  const navigate = useNavigate();
+  const [packageData, setPackageData] = useState(null);
+  const [isLoading, setIsLoading] = useState(true);
+  const [isProcessing, setIsProcessing] = useState(false);
+  const [remarks, setRemarks] = useState('');
+  const [error, setError] = useState(null);
+  const [successMessage, setSuccessMessage] = useState('');
+
+  useEffect(() => {
+    const fetchPackageDetails = async () => {
+      try {
+        setIsLoading(true);
+        const data = await api.getPackageDetails(packageId);
+        setPackageData(data);
+      } catch (error) {
+        console.error('Error fetching package details:', error);
+        setError('Failed to load package details');
+      } finally {
+        setIsLoading(false);
+      }
+    };
+    fetchPackageDetails();
+  }, [packageId]);
+
+  const handleProcessRefund = async (serviceId) => {
+    if (!remarks.trim()) {
+      setError('Remarks are required to process the refund');
+      return;
+    }
+
+    setIsProcessing(true);
+    setError(null);
+    setSuccessMessage('');
+
+    try {
+      await api.processRefund(packageId, remarks);
+      const updatedData = await api.getPackageDetails(packageId);
+      setPackageData(updatedData);
+      setRemarks('');
+      setSuccessMessage('Refund has been processed successfully');
+      setTimeout(() => setSuccessMessage(''), 5000);
+    } catch (err) {
+      console.error('Refund processing failed:', err);
+      setError(err.response?.data?.message || 'Failed to process refund. Please try again.');
+    } finally {
+      setIsProcessing(false);
+    }
+  };
+
+  const handleGoBack = () => {
+    navigate('/refunds');
+  };
+
+  const getStatusBadge = (service) => {
+    if (service.totals.remaining === 0) {
+      return (
+        <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-gray-100 text-gray-800">
+          <Clock className="w-3 h-3 mr-1" />
+          Fully Consumed
+        </span>
+      );
+    }
+    if (service.is_eligible_for_refund) {
+      return (
+        <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-green-100 text-green-800">
+          <CheckCircle className="w-3 h-3 mr-1" />
+          Eligible for Refund
+        </span>
+      );
+    }
+    return (
+      <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-yellow-100 text-yellow-800">
+        <AlertCircle className="w-3 h-3 mr-1" />
+        Review Required
+      </span>
+    );
+  };
+
+  if (isLoading) {
+    return (
+      <div className='[--header-height:calc(theme(spacing.14))]'>
+        <SidebarProvider className='flex flex-col'>
+          <SiteHeader />
+          <div className='flex flex-1'>
+            <AppSidebar />
+            <SidebarInset>
+              <div className='flex flex-1 flex-col gap-4 p-4'>
+                <div className="min-h-screen bg-gray-50 flex items-center justify-center">
+                  <div className="text-center">
+                    <div className="animate-spin rounded-full h-32 w-32 border-b-2 border-blue-600 mx-auto"></div>
+                    <p className="mt-4 text-gray-600 text-lg">Loading package details...</p>
+                  </div>
+                </div>
+              </div>
+            </SidebarInset>
+          </div>
+        </SidebarProvider>
+      </div>
+    );
+  }
+
+  if (!packageData) {
+    return (
+      <div className='[--header-height:calc(theme(spacing.14))]'>
+        <SidebarProvider className='flex flex-col'>
+          <SiteHeader />
+          <div className='flex flex-1'>
+            <AppSidebar />
+            <SidebarInset>
+              <div className='flex flex-1 flex-col gap-4 p-4'>
+                <div className="min-h-screen bg-gray-50 flex items-center justify-center">
+                  <div className="text-center">
+                    <Package className="w-16 h-16 text-gray-400 mx-auto mb-4" />
+                    <h2 className="text-2xl font-semibold text-gray-900 mb-2">Package Not Found</h2>
+                    <p className="text-gray-600 mb-6">The requested package could not be located.</p>
+                    <button
+                      onClick={handleGoBack}
+                      className="inline-flex items-center px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors"
+                    >
+                      <ArrowLeft className="w-4 h-4 mr-2" />
+                      Back to Refunds
+                    </button>
+                  </div>
+                </div>
+              </div>
+            </SidebarInset>
+          </div>
+        </SidebarProvider>
+      </div>
+    );
+  }
+
+  return (
+    <div className='[--header-height:calc(theme(spacing.14))]'>
+      <SidebarProvider className='flex flex-col'>
+        <SiteHeader />
+        <div className='flex flex-1'>
+          <AppSidebar />
+          <SidebarInset>
+            <div className='flex flex-1 flex-col gap-4 p-4'>
+              {/* Header */}
+              <div className="bg-white shadow-sm border-b">
+                <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+                  <div className="flex items-center justify-between h-16">
+                    <div className="flex items-center">
+                      <button
+                        onClick={handleGoBack}
+                        className="inline-flex items-center text-gray-600 hover:text-gray-900 transition-colors"
+                      >
+                        <ArrowLeft className="w-5 h-5 mr-2" />
+                        Back to Refunds
+                      </button>
+                    </div>
+                    <div className="flex items-center space-x-2">
+                      <Package className="w-5 h-5 text-blue-600" />
+                      <span className="text-sm font-medium text-gray-500">Package ID: {packageId}</span>
+                    </div>
+                  </div>
+                </div>
+              </div>
+
+              <div className="max-w-7xl mx-auto w-full px-4 sm:px-6 lg:px-8 py-8">
+                {/* Page Title */}
+                <div className="mb-8">
+                  <h1 className="text-3xl font-bold text-gray-900 mb-2">{packageData.package_name}</h1>
+                  <p className="text-gray-600">Manage refunds and view service details for this package</p>
+                </div>
+
+                {/* Success Message */}
+                {successMessage && (
+                  <div className="mb-6 bg-green-50 border border-green-200 rounded-lg p-4">
+                    <div className="flex items-center">
+                      <CheckCircle className="w-5 h-5 text-green-600 mr-3" />
+                      <p className="text-green-800 font-medium">{successMessage}</p>
+                    </div>
+                  </div>
+                )}
+
+                {/* Error Message */}
+                {error && (
+                  <div className="mb-6 bg-red-50 border border-red-200 rounded-lg p-4">
+                    <div className="flex items-center">
+                      <AlertCircle className="w-5 h-5 text-red-600 mr-3" />
+                      <p className="text-red-800 font-medium">{error}</p>
+                    </div>
+                  </div>
+                )}
+
+                <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
+                  {/* Refund Remarks Section */}
+                  <div className="lg:col-span-1">
+                    <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-6 sticky top-8">
+                      <div className="flex items-center mb-4">
+                        <FileText className="w-5 h-5 text-blue-600 mr-2" />
+                        <h2 className="text-xl font-semibold text-gray-900">Refund Remarks</h2>
+                      </div>
+                      <div className="space-y-4">
+                        <div>
+                          <label htmlFor="remarks" className="block text-sm font-medium text-gray-700 mb-2">
+                            Refund Reason <span className="text-red-500">*</span>
+                          </label>
+                          <textarea
+                            id="remarks"
+                            value={remarks}
+                            onChange={(e) => setRemarks(e.target.value)}
+                            placeholder="Enter detailed reason for refund (e.g., Client requested full refund due to service dissatisfaction)"
+                            className="w-full p-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 resize-none"
+                            rows={4}
+                          />
+                          <p className="text-xs text-gray-500 mt-1">
+                            Provide clear documentation for audit purposes
+                          </p>
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+
+                  {/* Services Section */}
+                  <div className="lg:col-span-2">
+                    <div className="bg-white rounded-lg shadow-sm border border-gray-200">
+                      <div className="px-6 py-4 border-b border-gray-200">
+                        <div className="flex items-center">
+                          <DollarSign className="w-5 h-5 text-blue-600 mr-2" />
+                          <h2 className="text-xl font-semibold text-gray-900">Service Details</h2>
+                        </div>
+                      </div>
+
+                      <div className="p-6">
+                        <div className="space-y-6">
+                          {packageData.services?.map((service) => (
+                            <div key={service.service_id} className="border border-gray-200 rounded-lg overflow-hidden">
+                              <div className="bg-gray-50 px-6 py-4 border-b border-gray-200">
+                                <div className="flex items-center justify-between">
+                                  <div>
+                                    <h3 className="text-lg font-semibold text-gray-900">{service.service_name}</h3>
+                                    <p className="text-sm text-gray-600">Service ID: {service.service_id}</p>
+                                  </div>
+                                  {getStatusBadge(service)}
+                                </div>
+                              </div>
+
+                              <div className="p-6">
+                                <div className="grid grid-cols-2 md:grid-cols-4 gap-6 mb-6">
+                                  <div className="text-center">
+                                    <div className="text-2xl font-bold text-blue-600">{service.totals.purchased}</div>
+                                    <div className="text-sm text-gray-600">Purchased</div>
+                                  </div>
+                                  <div className="text-center">
+                                    <div className="text-2xl font-bold text-green-600">{service.totals.consumed}</div>
+                                    <div className="text-sm text-gray-600">Consumed</div>
+                                  </div>
+                                  <div className="text-center">
+                                    <div className="text-2xl font-bold text-red-600">{service.totals.refunded}</div>
+                                    <div className="text-sm text-gray-600">Refunded</div>
+                                  </div>
+                                  <div className="text-center">
+                                    <div className="text-2xl font-bold text-orange-600">{service.totals.remaining}</div>
+                                    <div className="text-sm text-gray-600">Remaining</div>
+                                  </div>
+                                </div>
+
+                                <div className="mb-6">
+                                  <div className="flex justify-between text-sm text-gray-600 mb-2">
+                                    <span>Usage Progress</span>
+                                    <span>
+                                      {Math.round((service.totals.consumed / service.totals.purchased) * 100)}% utilized
+                                    </span>
+                                  </div>
+                                  <div className="w-full bg-gray-200 rounded-full h-2">
+                                    <div 
+                                      className="bg-blue-600 h-2 rounded-full transition-all duration-300"
+                                      style={{ 
+                                        width: `${Math.min((service.totals.consumed / service.totals.purchased) * 100, 100)}%` 
+                                      }}
+                                    ></div>
+                                  </div>
+                                </div>
+
+                                {service.is_eligible_for_refund && (
+                                  <div className="flex justify-end">
+                                    <button
+                                      onClick={() => handleProcessRefund(service.service_id)}
+                                      disabled={isProcessing || !remarks.trim()}
+                                      className={`inline-flex items-center px-6 py-3 rounded-lg font-medium transition-all duration-200 ${
+                                        isProcessing || !remarks.trim()
+                                          ? 'bg-gray-300 text-gray-500 cursor-not-allowed' 
+                                          : 'bg-red-600 text-white hover:bg-red-700 hover:shadow-lg transform hover:-translate-y-0.5'
+                                      }`}
+                                    >
+                                      {isProcessing ? (
+                                        <>
+                                          <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-white mr-2"></div>
+                                          Processing Refund...
+                                        </>
+                                      ) : (
+                                        <>
+                                          <DollarSign className="w-4 h-4 mr-2" />
+                                          Process Refund
+                                        </>
+                                      )}
+                                    </button>
+                                  </div>
+                                )}
+                              </div>
+                            </div>
+                          ))}
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+              </div>
+            </div>
+          </SidebarInset>
+        </div>
+      </SidebarProvider>
+    </div>
+  );
+};
+
+export default MCPDetail;
