@@ -207,14 +207,14 @@ const getMCPDeferredRevenue = async () => {
     const result = await client.query(`
 WITH mcp_net_sales AS (
     SELECT 
-        TO_CHAR((mcptl.created_at AT TIME ZONE 'Asia/Singapore'), 'YYYY-MM') AS transaction_month,
+        TO_CHAR((mcptl.transaction_date AT TIME ZONE 'Asia/Singapore'), 'YYYY-MM') AS transaction_month,
         SUM(ABS(mcptl.amount_changed))::NUMERIC(10,2) AS net_sale
     FROM 
         member_care_package_transaction_logs mcptl
     WHERE 
         mcptl.type = 'CONSUMPTION'
     GROUP BY 
-        TO_CHAR((mcptl.created_at AT TIME ZONE 'Asia/Singapore'), 'YYYY-MM')
+        TO_CHAR((mcptl.transaction_date AT TIME ZONE 'Asia/Singapore'), 'YYYY-MM')
 ),
 mcp_income AS (
     SELECT 
@@ -261,7 +261,6 @@ FULL OUTER JOIN mcp_income i ON n.transaction_month = i.transaction_month
 FULL OUTER JOIN mcp_refund f ON COALESCE(n.transaction_month, i.transaction_month) = f.transaction_month
 ORDER BY 
     transaction_month;
-
       `);
 
     return {

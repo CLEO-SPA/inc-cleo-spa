@@ -229,12 +229,12 @@ RETURNS TABLE (
 LANGUAGE SQL
 AS $$
 SELECT 
-    TO_CHAR(DATE_TRUNC('day', mcptl.created_at AT TIME ZONE 'Asia/Singapore'), 'YYYY-MM-DD') AS consumption_date_gmt8,
+    TO_CHAR(DATE_TRUNC('day', mcptl.transaction_date AT TIME ZONE 'Asia/Singapore'), 'YYYY-MM-DD') AS consumption_date_gmt8,
     SUM(ABS(mcptl.amount_changed))::NUMERIC(10,2) AS total_consumed_amount
 FROM member_care_package_transaction_logs mcptl
 WHERE mcptl.type = 'CONSUMPTION'
-  AND EXTRACT(YEAR FROM mcptl.created_at AT TIME ZONE 'Asia/Singapore') = target_year
-  AND EXTRACT(MONTH FROM mcptl.created_at AT TIME ZONE 'Asia/Singapore') = target_month
+  AND EXTRACT(YEAR FROM mcptl.transaction_date AT TIME ZONE 'Asia/Singapore') = target_year
+  AND EXTRACT(MONTH FROM mcptl.transaction_date AT TIME ZONE 'Asia/Singapore') = target_month
 GROUP BY consumption_date_gmt8
 ORDER BY consumption_date_gmt8;
 $$;
