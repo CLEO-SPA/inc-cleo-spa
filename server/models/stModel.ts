@@ -9,7 +9,15 @@ import {
   SalesTransactionDetail,
   PaginatedResult,
   Service,
-  Product
+  Product,
+   TransactionRequestData, 
+  TransactionCreationResult,
+  TransactionRequestItem,
+  PaymentMethodRequest,
+  SingleItemTransactionCreationResult,
+  SingleItemTransactionRequestData,
+  SingleTransactionRequestItem,
+  ItemPricing 
 } from '../types/SaleTransactionTypes.js';
 
 
@@ -498,8 +506,8 @@ const searchProducts = async (
         p.product_name,
         p.product_description,
         p.product_remarks,
-        p.product_selling_price,
-        p.product_cost_price,
+        p.product_unit_sale_price,     
+        p.product_unit_cost_price,     
         p.product_is_enabled,
         p.created_at,
         p.updated_at,
@@ -543,8 +551,8 @@ const searchProducts = async (
       category: product.product_category_name || 'Uncategorized',
       product_category_name: product.product_category_name || 'Uncategorized',
       product_category_id: product.product_category_id ? product.product_category_id.toString() : null,
-      price: parseFloat(product.product_selling_price || 0),
-      cost_price: parseFloat(product.product_cost_price || 0),
+      price: parseFloat(product.product_unit_sale_price || 0),       /* Updated column name */
+      cost_price: parseFloat(product.product_unit_cost_price || 0),  /* Updated column name */
       is_enabled: product.product_is_enabled || false,
       sequence_no: product.product_sequence_no || 0
     }));
@@ -553,10 +561,672 @@ const searchProducts = async (
     throw new Error(`Error searching products: ${error.message}`);
   }
 };
-const createServiceProductSaleTransaction = async (
-  SalesTransaction: string
-): Promise<SalesTransaction | null> => {
-  return null;
+
+const createServicesProductsTransaction = async (
+  transactionData: TransactionRequestData
+): Promise<TransactionCreationResult> => {
+  const client  = await pool().connect();
+  
+  try {
+    await client.query('BEGIN');
+
+    // Extract data from request
+    const {
+      customer_type,
+      member_id,
+      receipt_number,
+      remarks,
+      created_by,
+      handled_by,
+      items,
+      payments
+    } = transactionData;
+
+    // Validate required fields
+    if (!created_by) {
+      throw new Error('created_by is required');
+    }
+
+    if (!handled_by) {
+      throw new Error('handled_by is required');
+    }
+
+    if (!items || !Array.isArray(items) || items.length === 0) {
+      throw new Error('items array is required and cannot be empty');
+    }
+
+    if (!payments || !Array.isArray(payments) || payments.length === 0) {
+      throw new Error('payments array is required and cannot be empty');
+    }
+
+    // Calculate totals from items
+    const totalTransactionAmount: number = items.reduce((total: number, item: TransactionRequestItem) => {
+      return total + (item.pricing?.totalLinePrice || 0);
+    }, 0);
+
+    // Calculate total paid amount from payments
+    const totalPaidAmount: number = payments.reduce((total: number, payment: PaymentMethodRequest) => {
+      return total + (payment.amount || 0);
+    }, 0);
+
+    const outstandingAmount: number = totalTransactionAmount - totalPaidAmount;
+
+    // Determine transaction status
+    const transactionStatus: 'FULL' | 'PARTIAL' = outstandingAmount <= 0 ? 'FULL' : 'PARTIAL';
+
+    // Generate receipt number if not provided
+    let finalReceiptNo: string = receipt_number || '';
+    if (!finalReceiptNo) {
+      const receiptResult = await client.query(
+        'SELECT COALESCE(MAX(CAST(SUBSTRING(receipt_no FROM 3) AS INTEGER)), 0) + 1 as next_number FROM sale_transactions WHERE receipt_no LIKE $1',
+        [`ST%`]
+      );
+      finalReceiptNo = `ST${receiptResult.rows[0].next_number.toString().padStart(6, '0')}`;
+    }
+
+    // Insert main sales transaction
+    const transactionQuery: string = `
+      INSERT INTO sale_transactions (
+        customer_type,
+        member_id,
+        total_paid_amount,
+        outstanding_total_payment_amount,
+        sale_transaction_status,
+        receipt_no,
+        remarks,
+        process_payment,
+        handled_by,
+        created_by,
+        created_at,
+        updated_at
+      ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, NOW(), NOW())
+      RETURNING id
+    `;
+
+    const transactionParams: (string | number | boolean | null)[] = [
+      customer_type?.toUpperCase() || 'MEMBER',
+      member_id || null,
+      totalPaidAmount,
+      outstandingAmount,
+      transactionStatus,
+      finalReceiptNo,
+      remarks || '',
+      true, // process_payment
+      handled_by,
+      created_by
+    ];
+
+    console.log('Transaction Query:', transactionQuery);
+    console.log('Transaction Params:', transactionParams);
+
+    const transactionResult = await client.query(transactionQuery, transactionParams);
+    const saleTransactionId: number = transactionResult.rows[0].id;
+
+    console.log('Created sale transaction with ID:', saleTransactionId);
+
+    // Insert sale transaction items (WITHOUT employee assignments)
+    for (const item of items) {
+      const itemQuery: string = `
+        INSERT INTO sale_transaction_items (
+          sale_transaction_id,
+          service_name,
+          product_name,
+          member_care_package_id,
+          member_voucher_id,
+          original_unit_price,
+          custom_unit_price,
+          discount_percentage,
+          quantity,
+          amount,
+          item_type,
+          remarks,
+          created_at,
+          updated_at
+        ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, NOW(), NOW())
+        RETURNING id
+      `;
+
+      const pricing: ItemPricing = item.pricing || {
+        originalPrice: 0,
+        customPrice: 0,
+        discount: 0,
+        quantity: 1,
+        totalLinePrice: 0
+      };
+
+      let itemType: string;
+      let serviceName: string | null;
+      let productName: string | null;
+      
+      // Simplified logic for services and products only
+      if (item.type === 'service') {
+        itemType = 'service';
+        serviceName = item.data?.name || null;
+        productName = null;
+      } else if (item.type === 'product') {
+        itemType = 'product';
+        serviceName = null;
+        productName = item.data?.name || null;
+      } else {
+        throw new Error(`Invalid item type '${item.type}' for services/products transaction. Only 'service' and 'product' are allowed.`);
+      }
+
+      const itemParams: (string | number | null)[] = [
+        saleTransactionId,
+        serviceName,
+        productName,
+        null, // member_care_package_id - always null for services/products
+        null, // member_voucher_id - always null for services/products
+        pricing.originalPrice || 0,
+        pricing.customPrice || 0,
+        pricing.discount || 0,
+        pricing.quantity || 1,
+        pricing.totalLinePrice || 0,
+        itemType,
+        item.remarks || '',
+      ];
+
+      console.log('Item Query:', itemQuery);
+      console.log('Item Params:', itemParams);
+
+      const itemResult = await client.query(itemQuery, itemParams);
+      const saleTransactionItemId: number = itemResult.rows[0].id;
+      
+      console.log('Created sale transaction item with ID:', saleTransactionItemId);
+
+      // REMOVED: Employee assignment section completely removed
+    }
+
+    // Insert payments
+    for (const payment of payments) {
+      if (payment.amount > 0) {
+        const paymentQuery: string = `
+          INSERT INTO payment_to_sale_transactions (
+            sale_transaction_id,
+            payment_method_id,
+            amount,
+            remarks,
+            created_by,
+            created_at,
+            updated_at
+          ) VALUES ($1, $2, $3, $4, $5, NOW(), NOW())
+          RETURNING id
+        `;
+
+        const paymentParams: (number | string)[] = [
+          saleTransactionId,
+          payment.methodId,
+          payment.amount,
+          payment.remark || '',
+          created_by
+        ];
+
+        console.log('Payment Query:', paymentQuery);
+        console.log('Payment Params:', paymentParams);
+
+        const paymentResult = await client.query(paymentQuery, paymentParams);
+        console.log('Greated payment with ID:', paymentResult.rows[0].id);
+      }
+    }
+
+    await client.query('COMMIT');
+    console.log('Transaction committed successfully');
+
+    // Return the created transaction data
+    return {
+      id: saleTransactionId,
+      receipt_no: finalReceiptNo,
+      customer_type: customer_type?.toUpperCase() || 'MEMBER',
+      member_id: member_id ? member_id.toString() : null,
+      total_transaction_amount: totalTransactionAmount,
+      total_paid_amount: totalPaidAmount,
+      outstanding_total_payment_amount: outstandingAmount,
+      transaction_status: transactionStatus,
+      remarks: remarks || '',
+      created_by,
+      handled_by,
+      items_count: items.length,
+      payments_count: payments.filter((p: PaymentMethodRequest) => p.amount > 0).length
+    };
+
+  } catch (error) {
+    await client.query('ROLLBACK');
+    console.error('Error creating sale transaction:', error);
+    throw error;
+  } finally {
+    client.release();
+  }
+};
+
+const createMcpTransaction = async (
+  transactionData: SingleItemTransactionRequestData
+): Promise<SingleItemTransactionCreationResult> => {
+  const client = await pool().connect();
+  
+  try {
+    await client.query('BEGIN');
+
+    // Extract data from request
+    const {
+      customer_type,
+      member_id,
+      receipt_number,
+      remarks,
+      created_by,
+      handled_by,
+      item,
+      payments
+    } = transactionData;
+
+    // Validate required fields
+    if (!created_by) {
+      throw new Error('created_by is required');
+    }
+
+    if (!handled_by) {
+      throw new Error('handled_by is required');
+    }
+
+    if (!item || item.type !== 'package') {
+      throw new Error('item is required and must be of type "package"');
+    }
+
+    if (!payments || !Array.isArray(payments) || payments.length === 0) {
+      throw new Error('payments array is required and cannot be empty');
+    }
+
+    // Calculate totals from single package item
+    const totalTransactionAmount: number = item.pricing?.totalLinePrice || 0;
+
+    // Calculate total paid amount from payments
+    const totalPaidAmount: number = payments.reduce((total: number, payment: PaymentMethodRequest) => {
+      return total + (payment.amount || 0);
+    }, 0);
+
+    const outstandingAmount: number = totalTransactionAmount - totalPaidAmount;
+
+    // Determine transaction status
+    const transactionStatus: 'FULL' | 'PARTIAL' = outstandingAmount <= 0 ? 'FULL' : 'PARTIAL';
+
+    // Use receipt number from frontend
+    let finalReceiptNo: string = receipt_number || '';
+    if (!finalReceiptNo) {
+      const receiptResult = await client.query(
+        'SELECT COALESCE(MAX(CAST(SUBSTRING(receipt_no FROM 3) AS INTEGER)), 0) + 1 as next_number FROM sale_transactions WHERE receipt_no LIKE $1',
+        [`ST%`]
+      );
+      finalReceiptNo = `ST${receiptResult.rows[0].next_number.toString().padStart(6, '0')}`;
+    }
+
+    // Insert main sales transaction
+    const transactionQuery: string = `
+      INSERT INTO sale_transactions (
+        customer_type,
+        member_id,
+        total_paid_amount,
+        outstanding_total_payment_amount,
+        sale_transaction_status,
+        receipt_no,
+        remarks,
+        process_payment,
+        handled_by,
+        created_by,
+        created_at,
+        updated_at
+      ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, NOW(), NOW())
+      RETURNING id
+    `;
+
+    const transactionParams: (string | number | boolean | null)[] = [
+      customer_type?.toUpperCase() || 'MEMBER',
+      member_id || null,
+      totalPaidAmount,
+      outstandingAmount,
+      transactionStatus,
+      finalReceiptNo,
+      remarks || '',
+      true, // process_payment
+      handled_by,
+      created_by
+    ];
+
+    console.log('MCP Transaction Query:', transactionQuery);
+    console.log('MCP Transaction Params:', transactionParams);
+
+    const transactionResult = await client.query(transactionQuery, transactionParams);
+    const saleTransactionId: number = transactionResult.rows[0].id;
+
+    console.log('Created MCP sale transaction with ID:', saleTransactionId);
+
+    const itemQuery: string = `
+      INSERT INTO sale_transaction_items (
+        sale_transaction_id,
+        service_name,
+        product_name,
+        member_care_package_id,
+        member_voucher_id,
+        original_unit_price,
+        custom_unit_price,
+        discount_percentage,
+        quantity,
+        amount,
+        item_type,
+        remarks,
+        created_at,
+        updated_at
+      ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, NOW(), NOW())
+      RETURNING id
+    `;
+
+    const pricing: ItemPricing = item.pricing || {
+      originalPrice: 0,
+      customPrice: 0,
+      discount: 0,
+      quantity: 1,
+      totalLinePrice: 0
+    };
+
+    // For MCP transactions, use hardcoded ID for now
+    const itemParams: (string | number | null)[] = [
+      saleTransactionId,
+      null, // service_name - null for packages
+      null, // product_name - null for packages
+      100, // member_care_package_id - hardcoded for testing
+      null, // member_voucher_id - null for packages
+      pricing.originalPrice || 0,
+      pricing.customPrice || 0,
+      pricing.discount || 0,
+      pricing.quantity || 1,
+      pricing.totalLinePrice || 0,
+      'package', // item_type
+      item.remarks || '',
+    ];
+
+    console.log('MCP Item Query:', itemQuery);
+    console.log('MCP Item Params:', itemParams);
+
+    const itemResult = await client.query(itemQuery, itemParams);
+    const saleTransactionItemId: number = itemResult.rows[0].id;
+    
+    console.log('Created MCP sale transaction item with ID:', saleTransactionItemId);
+
+    // Insert payment records
+    for (const payment of payments) {
+      if (payment.amount > 0) {
+        const paymentQuery: string = `
+          INSERT INTO payment_to_sale_transactions (
+            sale_transaction_id,
+            payment_method_id,
+            amount,
+            remarks,
+            created_by,
+            created_at,
+            updated_at
+          ) VALUES ($1, $2, $3, $4, $5, NOW(), NOW())
+          RETURNING id
+        `;
+
+        const paymentParams: (number | string)[] = [
+          saleTransactionId,
+          payment.methodId,
+          payment.amount,
+          payment.remark || '',
+          created_by
+        ];
+
+        console.log('MCP Payment Query:', paymentQuery);
+        console.log('MCP Payment Params:', paymentParams);
+
+        const paymentResult = await client.query(paymentQuery, paymentParams);
+        console.log('Created MCP payment with ID:', paymentResult.rows[0].id);
+      }
+    }
+
+    await client.query('COMMIT');
+    console.log('MCP Transaction committed successfully');
+
+    // Return the created transaction data
+    return {
+      id: saleTransactionId,
+      receipt_no: finalReceiptNo,
+      customer_type: customer_type?.toUpperCase() || 'MEMBER',
+      member_id: member_id ? member_id.toString() : null,
+      total_transaction_amount: totalTransactionAmount,
+      total_paid_amount: totalPaidAmount,
+      outstanding_total_payment_amount: outstandingAmount,
+      transaction_status: transactionStatus,
+      remarks: remarks || '',
+      created_by,
+      handled_by,
+      package_id: 100, // hardcoded for testing
+      package_name: item.data?.package_name || item.data?.name || null,
+      items_count: 1,
+      payments_count: payments.filter((p: PaymentMethodRequest) => p.amount > 0).length
+    };
+
+  } catch (error) {
+    await client.query('ROLLBACK');
+    console.error('Error creating MCP sale transaction:', error);
+    throw error;
+  } finally {
+    client.release();
+  }
+};
+
+const createMvTransaction = async (
+  transactionData: SingleItemTransactionRequestData
+): Promise<SingleItemTransactionCreationResult> => {
+  const client = await pool().connect();
+  
+  try {
+    await client.query('BEGIN');
+
+    // Extract data from request
+    const {
+      customer_type,
+      member_id,
+      receipt_number,
+      remarks,
+      created_by,
+      handled_by,
+      item,
+      payments
+    } = transactionData;
+
+    // Validate required fields
+    if (!created_by) {
+      throw new Error('created_by is required');
+    }
+
+    if (!handled_by) {
+      throw new Error('handled_by is required');
+    }
+
+    if (!item || item.type !== 'member-voucher') {
+      throw new Error('item is required and must be of type "member-voucher"');
+    }
+
+    if (!payments || !Array.isArray(payments) || payments.length === 0) {
+      throw new Error('payments array is required and cannot be empty');
+    }
+
+    // Calculate totals from single voucher item
+    const totalTransactionAmount: number = item.pricing?.totalLinePrice || 0;
+
+    // Calculate total paid amount from payments
+    const totalPaidAmount: number = payments.reduce((total: number, payment: PaymentMethodRequest) => {
+      return total + (payment.amount || 0);
+    }, 0);
+
+    const outstandingAmount: number = totalTransactionAmount - totalPaidAmount;
+
+    // Determine transaction status
+    const transactionStatus: 'FULL' | 'PARTIAL' = outstandingAmount <= 0 ? 'FULL' : 'PARTIAL';
+
+    // Use receipt number from frontend
+    let finalReceiptNo: string = receipt_number || '';
+    if (!finalReceiptNo) {
+      const receiptResult = await client.query(
+        'SELECT COALESCE(MAX(CAST(SUBSTRING(receipt_no FROM 3) AS INTEGER)), 0) + 1 as next_number FROM sale_transactions WHERE receipt_no LIKE $1',
+        [`ST%`]
+      );
+      finalReceiptNo = `ST${receiptResult.rows[0].next_number.toString().padStart(6, '0')}`;
+    }
+
+    // Insert main sales transaction
+    const transactionQuery: string = `
+      INSERT INTO sale_transactions (
+        customer_type,
+        member_id,
+        total_paid_amount,
+        outstanding_total_payment_amount,
+        sale_transaction_status,
+        receipt_no,
+        remarks,
+        process_payment,
+        handled_by,
+        created_by,
+        created_at,
+        updated_at
+      ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, NOW(), NOW())
+      RETURNING id
+    `;
+
+    const transactionParams: (string | number | boolean | null)[] = [
+      customer_type?.toUpperCase() || 'MEMBER',
+      member_id || null,
+      totalPaidAmount,
+      outstandingAmount,
+      transactionStatus,
+      finalReceiptNo,
+      remarks || '',
+      true, // process_payment
+      handled_by,
+      created_by
+    ];
+
+    console.log('🔍 MV Transaction Query:', transactionQuery);
+    console.log('🔍 MV Transaction Params:', transactionParams);
+
+    const transactionResult = await client.query(transactionQuery, transactionParams);
+    const saleTransactionId: number = transactionResult.rows[0].id;
+
+    console.log('✅ Created MV sale transaction with ID:', saleTransactionId);
+
+    // Insert sale transaction item for the voucher
+    const itemQuery: string = `
+      INSERT INTO sale_transaction_items (
+        sale_transaction_id,
+        service_name,
+        product_name,
+        member_care_package_id,
+        member_voucher_id,
+        original_unit_price,
+        custom_unit_price,
+        discount_percentage,
+        quantity,
+        amount,
+        item_type,
+        remarks,
+        created_at,
+        updated_at
+      ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, NOW(), NOW())
+      RETURNING id
+    `;
+
+    const pricing: ItemPricing = item.pricing || {
+      originalPrice: 0,
+      customPrice: 0,
+      discount: 0,
+      quantity: 1,
+      totalLinePrice: 0
+    };
+
+    // For MV transactions, use hardcoded ID for member_voucher_id
+    const itemParams: (string | number | null)[] = [
+      saleTransactionId,
+      null, // service_name - null for vouchers
+      null, // product_name - null for vouchers
+      null, // member_care_package_id - null for vouchers
+      200, // member_voucher_id - hardcoded for testing
+      pricing.originalPrice || 0,
+      pricing.customPrice || 0,
+      pricing.discount || 0,
+      pricing.quantity || 1,
+      pricing.totalLinePrice || 0,
+      'voucher', // item_type
+      item.remarks || '',
+    ];
+
+    console.log('MV Item Query:', itemQuery);
+    console.log('MV Item Params:', itemParams);
+
+    const itemResult = await client.query(itemQuery, itemParams);
+    const saleTransactionItemId: number = itemResult.rows[0].id;
+    
+    console.log('Created MV sale transaction item with ID:', saleTransactionItemId);
+
+    // Insert payment records
+    for (const payment of payments) {
+      if (payment.amount > 0) {
+        const paymentQuery: string = `
+          INSERT INTO payment_to_sale_transactions (
+            sale_transaction_id,
+            payment_method_id,
+            amount,
+            remarks,
+            created_by,
+            created_at,
+            updated_at
+          ) VALUES ($1, $2, $3, $4, $5, NOW(), NOW())
+          RETURNING id
+        `;
+
+        const paymentParams: (number | string)[] = [
+          saleTransactionId,
+          payment.methodId,
+          payment.amount,
+          payment.remark || '',
+          created_by
+        ];
+
+        console.log('MV Payment Query:', paymentQuery);
+        console.log('MV Payment Params:', paymentParams);
+
+        const paymentResult = await client.query(paymentQuery, paymentParams);
+        console.log('Created MV payment with ID:', paymentResult.rows[0].id);
+      }
+    }
+
+    await client.query('COMMIT');
+    console.log('MV Transaction committed successfully');
+
+    // Return the created transaction data
+    return {
+      id: saleTransactionId,
+      receipt_no: finalReceiptNo,
+      customer_type: customer_type?.toUpperCase() || 'MEMBER',
+      member_id: member_id ? member_id.toString() : null,
+      total_transaction_amount: totalTransactionAmount,
+      total_paid_amount: totalPaidAmount,
+      outstanding_total_payment_amount: outstandingAmount,
+      transaction_status: transactionStatus,
+      remarks: remarks || '',
+      created_by,
+      handled_by,
+      voucher_id: 200, // hardcoded for testing
+      voucher_name: item.data?.member_voucher_name || item.data?.name || null,
+      items_count: 1,
+      payments_count: payments.filter((p: PaymentMethodRequest) => p.amount > 0).length
+    };
+
+  } catch (error) {
+    await client.query('ROLLBACK');
+    console.error('Error creating MV sale transaction:', error);
+    throw error;
+  } finally {
+    client.release();
+  }
 };
 
 
@@ -565,5 +1235,8 @@ export default {
   getSalesTransactionList,
   getSalesTransactionById,
   searchServices,
-  searchProducts
+  searchProducts,
+  createServicesProductsTransaction,
+  createMcpTransaction,
+  createMvTransaction
 };

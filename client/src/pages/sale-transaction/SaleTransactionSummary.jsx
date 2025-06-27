@@ -17,7 +17,7 @@ const SaleTransactionSummary = () => {
   // Get cart data from store
   const { selectedMember, cartItems, clearCart } = useTransactionCartStore();
   
-  // Get sale transaction store
+  // Get sale transaction store - including transaction details management
   const { 
     isCreating, 
     currentStep, 
@@ -25,25 +25,35 @@ const SaleTransactionSummary = () => {
     createdTransactions,
     failedTransactions,
     errors,
+    transactionDetails,
+    setReceiptNumber,
+    setTransactionRemark,
+    setCreatedBy,
+    setHandledBy,
+    setMemberInfo,
     createSaleTransactions,
+    validateTransactionDetails,
     reset: resetTransactionStore
   } = useSaleTransactionStore();
-  
-  // State for transaction details ONLY
-  const [ReceiptNumber, setReceiptNumber] = useState('');
-  const [transactionRemark, setTransactionRemark] = useState('');
-  const [transactionHandlerId, setTransactionHandlerId] = useState('');
-  const [paymentHandlerId, setPaymentHandlerId] = useState('');
   
   // State for cart items and payments (managed by child component)
   const [itemEmployees, setItemEmployees] = useState({});
   const [itemPricing, setItemPricing] = useState({});
+  const [itemRemarks, setItemRemarks] = useState({});
   const [selectedPaymentMethods, setSelectedPaymentMethods] = useState({});
   const [sectionPayments, setSectionPayments] = useState({});
   
   // Modal state
   const [modalMessage, setModalMessage] = useState('');
   const [showModal, setShowModal] = useState(false);
+  
+  // Debug state
+  const [showDebug, setShowDebug] = useState(true);
+
+  // Initialize member info in store when component mounts or selectedMember changes
+  useEffect(() => {
+    setMemberInfo(selectedMember);
+  }, [selectedMember, setMemberInfo]);
   
   // Get cart total (uses pricing data)
   const getUpdatedCartTotal = () => {
@@ -53,13 +63,17 @@ const SaleTransactionSummary = () => {
     }, 0);
   };
 
-  // Initialize itemEmployees and itemPricing with any existing assignments
+  // Initialize itemEmployees, itemPricing, and itemRemarks with any existing assignments
   useEffect(() => {
     const initialAssignments = {};
     const initialPricing = {};
+    const initialRemarks = {};
     
     cartItems.forEach(item => {
-      if (item.data?.employee_id) {
+      // Auto-assign employee for vouchers with created_by
+      if (item.type === 'member-voucher' && item.data?.created_by) {
+        initialAssignments[item.id] = item.data.created_by.toString();
+      } else if (item.data?.employee_id) {
         initialAssignments[item.id] = item.data.employee_id;
       }
       
@@ -75,10 +89,14 @@ const SaleTransactionSummary = () => {
         finalUnitPrice: originalPrice,
         totalLinePrice: originalPrice * quantity
       };
+
+      // Initialize remarks for each item
+      initialRemarks[item.id] = item.remarks || '';
     });
     
     setItemEmployees(initialAssignments);
     setItemPricing(initialPricing);
+    setItemRemarks(initialRemarks);
   }, [cartItems]);
 
   // Get item pricing data
@@ -106,6 +124,14 @@ const SaleTransactionSummary = () => {
     setItemEmployees(prev => ({
       ...prev,
       [itemId]: employeeId
+    }));
+  };
+
+  // Handle item remarks changes from CartItemsWithPayment
+  const handleRemarksChange = (itemId, remarks) => {
+    setItemRemarks(prev => ({
+      ...prev,
+      [itemId]: remarks
     }));
   };
 
@@ -151,26 +177,121 @@ const SaleTransactionSummary = () => {
     }));
   };
 
-  // Check if transaction is valid for submission
   const isTransactionValid = () => {
+    // Check transaction details validation from store
+    const { isValid } = validateTransactionDetails();
+    if (!isValid) return false;
+    
     // Check basic transaction requirements
-    const hasTransactionHandler = Boolean(transactionHandlerId);
-    const hasPaymentHandler = Boolean(paymentHandlerId);
     const hasCartItems = cartItems.length > 0;
     
     // Check if all required items have assigned employees
     const allItemsHaveEmployees = cartItems.every(item => 
       item.type === 'product' || 
-      item.type === 'member-voucher' || 
       itemEmployees[item.id]
     );
     
-    // Check if required sections have payment
-    const hasPayments = Object.values(sectionPayments).some(payments => 
-      Array.isArray(payments) && payments.length > 0
+    const servicesAndProducts = [
+      ...cartItems.filter(item => item.type === 'service'),
+      ...cartItems.filter(item => item.type === 'product')
+    ];
+    
+    let servicesProductsFullyPaid = true;
+    if (servicesAndProducts.length > 0) {
+      const sectionTotal = servicesAndProducts.reduce((total, item) => {
+        const pricing = getItemPricing(item.id);
+        return total + pricing.totalLinePrice;
+      }, 0);
+      
+      const sectionPaymentTotal = sectionPayments['services-products']?.reduce((total, payment) => 
+        total + (payment.amount || 0), 0
+      ) || 0;
+      
+      servicesProductsFullyPaid = Math.abs(sectionTotal - sectionPaymentTotal) < 0.01; // Allow for small rounding differences
+    }
+    
+    const hasReceiptNumber = transactionDetails.receiptNumber && transactionDetails.receiptNumber.trim() !== '';
+    const hasCreatedBy = transactionDetails.createdBy && transactionDetails.createdBy !== '';
+    const hasHandledBy = transactionDetails.handledBy && transactionDetails.handledBy !== '';
+    
+    return hasCartItems && 
+           allItemsHaveEmployees && 
+           servicesProductsFullyPaid && 
+           hasReceiptNumber && 
+           hasCreatedBy && 
+           hasHandledBy;
+  };
+
+  const getValidationErrors = () => {
+    const errors = [];
+    
+    // Check cart items
+    if (cartItems.length === 0) {
+      errors.push('Add items to your cart');
+    }
+    
+    // Check required transaction details
+    if (!transactionDetails.receiptNumber || transactionDetails.receiptNumber.trim() === '') {
+      errors.push('Receipt number is required');
+    }
+    
+    if (!transactionDetails.createdBy || transactionDetails.createdBy === '') {
+      errors.push('Transaction creator must be selected');
+    }
+    
+    if (!transactionDetails.handledBy || transactionDetails.handledBy === '') {
+      errors.push('Transaction handler must be selected');
+    }
+    
+    // Check employee assignments
+    const itemsNeedingEmployees = cartItems.filter(item => 
+      item.type !== 'product' && !itemEmployees[item.id]
     );
     
-    return hasTransactionHandler && hasPaymentHandler && hasCartItems && allItemsHaveEmployees && hasPayments;
+    if (itemsNeedingEmployees.length > 0) {
+      errors.push(`Assign employees to all services, packages, and vouchers (${itemsNeedingEmployees.length} items missing)`);
+    }
+    
+    const servicesAndProducts = [
+      ...cartItems.filter(item => item.type === 'service'),
+      ...cartItems.filter(item => item.type === 'product')
+    ];
+    
+    if (servicesAndProducts.length > 0) {
+      const sectionTotal = servicesAndProducts.reduce((total, item) => {
+        const pricing = getItemPricing(item.id);
+        return total + pricing.totalLinePrice;
+      }, 0);
+      
+      const sectionPaymentTotal = sectionPayments['services-products']?.reduce((total, payment) => 
+        total + (payment.amount || 0), 0
+      ) || 0;
+      
+      const remainingAmount = sectionTotal - sectionPaymentTotal;
+      
+      if (Math.abs(remainingAmount) >= 0.01) { // Allow for small rounding differences
+        errors.push(`Services & Products section must be fully paid (remaining: ${formatCurrency(remainingAmount)})`);
+      }
+    }
+    
+    return errors;
+  };
+
+  const ValidationMessage = () => {
+    const validationErrors = getValidationErrors();
+    
+    if (validationErrors.length === 0) return null;
+    
+    return (
+      <div className="bg-red-50 border border-red-200 text-red-800 px-4 py-3 rounded-md">
+        <h3 className="font-bold mb-2">❌ Cannot proceed with transaction:</h3>
+        <ul className="list-disc pl-5 space-y-1">
+          {validationErrors.map((error, index) => (
+            <li key={index}>{error}</li>
+          ))}
+        </ul>
+      </div>
+    );
   };
   
   // Format currency
@@ -199,16 +320,8 @@ const SaleTransactionSummary = () => {
         vouchers: cartItems.filter(item => item.type === 'member-voucher'),
       };
 
-      // Prepare transaction data
+      // Prepare transaction data - the store will handle transaction details automatically
       const transactionData = {
-        member: selectedMember,
-        handlers: {
-          transaction: transactionHandlerId,
-          payment: paymentHandlerId
-        },
-        ReceiptNumber,
-        transactionRemark,
-        
         // Services + Products combined transaction
         servicesProducts: (() => {
           const items = [...groupedItems.services, ...groupedItems.products];
@@ -218,13 +331,10 @@ const SaleTransactionSummary = () => {
             items: items.map(item => ({
               ...item,
               pricing: getItemPricing(item.id),
-              employee_id: itemEmployees[item.id] || null
+              assignedEmployee: itemEmployees[item.id] || null,
+              remarks: itemRemarks[item.id] || ''
             })),
-            payments: sectionPayments['services-products'] || [],
-            totalAmount: items.reduce((total, item) => {
-              const pricing = getItemPricing(item.id);
-              return total + pricing.totalLinePrice;
-            }, 0)
+            payments: sectionPayments['services-products'] || []
           };
         })(),
         
@@ -233,10 +343,10 @@ const SaleTransactionSummary = () => {
           item: {
             ...pkg,
             pricing: getItemPricing(pkg.id),
-            employee_id: itemEmployees[pkg.id] || null
+            assignedEmployee: itemEmployees[pkg.id] || null,
+            remarks: itemRemarks[pkg.id] || ''
           },
-          payments: sectionPayments[`package-${pkg.id}`] || [],
-          totalAmount: getItemPricing(pkg.id).totalLinePrice
+          payments: sectionPayments[`package-${pkg.id}`] || []
         })),
         
         // Individual MV transactions
@@ -244,16 +354,17 @@ const SaleTransactionSummary = () => {
           item: {
             ...voucher,
             pricing: getItemPricing(voucher.id),
-            employee_id: itemEmployees[voucher.id] || null
+            assignedEmployee: itemEmployees[voucher.id] || null,
+            remarks: itemRemarks[voucher.id] || ''
           },
-          payments: sectionPayments[`voucher-${voucher.id}`] || [],
-          totalAmount: getItemPricing(voucher.id).totalLinePrice
+          payments: sectionPayments[`voucher-${voucher.id}`] || []
         }))
       };
 
       console.log('📋 Prepared transaction data:', transactionData);
+      console.log('📋 Transaction details from store:', transactionDetails);
 
-      // Create transactions using the store
+      // Create transactions using the store (transaction details are handled automatically)
       const result = await createSaleTransactions(transactionData);
       
       if (result.success) {
@@ -317,7 +428,7 @@ const SaleTransactionSummary = () => {
                       
                       {!selectedMember && (
                         <div className="mt-2 text-xs font-medium text-red-700 bg-red-50 px-2 py-1 rounded-full inline-block">
-                          No member selected
+                          No member selected (Walk-in customer)
                         </div>
                       )}
                       
@@ -415,7 +526,93 @@ const SaleTransactionSummary = () => {
                 </Card>
               )}
               
-              {/* Transaction Information - ONLY TRANSACTION DETAILS */}
+              {/* Debug Panel - Sale Transaction Data Only */}
+              {showDebug && (
+                <Card className="border-2 border-blue-200 bg-blue-50">
+                  <CardHeader>
+                    <div className="flex items-center justify-between">
+                      <CardTitle className="text-lg text-blue-800">🐛 Debug: Sale Transaction Data</CardTitle>
+                      <Button 
+                        onClick={() => setShowDebug(!showDebug)}
+                        variant="outline" 
+                        size="sm"
+                      >
+                        Hide Debug
+                      </Button>
+                    </div>
+                  </CardHeader>
+                  <CardContent>
+                    {/* Prepared Transaction Data Preview */}
+                    <div className="bg-white p-3 rounded border">
+                      <h4 className="font-semibold text-sm mb-2 text-teal-700">📤 Prepared Sale Transaction Data</h4>
+                      <pre className="text-xs overflow-auto max-h-96 bg-gray-100 p-2 rounded">
+                        {JSON.stringify({
+                          // Transaction Details (from store)
+                          transactionDetails: {
+                            receiptNumber: transactionDetails.receiptNumber,
+                            transactionRemark: transactionDetails.transactionRemark,
+                            createdBy: transactionDetails.createdBy,
+                            handledBy: transactionDetails.handledBy,
+                            memberId: transactionDetails.memberId,
+                            customerType: transactionDetails.customerType
+                          },
+                          // Transaction Data
+                          servicesProducts: (() => {
+                            const groupedItems = {
+                              services: cartItems.filter(item => item.type === 'service'),
+                              products: cartItems.filter(item => item.type === 'product'),
+                            };
+                            const items = [...groupedItems.services, ...groupedItems.products];
+                            return items.length === 0 ? null : {
+                              items: items.map(item => ({
+                                ...item,
+                                pricing: getItemPricing(item.id),
+                                assignedEmployee: itemEmployees[item.id] || null,
+                                remarks: itemRemarks[item.id] || ''
+                              })),
+                              payments: sectionPayments['services-products'] || []
+                            };
+                          })(),
+                          mcpTransactions: cartItems.filter(item => item.type === 'package').map(pkg => ({
+                            item: {
+                              ...pkg,
+                              pricing: getItemPricing(pkg.id),
+                              assignedEmployee: itemEmployees[pkg.id] || null,
+                              remarks: itemRemarks[pkg.id] || ''
+                            },
+                            payments: sectionPayments[`package-${pkg.id}`] || []
+                          })),
+                          mvTransactions: cartItems.filter(item => item.type === 'member-voucher').map(voucher => ({
+                            item: {
+                              ...voucher,
+                              pricing: getItemPricing(voucher.id),
+                              assignedEmployee: itemEmployees[voucher.id] || null,
+                              remarks: itemRemarks[voucher.id] || ''
+                            },
+                            payments: sectionPayments[`voucher-${voucher.id}`] || []
+                          }))
+                        }, null, 2)}
+                      </pre>
+                    </div>
+                  </CardContent>
+                </Card>
+              )}
+
+              {/* Debug Toggle Button (when debug is hidden) */}
+              {!showDebug && (
+                <div className="flex justify-center">
+                  <Button 
+                    onClick={() => setShowDebug(true)}
+                    variant="outline" 
+                    size="sm"
+                    className="border-blue-300 text-blue-600 hover:bg-blue-50"
+                  >
+                    🐛 Show Debug Info
+                  </Button>
+                </div>
+              )}
+              
+              {/* ✅ Enhanced Transaction Information - Using Store Management */}
               <Card>
                 <CardHeader>
                   <CardTitle className="text-lg">Transaction Information</CardTitle>
@@ -424,17 +621,25 @@ const SaleTransactionSummary = () => {
                   <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                     <div>
                       <label htmlFor="receiptNumber" className="block text-sm font-medium text-gray-700 mb-1">
-                        Receipt Number (Required)
+                        Receipt Number <span className="text-red-500">*</span>
                       </label>
                       <input
-                        id="ReceiptNumber"
+                        id="receiptNumber"
                         type="text"
-                        value={ReceiptNumber}
+                        value={transactionDetails.receiptNumber}
                         onChange={(e) => setReceiptNumber(e.target.value)}
                         disabled={isCreating}
-                        className="w-full p-2 border border-gray-300 rounded-md disabled:bg-gray-100"
-                        placeholder="Enter manual Receipt Number number"
+                        className={`w-full p-2 border rounded-md disabled:bg-gray-100 ${
+                          !transactionDetails.receiptNumber || transactionDetails.receiptNumber.trim() === ''
+                            ? 'border-red-300 focus:border-red-500 focus:ring-red-200' 
+                            : 'border-gray-300 focus:border-blue-500 focus:ring-blue-200'
+                        }`}
+                        placeholder="Enter receipt number (required)"
+                        required
                       />
+                      {(!transactionDetails.receiptNumber || transactionDetails.receiptNumber.trim() === '') && (
+                        <p className="text-red-500 text-xs mt-1">Receipt number is required</p>
+                      )}
                     </div>
                     
                     <div>
@@ -443,41 +648,70 @@ const SaleTransactionSummary = () => {
                       </label>
                       <textarea
                         id="transactionRemark"
-                        value={transactionRemark}
+                        value={transactionDetails.transactionRemark}
                         onChange={(e) => setTransactionRemark(e.target.value)}
                         disabled={isCreating}
-                        className="w-full p-2 border border-gray-300 rounded-md disabled:bg-gray-100"
-                        placeholder="Enter transaction remark"
+                        className="w-full p-2 border border-gray-300 rounded-md disabled:bg-gray-100 focus:border-blue-500 focus:ring-blue-200"
+                        placeholder="Enter transaction remark (optional)"
                         rows={1}
                       />
                     </div>
                   </div>
                   
                   <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                    <div>
+                    <div className={`${
+                      !transactionDetails.createdBy || transactionDetails.createdBy === ''
+                        ? 'ring-2 ring-red-200 rounded-md p-2' 
+                        : ''
+                    }`}>
                       <EmployeeSelect 
-                        label="Transaction Handler *"
-                        value={transactionHandlerId}
-                        onChange={setTransactionHandlerId}
+                        label="Transaction Creator *"
+                        value={transactionDetails.createdBy || ""}
+                        onChange={setCreatedBy}
                         disabled={isCreating}
                         errors={{}}
                       />
+                      {(!transactionDetails.createdBy || transactionDetails.createdBy === '') && (
+                        <p className="text-red-500 text-xs mt-1">Transaction creator is required</p>
+                      )}
                     </div>
                     
-                    <div>
+                    <div className={`${
+                      !transactionDetails.handledBy || transactionDetails.handledBy === ''
+                        ? 'ring-2 ring-red-200 rounded-md p-2' 
+                        : ''
+                    }`}>
                       <EmployeeSelect 
-                        label="Payment Handler *"
-                        value={paymentHandlerId}
-                        onChange={setPaymentHandlerId}
+                        label="Transaction Handler *"
+                        value={transactionDetails.handledBy || ""}
+                        onChange={setHandledBy}
                         disabled={isCreating}
                         errors={{}}
                       />
+                      {(!transactionDetails.handledBy || transactionDetails.handledBy === '') && (
+                        <p className="text-red-500 text-xs mt-1">Transaction handler is required</p>
+                      )}
+                    </div>
+                  </div>
+                  
+                  {/* Transaction Details Summary */}
+                  <div className="mt-4 p-3 bg-gray-50 rounded-md">
+                    <h4 className="text-sm font-medium text-gray-700 mb-2">Transaction Summary</h4>
+                    <div className="grid grid-cols-2 gap-4 text-xs">
+                      <div>
+                        <span className="text-gray-500">Customer Type:</span>
+                        <span className="ml-2 font-medium">{transactionDetails.customerType}</span>
+                      </div>
+                      <div>
+                        <span className="text-gray-500">Member ID:</span>
+                        <span className="ml-2 font-medium">{transactionDetails.memberId || 'N/A'}</span>
+                      </div>
                     </div>
                   </div>
                 </CardContent>
               </Card>
               
-              {/* Cart Items with Payment - DELEGATED TO COMPONENT */}
+              {/* Cart Items with Payment */}
               {cartItems.length === 0 ? (
                 <Card>
                   <CardContent>
@@ -500,10 +734,12 @@ const SaleTransactionSummary = () => {
                   cartItems={cartItems}
                   onPricingChange={handlePricingChange}
                   onEmployeeChange={handleEmployeeChange}
+                  onRemarksChange={handleRemarksChange}
                   onPaymentChange={handlePaymentChange}
                   onSelectedPaymentMethodChange={handleSelectedPaymentMethodChange}
                   itemEmployees={itemEmployees}
                   itemPricing={itemPricing}
+                  itemRemarks={itemRemarks}
                   sectionPayments={sectionPayments}
                   selectedPaymentMethods={selectedPaymentMethods}
                   disabled={isCreating}
@@ -513,18 +749,8 @@ const SaleTransactionSummary = () => {
               {/* Transaction Actions */}
               {cartItems.length > 0 && (
                 <>
-                  {/* Validation Message */}
-                  {!isTransactionValid() && !isCreating && (
-                    <div className="bg-yellow-50 border border-yellow-200 text-yellow-800 px-4 py-3 rounded-md">
-                      <h3 className="font-bold">Before proceeding, please ensure:</h3>
-                      <ul className="list-disc pl-5 mt-2">
-                        {!transactionHandlerId && <li>Transaction handler is selected</li>}
-                        {!paymentHandlerId && <li>Payment handler is selected</li>}
-                        <li>All required sections have appropriate payments</li>
-                        <li>All services and packages have assigned employees</li>
-                      </ul>
-                    </div>
-                  )}
+                  {/* ✅ Enhanced Validation Message */}
+                  {!isTransactionValid() && !isCreating && <ValidationMessage />}
                   
                   {/* Action Buttons */}
                   <div className="flex justify-end gap-4">

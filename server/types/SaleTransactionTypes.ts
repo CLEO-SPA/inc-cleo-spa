@@ -107,8 +107,122 @@ export interface Product {
   category: string;
   product_category_name: string;
   product_category_id: string | null;
-  price: number;
-  cost_price: number;
+  price: number;          
+  cost_price: number;      
   is_enabled: boolean;
   sequence_no: number;
+}
+
+export interface ItemPricing {
+  originalPrice: number;
+  customPrice: number;
+  discount: number;
+  quantity: number;
+  totalLinePrice: number;
+}
+
+export interface ItemData {
+  name: string;
+  id?: string;
+  [key: string]: any;
+}
+
+export interface TransactionRequestItem {
+  type: 'service' | 'product';
+  data: ItemData;
+  pricing: ItemPricing;
+  assignedEmployee?: number | string;
+  employee_id?: number | string;
+  remarks?: string;
+  employeeRemarks?: string;
+}
+
+export interface PaymentMethodRequest {
+  methodId: number;
+  amount: number;
+  remark?: string;
+}
+
+export interface TransactionRequestData {
+  customer_type?: string;
+  member_id?: string | number;
+  receipt_number?: string;
+  remarks?: string;
+  created_by: number;
+  handled_by: number;
+  items: TransactionRequestItem[];
+  payments: PaymentMethodRequest[];
+}
+
+export interface TransactionCreationResult {
+  id: number;
+  receipt_no: string;
+  customer_type: string;
+  member_id: string | number | null;
+  total_transaction_amount: number;
+  total_paid_amount: number;
+  outstanding_total_payment_amount: number;
+  transaction_status: 'FULL' | 'PARTIAL';
+  remarks: string;
+  created_by: number;
+  handled_by: number;
+  items_count: number;
+  payments_count: number;
+}
+
+export interface SingleTransactionRequestItem {
+  type: 'package' | 'member-voucher';
+  data: {
+    id: string;
+    // Package-specific fields
+    package_name?: string;
+    name?: string;
+    package_price?: number;
+    template_package_id?: string;
+    services?: any[];
+    // Voucher-specific fields
+    member_voucher_name?: string;
+    starting_balance?: number;
+    free_of_charge?: number;
+    // Common fields
+    member_id?: number;
+    employee_id?: number;
+    [key: string]: any;
+  };
+  pricing: ItemPricing;
+  assignedEmployee?: number | string;
+  employee_id?: number | string;
+  remarks?: string;
+  employeeRemarks?: string;
+}
+
+export interface SingleItemTransactionRequestData {
+  customer_type?: string;
+  member_id?: number | number;
+  receipt_number?: string;
+  remarks?: string;
+  created_by: number;
+  handled_by: number;
+  item: SingleTransactionRequestItem; 
+  payments: PaymentMethodRequest[];
+}
+
+export interface SingleItemTransactionCreationResult {
+  id: number;
+  receipt_no: string;
+  customer_type: string;
+  member_id: string | number | null;
+  total_transaction_amount: number;
+  total_paid_amount: number;
+  outstanding_total_payment_amount: number;
+  transaction_status: 'FULL' | 'PARTIAL';
+  remarks: string;
+  created_by: number;
+  handled_by: number;
+  package_id?: number | null;
+  package_name?: string | null;
+  voucher_id?: number | null;
+  voucher_name?: string | null;
+  items_count: number;
+  payments_count: number;
 }

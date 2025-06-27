@@ -124,10 +124,90 @@ const searchProducts = async (req: Request, res: Response): Promise<void> => {
   }
 };
 
+const createServicesProductsTransaction = async (req: Request, res: Response): Promise<void> => {
+  try {
+    console.log('Creating services/products transaction:', req.body);
+
+    // Call the model function
+    const result = await model.createServicesProductsTransaction(req.body);
+
+    console.log('Services/products transaction created successfully:', result);
+
+    res.status(201).json({
+      success: true,
+      message: 'Services/products transaction created successfully',
+      data: result
+    });
+
+  } catch (error: any) {
+    console.error('Error creating services/products transaction:', error);
+    
+    res.status(500).json({
+      success: false,
+      error: 'Failed to create services/products transaction',
+      details: error.message
+    });
+  }
+};
+
+const createMcpTransaction = async (req: Request, res: Response): Promise<void> => {
+  try {
+    console.log('Creating MCP transaction:', req.body);
+
+    const result = await model.createMcpTransaction(req.body);
+
+    console.log('MCP transaction created successfully:', result);
+
+    res.status(201).json({
+      success: true,
+      message: 'MCP transaction created successfully',
+      data: result
+    });
+
+  } catch (error: any) {
+    console.error('Error creating MCP transaction:', error);
+    
+    res.status(500).json({
+      success: false,
+      error: 'Failed to create MCP transaction',
+      details: error.message
+    });
+  }
+};
+
+
+const createMvTransaction = async (req: Request, res: Response): Promise<void> => {
+  try {
+    console.log('Creating MV transaction:', req.body);
+
+    // Call the model function
+    const result = await model.createMvTransaction(req.body);
+
+    console.log('MV transaction created successfully:', result);
+
+    res.status(201).json({
+      success: true,
+      message: 'MV transaction created successfully',
+      data: result
+    });
+
+  } catch (error: any) {
+    console.error('Error creating MV transaction:', error);
+    
+    res.status(500).json({
+      success: false,
+      error: 'Failed to create MV transaction',
+      details: error.message
+    });
+  }
+};
 
 export default {
   getSalesTransactionList,
   getSalesTransactionById,
   searchServices,
-  searchProducts
+  searchProducts,
+  createServicesProductsTransaction,
+  createMcpTransaction,
+  createMvTransaction
 };

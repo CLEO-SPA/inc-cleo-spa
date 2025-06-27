@@ -1,4 +1,3 @@
-// stores/useSaleTransactionStore.js
 import { create } from 'zustand';
 import { devtools } from 'zustand/middleware';
 import api from '@/services/api';
@@ -6,7 +5,7 @@ import api from '@/services/api';
 const getInitialState = () => ({
   // Transaction creation state
   isCreating: false,
-  currentStep: 'idle', // 'idle', 'preparing', 'creating', 'completed', 'failed'
+  currentStep: 'idle', 
   createdTransactions: [],
   failedTransactions: [],
   
@@ -16,6 +15,16 @@ const getInitialState = () => ({
     completed: 0,
     failed: 0,
     currentOperation: ''
+  },
+
+  // General transaction details (shared across all transactions)
+  transactionDetails: {
+    receiptNumber: '',
+    transactionRemark: '',
+    createdBy: null, 
+    handledBy: null, 
+    memberId: null,
+    customerType: 'MEMBER' 
   },
 
   // Error handling
@@ -28,6 +37,67 @@ const useSaleTransactionStore = create(
     (set, get) => ({
       ...getInitialState(),
 
+      // Update transaction details
+      updateTransactionDetails: (details) => {
+        set(state => ({
+          transactionDetails: {
+            ...state.transactionDetails,
+            ...details
+          }
+        }));
+      },
+
+      // Set receipt number
+      setReceiptNumber: (receiptNumber) => {
+        set(state => ({
+          transactionDetails: {
+            ...state.transactionDetails,
+            receiptNumber
+          }
+        }));
+      },
+
+      // Set transaction remark
+      setTransactionRemark: (transactionRemark) => {
+        set(state => ({
+          transactionDetails: {
+            ...state.transactionDetails,
+            transactionRemark
+          }
+        }));
+      },
+
+      // Set created by employee
+      setCreatedBy: (createdBy) => {
+        set(state => ({
+          transactionDetails: {
+            ...state.transactionDetails,
+            createdBy
+          }
+        }));
+      },
+
+      // Set handled by employee
+      setHandledBy: (handledBy) => {
+        set(state => ({
+          transactionDetails: {
+            ...state.transactionDetails,
+            handledBy
+          }
+        }));
+      },
+
+      // Set member info
+      setMemberInfo: (member) => {
+        set(state => ({
+          transactionDetails: {
+            ...state.transactionDetails,
+            memberId: member?.id || null,
+            customerType: member ? 'MEMBER' : 'WALK_IN'
+          }
+        }));
+      },
+
       // Main orchestration function
       createSaleTransactions: async (transactionData) => {
         set({ 
@@ -39,6 +109,17 @@ const useSaleTransactionStore = create(
         });
 
         try {
+          const { transactionDetails } = get();
+
+          // Validate required transaction details
+          if (!transactionDetails.createdBy) {
+            throw new Error('Transaction creator (created_by) is required');
+          }
+
+          if (!transactionDetails.handledBy) {
+            throw new Error('Transaction handler (handled_by) is required');
+          }
+
           // Calculate total number of transactions to create
           const servicesProductsCount = transactionData.servicesProducts?.items?.length > 0 ? 1 : 0;
           const mcpCount = transactionData.mcpTransactions?.length || 0;
@@ -49,7 +130,8 @@ const useSaleTransactionStore = create(
             servicesProducts: servicesProductsCount,
             mcpTransactions: mcpCount,
             mvTransactions: mvCount,
-            total: totalTransactions
+            total: totalTransactions,
+            transactionDetails
           });
 
           set({ 
@@ -76,11 +158,7 @@ const useSaleTransactionStore = create(
 
             try {
               const servicesTransaction = await get().createServicesProductsTransaction(
-                transactionData.servicesProducts,
-                transactionData.member,
-                transactionData.handlers,
-                transactionData.transactionNumber,
-                transactionData.transactionRemark
+                transactionData.servicesProducts
               );
               
               createdTransactions.push({
@@ -127,13 +205,7 @@ const useSaleTransactionStore = create(
               }));
 
               try {
-                const mcpTransaction = await get().createMcpTransaction(
-                  mcpData,
-                  transactionData.member,
-                  transactionData.handlers,
-                  transactionData.transactionNumber,
-                  transactionData.transactionRemark
-                );
+                const mcpTransaction = await get().createMcpTransaction(mcpData);
                 
                 createdTransactions.push({
                   type: 'mcp',
@@ -180,13 +252,7 @@ const useSaleTransactionStore = create(
               }));
 
               try {
-                const mvTransaction = await get().createMvTransaction(
-                  mvData,
-                  transactionData.member,
-                  transactionData.handlers,
-                  transactionData.transactionNumber,
-                  transactionData.transactionRemark
-                );
+                const mvTransaction = await get().createMvTransaction(mvData);
                 
                 createdTransactions.push({
                   type: 'mv',
@@ -265,33 +331,31 @@ const useSaleTransactionStore = create(
       },
 
       // Create Services + Products transaction (combined)
-      createServicesProductsTransaction: async (servicesProductsData, member, handlers, transactionNumber, transactionRemark) => {
+      createServicesProductsTransaction: async (servicesProductsData) => {
         console.log('🛍️ Creating Services + Products transaction...');
         
+        const { transactionDetails } = get();
+        
         const payload = {
-          customer_type: 'member',
-          member_id: member?.id,
-          transaction_number: transactionNumber,
-          remarks: transactionRemark,
-          transaction_handler_id: handlers.transaction,
-          payment_handler_id: handlers.payment,
+          customer_type: transactionDetails.customerType,
+          member_id: transactionDetails.memberId,
+          receipt_number: transactionDetails.receiptNumber,
+          remarks: transactionDetails.transactionRemark,
+          created_by: transactionDetails.createdBy,
+          handled_by: transactionDetails.handledBy,
           items: servicesProductsData.items.map(item => ({
             type: item.type,
-            id: item.data.id || item.data.service_id || item.data.product_id,
-            name: item.data.name,
-            quantity: item.pricing?.quantity || item.data.quantity || 1,
-            original_price: item.pricing?.originalPrice || item.data.price,
-            custom_price: item.pricing?.customPrice || 0,
-            discount: item.pricing?.discount || 0,
-            final_price: item.pricing?.finalUnitPrice || item.data.price,
-            total_amount: item.pricing?.totalLinePrice || (item.data.price * (item.data.quantity || 1)),
-            employee_id: item.employee_id
+            data: item.data,
+            pricing: item.pricing,
+            assignedEmployee: item.assignedEmployee || item.employee_id,
+            remarks: item.remarks || ''
           })),
-          payments: servicesProductsData.payments || [],
-          total_amount: servicesProductsData.totalAmount
+          payments: servicesProductsData.payments || []
         };
 
-        const response = await api.post('/sale-transactions/services-products', payload);
+        console.log('📤 Services/Products payload:', payload);
+
+        const response = await api.post('/st/services-products', payload);
         
         if (!response.data?.success) {
           throw new Error(response.data?.message || 'Failed to create services/products transaction');
@@ -301,31 +365,31 @@ const useSaleTransactionStore = create(
       },
 
       // Create individual MCP transaction
-      createMcpTransaction: async (mcpData, member, handlers, transactionNumber, transactionRemark) => {
+      createMcpTransaction: async (mcpData) => {
         console.log('📦 Creating MCP transaction...');
         
+        const { transactionDetails } = get();
+        
         const payload = {
-          customer_type: 'member',
-          member_id: member?.id,
-          transaction_number: transactionNumber,
-          remarks: transactionRemark,
-          transaction_handler_id: handlers.transaction,
-          payment_handler_id: handlers.payment,
-          mcp_item: {
-            id: mcpData.item.data.id,
-            name: mcpData.item.data.name,
-            original_price: mcpData.item.pricing?.originalPrice || mcpData.item.data.price,
-            custom_price: mcpData.item.pricing?.customPrice || 0,
-            discount: mcpData.item.pricing?.discount || 0,
-            final_price: mcpData.item.pricing?.finalUnitPrice || mcpData.item.data.price,
-            total_amount: mcpData.item.pricing?.totalLinePrice || mcpData.item.data.price,
-            employee_id: mcpData.item.employee_id
+          customer_type: transactionDetails.customerType,
+          member_id: transactionDetails.memberId,
+          receipt_number: transactionDetails.receiptNumber,
+          remarks: transactionDetails.transactionRemark,
+          created_by: transactionDetails.createdBy,
+          handled_by: transactionDetails.handledBy,
+          item: {
+            type: mcpData.item.type,
+            data: mcpData.item.data,
+            pricing: mcpData.item.pricing,
+            assignedEmployee: mcpData.item.assignedEmployee || mcpData.item.employee_id,
+            remarks: mcpData.item.remarks || ''
           },
-          payments: mcpData.payments || [],
-          total_amount: mcpData.totalAmount
+          payments: mcpData.payments || []
         };
 
-        const response = await api.post('/sale-transactions/mcp', payload);
+        console.log('📤 MCP payload:', payload);
+
+        const response = await api.post('/st/mcp', payload);
         
         if (!response.data?.success) {
           throw new Error(response.data?.message || 'Failed to create MCP transaction');
@@ -335,29 +399,31 @@ const useSaleTransactionStore = create(
       },
 
       // Create individual MV transaction
-      createMvTransaction: async (mvData, member, handlers, transactionNumber, transactionRemark) => {
+      createMvTransaction: async (mvData) => {
         console.log('🎟️ Creating MV transaction...');
         
+        const { transactionDetails } = get();
+        
         const payload = {
-          customer_type: 'member',
-          member_id: member?.id,
-          transaction_number: transactionNumber,
-          remarks: transactionRemark,
-          transaction_handler_id: handlers.transaction,
-          payment_handler_id: handlers.payment,
-          mv_item: {
-            id: mvData.item.data.id,
-            name: mvData.item.data.member_voucher_name,
-            total_price: mvData.item.data.total_price,
-            starting_balance: mvData.item.data.starting_balance,
-            free_of_charge: mvData.item.data.free_of_charge,
-            voucher_details: mvData.item.data.member_voucher_details
+          customer_type: transactionDetails.customerType,
+          member_id: transactionDetails.memberId,
+          receipt_number: transactionDetails.receiptNumber,
+          remarks: transactionDetails.transactionRemark,
+          created_by: transactionDetails.createdBy,
+          handled_by: transactionDetails.handledBy,
+          item: {
+            type: mvData.item.type,
+            data: mvData.item.data,
+            pricing: mvData.item.pricing,
+            assignedEmployee: mvData.item.assignedEmployee || mvData.item.employee_id,
+            remarks: mvData.item.remarks || ''
           },
-          payments: mvData.payments || [],
-          total_amount: mvData.totalAmount
+          payments: mvData.payments || []
         };
 
-        const response = await api.post('/sale-transactions/mv', payload);
+        console.log('📤 MV payload:', payload);
+
+        const response = await api.post('/st/mv', payload);
         
         if (!response.data?.success) {
           throw new Error(response.data?.message || 'Failed to create MV transaction');
@@ -381,6 +447,25 @@ const useSaleTransactionStore = create(
         return { success: false, message: 'Retry functionality not implemented yet' };
       },
 
+      // Validate transaction details
+      validateTransactionDetails: () => {
+        const { transactionDetails } = get();
+        const errors = [];
+
+        if (!transactionDetails.createdBy) {
+          errors.push('Transaction creator is required');
+        }
+
+        if (!transactionDetails.handledBy) {
+          errors.push('Transaction handler is required');
+        }
+
+        return {
+          isValid: errors.length === 0,
+          errors
+        };
+      },
+
       // Get transaction summary
       getTransactionSummary: () => {
         const state = get();
@@ -390,7 +475,8 @@ const useSaleTransactionStore = create(
           progress: state.progress,
           totalCreated: state.createdTransactions.length,
           totalFailed: state.failedTransactions.length,
-          errors: state.errors
+          errors: state.errors,
+          transactionDetails: state.transactionDetails
         };
       },
 

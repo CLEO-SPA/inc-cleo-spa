@@ -18,6 +18,7 @@ router.get('/list/:id', controller.getSalesTransactionById);
 router.get('/services', controller.searchServices);
 router.get('/products', controller.searchProducts);
 // router.all('/e', roleMiddleware.hasRole(['data_admin', 'super_admin']), controller.emulateCarePackage);
-
-
+router.post('/services-products', controller.createServicesProductsTransaction);
+router.post('/mcp', controller.createMcpTransaction);
+router.post('/mv', controller.createMvTransaction);
 export default router;

@@ -10,9 +10,11 @@ const CartItemsWithPayment = ({
   cartItems, 
   onPricingChange, 
   onEmployeeChange,
+  onRemarksChange, 
   onPaymentChange,
   itemEmployees = {},
   itemPricing = {},
+  itemRemarks = {}, 
   sectionPayments = {},
   selectedPaymentMethods = {},
   onSelectedPaymentMethodChange
@@ -141,6 +143,11 @@ const CartItemsWithPayment = ({
     onEmployeeChange(itemId, employeeId);
   };
 
+  // Handle updating remarks for a cart item
+  const handleRemarksChange = (itemId, remarks) => {
+    onRemarksChange(itemId, remarks);
+  };
+
   // Add payment method to section
   const addPaymentMethod = (sectionId, methodId) => {
     if (!methodId) return;
@@ -260,6 +267,7 @@ const CartItemsWithPayment = ({
                     <th className="px-4 py-3 text-right text-xs font-medium text-gray-500 uppercase tracking-wider">Final Unit Price</th>
                     <th className="px-4 py-3 text-right text-xs font-medium text-gray-500 uppercase tracking-wider">Total Line Price</th>
                     <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Assigned Employee</th>
+                    <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Remarks</th>
                   </tr>
                 </thead>
                 <tbody>
@@ -351,13 +359,22 @@ const CartItemsWithPayment = ({
                             errors={{}}
                           />
                         </td>
+                        <td className="px-4 py-3">
+                          <input
+                            type="text"
+                            placeholder="Enter remarks..."
+                            value={itemRemarks[item.id] || ''}
+                            onChange={(e) => handleRemarksChange(item.id, e.target.value)}
+                            className="w-full p-2 border border-gray-300 rounded text-sm"
+                          />
+                        </td>
                       </tr>
                     );
                   })}
                 </tbody>
                 <tfoot className="bg-gray-50">
                   <tr>
-                    <td colSpan={6} className="px-4 py-3 text-right font-medium">Section Total:</td>
+                    <td colSpan={7} className="px-4 py-3 text-right font-medium">Section Total:</td>
                     <td className="px-4 py-3 text-right font-bold text-lg">{formatCurrency(section.amount)}</td>
                     <td></td>
                   </tr>
@@ -400,7 +417,6 @@ const CartItemsWithPayment = ({
               {sectionPayments[section.id] && sectionPayments[section.id].length > 0 && (
                 <div className="space-y-3">
                   {sectionPayments[section.id].map((payment) => {
-                    // Calculate max 
                     const otherPaymentsTotal = sectionPayments[section.id]
                       .filter(p => p.id !== payment.id)
                       .reduce((sum, p) => sum + p.amount, 0);
