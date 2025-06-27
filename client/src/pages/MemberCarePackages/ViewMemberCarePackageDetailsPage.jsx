@@ -12,14 +12,13 @@ import { NotFoundState } from '@/components/NotFoundState';
 import { useMcpSpecificStore } from '@/stores/MemberCarePackage/useMcpSpecificStore';
 import { useCpFormStore } from '@/stores/CarePackage/useCpFormStore';
 import { useMcpFormStore } from '@/stores/MemberCarePackage/useMcpFormStore';
-import DeleteConfirmationDialog from '@/components/DeleteConfirmationDialog';
 import useAuth from '@/hooks/useAuth';
 import { Switch } from '@/components/ui/switch';
 import { Label } from '@/components/ui/label';
 
 const ViewMemberCarePackageDetailsPage = () => {
   const { id } = useParams();
-  const { currentPackage, isLoading, error, fetchPackageById, clearCurrentPackage, clearError, deletePackage } =
+  const { currentPackage, isLoading, error, fetchPackageById, clearCurrentPackage, clearError } =
     useMcpSpecificStore();
   const { getEnabledServiceById } = useCpFormStore();
   const { updateMemberCarePackageStatus } = useMcpFormStore();
@@ -30,9 +29,6 @@ const ViewMemberCarePackageDetailsPage = () => {
   const [serviceData, setServiceData] = useState({});
   const [loadingServiceNames, setLoadingServiceNames] = useState(false);
   const [updatingServiceId, setUpdatingServiceId] = useState(null);
-
-  const [deleteDialogOpen, setDeleteDialogOpen] = useState(false);
-  const [isDeleting, setIsDeleting] = useState(false);
 
   useEffect(() => {
     if (id) {
@@ -113,57 +109,10 @@ const ViewMemberCarePackageDetailsPage = () => {
     }
   };
 
-  const handleDeleteClick = () => {
-    setDeleteDialogOpen(true);
-  };
-
-  const handleDeleteConfirm = async () => {
-    if (!currentPackage?.package?.id) return;
-
-    setIsDeleting(true);
-
-    try {
-      await deletePackage(currentPackage.package.id);
-      navigate('/mcp');
-    } catch (err) {
-      console.error('Failed to delete member care package:', err);
-      let errorMessage = 'Failed to delete member care package.';
-      if (err.response?.data?.message) {
-        errorMessage = err.response.data.message;
-      } else if (err.message) {
-        errorMessage = err.message;
-      }
-
-      alert(errorMessage);
-    } finally {
-      setIsDeleting(false);
-      setDeleteDialogOpen(false);
-    }
-  };
-
-  const handleDeleteCancel = () => {
-    setDeleteDialogOpen(false);
-  };
-
   const isPackageEnabled = (pkg) => {
     if (!pkg) return false;
     const status = pkg.status || pkg.status_name;
     return status === 'ENABLED';
-  };
-
-  const canDeletePackage = (pkg) => {
-    if (!pkg) return false;
-    return !isPackageEnabled(pkg);
-  };
-
-  const getDeleteRestrictionReason = (pkg) => {
-    if (!pkg) return 'Package not found.';
-
-    if (isPackageEnabled(pkg)) {
-      return 'This member care package is currently enabled and cannot be deleted. Please disable the package first by changing its status to "DISABLED" before attempting deletion.';
-    }
-
-    return null;
   };
 
   const getStatusColor = (status) => {
@@ -175,6 +124,14 @@ const ViewMemberCarePackageDetailsPage = () => {
       default:
         return 'bg-gray-100 text-gray-600 border border-gray-200';
     }
+  };
+
+  const getDiscountPercentage = (discountFactor) => {
+    if (discountFactor === undefined || discountFactor === null || discountFactor === '') return '0';
+    const factor = parseFloat(discountFactor);
+    if (isNaN(factor)) return '0';
+    const discountPercent = (1 - factor) * 100;
+    return Math.max(0, discountPercent).toFixed(1);
   };
 
   const transformPackageDetailsToServices = (packageDetails) => {
@@ -232,13 +189,12 @@ const ViewMemberCarePackageDetailsPage = () => {
       return <NotFoundState />;
     }
 
+    // console.log('Current package data:', currentPackage);
     const packageData = currentPackage.package;
     const packageDetails = currentPackage.details || [];
     const transformedServices = transformPackageDetailsToServices(packageDetails);
 
     const currentStatus = packageData.status || packageData.status_name || 'UNKNOWN';
-    const isDeletable = canDeletePackage(packageData);
-
     const totalValue = calculateTotalValue(transformedServices);
     const remainingBalance = calculateRemainingBalance(transformedServices);
 
@@ -258,25 +214,6 @@ const ViewMemberCarePackageDetailsPage = () => {
               </Button>
               <h1 className='text-lg font-semibold text-gray-900'>Member Care Package Details</h1>
             </div>
-            <div className='flex space-x-2'>
-              {canDelete && (
-                <Button
-                  onClick={handleDeleteClick}
-                  variant='outline'
-                  className={`flex items-center text-sm px-3 py-2 ${
-                    !isDeletable
-                      ? 'text-muted-foreground cursor-not-allowed'
-                      : 'text-destructive hover:text-destructive hover:bg-destructive/10'
-                  }`}
-                  disabled={!isDeletable}
-                  title={!isDeletable ? 'Package must be disabled before deletion' : 'Delete package'}
-                >
-                  <Trash2 className='w-4 h-4 mr-1' />
-                  Delete
-                  {!isDeletable && <AlertTriangle className='w-3 h-3 ml-1' />}
-                </Button>
-              )}
-            </div>
           </div>
         </div>
 
@@ -291,6 +228,7 @@ const ViewMemberCarePackageDetailsPage = () => {
                   Package Information
                 </CardTitle>
               </CardHeader>
+
               <CardContent className='p-3'>
                 <div className='grid grid-cols-1 md:grid-cols-4 gap-4'>
                   <div>
@@ -327,22 +265,41 @@ const ViewMemberCarePackageDetailsPage = () => {
                   </div>
                 </div>
 
+                {/* member information section */}
                 <div className='grid grid-cols-1 md:grid-cols-2 gap-4 mt-4'>
                   <div>
-                    <label className='block text-xs font-medium text-gray-600 mb-1'>MEMBER ID</label>
-                    <div className='text-gray-900 px-2 py-1 bg-blue-50 border border-blue-200 rounded text-sm flex items-center'>
+                    <label className='block text-xs font-medium text-gray-600 mb-1'>MEMBER NAME</label>
+                    <div className='text-gray-900 px-2 py-1 bg-blue-50 border border-blue-200 rounded text-sm flex items-center font-semibold'>
                       <User className='w-3 h-3 mr-1 text-blue-600' />
-                      {packageData.member_id}
+                      {currentPackage.member?.name || 'N/A'}
                     </div>
                   </div>
 
                   <div>
-                    <label className='block text-xs font-medium text-gray-600 mb-1'>EMPLOYEE ID</label>
-                    <div className='text-gray-900 px-2 py-1 bg-white border border-gray-200 rounded text-sm'>
-                      {packageData.employee_id || 'N/A'}
+                    <label className='block text-xs font-medium text-gray-600 mb-1'>CREATED BY</label>
+                    <div className='text-gray-900 px-2 py-1 bg-green-50 border border-green-200 rounded text-sm flex items-center font-semibold'>
+                      <User className='w-3 h-3 mr-1 text-green-600' />
+                      {currentPackage.employee?.employee_name || 'N/A'}
                     </div>
                   </div>
                 </div>
+
+                {currentPackage.member && (
+                  <div className='grid grid-cols-1 md:grid-cols-2 gap-4 mt-4 pt-4 border-t border-gray-100'>
+                    <div>
+                      <label className='block text-xs font-medium text-gray-600 mb-1'>MEMBER EMAIL</label>
+                      <div className='text-gray-700 px-2 py-1 bg-gray-50 border border-gray-200 rounded text-sm'>
+                        {currentPackage.member.email || 'N/A'}
+                      </div>
+                    </div>
+                    <div>
+                      <label className='block text-xs font-medium text-gray-600 mb-1'>MEMBER CONTACT</label>
+                      <div className='text-gray-700 px-2 py-1 bg-gray-50 border border-gray-200 rounded text-sm'>
+                        {currentPackage.member.contact || 'N/A'}
+                      </div>
+                    </div>
+                  </div>
+                )}
 
                 <div className='grid grid-cols-1 md:grid-cols-4 gap-4 mt-4'>
                   <div>
@@ -451,7 +408,7 @@ const ViewMemberCarePackageDetailsPage = () => {
                             </div>
                           </div>
 
-                          <div className='grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4'>
+                          <div className='grid grid-cols-1 md:grid-cols-2 lg:grid-cols-5 gap-4'>
                             <div>
                               <label className='block text-xs font-medium text-gray-600 mb-1'>Original Quantity</label>
                               <div className='w-full px-3 py-2 border border-gray-300 rounded-md text-sm bg-gray-50 text-gray-700'>
@@ -476,6 +433,13 @@ const ViewMemberCarePackageDetailsPage = () => {
                               <label className='block text-xs font-medium text-gray-600 mb-1'>Unit Price</label>
                               <div className='w-full px-3 py-2 border border-gray-300 rounded-md text-sm bg-gray-50 text-gray-700'>
                                 ${(service.price * service.discount).toFixed(2)}
+                              </div>
+                            </div>
+
+                            <div>
+                              <label className='block text-xs font-medium text-gray-600 mb-1'>Discount Factor</label>
+                              <div className='w-full px-3 py-2 border border-gray-300 rounded-md text-sm bg-gray-50 text-gray-700'>
+                                {service.discount} ({getDiscountPercentage(service.discount)}% off)
                               </div>
                             </div>
 
@@ -513,47 +477,6 @@ const ViewMemberCarePackageDetailsPage = () => {
             </Card>
           </div>
         </div>
-
-        {/* delete confirmation dialog */}
-        {currentPackage?.package && (
-          <DeleteConfirmationDialog
-            open={deleteDialogOpen}
-            onOpenChange={setDeleteDialogOpen}
-            onConfirm={handleDeleteConfirm}
-            onCancel={handleDeleteCancel}
-            title='Delete Member Care Package'
-            itemName={currentPackage.package.package_name}
-            itemType='member care package'
-            isDeleting={isDeleting}
-            canDelete={canDeletePackage(currentPackage.package)}
-            deleteRestrictionReason={getDeleteRestrictionReason(currentPackage.package)}
-            destructiveAction={true}
-            itemDetails={
-              <div>
-                <div>
-                  <strong>Package ID:</strong> {currentPackage.package.id}
-                </div>
-                <div>
-                  <strong>Member ID:</strong> {currentPackage.package.member_id}
-                </div>
-                <div>
-                  <strong>Total Price:</strong> ${parseFloat(currentPackage.package.total_price || 0).toFixed(2)}
-                </div>
-                <div>
-                  <strong>Current Balance:</strong> ${parseFloat(currentPackage.package.balance || 0).toFixed(2)}
-                </div>
-                <div>
-                  <strong>Status:</strong>{' '}
-                  {currentPackage.package.status || currentPackage.package.status_name || 'Unknown'}
-                </div>
-                <div>
-                  <strong>Services:</strong> {transformedServices.length} service
-                  {transformedServices.length !== 1 ? 's' : ''}
-                </div>
-              </div>
-            }
-          />
-        )}
       </div>
     );
   };
