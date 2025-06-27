@@ -56,6 +56,7 @@ import RefundPage from '@/pages/Refund/Refund';
 import MCPDetail from '@/pages/Refund/MCPDetail';
 import MemberPackagesList from '@/components/refund/MemberPackagesList';
 import RefundServicesPage from '@/pages/Refund/RefundServicesPage';
+import RefundServiceForm from '@/pages/Refund/RefundServiceForm';
 
 // Employees
 import ManagePositions from '@/pages/em/ManagePositions';
@@ -133,6 +134,7 @@ function App() {
               <Route path="/refunds/mcp/:packageId" element={<MCPDetail />} />
               <Route path="/refunds/services/member/:id" element={<RefundServicesPage />} />
               <Route path="/refunds/services/receipt/:no" element={<RefundServicesPage />} />
+              <Route path="/refunds/service/:saleTransactionItemId" element={<RefundServiceForm />} />
 
             </Route>
             <Route path='/login' element={<LoginPage />} />

@@ -24,7 +24,7 @@ const RefundServicesPage = () => {
         clear,
     } = useRefundStore();
 
-    const ITEMS_PER_PAGE = 2;
+    const ITEMS_PER_PAGE = 3;
 
     const [page, setPage] = useState(1);
 
@@ -48,8 +48,9 @@ const RefundServicesPage = () => {
         return () => clear();
     }, [memberId, receiptNo, page, fetchServiceTransactions, clear]);
 
-    const handleRefundService = (transactionId, serviceId, serviceName, amount) => {
-        console.log("Refunding:", { transactionId, serviceId, serviceName, amount })
+    const handleRefundService = (saleTransactionItemId) => {
+        console.log("Refunding:", { saleTransactionItemId });
+        navigate(`/refunds/service/${saleTransactionItemId}`);
     }
 
     const formatDate = (dateString) => {
@@ -82,7 +83,7 @@ const RefundServicesPage = () => {
                                     <ArrowLeft className="w-4 h-4 mr-1" />
                                     Back
                                 </Button>
-                                <h1 className="text-lg font-semibold text-gray-900">Service Refunds</h1>
+                                <h1 className="text-lg font-semibold text-gray-900">Service Refund</h1>
                             </div>
                         </div>
 
@@ -143,12 +144,12 @@ const RefundServicesPage = () => {
                                                         </CardTitle>
                                                         <div className="flex items-center gap-4 mt-2 text-sm text-gray-600">
                                                             <div className="flex items-center gap-1">
-                                                                <Receipt className="h-4 w-4" />
-                                                                <span>Receipt: {transaction.receipt_no || "No receipt"}</span>
-                                                            </div>
-                                                            <div className="flex items-center gap-1">
                                                                 <Calendar className="h-4 w-4" />
                                                                 <span>{formatDate(transaction.created_at)}</span>
+                                                            </div>
+                                                            <div className="flex items-center gap-1">
+                                                                <Receipt className="h-4 w-4" />
+                                                                <span>Receipt: {transaction.receipt_no || "No receipt"}</span>
                                                             </div>
                                                         </div>
                                                     </div>
@@ -199,10 +200,10 @@ const RefundServicesPage = () => {
                                                                         size="sm"
                                                                         onClick={() =>
                                                                             handleRefundService(
-                                                                                transaction.sale_transaction_id,
-                                                                                item.id,
-                                                                                item.service_name,
-                                                                                (+item.amount).toFixed(2)
+                                                                                //transaction.sale_transaction_id,
+                                                                                item.id, // Sale transaction item ID
+                                                                                //item.service_name,
+                                                                                //(+item.amount).toFixed(2)
                                                                             )
                                                                         }
                                                                         className="bg-gray-800 hover:bg-black"

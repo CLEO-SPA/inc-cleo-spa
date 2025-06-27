@@ -218,10 +218,13 @@ const processRefundService = async (body: {
   saleTransactionId: number;
   refundRemarks?: string;
   refundedBy: number;
+  refundDate?: string;
   refundItems: {
-    sale_transaction_item_id: number; // Required to map to employee
+    sale_transaction_item_id: number;
     service_name: string;
     original_unit_price: number;
+    custom_unit_price?: number | null;
+    discount_percentage?: number | null;
     quantity: number;
     amount: number;
     remarks?: string;
@@ -242,14 +245,16 @@ const processRefundService = async (body: {
     // 2. Insert refund sale_transaction
     const totalRefundAmount = body.refundItems.reduce((sum, item) => sum + item.amount, 0);
 
+    const refundDate = body.refundDate ? new Date(body.refundDate) : new Date();
+
     const { rows: refundTxRows } = await client.query(
       `INSERT INTO sale_transactions (
-                customer_type, member_id, total_paid_amount, outstanding_total_payment_amount,
-                sale_transaction_status, remarks, receipt_no, reference_sales_transaction_id,
-                handled_by, created_by, created_at, updated_at
-            )
-            VALUES ($1,$2,$3,$4,$5,$6,null,$7,$8,$8,now(),now())
-            RETURNING id`,
+      customer_type, member_id, total_paid_amount, outstanding_total_payment_amount,
+      sale_transaction_status, remarks, receipt_no, reference_sales_transaction_id,
+      handled_by, created_by, created_at, updated_at
+      )
+      VALUES ($1,$2,$3,$4,$5,$6,null,$7,$8,$8,$9,$9)
+      RETURNING id`,
       [
         original.customer_type,
         original.member_id,
@@ -259,6 +264,7 @@ const processRefundService = async (body: {
         body.refundRemarks ?? `Refund for transaction #${original.id}`,
         body.saleTransactionId,
         body.refundedBy,
+        refundDate, // created_at
       ]
     );
     const refundTxId = refundTxRows[0].id;
@@ -267,19 +273,29 @@ const processRefundService = async (body: {
     for (const item of body.refundItems) {
       const { rows: refundItemRows } = await client.query(
         `INSERT INTO sale_transaction_items (
-                    sale_transactions_id, service_name, original_unit_price,
-                    quantity, remarks, amount, item_type
+                    sale_transactions_id, 
+                    service_name, 
+                    original_unit_price,
+                    custom_unit_price,
+                    discount_percentage,
+                    quantity, 
+                    remarks, 
+                    amount, 
+                    item_type
                 )
-                VALUES ($1, $2, $3, $4, $5, $6, 'SERVICE')
+                VALUES ($1, $2, $3, $4, $5, $6, $7, $8, 'SERVICE')
                 RETURNING id`,
         [
           refundTxId,
           item.service_name,
           item.original_unit_price,
+          item.custom_unit_price || null,
+          item.discount_percentage || null,
           -1 * item.quantity,
-          item.remarks ?? '',
+          item.remarks ?? 'REFUNDED',
           -1 * item.amount,
         ]
+
       );
 
       const refundItemId = refundItemRows[0].id;
@@ -295,36 +311,36 @@ const processRefundService = async (body: {
       for (const emp of employeeRows) {
         await client.query(
           `INSERT INTO serving_employee_to_sale_transaction_item (
-                sale_transaction_item_id, employee_id, remarks
-            ) VALUES ($1, $2, $3)`,
-          [refundItemId, emp.employee_id, 'Refunded Service']
+          sale_transaction_item_id, employee_id, remarks, created_at, updated_at
+          ) VALUES ($1, $2, $3, $4, $4)`,
+          [refundItemId, emp.employee_id, 'Refunded Service', refundDate]
         );
       }
     }
 
-    // 4. Insert refund payment
-    await client.query(
-      `INSERT INTO payment_to_sale_transactions (
+// 4. Insert refund payment
+await client.query(
+  `INSERT INTO payment_to_sale_transactions (
                 payment_method_id, sale_transaction_id, amount,
                 remarks, created_by, created_at, updated_by, updated_at
             ) VALUES ($1, $2, $3, $4, $5, now(), $5, now())`,
-      [
-        8, // Payment Method ID 8 = Refund
-        refundTxId,
-        -1 * totalRefundAmount,
-        'Refund',
-        body.refundedBy,
-      ]
-    );
+  [
+    8, // Payment Method ID 8 = Refund
+    refundTxId,
+    -1 * totalRefundAmount,
+    'Refund',
+    body.refundedBy,
+  ]
+);
 
-    await client.query('COMMIT');
-    return { refundTransactionId: refundTxId };
+await client.query('COMMIT');
+return { refundTransactionId: refundTxId };
   } catch (error) {
-    await client.query('ROLLBACK');
-    throw error;
-  } finally {
-    client.release();
-  }
+  await client.query('ROLLBACK');
+  throw error;
+} finally {
+  client.release();
+}
 };
 
 /////////////////////

@@ -3,6 +3,8 @@ import api from '@/services/api';
 
 const useRefundStore = create((set) => ({
   serviceTransactions: [],
+  serviceItem: null,
+  total: 0,
   isLoading: false,
   error: null,
 
@@ -31,7 +33,65 @@ const useRefundStore = create((set) => ({
     }
   },
 
-  clear: () => set({ serviceTransactions: [], error: null, isLoading: false }),
+  fetchServiceItemById: async (itemId) => {
+    set({ isLoading: true, error: null });
+
+    try {
+      const res = await api.get(`/refund/service-item/${itemId}`);
+      set({ serviceItem: res.data, isLoading: false });
+    } catch (err) {
+      set({
+        error: err.response?.data?.message || 'Failed to load service item',
+        isLoading: false,
+      });
+    }
+  },
+
+  submitRefundService: async ({
+    saleTransactionId,
+    saleTransactionItemId,
+    remarks,
+    quantity,
+    refundDate,
+    employeeId,
+    servicename,
+    originalUnitPrice,
+    customUnitPrice,
+    discountPercentage,
+    amount,
+  }) => {
+    if (!employeeId) throw new Error("Employee ID is missing.");
+
+    const payload = {
+      saleTransactionId,
+      refundRemarks: remarks,
+      refundedBy: employeeId,
+      refundDate,
+      refundItems: [
+        {
+          sale_transaction_item_id: Number(saleTransactionItemId),
+          service_name: servicename,
+          original_unit_price: parseFloat(originalUnitPrice ?? "0"),
+          custom_unit_price: customUnitPrice ? parseFloat(customUnitPrice) : null,
+          discount_percentage: discountPercentage ? parseFloat(discountPercentage) : null,
+          quantity,
+          amount,
+          remarks,
+        },
+      ],
+    };
+
+    const res = await api.post("/refund/service", payload);
+    return res.data; // { refundTransactionId }
+  },
+
+
+  clear: () => set({
+    serviceTransactions: [],
+    serviceItem: null,
+    error: null,
+    isLoading: false
+  }),
 }));
 
 export default useRefundStore;
