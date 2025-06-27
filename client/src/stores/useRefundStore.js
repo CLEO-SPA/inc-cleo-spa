@@ -6,18 +6,23 @@ const useRefundStore = create((set) => ({
   isLoading: false,
   error: null,
 
-  fetchServiceTransactions: async ({ memberId, receiptNo }) => {
+  fetchServiceTransactions: async ({ memberId, receiptNo, limit = 5, offset = 0 }) => {
     //console.log('Fetching service transactions with:', { memberId, receiptNo });
     set({ isLoading: true, error: null });
     try {
       const params = {};
-      if (memberId) params.member_id = memberId;
-      else if (receiptNo) params.receipt_no = receiptNo;
-      else throw new Error('No memberId or receiptNo provided');
+      if (memberId !== undefined) params.member_id = memberId;
+      if (receiptNo) params.receipt_no = receiptNo;
+      params.limit = limit;
+      params.offset = offset;
 
       const response = await api.get('/refund/service-transactions', { params });
 
-      set({ serviceTransactions: response.data, isLoading: false });
+      set({
+        serviceTransactions: response.data.transactions,
+        total: response.data.total,
+        isLoading: false,
+      });
     } catch (error) {
       set({
         error: error.response?.data?.message || error.message || 'Failed to fetch service transactions',

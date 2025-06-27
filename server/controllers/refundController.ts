@@ -23,7 +23,9 @@ const getServiceTransactionsForRefund = async (req: Request, res: Response, next
       req.query.member_name as string | undefined,
       req.query.receipt_no as string | undefined,
       req.query.start_date_utc as string | undefined,
-      req.query.end_date_utc as string | undefined
+      req.query.end_date_utc as string | undefined,
+      req.query.limit ? Number(req.query.limit) : undefined,
+      req.query.offset ? Number(req.query.offset) : undefined,
     );
 
     res.status(200).json(results);
@@ -58,36 +60,36 @@ const processRefundMemberVoucher = async (req: Request, res: Response, next: Nex
 
 ////////////////////////////////////////
 
-  // Middleware: Ensure the MCP exists and hasn’t already been refunded
-  const validateMCPExists = async (req: Request, res: Response, next: NextFunction) => {
-    try {
-      const { mcpId } = req.body;
-      const mcp = await model.getMCPById(mcpId);
+// Middleware: Ensure the MCP exists and hasn’t already been refunded
+const validateMCPExists = async (req: Request, res: Response, next: NextFunction) => {
+  try {
+    const { mcpId } = req.body;
+    const mcp = await model.getMCPById(mcpId);
 
-      if (!mcp) {
-        res.status(404).json({ error: 'Member Care Package not found.' });
-        return;
-      }
-
-      const refundedStatusId = await model.getStatusId('Refunded');
-      if (mcp.status_id === refundedStatusId) {
-        res.status(400).json({ error: 'This Member Care Package has already been refunded.' });
-        return;
-      }
-
-      (req as any).mcpData = mcp;
-      next();
-    } catch (error) {
-      console.error('validateMCPExists error:', error);
-      next(error);
+    if (!mcp) {
+      res.status(404).json({ error: 'Member Care Package not found.' });
+      return;
     }
-  };
 
-  // Updated controller
+    const refundedStatusId = await model.getStatusId('Refunded');
+    if (mcp.status_id === refundedStatusId) {
+      res.status(400).json({ error: 'This Member Care Package has already been refunded.' });
+      return;
+    }
+
+    (req as any).mcpData = mcp;
+    next();
+  } catch (error) {
+    console.error('validateMCPExists error:', error);
+    next(error);
+  }
+};
+
+// Updated controller
 const verifyRefundableServices = async (req: Request, res: Response, next: NextFunction) => {
   try {
     const { mcpId } = req.body;
-    
+
     // Get detailed status information
     const results = await model.fetchMCPStatusById(mcpId);
 
@@ -134,8 +136,8 @@ const verifyRefundableServices = async (req: Request, res: Response, next: NextF
   }
 };
 
-  // Controller: Handle full refund of a Member Care Package
-  const processFullRefund = async (req: Request, res: Response, next: NextFunction) => {
+// Controller: Handle full refund of a Member Care Package
+const processFullRefund = async (req: Request, res: Response, next: NextFunction) => {
   try {
     const { mcpId, refundRemarks } = req.body;
     const refundedBy = req.session.user_id; // From session
@@ -230,7 +232,7 @@ const fetchMCPStatus = async (
 const searchMembers = async (req: Request, res: Response, next: NextFunction) => {
   try {
     const { q: searchQuery } = req.query;
-    
+
     if (!searchQuery) {
       return res.status(400).json({
         error: 'Invalid search query'
@@ -248,7 +250,7 @@ const searchMembers = async (req: Request, res: Response, next: NextFunction) =>
 const getMemberCarePackages = async (req: Request, res: Response, next: NextFunction) => {
   try {
     const memberId = parseInt(req.params.memberId, 10);
-    
+
     if (isNaN(memberId)) {
       return res.status(400).json({
         error: 'Invalid member ID',
@@ -257,7 +259,7 @@ const getMemberCarePackages = async (req: Request, res: Response, next: NextFunc
     }
 
     const packages = await model.getMemberCarePackages(memberId);
-    
+
     if (!packages || packages.length === 0) {
       return res.status(404).json({
         error: 'No packages found',
@@ -316,7 +318,7 @@ export default {
   fetchMCPStatus: fetchMCPStatus as RequestHandler,
   searchMembers: searchMembers as RequestHandler,
   getMemberCarePackages: getMemberCarePackages as RequestHandler,
-  searchMemberCarePackages : searchMemberCarePackages as RequestHandler,
+  searchMemberCarePackages: searchMemberCarePackages as RequestHandler,
   processRefundMemberVoucher,
   getEligibleMemberVoucherForRefund,
 };

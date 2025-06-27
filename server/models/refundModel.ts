@@ -40,10 +40,50 @@ const getServiceTransactionsForRefund = async (
   member_name?: string,
   receipt_no?: string,
   start_date_utc?: string,
-  end_date_utc?: string) => {
+  end_date_utc?: string,
+  limit?: number,
+  offset?: number
+) => {
+  let baseQuery = `
+    FROM sale_transactions st
+    LEFT JOIN members m ON st.member_id = m.id
+    JOIN sale_transaction_items sti ON st.id = sti.sale_transactions_id
+    WHERE st.sale_transaction_status = 'FULL'
+    AND sti.item_type = 'SERVICE'
+  `;
 
-  // Retrieve both member and non-member (member ID: 0) service transactions with FULL status.
-  let query = `
+  const values: any[] = [];
+  let i = 1;
+
+  if (member_id !== undefined) {
+    baseQuery += ` AND st.member_id = $${i++}`;
+    values.push(member_id);
+  }
+
+  if (member_name) {
+    baseQuery += ` AND m.name ILIKE $${i++}`;
+    values.push(`%${member_name}%`);
+  }
+
+  if (receipt_no) {
+    baseQuery += ` AND st.receipt_no ILIKE $${i++}`;
+    values.push(`%${receipt_no}%`);
+  }
+
+  if (start_date_utc && end_date_utc) {
+    baseQuery += ` AND st.created_at BETWEEN $${i++} AND $${i++}`;
+    values.push(start_date_utc, end_date_utc);
+  }
+
+  // Get total count (before pagination)
+  const countResult = await pool().query(
+    `SELECT COUNT(DISTINCT st.id) AS total ${baseQuery}`,
+    values
+  );
+  const total = Number(countResult.rows[0].total);
+
+  // Get actual data
+  let dataQuery = `
     SELECT 
       st.id AS sale_transaction_id,
       st.receipt_no,
@@ -55,44 +95,31 @@ const getServiceTransactionsForRefund = async (
       st.created_at,
       sti.id AS sale_transaction_item_id,
       sti.service_name,
+      sti.original_unit_price,
+      sti.custom_unit_price,
+      sti.discount_percentage,
       sti.amount AS service_amount,
       sti.quantity
-    FROM sale_transactions st
-    LEFT JOIN members m ON st.member_id = m.id
-    JOIN sale_transaction_items sti ON st.id = sti.sale_transactions_id
-    WHERE st.sale_transaction_status = 'FULL'
-    AND sti.item_type = 'SERVICE'
-    `;
-  // No partial payment for adhoc services 
+    ${baseQuery}
+    ORDER BY st.created_at DESC
+  `;
 
-  const values: any[] = [];
-  let i = 1;
-
-  if (member_id !== undefined) {  // Allow 0 as a valid id (Walk-In Customer)
-    query += ` AND st.member_id = $${i++}`;
-    values.push(member_id);
+  if (limit !== undefined) {
+    dataQuery += ` LIMIT $${i++}`;
+    values.push(limit);
+  }
+  if (offset !== undefined) {
+    dataQuery += ` OFFSET $${i++}`;
+    values.push(offset);
   }
 
-  if (member_name) {
-    query += ` AND m.name ILIKE $${i++}`;
-    values.push(`%${member_name}%`);
-  }
-
-  if (receipt_no) {
-    query += ` AND st.receipt_no ILIKE $${i++}`;
-    values.push(`%${receipt_no}%`);
-  }
-
-  if (start_date_utc && end_date_utc) {
-    query += ` AND st.created_at BETWEEN $${i++} AND $${i++}`;
-    values.push(start_date_utc, end_date_utc);
-  }
-
-  query += ` ORDER BY st.created_at DESC`;
-
-  const result = await pool().query(query, values);
+  const result = await pool().query(dataQuery, values);
   const groupedTransactions = groupTransactions(result.rows);
-  return groupedTransactions;
+
+  return {
+    transactions: groupedTransactions,
+    total,
+  };
 };
 
 type SaleTransactionItem = {
@@ -108,6 +135,9 @@ type SaleTransactionItem = {
   service_name: string;
   service_amount: number;
   quantity: number;
+  original_unit_price: number | null;
+  custom_unit_price: number | null;
+  discount_percentage: number | null;
 };
 
 type GroupedTransaction = {
@@ -124,6 +154,9 @@ type GroupedTransaction = {
     service_name: string;
     amount: number;
     quantity: number;
+    original_unit_price: number | null;
+    custom_unit_price: number | null;
+    discount_percentage: number | null;
   }[];
 };
 
@@ -151,7 +184,10 @@ const groupTransactions = (rows: SaleTransactionItem[]): GroupedTransaction[] =>
       id: row.sale_transaction_item_id,
       service_name: row.service_name,
       amount: row.service_amount,
-      quantity: row.quantity
+      quantity: row.quantity,
+      original_unit_price: row.original_unit_price,
+      custom_unit_price: row.custom_unit_price,
+      discount_percentage: row.discount_percentage,
     });
   }
 
