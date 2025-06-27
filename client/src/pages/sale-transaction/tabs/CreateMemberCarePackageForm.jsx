@@ -282,7 +282,10 @@ const CreateMemberCarePackageForm = () => {
                 <Input
                   type='datetime-local'
                   id='created_at'
-                  onChange={(e) => updateMainField('created_at', e.target.value)}
+                  onChange={(e) => {
+                    updateMainField('created_at', e.target.value);
+                    updateMainField('updated_at', e.target.value);
+                  }}
                   step='1'
                 />
               </div>
