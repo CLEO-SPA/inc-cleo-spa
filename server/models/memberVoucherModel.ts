@@ -465,7 +465,7 @@ const getMemberVoucherPaidCurrentBalance = async (id: number, consumptionValue: 
   const client = await pool().connect();
   try {
     const query = `
-    SELECT st.outstanding_total_payment_amount, mv.current_balance, mv.free_of_charge
+    SELECT st.outstanding_total_payment_amount, mv.current_balance
     FROM sale_transactions st
     JOIN sale_transaction_items sti ON st.id = sti.sale_transaction_id
     JOIN member_vouchers mv ON sti.member_voucher_id = mv.id
@@ -483,13 +483,13 @@ const getMemberVoucherPaidCurrentBalance = async (id: number, consumptionValue: 
 
     const current_balance = parseFloat(results.rows[0].current_balance);
     const outstanding_total_payment_amount = parseFloat(results.rows[0].outstanding_total_payment_amount);
-    const free_of_charge = parseFloat(results.rows[0].free_of_charge);
+    // const free_of_charge = parseFloat(results.rows[0].free_of_charge);
 
     if (outstanding_total_payment_amount === 0) {
       return { success: true, data: current_balance };
     }
 
-    const paidBalance = current_balance - outstanding_total_payment_amount - free_of_charge;
+    const paidBalance = current_balance - outstanding_total_payment_amount //- free_of_charge;
 
     const paidbalanceAfterDeduction = paidBalance + consumptionValue;
 
@@ -875,8 +875,10 @@ const createMemberVoucher = async (
       current_balance = starting_balance;
     } else {
       // Partial payment: exclude FOC from balances
-      starting_balance = default_total_price;
-      current_balance = starting_balance;
+      starting_balance = default_total_price + free_of_charge;
+      current_balance = default_total_price;
+
+
     }
 
     console.log('Payment Status:', is_fully_paid ? 'FULL' : 'PARTIAL');
@@ -961,8 +963,8 @@ const createMemberVoucher = async (
       memberVoucherId,
       'N.A',
       created_at,
-      starting_balance, // Use starting_balance (includes FOC only if fully paid)
-      starting_balance, // amount_change same as current_balance
+      current_balance, // Use starting_balance (includes FOC only if fully paid)
+      current_balance, // amount_change same as current_balance
       employee_id,
       'PURCHASE',
       employee_id,
