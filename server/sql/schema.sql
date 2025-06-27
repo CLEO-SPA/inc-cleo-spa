@@ -206,7 +206,7 @@ CREATE TABLE "members" (
 
 -- CreateTable
 CREATE TABLE "membership_accounts" (
-    "membership_accounts_id" BIGSERIAL NOT NULL,
+    "id" BIGSERIAL NOT NULL,
     "member_id" BIGINT NOT NULL,
     "membership_type_id" BIGINT NOT NULL,
     "start_date" TIMESTAMP(6) NOT NULL,
@@ -216,7 +216,7 @@ CREATE TABLE "membership_accounts" (
     "updated_at" TIMESTAMP(6) NOT NULL,
     "status_id" BIGINT NOT NULL,
 
-    CONSTRAINT "cs_membership_accounts_pkey" PRIMARY KEY ("membership_accounts_id")
+    CONSTRAINT "cs_membership_accounts_pkey" PRIMARY KEY ("id")
 );
 
 -- CreateTable
@@ -304,8 +304,8 @@ CREATE TABLE "services" (
     "service_duration" DECIMAL NOT NULL,
     "service_price" DECIMAL(10,2) NOT NULL,
     "service_is_enabled" BOOLEAN NOT NULL,
-    "service_created_at" TIMESTAMPTZ(6) NOT NULL DEFAULT CURRENT_TIMESTAMP,
-    "service_updated_at" TIMESTAMPTZ(6) NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    "created_at" TIMESTAMPTZ(6) NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    "updated_at" TIMESTAMPTZ(6) NOT NULL DEFAULT CURRENT_TIMESTAMP,
     "service_category_id" BIGINT NOT NULL,
     "service_sequence_no" INTEGER NOT NULL,
     "created_by" BIGINT,
