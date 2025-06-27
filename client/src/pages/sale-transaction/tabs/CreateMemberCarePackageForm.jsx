@@ -276,7 +276,7 @@ const CreateMemberCarePackageForm = () => {
               </div>
               <div className='space-y-1'>
                 <Label htmlFor='created_at' className='text-sm font-medium pb-1 text-gray-700'>
-                  Created At
+                  Creation date & time *
                 </Label>
                 <div></div>
                 <Input
