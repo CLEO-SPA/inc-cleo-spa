@@ -154,7 +154,8 @@ export default function ManageService() {
     e.preventDefault();
     setStatusLoading(true);
     setModalOpen(true);
-    if (!updateForm.updated_by) {
+    if (!updateForm.updated_by || updateForm.updated_by === "") {
+      setStatusLoading(false);
       setErrorMsg('Please select who updated this service');
       return;
     }
