@@ -1,2 +1,4 @@
-id,quantity,discount,price ,service_id,care_package_id
-9,6,1,58.00,9,9
+id,care_package_item_details_quantity,care_package_item_details_discount,care_package_item_details_price,service_id,care_package_id
+36,6,1,58,124,36
+39,6,1,45,9,37
+40,6,1,45,10,37
