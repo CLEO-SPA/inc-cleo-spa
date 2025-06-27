@@ -52,7 +52,11 @@ import EditPaymentMethodPage from './pages/payment-method/EditPaymentMethodPage'
 import TestPMComponent from './pages/sale-transaction/AddPMMComponentTest';
 
 // Employees
-import ManagePositions from '@/pages/em/ManagePositions';
+import ManagePositions from '@/pages/em/ManagePositionsPage';
+import CreatePositionPage from '@/pages/em/CreatePositionPage';
+import EditPositionPage from '@/pages/em/UpdatePositionPage';
+import ManageEmployeesPage from '@/pages/em/ManageEmployeesPage';
+import CreateEmployeePage from '@/pages/em/CreateEmployeePage';
 
 function App() {
   return (
@@ -86,6 +90,10 @@ function App() {
 
               {/* Employees Routes */}
               <Route path='/positions' element={<ManagePositions />} />
+              <Route path='/positions/create' element={<CreatePositionPage />} />
+              <Route path='/positions/update/:id' element={<EditPositionPage />} />
+              <Route path='/employees' element={<ManageEmployeesPage />} />
+              <Route path='/employees/create' element={<CreateEmployeePage />} />
 
               {/* Voucher Template */}
               <Route path='/voucher-template/create' element={<CreateVoucherTemplatesPage />} />

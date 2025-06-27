@@ -53,22 +53,27 @@ const createPosition = async (req: Request, res: Response, next: NextFunction): 
 };
 
 const getAllPositions = async (req: Request, res: Response, next: NextFunction) => {
-    
   const page = parseInt(req.query.page as string) || 1;
   const limit = parseInt(req.query.limit as string) || 10;
   const offset = (page - 1) * limit;
   const { start_date_utc, end_date_utc } = req.session;
 
-
-
   try {
-    const { positions, totalPages } = await model.getAllPositions(offset, limit, start_date_utc!, end_date_utc!);
+    const { positions, totalPages, totalCount } = await model.getAllPositions(
+      offset,
+      limit,
+      start_date_utc!,
+      end_date_utc!
+    );
 
     res.status(200).json({
       currentPage: page,
-      totalPages: totalPages,
+      totalPages,
+      totalCount,
       pageSize: limit,
       data: positions,
+      start_date_utc: start_date_utc,
+      end_date_utc: end_date_utc,
     });
   } catch (error) {
     console.error('Error getting positions:', error);
@@ -99,25 +104,25 @@ const getPositionById = async (req: Request, res: Response, next: NextFunction):
   }
 };
 
-const updatePosition = async (req: Request, res: Response, next: NextFunction):  Promise<void> => {
+const updatePosition = async (req: Request, res: Response, next: NextFunction): Promise<void> => {
   try {
     const id = parseInt(req.params.id);
     const { position_name, position_description, position_is_active } = req.body;
 
     if (!id || isNaN(id)) {
-       res.status(400).json({ message: 'Valid position ID is required' });
-       return;
+      res.status(400).json({ message: 'Valid position ID is required' });
+      return;
     }
 
     // Validate inputs if provided
     if (position_name && !validator.isLength(position_name, { min: 2, max: 100 })) {
-       res.status(400).json({ message: 'Position name must be between 2 and 100 characters' });
-       return;
+      res.status(400).json({ message: 'Position name must be between 2 and 100 characters' });
+      return;
     }
 
     if (position_description && !validator.isLength(position_description, { min: 5, max: 500 })) {
-       res.status(400).json({ message: 'Position description must be between 5 and 500 characters' });
-       return
+      res.status(400).json({ message: 'Position description must be between 5 and 500 characters' });
+      return;
     }
 
     // Check if new position name already exists (excluding current position)
@@ -127,8 +132,8 @@ const updatePosition = async (req: Request, res: Response, next: NextFunction): 
         // Get current position to check if it's the same name
         const currentPosition = await model.getPositionById(id);
         if (currentPosition && currentPosition.position_name !== position_name) {
-           res.status(400).json({ message: 'Position name already exists' });
-           return
+          res.status(400).json({ message: 'Position name already exists' });
+          return;
         }
       }
     }
@@ -152,13 +157,13 @@ const updatePosition = async (req: Request, res: Response, next: NextFunction): 
   }
 };
 
-const deletePosition = async (req: Request, res: Response, next: NextFunction): Promise<void> => {
+export const deletePosition = async (req: Request, res: Response, next: NextFunction): Promise<void> => {
   try {
-    const id = parseInt(req.params.id);
+    const id = parseInt(req.params.id, 10);
 
     if (!id || isNaN(id)) {
-       res.status(400).json({ message: 'Valid position ID is required' });
-       return;
+      res.status(400).json({ message: 'Valid position ID is required' });
+      return;
     }
 
     const deletedPosition = await model.deletePosition(id);
@@ -167,9 +172,14 @@ const deletePosition = async (req: Request, res: Response, next: NextFunction): 
       message: 'Position deleted successfully',
       position: deletedPosition,
     });
-  } catch (error) {
+  } catch (error: any) {
+    if (error.message === 'Cannot delete position: it is assigned to employees') {
+      res.status(400).json({ message: error.message });
+      return;
+    }
+
     console.error('Error deleting position:', error);
-    next(error);
+    res.status(500).json({ message: 'Internal server error' });
   }
 };
 
@@ -178,8 +188,8 @@ const togglePositionStatus = async (req: Request, res: Response, next: NextFunct
     const id = parseInt(req.params.id);
 
     if (!id || isNaN(id)) {
-       res.status(400).json({ message: 'Valid position ID is required' });
-       return;
+      res.status(400).json({ message: 'Valid position ID is required' });
+      return;
     }
 
     const currentTime = new Date().toISOString();

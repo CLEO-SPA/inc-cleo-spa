@@ -144,15 +144,15 @@ const data = {
       items: [
         {
           title: 'Add new employee',
-          url: '#',
+          url: '/employees/create',
         },
         {
           title: 'Manage employees',
-          url: '#',
+          url: '/employees',
         },
         {
           title: 'Add new position',
-          url: '/positions/add',
+          url: '/positions/create',
         },
         {
           title: 'Manage positions',
