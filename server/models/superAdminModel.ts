@@ -419,64 +419,60 @@ const insertPreDataModel = async (targetTable: string, tablePayload: tablePayloa
     const filteredHierarchyForInsert: HierarchyInterface[] = hierarchy.filter((tableInfo) =>
       requiredTableIdsForInsert.has(tableInfo.id)
     );
-    const sortedOrderForInsert = getSeedingOrder(filteredHierarchyForInsert);
+    let sortedOrderForInsert = getSeedingOrder(filteredHierarchyForInsert);
 
-    let allFilesAreAlreadyActive = true;
-    for (const tableName of sortedOrderForInsert) {
+    const tablesToIgnore: string[] = [];
+
+    for (let i = 0; i < sortedOrderForInsert.length; i++) {
+      const tableName = sortedOrderForInsert[i];
       const payloadEntry = tablePayload.find((p) => p.table === tableName);
-      if (payloadEntry && payloadEntry.file) {
-        const fileNameWithoutExtension = payloadEntry.file;
-        const csvFilePath = path.join(csvFolderPath, 'pre', tableName, `${fileNameWithoutExtension}.csv`);
 
-        if (!fs.existsSync(csvFilePath)) {
-          allFilesAreAlreadyActive = false;
-          break;
-        }
+      if (!payloadEntry || !payloadEntry.file) {
+        throw new Error(
+          `Seeding process for "${targetTable}" failed: Missing file information for dependency "${tableName}".`
+        );
+      }
+      const fileNameWithoutExtension = payloadEntry.file;
+      const csvFilePath = path.join(csvFolderPath, 'pre', tableName, `${fileNameWithoutExtension}.csv`);
+      if (!fs.existsSync(csvFilePath)) {
+        throw new Error(
+          `Seeding process for "${targetTable}" failed: File not found for dependency "${tableName}" at ${csvFilePath}.`
+        );
+      }
 
-        const activeInfo = await getActiveSeedInfo(tableName, 'pre');
-        const currentHash = await calculateFileHash(csvFilePath);
+      const activeInfo = await getActiveSeedInfo(tableName, 'pre');
+      const currentHash = await calculateFileHash(csvFilePath);
 
-        if (
-          !activeInfo ||
-          activeInfo.file_name !== fileNameWithoutExtension ||
-          activeInfo.file_content_hash !== currentHash
-        ) {
-          allFilesAreAlreadyActive = false;
-          break;
-        }
-      } else {
-        allFilesAreAlreadyActive = false;
-        break;
+      if (activeInfo && activeInfo.file_content_hash === currentHash) {
+        tablesToIgnore.push(sortedOrderForInsert[i]);
       }
     }
 
-    if (allFilesAreAlreadyActive && sortedOrderForInsert.length > 0) {
-      console.log(
-        `[saModel] All required seed files for target "${targetTable}" are already active. Skipping seeding process.`
-      );
-      return {
-        message: `Seeding for target "${targetTable}" skipped as all required files are already active.`,
-        tables: sortedOrderForInsert,
-      };
-    }
+    const finalOrderToSeed =
+      tablesToIgnore.length !== 0
+        ? sortedOrderForInsert.filter((f) => !tablesToIgnore.includes(f))
+        : sortedOrderForInsert;
 
     const allAffectedTableIds = new Set<number>();
-    requiredTableIdsForInsert.forEach((tableId) => {
-      const descendants = getDescendants(tableId, hierarchy);
-      descendants.forEach((descendantId) => allAffectedTableIds.add(descendantId));
+    finalOrderToSeed.forEach((tableName) => {
+      const tableInfo = hierarchy.find((t) => t.table === tableName);
+      if (tableInfo) {
+        const descendants = getDescendants(tableInfo.id, hierarchy);
+        descendants.forEach((descendantId) => allAffectedTableIds.add(descendantId));
+      }
     });
 
     const fullSortedOrder = getSeedingOrder(hierarchy);
     const tablesToTruncate: string[] = fullSortedOrder
-      .filter((name) => {
-        const id = hierarchy.find((t) => t.table === name)?.id;
+      .filter((tableName) => {
+        const id = hierarchy.find((t) => t.table === tableName && !tablesToIgnore.includes(tableName))?.id;
         return id !== undefined && allAffectedTableIds.has(id);
       })
       .reverse();
 
     const allTableData: AllTableData = {};
 
-    for (const tableName of sortedOrderForInsert) {
+    for (const tableName of finalOrderToSeed) {
       const payloadEntry = tablePayload.find((f) => f.table === tableName);
       if (payloadEntry) {
         const fileNameWithoutExtension = payloadEntry.file;
@@ -490,12 +486,9 @@ const insertPreDataModel = async (targetTable: string, tablePayload: tablePayloa
       }
     }
 
-    // console.log('a', sortedOrderForInsert);
-    // console.log('b', tablesToTruncate);
+    await performDbInserts(tablesToTruncate, finalOrderToSeed, allTableData);
 
-    await performDbInserts(tablesToTruncate, sortedOrderForInsert, allTableData);
-
-    for (const tableName of sortedOrderForInsert) {
+    for (const tableName of finalOrderToSeed) {
       const payloadEntry = tablePayload.find((f) => f.table === tableName);
       if (payloadEntry) {
         const fileNameWithoutExtension = payloadEntry.file;
@@ -509,14 +502,13 @@ const insertPreDataModel = async (targetTable: string, tablePayload: tablePayloa
           console.error(
             `[saModel] Failed to log active seed status for pre/${tableName}/${fileNameWithoutExtension}.csv: ${logError.message}`
           );
-          // Non-fatal: main operation succeeded.
         }
       }
     }
 
     return {
       message: `Seeding for specific tables ${targetTable} completed.`,
-      tables: sortedOrderForInsert,
+      tables: finalOrderToSeed,
     };
   } catch (error: any) {
     console.error('Error in insertPreDataModel', error.message);
@@ -538,62 +530,58 @@ const insertPostDataModel = async (targetTable: string, tablePayload: tablePaylo
     );
     const sortedOrderForInsert = getSeedingOrder(filteredHierarchyForInsert);
 
-    let allFilesAreAlreadyActive = true;
-    for (const tableName of sortedOrderForInsert) {
+    const tablesToIgnore: string[] = [];
+
+    for (let i = 0; i < sortedOrderForInsert.length; i++) {
+      const tableName = sortedOrderForInsert[i];
       const payloadEntry = tablePayload.find((p) => p.table === tableName);
-      if (payloadEntry && payloadEntry.file) {
-        const fileNameWithoutExtension = payloadEntry.file;
-        const csvFilePath = path.join(csvFolderPath, 'post', tableName, `${fileNameWithoutExtension}.csv`);
 
-        if (!fs.existsSync(csvFilePath)) {
-          allFilesAreAlreadyActive = false;
-          break;
-        }
+      if (!payloadEntry || !payloadEntry.file) {
+        throw new Error(
+          `Seeding process for "${targetTable}" failed: Missing file information for dependency "${tableName}".`
+        );
+      }
+      const fileNameWithoutExtension = payloadEntry.file;
+      const csvFilePath = path.join(csvFolderPath, 'post', tableName, `${fileNameWithoutExtension}.csv`);
+      if (!fs.existsSync(csvFilePath)) {
+        throw new Error(
+          `Seeding process for "${targetTable}" failed: File not found for dependency "${tableName}" at ${csvFilePath}.`
+        );
+      }
 
-        const activeInfo = await getActiveSeedInfo(tableName, 'post');
-        const currentHash = await calculateFileHash(csvFilePath);
+      const activeInfo = await getActiveSeedInfo(tableName, 'post');
+      const currentHash = await calculateFileHash(csvFilePath);
 
-        if (
-          !activeInfo ||
-          activeInfo.file_name !== fileNameWithoutExtension ||
-          activeInfo.file_content_hash !== currentHash
-        ) {
-          allFilesAreAlreadyActive = false;
-          break;
-        }
-      } else {
-        allFilesAreAlreadyActive = false;
-        break;
+      if (activeInfo && activeInfo.file_content_hash === currentHash) {
+        tablesToIgnore.push(sortedOrderForInsert[i]);
       }
     }
 
-    if (allFilesAreAlreadyActive && sortedOrderForInsert.length > 0) {
-      console.log(
-        `[saModel] All required post-seed files for target "${targetTable}" are already active. Skipping seeding process.`
-      );
-      return {
-        message: `Post-seeding for target "${targetTable}" skipped as all required files are already active.`,
-        tables: sortedOrderForInsert,
-      };
-    }
+    const finalOrderToSeed =
+      tablesToIgnore.length !== 0
+        ? sortedOrderForInsert.filter((f) => !tablesToIgnore.includes(f))
+        : sortedOrderForInsert;
 
     const allAffectedTableIds = new Set<number>();
-    requiredTableIdsForInsert.forEach((tableId) => {
-      const descendants = getDescendants(tableId, hierarchy);
-      descendants.forEach((descendantId) => allAffectedTableIds.add(descendantId));
+    finalOrderToSeed.forEach((tableName) => {
+      const tableInfo = hierarchy.find((t) => t.table === tableName);
+      if (tableInfo) {
+        const descendants = getDescendants(tableInfo.id, hierarchy);
+        descendants.forEach((descendantId) => allAffectedTableIds.add(descendantId));
+      }
     });
 
     const fullSortedOrder = getSeedingOrder(hierarchy);
     const tablesToTruncate: string[] = fullSortedOrder
       .filter((tableName) => {
-        const id = hierarchy.find((t) => t.table === tableName)?.id;
+        const id = hierarchy.find((t) => t.table === tableName && !tablesToIgnore.includes(tableName))?.id;
         return id !== undefined && allAffectedTableIds.has(id);
       })
       .reverse();
 
     const allTableData: AllTableData = {};
 
-    for (const tableName of sortedOrderForInsert) {
+    for (const tableName of finalOrderToSeed) {
       const payloadEntry = tablePayload.find((f) => f.table === tableName);
       if (payloadEntry) {
         const fileNameWithoutExtension = payloadEntry.file;
@@ -607,9 +595,9 @@ const insertPostDataModel = async (targetTable: string, tablePayload: tablePaylo
       }
     }
 
-    await performDbInserts(tablesToTruncate, sortedOrderForInsert, allTableData);
+    await performDbInserts(tablesToTruncate, finalOrderToSeed, allTableData);
 
-    for (const tableName of sortedOrderForInsert) {
+    for (const tableName of finalOrderToSeed) {
       const payloadEntry = tablePayload.find((f) => f.table === tableName);
       if (payloadEntry) {
         const fileNameWithoutExtension = payloadEntry.file;
@@ -629,11 +617,11 @@ const insertPostDataModel = async (targetTable: string, tablePayload: tablePaylo
 
     return {
       message: `Seeding for specific tables ${targetTable} completed.`,
-      tables: sortedOrderForInsert,
+      tables: finalOrderToSeed,
     };
-  } catch (error) {
-    console.error('Error in insertPostDataModel', error);
-    throw new Error('Error in insertPostDataModel');
+  } catch (error: any) {
+    console.error('Error in insertPostDataModel', error.message);
+    throw error;
   }
 };
 
