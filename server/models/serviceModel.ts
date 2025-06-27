@@ -110,9 +110,10 @@ const getTotalCount = async (search: string | null, category: number | null, sta
 const getAllServicesForDropdown = async () => {
   try {
     const query = `
-      SELECT id, service_name, service_price FROM services
+      SELECT id, service_name, service_price FROM services s
+      LEFT JOIN service_categories AS sc ON s.service_category_id = sc.id
       WHERE service_is_enabled = true
-      ORDER BY service_name ASC
+      ORDER BY service_category_sequence_no, service_sequence_no ASC
     `;
     const result = await pool().query(query);
     return result.rows;

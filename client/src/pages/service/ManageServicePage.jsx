@@ -23,7 +23,7 @@ import { useAuth } from "@/context/AuthContext";
 export default function ManageService() {
   // Check user role
   const { user } = useAuth();
-   const allowedRoles = ['super_admin', 'data_admin'];
+  const allowedRoles = ['super_admin', 'data_admin'];
   const isAdmin = user && allowedRoles.includes(user.role);
 
   // Data
@@ -160,16 +160,16 @@ export default function ManageService() {
       return;
     }
     try {
-        const response = await api.put(`/service/service-status/${changeService.id}`, updateForm, {
-          headers: {
-            "Content-Type": "application/json"
-          }
-        });
-        if (response.status === 200) {
-          setErrorMsg('');
-          setModalOpen(false);
-          getServices();
+      const response = await api.put(`/service/service-status/${changeService.id}`, updateForm, {
+        headers: {
+          "Content-Type": "application/json"
         }
+      });
+      if (response.status === 200) {
+        setErrorMsg('');
+        setModalOpen(false);
+        getServices();
+      }
     } catch (err) {
       console.error('Error changing service status:', err);
       setErrorMsg(err.response?.data?.message || 'An error occurred');
@@ -275,9 +275,6 @@ export default function ManageService() {
                       </button>
                     </div>
                     <div className="mt-4">
-                      {errorMsg && (
-                        <span className="text-red-500">{errorMsg}</span>
-                      )}
                       <FormProvider {...methods}>
                         <form onSubmit={handleSubmit} className="space-y-3">
 
@@ -297,6 +294,9 @@ export default function ManageService() {
                               name='updated_by'
                               label=''
                               rules={{ required: 'Updated_by is required' }} />
+                            {errorMsg && (
+                              <span className="text-red-500">{errorMsg}</span>
+                            )}
                           </div>
 
                           {/* Remarks */}
@@ -438,10 +438,10 @@ export default function ManageService() {
                                   {/* Action Row */}
                                   <td className="px-4 py-2 border border-gray-200">
                                     <div className="flex space-x-2 space-y-1">
-                                      { isAdmin && (
+                                      {isAdmin && (
                                         <Button className="p-1 bg-green-600 text-white text-sm font-medium rounded-xl hover:bg-green-700" onClick={() => navigate(`/update-service/${service.id}`)}>
-                                        <FilePenLine className="inline-block mr-1" />
-                                      </Button>
+                                          <FilePenLine className="inline-block mr-1" />
+                                        </Button>
                                       )}
                                       <Button className="px-2 py-1 bg-gray-600 text-white text-sm font-medium rounded-xl hover:bg-blue-700" onClick={() => navigate(`/view-sales-history/${service.id}`)}>
                                         View Sales History
