@@ -35,6 +35,25 @@ const getAllRefundSaleTransactionRecords = async (start_date_utc?: string, end_d
   return result.rows;
 };
 
+const getSaleTransactionItemById = async (itemId: number) => {
+  const query = `
+    SELECT 
+      sti.*,
+      m.name AS member_name,
+      m.email AS member_email,
+      m.contact AS member_contact,
+      st.created_at
+    FROM sale_transaction_items sti
+    JOIN sale_transactions st ON st.id = sti.sale_transactions_id
+    LEFT JOIN members m ON st.member_id = m.id
+    WHERE sti.id = $1
+    LIMIT 1
+  `;
+
+  const result = await pool().query(query, [itemId]);
+  return result.rows[0];
+};
+
 const getServiceTransactionsForRefund = async (
   member_id?: number,
   member_name?: string,
@@ -200,7 +219,7 @@ const processRefundService = async (body: {
   refundRemarks?: string;
   refundedBy: number;
   refundItems: {
-    service_transaction_item_id: number; // Required to map to employee
+    sale_transaction_item_id: number; // Required to map to employee
     service_name: string;
     original_unit_price: number;
     quantity: number;
@@ -269,7 +288,7 @@ const processRefundService = async (body: {
       // Get the original employee(s) linked to this item
       const { rows: employeeRows } = await client.query(
         `SELECT employee_id FROM serving_employee_to_sale_transaction_item WHERE sale_transaction_item_id = $1`,
-        [item.service_transaction_item_id]
+        [item.sale_transaction_item_id]
       );
 
       // Insert a new mapping for the refund item
@@ -971,6 +990,7 @@ export default {
   getAllRefundSaleTransactionRecords,
   getServiceTransactionsForRefund,
   processRefundService,
+  getSaleTransactionItemById,
   processRefundMemberVoucher,
   getEligibleMemberVoucherForRefund,
   getMCPById,

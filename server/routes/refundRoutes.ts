@@ -20,6 +20,8 @@ router.get('/service/all', controller.viewAllRefundSaleTransactionRecords);
 // Fetch all service transactions. Includes optional filters for member_id, member_name, receipt_no, start_date_utc, and end_date_utc
 router.get('/service-transactions', controller.getServiceTransactionsForRefund);
 router.post('/service', controller.processRefundService);
+// Fetch a specific sale transaction item by its ID
+router.get('/service-item/:id', controller.getSaleTransactionItemById);
 
 /////////////////////////////
 

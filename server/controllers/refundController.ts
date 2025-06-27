@@ -47,6 +47,31 @@ const processRefundService = async (req: Request, res: Response, next: NextFunct
   }
 };
 
+const getSaleTransactionItemById = async (
+  req: Request,
+  res: Response,
+  next: NextFunction
+) => {
+  const itemId = Number(req.params.id);
+  if (isNaN(itemId)) {
+    res.status(400).json({ message: 'Invalid sale_transaction_item_id' });
+    return;
+  }
+
+  try {
+    const item = await model.getSaleTransactionItemById(itemId);
+    if (!item) {
+      res.status(404).json({ message: 'Sale transaction item not found' });
+      return;
+    }
+
+    res.status(200).json(item);
+  } catch (error) {
+    console.error('Error in getSaleTransactionItemById:', error);
+    next(error);
+  }
+};
+
 const processRefundMemberVoucher = async (req: Request, res: Response, next: NextFunction) => {
   try {
     const refundResult = await model.processRefundMemberVoucher(req.body);
@@ -312,6 +337,7 @@ export default {
   viewAllRefundSaleTransactionRecords,
   getServiceTransactionsForRefund,
   processRefundService,
+  getSaleTransactionItemById,
   validateMCPExists,
   verifyRefundableServices: verifyRefundableServices as RequestHandler,
   processFullRefund: processFullRefund as RequestHandler,
