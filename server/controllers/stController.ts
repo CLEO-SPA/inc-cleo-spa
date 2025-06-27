@@ -202,6 +202,56 @@ const createMvTransaction = async (req: Request, res: Response): Promise<void> =
   }
 };
 
+const createMcpTransferTransaction = async (req: Request, res: Response): Promise<void> => {
+  try {
+    console.log('Creating MCP Transfer transaction:', req.body);
+
+    const result = await model.createMcpTransferTransaction(req.body);
+
+    console.log('MCP Transfer transaction created successfully:', result);
+
+    res.status(201).json({
+      success: true,
+      message: 'MCP Transfer transaction created successfully',
+      data: result
+    });
+
+  } catch (error: any) {
+    console.error('Error creating MCP Transfer transaction:', error);
+    
+    res.status(500).json({
+      success: false,
+      error: 'Failed to create MCP Transfer transaction',
+      details: error.message
+    });
+  }
+};
+
+const createMvTransferTransaction = async (req: Request, res: Response): Promise<void> => {
+  try {
+    console.log('Creating MV Transfer transaction:', req.body);
+
+    const result = await model.createMvTransferTransaction(req.body);
+
+    console.log('MV Transfer transaction created successfully:', result);
+
+    res.status(201).json({
+      success: true,
+      message: 'MV Transfer transaction created successfully',
+      data: result
+    });
+
+  } catch (error: any) {
+    console.error('Error creating MV Transfer transaction:', error);
+    
+    res.status(500).json({
+      success: false,
+      error: 'Failed to create MV Transfer transaction',
+      details: error.message
+    });
+  }
+};
+
 export default {
   getSalesTransactionList,
   getSalesTransactionById,
@@ -209,5 +259,7 @@ export default {
   searchProducts,
   createServicesProductsTransaction,
   createMcpTransaction,
-  createMvTransaction
+  createMvTransaction,
+  createMcpTransferTransaction,
+  createMvTransferTransaction
 };

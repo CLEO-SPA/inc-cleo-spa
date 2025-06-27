@@ -21,4 +21,6 @@ router.get('/products', controller.searchProducts);
 router.post('/services-products', controller.createServicesProductsTransaction);
 router.post('/mcp', controller.createMcpTransaction);
 router.post('/mv', controller.createMvTransaction);
+router.post('/mcp-transfer', controller.createMcpTransferTransaction);
+router.post('/mv-transfer', controller.createMvTransferTransaction);
 export default router;

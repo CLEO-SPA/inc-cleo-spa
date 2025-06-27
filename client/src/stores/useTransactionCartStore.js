@@ -51,6 +51,26 @@ const useTransactionCartStore = create(
           });
         }
 
+        if (item.type === 'transferMCP' || item.type === 'transfer') {
+          console.log('🔄 MCP Transfer Details:', {
+            description: item.data?.description,
+            amount: item.data?.amount,
+            fromMember: item.data?.fromMember,
+            toMember: item.data?.toMember,
+            queueItem: item.data?.queueItem
+          });
+        }
+
+        if (item.type === 'transferMV') {
+          console.log('🔄 MV Transfer Details:', {
+            description: item.data?.description,
+            amount: item.data?.amount,
+            fromMember: item.data?.fromMember,
+            toMember: item.data?.toMember,
+            voucherDetails: item.data?.voucherDetails
+          });
+        }
+
         const newItem = {
           id: item.id || Date.now(),
           type: item.type,
@@ -90,6 +110,10 @@ const useTransactionCartStore = create(
           }
           if (itemToRemove.type === 'transfer' || itemToRemove.type === 'transferMCP') {
             useMcpFormStore.getState().removeMcpFromTransferQueue(id);
+          }
+          if (itemToRemove.type === 'transferMV') {
+            console.log('🔄 Removing MV transfer from transfer queue:', id);
+            // Add any specific cleanup for MV transfers if needed
           }
         }
 
@@ -158,6 +182,24 @@ const useTransactionCartStore = create(
         const state = get();
         const items = state.cartItems.filter((item) => item.type === type);
         console.log(`🔍 Getting items of type ${type}:`, items.length);
+        return items;
+      },
+
+      // Get MCP transfer items
+      getMcpTransferItems: () => {
+        const state = get();
+        const items = state.cartItems.filter((item) => 
+          item.type === 'transferMCP' || (item.type === 'transfer' && item.data?.queueItem?.mcp_id1)
+        );
+        console.log(`🔄 Getting MCP transfer items:`, items.length);
+        return items;
+      },
+
+      // Get MV transfer items
+      getMvTransferItems: () => {
+        const state = get();
+        const items = state.cartItems.filter((item) => item.type === 'transferMV');
+        console.log(`🔄 Getting MV transfer items:`, items.length);
         return items;
       },
 

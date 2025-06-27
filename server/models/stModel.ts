@@ -902,12 +902,12 @@ const createMcpTransaction = async (
     const transactionParams: (string | number | boolean | null)[] = [
       customer_type?.toUpperCase() || 'MEMBER',
       member_id || null,
-      totalPaidAmount,        
-      outstandingAmount,  
+      totalPaidAmount,
+      outstandingAmount,
       transactionStatus,
       finalReceiptNo,
       remarks || '',
-      processPayment,         
+      true, // process_payment
       handled_by,
       created_by
     ];
@@ -988,11 +988,11 @@ const createMcpTransaction = async (
           created_by
         ];
 
-        console.log('MCP Payment Query:', paymentQuery);
-        console.log('MCP Payment Params:', paymentParams);
+        console.log('Payment Query:', paymentQuery);
+        console.log('Payment Params:', paymentParams);
 
         const paymentResult = await client.query(paymentQuery, paymentParams);
-        console.log('Created MCP payment with ID:', paymentResult.rows[0].id);
+        console.log('Greated payment with ID:', paymentResult.rows[0].id);
       }
     }
 
@@ -1247,6 +1247,460 @@ const createMvTransaction = async (
 
 
 
+const createMcpTransferTransaction = async (
+  transactionData: SingleItemTransactionRequestData
+): Promise<SingleItemTransactionCreationResult> => {
+  const client = await pool().connect();
+  
+  try {
+    await client.query('BEGIN');
+
+    // Extract data from request
+    const {
+      customer_type,
+      member_id,
+      receipt_number,
+      remarks,
+      created_by,
+      handled_by,
+      item,
+      payments
+    } = transactionData;
+
+    // Validate required fields
+    if (!created_by) {
+      throw new Error('created_by is required');
+    }
+
+    if (!handled_by) {
+      throw new Error('handled_by is required');
+    }
+
+    if (!item || (item.type !== 'transfer' && item.type !== 'transferMCP')) {
+      throw new Error('item is required and must be of type "transfer" or "transferMCP"');
+    }
+
+    if (!payments || !Array.isArray(payments) || payments.length === 0) {
+      throw new Error('payments array is required and cannot be empty');
+    }
+
+    // Calculate totals from single transfer item
+    const totalTransactionAmount: number = item.pricing?.totalLinePrice || 0;
+
+    // For transfers, we expect full payment (no pending logic needed)
+    const totalPaidAmount: number = payments.reduce((total: number, payment: PaymentMethodRequest) => {
+      return total + (payment.amount || 0);
+    }, 0);
+
+    const outstandingAmount: number = 0;
+    const transactionStatus: 'TRANSFER' | 'FULL' = 'TRANSFER'; // Transfers are always fully paid
+    const processPayment: boolean = false; 
+
+    // Verification: total should match (simplified for transfers)
+    if (Math.abs(totalPaidAmount - totalTransactionAmount) > 0.01) {
+      console.warn('MCP Transfer payment total mismatch:', {
+        totalTransactionAmount,
+        totalPaidAmount,
+        expected: 'Amounts should be equal for transfers'
+      });
+    }
+
+    // Use receipt number from frontend
+    let finalReceiptNo: string = receipt_number || '';
+    if (!finalReceiptNo) {
+      const receiptResult = await client.query(
+        'SELECT COALESCE(MAX(CAST(SUBSTRING(receipt_no FROM 3) AS INTEGER)), 0) + 1 as next_number FROM sale_transactions WHERE receipt_no LIKE $1',
+        [`ST%`]
+      );
+      finalReceiptNo = `ST${receiptResult.rows[0].next_number.toString().padStart(6, '0')}`;
+    }
+
+    // Insert main sales transaction
+    const transactionQuery: string = `
+      INSERT INTO sale_transactions (
+        customer_type,
+        member_id,
+        total_paid_amount,
+        outstanding_total_payment_amount,
+        sale_transaction_status,
+        receipt_no,
+        remarks,
+        process_payment,
+        handled_by,
+        created_by,
+        created_at,
+        updated_at
+      ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, NOW(), NOW())
+      RETURNING id
+    `;
+
+    const transactionParams: (string | number | boolean | null)[] = [
+      customer_type?.toUpperCase() || 'MEMBER',
+      member_id || null,
+      totalPaidAmount,        
+      outstandingAmount,  
+      transactionStatus,
+      finalReceiptNo,
+      remarks || '',
+      processPayment,         
+      handled_by,
+      created_by
+    ];
+
+    console.log('MCP Transfer Transaction Query:', transactionQuery);
+    console.log('MCP Transfer Transaction Params:', transactionParams);
+
+    const transactionResult = await client.query(transactionQuery, transactionParams);
+    const saleTransactionId: number = transactionResult.rows[0].id;
+    
+    console.log('Created MCP Transfer sale transaction with ID:', saleTransactionId);
+
+    // Insert transfer item
+    const itemQuery: string = `
+      INSERT INTO sale_transaction_items (
+        sale_transaction_id,
+        service_name,
+        product_name,
+        member_care_package_id,
+        member_voucher_id,
+        original_unit_price,
+        custom_unit_price,
+        discount_percentage,
+        quantity,
+        amount,
+        item_type,
+        remarks,
+        created_at,
+        updated_at
+      ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, NOW(), NOW())
+      RETURNING id
+    `;
+
+    const itemParams: (string | number | null)[] = [
+      saleTransactionId,
+      null, // service_name
+      null, // product_name
+      item.data?.queueItem?.mcp_id2 || null, //ths shud be the mcp being transferred to
+      null, // member_voucher_id
+      item.pricing?.originalPrice || 0,
+      item.pricing?.customPrice || 0,
+      item.pricing?.discount || 0,
+      item.pricing?.quantity || 1,
+      item.pricing?.totalLinePrice || 0,
+      'mcp_transfer',
+      item.remarks || item.data?.description || ''
+    ];
+
+    console.log('MCP Transfer Item Query:', itemQuery);
+    console.log('MCP Transfer Item Params:', itemParams);
+
+    const itemResult = await client.query(itemQuery, itemParams);
+    const saleTransactionItemId: number = itemResult.rows[0].id;
+    
+    console.log('Created MCP Transfer sale transaction item with ID:', saleTransactionItemId);
+
+    // Insert ALL payment records (both pending and non-pending)
+    for (const payment of payments) {
+      if (payment.amount > 0) {
+        const paymentQuery: string = `
+          INSERT INTO payment_to_sale_transactions (
+            sale_transaction_id,
+            payment_method_id,
+            amount,
+            remarks,
+            created_by,
+            created_at,
+            updated_at
+          ) VALUES ($1, $2, $3, $4, $5, NOW(), NOW())
+          RETURNING id
+        `;
+
+        // Handle special "transfer" payment method
+        let paymentMethodId: number;
+        if (payment.methodId === 'transfer') {
+          paymentMethodId = 9; // Assuming 9 is the ID for "Transfer" payment method
+        } else {
+          paymentMethodId = typeof payment.methodId === 'string' ? parseInt(payment.methodId) : payment.methodId;
+        }
+
+        const paymentParams: (number | string)[] = [
+          saleTransactionId,
+          paymentMethodId,
+          payment.amount,
+          payment.remark || '',
+          created_by
+        ];
+
+        console.log('MCP Transfer Payment Query:', paymentQuery);
+        console.log('MCP Transfer Payment Params:', paymentParams);
+
+        const paymentResult = await client.query(paymentQuery, paymentParams);
+        console.log('Created MCP Transfer payment with ID:', paymentResult.rows[0].id);
+      }
+    }
+
+    await client.query('COMMIT');
+    console.log('MCP Transfer Transaction committed successfully');
+
+    // Return the created transaction data
+    return {
+      id: saleTransactionId,
+      receipt_no: finalReceiptNo,
+      customer_type: customer_type?.toUpperCase() || 'MEMBER',
+      member_id: member_id ? member_id.toString() : null,
+      total_transaction_amount: totalTransactionAmount,
+      total_paid_amount: totalPaidAmount,
+      outstanding_total_payment_amount: outstandingAmount, 
+      transaction_status: transactionStatus,
+      remarks: remarks || '',
+      created_by,
+      handled_by,
+      mcp_id1: item.data?.queueItem?.mcp_id1 || null,
+      mcp_id2: item.data?.queueItem?.mcp_id2 || null,
+      transfer_amount: item.data?.amount || totalTransactionAmount,
+      transfer_description: item.data?.description || '',
+      items_count: 1,
+      payments_count: payments.filter((p: PaymentMethodRequest) => p.amount > 0).length
+    };
+
+  } catch (error) {
+    await client.query('ROLLBACK');
+    console.error('Error creating MCP Transfer sale transaction:', error);
+    throw error;
+  } finally {
+    client.release();
+  }
+};
+
+
+
+const createMvTransferTransaction = async (
+  transactionData: SingleItemTransactionRequestData
+): Promise<SingleItemTransactionCreationResult> => {
+  const client = await pool().connect();
+  
+  try {
+    await client.query('BEGIN');
+
+    // Extract data from request
+    const {
+      customer_type,
+      member_id,
+      receipt_number,
+      remarks,
+      created_by,
+      handled_by,
+      item,
+      payments
+    } = transactionData;
+
+    // Validate required fields
+    if (!created_by) {
+      throw new Error('created_by is required');
+    }
+
+    if (!handled_by) {
+      throw new Error('handled_by is required');
+    }
+
+    if (!item || item.type !== 'transferMV') {
+      throw new Error('item is required and must be of type "transferMV"');
+    }
+
+    if (!payments || !Array.isArray(payments) || payments.length === 0) {
+      throw new Error('payments array is required and cannot be empty');
+    }
+
+    // Calculate totals from single transfer item
+    const totalTransactionAmount: number = item.pricing?.totalLinePrice || 0;
+
+    // For transfers, we expect full payment (no pending logic needed)
+    const totalPaidAmount: number = payments.reduce((total: number, payment: PaymentMethodRequest) => {
+      return total + (payment.amount || 0);
+    }, 0);
+
+    const outstandingAmount: number = 0; // Transfers should always be fully paid
+    const transactionStatus: 'FULL' | 'PARTIAL' = 'FULL'; // Always full for transfers
+    const processPayment: boolean = false; // No further payment processing needed
+
+    // Verification: total should match (simplified for transfers)
+    if (Math.abs(totalPaidAmount - totalTransactionAmount) > 0.01) {
+      console.warn('MV Transfer payment total mismatch:', {
+        totalTransactionAmount,
+        totalPaidAmount,
+        expected: 'Amounts should be equal for transfers'
+      });
+    }
+
+    // Use receipt number from frontend
+    let finalReceiptNo: string = receipt_number || '';
+    if (!finalReceiptNo) {
+      const receiptResult = await client.query(
+        'SELECT COALESCE(MAX(CAST(SUBSTRING(receipt_no FROM 3) AS INTEGER)), 0) + 1 as next_number FROM sale_transactions WHERE receipt_no LIKE $1',
+        [`ST%`]
+      );
+      finalReceiptNo = `ST${receiptResult.rows[0].next_number.toString().padStart(6, '0')}`;
+    }
+
+    // Insert main sales transaction
+    const transactionQuery: string = `
+      INSERT INTO sale_transactions (
+        customer_type,
+        member_id,
+        total_paid_amount,
+        outstanding_total_payment_amount,
+        sale_transaction_status,
+        receipt_no,
+        remarks,
+        process_payment,
+        handled_by,
+        created_by,
+        created_at,
+        updated_at
+      ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, NOW(), NOW())
+      RETURNING id
+    `;
+
+    const transactionParams: (string | number | boolean | null)[] = [
+      customer_type?.toUpperCase() || 'MEMBER',
+      member_id || null,
+      totalPaidAmount,        
+      outstandingAmount,  
+      transactionStatus,
+      finalReceiptNo,
+      remarks || '',
+      processPayment,         
+      handled_by,
+      created_by
+    ];
+
+    console.log('MV Transfer Transaction Query:', transactionQuery);
+    console.log('MV Transfer Transaction Params:', transactionParams);
+
+    const transactionResult = await client.query(transactionQuery, transactionParams);
+    const saleTransactionId: number = transactionResult.rows[0].id;
+    
+    console.log('Created MV Transfer sale transaction with ID:', saleTransactionId);
+
+    // Insert transfer item
+    const itemQuery: string = `
+      INSERT INTO sale_transaction_items (
+        sale_transaction_id,
+        service_name,
+        product_name,
+        member_care_package_id,
+        member_voucher_id,
+        original_unit_price,
+        custom_unit_price,
+        discount_percentage,
+        quantity,
+        amount,
+        item_type,
+        remarks,
+        created_at,
+        updated_at
+      ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, NOW(), NOW())
+      RETURNING id
+    `;
+
+    const itemParams: (string | number | null)[] = [
+      saleTransactionId,
+      null, // service_name
+      null, // product_name
+      null, // member_care_package_id
+      item.data?.queueItem?.mv_id1 || null, // member_voucher_id (from transfer source)
+      item.pricing?.originalPrice || 0,
+      item.pricing?.customPrice || 0,
+      item.pricing?.discount || 0,
+      item.pricing?.quantity || 1,
+      item.pricing?.totalLinePrice || 0,
+      'mv_transfer',
+      item.remarks || item.data?.description || ''
+    ];
+
+    console.log('MV Transfer Item Query:', itemQuery);
+    console.log('MV Transfer Item Params:', itemParams);
+
+    const itemResult = await client.query(itemQuery, itemParams);
+    const saleTransactionItemId: number = itemResult.rows[0].id;
+    
+    console.log('Created MV Transfer sale transaction item with ID:', saleTransactionItemId);
+
+    // Insert ALL payment records (both pending and non-pending)
+    for (const payment of payments) {
+      if (payment.amount > 0) {
+        const paymentQuery: string = `
+          INSERT INTO payment_to_sale_transactions (
+            sale_transaction_id,
+            payment_method_id,
+            amount,
+            remarks,
+            created_by,
+            created_at,
+            updated_at
+          ) VALUES ($1, $2, $3, $4, $5, NOW(), NOW())
+          RETURNING id
+        `;
+
+        // Handle special "transfer" payment method
+        let paymentMethodId: number;
+        if (payment.methodId === 'transfer') {
+          // Use a special payment method ID for transfers, or create one if needed
+          // For now, let's use method ID 9 (you may need to adjust this based on your payment_methods table)
+          paymentMethodId = 9; // Assuming 9 is the ID for "Transfer" payment method
+        } else {
+          paymentMethodId = typeof payment.methodId === 'string' ? parseInt(payment.methodId) : payment.methodId;
+        }
+
+        const paymentParams: (number | string)[] = [
+          saleTransactionId,
+          paymentMethodId,
+          payment.amount,
+          payment.remark || '',
+          created_by
+        ];
+
+        console.log('MV Transfer Payment Query:', paymentQuery);
+        console.log('MV Transfer Payment Params:', paymentParams);
+
+        const paymentResult = await client.query(paymentQuery, paymentParams);
+        console.log('Created MV Transfer payment with ID:', paymentResult.rows[0].id);
+      }
+    }
+
+    await client.query('COMMIT');
+    console.log('MV Transfer Transaction committed successfully');
+
+    // Return the created transaction data
+    return {
+      id: saleTransactionId,
+      receipt_no: finalReceiptNo,
+      customer_type: customer_type?.toUpperCase() || 'MEMBER',
+      member_id: member_id ? member_id.toString() : null,
+      total_transaction_amount: totalTransactionAmount,
+      total_paid_amount: totalPaidAmount,
+      outstanding_total_payment_amount: outstandingAmount, 
+      transaction_status: transactionStatus,
+      remarks: remarks || '',
+      created_by,
+      handled_by,
+      transfer_amount: item.data?.amount || totalTransactionAmount,
+      transfer_description: item.data?.description || '',
+      items_count: 1,
+      payments_count: payments.filter((p: PaymentMethodRequest) => p.amount > 0).length
+    };
+
+  } catch (error) {
+    await client.query('ROLLBACK');
+    console.error('Error creating MV Transfer sale transaction:', error);
+    throw error;
+  } finally {
+    client.release();
+  }
+};
+
+
+
 export default {
   getSalesTransactionList,
   getSalesTransactionById,
@@ -1254,5 +1708,7 @@ export default {
   searchProducts,
   createServicesProductsTransaction,
   createMcpTransaction,
-  createMvTransaction
+  createMvTransaction,
+  createMcpTransferTransaction,
+  createMvTransferTransaction
 };

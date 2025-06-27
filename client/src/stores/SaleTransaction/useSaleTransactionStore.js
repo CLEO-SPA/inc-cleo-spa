@@ -342,6 +342,100 @@ const useSaleTransactionStore = create(
             }
           }
 
+          // 4. Create individual MCP Transfer transactions
+          if (processedTransactionData.mcpTransferTransactions?.length > 0) {
+            for (let i = 0; i < processedTransactionData.mcpTransferTransactions.length; i++) {
+              const mcpTransferData = processedTransactionData.mcpTransferTransactions[i];
+              
+              set(state => ({
+                progress: { 
+                  ...state.progress, 
+                  currentOperation: `Creating MCP Transfer transaction ${i + 1}/${processedTransactionData.mcpTransferTransactions.length}...` 
+                }
+              }));
+
+              try {
+                const mcpTransferTransaction = await get().createMcpTransferTransaction(mcpTransferData);
+                
+                createdTransactions.push({
+                  type: 'mcp-transfer',
+                  transaction: mcpTransferTransaction,
+                  item: mcpTransferData.item
+                });
+
+                set(state => ({
+                  progress: { 
+                    ...state.progress, 
+                    completed: state.progress.completed + 1 
+                  }
+                }));
+
+              } catch (error) {
+                console.error('❌ MCP Transfer transaction failed:', error);
+                failedTransactions.push({
+                  type: 'mcp-transfer',
+                  error: error.message,
+                  data: mcpTransferData
+                });
+                
+                set(state => ({
+                  progress: { 
+                    ...state.progress, 
+                    failed: state.progress.failed + 1 
+                  },
+                  errors: [...state.errors, `MCP Transfer (${mcpTransferData.item.data?.description || 'Transfer'}): ${error.message}`]
+                }));
+              }
+            }
+          }
+
+          // 5. Create individual MV Transfer transactions
+          if (processedTransactionData.mvTransferTransactions?.length > 0) {
+            for (let i = 0; i < processedTransactionData.mvTransferTransactions.length; i++) {
+              const mvTransferData = processedTransactionData.mvTransferTransactions[i];
+              
+              set(state => ({
+                progress: { 
+                  ...state.progress, 
+                  currentOperation: `Creating MV Transfer transaction ${i + 1}/${processedTransactionData.mvTransferTransactions.length}...` 
+                }
+              }));
+
+              try {
+                const mvTransferTransaction = await get().createMvTransferTransaction(mvTransferData);
+                
+                createdTransactions.push({
+                  type: 'mv-transfer',
+                  transaction: mvTransferTransaction,
+                  item: mvTransferData.item
+                });
+
+                set(state => ({
+                  progress: { 
+                    ...state.progress, 
+                    completed: state.progress.completed + 1 
+                  }
+                }));
+
+              } catch (error) {
+                console.error('❌ MV Transfer transaction failed:', error);
+                failedTransactions.push({
+                  type: 'mv-transfer',
+                  error: error.message,
+                  data: mvTransferData
+                });
+                
+                set(state => ({
+                  progress: { 
+                    ...state.progress, 
+                    failed: state.progress.failed + 1 
+                  },
+                  errors: [...state.errors, `MV Transfer (${mvTransferData.item.data?.description || 'Transfer'}): ${error.message}`]
+                }));
+              }
+            }
+          }
+
           // Determine final state
           const hasFailures = failedTransactions.length > 0;
           const hasSuccesses = createdTransactions.length > 0;
@@ -437,6 +531,34 @@ const useSaleTransactionStore = create(
               ...mvData,
               payments: updatedPayments
             };
+          });
+        }
+
+        // Process MCP Transfer transactions (no auto-pending needed, transfers are fully paid)
+        if (processedData.mcpTransferTransactions?.length > 0) {
+          processedData.mcpTransferTransactions = processedData.mcpTransferTransactions.map(mcpTransferData => {
+            console.log('🔄 MCP Transfer Processing:', {
+              itemName: mcpTransferData.item.data?.description || 'Transfer',
+              totalAmount: mcpTransferData.item.pricing?.totalLinePrice || 0,
+              existingPayments: mcpTransferData.payments?.length || 0,
+              note: 'No auto-pending needed for transfers'
+            });
+
+            return mcpTransferData; // No changes needed for transfer transactions
+          });
+        }
+
+        // Process MV Transfer transactions (no auto-pending needed, transfers are fully paid)
+        if (processedData.mvTransferTransactions?.length > 0) {
+          processedData.mvTransferTransactions = processedData.mvTransferTransactions.map(mvTransferData => {
+            console.log('🔄 MV Transfer Processing:', {
+              itemName: mvTransferData.item.data?.description || 'Transfer',
+              totalAmount: mvTransferData.item.pricing?.totalLinePrice || 0,
+              existingPayments: mvTransferData.payments?.length || 0,
+              note: 'No auto-pending needed for transfers'
+            });
+
+            return mvTransferData; // No changes needed for transfer transactions
           });
         }
 
@@ -558,6 +680,90 @@ const useSaleTransactionStore = create(
         console.log(mvId)
         if (!response.data?.success) {
           throw new Error(response.data?.message || 'Failed to create MV transaction');
+        }
+
+        return response.data.data;
+      },
+
+      // Create individual MCP Transfer transaction
+      createMcpTransferTransaction: async (mcpTransferData) => {
+        console.log('🔄 Creating MCP Transfer transaction...');
+        
+        const { transactionDetails } = get();
+        
+        const payload = {
+          customer_type: transactionDetails.customerType,
+          member_id: transactionDetails.memberId,
+          receipt_number: transactionDetails.receiptNumber,
+          remarks: transactionDetails.transactionRemark,
+          created_by: transactionDetails.createdBy,
+          handled_by: transactionDetails.handledBy,
+          item: {
+            type: mcpTransferData.item.type,
+            data: mcpTransferData.item.data,
+            pricing: mcpTransferData.item.pricing,
+            assignedEmployee: mcpTransferData.item.assignedEmployee || mcpTransferData.item.employee_id,
+            remarks: mcpTransferData.item.remarks || ''
+          },
+          payments: mcpTransferData.payments || []
+        };
+
+        console.log('📤 MCP Transfer payload:', {
+          ...payload,
+          payments: payload.payments.map(p => ({
+            methodId: p.methodId,
+            methodName: p.methodName,
+            amount: p.amount,
+            remark: p.remark
+          }))
+        });
+
+        const response = await api.post('/st/mcp-transfer', payload);
+        
+        if (!response.data?.success) {
+          throw new Error(response.data?.message || 'Failed to create MCP Transfer transaction');
+        }
+
+        return response.data.data;
+      },
+
+      // Create individual MV Transfer transaction
+      createMvTransferTransaction: async (mvTransferData) => {
+        console.log('🔄 Creating MV Transfer transaction...');
+        
+        const { transactionDetails } = get();
+        
+        const payload = {
+          customer_type: transactionDetails.customerType,
+          member_id: transactionDetails.memberId,
+          receipt_number: transactionDetails.receiptNumber,
+          remarks: transactionDetails.transactionRemark,
+          created_by: transactionDetails.createdBy,
+          handled_by: transactionDetails.handledBy,
+          item: {
+            type: mvTransferData.item.type,
+            data: mvTransferData.item.data,
+            pricing: mvTransferData.item.pricing,
+            assignedEmployee: mvTransferData.item.assignedEmployee || mvTransferData.item.employee_id,
+            remarks: mvTransferData.item.remarks || ''
+          },
+          payments: mvTransferData.payments || []
+        };
+
+        console.log('📤 MV Transfer payload:', {
+          ...payload,
+          payments: payload.payments.map(p => ({
+            methodId: p.methodId,
+            methodName: p.methodName,
+            amount: p.amount,
+            remark: p.remark
+          }))
+        });
+
+        const response = await api.post('/st/mv-transfer', payload);
+        
+        if (!response.data?.success) {
+          throw new Error(response.data?.message || 'Failed to create MV Transfer transaction');
         }
 
         return response.data.data;

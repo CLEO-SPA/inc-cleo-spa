@@ -138,7 +138,7 @@ export interface TransactionRequestItem {
 }
 
 export interface PaymentMethodRequest {
-  methodId: number;
+  methodId: number | string; // Allow both number and string for special payment methods like 'transfer'
   amount: number;
   remark?: string;
 }
@@ -162,7 +162,7 @@ export interface TransactionCreationResult {
   total_transaction_amount: number;
   total_paid_amount: number;
   outstanding_total_payment_amount: number;
-  transaction_status: 'FULL' | 'PARTIAL';
+  transaction_status: 'FULL' | 'PARTIAL' | 'TRANSFER' | 'REFUND';
   remarks: string;
   created_by: number;
   handled_by: number;
@@ -171,7 +171,7 @@ export interface TransactionCreationResult {
 }
 
 export interface SingleTransactionRequestItem {
-  type: 'package' | 'member-voucher';
+  type: 'package' | 'member-voucher' | 'transfer' | 'transferMCP' | 'transferMV';
   data: {
     id: string;
     // Package-specific fields
@@ -184,6 +184,16 @@ export interface SingleTransactionRequestItem {
     member_voucher_name?: string;
     starting_balance?: number;
     free_of_charge?: number;
+    // Transfer-specific fields
+    amount?: number;
+    description?: string;
+    queueItem?: {
+      id: string;
+      mcp_id1?: string | number;
+      mcp_id2?: string | number;
+      amount?: number;
+      [key: string]: any;
+    };
     // Common fields
     member_id?: number;
     employee_id?: number;
@@ -215,7 +225,7 @@ export interface SingleItemTransactionCreationResult {
   total_transaction_amount: number;
   total_paid_amount: number;
   outstanding_total_payment_amount: number;
-  transaction_status: 'FULL' | 'PARTIAL';
+  transaction_status: 'FULL' | 'PARTIAL' | 'TRANSFER' | 'REFUND';
   remarks: string;
   created_by: number;
   handled_by: number;
@@ -223,6 +233,11 @@ export interface SingleItemTransactionCreationResult {
   package_name?: string | null;
   voucher_id?: number | null;
   voucher_name?: string | null;
+  // Transfer-specific fields
+  mcp_id1?: string | number | null;
+  mcp_id2?: string | number | null;
+  transfer_amount?: number;
+  transfer_description?: string;
   items_count: number;
   payments_count: number;
 }

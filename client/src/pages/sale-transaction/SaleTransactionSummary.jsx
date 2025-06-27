@@ -313,7 +313,7 @@ const SaleTransactionSummary = () => {
     });
   };
   
-  // Handle confirm transaction
+  // ✅ FIXED: Handle confirm transaction with proper transfer grouping
   const handleConfirmTransaction = async () => {
     if (!isTransactionValid()) {
       setModalMessage('Please ensure all transaction requirements are met before proceeding.');
@@ -322,17 +322,29 @@ const SaleTransactionSummary = () => {
     }
     
     try {
-      // Group items by transaction type
+      // ✅ FIXED: Group items by transaction type INCLUDING TRANSFERS
       const groupedItems = {
         services: cartItems.filter(item => item.type === 'service'),
         products: cartItems.filter(item => item.type === 'product'),
         packages: cartItems.filter(item => item.type === 'package'),
         vouchers: cartItems.filter(item => item.type === 'member-voucher'),
+        // ✅ ADD MISSING TRANSFER GROUPINGS:
         mcpTransfers: cartItems.filter(item => item.type === 'transferMCP' || (item.type === 'transfer' && item.data?.queueItem?.mcp_id1)),
         mvTransfers: cartItems.filter(item => item.type === 'transferMV'),
       };
 
-      // Prepare transaction data - the store will handle transaction details automatically
+      // ✅ DEBUG: Log grouped items to verify transfers are found
+      console.log('🔍 Grouped Items:', {
+        services: groupedItems.services.length,
+        products: groupedItems.products.length,
+        packages: groupedItems.packages.length,
+        vouchers: groupedItems.vouchers.length,
+        mcpTransfers: groupedItems.mcpTransfers.length,
+        mvTransfers: groupedItems.mvTransfers.length,
+        totalCartItems: cartItems.length
+      });
+
+      // ✅ FIXED: Prepare transaction data including transfers
       const transactionData = {
         // Services + Products combined transaction
         servicesProducts: (() => {
@@ -370,6 +382,27 @@ const SaleTransactionSummary = () => {
             remarks: itemRemarks[voucher.id] || ''
           },
           payments: sectionPayments[`voucher-${voucher.id}`] || []
+        })),
+
+        // ✅ ADD MISSING TRANSFER TRANSACTIONS:
+        mcpTransferTransactions: groupedItems.mcpTransfers.map(mcpTransfer => ({
+          item: {
+            ...mcpTransfer,
+            pricing: getItemPricing(mcpTransfer.id),
+            assignedEmployee: itemEmployees[mcpTransfer.id] || null,
+            remarks: itemRemarks[mcpTransfer.id] || ''
+          },
+          payments: sectionPayments[`transfer-mcp-${mcpTransfer.id}`] || []
+        })),
+
+        mvTransferTransactions: groupedItems.mvTransfers.map(mvTransfer => ({
+          item: {
+            ...mvTransfer,
+            pricing: getItemPricing(mvTransfer.id),
+            assignedEmployee: itemEmployees[mvTransfer.id] || null,
+            remarks: itemRemarks[mvTransfer.id] || ''
+          },
+          payments: sectionPayments[`transfer-mv-${mvTransfer.id}`] || []
         }))
       };
 
@@ -602,6 +635,24 @@ const SaleTransactionSummary = () => {
                               remarks: itemRemarks[voucher.id] || ''
                             },
                             payments: sectionPayments[`voucher-${voucher.id}`] || []
+                          })),
+                          mcpTransferTransactions: cartItems.filter(item => item.type === 'transferMCP' || (item.type === 'transfer' && item.data?.queueItem?.mcp_id1)).map(mcpTransfer => ({
+                            item: {
+                              ...mcpTransfer,
+                              pricing: getItemPricing(mcpTransfer.id),
+                              assignedEmployee: itemEmployees[mcpTransfer.id] || null,
+                              remarks: itemRemarks[mcpTransfer.id] || ''
+                            },
+                            payments: sectionPayments[`transfer-mcp-${mcpTransfer.id}`] || []
+                          })),
+                          mvTransferTransactions: cartItems.filter(item => item.type === 'transferMV').map(mvTransfer => ({
+                            item: {
+                              ...mvTransfer,
+                              pricing: getItemPricing(mvTransfer.id),
+                              assignedEmployee: itemEmployees[mvTransfer.id] || null,
+                              remarks: itemRemarks[mvTransfer.id] || ''
+                            },
+                            payments: sectionPayments[`transfer-mv-${mvTransfer.id}`] || []
                           }))
                         }, null, 2)}
                       </pre>

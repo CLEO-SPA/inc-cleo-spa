@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { Plus, X } from 'lucide-react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
@@ -23,6 +23,9 @@ const CartItemsWithPayment = ({
   const dropdownPaymentMethods = usePaymentMethodStore((state) => state.dropdownPaymentMethods);
   const loading = usePaymentMethodStore((state) => state.loading);
   const fetchDropdownPaymentMethods = usePaymentMethodStore((state) => state.fetchDropdownPaymentMethods);
+
+  // Track which transfer sections have been processed to prevent duplicates
+  const processedTransferSections = useRef(new Set());
 
   // Effect to ensure payment methods are loaded
   useEffect(() => {
@@ -260,26 +263,35 @@ const CartItemsWithPayment = ({
 
   // Auto-add transfer payment method for transfer sections
   const autoAddTransferPayment = (sectionId, amount) => {
-    // Check if this section already has a transfer payment
+    // Check if we've already processed this section
+    if (processedTransferSections.current.has(sectionId)) {
+      return;
+    }
+
+    // Check if this section already has any payments
     const existingPayments = sectionPayments[sectionId] || [];
-    const hasTransferPayment = existingPayments.some(payment => 
-      payment.methodName === 'Transfer' || payment.methodId === 'transfer'
-    );
     
-    if (!hasTransferPayment) {
+    // Only auto-add if there are no existing payments at all
+    if (existingPayments.length === 0) {
       const transferPayment = {
         id: Date.now(),
-        methodId: 'transfer',
+        methodId: 9,
         methodName: 'Transfer',
-        amount: amount,
+        amount: amount, // This should auto-fill the full amount
         remark: 'Auto-generated transfer payment'
       };
       
       onPaymentChange('add', sectionId, transferPayment);
+      
+      // Mark this section as processed
+      processedTransferSections.current.add(sectionId);
+      
+      console.log(`Auto-added transfer payment for ${sectionId} with amount: ${amount}`);
     }
   };
 
-  // Effect to auto-add transfer payments when sections are created
+  // Effect to auto-add transfer payments when transfer sections are created
+  // Removed sectionPayments from dependency array to prevent infinite loop
   useEffect(() => {
     const paymentSections = getPaymentSections();
     
@@ -289,7 +301,45 @@ const CartItemsWithPayment = ({
         autoAddTransferPayment(section.id, section.amount);
       }
     });
-  }, [cartItems, itemPricing, sectionPayments]);
+  }, [cartItems, itemPricing]); 
+
+  // Separate effect to ensure transfer payments have the correct amount
+  useEffect(() => {
+    const paymentSections = getPaymentSections();
+    
+    paymentSections.forEach(section => {
+      if (section.id.startsWith('transfer-mcp-') || section.id.startsWith('transfer-mv-')) {
+        const existingPayments = sectionPayments[section.id] || [];
+        
+        // Find transfer payments with 0 amount and update them
+        existingPayments.forEach(payment => {
+          if ((payment.methodName === 'Transfer' || payment.methodId === 9) && 
+              payment.amount === 0) {
+            console.log(`Updating transfer payment amount for ${section.id} to ${section.amount}`);
+            onPaymentChange('updateAmount', section.id, { 
+              paymentId: payment.id, 
+              amount: section.amount 
+            });
+          }
+        });
+      }
+    });
+  }, [sectionPayments, cartItems, itemPricing]); // This effect watches sectionPayments to fix amounts
+
+  // Reset processed sections when cart items change significantly
+  useEffect(() => {
+    const currentTransferSectionIds = paymentSections
+      .filter(section => section.id.startsWith('transfer-mcp-') || section.id.startsWith('transfer-mv-'))
+      .map(section => section.id);
+    
+    // Clear processed sections that no longer exist
+    const processedIds = Array.from(processedTransferSections.current);
+    processedIds.forEach(id => {
+      if (!currentTransferSectionIds.includes(id)) {
+        processedTransferSections.current.delete(id);
+      }
+    });
+  }, [cartItems]);
 
   return (
     <>
