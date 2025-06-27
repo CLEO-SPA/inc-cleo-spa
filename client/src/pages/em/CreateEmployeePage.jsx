@@ -30,7 +30,7 @@ export default function CreateEmployeePage() {
   const methods = useForm({
     defaultValues: {
       ...employeeData,
-      created_at: 0,
+      created_at: new Date(),
     },
   });
   const {
