@@ -2,6 +2,19 @@
 import { Request, Response, NextFunction } from 'express';
 import model from '../models/appointmentModel.js';
 
+/**
+ * GET /ab
+ * Paginated + filtered list of appointments
+ * Query params:
+ * - page: number
+ * - limit: number
+ * - startDate: yyyy-mm-dd (optional)
+ * - endDate: yyyy-mm-dd (optional)
+ * - employeeId: number (optional)
+ * - memberId: number (optional)
+ * - sortOrder: 'asc' | 'desc'
+ * - status: 'upcoming' | 'finished' (optional)
+ */
 const getAllAppointments = async (req: Request, res: Response) => {
   const page = parseInt(req.query.page as string || '1', 10);
   const limit = parseInt(req.query.limit as string || '10', 10);
@@ -45,6 +58,11 @@ const getAllAppointments = async (req: Request, res: Response) => {
   }
 };
 
+/**
+ * GET /ab/date/:date
+ * Fetch all appointments for a specific day (used by schedule view)
+ * Validates date format: YYYY-MM-DD
+ */
 const getAppointmentsByDate = async (req: Request, res: Response, next: NextFunction): Promise<any> => {
   const { date } = req.params;
 
@@ -72,7 +90,10 @@ const getAppointmentsByDate = async (req: Request, res: Response, next: NextFunc
   }
 };
 
-// Get a single appointment by ID
+/**
+ * GET /ab/id/:id
+ * Fetch single appointment by ID
+ */
 const getAppointmentById = async (req: Request, res: Response): Promise<void> => {
   try {
     const id = parseInt(req.params.id, 10);
@@ -683,6 +704,30 @@ const updateAppointment = async (
   }
 };
 
+// -----------------------------------------------------------------------------
+// GET /ab/count/:date — appointment count for a day
+// -----------------------------------------------------------------------------
+ const getAppointmentCountByDate = async (req: Request, res: Response): Promise<any> => {
+  const { date } = req.params;
+
+  if (!date) {
+    return res.status(400).json({ message: 'Date parameter is required' });
+  }
+
+  const dateRegex = /^\d{4}-\d{2}-\d{2}$/;
+  if (!dateRegex.test(date)) {
+    return res.status(400).json({ message: 'Invalid date format. Use YYYY-MM-DD' });
+  }
+
+  try {
+    const count = await model.getAppointmentCountByDate(date);
+    res.status(200).json({ date, count });
+  } catch (error) {
+    console.error('Error getting appointment count by date:', error);
+    res.status(500).json({ message: 'Failed to fetch appointment count' });
+  }
+};
+
 
 export default {
   getAllAppointments,
@@ -692,5 +737,6 @@ export default {
   createAppointment,
   updateAppointment,
   getAvailableTimeslots,
-  getEndTimesForStartTime
+  getEndTimesForStartTime,
+  getAppointmentCountByDate
 };

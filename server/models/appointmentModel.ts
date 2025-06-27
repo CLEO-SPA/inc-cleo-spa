@@ -2,6 +2,10 @@
 import { pool } from '../config/database.js';
 import { format } from 'date-fns';
 
+/**
+ * Get paginated + filtered list of appointments.
+ * Filters: date range, employee, member, status (upcoming/finished)
+ */
 const getAllAppointments = async (
   offset: number,
   limit: number,
@@ -123,6 +127,10 @@ const getAllAppointments = async (
   }
 };
 
+/**
+ * Get all appointments for a specific day.
+ * Used by the schedule view (e.g. /ab/date/:date)
+ */
 const getAppointmentsByDate = async (appointmentDate: Date | string) => {
   try {
     const query = `
@@ -148,6 +156,11 @@ const getAppointmentsByDate = async (appointmentDate: Date | string) => {
     throw new Error('Error fetching appointments by date');
   }
 };
+
+/**
+ * Get appointment details by ID.
+ * Returns full appointment info including member and employee names.
+ */
 const getAppointmentById = async (id: number) => {
   try {
     const query = `
@@ -381,4 +394,5 @@ export default {
   updateAppointment,
   getEndTimesForStartTime,
   getMaxDurationFromStartTimes,
+  getAppointmentCountByDate
 };

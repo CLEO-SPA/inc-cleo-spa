@@ -30,4 +30,7 @@ router.post('/create', appointmentController.validateEmployeeAndMember, appointm
 // Update single appointment
 router.put('/update', appointmentController.validateEmployeeAndMember, appointmentController.updateAppointment);
 
+// GET /count/:date — total appointments on a specific day
+router.get('/count/:date', appointmentController.getAppointmentCountByDate);
+
 export default router;
