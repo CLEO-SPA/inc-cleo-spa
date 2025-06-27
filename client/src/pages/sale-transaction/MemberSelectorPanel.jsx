@@ -18,6 +18,8 @@ import {
   Search,
 } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
+import { useLocation } from 'react-router-dom';
+
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -37,6 +39,7 @@ import {
 
 export default function MemberSelectorPanel() {
   const navigate = useNavigate();
+  const location = useLocation();
   const [searchInput, setSearchInput] = useState('');
   const [notFound, setNotFound] = useState(false);
   const [selectedTab, setSelectedTab] = useState('info');
@@ -105,6 +108,8 @@ export default function MemberSelectorPanel() {
     error,
     errorMessage,
     searchMember,
+    refreshCurrentMemberData,
+    // Add this new method
 
     // Pagination states - Updated property names
     packagesCurrentPage,
@@ -136,10 +141,12 @@ export default function MemberSelectorPanel() {
     useTransactionCartStore();
 
   useEffect(() => {
-    if (currentMember && (!selectedMember || selectedMember.id !== currentMember.id)) {
-      setSelectedMember(currentMember);
+    if (currentMember) {
+      console.log('Location changed — forcing refresh of member data...');
+      refreshCurrentMemberData(); // 🔁 Always fetch fresh data
     }
-  }, [currentMember, selectedMember, setSelectedMember]);
+  }, [location.pathname]);
+
 
   const handleSearch = async () => {
     if (!searchInput.trim()) return;
@@ -150,6 +157,8 @@ export default function MemberSelectorPanel() {
       if (member) {
         setNotFound(false);
         setSelectedTab('info');
+
+        setSelectedMember(member);
 
         // Check if member has owed amount and show dialog
         if (member.total_amount_owed > 0) {
@@ -163,6 +172,7 @@ export default function MemberSelectorPanel() {
       console.error('Search failed:', error);
     }
   };
+
 
   // Debounced search handlers - Updated to use new method names
   const handlePackagesSearch = useCallback(
@@ -694,22 +704,33 @@ export default function MemberSelectorPanel() {
                               <TableCell className='text-xs truncate' title={voucher.remarks}>
                                 {voucher.remarks}
                               </TableCell>
-                              <TableCell className='text-xs space-x-2 whitespace-nowrap'>
-                                <button
-                                  onClick={() => handleViewDetails(voucher)}
-                                  className='text-blue-600 hover:underline'
-                                >
-                                  View
-                                </button>
-                                <button onClick={() => handleRefund(voucher)} className='text-red-600 hover:underline'>
-                                  Refund
-                                </button>
-                                <button
-                                  onClick={() => handleConsume(voucher.id)}
-                                  className='text-green-600 hover:underline'
-                                >
-                                  Consume
-                                </button>
+                              <TableCell className="px-1 py-1">
+                                <DropdownMenu>
+                                  <DropdownMenuTrigger asChild>
+                                    <Button variant='ghost' className='h-8 w-8 p-0'>
+                                      <span className='sr-only'>Open menu</span>
+                                      <MoreHorizontal className='h-4 w-4' />
+                                    </Button>
+                                  </DropdownMenuTrigger>
+                                  <DropdownMenuContent align='start'>
+                                    <DropdownMenuItem onClick={() => handleVoucherCancel(voucher)}>
+                                      <X className='mr-2 h-4 w-4' />
+                                      Void
+                                    </DropdownMenuItem>
+                                    <DropdownMenuItem onClick={() => handleVoucherConsume(voucher.id)}>
+                                      <Package className='mr-2 h-4 w-4' />
+                                      Consume
+                                    </DropdownMenuItem>
+                                    <DropdownMenuSeparator />
+                                    <DropdownMenuItem
+                                      onClick={() => handleVoucherRefund(voucher)}
+                                      className='text-destructive focus:text-destructive focus:bg-destructive/10'
+                                    >
+                                      <RefreshCw className='mr-2 h-4 w-4' />
+                                      Refund
+                                    </DropdownMenuItem>
+                                  </DropdownMenuContent>
+                                </DropdownMenu>
                               </TableCell>
                             </TableRow>
                           ))}

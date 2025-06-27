@@ -212,7 +212,24 @@ const useSelectedMemberStore = create(
         }
       },
 
+      refreshCurrentMemberData: async () => {
+        const { currentMember } = get();
 
+        if (!currentMember) {
+          console.warn('No current member to refresh');
+          return;
+        }
+
+        try {
+          // Refresh packages and vouchers while preserving current pagination/search state
+          await Promise.all([
+            get().fetchMemberPackages({ memberId: currentMember.id }),
+            get().fetchMemberVouchers({ memberId: currentMember.id })
+          ]);
+        } catch (error) {
+          console.error('Failed to refresh current member data:', error);
+        }
+      },
       // PACKAGES PAGINATION CONTROLS
       goToPackagesPage: (pageNumber) => {
         const { packagesCurrentLimit, packagesSearchTerm } = get();
