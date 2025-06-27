@@ -131,7 +131,8 @@ function App() {
               <Route path='/refunds' element={<RefundPage />} />
               <Route path='/refunds/member/:memberId' element={<MemberPackagesList />} />
               <Route path="/refunds/mcp/:packageId" element={<MCPDetail />} />
-              <Route path='/refunds/services/:memberId' element={<RefundServicesPage />} />
+              <Route path="/refunds/services/member/:id" element={<RefundServicesPage />} />
+              <Route path="/refunds/services/receipt/:no" element={<RefundServicesPage />} />
 
             </Route>
             <Route path='/login' element={<LoginPage />} />

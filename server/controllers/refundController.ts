@@ -17,6 +17,7 @@ const viewAllRefundSaleTransactionRecords = async (req: Request, res: Response, 
 
 const getServiceTransactionsForRefund = async (req: Request, res: Response, next: NextFunction): Promise<void> => {
   try {
+    //console.log(req.query.member_id)
     const results = await model.getServiceTransactionsForRefund(
       req.query.member_id ? Number(req.query.member_id) : undefined,
       req.query.member_name as string | undefined,

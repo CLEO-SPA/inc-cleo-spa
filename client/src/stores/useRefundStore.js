@@ -6,19 +6,22 @@ const useRefundStore = create((set) => ({
   isLoading: false,
   error: null,
 
-  fetchServiceTransactions: async (memberId) => {
+  fetchServiceTransactions: async ({ memberId, receiptNo }) => {
+    //console.log('Fetching service transactions with:', { memberId, receiptNo });
     set({ isLoading: true, error: null });
     try {
+      const params = {};
+      if (memberId) params.member_id = memberId;
+      else if (receiptNo) params.receipt_no = receiptNo;
+      else throw new Error('No memberId or receiptNo provided');
 
-      const response = await api.get('/refund/service-transactions', {
-        params: { member_id: memberId }
-      });
+      const response = await api.get('/refund/service-transactions', { params });
 
       set({ serviceTransactions: response.data, isLoading: false });
     } catch (error) {
       set({
         error: error.response?.data?.message || error.message || 'Failed to fetch service transactions',
-        isLoading: false
+        isLoading: false,
       });
     }
   },
