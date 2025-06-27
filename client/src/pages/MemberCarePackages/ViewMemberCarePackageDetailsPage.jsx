@@ -11,29 +11,31 @@ import { LoadingState } from '@/components/LoadingState';
 import { NotFoundState } from '@/components/NotFoundState';
 import { useMcpSpecificStore } from '@/stores/MemberCarePackage/useMcpSpecificStore';
 import { useCpFormStore } from '@/stores/CarePackage/useCpFormStore';
+import { useMcpFormStore } from '@/stores/MemberCarePackage/useMcpFormStore';
 import DeleteConfirmationDialog from '@/components/DeleteConfirmationDialog';
 import useAuth from '@/hooks/useAuth';
+import { Switch } from '@/components/ui/switch';
+import { Label } from '@/components/ui/label';
 
 const ViewMemberCarePackageDetailsPage = () => {
   const { id } = useParams();
   const { currentPackage, isLoading, error, fetchPackageById, clearCurrentPackage, clearError, deletePackage } =
     useMcpSpecificStore();
   const { getEnabledServiceById } = useCpFormStore();
+  const { updateMemberCarePackageStatus } = useMcpFormStore();
   const { user } = useAuth();
   const navigate = useNavigate();
 
-  // state for service names and complete service data
   const [serviceNames, setServiceNames] = useState({});
   const [serviceData, setServiceData] = useState({});
   const [loadingServiceNames, setLoadingServiceNames] = useState(false);
+  const [updatingServiceId, setUpdatingServiceId] = useState(null);
 
-  // delete dialog state
   const [deleteDialogOpen, setDeleteDialogOpen] = useState(false);
   const [isDeleting, setIsDeleting] = useState(false);
 
   useEffect(() => {
     if (id) {
-      console.log(`Fetching member care package with ID: ${id}`);
       fetchPackageById(id);
     }
 
@@ -96,12 +98,25 @@ const ViewMemberCarePackageDetailsPage = () => {
     fetchServiceNames();
   }, [currentPackage?.details, getEnabledServiceById]);
 
-  // open delete confirmation dialog
+  const handleStatusToggle = async (serviceDetailId, currentStatus) => {
+    if (!currentPackage?.package?.id) return;
+    setUpdatingServiceId(serviceDetailId);
+    try {
+      const newStatus = currentStatus === 'ENABLED' ? 'DISABLED' : 'ENABLED';
+      await updateMemberCarePackageStatus(currentPackage.package.id, [{ id: serviceDetailId, status_name: newStatus }]);
+      await fetchPackageById(id);
+    } catch (err) {
+      console.error('Failed to update service status:', err);
+      alert(`Failed to update status: ${err.message || 'An unknown error occurred'}`);
+    } finally {
+      setUpdatingServiceId(null);
+    }
+  };
+
   const handleDeleteClick = () => {
     setDeleteDialogOpen(true);
   };
 
-  // handle actual deletion
   const handleDeleteConfirm = async () => {
     if (!currentPackage?.package?.id) return;
 
@@ -126,25 +141,21 @@ const ViewMemberCarePackageDetailsPage = () => {
     }
   };
 
-  // cancel deletion
   const handleDeleteCancel = () => {
     setDeleteDialogOpen(false);
   };
 
-  // check if package is enabled (active) - now works with string status
   const isPackageEnabled = (pkg) => {
     if (!pkg) return false;
     const status = pkg.status || pkg.status_name;
     return status === 'ENABLED';
   };
 
-  // check if package can be deleted
   const canDeletePackage = (pkg) => {
     if (!pkg) return false;
-    return !isPackageEnabled(pkg); // can only delete if disabled
+    return !isPackageEnabled(pkg);
   };
 
-  // get deletion restriction reason
   const getDeleteRestrictionReason = (pkg) => {
     if (!pkg) return 'Package not found.';
 
@@ -155,7 +166,6 @@ const ViewMemberCarePackageDetailsPage = () => {
     return null;
   };
 
-  // status color mapping
   const getStatusColor = (status) => {
     switch (status?.toUpperCase()) {
       case 'ENABLED':
@@ -167,12 +177,13 @@ const ViewMemberCarePackageDetailsPage = () => {
     }
   };
 
-  // transform package details to match ServiceItem expected format
   const transformPackageDetailsToServices = (packageDetails) => {
     return packageDetails.map((detail, index) => {
       const serviceInfo = serviceData[detail.service_id] || {};
 
       return {
+        mcpd_id: detail.id,
+        status: detail.status,
         id: detail.service_id,
         name: serviceNames[detail.service_id] || `Service ${detail.service_id}`,
         quantity: parseInt(detail.quantity) || 1,
@@ -187,12 +198,11 @@ const ViewMemberCarePackageDetailsPage = () => {
         updated_by_name: serviceInfo.last_updated_by_name || null,
         created_at: serviceInfo.created_at || null,
         created_by_name: serviceInfo.created_by_name || null,
-        remaining_quantity: detail.remaining_quantity || detail.quantity, // member packages track remaining quantity
+        remaining_quantity: detail.remaining_quantity || detail.quantity,
       };
     });
   };
 
-  // calculate total package value
   const calculateTotalValue = (transformedServices) => {
     return transformedServices.reduce((total, service) => {
       const unitPrice = service.price * service.discount;
@@ -200,7 +210,6 @@ const ViewMemberCarePackageDetailsPage = () => {
     }, 0);
   };
 
-  // calculate total remaining balance
   const calculateRemainingBalance = (transformedServices) => {
     return transformedServices.reduce((total, service) => {
       const unitPrice = service.price * service.discount;
@@ -208,21 +217,17 @@ const ViewMemberCarePackageDetailsPage = () => {
     }, 0);
   };
 
-  // role-based access control
   const canDelete = user?.role === 'super_admin';
 
   const renderMainContent = () => {
-    // show loading state
     if (isLoading) {
       return <LoadingState />;
     }
 
-    // show error state
     if (error) {
       return <ErrorState error={error} />;
     }
 
-    // show not found state
     if (!currentPackage || !currentPackage.package) {
       return <NotFoundState />;
     }
@@ -231,7 +236,6 @@ const ViewMemberCarePackageDetailsPage = () => {
     const packageDetails = currentPackage.details || [];
     const transformedServices = transformPackageDetailsToServices(packageDetails);
 
-    // get current status 
     const currentStatus = packageData.status || packageData.status_name || 'UNKNOWN';
     const isDeletable = canDeletePackage(packageData);
 
@@ -358,8 +362,8 @@ const ViewMemberCarePackageDetailsPage = () => {
                   <div>
                     <label className='block text-xs font-medium text-gray-600 mb-1'>CURRENT BALANCE</label>
                     <div className='text-gray-900 font-semibold px-2 py-1 bg-yellow-50 border border-yellow-200 rounded text-sm flex items-center'>
-                      <CreditCard className='w-3 h-3 mr-1 text-yellow-600' />
-                      ${parseFloat(packageData.balance || 0).toFixed(2)}
+                      <CreditCard className='w-3 h-3 mr-1 text-yellow-600' />$
+                      {parseFloat(packageData.balance || 0).toFixed(2)}
                     </div>
                   </div>
 
@@ -425,12 +429,25 @@ const ViewMemberCarePackageDetailsPage = () => {
                           <div className='flex items-center justify-between mb-4'>
                             <div className='flex items-center space-x-3'>
                               <h4 className='text-sm font-semibold text-gray-900'>{service.name}</h4>
-                              <span className='text-xs text-gray-500 bg-gray-100 px-2 py-1 rounded'>ID: {service.id}</span>
+                              <span className='text-xs text-gray-500 bg-gray-100 px-2 py-1 rounded'>
+                                ID: {service.id}
+                              </span>
                               {service.service_category_name && (
                                 <span className='text-xs text-blue-600 bg-blue-50 px-2 py-1 rounded'>
                                   {service.service_category_name}
                                 </span>
                               )}
+                            </div>
+                            <div className='flex items-center space-x-2'>
+                              <Switch
+                                id={`status-${service.mcpd_id}`}
+                                checked={service.status === 'ENABLED'}
+                                onCheckedChange={() => handleStatusToggle(service.mcpd_id, service.status)}
+                                disabled={updatingServiceId === service.mcpd_id}
+                              />
+                              <Label htmlFor={`status-${service.mcpd_id}`} className='text-sm font-medium'>
+                                {service.status === 'ENABLED' ? 'Enabled' : 'Disabled'}
+                              </Label>
                             </div>
                           </div>
 
@@ -444,11 +461,13 @@ const ViewMemberCarePackageDetailsPage = () => {
 
                             <div>
                               <label className='block text-xs font-medium text-gray-600 mb-1'>Remaining Quantity</label>
-                              <div className={`w-full px-3 py-2 border rounded-md text-sm font-medium ${
-                                service.remaining_quantity > 0 
-                                  ? 'bg-green-50 border-green-200 text-green-700'
-                                  : 'bg-red-50 border-red-200 text-red-700'
-                              }`}>
+                              <div
+                                className={`w-full px-3 py-2 border rounded-md text-sm font-medium ${
+                                  service.remaining_quantity > 0
+                                    ? 'bg-green-50 border-green-200 text-green-700'
+                                    : 'bg-red-50 border-red-200 text-red-700'
+                                }`}
+                              >
                                 {service.remaining_quantity || 0}
                               </div>
                             </div>
@@ -471,8 +490,8 @@ const ViewMemberCarePackageDetailsPage = () => {
                           {service.discount < 1 && (
                             <div className='mt-3 p-2 bg-yellow-50 border border-yellow-200 rounded-md'>
                               <div className='text-xs text-yellow-700'>
-                                Discount Applied: {((1 - service.discount) * 100).toFixed(1)}% off
-                                (Original: ${service.originalPrice.toFixed(2)})
+                                Discount Applied: {((1 - service.discount) * 100).toFixed(1)}% off (Original: $
+                                {service.originalPrice.toFixed(2)})
                               </div>
                             </div>
                           )}
@@ -524,7 +543,8 @@ const ViewMemberCarePackageDetailsPage = () => {
                   <strong>Current Balance:</strong> ${parseFloat(currentPackage.package.balance || 0).toFixed(2)}
                 </div>
                 <div>
-                  <strong>Status:</strong> {currentPackage.package.status || currentPackage.package.status_name || 'Unknown'}
+                  <strong>Status:</strong>{' '}
+                  {currentPackage.package.status || currentPackage.package.status_name || 'Unknown'}
                 </div>
                 <div>
                   <strong>Services:</strong> {transformedServices.length} service

@@ -315,9 +315,11 @@ const createConsumption = async (req: Request, res: Response, next: NextFunction
   }
 };
 
-const enableMemberCarePackage = async (req: Request, res: Response, next: NextFunction): Promise<void> => {
+const updateMemberCarePackageStatus = async (req: Request, res: Response, next: NextFunction): Promise<void> => {
   try {
     const { id, services } = req.body;
+
+    // console.log(req.body);
 
     if (!id || !Array.isArray(services)) {
       res.status(400).json({ message: 'Missing required fields or invalid data format' });
@@ -326,7 +328,7 @@ const enableMemberCarePackage = async (req: Request, res: Response, next: NextFu
 
     const isValidService = services.every((s) => {
       return (
-        typeof s.id === 'string' &&
+        (typeof s.id === 'string' || typeof s.id === 'number') &&
         typeof s.status_name === 'string' &&
         (s.status_name === 'ENABLED' || s.status_name === 'DISABLED')
       );
@@ -337,7 +339,7 @@ const enableMemberCarePackage = async (req: Request, res: Response, next: NextFu
       return;
     }
 
-    const results = await model.enableMemberCarePackage(id, services);
+    const results = await model.updateMemberCarePackageStatus(id, services);
 
     res.status(200).json(results);
   } catch (error) {
@@ -552,7 +554,7 @@ export default {
   deleteMemberCarePackage,
   createConsumption,
   removeMemberCarePackage,
-  enableMemberCarePackage,
+  updateMemberCarePackageStatus,
   transferMemberCarePackage,
   emulateMemberCarePackage,
 };

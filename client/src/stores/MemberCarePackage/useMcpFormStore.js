@@ -400,6 +400,37 @@ export const useMcpFormStore = create(
       }
     },
 
+    voidMemberCarePackage: async (packageId) => {
+      set({ isLoading: true, error: null }, false, 'VoidMemberCarePackageOptions/pending');
+      try {
+        await api.delete('/mcp/void/' + packageId);
+
+        set({ isLoading: false }, false, 'voidMemberCarePackageOptions/fulfilled');
+      } catch (error) {
+        const errorMessage = error.response?.data?.message || error.message || 'An unknown error occurred';
+        set({ error: errorMessage, isLoading: false }, false, 'voidMemberCarePackageOptions/rejected');
+        console.error('Error voiding member care package options:', error);
+        throw error;
+      }
+    },
+
+    updateMemberCarePackageStatus: async (packageId, servicesPayload) => {
+      set({ isLoading: true, error: null }, false, 'updateMemberCarePackageStatus/pending');
+      try {
+        const response = await api.put('/mcp/u/s', {
+          id: packageId,
+          services: servicesPayload,
+        });
+        set({ isLoading: false }, false, 'updateMemberCarePackageStatus/fulfilled');
+        return response.data;
+      } catch (error) {
+        const errorMessage = error.response?.data?.message || error.message || 'An unknown error occurred';
+        set({ error: errorMessage, isLoading: false }, false, 'updateMemberCarePackageStatus/rejected');
+        console.error('Error updating member care package status:', error);
+        throw error;
+      }
+    },
+
     addMcpToTransferQueue: (transferData) => {
       const { mcp_id1, mcp_id2, newDestinationData, amount } = transferData;
       const queue = get().mcpTransferQueue;
