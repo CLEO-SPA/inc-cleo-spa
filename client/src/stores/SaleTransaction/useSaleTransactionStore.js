@@ -194,6 +194,8 @@ const useSaleTransactionStore = create(
 
           // 2. Create individual MCP transactions
           if (transactionData.mcpTransactions?.length > 0) {
+            //akira bunch mcp creation
+            
             for (let i = 0; i < transactionData.mcpTransactions.length; i++) {
               const mcpData = transactionData.mcpTransactions[i];
               

@@ -177,6 +177,7 @@ const SaleTransactionSummary = () => {
     }));
   };
 
+  // ✅ Enhanced validation function
   const isTransactionValid = () => {
     // Check transaction details validation from store
     const { isValid } = validateTransactionDetails();
@@ -185,12 +186,12 @@ const SaleTransactionSummary = () => {
     // Check basic transaction requirements
     const hasCartItems = cartItems.length > 0;
     
-    // Check if all required items have assigned employees
+    // ✅ UPDATED: Check if ALL items have assigned employees (including products)
     const allItemsHaveEmployees = cartItems.every(item => 
-      item.type === 'product' || 
-      itemEmployees[item.id]
+      itemEmployees[item.id] // Now ALL items need employee assignment
     );
     
+    // ✅ NEW: Check if Services & Products section is fully paid
     const servicesAndProducts = [
       ...cartItems.filter(item => item.type === 'service'),
       ...cartItems.filter(item => item.type === 'product')
@@ -210,6 +211,7 @@ const SaleTransactionSummary = () => {
       servicesProductsFullyPaid = Math.abs(sectionTotal - sectionPaymentTotal) < 0.01; // Allow for small rounding differences
     }
     
+    // ✅ NEW: Check required transaction details
     const hasReceiptNumber = transactionDetails.receiptNumber && transactionDetails.receiptNumber.trim() !== '';
     const hasCreatedBy = transactionDetails.createdBy && transactionDetails.createdBy !== '';
     const hasHandledBy = transactionDetails.handledBy && transactionDetails.handledBy !== '';
@@ -222,6 +224,7 @@ const SaleTransactionSummary = () => {
            hasHandledBy;
   };
 
+  // ✅ NEW: Detailed validation function for better error messages
   const getValidationErrors = () => {
     const errors = [];
     
@@ -243,15 +246,16 @@ const SaleTransactionSummary = () => {
       errors.push('Transaction handler must be selected');
     }
     
-    // Check employee assignments
+    // ✅ UPDATED: Check employee assignments for ALL items
     const itemsNeedingEmployees = cartItems.filter(item => 
-      item.type !== 'product' && !itemEmployees[item.id]
+      !itemEmployees[item.id]
     );
     
     if (itemsNeedingEmployees.length > 0) {
-      errors.push(`Assign employees to all services, packages, and vouchers (${itemsNeedingEmployees.length} items missing)`);
+      errors.push(`Assign employees to all items (${itemsNeedingEmployees.length} items missing employee assignment)`);
     }
     
+    // ✅ NEW: Check Services & Products payment requirement
     const servicesAndProducts = [
       ...cartItems.filter(item => item.type === 'service'),
       ...cartItems.filter(item => item.type === 'product')
@@ -277,6 +281,7 @@ const SaleTransactionSummary = () => {
     return errors;
   };
 
+  // ✅ Enhanced validation message component
   const ValidationMessage = () => {
     const validationErrors = getValidationErrors();
     
