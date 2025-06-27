@@ -6,7 +6,11 @@ const createMemberVoucherForTransfer = async (
     voucherTemplateName: string,
     voucherTemplateId: number,
     price: number,
-    foc: number
+    foc: number,
+    remarks: string,
+    createdBy: number,    // new optional params
+    handledBy: number,
+    lastUpdatedBy: number
 ): Promise<MemberVouchers> => {
     try {
         const insertVoucherQuery = `
@@ -19,9 +23,13 @@ const createMemberVoucherForTransfer = async (
         free_of_charge,
         default_total_price,
         status,
+        remarks,
+        created_by,
+        handled_by,
+        last_updated_by,
         created_at,
         updated_at
-      ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8,  NOW(), NOW())
+      ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, NOW(), NOW())
       RETURNING *;
     `;
 
@@ -33,12 +41,15 @@ const createMemberVoucherForTransfer = async (
             price + foc,
             foc,
             price,
-            "is_enabled"
+            "is_enabled",
+            remarks,
+            createdBy || null,
+            handledBy || null,
+            lastUpdatedBy || null,
         ];
 
         const result = await pool().query(insertVoucherQuery, voucherValues);
         const newVoucher: MemberVouchers = result.rows[0];
-
 
         return newVoucher;
     } catch (error) {

@@ -21,17 +21,9 @@ export default function MockSalesTransactionPage() {
     const submitTransfer = useTransferVoucherStore((state) => state.submitTransfer);
     const getTotalOldBalance = useTransferVoucherStore((state) => state.getTotalOldBalance);
     const price = useTransferVoucherStore((state) => state.price);
+    const transferFormData = useTransferVoucherStore((state) => state.transferFormData);
 
     const currentMember = useSelectedMemberStore((state) => state.currentMember);
-
-    const {
-        bypassTemplate,
-        customVoucherName,
-        selectedVoucherName,
-        foc,
-        oldVouchers,
-        memberVouchers,
-    } = useTransferVoucherStore.getState();
 
     const isBalanceGreater = getTotalOldBalance() > Number(price);
 
@@ -47,40 +39,38 @@ export default function MockSalesTransactionPage() {
             return;
         }
 
-        const voucherNameToUse = bypassTemplate ? customVoucherName : selectedVoucherName;
-        if (!voucherNameToUse) {
-            alert('No voucher selected.');
+        if (!transferFormData) {
+            alert('Transfer form data is incomplete or missing.');
             return;
         }
 
-        if (!oldVouchers || oldVouchers.length === 0 || oldVouchers.some(v => !v.trim())) {
-            alert('Please select at least one valid old voucher.');
+        // Optionally, validate required fields in transferFormData here
+        const {
+            member_name,
+            voucher_template_name,
+            price: formPrice,
+            foc,
+            old_voucher_names,
+            old_voucher_details,
+            created_by,
+            updated_by,
+            remarks,
+        } = transferFormData;
+
+        if (
+            !member_name ||
+            !voucher_template_name ||
+            !formPrice ||
+            !old_voucher_names?.length ||
+            !old_voucher_details?.length ||
+            created_by == null || updated_by == null
+        ) {
+            alert('Please complete all required fields in the transfer form.');
             return;
         }
-
-        const oldVoucherDetails = oldVouchers
-            .map(name => memberVouchers.find(
-                v => v.member_voucher_name.trim().toLowerCase() === name.trim().toLowerCase()
-            ))
-            .filter(Boolean)
-            .map(v => ({
-                voucher_id: v.id,
-                member_voucher_name: v.member_voucher_name,
-                balance_to_transfer: Number(v.current_balance),
-            }));
-
-        const payload = {
-            member_name: currentMember.name,
-            voucher_template_name: voucherNameToUse,
-            price: Number(price),
-            foc: Number(foc),
-            old_voucher_names: oldVouchers,
-            old_voucher_details: oldVoucherDetails,
-            is_bypass: bypassTemplate,
-        };
 
         try {
-            await submitTransfer(payload);
+            await submitTransfer(transferFormData);
             clearCart();
             setShowSuccessModal(true);
         } catch (err) {

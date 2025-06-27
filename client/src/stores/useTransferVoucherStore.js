@@ -15,6 +15,11 @@ const useTransferVoucherStore = create((set, get) => ({
     error: "",
     transferFormData: null, // ✅ NEW STATE
 
+    // New fields for created_by, updated_by, remarks
+    created_by: "",
+    updated_by: "",
+    remarks: "",
+
     // Fetch voucher templates
     fetchVoucherTemplates: async () => {
         try {
@@ -33,7 +38,6 @@ const useTransferVoucherStore = create((set, get) => ({
 
     // Fetch member vouchers
     fetchMemberVoucher: async (name) => {
-        console.log("Fetching member vouchers for:", name);
         if (!name) return;
         try {
             const res = await api.get(`/voucher/m?name=${encodeURIComponent(name)}`);
@@ -92,6 +96,10 @@ const useTransferVoucherStore = create((set, get) => ({
     setOldVouchers: (vouchers) => set({ oldVouchers: vouchers }),
     setSelectedMember: (member) => set({ selectedMember: member }),
     setTransferFormData: (formData) => set({ transferFormData: formData }), // ✅ NEW SETTER
+    // New setters for created_by, updated_by, remarks
+    setCreatedBy: (id) => set({ created_by: id }),
+    setUpdatedBy: (id) => set({ updated_by: id }),
+    setRemarks: (text) => set({ remarks: text }),
 
     // Derived values
     getTotalOldBalance: () => {
@@ -110,6 +118,7 @@ const useTransferVoucherStore = create((set, get) => ({
 
     // Final transfer submission
     submitTransfer: async (formData) => {
+
         if (!formData) {
             throw new Error("No form data provided for voucher transfer.");
         }
@@ -122,6 +131,9 @@ const useTransferVoucherStore = create((set, get) => ({
             old_voucher_names,
             old_voucher_details,
             is_bypass,
+            created_by,
+            updated_by,
+            remarks, // <-- added here
         } = formData;
 
         if (
@@ -146,13 +158,17 @@ const useTransferVoucherStore = create((set, get) => ({
                 member_voucher_name: v.member_voucher_name,
                 balance_to_transfer: Number(v.balance_to_transfer),
             })),
+            created_by: created_by,
+            updated_by: updated_by,
+            remarks: remarks, // <-- add remarks here
         };
 
-        console.log("Submitting transfer with payload:", payload);
 
         const res = await api.post("/voucher/transfer", payload);
         return res.data;
     },
+
+
 }));
 
 export default useTransferVoucherStore;

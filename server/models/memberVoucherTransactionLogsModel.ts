@@ -1,10 +1,15 @@
-import { pool, getProdPool as prodPool } from '../config/database.js';
+import { pool } from '../config/database.js';
 
 const addTransferMemberVoucherTransactionLog = async (
   memberId: number,
   memberVoucherName: string,
+  service_by: number,
+  created_by: number,
+  last_updated_by: number
 ): Promise<void> => {
   try {
+    const now = new Date();
+
     // Step 1: Get the member's voucher record
     const getVoucherQuery = `
       SELECT id, current_balance, member_voucher_name
@@ -20,12 +25,8 @@ const addTransferMemberVoucherTransactionLog = async (
     }
 
     const memberVoucher = voucherResult.rows[0];
-    const oldMemberVoucherName = memberVoucher.member_voucher_name;
-
-    const now = new Date();
     const amountChange = memberVoucher.current_balance ? -memberVoucher.current_balance : 0;
 
-    // Step 3: Insert INTO transaction log - Transfer TO new voucher
     const insertLogQuery = `
       INSERT INTO member_voucher_transaction_logs (
         member_voucher_id,
@@ -39,45 +40,41 @@ const addTransferMemberVoucherTransactionLog = async (
         last_updated_by,
         created_at,
         updated_at
-      ) VALUES (
-        $1, $2, $3, $4, $5,
-        $6, $7, $8, $9, $10, $11
-      )
+      ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11)
     `;
 
-    // Insert log: Transfer TO new voucher
-    const insertValuesStep3 = [
+    // Insert log: Transfer FROM this voucher
+    const insertValuesFrom = [
       memberVoucher.id,
-      `Transfer TO ${memberVoucherName}`,
+      `Transfer FROM ${memberVoucherName}`,
       now,
       0,
       amountChange,
-      14, // serviced_by
-      "TRANSFER TO",
-      14, // created_by
-      14, // last_updated_by
-      now,
-      now,
-    ];
-
-    await pool().query(insertLogQuery, insertValuesStep3);
-
-    // Step 4: Insert INTO transaction log - Transfer FROM old voucher
-    const insertValuesStep4 = [
-      memberVoucher.id,
-      `Transfer FROM ${oldMemberVoucherName}`,
-      now,
-      0,
-      amountChange,
-      14, // serviced_by
+      service_by,
       "TRANSFER FROM",
-      14, // created_by
-      14, // last_updated_by
+      created_by,
+      last_updated_by,
       now,
       now,
     ];
 
-    await pool().query(insertLogQuery, insertValuesStep4);
+    // Insert log: Transfer TO new voucher (log FROM context, not TO voucher ID)
+    const insertValuesTo = [
+      memberVoucher.id,
+      `Transfer TO new voucher`,
+      now,
+      0,
+      amountChange,
+      service_by,
+      "TRANSFER TO",
+      created_by,
+      last_updated_by,
+      now,
+      now,
+    ];
+
+    await pool().query(insertLogQuery, insertValuesFrom);
+    await pool().query(insertLogQuery, insertValuesTo);
 
   } catch (error) {
     console.error("Error adding member voucher transaction log:", error);

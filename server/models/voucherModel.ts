@@ -138,11 +138,14 @@ const checkIfFreeOfChargeIsUsed = async (
 
 const removeFOCFromVoucher = async (
     memberId: number,
-    member_voucher_name: string
+    member_voucher_name: string,
+    created_by: number,
+    last_updated_by: number
 ): Promise<{ member_voucher_name: string; newBalance: number }> => {
     try {
+        // Fetch the voucher record
         const fetchQuery = `
-      SELECT *
+      SELECT id, current_balance, free_of_charge
       FROM member_vouchers
       WHERE member_voucher_name = $1 AND member_id = $2
     `;
@@ -154,33 +157,49 @@ const removeFOCFromVoucher = async (
         }
 
         const { id: memberVoucherId, current_balance, free_of_charge } = fetchResult.rows[0];
-        const current_balance_num = parseFloat(current_balance);
-        const free_of_charge_num = parseFloat(free_of_charge);
-        const foc = free_of_charge_num;
-        const newBalance = current_balance_num - foc;
 
+        const currentBalanceNum = parseFloat(current_balance);
+        const focNum = parseFloat(free_of_charge);
 
+        // Calculate new balance, ensure not below zero
+        const newBalance = Math.max(0, currentBalanceNum - focNum);
+
+        // Update member voucher balance and updated_by if column exists
         const updateQuery = `
-      UPDATE member_vouchers
-      SET current_balance = $1, updated_at = NOW()
-      WHERE member_voucher_name = $2
-    `;
-        await pool().query(updateQuery, [newBalance, member_voucher_name]);
+  UPDATE member_vouchers
+  SET current_balance = $1,
+      last_updated_by = $2,
+      updated_at = NOW()
+  WHERE member_voucher_name = $3 AND member_id = $4
+`;
 
+        const updateValues = [newBalance, last_updated_by, member_voucher_name, memberId];
+
+        await pool().query(updateQuery, updateValues);
+
+        // Insert transaction log with correct created_by and last_updated_by
         const insertLogQuery = `
-       INSERT INTO member_voucher_transaction_logs (
-        member_voucher_id, service_description, service_date,
-        current_balance, amount_change, serviced_by, type,
-        created_by, last_updated_by, created_at, updated_at
+      INSERT INTO member_voucher_transaction_logs (
+        member_voucher_id,
+        service_description,
+        service_date,
+        current_balance,
+        amount_change,
+        serviced_by,
+        type,
+        created_by,
+        last_updated_by,
+        created_at,
+        updated_at
       ) VALUES (
         $1, 'Remove Free Of Charge', NOW(),
-        $2, $3, 14, 'Remove OF FOC',
-        14, 14, NOW(), NOW()
-      )`
-            ;
-        const insertValues = [memberVoucherId, newBalance, -foc];
+        $2, $3, $4, 'Remove OF FOC',
+        $5, $6, NOW(), NOW()
+      )
+    `;
 
-
+        // Assuming serviced_by = created_by, adjust if needed
+        const insertValues = [memberVoucherId, newBalance, -focNum, created_by, created_by, last_updated_by];
 
         await pool().query(insertLogQuery, insertValues);
 

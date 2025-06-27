@@ -13,106 +13,108 @@ const defaultPassword = async (req: Request, res: Response, next: NextFunction) 
   next();
 };
 
-const loginEmployee = async (req: Request, res: Response, next: NextFunction) => {
-  if (res.locals.result) {
-    const { rememberMe } = req.body;
-    const simParams = getCurrentSimStatus().params;
-    const start_date_utc = simParams?.start_date_utc;
-    const end_date_utc = simParams?.end_date_utc;
+// const loginEmployee = async (req: Request, res: Response, next: NextFunction) => {
+//   if (res.locals.result) {
+//     const { rememberMe } = req.body;
+//     const simParams = getCurrentSimStatus().params;
+//     const start_date_utc = simParams?.start_date_utc;
+//     const end_date_utc = simParams?.end_date_utc;
 
-    req.session.regenerate((err) => {
-      if (err) {
-        console.error('Error regenerating session:', err);
-        return res.status(500).json({ message: 'Session error' });
-      }
-      req.session.start_date_utc = getCurrentSimStatus().isActive ? start_date_utc : null;
-      req.session.end_date_utc = getCurrentSimStatus().isActive ? end_date_utc : new Date().toUTCString();
-      req.session.user_id = res.locals.user_id;
-      req.session.username = res.locals.username;
-      req.session.email = res.locals.email;
-      req.session.role = res.locals.role;
+//     req.session.regenerate((err) => {
+//       if (err) {
+//         console.error('Error regenerating session:', err);
+//         return res.status(500).json({ message: 'Session error' });
+//       }
+//       req.session.start_date_utc = getCurrentSimStatus().isActive ? start_date_utc : null;
+//       req.session.end_date_utc = getCurrentSimStatus().isActive ? end_date_utc : new Date().toUTCString();
+//       req.session.end_date_is_default = getCurrentSimStatus().isActive ? false : true;
+//       req.session.user_id = res.locals.user_id;
+//       req.session.username = res.locals.username;
+//       req.session.email = res.locals.email;
+//       req.session.role = res.locals.role;
 
-      const userPayload = {
-        user_id: res.locals.user_id,
-        username: res.locals.username,
-        email: res.locals.email,
-        role: res.locals.role,
-      };
+//       console.log('My Date: ', req.session.end_date_utc);
 
-      if (rememberMe) {
-        const token = jwt.sign(userPayload, process.env.AUTH_JWT_SECRET as string, {
-          expiresIn: '30d',
-        });
-        res.cookie(process.env.REMEMBER_TOKEN as string, token, {
-          maxAge: 1000 * 60 * 60 * 24 * 30, // 30 days
-          httpOnly: true,
-          secure: process.env.NODE_ENV === 'production', // Set to true if using HTTPS
-          sameSite: 'lax',
-        });
-      }
+//       const userPayload = {
+//         user_id: res.locals.user_id,
+//         username: res.locals.username,
+//         email: res.locals.email,
+//         role: res.locals.role,
+//       };
 
-      req.session.save((saveErr) => {
-        if (saveErr) {
-          next(saveErr);
-        }
-        res.status(200).json({
-          user: userPayload,
-        });
-      });
-    });
-  } else {
-    throw new Error('Invalid Password');
-  }
-};
+//       if (rememberMe) {
+//         const token = jwt.sign(userPayload, process.env.AUTH_JWT_SECRET as string, {
+//           expiresIn: '30d',
+//         });
+//         res.cookie(process.env.REMEMBER_TOKEN as string, token, {
+//           maxAge: 1000 * 60 * 60 * 24 * 30, // 30 days
+//           httpOnly: true,
+//           secure: process.env.NODE_ENV === 'production', // Set to true if using HTTPS
+//           sameSite: 'lax',
+//         });
+//       }
 
-const logoutEmployee = async (req: Request, res: Response, next: NextFunction) => {
-  req.session.destroy((err) => {
-    if (err) {
-      console.error('Error destroying session:', err);
-    }
+//       req.session.save((saveErr) => {
+//         if (saveErr) {
+//           next(saveErr);
+//         }
+//         res.status(200).json({
+//           user: userPayload,
+//         });
+//       });
+//     });
+//   } else {
+//     throw new Error('Invalid Password');
+//   }
+// };
 
-    res.clearCookie('connect.sid', { path: '/' }); // Clear the session cookie
-    res.clearCookie(process.env.REMEMBER_TOKEN as string, { path: '/' }); // Clear the remember me cookie
-    if (err) {
-      next(err);
-    }
-    res.status(200).json({ message: 'Logout successful' });
-  });
-};
+// const logoutEmployee = async (req: Request, res: Response, next: NextFunction) => {
+//   req.session.destroy((err) => {
+//     if (err) {
+//       console.error('Error destroying session:', err);
+//     }
 
-const getAuthUser = async (req: Request, res: Response, next: NextFunction): Promise<void> => {
-  try {
-    const { username, password } = req.body;
+//     res.clearCookie('connect.sid', { path: '/' }); // Clear the session cookie
+//     res.clearCookie(process.env.REMEMBER_TOKEN as string, { path: '/' }); // Clear the remember me cookie
+//     if (err) {
+//       next(err);
+//     }
+//     res.status(200).json({ message: 'Logout successful' });
+//   });
+// };
 
-    if (!username || !password) {
-      res.status(400).json({ message: 'All fields are required' });
-      return;
-    }
+// const getAuthUser = async (req: Request, res: Response, next: NextFunction): Promise<void> => {
+//   try {
+//     const { username, password } = req.body;
 
-    if (!validator.isEmail(username) && !validator.isMobilePhone(username, 'any', { strictMode: false })) {
-      res.status(400).json({ message: 'Invalid email or contact number format' });
-      return;
-    }
+//     if (!username || !password) {
+//       res.status(400).json({ message: 'All fields are required' });
+//       return;
+//     }
 
-    // Check if the employee exists
-    const user = await model.getAuthUser(username);
-    if (!user) {
-      res.status(404).json({ message: 'Employee not found' });
-      return;
-    }
+//     if (!validator.isEmail(username) && !validator.isMobilePhone(username, 'any', { strictMode: false })) {
+//       res.status(400).json({ message: 'Invalid email or contact number format' });
+//       return;
+//     }
 
-    res.locals.hash = user.password;
-    res.locals.username = user.employee_name || user.name || user.email.split('@')[0];
-    res.locals.user_id = user.id;
-    res.locals.email = user.email;
-    res.locals.role = user.role_name;
-    next();
-  } catch (error) {
-    next(error);
-  }
-};
+//     // Check if the employee exists
+//     const user = await model.getAuthUser(username);
+//     if (!user) {
+//       res.status(404).json({ message: 'Employee not found' });
+//       return;
+//     }
 
-// eslint-disable-next-line no-unused-vars
+//     res.locals.hash = user.password;
+//     res.locals.username = user.employee_name || user.name || user.email.split('@')[0];
+//     res.locals.user_id = user.id;
+//     res.locals.email = user.email;
+//     res.locals.role = user.role_name;
+//     next();
+//   } catch (error) {
+//     next(error);
+//   }
+// };
+
 // const createEmployee = async (req: Request, res: Response, next: NextFunction) => {
 //   try {
 //     const {
@@ -226,7 +228,8 @@ const acceptInvitation = async (req: Request, res: Response, next: NextFunction)
 
     next();
   } catch (error) {
-    throw new Error('Error accepting invitation');
+    console.error('Error accepting invitation');
+    next(error);
   }
 };
 
@@ -238,6 +241,7 @@ const updateEmployeePassword = async (req: Request, res: Response, next: NextFun
 
     res.status(200).json({ message: 'Password updated successfully' });
   } catch (error) {
+    console.error('Error updating password', error);
     throw new Error('Error updating password');
   }
 };
@@ -277,19 +281,54 @@ const regenerateInvitationLink = async (req: Request, res: Response, next: NextF
 
     res.status(200).json({ message: 'Invitation link regenerated successfully', callbackUrl });
   } catch (error) {
+    console.error('Error regenerating invitation link', error);
     throw new Error('Error regenerating invitation link');
+  }
+};
+
+const getBasicEmployeeDetails = async (req: Request, res: Response) => {
+  try {
+    console.log('Fetching basic employee details for search');
+    const employees = await model.getBasicEmployeeDetails();
+    console.log(`Found ${employees.length} active employees`);
+    res.status(200).json({
+      success: true,
+      data: employees,
+      total: employees.length,
+    });
+  } catch (error) {
+    console.error('Controller error in getBasicEmployeeDetails:', error);
+    res.status(500).json({
+      success: false,
+      error: {
+        code: 'INTERNAL_SERVER_ERROR',
+        message: 'Failed to fetch basic employee details for search',
+      },
+    });
+  }
+};
+
+const getAllEmployeesForDropdown = async (req: Request, res: Response, next: NextFunction) => {
+  try {
+    const employees = await model.getAllEmployeesForDropdown();
+    res.status(200).json(employees);
+  } catch (error) {
+    console.error('Error fetching employee list:', error);
+    next(error);
   }
 };
 
 export default {
   defaultPassword,
   // createEmployee,
-  getAuthUser,
-  loginEmployee,
-  logoutEmployee,
+  // getAuthUser,
+  // loginEmployee,
+  // logoutEmployee,
   // inviteEmployee,
   acceptInvitation,
   updateEmployeePassword,
   // getAllEmployees,
   regenerateInvitationLink,
+  getBasicEmployeeDetails,
+  getAllEmployeesForDropdown,
 };
