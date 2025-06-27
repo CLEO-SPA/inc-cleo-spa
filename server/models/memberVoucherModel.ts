@@ -1039,7 +1039,7 @@ const createMemberVoucher = async (
     const totalPaidAmount: number = payments.reduce((total: number, payment: PaymentMethodRequest) => {
       return total + (payment.amount || 0);
     }, 0);
-    const outstandingAmount: number = totalTransactionAmount - totalPaidAmount;
+    const outstandingAmount = pendingPayment ? pendingPayment.amount : 0;
     const transactionStatus: 'FULL' | 'PARTIAL' = outstandingAmount <= 0 ? 'FULL' : 'PARTIAL';
 
     // Generate receipt number

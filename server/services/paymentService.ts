@@ -13,7 +13,7 @@ export const getMemberOutstandingAmounts = async (): Promise<
         id as root_transaction_id,
         created_at
       FROM sale_transactions st1
-      WHERE customer_type = 'member' 
+      WHERE UPPER(customer_type) = 'MEMBER' 
         AND (reference_sales_transaction_id = 0 
              OR reference_sales_transaction_id IS NULL
              OR NOT EXISTS (
@@ -31,7 +31,7 @@ export const getMemberOutstandingAmounts = async (): Promise<
         st.created_at
       FROM sale_transactions st
       INNER JOIN payment_chains pc ON st.reference_sales_transaction_id = pc.id
-      WHERE st.customer_type = 'member'
+      WHERE UPPER(st.customer_type) = 'MEMBER'
     ),
     latest_chain_status AS (
       SELECT DISTINCT ON (root_transaction_id)
