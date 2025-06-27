@@ -128,7 +128,7 @@ export default function ViewProductSalesHistoryPage() {
                     <table className='table-auto w-full border border-gray-200'>
                       <thead className='bg-gray-100'>
                         <tr>
-                          <th className='text-left px-4 py-2 border'>Service Name</th>
+                          <th className='text-left px-4 py-2 border'>Product Name</th>
                           <th className='text-left px-4 py-2 border'>Ad-hoc Transaction</th>
                         </tr>
                       </thead>
