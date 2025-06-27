@@ -1,5 +1,18 @@
 import * as React from 'react';
-import { Command, Users, CalendarDays, ShieldUser, Box, Wand, LayoutDashboard, SquareUserRound, Package, Tickets, ChartColumnStacked, CreditCard } from 'lucide-react';
+import {
+  Command,
+  Users,
+  CalendarDays,
+  ShieldUser,
+  Box,
+  Wand,
+  LayoutDashboard,
+  SquareUserRound,
+  Package,
+  Tickets,
+  ChartColumnStacked,
+  CreditCard,
+} from 'lucide-react';
 import { NavMain } from '@/components/nav-main';
 import { NavUser } from '@/components/nav-user';
 import {
@@ -48,11 +61,11 @@ const data = {
       items: [
         {
           title: 'Add New Service',
-          url: 'create-service',
+          url: '/create-service',
         },
         {
           title: 'Manage Services',
-          url: 'manage-service',
+          url: '/manage-service',
         },
       ],
     },
@@ -89,7 +102,7 @@ const data = {
     {
       title: 'Members',
       url: '/member',
-      icon: SquareUserRound ,
+      icon: SquareUserRound,
       items: [
         {
           title: 'Manage Member',
@@ -98,6 +111,10 @@ const data = {
         {
           title: 'Create Member',
           url: '/member/create',
+        },
+        {
+          title: 'Manage Membership Type',
+          url: '/membership-type',
         },
       ],
     },
@@ -114,6 +131,10 @@ const data = {
           title: 'Manage Care Packages',
           url: '/cp',
         },
+        {
+          title: 'Manage Member Care Package',
+          url: '/mcp',
+        },
       ],
     },
     {
@@ -123,15 +144,15 @@ const data = {
       items: [
         {
           title: 'Add new employee',
-          url: '#',
+          url: '/employees/create',
         },
         {
           title: 'Manage employees',
-          url: '#',
+          url: '/employees',
         },
         {
           title: 'Add new position',
-          url: '/positions/add',
+          url: '/positions/create',
         },
         {
           title: 'Manage positions',
@@ -154,15 +175,14 @@ const data = {
         },
       ],
     },
-        {
+    {
       title: 'Payment Methods',
       url: '/payment-method',
-      icon: CreditCard ,
+      icon: CreditCard,
       items: [
         {
           title: 'Manage Payment Methods',
           url: '/payment-method',
-
         },
       ],
     },
@@ -178,6 +198,17 @@ const data = {
         {
           title: 'View Monthly Revenue Report',
           url: '#',
+        },
+      ],
+    },
+    {
+      title: 'Others',
+      url: '#',
+      icon: ChartColumnStacked,
+      items: [
+        {
+          title: 'Data Export',
+          url: '/data-export',
         },
       ],
     },

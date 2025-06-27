@@ -26,10 +26,14 @@ export const useMcpFormStore = create(
     employeeOptions: [],
     serviceOptions: [],
     packageOptions: [],
+    memberCarePackageOptions: [],
     isCustomizable: true,
     isLoading: false,
     error: null,
     mcpCreationQueue: [],
+    mcpTransferQueue: [],
+
+    setBypassMode: (isBypass) => set({ isByPass: isBypass }, false, 'setBypassMode'),
 
     updateMainField: (field, value) =>
       set(
@@ -53,6 +57,7 @@ export const useMcpFormStore = create(
             services: [],
           },
           isCustomizable: true, // Reset to default customizable state
+          isByPass: false,
           serviceForm: {
             id: '',
             name: '',
@@ -91,7 +96,11 @@ export const useMcpFormStore = create(
     // ==============================================================================================================
 
     updateServiceFormField: (field, value) => {
-      if (!get().isCustomizable && (field === 'price' || field === 'discount' || field === 'quantity')) {
+      if (
+        !get().isCustomizable &&
+        !get().isByPass &&
+        (field === 'price' || field === 'discount' || field === 'quantity')
+      ) {
         console.warn('Package is not customizable. Cannot update service form field:', field);
         return;
       }
@@ -301,15 +310,15 @@ export const useMcpFormStore = create(
           const serviceOption = currentServiceOptions.find((f) => f.id == s.service_id);
           const price = parseFloat(s.care_package_item_details_price) || 0;
           const discount = parseFloat(s.care_package_item_details_discount) || 1;
-          const originalPrice = discount !== 0 ? price / discount : price;
+          const finalPrice = discount !== 0 ? price * discount : price;
 
           return {
             id: s.service_id,
             name: serviceOption?.label || 'Unknown Service',
             quantity: parseInt(s.care_package_item_details_quantity, 10) || 1,
-            price: originalPrice,
+            price: price,
             discount: discount,
-            finalPrice: price,
+            finalPrice: finalPrice,
           };
         });
 
@@ -364,6 +373,150 @@ export const useMcpFormStore = create(
         set({ error: errorMessage, isLoading: false }, false, 'fetchCarePackageOptions/rejected');
         console.error('Error fetching care package options:', error);
       }
+    },
+
+    fetchMemberCarePackageOptionsByMember: async (memberId) => {
+      set({ isLoading: true, error: null }, false, 'fetchMemberCarePackageOptions/pending');
+      try {
+        const response = await api('mcp/dropdown/' + memberId);
+
+        const formattedOptions = (response.data || [])
+          .filter((pkg) => pkg && pkg.id && pkg.package_name)
+          .map((pkg) => ({
+            value: pkg.id,
+            label: `${pkg.package_name} ($${Number(pkg.balance).toFixed(2)})`,
+            balance: Number(pkg.balance),
+          }));
+
+        set(
+          { memberCarePackageOptions: formattedOptions, isLoading: false },
+          false,
+          'fetchMemberCarePackageOptions/fulfilled'
+        );
+      } catch (error) {
+        const errorMessage = error.response?.data?.message || error.message || 'An unknown error occurred';
+        set({ error: errorMessage, isLoading: false }, false, 'fetchMemberCarePackageOptions/rejected');
+        console.error('Error fetching member care package options:', error);
+      }
+    },
+
+    addMcpToTransferQueue: (transferData) => {
+      const { mcp_id1, mcp_id2, newDestinationData, amount } = transferData;
+      const queue = get().mcpTransferQueue;
+      const memberCarePackageOptions = get().memberCarePackageOptions;
+
+      const sourcePackage = memberCarePackageOptions.find((opt) => opt.value === mcp_id1);
+      if (!sourcePackage) {
+        const errorMessage = `Source MCP with ID ${mcp_id1} not found in options.`;
+        set({ error: errorMessage });
+        return null;
+      }
+      const sourceBalance = sourcePackage.balance;
+
+      const alreadyQueuedAmount = queue
+        .filter((item) => item.mcp_id1 === mcp_id1)
+        .reduce((sum, item) => sum + item.amount, 0);
+
+      if (alreadyQueuedAmount + amount > sourceBalance) {
+        const remainingBalance = sourceBalance - alreadyQueuedAmount;
+        const errorMessage = `Transfer amount exceeds remaining balance for source MCP. Remaining: $${remainingBalance.toFixed(
+          2
+        )}.`;
+        set({ error: errorMessage });
+        return null;
+      }
+
+      const newItem = {
+        id: `transfer-${Date.now()}`,
+        mcp_id1,
+        mcp_id2,
+        newDestinationData,
+        amount,
+      };
+
+      set(
+        (state) => ({
+          mcpTransferQueue: [...state.mcpTransferQueue, newItem],
+          error: null,
+        }),
+        false,
+        'addMcpToTransferQueue'
+      );
+
+      console.log('In Queue', get().mcpTransferQueue);
+      return newItem;
+    },
+
+    removeMcpFromTransferQueue: (transferId) => {
+      set(
+        (state) => ({
+          mcpTransferQueue: state.mcpTransferQueue.filter((mcp) => mcp.id !== transferId),
+        }),
+        false,
+        `removeMcpFromTransferQueue/${transferId}`
+      );
+
+      console.log('In Queue', get().mcpTransferQueue);
+    },
+
+    processMcpTransferQueue: async () => {
+      const queue = get().mcpTransferQueue;
+      if (queue.length === 0) {
+        return { success: true, results: [] };
+      }
+
+      set({ isLoading: true, error: null }, false, 'processMcpTransferQueue/pending');
+
+      try {
+        const newPackagesToCreate = queue
+          .filter((item) => item.newDestinationData)
+          .map((item) => ({ ...item.newDestinationData, tempId: item.id }));
+
+        let createdPackagesMap = {};
+
+        if (newPackagesToCreate.length > 0) {
+          // eslint-disable-next-line no-unused-vars
+          const creationPayload = newPackagesToCreate.map(({ tempId, ...rest }) => rest);
+          const creationResponse = await api.post('/mcp/create', { packages: creationPayload });
+
+          const createdPackages = creationResponse.data.createdPackages;
+          createdPackagesMap = newPackagesToCreate.reduce((acc, item, index) => {
+            if (createdPackages[index]?.memberCarePackageId) {
+              acc[item.tempId] = createdPackages[index].memberCarePackageId;
+            }
+            return acc;
+          }, {});
+        }
+
+        const transferPayload = queue.map((item) => {
+          const destinationId = item.newDestinationData ? createdPackagesMap[item.id] : item.mcp_id2;
+
+          if (!destinationId) {
+            throw new Error(`Could not resolve destination ID for transfer from ${item.mcp_id1}`);
+          }
+
+          return {
+            mcp_id1: item.mcp_id1,
+            mcp_id2: destinationId,
+            amount: item.amount,
+          };
+        });
+
+        const transferResponse = await api.post('/mcp/transfer', { packages: transferPayload });
+
+        set({ isLoading: false, mcpTransferQueue: [] }, false, 'processMcpTransferQueue/fulfilled');
+        return { success: true, results: transferResponse.data };
+      } catch (error) {
+        const errorMessage =
+          error.response?.data?.message || error.message || 'An unknown error occurred during MCP transfer';
+        set({ error: errorMessage, isLoading: false }, false, 'processMcpTransferQueue/rejected');
+        console.error('Error processing MCP transfer queue:', error);
+        return { success: false, error: errorMessage };
+      }
+    },
+
+    clearMcpTransferQueue: () => {
+      set({ mcpTransferQueue: [] }, false, 'clearMcpTransferQueue');
     },
 
     addMcpToCreationQueue: (packageData) => {

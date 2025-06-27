@@ -18,6 +18,7 @@ DROP TABLE IF EXISTS "membership_types" CASCADE;
 DROP TABLE IF EXISTS "payment_methods" CASCADE;
 DROP TABLE IF EXISTS "positions" CASCADE;
 DROP TABLE IF EXISTS "employee_to_position" CASCADE;
+DROP TABLE IF EXISTS "employee_to_position" CASCADE;
 DROP TABLE IF EXISTS "product_categories" CASCADE;
 DROP TABLE IF EXISTS "products" CASCADE;
 DROP TABLE IF EXISTS "roles" CASCADE;
@@ -291,8 +292,8 @@ CREATE TABLE "membership_accounts" (
     "start_date" TIMESTAMP(6) NOT NULL,
     "end_date" TIMESTAMP(6),
     "is_active" BOOLEAN NOT NULL,
-    "membership_accounts_created_at" TIMESTAMP(6) NOT NULL,
-    "membership_accounts_updated_at" TIMESTAMP(6) NOT NULL,
+    "created_at" TIMESTAMP(6) NOT NULL,
+    "updated_at" TIMESTAMP(6) NOT NULL,
     "status_id" BIGINT NOT NULL,
 
     CONSTRAINT "cs_membership_accounts_pkey" PRIMARY KEY ("membership_accounts_id")
@@ -316,8 +317,10 @@ CREATE TABLE "payment_methods" (
     "payment_method_name" TEXT NOT NULL,
     "is_enabled" BOOLEAN NOT NULL,
     "is_revenue" BOOLEAN NOT NULL,
-    "payment_method_created_at" TIMESTAMPTZ(6) NOT NULL,
-    "payment_method_updated_at" TIMESTAMPTZ(6) NOT NULL,
+    "show_on_payment_page" BOOLEAN NOT NULL DEFAULT true,
+    "is_protected" BOOLEAN NOT NULL DEFAULT false,
+    "created_at" TIMESTAMPTZ(6) NOT NULL,
+    "updated_at" TIMESTAMPTZ(6) NOT NULL,
 
     CONSTRAINT "payment_methods_pkey" PRIMARY KEY ("id")
 );
@@ -328,8 +331,8 @@ CREATE TABLE "positions" (
     "position_name" VARCHAR(255) NOT NULL,
     "position_description" VARCHAR(255),
     "position_is_active" BOOLEAN DEFAULT true,
-    "position_created_at" TIMESTAMPTZ(6) DEFAULT CURRENT_TIMESTAMP,
-    "position_updated_at" TIMESTAMPTZ(6) DEFAULT CURRENT_TIMESTAMP,
+    "created_at" TIMESTAMPTZ(6) DEFAULT CURRENT_TIMESTAMP,
+    "updated_at" TIMESTAMPTZ(6) DEFAULT CURRENT_TIMESTAMP,
 
     CONSTRAINT "positions_pkey" PRIMARY KEY ("id")
 );
@@ -339,8 +342,8 @@ CREATE TABLE "product_categories" (
     "id" BIGSERIAL NOT NULL,
     "product_category_name" VARCHAR(255) NOT NULL,
     "product_category_sequence_no" INTEGER NOT NULL,
-    "product_category_created_at" TIMESTAMPTZ(6) NOT NULL DEFAULT CURRENT_TIMESTAMP,
-    "product_category_updated_at" TIMESTAMPTZ(6) NOT NULL,
+    "created_at" TIMESTAMPTZ(6) NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    "updated_at" TIMESTAMPTZ(6) NOT NULL,
 
     CONSTRAINT "product_categories_pkey" PRIMARY KEY ("id")
 );
@@ -355,8 +358,8 @@ CREATE TABLE "products" (
     "product_default_price" DECIMAL(10,2),
     "product_outlet_id" BIGINT NOT NULL,
     "product_is_active" BOOLEAN DEFAULT true,
-    "product_created_at" TIMESTAMPTZ(6) DEFAULT CURRENT_TIMESTAMP,
-    "product_updated_at" TIMESTAMPTZ(6) DEFAULT CURRENT_TIMESTAMP,
+    "created_at" TIMESTAMPTZ(6) DEFAULT CURRENT_TIMESTAMP,
+    "updated_at" TIMESTAMPTZ(6) DEFAULT CURRENT_TIMESTAMP,
     "product_category_id" BIGINT,
 
     CONSTRAINT "products_pkey" PRIMARY KEY ("id")
@@ -396,8 +399,8 @@ CREATE TABLE "service_categories" (
     "id" BIGSERIAL NOT NULL,
     "service_category_name" VARCHAR(255) NOT NULL,
     "service_category_sequence_no" INTEGER,
-    "service_category_created_at" TIMESTAMPTZ(6) NOT NULL DEFAULT CURRENT_TIMESTAMP,
-    "service_category_updated_at" TIMESTAMPTZ(6) NOT NULL,
+    "created_at" TIMESTAMPTZ(6) NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    "updated_at" TIMESTAMPTZ(6) NOT NULL,
 
     CONSTRAINT "service_categories_pkey" PRIMARY KEY ("id")
 );

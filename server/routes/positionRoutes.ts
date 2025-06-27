@@ -29,25 +29,21 @@ router.get('/', positionController.getAllPositions);
 // Admin-only routes
 router.post(
   '/create',
-  roleMiddleware.hasRole(['super_admin', 'data_admin']),
   positionController.createPosition
 );
 
 router.put(
-    "/id",
-    roleMiddleware.hasRole(['super_admin', 'data_admin']),
+    "/:id",
     positionController.updatePosition
 )
 
 router.delete(
   '/:id',
-  roleMiddleware.hasRole(['super_admin', 'data_admin']),
   positionController.deletePosition
 );
 
 router.patch(
-  '/:id/toggle',
-  roleMiddleware.hasRole(['super_admin', 'data_admin']),
+  '/:id/toggle', 
   positionController.togglePositionStatus
 );
 

@@ -35,6 +35,7 @@ const CreateMemberCarePackageForm = () => {
     fetchCarePackageOptions,
     selectCarePackage,
     addMcpToCreationQueue,
+    setBypassMode,
   } = useMcpFormStore();
 
   const { selectedMember, addCartItem } = useTransactionCartStore();
@@ -106,6 +107,7 @@ const CreateMemberCarePackageForm = () => {
 
   const handleBypassToggle = (checked) => {
     setBypassPackage(checked);
+    setBypassMode(checked);
 
     if (checked) {
       if (mainFormData.package_name && mainFormData.services.length > 0) {
@@ -509,23 +511,25 @@ const ServiceRow = ({ service, index, canModify, onUpdate, onRemove }) => {
         </div>
 
         <div className='space-y-1'>
-          <Label className='text-sm font-medium text-gray-700'>Price</Label>
+          <Label className='text-sm font-medium text-gray-700'>Discount</Label>
           {isEditing && canModify ? (
             <Input
               type='number'
               step='0.01'
-              value={editData.price}
-              onChange={(e) => setEditData({ ...editData, price: parseFloat(e.target.value) || 0 })}
+              min='0'
+              max='1'
+              value={editData.discount}
+              onChange={(e) => setEditData({ ...editData, discount: parseFloat(e.target.value) || 0 })}
               className='h-8'
             />
           ) : (
-            <div className='text-sm'>${service.price.toFixed(2)}</div>
+            <div className='text-sm'>{service.discount.toFixed(2)}</div>
           )}
         </div>
 
         <div className='space-y-1'>
           <Label className='text-sm font-medium text-gray-700'>Final Price</Label>
-          <div className='text-sm font-medium'>${(service.finalPrice || 0).toFixed(2)}</div>
+          <div className='text-sm font-medium'>${(service.price || 0).toFixed(2)}</div>
         </div>
 
         <div className='flex space-x-2'>

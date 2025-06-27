@@ -1,5 +1,5 @@
 import { pool, getProdPool as prodPool } from '../config/database.js';
-import { Employee } from '../types/model.types.js';
+import { Employees, Positions } from '../types/model.types.js';
 
 const checkEmployeeCodeExists = async (employee_code: number) => {
   try {
@@ -16,17 +16,79 @@ const checkEmployeeCodeExists = async (employee_code: number) => {
 
 const getAllEmployees = async (offset: number, limit: number, startDate_utc: string, endDate_utc: string) => {
   try {
-    const query = `
-      SELECT * FROM employees
+    // Step 1: Fetch paginated employee IDs based on date range
+    const idQuery = `
+      SELECT id FROM employees
       WHERE created_at BETWEEN
-        COALESCE($3, '0001-01-01'::timestamp with time zone)
-        AND $4
+        COALESCE($1, '0001-01-01'::timestamp with time zone)
+        AND $2
       ORDER BY id ASC
-      LIMIT $1 OFFSET $2
+      LIMIT $3 OFFSET $4
     `;
-    const values = [limit, offset, startDate_utc, endDate_utc];
-    const result = await pool().query(query, values);
+    const idValues = [startDate_utc, endDate_utc, limit, offset];
+    const idResult = await pool().query(idQuery, idValues);
+    const employeeIds = idResult.rows.map((row) => row.id);
 
+    if (employeeIds.length === 0) {
+      return {
+        employees: [],
+        totalPages: 0,
+        totalCount: 0,
+      };
+    }
+
+    // Step 2: Fetch full employee + position info for selected IDs
+    const dataQuery = `
+      SELECT 
+        e.id AS employee_id,
+        e.employee_name,
+        e.employee_email,
+        e.employee_is_active,
+        e.created_at,
+        e.updated_at,
+        p.id AS position_id,
+        p.position_name,
+        (SELECT st.status_name FROM statuses st WHERE st.id = e.verified_status_id) AS status_name
+      FROM employees e
+      LEFT JOIN employee_to_position ep ON e.id = ep.employee_id
+      LEFT JOIN positions p ON ep.position_id = p.id
+      WHERE e.id = ANY($1)
+      ORDER BY e.id ASC
+    `;
+    const dataResult = await pool().query<Partial<Employees & Positions & { [any: string]: string }>>(dataQuery, [
+      employeeIds,
+    ]);
+
+    // Step 3: Group employee rows
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const groupedMap: Record<number, any> = {};
+
+    dataResult.rows.forEach((row) => {
+      const empId: number = parseInt(row.employee_id!);
+      if (!groupedMap[empId]) {
+        groupedMap[empId] = {
+          id: empId,
+          employee_name: row.employee_name,
+          employee_email: row.employee_email,
+          employee_is_active: row.employee_is_active,
+          created_at: row.created_at,
+          updated_at: row.updated_at,
+          verification_status: row.status_name,
+          positions: [],
+        };
+      }
+
+      if (row.position_id && row.position_name) {
+        groupedMap[empId].positions.push({
+          position_id: row.position_id,
+          position_name: row.position_name,
+        });
+      }
+    });
+
+    const groupedEmployees = Object.values(groupedMap);
+
+    // Step 4: Get total count for pagination
     const totalQuery = `
       SELECT COUNT(*) FROM employees
       WHERE created_at BETWEEN
@@ -35,15 +97,17 @@ const getAllEmployees = async (offset: number, limit: number, startDate_utc: str
     `;
     const totalValues = [startDate_utc, endDate_utc];
     const totalResult = await pool().query(totalQuery, totalValues);
-    const totalPages = Math.ceil(totalResult.rows[0].count / limit);
+    const totalCount = parseInt(totalResult.rows[0].count, 10);
+    const totalPages = Math.ceil(totalCount / limit);
 
     return {
-      employees: result.rows,
+      employees: groupedEmployees,
       totalPages,
+      totalCount,
     };
   } catch (error) {
-    console.error('Error fetching employees:', error);
-    throw new Error('Error fetching employees');
+    console.error('Error fetching employees with positions:', error);
+    throw new Error('Error fetching employees with positions');
   }
 };
 
@@ -137,71 +201,102 @@ const getUserData = async (identity: string | number) => {
   }
 };
 
-// const createEmployee = async ({
-//   employee_code,
-//   department_id,
-//   employee_contact,
-//   employee_email,
-//   employeeIsActive, // TODO: recheck with team
-//   employee_name,
-//   position_id,
-//   commission_percentage,
-//   password_hash,
-//   created_at,
-//   updated_at,
-// }) => {
-//   const client = await pool().connect();
+interface NewEmployeeData {
+  email: string;
+  password_hash: string;
+  phone: string;
+  role_name: string;
+  employee_code: string;
+  employee_name: string;
+  employee_is_active: boolean;
+  position_ids: string[];
+  created_at?: string;
+  updated_at?: string;
+}
 
-//   try {
-//     // Start a transaction
-//     await client.query('BEGIN');
+const createAuthAndEmployee = async (data: NewEmployeeData) => {
+  const client = await pool().connect();
+  try {
+    await client.query('BEGIN');
 
-//     const insertAuthQuery = `
-//       INSERT INTO user_auth (email ,password, created_at, updated_at)
-//       VALUES ($1, $2, $3, $4)
-//       RETURNING *;
-//     `;
-//     const authValues = [employee_email, password_hash, created_at, updated_at];
-//     const authResult = await client.query(insertAuthQuery, authValues);
-//     const newAuth = authResult.rows[0];
+    const roleResult = await client.query('SELECT get_or_create_roles($1) as id;', [data.role_name]);
+    if (roleResult.rows.length === 0) {
+      throw new Error(`Role '${data.role_name}' not found.`);
+    }
+    const roleId = roleResult.rows[0].id;
 
-//     const insertEmployeeQuery = `
-//       INSERT INTO employees (employee_code, department_id, employee_contact, employee_email, employee_is_active, employee_name, position_id, commission_percentage, created_at, updated_at, user_auth_id)
-//       VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11)
-//       RETURNING *;
-//     `;
-//     const values = [
-//       employee_code,
-//       parseInt(department_id, 10),
-//       employee_contact,
-//       employee_email,
-//       employeeIsActive || true,
-//       employee_name,
-//       parseInt(position_id, 10) || null,
-//       parseFloat(commission_percentage) || 0.0,
-//       created_at,
-//       updated_at,
-//       newAuth.id,
-//     ];
+    const userAuthQuery = `
+      INSERT INTO user_auth (email, password, phone, created_at, updated_at)
+      VALUES ($1, $2, $3, $4, $5)
+      RETURNING id
+    `;
+    const userAuthResult = await client.query(userAuthQuery, [
+      data.email,
+      data.password_hash,
+      data.phone,
+      data.created_at,
+      data.updated_at,
+    ]);
+    const userAuthId = userAuthResult.rows[0].id;
 
-//     const result = await client.query(insertEmployeeQuery, values);
-//     const newEmployee = result.rows[0];
+    const userToRoleQuery = `
+      INSERT INTO user_to_role (user_auth_id, role_id, created_at, updated_at)
+      VALUES ($1, $2, $3, $4)
+    `;
+    await client.query(userToRoleQuery, [userAuthId, roleId, data.created_at, data.updated_at]);
 
-//     await client.query('COMMIT');
-//     return {
-//       employee: newEmployee,
-//       auth: newAuth,
-//     };
-//   } catch (error) {
-//     console.error('Error creating employee:', error);
-//     await client.query('ROLLBACK');
-//     throw new Error('Error creating employee');
-//   } finally {
-//     client.release(); // Release the client back to the pool
-//   }
-// };
+    const employeeQuery = `
+      INSERT INTO employees (
+        user_auth_id, employee_code, employee_name, employee_email, 
+        employee_contact, employee_is_active, created_at, updated_at, verified_status_id
+      )
+      VALUES ($1, $2, $3, $4, $5, $6, $7, $8, (SELECT get_or_create_status('UnVerified')))
+      RETURNING id
+    `;
+    const employeeResult = await client.query(employeeQuery, [
+      userAuthId,
+      data.employee_code,
+      data.employee_name,
+      data.email,
+      data.phone,
+      data.employee_is_active,
+      data.created_at,
+      data.updated_at,
+    ]);
+    const employeeId = employeeResult.rows[0].id;
 
-const updateEmployeePassword = async (email: string, password_hash: string) => {
+    if (data.position_ids && data.position_ids.length > 0) {
+      const positionInsertQuery = `
+      INSERT INTO employee_to_position (employee_id, position_id, created_at, updated_at)
+      SELECT $1, unnested_position_id, $2, $3
+      FROM unnest($4::bigint[]) AS unnested_position_id
+    `;
+      const params = [employeeId, data.created_at, data.updated_at, data.position_ids];
+
+      await client.query(positionInsertQuery, params);
+    }
+
+    await client.query('COMMIT');
+    return { employeeId, userAuthId };
+  } catch (error) {
+    await client.query('ROLLBACK');
+    console.error('Error creating employee with auth:', error);
+    throw new Error('Failed to create employee with auth');
+  } finally {
+    client.release();
+  }
+};
+
+const touchEmployee = async (email: string) => {
+  try {
+    await pool().query(`UPDATE employees SET updated_at = NOW() WHERE employee_email = $1`, [email]);
+  } catch (error) {
+    console.error('Error touching employee:', error);
+    throw new Error('Error touching employee');
+  }
+};
+
+const updateEmployeePassword = async (email: string, password_hash: string, isInvite: boolean = false) => {
   const client = await pool().connect();
 
   try {
@@ -215,6 +310,16 @@ const updateEmployeePassword = async (email: string, password_hash: string) => {
     const values = [password_hash, email];
     const result = await client.query(query, values);
     const updatedAuth = result.rows[0];
+
+    if (isInvite) {
+      const query = `
+        UPDATE employees
+        SET verified_status_id = (SELECT get_or_create_status('Verified'))
+        WHERE employee_email = $1;
+      `;
+      const values = [email];
+      await client.query(query, values);
+    }
 
     await client.query('COMMIT');
     return updatedAuth;
@@ -246,7 +351,7 @@ export const getEmployeeIdByUserAuthId = async (id: string) => {
   return await pool().query<{ id: string }>(employee_sql, params);
 };
 
-const getBasicEmployeeDetails = async (): Promise<Employee[]> => {
+const getBasicEmployeeDetails = async () => {
   const query = `
     SELECT 
       id, 
@@ -256,6 +361,8 @@ const getBasicEmployeeDetails = async (): Promise<Employee[]> => {
     ORDER BY employee_name ASC`;
   try {
     const result = await pool().query(query);
+
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
     return result.rows.map((row: any) => ({
       id: row.id,
       employee_name: row.employee_name,
@@ -280,8 +387,22 @@ const getAllEmployeesForDropdown = async () => {
     throw new Error('Error fetching employee list');
   }
 };
+
+const getAllRolesForDropdown = async () => {
+  try {
+    const query = `
+      SELECT id, role_name FROM roles
+      ORDER BY role_name ASC
+    `;
+    const result = await pool().query(query);
+    return result.rows;
+  } catch (error) {
+    console.error('Error fetching role list:', error);
+    throw new Error('Error fetching role list');
+  }
+};
+
 export default {
-  // createEmployee,
   checkEmployeeCodeExists,
   getAuthUser,
   updateEmployeePassword,
@@ -292,4 +413,7 @@ export default {
   getEmployeeIdByUserAuthId,
   getBasicEmployeeDetails,
   getAllEmployeesForDropdown,
+  createAuthAndEmployee,
+  getAllRolesForDropdown,
+  touchEmployee,
 };

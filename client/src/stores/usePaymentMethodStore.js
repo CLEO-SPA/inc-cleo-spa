@@ -138,6 +138,7 @@ const usePaymentMethodStore = create((set, get) => ({
     set({ isCreating: true, error: false, errorMessage: null });
 
     try {
+      console.log(data)
       await api.post('/payment-method', data);
       const { currentPage, currentLimit, searchTerm } = get();
       await get().fetchPaymentMethods({ page: currentPage, limit: currentLimit, search: searchTerm });

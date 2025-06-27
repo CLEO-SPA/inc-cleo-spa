@@ -45,29 +45,62 @@ const getAllMembers = async (req: Request, res: Response, next: NextFunction) =>
 
 
 // Create a new member
-const createMember = async (req: Request, res: Response, next: NextFunction) => {
+const createMember = async (req: Request, res: Response) => {
   try {
     const newMember = await model.createMember(req.body);
     res.status(201).json(newMember);
   } catch (error) {
     console.error('Error in createMember:', error);
+    
+    // Check for specific validation errors
+    if (error instanceof Error) {
+      if (error.message === 'Email already exists') {
+        return res.status(409).json({ message: 'Email already exists' });
+      }
+      if (error.message === 'Contact number already exists') {
+        return res.status(409).json({ message: 'Contact number already exists' });
+      }
+      if (error.message === 'Error creating member') {
+        return res.status(500).json({ message: 'Failed to create member' });
+      }
+    }
+    
+    // Generic error fallback
     res.status(500).json({ message: 'Failed to create member' });
   }
 };
 
 // Update an existing member
-const updateMember = async (req: Request, res: Response, next: NextFunction) => {
+const updateMember = async (req: Request, res: Response) => {
   try {
     const { id } = req.params;
-
+    
     const updatedMember = await model.updateMember({
       ...req.body,
       id: Number(id),
     });
-
+    
     res.status(200).json(updatedMember);
   } catch (error) {
     console.error('Error in updateMember:', error);
+    
+    // Check for specific validation errors
+    if (error instanceof Error) {
+      if (error.message === 'Email already exists') {
+        return res.status(409).json({ message: 'Email already exists' });
+      }
+      if (error.message === 'Contact number already exists') {
+        return res.status(409).json({ message: 'Contact number already exists' });
+      }
+      if (error.message.includes('Member with ID') && error.message.includes('not found')) {
+        return res.status(404).json({ message: error.message });
+      }
+      if (error.message === 'Could not update member') {
+        return res.status(500).json({ message: 'Failed to update member' });
+      }
+    }
+    
+    // Generic error fallback
     res.status(500).json({ message: 'Failed to update member' });
   }
 };
@@ -81,7 +114,13 @@ const deleteMember = async (req: Request, res: Response, next: NextFunction) => 
     res.status(200).json(result);
   } catch (error) {
     console.error('Error in deleteMember:', error);
-    res.status(500).json({ message: 'Failed to delete member' });
+    
+    // Pass specific error message if it's an Error instance
+    if (error instanceof Error) {
+      res.status(400).json({ message: error.message });
+    } else {
+      res.status(500).json({ message: 'Failed to delete member' });
+    }
   }
 };
 

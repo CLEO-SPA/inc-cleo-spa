@@ -367,6 +367,33 @@ const getMemberCarePackageById = async (id: string): Promise<FullMemberCarePacka
   }
 };
 
+const getMemberCarePackagesForDropdown = async (memberId: string) => {
+  try {
+    const sql = `
+      SELECT
+          mcp.id,
+          mcp.package_name,
+          mcp.balance,
+          m.name
+      FROM
+          member_care_packages mcp
+      INNER JOIN
+          members m ON m.id = mcp.member_id
+      WHERE
+          mcp.status = 'ENABLED' AND mcp.member_id = $1
+      ORDER BY
+          mcp.created_at DESC;
+    `;
+
+    const { rows } = await pool().query(sql, [memberId]);
+
+    return rows;
+  } catch (error) {
+    console.error('Error in mcpModel.getMemberCarePackagesForDropdown', error);
+    throw new Error('Could not retrieve all mcp for dropdown');
+  }
+};
+
 interface servicePayload {
   id: string;
   name: string;
@@ -864,41 +891,55 @@ const checkMcpUpdatable = async (id: string) => {
   }
 };
 
-const transferMemberCarePackage = async (mcp_id1: string, mcp_id2: string) => {
+const transferMemberCarePackage = async (mcp_id1: string, mcp_id2: string, amount: number) => {
   const client = await pool().connect();
   try {
     await client.query('BEGIN');
 
-    const [mcp1, mcp2] = await Promise.all([
-      client.query<MemberCarePackages>('SELECT * FROM member_care_packages WHERE id = $1', [mcp_id1]),
-      client.query<MemberCarePackages>('SELECT * FROM member_care_packages WHERE id = $1', [mcp_id2]),
-    ]);
+    const mcp1Result = await client.query<MemberCarePackages>(
+      'SELECT * FROM member_care_packages WHERE id = $1 FOR UPDATE',
+      [mcp_id1]
+    );
+    const mcp2Result = await client.query<MemberCarePackages>(
+      'SELECT * FROM member_care_packages WHERE id = $1 FOR UPDATE',
+      [mcp_id2]
+    );
 
-    if (mcp1.rowCount === 0) {
-      throw new Error(`Invalid Member Care Package Id: ${mcp_id1} does not exists`);
+    if (mcp1Result.rowCount === 0) {
+      throw new Error(`Source package with ID ${mcp_id1} not found.`);
+    }
+    if (mcp2Result.rowCount === 0) {
+      throw new Error(`Destination package with ID ${mcp_id2} not found.`);
     }
 
-    if (mcp2.rowCount === 0) {
-      throw new Error(`Invalid Member Care Package Id: ${mcp_id2} does not exists`);
+    const sourceMcp = mcp1Result.rows[0];
+    const destinationMcp = mcp2Result.rows[0];
+
+    if (sourceMcp.balance < amount) {
+      throw new Error(
+        `Insufficient balance in source package ${sourceMcp.package_name}. Available: $${sourceMcp.balance}, trying to transfer: $${amount}.`
+      );
     }
 
-    // Check balance to transfer
-    if (mcp1.rows[0].balance <= 0) {
-      throw new Error('Invalid balance to tansfer');
+    if (sourceMcp.balance === amount) {
+      const u_mcpd_sql = 'UPDATE member_care_package_details SET status = $1 WHERE member_care_package_id = $2';
+      await client.query(u_mcpd_sql, ['DISABLED', mcp_id1]);
     }
 
-    const u_mcp = `
-      UPDATE member_care_packages
-      SET balance = $1
-      WHERE id = $2;
-    `;
+    if (destinationMcp.balance === 0 && amount > 0) {
+      const enable_sql = 'UPDATE member_care_package_details SET status = $1 WHERE member_care_package_id = $2';
+      await client.query(enable_sql, ['ENABLED', mcp_id2]);
+    }
 
-    await Promise.all([
-      client.query(u_mcp, [0, mcp1.rows[0].id]),
-      client.query(u_mcp, [mcp1.rows[0].balance + mcp2.rows[0].balance, mcp2.rows[0].id]),
-    ]);
+    const u_mcp1_sql = 'UPDATE member_care_packages SET balance = balance - $1, updated_at = NOW() WHERE id = $2';
+    await client.query(u_mcp1_sql, [amount, mcp_id1]);
+
+    const u_mcp2_sql = 'UPDATE member_care_packages SET balance = balance + $1, updated_at = NOW() WHERE id = $2';
+    await client.query(u_mcp2_sql, [amount, mcp_id2]);
 
     await client.query('COMMIT');
+
+    return { success: true, message: 'Transfer completed successfully.' };
   } catch (error) {
     console.error('Error transfering member care package:', error);
     await client.query('ROLLBACK');
@@ -1213,6 +1254,7 @@ const emulateMemberCarePackage = async (method: string, payload: Partial<emulate
 export default {
   getPaginatedMemberCarePackages,
   getMemberCarePackageById,
+  getMemberCarePackagesForDropdown,
   createMemberCarePackage,
   updateMemberCarePackage,
   removeMemberCarePackage,

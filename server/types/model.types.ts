@@ -2,11 +2,12 @@ export interface Employees {
   id?: string;
   user_auth_id: string;
   department_id: string;
-  position_id: string;
   employee_code: string;
   employee_contact: string;
   employee_email: string;
   employee_name: string;
+  employee_is_active: boolean;
+  verified_status_id: string;
   created_at: string;
   updated_at: string;
 }
@@ -183,6 +184,40 @@ export interface Positions {
   position_name: string;
   position_description: string;
   position_is_active: boolean;
-  position_created_at: string;
-  position_updated_at: string;
+  created_at: string;
+  updated_at: string;
+}
+
+export interface DataToExportList<L> {
+  dataToExportList: L[];
+}
+
+export interface UnusedMemberVoucherData {
+  member_name: string;
+  contact: string;
+  email: string;
+  member_voucher_name: string;
+  days_since_use: number;
+  created_at: Date;
+}
+
+export interface UnusedMemberCarePackageData {
+  member_name: string;
+  contact: string;
+  email: string;
+  member_care_package_name: string;
+  days_since_use: number;
+  created_at: Date;
+}
+
+export interface MemberDetailsData {
+  member_id: number;
+  name: string;
+  email: string;
+  contact: string;
+  dob: Date;
+  sex: string;
+  remarks: string;
+  address: string;
+  nric: string;
 }

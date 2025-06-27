@@ -19,7 +19,7 @@ export const useCpFormStore = create(
       quantity: 1,
       price: 0,
       finalPrice: 0, // price * discount
-      discount: 0,
+      discount: 1,
     },
     serviceOptions: [],
     isLoading: false,
@@ -68,14 +68,26 @@ export const useCpFormStore = create(
               updatedServiceForm[field] = parsedValue;
             } else if (value === '' || value === null) {
               updatedServiceForm[field] = '';
-            } else {
-              updatedServiceForm[field] = state.serviceForm[field];
             }
           }
 
           // recalculate finalPrice if price or discount changes
           const price = parseFloat(updatedServiceForm.price) || 0;
-          const discountFactor = parseFloat(updatedServiceForm.discount) || 0;
+
+          // properly handle 0 discount (100% off)
+          let discountFactor;
+          if (
+            updatedServiceForm.discount === undefined ||
+            updatedServiceForm.discount === null ||
+            updatedServiceForm.discount === ''
+          ) {
+            discountFactor = 1; // default to no discount
+          } else {
+            discountFactor = parseFloat(updatedServiceForm.discount);
+            if (isNaN(discountFactor)) {
+              discountFactor = 1; // fallback to no discount for invalid values
+            }
+          }
 
           updatedServiceForm.finalPrice = price * discountFactor;
 
@@ -89,13 +101,8 @@ export const useCpFormStore = create(
 
     // selectService function (keeping for backward compatibility)
     selectService: (service) => {
-
       set((state) => {
-        const servicePrice = parseFloat(
-          service.service_price || 
-            service.originalPrice || 
-            0
-        );
+        const servicePrice = parseFloat(service.service_price || service.originalPrice || 0);
 
         const updatedServiceForm = {
           ...state.serviceForm,
@@ -121,7 +128,7 @@ export const useCpFormStore = create(
           updated_by_name: service.updated_by_name,
         };
 
-        console.log('Updated service form in store:', updatedServiceForm); // Debug log
+        // console.log('Updated service form in store:', updatedServiceForm); // Debug log
 
         return {
           serviceForm: updatedServiceForm,
@@ -158,7 +165,7 @@ export const useCpFormStore = create(
             name: '',
             quantity: 1,
             price: 0,
-            discount: 0, // Factor
+            discount: 1, // factor
             finalPrice: 0, // 0 * 0 = 0
           },
         },
@@ -177,6 +184,8 @@ export const useCpFormStore = create(
         console.warn('Service quantity must be greater than 0.');
         return;
       }
+
+      // console.log(currentServiceForm);
 
       set(
         (state) => ({
@@ -217,12 +226,22 @@ export const useCpFormStore = create(
           const newServices = [...state.mainFormData.services];
           if (newServices[index]) {
             const oldService = newServices[index];
-            // Merge old data with new data from component
             const mergedData = { ...oldService, ...updatedServiceDataFromComponent };
 
-            // Recalculate finalPrice for the updated service in the list
             const price = parseFloat(mergedData.price) || 0;
-            const discountFactor = parseFloat(mergedData.discount) || 0;
+
+            // properly handle 0 discount (100% off)
+            let discountFactor;
+            if (mergedData.discount === undefined || mergedData.discount === null || mergedData.discount === '') {
+              discountFactor = 1; // default to no discount
+            } else {
+              discountFactor = parseFloat(mergedData.discount);
+              if (isNaN(discountFactor)) {
+                discountFactor = 1; // fallback to no discount for invalid values
+              }
+            }
+
+            // console.log(price, discountFactor);
 
             newServices[index] = {
               ...mergedData,
@@ -263,10 +282,12 @@ export const useCpFormStore = create(
         console.error('Error fetching service options:', error);
       }
     },
-    
+
     submitPackage: async (packageData) => {
       set({ isLoading: true, error: null });
       try {
+        // console.log(packageData);
+
         const response = await api.post('/cp/c', packageData);
         set({ isLoading: false });
         return response.data;
