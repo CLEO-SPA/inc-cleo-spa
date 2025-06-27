@@ -37,6 +37,55 @@ const useSaleTransactionStore = create(
     (set, get) => ({
       ...getInitialState(),
 
+      // Constants
+      PENDING_PAYMENT_METHOD_ID: 7, // Based on your database structure
+
+      // Helper function to calculate outstanding amount and add pending payment
+      addAutoPendingPayment: (totalAmount, existingPayments) => {
+        // Calculate total paid amount from existing payments
+        const totalPaid = existingPayments.reduce((sum, payment) => {
+          return sum + (payment.amount || 0);
+        }, 0);
+
+        // Calculate outstanding amount
+        const outstandingAmount = totalAmount - totalPaid;
+
+        // Check if there's already a pending payment
+        const existingPendingPayment = existingPayments.find(
+          payment => payment.methodId === get().PENDING_PAYMENT_METHOD_ID
+        );
+
+        let updatedPayments = [...existingPayments];
+
+        if (outstandingAmount > 0) {
+          if (existingPendingPayment) {
+            // Update existing pending payment amount
+            updatedPayments = updatedPayments.map(payment => 
+              payment.methodId === get().PENDING_PAYMENT_METHOD_ID
+                ? { ...payment, amount: outstandingAmount }
+                : payment
+            );
+          } else {
+            // Add new pending payment
+            updatedPayments.push({
+              id: Date.now() + Math.random(),
+              methodId: get().PENDING_PAYMENT_METHOD_ID,
+              methodName: 'Pending',
+              amount: outstandingAmount,
+              remark: 'Auto-generated pending payment for outstanding amount',
+              isAutoPending: true
+            });
+          }
+        } else if (outstandingAmount <= 0 && existingPendingPayment) {
+          // Remove pending payment if outstanding amount is 0 or negative
+          updatedPayments = updatedPayments.filter(
+            payment => payment.methodId !== get().PENDING_PAYMENT_METHOD_ID || !payment.isAutoPending
+          );
+        }
+
+        return updatedPayments;
+      },
+
       // Update transaction details
       updateTransactionDetails: (details) => {
         set(state => ({
@@ -120,10 +169,13 @@ const useSaleTransactionStore = create(
             throw new Error('Transaction handler (handled_by) is required');
           }
 
+          // Process transaction data and auto-add pending payments for MCP and MV
+          const processedTransactionData = get().processTransactionDataWithPending(transactionData);
+
           // Calculate total number of transactions to create
-          const servicesProductsCount = transactionData.servicesProducts?.items?.length > 0 ? 1 : 0;
-          const mcpCount = transactionData.mcpTransactions?.length || 0;
-          const mvCount = transactionData.mvTransactions?.length || 0;
+          const servicesProductsCount = processedTransactionData.servicesProducts?.items?.length > 0 ? 1 : 0;
+          const mcpCount = processedTransactionData.mcpTransactions?.length || 0;
+          const mvCount = processedTransactionData.mvTransactions?.length || 0;
           const totalTransactions = servicesProductsCount + mcpCount + mvCount;
 
           console.log('📊 Transaction Summary:', {
@@ -148,7 +200,7 @@ const useSaleTransactionStore = create(
           const failedTransactions = [];
 
           // 1. Create Services + Products transaction (if exists)
-          if (transactionData.servicesProducts?.items?.length > 0) {
+          if (processedTransactionData.servicesProducts?.items?.length > 0) {
             set(state => ({
               progress: { 
                 ...state.progress, 
@@ -158,13 +210,13 @@ const useSaleTransactionStore = create(
 
             try {
               const servicesTransaction = await get().createServicesProductsTransaction(
-                transactionData.servicesProducts
+                processedTransactionData.servicesProducts
               );
               
               createdTransactions.push({
                 type: 'services-products',
                 transaction: servicesTransaction,
-                items: transactionData.servicesProducts.items
+                items: processedTransactionData.servicesProducts.items
               });
 
               set(state => ({
@@ -179,7 +231,7 @@ const useSaleTransactionStore = create(
               failedTransactions.push({
                 type: 'services-products',
                 error: error.message,
-                data: transactionData.servicesProducts
+                data: processedTransactionData.servicesProducts
               });
               
               set(state => ({
@@ -193,16 +245,14 @@ const useSaleTransactionStore = create(
           }
 
           // 2. Create individual MCP transactions
-          if (transactionData.mcpTransactions?.length > 0) {
-            //akira bunch mcp creation
-            
-            for (let i = 0; i < transactionData.mcpTransactions.length; i++) {
-              const mcpData = transactionData.mcpTransactions[i];
+          if (processedTransactionData.mcpTransactions?.length > 0) {
+            for (let i = 0; i < processedTransactionData.mcpTransactions.length; i++) {
+              const mcpData = processedTransactionData.mcpTransactions[i];
               
               set(state => ({
                 progress: { 
                   ...state.progress, 
-                  currentOperation: `Creating MCP transaction ${i + 1}/${transactionData.mcpTransactions.length}...` 
+                  currentOperation: `Creating MCP transaction ${i + 1}/${processedTransactionData.mcpTransactions.length}...` 
                 }
               }));
 
@@ -242,14 +292,14 @@ const useSaleTransactionStore = create(
           }
 
           // 3. Create individual MV transactions
-          if (transactionData.mvTransactions?.length > 0) {
-            for (let i = 0; i < transactionData.mvTransactions.length; i++) {
-              const mvData = transactionData.mvTransactions[i];
+          if (processedTransactionData.mvTransactions?.length > 0) {
+            for (let i = 0; i < processedTransactionData.mvTransactions.length; i++) {
+              const mvData = processedTransactionData.mvTransactions[i];
               
               set(state => ({
                 progress: { 
                   ...state.progress, 
-                  currentOperation: `Creating MV transaction ${i + 1}/${transactionData.mvTransactions.length}...` 
+                  currentOperation: `Creating MV transaction ${i + 1}/${processedTransactionData.mvTransactions.length}...` 
                 }
               }));
 
@@ -332,6 +382,63 @@ const useSaleTransactionStore = create(
         }
       },
 
+      // Process transaction data and auto-add pending payments for MCP and MV
+      processTransactionDataWithPending: (transactionData) => {
+        console.log('🔄 Processing transaction data with auto-pending payments...');
+
+        const processedData = { ...transactionData };
+
+        // Process MCP transactions
+        if (processedData.mcpTransactions?.length > 0) {
+          processedData.mcpTransactions = processedData.mcpTransactions.map(mcpData => {
+            const totalAmount = mcpData.item.pricing?.totalLinePrice || 0;
+            const existingPayments = mcpData.payments || [];
+            
+            // Add auto-pending payment
+            const updatedPayments = get().addAutoPendingPayment(totalAmount, existingPayments);
+            
+            console.log('📦 MCP Auto-Pending:', {
+              itemName: mcpData.item.data?.name || mcpData.item.data?.package_name,
+              totalAmount,
+              existingPayments: existingPayments.length,
+              updatedPayments: updatedPayments.length,
+              pendingAmount: updatedPayments.find(p => p.isAutoPending)?.amount || 0
+            });
+
+            return {
+              ...mcpData,
+              payments: updatedPayments
+            };
+          });
+        }
+
+        // Process MV transactions
+        if (processedData.mvTransactions?.length > 0) {
+          processedData.mvTransactions = processedData.mvTransactions.map(mvData => {
+            const totalAmount = mvData.item.pricing?.totalLinePrice || 0;
+            const existingPayments = mvData.payments || [];
+            
+            // Add auto-pending payment
+            const updatedPayments = get().addAutoPendingPayment(totalAmount, existingPayments);
+            
+            console.log('🎟️ MV Auto-Pending:', {
+              itemName: mvData.item.data?.member_voucher_name,
+              totalAmount,
+              existingPayments: existingPayments.length,
+              updatedPayments: updatedPayments.length,
+              pendingAmount: updatedPayments.find(p => p.isAutoPending)?.amount || 0
+            });
+
+            return {
+              ...mvData,
+              payments: updatedPayments
+            };
+          });
+        }
+
+        return processedData;
+      },
+
       // Create Services + Products transaction (combined)
       createServicesProductsTransaction: async (servicesProductsData) => {
         console.log('🛍️ Creating Services + Products transaction...');
@@ -389,7 +496,15 @@ const useSaleTransactionStore = create(
           payments: mcpData.payments || []
         };
 
-        console.log('📤 MCP payload:', payload);
+        console.log('📤 MCP payload with auto-pending:', {
+          ...payload,
+          payments: payload.payments.map(p => ({
+            methodId: p.methodId,
+            methodName: p.methodName,
+            amount: p.amount,
+            isAutoPending: p.isAutoPending || false
+          }))
+        });
 
         const response = await api.post('/st/mcp', payload);
         
@@ -423,7 +538,15 @@ const useSaleTransactionStore = create(
           payments: mvData.payments || []
         };
 
-        console.log('📤 MV payload:', payload);
+        console.log('📤 MV payload with auto-pending:', {
+          ...payload,
+          payments: payload.payments.map(p => ({
+            methodId: p.methodId,
+            methodName: p.methodName,
+            amount: p.amount,
+            isAutoPending: p.isAutoPending || false
+          }))
+        });
 
         // const response = await api.post('/st/mv', payload);
         const response = await api.post('/mv/create', payload);

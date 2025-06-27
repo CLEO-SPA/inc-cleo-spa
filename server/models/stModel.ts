@@ -838,15 +838,37 @@ const createMcpTransaction = async (
     // Calculate totals from single package item
     const totalTransactionAmount: number = item.pricing?.totalLinePrice || 0;
 
-    // Calculate total paid amount from payments
-    const totalPaidAmount: number = payments.reduce((total: number, payment: PaymentMethodRequest) => {
+    const PENDING_PAYMENT_METHOD_ID = 7;
+    
+    const pendingPayments = payments.filter((payment: PaymentMethodRequest) => 
+      payment.methodId === PENDING_PAYMENT_METHOD_ID
+    );
+    
+    const nonPendingPayments = payments.filter((payment: PaymentMethodRequest) => 
+      payment.methodId !== PENDING_PAYMENT_METHOD_ID
+    );
+    const totalPaidAmount: number = nonPendingPayments.reduce((total: number, payment: PaymentMethodRequest) => {
       return total + (payment.amount || 0);
     }, 0);
 
-    const outstandingAmount: number = totalTransactionAmount - totalPaidAmount;
+    const outstandingAmount: number = pendingPayments.reduce((total: number, payment: PaymentMethodRequest) => {
+      return total + (payment.amount || 0);
+    }, 0);
 
-    // Determine transaction status
     const transactionStatus: 'FULL' | 'PARTIAL' = outstandingAmount <= 0 ? 'FULL' : 'PARTIAL';
+    const processPayment: boolean = outstandingAmount > 0; 
+
+    // Verification: total should match
+    const calculatedTotal = totalPaidAmount + outstandingAmount;
+    if (Math.abs(calculatedTotal - totalTransactionAmount) > 0.01) {
+      console.warn('Payment total mismatch:', {
+        totalTransactionAmount,
+        totalPaidAmount,
+        outstandingAmount,
+        calculatedTotal
+      });
+    }
+
 
     // Use receipt number from frontend
     let finalReceiptNo: string = receipt_number || '';
@@ -880,12 +902,12 @@ const createMcpTransaction = async (
     const transactionParams: (string | number | boolean | null)[] = [
       customer_type?.toUpperCase() || 'MEMBER',
       member_id || null,
-      totalPaidAmount,
-      outstandingAmount,
+      totalPaidAmount,        
+      outstandingAmount,  
       transactionStatus,
       finalReceiptNo,
       remarks || '',
-      true, // process_payment
+      processPayment,         
       handled_by,
       created_by
     ];
@@ -895,9 +917,10 @@ const createMcpTransaction = async (
 
     const transactionResult = await client.query(transactionQuery, transactionParams);
     const saleTransactionId: number = transactionResult.rows[0].id;
-
+    
     console.log('Created MCP sale transaction with ID:', saleTransactionId);
 
+    // Insert package item
     const itemQuery: string = `
       INSERT INTO sale_transaction_items (
         sale_transaction_id,
@@ -918,28 +941,19 @@ const createMcpTransaction = async (
       RETURNING id
     `;
 
-    const pricing: ItemPricing = item.pricing || {
-      originalPrice: 0,
-      customPrice: 0,
-      discount: 0,
-      quantity: 1,
-      totalLinePrice: 0
-    };
-
-    // For MCP transactions, use hardcoded ID for now
     const itemParams: (string | number | null)[] = [
       saleTransactionId,
-      null, // service_name - null for packages
-      null, // product_name - null for packages
-      100, // member_care_package_id - hardcoded for testing
-      null, // member_voucher_id - null for packages
-      pricing.originalPrice || 0,
-      pricing.customPrice || 0,
-      pricing.discount || 0,
-      pricing.quantity || 1,
-      pricing.totalLinePrice || 0,
-      'package', // item_type
-      item.remarks || '',
+      null, // service_name
+      null, // product_name
+      100, // member_care_package_id (hardcoded for testing)
+      null, // member_voucher_id
+      item.pricing?.originalPrice || 0,
+      item.pricing?.customPrice || 0,
+      item.pricing?.discount || 0,
+      item.pricing?.quantity || 1,
+      item.pricing?.totalLinePrice || 0,
+      'package',
+      item.remarks || ''
     ];
 
     console.log('MCP Item Query:', itemQuery);
@@ -950,7 +964,7 @@ const createMcpTransaction = async (
     
     console.log('Created MCP sale transaction item with ID:', saleTransactionItemId);
 
-    // Insert payment records
+    // Insert ALL payment records (both pending and non-pending)
     for (const payment of payments) {
       if (payment.amount > 0) {
         const paymentQuery: string = `
@@ -993,7 +1007,7 @@ const createMcpTransaction = async (
       member_id: member_id ? member_id.toString() : null,
       total_transaction_amount: totalTransactionAmount,
       total_paid_amount: totalPaidAmount,
-      outstanding_total_payment_amount: outstandingAmount,
+      outstanding_total_payment_amount: outstandingAmount, 
       transaction_status: transactionStatus,
       remarks: remarks || '',
       created_by,
@@ -1012,6 +1026,8 @@ const createMcpTransaction = async (
     client.release();
   }
 };
+
+
 
 const createMvTransaction = async (
   transactionData: SingleItemTransactionRequestData
@@ -1050,20 +1066,30 @@ const createMvTransaction = async (
       throw new Error('payments array is required and cannot be empty');
     }
 
-    // Calculate totals from single voucher item
     const totalTransactionAmount: number = item.pricing?.totalLinePrice || 0;
 
-    // Calculate total paid amount from payments
-    const totalPaidAmount: number = payments.reduce((total: number, payment: PaymentMethodRequest) => {
+    const PENDING_PAYMENT_METHOD_ID = 7;
+    
+    const pendingPayments = payments.filter((payment: PaymentMethodRequest) => 
+      payment.methodId === PENDING_PAYMENT_METHOD_ID
+    );
+    
+    const nonPendingPayments = payments.filter((payment: PaymentMethodRequest) => 
+      payment.methodId !== PENDING_PAYMENT_METHOD_ID
+    );
+
+    const totalPaidAmount: number = nonPendingPayments.reduce((total: number, payment: PaymentMethodRequest) => {
       return total + (payment.amount || 0);
     }, 0);
 
-    const outstandingAmount: number = totalTransactionAmount - totalPaidAmount;
+    const outstandingAmount: number = pendingPayments.reduce((total: number, payment: PaymentMethodRequest) => {
+      return total + (payment.amount || 0);
+    }, 0);
 
-    // Determine transaction status
     const transactionStatus: 'FULL' | 'PARTIAL' = outstandingAmount <= 0 ? 'FULL' : 'PARTIAL';
+    const processPayment: boolean = outstandingAmount > 0; 
 
-    // Use receipt number from frontend
+
     let finalReceiptNo: string = receipt_number || '';
     if (!finalReceiptNo) {
       const receiptResult = await client.query(
@@ -1073,7 +1099,6 @@ const createMvTransaction = async (
       finalReceiptNo = `ST${receiptResult.rows[0].next_number.toString().padStart(6, '0')}`;
     }
 
-    // Insert main sales transaction
     const transactionQuery: string = `
       INSERT INTO sale_transactions (
         customer_type,
@@ -1095,25 +1120,25 @@ const createMvTransaction = async (
     const transactionParams: (string | number | boolean | null)[] = [
       customer_type?.toUpperCase() || 'MEMBER',
       member_id || null,
-      totalPaidAmount,
-      outstandingAmount,
+      totalPaidAmount,        
+      outstandingAmount,     
       transactionStatus,
       finalReceiptNo,
       remarks || '',
-      true, // process_payment
+      processPayment,      
       handled_by,
       created_by
     ];
 
-    console.log('🔍 MV Transaction Query:', transactionQuery);
-    console.log('🔍 MV Transaction Params:', transactionParams);
+    console.log('MV Transaction Query:', transactionQuery);
+    console.log('MV Transaction Params:', transactionParams);
 
     const transactionResult = await client.query(transactionQuery, transactionParams);
     const saleTransactionId: number = transactionResult.rows[0].id;
+    
+    console.log('Created MV sale transaction with ID:', saleTransactionId);
 
-    console.log('✅ Created MV sale transaction with ID:', saleTransactionId);
-
-    // Insert sale transaction item for the voucher
+    // Insert voucher item (similar logic to MCP)
     const itemQuery: string = `
       INSERT INTO sale_transaction_items (
         sale_transaction_id,
@@ -1134,28 +1159,19 @@ const createMvTransaction = async (
       RETURNING id
     `;
 
-    const pricing: ItemPricing = item.pricing || {
-      originalPrice: 0,
-      customPrice: 0,
-      discount: 0,
-      quantity: 1,
-      totalLinePrice: 0
-    };
-
-    // For MV transactions, use hardcoded ID for member_voucher_id
     const itemParams: (string | number | null)[] = [
       saleTransactionId,
-      null, // service_name - null for vouchers
-      null, // product_name - null for vouchers
-      null, // member_care_package_id - null for vouchers
-      200, // member_voucher_id - hardcoded for testing
-      pricing.originalPrice || 0,
-      pricing.customPrice || 0,
-      pricing.discount || 0,
-      pricing.quantity || 1,
-      pricing.totalLinePrice || 0,
-      'voucher', // item_type
-      item.remarks || '',
+      null, // service_name
+      null, // product_name
+      null, // member_care_package_id
+      200, // member_voucher_id (hardcoded for testing)
+      item.pricing?.originalPrice || 0,
+      item.pricing?.customPrice || 0,
+      item.pricing?.discount || 0,
+      item.pricing?.quantity || 1,
+      item.pricing?.totalLinePrice || 0,
+      'member-voucher',
+      item.remarks || ''
     ];
 
     console.log('MV Item Query:', itemQuery);
@@ -1166,7 +1182,7 @@ const createMvTransaction = async (
     
     console.log('Created MV sale transaction item with ID:', saleTransactionItemId);
 
-    // Insert payment records
+    // Insert ALL payment records (both pending and non-pending)
     for (const payment of payments) {
       if (payment.amount > 0) {
         const paymentQuery: string = `
@@ -1208,7 +1224,7 @@ const createMvTransaction = async (
       customer_type: customer_type?.toUpperCase() || 'MEMBER',
       member_id: member_id ? member_id.toString() : null,
       total_transaction_amount: totalTransactionAmount,
-      total_paid_amount: totalPaidAmount,
+      total_paid_amount: totalPaidAmount,       
       outstanding_total_payment_amount: outstandingAmount,
       transaction_status: transactionStatus,
       remarks: remarks || '',
