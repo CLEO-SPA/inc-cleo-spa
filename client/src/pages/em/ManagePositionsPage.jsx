@@ -179,8 +179,8 @@ export default function PositionTablePage() {
                                   {position.position_is_active ? "Active" : "Inactive"}
                                 </Badge>
                               </TableCell>
-                              <TableCell>{formatDate(position.position_created_at)}</TableCell>
-                              <TableCell>{formatDate(position.position_updated_at)}</TableCell>
+                              <TableCell>{formatDate(position.created_at)}</TableCell>
+                              <TableCell>{formatDate(position.updated_at)}</TableCell>
                               <TableCell className="text-right">
                                 <DropdownMenu>
                                   <DropdownMenuTrigger asChild>
