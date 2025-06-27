@@ -14,6 +14,7 @@ export const useMcpFormStore = create(
       package_remarks: '',
       package_price: 0, // SUM(service.finalPrice * service.quantity)
       services: [],
+      created_at: '',
     },
     serviceForm: {
       id: '',
@@ -55,6 +56,7 @@ export const useMcpFormStore = create(
             package_remarks: '',
             package_price: 0,
             services: [],
+            created_at: '',
           },
           isCustomizable: true, // Reset to default customizable state
           isByPass: false,
