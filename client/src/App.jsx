@@ -29,6 +29,7 @@ function App() {
               {/* employee timetable */}
               <Route path='/et/create-employee-timetable' element={<CreateEmployeeTimetablePage />} />
               <Route path='/et/update-employee-timetable/:timetableId' element={<UpdateEmployeeTimetablePage />} />
+              <Route path='/et' element={<EmployeeTimetablePage />} />
             </Route>
             <Route path='/login' element={<LoginPage />} />
 
@@ -38,7 +39,7 @@ function App() {
 
             {/* 404 Page */}
             <Route path='*' element={<NotFoundPage />} />
-            <Route path='/et' element={<EmployeeTimetablePage />} />
+
           </Routes>
         </Router>
       </DateRangeProvider>
