@@ -860,6 +860,7 @@ const getPostDataFilesModel = async (tableName: string) => {
       return [];
     }
     const files = await fs.promises.readdir(directoryPath);
+
     const csvFiles = files.filter((file) => file.endsWith('.csv'));
 
     if (csvFiles.length === 0) return [];
@@ -891,6 +892,7 @@ const getPostDataFilesModel = async (tableName: string) => {
         isLive: isLive,
       });
     }
+    return results;
   } catch (error: any) {
     console.error(`[saModel] Error reading post-data files for table "${tableName}":`, error.message);
     throw new Error(`Failed to fetch post-data files for table "${tableName}".`);
