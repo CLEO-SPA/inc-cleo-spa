@@ -25,12 +25,8 @@ const hierarchy: HierarchyInterface[] = [
   { id: 7, table: 'services', dependencies: [8] },
   { id: 8, table: 'service_categories', dependencies: [] },
   { id: 9, table: 'positions', dependencies: [] },
-  { id: 10, table: 'serving_employee_to_invoice_items', dependencies: [1, 13] },
-  { id: 11, table: 'refunds', dependencies: [1, 15] },
-  { id: 12, table: 'refund_items', dependencies: [11, 13] },
-  { id: 13, table: 'invoice_items', dependencies: [15] },
-  { id: 14, table: 'invoice_payments', dependencies: [15, 1, 20] },
-  { id: 15, table: 'invoices', dependencies: [1, 16, 17] },
+  { id: 11, table: 'refunds', dependencies: [1] },
+  { id: 12, table: 'refund_items', dependencies: [11] },
   { id: 16, table: 'statuses', dependencies: [] },
   { id: 17, table: 'members', dependencies: [37, 19] },
   { id: 18, table: 'membership_accounts', dependencies: [17, 19, 16] },
@@ -300,17 +296,23 @@ async function performDbInserts(tablesToTruncate: string[], orderedTables: strin
   try {
     await client.query('BEGIN');
 
-    await client.query('SET CONSTRAINTS ALL DEFERRED;'); // Crucial for PostgreSQL FK handling with TRUNCATE
-
     for (const tableName of tablesToTruncate) {
       try {
-        await client.query(`TRUNCATE TABLE "${tableName}" RESTART IDENTITY;`);
-        console.log(`  Truncated table: "${tableName}"`);
+        await client.query(`DELETE FROM "${tableName}";`);
+        console.log(`  Deleted from table: "${tableName}"`);
+
+        const sequenceNameResult = await client.query(`
+          SELECT pg_get_serial_sequence('"${tableName}"', 'id') AS sequence_name;
+        `);
+        const sequenceName = sequenceNameResult.rows[0]?.sequence_name;
+
+        if (sequenceName) {
+          await client.query(`ALTER SEQUENCE ${sequenceName} RESTART WITH 1;`);
+          console.log(`   Reset sequence "${sequenceName}" for "${tableName}".`);
+        }
       } catch (error: any) {
-        console.error(`Error truncating table "${tableName}": ${error.message}`);
-        throw new Error(
-          `Failed to truncate table "${tableName}". Check foreign key constraints or ensure tables are DEFERRABLE. Error: ${error.message}`
-        );
+        console.error(`Error clearing table "${tableName}": ${error.message}`);
+        throw new Error(`Failed to clear table "${tableName}". Check foreign key constraints. Error: ${error.message}`);
       }
     }
 
@@ -328,7 +330,9 @@ async function performDbInserts(tablesToTruncate: string[], orderedTables: strin
         const sequenceName = sequenceNameResult.rows[0]?.sequence_name;
 
         if (sequenceName) {
-          await client.query(`SELECT setval('${sequenceName}', (SELECT MAX(id) FROM ${tableName});`);
+          await client.query(
+            `SELECT setval('${sequenceName}', COALESCE((SELECT MAX(id) FROM "${tableName}"), 1), true);`
+          );
           console.log(`   Updated sequence "${sequenceName}" for "${tableName}".`);
         } else {
           console.warn(`   Could not find sequence for table "${tableName}" on column "id". Skipping sequence update.`);
@@ -456,13 +460,17 @@ const insertPreDataModel = async (targetTable: string, tablePayload: tablePayloa
       };
     }
 
-    const affectedTableIdsForTruncate = getDescendants(targetTableInfo.id, hierarchy);
+    const allAffectedTableIds = new Set<number>();
+    requiredTableIdsForInsert.forEach((tableId) => {
+      const descendants = getDescendants(tableId, hierarchy);
+      descendants.forEach((descendantId) => allAffectedTableIds.add(descendantId));
+    });
 
     const fullSortedOrder = getSeedingOrder(hierarchy);
     const tablesToTruncate: string[] = fullSortedOrder
       .filter((name) => {
         const id = hierarchy.find((t) => t.table === name)?.id;
-        return id !== undefined && affectedTableIdsForTruncate.has(id);
+        return id !== undefined && allAffectedTableIds.has(id);
       })
       .reverse();
 
@@ -512,7 +520,7 @@ const insertPreDataModel = async (targetTable: string, tablePayload: tablePayloa
     };
   } catch (error: any) {
     console.error('Error in insertPreDataModel', error.message);
-    throw new Error('Error in insertPreDataModel: ' + error.message);
+    throw error;
   }
 };
 
@@ -569,13 +577,17 @@ const insertPostDataModel = async (targetTable: string, tablePayload: tablePaylo
       };
     }
 
-    const affectedTableIdsForTruncate = getDescendants(targetTableInfo.id, hierarchy);
+    const allAffectedTableIds = new Set<number>();
+    requiredTableIdsForInsert.forEach((tableId) => {
+      const descendants = getDescendants(tableId, hierarchy);
+      descendants.forEach((descendantId) => allAffectedTableIds.add(descendantId));
+    });
 
     const fullSortedOrder = getSeedingOrder(hierarchy);
     const tablesToTruncate: string[] = fullSortedOrder
       .filter((tableName) => {
         const id = hierarchy.find((t) => t.table === tableName)?.id;
-        return id !== undefined && affectedTableIdsForTruncate.has(id);
+        return id !== undefined && allAffectedTableIds.has(id);
       })
       .reverse();
 
@@ -891,7 +903,6 @@ const getPostDataFilesModel = async (tableName: string) => {
         isLive: isLive,
       });
     }
-    return results;
   } catch (error: any) {
     console.error(`[saModel] Error reading post-data files for table "${tableName}":`, error.message);
     throw new Error(`Failed to fetch post-data files for table "${tableName}".`);
