@@ -3,7 +3,6 @@ import { create } from 'zustand';
 import api from '@/services/api';
 
 const getInitialState = () => ({
-  // You can add list data, pagination, filters, etc. here if needed
   // CRUD states
   isCreating: false,
   isUpdating: false,
@@ -30,7 +29,6 @@ const useAppointmentStore = create((set, get) => ({
     set({ isFetching: true, error: false, errorMessage: null });
     try {
       const response = await api.get(`/ab/id/${id}`);
-      // Assuming response.data is the appointment object:
       // { id, member_id, servicing_employee_id, appointment_date, start_time, end_time, remarks, ... }
       set({ selectedAppointment: response.data, isFetching: false });
       return { success: true, data: response.data };
