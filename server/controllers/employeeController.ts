@@ -195,7 +195,7 @@ const createAndInviteEmployee = async (
       role_name:    role,
       employee_code: code,
       employee_name: name,
-      employee_is_active: true,
+      employee_is_active: false,
       position_ids,
       created_at,
       updated_at,
