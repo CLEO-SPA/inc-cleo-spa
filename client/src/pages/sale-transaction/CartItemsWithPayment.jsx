@@ -258,6 +258,39 @@ const CartItemsWithPayment = ({
 
   const paymentSections = getPaymentSections();
 
+  // Auto-add transfer payment method for transfer sections
+  const autoAddTransferPayment = (sectionId, amount) => {
+    // Check if this section already has a transfer payment
+    const existingPayments = sectionPayments[sectionId] || [];
+    const hasTransferPayment = existingPayments.some(payment => 
+      payment.methodName === 'Transfer' || payment.methodId === 'transfer'
+    );
+    
+    if (!hasTransferPayment) {
+      const transferPayment = {
+        id: Date.now(),
+        methodId: 'transfer',
+        methodName: 'Transfer',
+        amount: amount,
+        remark: 'Auto-generated transfer payment'
+      };
+      
+      onPaymentChange('add', sectionId, transferPayment);
+    }
+  };
+
+  // Effect to auto-add transfer payments when sections are created
+  useEffect(() => {
+    const paymentSections = getPaymentSections();
+    
+    paymentSections.forEach(section => {
+      // Check if this is a transfer section
+      if (section.id.startsWith('transfer-mcp-') || section.id.startsWith('transfer-mv-')) {
+        autoAddTransferPayment(section.id, section.amount);
+      }
+    });
+  }, [cartItems, itemPricing, sectionPayments]);
+
   return (
     <>
       {/* Cart Items Sections */}

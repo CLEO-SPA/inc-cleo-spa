@@ -176,12 +176,16 @@ const useSaleTransactionStore = create(
           const servicesProductsCount = processedTransactionData.servicesProducts?.items?.length > 0 ? 1 : 0;
           const mcpCount = processedTransactionData.mcpTransactions?.length || 0;
           const mvCount = processedTransactionData.mvTransactions?.length || 0;
-          const totalTransactions = servicesProductsCount + mcpCount + mvCount;
+          const mcpTransferCount = processedTransactionData.mcpTransferTransactions?.length || 0;
+          const mvTransferCount = processedTransactionData.mvTransferTransactions?.length || 0;
+          const totalTransactions = servicesProductsCount + mcpCount + mvCount + mcpTransferCount + mvTransferCount;
 
           console.log('📊 Transaction Summary:', {
             servicesProducts: servicesProductsCount,
             mcpTransactions: mcpCount,
             mvTransactions: mvCount,
+            mcpTransferTransactions: mcpTransferCount,
+            mvTransferTransactions: mvTransferCount,
             total: totalTransactions,
             transactionDetails
           });

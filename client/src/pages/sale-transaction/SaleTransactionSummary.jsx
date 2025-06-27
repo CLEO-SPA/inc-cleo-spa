@@ -328,6 +328,8 @@ const SaleTransactionSummary = () => {
         products: cartItems.filter(item => item.type === 'product'),
         packages: cartItems.filter(item => item.type === 'package'),
         vouchers: cartItems.filter(item => item.type === 'member-voucher'),
+        mcpTransfers: cartItems.filter(item => item.type === 'transferMCP' || (item.type === 'transfer' && item.data?.queueItem?.mcp_id1)),
+        mvTransfers: cartItems.filter(item => item.type === 'transferMV'),
       };
 
       // Prepare transaction data - the store will handle transaction details automatically
