@@ -45,6 +45,8 @@ const CartItemsWithPayment = ({
     'Products': cartItems.filter(item => item.type === 'product'),
     'Packages': cartItems.filter(item => item.type === 'package'),
     'Vouchers': cartItems.filter(item => item.type === 'member-voucher'),
+    'TransferMCP': cartItems.filter(item => item.type === 'transferMCP' || (item.type === 'transfer' && item.data?.queueItem?.mcp_id1)),
+    'TransferMV': cartItems.filter(item => item.type === 'transferMV'),
   };
 
   // Create payment sections based on cart items
@@ -86,6 +88,30 @@ const CartItemsWithPayment = ({
       sections.push({
         id: `voucher-${item.id}`,
         title: `Voucher: ${item.data?.member_voucher_name || 'Unnamed Voucher'}`,
+        amount: pricing.totalLinePrice,
+        required: false,
+        items: [item]
+      });
+    });
+
+    // Individual sections for MCP Transfers
+    groupedItems.TransferMCP.forEach(item => {
+      const pricing = getItemPricing(item.id);
+      sections.push({
+        id: `transfer-mcp-${item.id}`,
+        title: `MCP Transfer: ${item.data?.description || item.data?.name || 'MCP Balance Transfer'}`,
+        amount: pricing.totalLinePrice,
+        required: false,
+        items: [item]
+      });
+    });
+
+    // Individual sections for MV Transfers
+    groupedItems.TransferMV.forEach(item => {
+      const pricing = getItemPricing(item.id);
+      sections.push({
+        id: `transfer-mv-${item.id}`,
+        title: `MV Transfer: ${item.data?.description || item.data?.name || 'Member Voucher Transfer'}`,
         amount: pricing.totalLinePrice,
         required: false,
         items: [item]

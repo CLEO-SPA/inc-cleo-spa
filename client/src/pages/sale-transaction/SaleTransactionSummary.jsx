@@ -78,7 +78,12 @@ const SaleTransactionSummary = () => {
       }
       
       // Initialize pricing data for each item
-      const originalPrice = item.data?.price || item.data?.total_price || 0;
+      let originalPrice;
+      if (item.type === 'transfer' || item.type === 'transferMCP' || item.type === 'transferMV') {
+        originalPrice = item.data?.amount || 0;
+      } else {
+        originalPrice = item.data?.price || item.data?.total_price || 0;
+      }
       const quantity = item.data?.quantity || 1;
       
       initialPricing[item.id] = {

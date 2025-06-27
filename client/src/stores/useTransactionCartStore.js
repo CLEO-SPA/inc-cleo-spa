@@ -88,7 +88,7 @@ const useTransactionCartStore = create(
             console.log('📦 Removing package from MCP creation queue:', id);
             useMcpFormStore.getState().removeMcpFromCreationQueue(id);
           }
-          if (itemToRemove.type === 'transfer') {
+          if (itemToRemove.type === 'transfer' || itemToRemove.type === 'transferMCP') {
             useMcpFormStore.getState().removeMcpFromTransferQueue(id);
           }
         }
@@ -127,6 +127,8 @@ const useTransactionCartStore = create(
               itemTotal = item.data?.price || 0;
               break;
             case 'transfer':
+            case 'transferMCP':
+            case 'transferMV':
               itemTotal = item.data?.amount || 0;
               break;
             default:
