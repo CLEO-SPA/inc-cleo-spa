@@ -180,7 +180,7 @@ export default function CreateEmployeeTimetablePage() {
                         <CurrentDateDisplay />
                         <div className='grid grid-cols-4 items-center gap-2'>
                           <Label className='col-span-1'>Employee*</Label>
-                          <div className='col-span-3'>
+                          <div className='col-span-2'>
                             <EmployeeSelect name='employee_id' label='' rules={{ required: 'Employee is required' }} />
                           </div>
                         </div>
@@ -193,7 +193,7 @@ export default function CreateEmployeeTimetablePage() {
                         <RestDaySelect value={newRestDay} onChange={setNewRestDay} />
                         <div className='grid grid-cols-4 items-center gap-2'>
                           <Label className='col-span-1'>Created By*</Label>
-                          <div className='col-span-3'>
+                          <div className='col-span-2'>
                             <EmployeeSelect name='created_by' label='' rules={{ required: 'Created By is required' }} />
                           </div>
                         </div>

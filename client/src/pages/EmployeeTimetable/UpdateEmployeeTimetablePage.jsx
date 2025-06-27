@@ -205,7 +205,7 @@ export default function UpdateEmployeeTimetablePage() {
                       <div className='grid grid-cols-2 gap-6'>
                         <div className='grid grid-cols-4 items-center gap-2'>
                           <Label className='col-span-1'>Updated By*</Label>
-                          <div className='col-span-3'>
+                          <div className='col-span-2'>
                             <EmployeeSelect name='updated_by' label='' rules={{ required: 'Updated by is required' }} />
                           </div>
                         </div>
