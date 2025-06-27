@@ -32,6 +32,7 @@ const checkEmployeeCodeExists = async (employee_code: number) => {
 
     return result.rows.length > 0;
   } catch (error) {
+    console.error('Error checking employee code existence', error);
     throw new Error('Error checking employee code existence');
   }
 };
@@ -118,6 +119,7 @@ const getAuthUser = async (identity: string | number) => {
 
     return result.rows[0];
   } catch (error) {
+    console.error('Error fetching employee data', error);
     throw new Error('Error fetching employee data');
   }
 };
@@ -153,6 +155,7 @@ const getUserData = async (identity: string | number) => {
 
     return result.rows[0];
   } catch (error) {
+    console.error('Error fetching employee data', error);
     throw new Error('Error fetching employee data');
   }
 };
@@ -423,24 +426,6 @@ const employeeExists = async (employeeId: number): Promise<boolean> => {
 }
 
 /**
- * Get /api/em/dropdown
- * This endpoint retrieves employee lists for dropdown functionality.
- */
-const getAllEmployeesForDropdown = async () => {
-  try {
-    const query = `
-      SELECT id, employee_name FROM employees
-      ORDER BY employee_name ASC
-    `;
-    const result = await pool().query(query);
-    return result.rows;
-  } catch (error) {
-    console.error('Error fetching employee list:', error);
-    throw new Error('Error fetching employee list');
-  }
-};
-
-/**
  * Get /api/em/employeeName/:employeeId
  * This endpoint retrieves employee name by employee id
  */
@@ -461,6 +446,47 @@ const getEmployeeNameByEmployeeById = async (employeeId: number): Promise<Detail
   }
 };
 
+export const getEmployeeIdByUserAuthId = async (id: string) => {
+  const employee_sql = 'SELECT id FROM employees WHERE user_auth_id = $1';
+  const params = [id];
+
+  return await pool().query<{ id: string }>(employee_sql, params);
+};
+
+// const getBasicEmployeeDetails = async (): Promise<Employee[]> => {
+//   const query = `
+//     SELECT 
+//       id, 
+//       employee_name 
+//     FROM employees e 
+//     WHERE employee_is_active = true 
+//     ORDER BY employee_name ASC`;
+//   try {
+//     const result = await pool().query(query);
+//     return result.rows.map((row: any) => ({
+//       id: row.id,
+//       employee_name: row.employee_name,
+//       position_id: row.position_id,
+//     }));
+//   } catch (error) {
+//     console.error('Database error in getBasicEmployeeDetails: ', error);
+//     throw new Error('Failed to fetch basic employee details from database');
+//   }
+// };
+
+const getAllEmployeesForDropdown = async () => {
+  try {
+    const query = `
+      SELECT id, employee_name FROM employees
+      ORDER BY employee_name ASC
+    `;
+    const result = await pool().query(query);
+    return result.rows;
+  } catch (error) {
+    console.error('Error fetching employee list:', error);
+    throw new Error('Error fetching employee list');
+  }
+};
 export default {
   // createEmployee,
   checkEmployeeCodeExists,
@@ -470,8 +496,9 @@ export default {
   createSuperUser,
   getUserCount,
   getUserData,
-  getAllEmployeesForDropdown,
+  getEmployeeIdByUserAuthId,
   getBasicEmployeeDetails,
+  getAllEmployeesForDropdown,
   getAllActivePositions,
   getEmployeeById,
   employeeExists,
