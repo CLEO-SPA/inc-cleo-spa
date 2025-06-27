@@ -13,9 +13,12 @@ import {
 } from "@/components/ui/select";
 import { SiteHeader } from '@/components/site-header';
 import { SidebarInset, SidebarProvider } from '@/components/ui/sidebar';
-import { Label } from "@radix-ui/react-select";
 
 export default function ReorderProduct() {
+  //Role-based access
+  const { user } = useAuth();
+  const allowedRoles = ['super_admin', 'data_admin'];
+
   // For modal
   const [modalOpen, setModalOpen] = useState(false);
   const [errorMsg, setErrorMsg] = useState('');
@@ -116,6 +119,13 @@ export default function ReorderProduct() {
       console.error('Error fetching categories:' + err);
     }
   }, [])
+
+  // Redirect to 404 page if user does not have the right role
+  useEffect(() => {
+    if (!user || !allowedRoles.includes(user.role)) {
+      navigate('*'); 
+    }
+  }, [user, navigate]);
 
   // upon category being selected
   useEffect(() => {

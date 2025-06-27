@@ -20,6 +20,10 @@ import { SidebarInset, SidebarProvider } from '@/components/ui/sidebar';
 import EmployeeSelect from '@/components/ui/forms/EmployeeSelect';
 
 export default function CreateProduct() {
+  //Role-based access
+  const { user } = useAuth();
+  const allowedRoles = ['super_admin', 'data_admin'];
+
   // Modal to show success or error message
   const [modalOpen, setModalOpen] = useState(false);
   const [errorMsg, setErrorMsg] = useState('');
@@ -118,6 +122,13 @@ export default function CreateProduct() {
       console.error('Error fetching data:' + err);
     }
   }, [])
+
+  // Redirect to 404 page if user does not have the right role
+  useEffect(() => {
+    if (!user || !allowedRoles.includes(user.role)) {
+      navigate('*'); 
+    }
+  }, [user, navigate]);
 
   useEffect(() => {
     try {

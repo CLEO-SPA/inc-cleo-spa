@@ -20,6 +20,10 @@ import EmployeeSelect from '@/components/ui/forms/EmployeeSelect';
 import { useSimulationStore } from "@/stores/useSimulationStore";
 
 export default function UpdateProduct() {
+  //Role-based access
+  const { user } = useAuth();
+  const allowedRoles = ['super_admin', 'data_admin'];
+
   // Get Product Id from Params
   const { product_id } = useParams();
 
@@ -107,7 +111,6 @@ export default function UpdateProduct() {
   };
 
   useEffect(() => {
-    // Test data
     try {
       getProduct(product_id);
       getCategories();
@@ -115,6 +118,13 @@ export default function UpdateProduct() {
       console.error('Error fetching data:' + err);
     }
   }, [product_id])
+
+  // Redirect to 404 page if user does not have the right role
+  useEffect(() => {
+    if (!user || !allowedRoles.includes(user.role)) {
+      navigate('*'); 
+    }
+  }, [user, navigate]);
 
   useEffect(() => {
     // Fixed: Add null check before accessing product properties

@@ -18,9 +18,14 @@ import { SiteHeader } from '@/components/site-header';
 import { SidebarInset, SidebarProvider } from '@/components/ui/sidebar';
 import EmployeeSelect from '@/components/ui/forms/EmployeeSelect';
 import { useSimulationStore } from "@/stores/useSimulationStore";
-import { set } from "date-fns";
+import { useAuth } from "@/context/AuthContext";
 
 export default function ManageProduct() {
+  // Check user role
+  const { user } = useAuth();
+  const allowedRoles = ['super_admin', 'data_admin'];
+  const isAdmin = user && allowedRoles.includes(user.role);
+
   // loading state
   const [dataLoading, setDataLoading] = useState(false);
   const [statusLoading, setStatusLoading] = useState(false);
@@ -119,7 +124,6 @@ export default function ManageProduct() {
         ...updateForm,
         enabled: !product.product_is_enabled,
         updated_at: isSimulationActive ? new Date(simulationStartDate) : new Date(),
-        updatedBy: updatedBy || "",
         product_remarks: product.product_remarks
       }
       setUpdateForm(updateData);
@@ -146,8 +150,8 @@ export default function ManageProduct() {
   const handleSubmit = async (e) => {
     e.preventDefault();
     setStatusLoading(true);
-    set
-    if (!updateForm.updated_by) {
+    if (!updateForm.updated_by || updateForm.updated_by === "") {
+      setStatusLoading(false);
       setErrorMsg('Please select who updated this product');
       return;
     }
@@ -269,9 +273,6 @@ export default function ManageProduct() {
                         </button>
                       </div>
                       <div className="mt-4">
-                        {errorMsg && (
-                          <span className="text-red-500">{errorMsg}</span>
-                        )}
                         <FormProvider {...methods}>
                           <form onSubmit={handleSubmit} className="space-y-3">
 
@@ -291,6 +292,9 @@ export default function ManageProduct() {
                                 name='updated_by'
                                 label=''
                                 rules={{ required: 'Updated_by is required' }} />
+                              {errorMsg && (
+                                <span className="text-red-500">{errorMsg}</span>
+                              )}
                             </div>
 
                             {/* Remarks */}
@@ -331,8 +335,8 @@ export default function ManageProduct() {
             <div className='flex flex-1 flex-col gap-4 p-4'>
               {/* Buttons for other Functionalities */}
               <div className="flex space-x-4 p-4 bg-muted/50 rounded-lg">
-                <Button onClick={() => navigate("/create-product")} className="rounded-xl">Create Product</Button>
-                <Button onClick={() => navigate("/reorder-product")} className="rounded-xl">Reorder Product</Button>
+                <Button onClick={() => navigate("/create-product")} className="rounded-xl" disabled={!isAdmin}>Create Product</Button>
+                <Button onClick={() => navigate("/reorder-product")} className="rounded-xl" disabled={!isAdmin}>Reorder Product</Button>
                 <Button onClick={() => navigate("/manage-product-category")} className="rounded-xl">Manage Categories</Button>
               </div>
               {/* Filter */}
@@ -421,14 +425,17 @@ export default function ManageProduct() {
                                     <Switch
                                       checked={product.product_is_enabled}
                                       onCheckedChange={() => handleSwitchChange(product)}
+                                      disabled={!isAdmin}
                                     />
                                   </td>
                                   {/* Action Row */}
                                   <td className="px-4 py-2 border border-gray-200">
                                     <div className="flex space-x-2 space-y-1">
-                                      <Button className="p-1 bg-green-600 text-white text-sm font-medium rounded-xl hover:bg-green-700" onClick={() => navigate(`/update-product/${product.id}`)}>
-                                        <FilePenLine className="inline-block mr-1" />
-                                      </Button>
+                                      {isAdmin && (
+                                        <Button className="p-1 bg-green-600 text-white text-sm font-medium rounded-xl hover:bg-green-700" onClick={() => navigate(`/update-product/${product.id}`)}>
+                                          <FilePenLine className="inline-block mr-1" />
+                                        </Button>
+                                      )}
                                       <Button className="px-2 py-1 bg-gray-600 text-white text-sm font-medium rounded-xl hover:bg-blue-700" onClick={() => navigate(`/view-sales-history/${product.id}`)}>
                                         View Sales History
                                       </Button>
