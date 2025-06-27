@@ -279,6 +279,9 @@ export function SiteHeader() {
                           {isLoadingSimulation ? 'Activating...' : 'Activate Simulation'}
                         </Button>
                       )}
+                      <Button variant='ghost' onClick={() => setIsSimPopoverOpen(false)} disabled={isLoadingSimulation}>
+                        Close
+                      </Button>
                     </div>
                   </div>
                 </PopoverContent>
