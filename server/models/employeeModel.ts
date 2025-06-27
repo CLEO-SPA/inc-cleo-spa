@@ -14,6 +14,23 @@ const checkEmployeeCodeExists = async (employee_code: number) => {
   }
 };
 
+/**
+ * Check if a phone / contact number is already linked to an employee.
+ * Returns true when **any** row matches.
+ */
+const checkEmployeePhoneExists = async (employee_contact: string) => {
+  try {
+    const query  = `SELECT 1 FROM employees WHERE employee_contact = $1`;
+    const values = [employee_contact.trim()];
+
+    const result = await pool().query(query, values);
+    return result.rowCount > 0;            // ❯ true if at least one match
+  } catch (error) {
+    console.error('Error checking employee phone existence:', error);
+    throw new Error('Error checking employee phone existence');
+  }
+};
+
 const getAllEmployees = async (offset: number, limit: number, startDate_utc: string, endDate_utc: string) => {
   try {
     // Step 1: Fetch paginated employee IDs based on date range
@@ -41,9 +58,11 @@ const getAllEmployees = async (offset: number, limit: number, startDate_utc: str
     const dataQuery = `
       SELECT 
         e.id AS employee_id,
+        e.employee_code,
         e.employee_name,
         e.employee_email,
         e.employee_is_active,
+        e.employee_contact,
         e.created_at,
         e.updated_at,
         p.id AS position_id,
@@ -70,7 +89,9 @@ const getAllEmployees = async (offset: number, limit: number, startDate_utc: str
           id: empId,
           employee_name: row.employee_name,
           employee_email: row.employee_email,
+          employee_code: row.employee_code,
           employee_is_active: row.employee_is_active,
+          employee_contact: row.employee_contact,
           created_at: row.created_at,
           updated_at: row.updated_at,
           verification_status: row.status_name,
@@ -404,6 +425,7 @@ const getAllRolesForDropdown = async () => {
 
 export default {
   checkEmployeeCodeExists,
+  checkEmployeePhoneExists,
   getAuthUser,
   updateEmployeePassword,
   getAllEmployees,

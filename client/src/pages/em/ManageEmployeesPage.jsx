@@ -147,10 +147,13 @@ export default function ManageEmployeePage() {
                             <TableHead>#</TableHead>
                             <TableHead>Name</TableHead>
                             <TableHead>Email</TableHead>
+                            <TableHead>Code</TableHead>
+                            <TableHead>Contact</TableHead>
                             <TableHead>Status</TableHead>
                             <TableHead>Positions</TableHead>
                             <TableHead>Created</TableHead>
                             <TableHead>Updated</TableHead>
+
                             <TableHead className='text-right'>Actions</TableHead>
                           </TableRow>
                         </TableHeader>
@@ -160,6 +163,8 @@ export default function ManageEmployeePage() {
                               <TableCell>{(currentPage - 1) * pageSize + index + 1}</TableCell>
                               <TableCell>{employee.employee_name}</TableCell>
                               <TableCell>{employee.employee_email}</TableCell>
+                              <TableCell>{employee.employee_code}</TableCell>
+                              <TableCell>{employee.employee_contact || 'N/A'}</TableCell>
                               <TableCell>
                                 <Badge
                                   className={

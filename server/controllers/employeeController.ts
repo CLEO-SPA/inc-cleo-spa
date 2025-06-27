@@ -116,59 +116,100 @@ const getAuthUser = async (req: Request, res: Response, next: NextFunction): Pro
   }
 };
 
-const createAndInviteEmployee = async (req: Request, res: Response, next: NextFunction): Promise<void> => {
+const createAndInviteEmployee = async (
+  req: Request,
+  res: Response,
+  next: NextFunction
+): Promise<void> => {
   try {
+    /* -------------------------------------------------------------------- *
+     * 1.  Trim inputs so "   " → ""  (prevents sneaky whitespace values)   *
+     * -------------------------------------------------------------------- */
     const {
-      employee_email,
-      employee_name,
-      employee_contact,
-      employee_code,
-      role_name,
+      employee_email   = '',
+      employee_name    = '',
+      employee_contact = '',
+      employee_code    = '',
+      role_name        = '',
       position_ids,
       created_at,
       updated_at,
     } = req.body;
 
-    if (!employee_email || !employee_name || !employee_contact || !employee_code || !role_name) {
-      res.status(400).json({ message: 'Missing required fields for employee creation.' });
-      return;
-    }
-    if (!validator.isEmail(employee_email)) {
-      res.status(400).json({ message: 'Invalid email format' });
+    const email        = employee_email.trim();
+    const name         = employee_name.trim();
+    const contact      = employee_contact.trim();
+    const code         = String(employee_code).trim(); // cope with numeric codes
+    const role         = role_name.trim();
+
+    /* -------------------------------------------------------------------- *
+     * 2.  Required-field & format checks                                   *
+     * -------------------------------------------------------------------- */
+    const missing =
+      !email || !name || !contact || !code || !role;
+
+    if (missing) {
+      res.status(400).json({ message: 'All required fields must be non-blank.' });
       return;
     }
 
-    const existingUser = await model.getAuthUser(employee_email);
-    if (existingUser) {
+    if (!validator.isEmail(email)) {
+      res.status(400).json({ message: 'Invalid email format.' });
+      return;
+    }
+
+    // (Optional) strict phone test; tweak locale list as needed
+    if (!validator.isMobilePhone(contact, 'any', { strictMode: false })) {
+      res.status(400).json({ message: 'Invalid contact number format.' });
+      return;
+    }
+
+    /* -------------------------------------------------------------------- *
+     * 3.  Uniqueness checks                                                *
+     * -------------------------------------------------------------------- */
+    if (await model.getAuthUser(email)) {
       res.status(409).json({ message: 'User with this email already exists.' });
       return;
     }
 
+    if (await model.checkEmployeeCodeExists(code)) {
+      res.status(409).json({ message: 'Employee code already in use.' });
+      return;
+    }
+
+    if (await model.checkEmployeePhoneExists(contact)) {
+      res.status(409).json({ message: 'Employee contact already in use.' });
+      return;
+    }
+
+    /* -------------------------------------------------------------------- *
+     * 4.  Create user + employee                                           *
+     * -------------------------------------------------------------------- */
     const defaultPassword = crypto.randomBytes(8).toString('hex');
-    const password_hash = await bcrypt.hash(defaultPassword, 10);
+    const password_hash   = await bcrypt.hash(defaultPassword, 10);
 
     const results = await model.createAuthAndEmployee({
-      email: employee_email,
+      email,
       password_hash,
-      phone: employee_contact,
-      role_name,
-      employee_code,
-      employee_name,
+      phone:        contact,
+      role_name:    role,
+      employee_code: code,
+      employee_name: name,
       employee_is_active: true,
       position_ids,
       created_at,
       updated_at,
     });
 
-    const token = jwt.sign({ email: employee_email }, process.env.INV_JWT_SECRET as string, {
-      expiresIn: '3d',
-    });
-
-    const callbackUrl = `${process.env.LOCAL_FRONTEND_URL}/reset-password?token=${token}`;
+    /* -------------------------------------------------------------------- *
+     * 5.  Send invite link                                                 *
+     * -------------------------------------------------------------------- */
+    const token = jwt.sign({ email }, process.env.INV_JWT_SECRET as string, { expiresIn: '3d' });
+    const resetUrl = `${process.env.LOCAL_FRONTEND_URL}/reset-password?token=${token}`;
 
     res.status(201).json({
-      message: 'Employee created successfully. Please send the following link to the user to set their password.',
-      resetUrl: callbackUrl,
+      message: 'Employee created successfully. Send the link below so they can set a password.',
+      resetUrl,
       results,
     });
   } catch (error) {
