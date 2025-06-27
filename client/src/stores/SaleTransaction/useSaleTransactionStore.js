@@ -548,8 +548,10 @@ const useSaleTransactionStore = create(
           }))
         });
 
-        const response = await api.post('/st/mv', payload);
-        
+        // const response = await api.post('/st/mv', payload);
+        const response = await api.post('/mv/create', payload);
+        const mvId = response.data.data.voucher_id
+        console.log(mvId)
         if (!response.data?.success) {
           throw new Error(response.data?.message || 'Failed to create MV transaction');
         }
