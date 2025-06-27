@@ -160,7 +160,7 @@ const deletePosition = async (id: number) => {
     await client.query('BEGIN');
 
     // Check if position is being used by any employees
-    const checkQuery = `SELECT COUNT(*) FROM employees WHERE position_id = $1`;
+    const checkQuery = `SELECT COUNT(*) FROM employee_to_position WHERE position_id = $1`;
     const checkResult = await client.query(checkQuery, [id]);
     const employeeCount = parseInt(checkResult.rows[0].count, 10);
 
