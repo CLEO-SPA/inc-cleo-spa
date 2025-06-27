@@ -330,7 +330,7 @@ const changeProductStatus = async (req: Request, res: Response, next: NextFuncti
       enabled:boolean;
       updated_by: number;
       updated_at: string;
-      product_sequence_no?: number;
+      product_sequence_no: number;
       product_remarks?: string | null } = {
       id: id,
       enabled: data.enabled,
@@ -343,7 +343,8 @@ const changeProductStatus = async (req: Request, res: Response, next: NextFuncti
     // check if disabled or not
     const product = await productModel.getProductById(id);
     if (data.enabled == product.product_is_enabled) {
-      res.status(400).json({ message: 'Product is already disabled.' });
+      const statusMsg = data.enabled ? 'enabled' : 'disabled';
+      res.status(400).json({ message: `Product is already ${statusMsg}` });
       return;
     }
 
