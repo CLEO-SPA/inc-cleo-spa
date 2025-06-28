@@ -57,7 +57,7 @@ export const useCpPaginationStore = create((set, get) => ({
         isLoading: false, // Turn off loading after data is set
         error: null, // Clear any previous error
       };
-      console.log('State after setPaginationData:', { ...state, ...newState });
+      // console.log('State after setPaginationData:', { ...state, ...newState });
       return newState;
     }),
 
@@ -93,7 +93,7 @@ export const useCpPaginationStore = create((set, get) => ({
       // Use your imported API service
       const response = await api.get('/cp/pkg', { params: queryParams });
 
-      console.log(response);
+      // console.log(response);
 
       // Update state with fetched data
       get().setPaginationData(response.data.data, response.data.pageInfo, searchTerm);
@@ -176,7 +176,7 @@ export const useCpPaginationStore = create((set, get) => ({
       }));
 
       set({
-        purchaseCountData: response.data, 
+        purchaseCountData: response.data,
         purchaseCountArray: purchaseCountArray,
         isPurchaseCountLoading: false,
         purchaseCountError: null,

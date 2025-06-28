@@ -10,7 +10,6 @@ import EmployeeSelect from '@/components/ui/forms/EmployeeSelect';
 import ServiceSelect from '@/components/ui/forms/ServiceSelect';
 import CarePackageSelect from '@/components/ui/forms/CarePackageSelect';
 import { useMcpFormStore } from '@/stores/MemberCarePackage/useMcpFormStore';
-import useCpSelectionStore from '@/stores/CarePackage/useCpSelectionStore';
 import useTransactionCartStore from '@/stores/useTransactionCartStore';
 
 const CreateMemberCarePackageForm = () => {
@@ -19,6 +18,7 @@ const CreateMemberCarePackageForm = () => {
     serviceForm,
     employeeOptions,
     serviceOptions,
+    packageOptions,
     isCustomizable,
     isLoading,
     error,
@@ -32,54 +32,28 @@ const CreateMemberCarePackageForm = () => {
     resetServiceForm,
     fetchEmployeeOptions,
     fetchServiceOptions,
+    fetchCarePackageOptions,
+    selectCarePackage,
+    addMcpToCreationQueue,
   } = useMcpFormStore();
 
-  // care package selection store
-  const {
-    carePackages,
-    loading: packagesLoading,
-    error: packagesError,
-    fetchDropdownCarePackages,
-    fetchCarePackageDetails,
-    getCarePackageDetails,
-  } = useCpSelectionStore();
+  const { selectedMember, addCartItem } = useTransactionCartStore();
 
-  const { selectedMember } = useTransactionCartStore();
-
-  // state for bypass mode and select key
   const [bypassPackage, setBypassPackage] = useState(false);
-  const [selectKey, setSelectKey] = useState(0);
   const [selectedPackageId, setSelectedPackageId] = useState(null);
 
-  // fetch options on component mount
   useEffect(() => {
-    if (employeeOptions.length === 0) {
-      fetchEmployeeOptions();
-    }
-    if (serviceOptions.length === 0) {
-      fetchServiceOptions();
-    }
-    if (carePackages.length === 0) {
-      fetchDropdownCarePackages();
-    }
-  }, [
-    fetchEmployeeOptions,
-    fetchServiceOptions,
-    fetchDropdownCarePackages,
-    employeeOptions.length,
-    serviceOptions.length,
-    carePackages.length,
-  ]);
+    fetchEmployeeOptions();
+    fetchServiceOptions();
+    fetchCarePackageOptions();
+  }, [fetchEmployeeOptions, fetchServiceOptions, fetchCarePackageOptions]);
 
-  // reset the select component when package is cleared
   useEffect(() => {
     if (!mainFormData.package_name) {
-      setSelectKey((prev) => prev + 1);
       setSelectedPackageId(null);
     }
   }, [mainFormData.package_name]);
 
-  // handle form submission
   const handleSubmit = (e) => {
     e.preventDefault();
 
@@ -103,137 +77,64 @@ const CreateMemberCarePackageForm = () => {
       return;
     }
 
-    // here you would typically make an API call to create the member care package
-    console.log('Creating member care package:', {
+    const mcpId = crypto.randomUUID();
+
+    const cartPackageData = {
+      id: mcpId,
       ...mainFormData,
+      name: mainFormData.package_name,
+      price: mainFormData.package_price,
+      description: mainFormData.package_remarks,
       member_id: selectedMember.id,
-      bypassPackage,
+      is_custom: bypassPackage,
       template_package_id: selectedPackageId,
+    };
+
+    addCartItem({
+      id: mcpId,
+      type: 'package',
+      data: cartPackageData,
     });
 
+    addMcpToCreationQueue(cartPackageData);
+
     alert('Member care package added to cart successfully!');
+    resetMainForm();
+    setSelectedPackageId(null);
+    setBypassPackage(false);
   };
 
-  // handle bypass package toggle
   const handleBypassToggle = (checked) => {
     setBypassPackage(checked);
-    
+
     if (checked) {
       if (mainFormData.package_name && mainFormData.services.length > 0) {
         const keepTemplate = confirm(
           'You have a template selected. Would you like to keep its services as a starting point for your custom package?'
         );
-        
+
         if (!keepTemplate) {
-          updateMainField('package_name', '');
-          updateMainField('package_remarks', '');
-          updateMainField('services', []);
-          updateMainField('package_price', 0);
+          resetMainForm();
           setSelectedPackageId(null);
         }
       }
     } else {
       if (!mainFormData.package_name) {
-        updateMainField('services', []);
-        updateMainField('package_price', 0);
+        resetMainForm();
         setSelectedPackageId(null);
       }
     }
   };
 
-  // handle package selection - updated to work with new store
-  const handlePackageSelect = async (packageData) => {
-    console.log("CreateMemberCarePackageForm handlePackageSelect called with:", packageData);
-    
-    if (packageData) {
-      try {
-        const packageId = packageData.id || packageData.care_package_id;
-        console.log("Setting package ID:", packageId);
-        setSelectedPackageId(packageId);
-        let fullPackageDetails = packageData;
-        
-        const hasFullDetails = packageData.services || packageData.care_package_details || 
-                              packageData.hasOwnProperty('status_id') ||
-                              packageData.hasOwnProperty('1');
-        
-        if (!hasFullDetails && packageId) {
-          console.log("Basic package info received, fetching full details...");
-          try {
-            const detailedData = await fetchCarePackageDetails(packageId);
-            if (detailedData) {
-              fullPackageDetails = detailedData;
-              console.log("Got full package details:", fullPackageDetails);
-            }
-          } catch (error) {
-            console.warn("Could not fetch full details, using basic info:", error);
-          }
-        }
-
-        // update main form with package details
-        const packageName = fullPackageDetails.care_package_name || 
-                           fullPackageDetails.package_name || 
-                           fullPackageDetails.name || '';
-        
-        const packageRemarks = fullPackageDetails.care_package_remarks || 
-                              fullPackageDetails.package_remarks || 
-                              fullPackageDetails.remarks || '';
-        
-        const packagePrice = parseFloat(fullPackageDetails.care_package_price || 
-                                       fullPackageDetails.package_price || 
-                                       fullPackageDetails.price || 0);
-
-        console.log("Updating form with:", { packageName, packageRemarks, packagePrice });
-
-        updateMainField('package_name', packageName);
-        updateMainField('package_remarks', packageRemarks);
-        updateMainField('package_price', packagePrice);
-        
-        // if package has predefined services, add them
-        const services = fullPackageDetails.services || 
-                        fullPackageDetails.care_package_details || 
-                        fullPackageDetails.details || [];
-        
-        if (Array.isArray(services) && services.length > 0) {
-          console.log("Processing services:", services);
-          const formattedServices = services.map(service => ({
-            id: service.id || service.service_id,
-            name: service.name || service.service_name,
-            quantity: service.quantity || service.member_care_package_details_quantity || 1,
-            price: parseFloat(service.price || service.member_care_package_details_price || 0),
-            discount: parseFloat(service.discount || service.member_care_package_details_discount || 1),
-            finalPrice: parseFloat(service.finalPrice || service.member_care_package_details_price || 0),
-          }));
-          updateMainField('services', formattedServices);
-          console.log("Updated services:", formattedServices);
-        }
-
-        // set customizable flag if available
-        const isCustomizable = fullPackageDetails.member_care_package_customizable || 
-                              fullPackageDetails.is_customizable || 
-                              fullPackageDetails.customizable;
-        
-        if (typeof isCustomizable !== 'undefined') {
-          updateMainField('customizable', Boolean(isCustomizable));
-          console.log("Set customizable to:", Boolean(isCustomizable));
-        }
-        
-      } catch (error) {
-        console.error('Failed to process package selection:', error);
-        alert('Failed to load package details. Please try again.');
-      }
+  const handlePackageSelect = (pkg) => {
+    if (pkg) {
+      setSelectedPackageId(pkg.id);
+      selectCarePackage(pkg);
     } else {
-      // clear package selection
-      console.log("Clearing package selection");
-      updateMainField('package_name', '');
-      updateMainField('package_remarks', '');
-      updateMainField('services', []);
-      updateMainField('package_price', 0);
+      resetMainForm();
       setSelectedPackageId(null);
     }
   };
-
-  // check if currently loading packages
-  const isPackagesLoading = packagesLoading || isLoading;
 
   return (
     <div className='space-y-6'>
@@ -276,20 +177,17 @@ const CreateMemberCarePackageForm = () => {
             <div className='space-y-4'>
               <div className='space-y-1'>
                 <CarePackageSelect
-                  key={selectKey}
-                  name='care_package_id'
                   label={`Care Package Template ${bypassPackage ? '(Optional)' : ''}`}
-                  value={selectedPackageId || ''}
-                  onSelectFullDetails={handlePackageSelect}
-                  disabled={isPackagesLoading}
-                  error={packagesError}
-                  placeholder={mainFormData.package_name || 'Select a care package template...'}
+                  value={selectedPackageId}
+                  onSelect={handlePackageSelect}
+                  options={packageOptions}
+                  isLoading={isLoading}
+                  error={error}
                 />
                 <p className='text-xs text-gray-500'>
-                  {bypassPackage 
+                  {bypassPackage
                     ? 'You can still select a template for reference or as a starting point'
-                    : 'Select a template to use its predefined services and pricing'
-                  }
+                    : 'Select a template to use its predefined services and pricing'}
                 </p>
               </div>
 
@@ -314,9 +212,7 @@ const CreateMemberCarePackageForm = () => {
                     {mainFormData.package_remarks && (
                       <p className='text-sm text-blue-700'>{mainFormData.package_remarks}</p>
                     )}
-                    <div className='text-sm text-blue-600'>
-                      Customizable: {isCustomizable ? 'Yes' : 'No'}
-                    </div>
+                    <div className='text-sm text-blue-600'>Customizable: {isCustomizable ? 'Yes' : 'No'}</div>
                     {bypassPackage && (
                       <div className='text-xs text-amber-700 bg-amber-50 p-2 rounded border border-amber-200'>
                         Template loaded for reference. You can modify services freely in bypass mode.
@@ -339,9 +235,7 @@ const CreateMemberCarePackageForm = () => {
                     onChange={(e) => updateMainField('package_name', e.target.value)}
                     className='h-9'
                   />
-                  <p className='text-xs text-gray-500'>
-                    This will be the name of your custom care package
-                  </p>
+                  <p className='text-xs text-gray-500'>This will be the name of your custom care package</p>
                 </div>
               )}
             </div>
@@ -366,7 +260,7 @@ const CreateMemberCarePackageForm = () => {
 
         {/* employee selection */}
         <Card>
-          <CardContent className='space-y-4'>
+          <CardContent className='space-y-4 pt-6'>
             <div className='space-y-1'>
               <EmployeeSelect
                 name='employee_id'
@@ -416,14 +310,14 @@ const CreateMemberCarePackageForm = () => {
 
         {/* action buttons */}
         <div className='flex justify-between pt-4'>
-          <Button 
-            type='button' 
-            variant='outline' 
+          <Button
+            type='button'
+            variant='outline'
             onClick={() => {
               resetMainForm();
               setSelectedPackageId(null);
               setBypassPackage(false);
-            }} 
+            }}
             className='px-6 py-2'
           >
             Reset Form
@@ -441,10 +335,10 @@ const CreateMemberCarePackageForm = () => {
       </form>
 
       {/* error display */}
-      {(error || packagesError) && (
+      {error && (
         <Card className='border-red-200 bg-red-50'>
           <CardContent className='pt-4'>
-            <p className='text-red-800 text-sm'>{error || packagesError}</p>
+            <p className='text-red-800 text-sm'>{error}</p>
           </CardContent>
         </Card>
       )}

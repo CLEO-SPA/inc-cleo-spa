@@ -137,6 +137,24 @@ const createMember = async ({
   try {
     await client.query('BEGIN');
 
+    // Validation: Check if email already exists
+    const emailCheckQuery = `
+      SELECT id FROM user_auth WHERE email = $1;
+    `;
+    const emailResult = await client.query(emailCheckQuery, [email]);
+    if (emailResult.rows.length > 0) {
+      throw new Error('Email already exists');
+    }
+
+    // Validation: Check if contact already exists
+    const contactCheckQuery = `
+      SELECT id FROM user_auth WHERE phone = $1;
+    `;
+    const contactResult = await client.query(contactCheckQuery, [contact]);
+    if (contactResult.rows.length > 0) {
+      throw new Error('Contact number already exists');
+    }
+
     // 1. Call the get_or_create_roles function
     const getRoleQuery = `
       SELECT get_or_create_roles($1) AS role_id;
@@ -201,7 +219,7 @@ const createMember = async ({
   } catch (error) {
     console.error('Error creating member:', error);
     await client.query('ROLLBACK');
-    throw new Error('Error creating member');
+    throw error; // Re-throw the original error to preserve the validation message
   } finally {
     client.release();
   }
@@ -233,6 +251,24 @@ const updateMember = async ({
     }
 
     const userAuthId = authIdResult.rows[0].user_auth_id;
+
+    // Validation: Check if email already exists (excluding current user)
+    const emailCheckQuery = `
+      SELECT id FROM user_auth WHERE email = $1 AND id != $2;
+    `;
+    const emailResult = await client.query(emailCheckQuery, [email, userAuthId]);
+    if (emailResult.rows.length > 0) {
+      throw new Error('Email already exists');
+    }
+
+    // Validation: Check if contact already exists (excluding current user)
+    const contactCheckQuery = `
+      SELECT id FROM user_auth WHERE phone = $1 AND id != $2;
+    `;
+    const contactResult = await client.query(contactCheckQuery, [contact, userAuthId]);
+    if (contactResult.rows.length > 0) {
+      throw new Error('Contact number already exists');
+    }
 
     // 2. Update user_auth with new email and phone
     const updateAuthQuery = `
@@ -281,44 +317,59 @@ const updateMember = async ({
   } catch (error) {
     console.error('Error updating member:', error);
     await client.query('ROLLBACK');
-    throw new Error('Could not update member');
+    throw error; // Re-throw the original error to preserve the validation message
   } finally {
     client.release();
   }
 };
 
-
 const deleteMember = async (memberId: number) => {
   const client = await pool().connect();
-
+  
   try {
     await client.query('BEGIN');
-
+    
     // Step 1: Get associated user_auth_id
     const getAuthIdQuery = `SELECT user_auth_id FROM members WHERE id = $1`;
     const { rows } = await client.query(getAuthIdQuery, [memberId]);
     if (rows.length === 0) throw new Error('Member not found');
     const userAuthId = rows[0].user_auth_id;
-
-    // Step 2: Delete from user_roles
+    
+    // Step 2: Check for existing sale transactions
+    const transactionCheckQuery = `SELECT COUNT(*) as count FROM sale_transactions WHERE member_id = $1`;
+    const transactionResult = await client.query(transactionCheckQuery, [memberId]);
+    const transactionCount = parseInt(transactionResult.rows[0].count);
+    
+    if (transactionCount > 0) {
+      throw new Error(`Cannot delete member: ${transactionCount} sale transaction(s) exist for this member`);
+    }
+    
+    // Step 3: Delete from user_roles
     await client.query(`DELETE FROM user_to_role WHERE user_auth_id = $1`, [userAuthId]);
-
-    // Step 3: Delete from members
+    
+    // Step 4: Delete from members
     await client.query(`DELETE FROM members WHERE id = $1`, [memberId]);
-
-    // Step 4: Delete from user_auth
+    
+    // Step 5: Delete from user_auth
     await client.query(`DELETE FROM user_auth WHERE id = $1`, [userAuthId]);
-
+    
     await client.query('COMMIT');
     return { success: true };
   } catch (error) {
     await client.query('ROLLBACK');
     console.error('Error deleting member:', error);
+    
+    // Re-throw the error with original message if it's our custom validation error
+    if (error instanceof Error && error.message.includes('Cannot delete member:')) {
+      throw error;
+    }
+    
     throw new Error('Could not delete member');
   } finally {
     client.release();
   }
 };
+
 
 const getMemberById = async (id: number, sessionStartDate_utc?: string, sessionEndDate_utc?: string) => {
   try {

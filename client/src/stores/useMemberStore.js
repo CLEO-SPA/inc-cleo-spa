@@ -26,9 +26,17 @@ const getInitialState = () => ({
 
 function emptyStringToNull(obj) {
   return Object.fromEntries(
-    Object.entries(obj).map(([key, value]) =>
-      value === "" ? [key, null] : [key, value]
-    )
+    Object.entries(obj).map(([key, value]) => {
+      // Check if value is a string
+      if (typeof value === 'string') {
+        // Trim whitespace from both ends
+        const trimmedValue = value.trim();
+        // Convert empty string to null after trimming
+        return trimmedValue === "" ? [key, null] : [key, trimmedValue];
+      }
+      // Return non-string values as-is
+      return [key, value];
+    })
   );
 }
 
