@@ -20,11 +20,11 @@ const checkEmployeeCodeExists = async (employee_code: number) => {
  */
 const checkEmployeePhoneExists = async (employee_contact: string) => {
   try {
-    const query  = `SELECT 1 FROM employees WHERE employee_contact = $1`;
+    const query = `SELECT 1 FROM employees WHERE employee_contact = $1`;
     const values = [employee_contact.trim()];
 
     const result = await pool().query(query, values);
-    return result.rowCount > 0;            // ❯ true if at least one match
+    return result.rowCount > 0; // ❯ true if at least one match
   } catch (error) {
     console.error('Error checking employee phone existence:', error);
     throw new Error('Error checking employee phone existence');
@@ -335,7 +335,7 @@ const updateEmployeePassword = async (email: string, password_hash: string, isIn
     if (isInvite) {
       const query = `
         UPDATE employees
-        SET verified_status_id = (SELECT get_or_create_status('Verified'))
+        SET verified_status_id = (SELECT get_or_create_status('Verified')), employee_is_active = true
         WHERE employee_email = $1;
       `;
       const values = [email];
@@ -399,6 +399,7 @@ const getAllEmployeesForDropdown = async () => {
   try {
     const query = `
       SELECT id, employee_name FROM employees
+      WHERE employee_is_active = true
       ORDER BY employee_name ASC
     `;
     const result = await pool().query(query);

@@ -173,7 +173,8 @@ export default function ManageEmployeePage() {
                                       : 'bg-muted text-muted-foreground'
                                   }
                                 >
-                                  {employee.verification_status === 'Verified' && employee.employee_is_active
+                                  {employee.verification_status.toLowerCase() === 'verified' &&
+                                  employee.employee_is_active
                                     ? 'Active'
                                     : 'UnVerified'}
                                 </Badge>
