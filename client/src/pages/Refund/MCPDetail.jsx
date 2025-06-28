@@ -101,7 +101,7 @@ const MCPDetail = () => {
   };
 
   const handleGoBack = () => {
-    navigate('/refunds');
+    navigate(-1);
   };
 
   const getStatusBadge = (service) => {
@@ -201,7 +201,7 @@ const MCPDetail = () => {
                         className="inline-flex items-center text-gray-600 hover:text-gray-900 transition-colors"
                       >
                         <ArrowLeft className="w-5 h-5 mr-2" />
-                        Back to Refunds
+                        Back
                       </button>
                     </div>
                     <div className="flex items-center space-x-2">
@@ -250,7 +250,7 @@ const MCPDetail = () => {
                       <div className="space-y-4">
                         <div>
                           <label htmlFor="remarks" className="block text-sm font-medium text-gray-700 mb-2">
-                            Refund Reason <span className="text-red-500">*</span>
+                            Refund Remarks <span className="text-red-500">*</span>
                           </label>
                           <textarea
                             id="remarks"
@@ -360,8 +360,24 @@ const MCPDetail = () => {
                                   </div>
                                 </div>
 
-                                {service.is_eligible_for_refund && (
-                                  <div className="flex justify-end">
+                                <div className="flex justify-end">
+                                  {service.totals.refunded > 0 ? (
+                                    <button
+                                      disabled
+                                      className="inline-flex items-center px-6 py-3 rounded-lg font-medium bg-gray-300 text-gray-500 cursor-not-allowed"
+                                    >
+                                      <CheckCircle className="w-4 h-4 mr-2" />
+                                      Refunded
+                                    </button>
+                                  ) : service.is_eligible_for_refund === "ineligible" ? (
+                                    <button
+                                      disabled
+                                      className="inline-flex items-center px-6 py-3 rounded-lg font-medium bg-gray-300 text-gray-500 cursor-not-allowed"
+                                    >
+                                      <AlertCircle className="w-4 h-4 mr-2" />
+                                      Ineligible for Refund
+                                    </button>
+                                  ) : service.is_eligible_for_refund ? (
                                     <button
                                       onClick={() => handleProcessRefund(service.service_id)}
                                       disabled={isProcessing || !remarks.trim()}
@@ -383,8 +399,8 @@ const MCPDetail = () => {
                                         </>
                                       )}
                                     </button>
-                                  </div>
-                                )}
+                                  ) : null}
+                                </div>
                               </div>
                             </div>
                           ))}

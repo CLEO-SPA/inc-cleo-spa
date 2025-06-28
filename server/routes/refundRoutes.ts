@@ -26,11 +26,11 @@ router.post('/service', controller.processRefundService);
 router.post(
   '/mcp',
   controller.validateMCPExists,
-  controller.verifyRefundableServices,  // Replaces checkRemainingServices
+  controller.verifyRefundableServices,
   controller.processFullRefund
 );
 
-//Return the service info of a member care package
+//Return the info for member care package services
 router.get('/mcp-status/:id', controller.fetchMCPStatus);
 
 //Search for a member via name (searchbar)

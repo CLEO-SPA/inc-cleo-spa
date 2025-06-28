@@ -46,36 +46,36 @@ const processRefundService = async (req: Request, res: Response, next: NextFunct
 
 ////////////////////////////////////////
 
-  // Middleware: Ensure the MCP exists and hasn’t already been refunded
-  const validateMCPExists = async (req: Request, res: Response, next: NextFunction) => {
-    try {
-      const { mcpId } = req.body;
-      const mcp = await model.getMCPById(mcpId);
+// Middleware: Ensure the MCP exists and hasn’t already been refunded
+const validateMCPExists = async (req: Request, res: Response, next: NextFunction) => {
+  try {
+    const { mcpId } = req.body;
+    const mcp = await model.getMCPById(mcpId);
 
-      if (!mcp) {
-        res.status(404).json({ error: 'Member Care Package not found.' });
-        return;
-      }
-
-      const refundedStatusId = await model.getStatusId('Refunded');
-      if (mcp.status_id === refundedStatusId) {
-        res.status(400).json({ error: 'This Member Care Package has already been refunded.' });
-        return;
-      }
-
-      (req as any).mcpData = mcp;
-      next();
-    } catch (error) {
-      console.error('validateMCPExists error:', error);
-      next(error);
+    if (!mcp) {
+      res.status(404).json({ error: 'Member Care Package not found.' });
+      return;
     }
-  };
 
-  // Updated controller
+    const refundedStatusId = await model.getStatusId('Refunded');
+    if (mcp.status_id === refundedStatusId) {
+      res.status(400).json({ error: 'This Member Care Package has already been refunded.' });
+      return;
+    }
+
+    (req as any).mcpData = mcp;
+    next();
+  } catch (error) {
+    console.error('validateMCPExists error:', error);
+    next(error);
+  }
+};
+
+// Updated controller
 const verifyRefundableServices = async (req: Request, res: Response, next: NextFunction) => {
   try {
     const { mcpId } = req.body;
-    
+
     // Get detailed status information
     const results = await model.fetchMCPStatusById(mcpId);
 
@@ -122,7 +122,7 @@ const verifyRefundableServices = async (req: Request, res: Response, next: NextF
   }
 };
 
-  // Controller: Handle full refund of a Member Care Package
+// Controller: Handle full refund of a Member Care Package
 const processFullRefund = async (req: Request, res: Response, next: NextFunction) => {
   try {
     const { mcpId, refundRemarks, refundDate } = req.body;
@@ -175,9 +175,7 @@ const processFullRefund = async (req: Request, res: Response, next: NextFunction
   }
 };
 
-const fetchMCPStatus = async (
-  req: Request, res: Response, next: NextFunction
-) => {
+const fetchMCPStatus = async (req: Request, res: Response, next: NextFunction) => {
   try {
     const id = parseInt(req.params.id, 10);
     if (isNaN(id)) {
@@ -195,7 +193,10 @@ const fetchMCPStatus = async (
       const purchased = parseInt(s.purchased) || 0;
       const consumed = parseInt(s.consumed) || 0;
       const refunded = parseInt(s.refunded) || 0;
-      const remaining = purchased - consumed; // Your definition
+      const unpaid = parseInt(s.unpaid) || 0;
+
+      // Remaining is already set to 0 if refunded > 0 by the SQL query
+      const remaining = parseInt(s.remaining) || 0;
 
       let refundStatus;
       if (refunded > 0) {
@@ -213,8 +214,8 @@ const fetchMCPStatus = async (
           purchased,
           consumed,
           refunded,
-          remaining,
-          unpaid: s.total_quantity - purchased
+          remaining, // Will be 0 if refunded > 0
+          unpaid
         },
         is_eligible_for_refund: refundStatus
       };
@@ -229,7 +230,7 @@ const fetchMCPStatus = async (
 const searchMembers = async (req: Request, res: Response, next: NextFunction) => {
   try {
     const { q: searchQuery } = req.query;
-    
+
     if (!searchQuery) {
       return res.status(400).json({
         error: 'Invalid search query'
@@ -247,7 +248,7 @@ const searchMembers = async (req: Request, res: Response, next: NextFunction) =>
 const getMemberCarePackages = async (req: Request, res: Response, next: NextFunction) => {
   try {
     const memberId = parseInt(req.params.memberId, 10);
-    
+
     if (isNaN(memberId)) {
       return res.status(400).json({
         error: 'Invalid member ID',
@@ -256,7 +257,7 @@ const getMemberCarePackages = async (req: Request, res: Response, next: NextFunc
     }
 
     const packages = await model.getMemberCarePackages(memberId);
-    
+
     if (!packages || packages.length === 0) {
       return res.status(404).json({
         error: 'No packages found',
@@ -303,5 +304,5 @@ export default {
   fetchMCPStatus: fetchMCPStatus as RequestHandler,
   searchMembers: searchMembers as RequestHandler,
   getMemberCarePackages: getMemberCarePackages as RequestHandler,
-  searchMemberCarePackages : searchMemberCarePackages as RequestHandler,
+  searchMemberCarePackages: searchMemberCarePackages as RequestHandler,
 };

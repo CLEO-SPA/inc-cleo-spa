@@ -68,7 +68,7 @@ const MemberPackagesList = () => {
     const navigate = useNavigate();
     const handleRefund = (packageId) => {
         console.log('Refund requested for package:', packageId);
-        navigate(`/refunds/mcp/${packageId}`); 
+        navigate(`/refunds/mcp/${packageId}`);
     };
 
     useEffect(() => {
@@ -104,9 +104,12 @@ const MemberPackagesList = () => {
 
         if (eligibility === 'refunded') {
             return (
-                <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium border bg-red-50 text-red-700 border-red-200">
+                <button
+                    onClick={() => handleRefund(pkg.id)}
+                    className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium border bg-red-50 text-red-700 border-red-200 hover:bg-red-100 focus:outline-none focus:ring-2 focus:ring-red-400 focus:ring-offset-1 transition-colors shadow-sm"
+                >
                     Refunded
-                </span>
+                </button>
             );
         } else if (eligibility === 'eligible') {
             return (
@@ -119,9 +122,14 @@ const MemberPackagesList = () => {
             );
         } else {
             return (
-                <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium border bg-gray-50 text-gray-700 border-gray-200">
+                <button
+                    onClick={() => handleRefund(pkg.id)}
+                    className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium border bg-yellow-50 text-yellow-800 border-yellow-300 hover:bg-yellow-100 focus:outline-none focus:ring-2 focus:ring-yellow-400 focus:ring-offset-1 transition-colors shadow-sm"
+                >
                     Ineligible
-                </span>
+                </button>
+
+
             );
         }
     };
