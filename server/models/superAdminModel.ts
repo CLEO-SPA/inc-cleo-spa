@@ -19,10 +19,10 @@ const hierarchy: HierarchyInterface[] = [
   { id: 1, table: 'employees', dependencies: [9, 37, 16] },
   { id: 2, table: 'care_packages', dependencies: [1] },
   { id: 3, table: 'care_package_item_details', dependencies: [2, 7] },
-  { id: 4, table: 'member_care_packages', dependencies: [1] },
+  { id: 4, table: 'member_care_packages', dependencies: [1, 17] },
   { id: 5, table: 'member_care_package_details', dependencies: [4, 7] },
   { id: 6, table: 'member_care_package_transaction_logs', dependencies: [1, 5, 7] },
-  { id: 7, table: 'services', dependencies: [8] },
+  { id: 7, table: 'services', dependencies: [1, 8] },
   { id: 8, table: 'service_categories', dependencies: [] },
   { id: 9, table: 'positions', dependencies: [] },
   { id: 11, table: 'refunds', dependencies: [1] },
@@ -420,6 +420,7 @@ const insertPreDataModel = async (targetTable: string, tablePayload: tablePayloa
       requiredTableIdsForInsert.has(tableInfo.id)
     );
     let sortedOrderForInsert = getSeedingOrder(filteredHierarchyForInsert);
+    console.log('First Sorted Order', sortedOrderForInsert);
 
     const tablesToIgnore: string[] = [];
 
@@ -453,6 +454,9 @@ const insertPreDataModel = async (targetTable: string, tablePayload: tablePayloa
         ? sortedOrderForInsert.filter((f) => !tablesToIgnore.includes(f))
         : sortedOrderForInsert;
 
+    console.log('Ignored Tables', tablesToIgnore);
+    console.log('Final Seeding Order', finalOrderToSeed);
+
     const allAffectedTableIds = new Set<number>();
     finalOrderToSeed.forEach((tableName) => {
       const tableInfo = hierarchy.find((t) => t.table === tableName);
@@ -469,6 +473,8 @@ const insertPreDataModel = async (targetTable: string, tablePayload: tablePayloa
         return id !== undefined && allAffectedTableIds.has(id);
       })
       .reverse();
+
+    console.log('Truncate Order', tablesToTruncate);
 
     const allTableData: AllTableData = {};
 
