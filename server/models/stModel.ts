@@ -835,6 +835,32 @@ const createMcpTransaction = async (
       throw new Error('payments array is required and cannot be empty');
     }
 
+    // Extract the actual MCP ID from the item data
+    const mcpId = item.data?.member_care_package_id || item.data?.id;
+    
+    if (!mcpId) {
+      throw new Error('member_care_package_id is required in item data');
+    }
+
+    // Validate that the MCP ID exists in the database
+    const mcpValidationQuery = `
+      SELECT id, package_name 
+      FROM member_care_packages 
+      WHERE id = $1
+    `;
+    
+    const mcpValidationResult = await client.query(mcpValidationQuery, [mcpId]);
+    
+    if (mcpValidationResult.rows.length === 0) {
+      throw new Error(`Member Care Package with ID ${mcpId} not found`);
+    }
+
+    const mcpRecord = mcpValidationResult.rows[0];
+    console.log('✅ Validated MCP exists:', {
+      mcpId: mcpId,
+      packageName: mcpRecord.care_package_name
+    });
+
     // Calculate totals from single package item
     const totalTransactionAmount: number = item.pricing?.totalLinePrice || 0;
 
@@ -868,7 +894,6 @@ const createMcpTransaction = async (
         calculatedTotal
       });
     }
-
 
     // Use receipt number from frontend
     let finalReceiptNo: string = receipt_number || '';
@@ -907,7 +932,7 @@ const createMcpTransaction = async (
       transactionStatus,
       finalReceiptNo,
       remarks || '',
-      true, // process_payment
+      processPayment,
       handled_by,
       created_by
     ];
@@ -920,7 +945,7 @@ const createMcpTransaction = async (
     
     console.log('Created MCP sale transaction with ID:', saleTransactionId);
 
-    // Insert package item
+    // Insert package item with actual MCP ID
     const itemQuery: string = `
       INSERT INTO sale_transaction_items (
         sale_transaction_id,
@@ -945,7 +970,7 @@ const createMcpTransaction = async (
       saleTransactionId,
       null, // service_name
       null, // product_name
-      100, // member_care_package_id (hardcoded for testing)
+      mcpId, // Use actual MCP ID instead of hardcoded value
       null, // member_voucher_id
       item.pricing?.originalPrice || 0,
       item.pricing?.customPrice || 0,
@@ -957,7 +982,11 @@ const createMcpTransaction = async (
     ];
 
     console.log('MCP Item Query:', itemQuery);
-    console.log('MCP Item Params:', itemParams);
+    console.log('MCP Item Params (with actual MCP ID):', {
+      ...itemParams,
+      mcpId: mcpId,
+      packageName: mcpRecord.care_package_name
+    });
 
     const itemResult = await client.query(itemQuery, itemParams);
     const saleTransactionItemId: number = itemResult.rows[0].id;
@@ -992,7 +1021,7 @@ const createMcpTransaction = async (
         console.log('Payment Params:', paymentParams);
 
         const paymentResult = await client.query(paymentQuery, paymentParams);
-        console.log('Greated payment with ID:', paymentResult.rows[0].id);
+        console.log('Created payment with ID:', paymentResult.rows[0].id);
       }
     }
 
@@ -1012,8 +1041,8 @@ const createMcpTransaction = async (
       remarks: remarks || '',
       created_by,
       handled_by,
-      package_id: 100, // hardcoded for testing
-      package_name: item.data?.package_name || item.data?.name || null,
+      package_id: mcpId, // Use actual MCP ID
+      package_name: mcpRecord.care_package_name, // Use actual package name from database
       items_count: 1,
       payments_count: payments.filter((p: PaymentMethodRequest) => p.amount > 0).length
     };
@@ -1066,6 +1095,32 @@ const createMvTransaction = async (
       throw new Error('payments array is required and cannot be empty');
     }
 
+    // Extract the actual MV ID from the item data (FIXED)
+    const mvId = item.data?.member_voucher_id || item.data?.id;
+    
+    if (!mvId) {
+      throw new Error('member_voucher_id is required in item data');
+    }
+
+    // Validate that the MV ID exists in the database (ADDED)
+    const mvValidationQuery = `
+      SELECT id, member_voucher_name 
+      FROM member_vouchers 
+      WHERE id = $1
+    `;
+    
+    const mvValidationResult = await client.query(mvValidationQuery, [mvId]);
+    
+    if (mvValidationResult.rows.length === 0) {
+      throw new Error(`Member Voucher with ID ${mvId} not found`);
+    }
+
+    const mvRecord = mvValidationResult.rows[0];
+    console.log('✅ Validated MV exists:', {
+      mvId: mvId,
+      voucherName: mvRecord.member_voucher_name
+    });
+
     const totalTransactionAmount: number = item.pricing?.totalLinePrice || 0;
 
     const PENDING_PAYMENT_METHOD_ID = 7;
@@ -1089,6 +1144,16 @@ const createMvTransaction = async (
     const transactionStatus: 'FULL' | 'PARTIAL' = outstandingAmount <= 0 ? 'FULL' : 'PARTIAL';
     const processPayment: boolean = outstandingAmount > 0; 
 
+    // Verification: total should match (ADDED)
+    const calculatedTotal = totalPaidAmount + outstandingAmount;
+    if (Math.abs(calculatedTotal - totalTransactionAmount) > 0.01) {
+      console.warn('Payment total mismatch:', {
+        totalTransactionAmount,
+        totalPaidAmount,
+        outstandingAmount,
+        calculatedTotal
+      });
+    }
 
     let finalReceiptNo: string = receipt_number || '';
     if (!finalReceiptNo) {
@@ -1138,7 +1203,7 @@ const createMvTransaction = async (
     
     console.log('Created MV sale transaction with ID:', saleTransactionId);
 
-    // Insert voucher item (similar logic to MCP)
+    // Insert voucher item with actual MV ID (FIXED)
     const itemQuery: string = `
       INSERT INTO sale_transaction_items (
         sale_transaction_id,
@@ -1164,7 +1229,7 @@ const createMvTransaction = async (
       null, // service_name
       null, // product_name
       null, // member_care_package_id
-      200, // member_voucher_id (hardcoded for testing)
+      mvId, 
       item.pricing?.originalPrice || 0,
       item.pricing?.customPrice || 0,
       item.pricing?.discount || 0,
@@ -1175,7 +1240,11 @@ const createMvTransaction = async (
     ];
 
     console.log('MV Item Query:', itemQuery);
-    console.log('MV Item Params:', itemParams);
+    console.log('MV Item Params (with actual MV ID):', {
+      ...itemParams,
+      mvId: mvId,
+      voucherName: mvRecord.member_voucher_name
+    });
 
     const itemResult = await client.query(itemQuery, itemParams);
     const saleTransactionItemId: number = itemResult.rows[0].id;
@@ -1217,7 +1286,7 @@ const createMvTransaction = async (
     await client.query('COMMIT');
     console.log('MV Transaction committed successfully');
 
-    // Return the created transaction data
+    // Return the created transaction data (FIXED)
     return {
       id: saleTransactionId,
       receipt_no: finalReceiptNo,
@@ -1230,8 +1299,8 @@ const createMvTransaction = async (
       remarks: remarks || '',
       created_by,
       handled_by,
-      voucher_id: 200, // hardcoded for testing
-      voucher_name: item.data?.member_voucher_name || item.data?.name || null,
+      voucher_id: mvId, 
+      voucher_name: mvRecord.member_voucher_name, 
       items_count: 1,
       payments_count: payments.filter((p: PaymentMethodRequest) => p.amount > 0).length
     };
@@ -1376,19 +1445,28 @@ const createMcpTransferTransaction = async (
       RETURNING id
     `;
 
+    // For transfer transactions, store destination MCP ID and include transfer details in remarks
+    const transferDetails = item.data || {};
+    const sourceMcpId = transferDetails.mcp_id1 || null;
+    const destinationMcpId = transferDetails.mcp_id2 || null;
+    const transferAmount = transferDetails.amount || item.pricing?.totalLinePrice || 0;
+    
+    // Enhanced remarks with transfer metadata
+    const transferRemarks = `MCP Transfer: ${transferAmount} from MCP ${sourceMcpId} to MCP ${destinationMcpId}${transferDetails.isNew ? ' (New Package)' : ''}${item.remarks ? ` - ${item.remarks}` : ''}`;
+
     const itemParams: (string | number | null)[] = [
       saleTransactionId,
       null, // service_name
       null, // product_name
-      item.data?.queueItem?.mcp_id2 || null, //ths shud be the mcp being transferred to
+      destinationMcpId, // member_care_package_id - store the DESTINATION MCP (mcp_id2)
       null, // member_voucher_id
       item.pricing?.originalPrice || 0,
       item.pricing?.customPrice || 0,
       item.pricing?.discount || 0,
       item.pricing?.quantity || 1,
       item.pricing?.totalLinePrice || 0,
-      'mcp_transfer',
-      item.remarks || item.data?.description || ''
+      'mcp_transfer', // item_type - correct type for MCP transfers
+      transferRemarks
     ];
 
     console.log('MCP Transfer Item Query:', itemQuery);
@@ -1455,10 +1533,10 @@ const createMcpTransferTransaction = async (
       remarks: remarks || '',
       created_by,
       handled_by,
-      mcp_id1: item.data?.queueItem?.mcp_id1 || null,
-      mcp_id2: item.data?.queueItem?.mcp_id2 || null,
-      transfer_amount: item.data?.amount || totalTransactionAmount,
-      transfer_description: item.data?.description || '',
+      mcp_id1: transferDetails.mcp_id1 || null,
+      mcp_id2: transferDetails.mcp_id2 || null,
+      transfer_amount: transferAmount,
+      transfer_description: transferDetails.description || transferRemarks,
       items_count: 1,
       payments_count: payments.filter((p: PaymentMethodRequest) => p.amount > 0).length
     };
@@ -1471,7 +1549,6 @@ const createMcpTransferTransaction = async (
     client.release();
   }
 };
-
 
 
 const createMvTransferTransaction = async (

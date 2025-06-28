@@ -912,9 +912,21 @@ const createMemberVoucher = async (
       throw new Error(`Voucher template with ID ${voucher_template_id} not found`);
     }
 
-    // Payment calculations
-    const pendingPayment = payments.find(p => String(p.methodId) === '7');
-    const outstanding_amount = pendingPayment ? pendingPayment.amount : 0;
+    // FIXED: Payment calculations using correct logic
+    const PENDING_PAYMENT_METHOD_ID = 7;
+    
+    const pendingPayments = payments.filter((payment: PaymentMethodRequest) => 
+      payment.methodId === PENDING_PAYMENT_METHOD_ID
+    );
+    
+    const nonPendingPayments = payments.filter((payment: PaymentMethodRequest) => 
+      payment.methodId !== PENDING_PAYMENT_METHOD_ID
+    );
+
+    const outstanding_amount = pendingPayments.reduce((total: number, payment: PaymentMethodRequest) => {
+      return total + (payment.amount || 0);
+    }, 0);
+
     const is_fully_paid = outstanding_amount === 0;
 
     // FIXED: Cleaner balance calculation
@@ -974,7 +986,6 @@ const createMemberVoucher = async (
       };
     });
 
-
     // Insert voucher details
     if (services.length > 0) {
       const i_mvd_sql = `
@@ -1008,7 +1019,6 @@ const createMemberVoucher = async (
           ])
         )
       );
-
     }
 
     // Insert transaction log
@@ -1034,13 +1044,30 @@ const createMemberVoucher = async (
       updatedAt
     ]);
 
-    // Calculate transaction totals
+    // FIXED: Calculate transaction totals using correct logic
     const totalTransactionAmount: number = pricing?.totalLinePrice || 0;
-    const totalPaidAmount: number = payments.reduce((total: number, payment: PaymentMethodRequest) => {
+
+    const totalPaidAmount: number = nonPendingPayments.reduce((total: number, payment: PaymentMethodRequest) => {
       return total + (payment.amount || 0);
     }, 0);
-    const outstandingAmount = pendingPayment ? pendingPayment.amount : 0;
+
+    const outstandingAmount: number = pendingPayments.reduce((total: number, payment: PaymentMethodRequest) => {
+      return total + (payment.amount || 0);
+    }, 0);
+
     const transactionStatus: 'FULL' | 'PARTIAL' = outstandingAmount <= 0 ? 'FULL' : 'PARTIAL';
+    const processPayment: boolean = outstandingAmount > 0;
+
+    // Verification: total should match
+    const calculatedTotal = totalPaidAmount + outstandingAmount;
+    if (Math.abs(calculatedTotal - totalTransactionAmount) > 0.01) {
+      console.warn('Payment total mismatch:', {
+        totalTransactionAmount,
+        totalPaidAmount,
+        outstandingAmount,
+        calculatedTotal
+      });
+    }
 
     // Generate receipt number
     let finalReceiptNo: string = receipt_number || '';
@@ -1073,13 +1100,13 @@ const createMemberVoucher = async (
 
     const transactionParams: (string | number | boolean | null)[] = [
       customer_type?.toUpperCase() || 'MEMBER',
-      member_id,
-      totalPaidAmount,
-      outstandingAmount,
+      member_id || null,
+      totalPaidAmount,        // FIXED: Use calculated totalPaidAmount
+      outstandingAmount,      // FIXED: Use calculated outstandingAmount
       transactionStatus,
       finalReceiptNo,
       remarks || '',
-      true,
+      processPayment,         // FIXED: Use calculated processPayment
       handled_by,
       created_by
     ];
@@ -1092,7 +1119,7 @@ const createMemberVoucher = async (
 
     console.log('✅ Created MV sale transaction with ID:', saleTransactionId);
 
-    // FIXED: Use actual member voucher ID instead of hardcoded value
+    // Insert voucher item with actual MV ID
     const itemQuery: string = `
       INSERT INTO sale_transaction_items (
         sale_transaction_id,
@@ -1118,13 +1145,13 @@ const createMemberVoucher = async (
       null, // service_name
       null, // product_name
       null, // member_care_package_id
-      memberVoucherId, // FIXED: Use actual voucher ID
+      memberVoucherId, // Use actual voucher ID
       pricing?.originalPrice || 0,
       pricing?.customPrice || 0,
       pricing?.discount || 0,
       pricing?.quantity || 1,
       pricing?.totalLinePrice || 0,
-      'voucher',
+      'member-voucher', // FIXED: Use correct item type
       item.remarks || '',
     ];
 
@@ -1136,7 +1163,7 @@ const createMemberVoucher = async (
 
     console.log('Created MV sale transaction item with ID:', saleTransactionItemId);
 
-    // Insert payment records
+    // Insert ALL payment records (both pending and non-pending)
     for (const payment of payments) {
       if (payment.amount > 0) {
         const paymentQuery: string = `
@@ -1152,7 +1179,7 @@ const createMemberVoucher = async (
           RETURNING id
         `;
 
-        const paymentParams: (number | string | null)[] = [
+        const paymentParams: (number | string)[] = [
           saleTransactionId,
           payment.methodId,
           payment.amount,
@@ -1171,12 +1198,12 @@ const createMemberVoucher = async (
     await client.query('COMMIT');
     console.log('MV Transaction committed successfully');
 
-    // FIXED: Return actual voucher ID
+    // Return actual voucher data
     return {
       id: saleTransactionId,
       receipt_no: finalReceiptNo,
       customer_type: customer_type?.toUpperCase() || 'MEMBER',
-      member_id: member_id.toString(),
+      member_id: member_id ? member_id.toString() : null, 
       total_transaction_amount: totalTransactionAmount,
       total_paid_amount: totalPaidAmount,
       outstanding_total_payment_amount: outstandingAmount,
@@ -1184,7 +1211,7 @@ const createMemberVoucher = async (
       remarks: remarks || '',
       created_by,
       handled_by,
-      voucher_id: memberVoucherId, // FIXED: Use actual voucher ID
+      voucher_id: memberVoucherId, 
       voucher_name: member_voucher_name,
       items_count: 1,
       payments_count: payments.filter((p: PaymentMethodRequest) => p.amount > 0).length

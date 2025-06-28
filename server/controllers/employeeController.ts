@@ -29,7 +29,6 @@ const loginEmployee = async (req: Request, res: Response, next: NextFunction) =>
       req.session.start_date_utc = getCurrentSimStatus().isActive ? start_date_utc : null;
       req.session.end_date_utc = getCurrentSimStatus().isActive ? end_date_utc : new Date().toUTCString();
       req.session.end_date_is_default = getCurrentSimStatus().isActive ? false : true;
-      req.session.end_date_is_default = getCurrentSimStatus().isActive ? false : true;
       req.session.user_id = res.locals.user_id;
       req.session.username = res.locals.username;
       req.session.email = res.locals.email;
@@ -320,7 +319,7 @@ const getBasicEmployeeDetails = async (req: Request, res: Response) => {
     console.log(`Found ${employees.length} active employees`);
     res.status(200).json({
       success: true,
-      data: employees,
+      data: employees, 
       total: employees.length,
     });
   } catch (error) {
