@@ -290,7 +290,17 @@ const CreateMemberCarePackageTransfer = () => {
                 type='number'
                 placeholder={`Max available: $${remainingBalance.toFixed(2)}`}
                 value={amount}
-                onChange={(e) => setAmount(e.target.value)}
+                onChange={(e) => {
+                  const value = e.target.value;
+                  if (value === '') {
+                    setAmount('');
+                  } else {
+                    const numValue = parseFloat(value) || 0;
+                    // Ensure amount is non-negative and doesn't exceed remaining balance
+                    const validValue = Math.min(Math.max(0, numValue), remainingBalance);
+                    setAmount(validValue);
+                  }
+                }}
                 max={remainingBalance}
                 className='rounded-md'
               />
@@ -474,7 +484,17 @@ const ServicesSection = ({
                   type='number'
                   min='1'
                   value={serviceForm.quantity}
-                  onChange={(e) => updateServiceFormField('quantity', parseInt(e.target.value) || 1)}
+                  onChange={(e) => {
+                    const value = e.target.value;
+                    if (value === '') {
+                      updateServiceFormField('quantity', '');
+                    } else {
+                      const numValue = parseInt(value) || 0;
+                      // Ensure quantity is at least 1
+                      const validValue = Math.max(1, numValue);
+                      updateServiceFormField('quantity', validValue);
+                    }
+                  }}
                   className='h-9 rounded-md'
                 />
               </div>
@@ -483,8 +503,19 @@ const ServicesSection = ({
                 <Input
                   type='number'
                   step='0.01'
+                  min='0'
                   value={serviceForm.price}
-                  onChange={(e) => updateServiceFormField('price', parseFloat(e.target.value) || 0)}
+                  onChange={(e) => {
+                    const value = e.target.value;
+                    if (value === '') {
+                      updateServiceFormField('price', '');
+                    } else {
+                      const numValue = parseFloat(value) || 0;
+                      // Ensure price is non-negative
+                      const validValue = Math.max(0, numValue);
+                      updateServiceFormField('price', validValue);
+                    }
+                  }}
                   className='h-9 rounded-md'
                 />
               </div>
@@ -496,7 +527,17 @@ const ServicesSection = ({
                   min='0'
                   max='1'
                   value={serviceForm.discount}
-                  onChange={(e) => updateServiceFormField('discount', parseFloat(e.target.value) || 1)}
+                  onChange={(e) => {
+                    const value = e.target.value;
+                    if (value === '') {
+                      updateServiceFormField('discount', '');
+                    } else {
+                      const numValue = parseFloat(value) || 0;
+                      // Ensure discount is between 0 and 1
+                      const validValue = Math.min(1, Math.max(0, numValue));
+                      updateServiceFormField('discount', validValue);
+                    }
+                  }}
                   className='h-9 rounded-md'
                 />
               </div>
@@ -585,7 +626,17 @@ const ServiceRow = ({ service, index, canModify, onUpdate, onRemove }) => {
               type='number'
               min='1'
               value={editData.quantity}
-              onChange={(e) => setEditData({ ...editData, quantity: parseInt(e.target.value) || 1 })}
+              onChange={(e) => {
+                const value = e.target.value;
+                if (value === '') {
+                  setEditData({ ...editData, quantity: '' });
+                } else {
+                  const numValue = parseInt(value) || 0;
+                  // Ensure quantity is at least 1
+                  const validValue = Math.max(1, numValue);
+                  setEditData({ ...editData, quantity: validValue });
+                }
+              }}
               className='h-8 w-full rounded-md'
             />
           ) : (
@@ -599,8 +650,19 @@ const ServiceRow = ({ service, index, canModify, onUpdate, onRemove }) => {
             <Input
               type='number'
               step='0.01'
+              min='0'
               value={editData.price}
-              onChange={(e) => setEditData({ ...editData, price: parseFloat(e.target.value) || 0 })}
+              onChange={(e) => {
+                const value = e.target.value;
+                if (value === '') {
+                  setEditData({ ...editData, price: '' });
+                } else {
+                  const numValue = parseFloat(value) || 0;
+                  // Ensure price is non-negative
+                  const validValue = Math.max(0, numValue);
+                  setEditData({ ...editData, price: validValue });
+                }
+              }}
               className='h-8 w-full rounded-md'
             />
           ) : (

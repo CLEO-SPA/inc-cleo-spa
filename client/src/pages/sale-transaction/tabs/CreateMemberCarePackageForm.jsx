@@ -418,7 +418,17 @@ const ServicesSection = ({
                   type='number'
                   min='1'
                   value={serviceForm.quantity}
-                  onChange={(e) => updateServiceFormField('quantity', parseInt(e.target.value) || 1)}
+                  onChange={(e) => {
+                    const value = e.target.value;
+                    if (value === '') {
+                      updateServiceFormField('quantity', '');
+                    } else {
+                      const numValue = parseInt(value) || 0;
+                      // Ensure quantity is at least 1
+                      const validValue = Math.max(1, numValue);
+                      updateServiceFormField('quantity', validValue);
+                    }
+                  }}
                   className='h-9'
                 />
               </div>
@@ -427,8 +437,19 @@ const ServicesSection = ({
                 <Input
                   type='number'
                   step='0.01'
+                  min='0'
                   value={serviceForm.price}
-                  onChange={(e) => updateServiceFormField('price', parseFloat(e.target.value) || 0)}
+                  onChange={(e) => {
+                    const value = e.target.value;
+                    if (value === '') {
+                      updateServiceFormField('price', '');
+                    } else {
+                      const numValue = parseFloat(value) || 0;
+                      // Ensure price is non-negative
+                      const validValue = Math.max(0, numValue);
+                      updateServiceFormField('price', validValue);
+                    }
+                  }}
                   className='h-9'
                 />
               </div>
@@ -440,7 +461,16 @@ const ServicesSection = ({
                   min='0'
                   max='1'
                   value={serviceForm.discount}
-                  onChange={(e) => updateServiceFormField('discount', parseFloat(e.target.value) || 1)}
+                  onChange={(e) => {
+                    const value = e.target.value;
+                    if (value === '') {
+                      updateServiceFormField('discount', '');
+                    } else {
+                      const numValue = parseFloat(value) || 0;
+                      const cappedValue = Math.min(1, numValue);
+                      updateServiceFormField('discount', cappedValue);
+                    }
+                  }}
                   className='h-9'
                 />
               </div>
@@ -526,7 +556,17 @@ const ServiceRow = ({ service, index, canModify, onUpdate, onRemove }) => {
               type='number'
               min='1'
               value={editData.quantity}
-              onChange={(e) => setEditData({ ...editData, quantity: parseInt(e.target.value) || 1 })}
+              onChange={(e) => {
+                const value = e.target.value;
+                if (value === '') {
+                  setEditData({ ...editData, quantity: '' });
+                } else {
+                  const numValue = parseInt(value) || 0;
+                  // Ensure quantity is at least 1
+                  const validValue = Math.max(1, numValue);
+                  setEditData({ ...editData, quantity: validValue });
+                }
+              }}
               className='h-8'
             />
           ) : (
@@ -543,7 +583,17 @@ const ServiceRow = ({ service, index, canModify, onUpdate, onRemove }) => {
               min='0'
               max='1'
               value={editData.discount}
-              onChange={(e) => setEditData({ ...editData, discount: parseFloat(e.target.value) || 0 })}
+              onChange={(e) => {
+                const value = e.target.value;
+                if (value === '') {
+                  setEditData({ ...editData, discount: '' });
+                } else {
+                  const numValue = parseFloat(value) || 0;
+                  // Ensure discount is between 0 and 1
+                  const cappedValue = Math.min(1, Math.max(0, numValue));
+                  setEditData({ ...editData, discount: cappedValue });
+                }
+              }}
               className='h-8'
             />
           ) : (
