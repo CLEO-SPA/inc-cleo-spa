@@ -72,7 +72,7 @@ const getSaleTransactionItemById = async (
       is_fully_refunded: isFullyRefunded,
       message: isFullyRefunded ? 'This item has been fully refunded.' : undefined,
     });
-    
+
   } catch (error) {
     console.error('Error in getSaleTransactionItemById:', error);
     next(error);
@@ -340,6 +340,26 @@ const getEligibleMemberVoucherForRefund = async (req: Request, res: Response, ne
   }
 };
 
+const getMemberVoucherById = async (req: Request, res: Response, next: NextFunction) => {
+  try {
+    const voucherId = Number(req.params.voucherId);
+    if (isNaN(voucherId)) {
+      return res.status(400).json({ error: 'Invalid voucherId parameter' });
+    }
+
+    const voucher = await model.getMemberVoucherById(voucherId);
+
+    if (!voucher) {
+      return res.status(404).json({ error: 'Member voucher not found' });
+    }
+
+    res.status(200).json(voucher);
+  } catch (error) {
+    console.error('Error in RefundController.getMemberVoucherById:', error);
+    next(error);
+  }
+};
+
 export default {
   viewAllRefundSaleTransactionRecords,
   getServiceTransactionsForRefund,
@@ -354,4 +374,5 @@ export default {
   searchMemberCarePackages: searchMemberCarePackages as RequestHandler,
   processRefundMemberVoucher,
   getEligibleMemberVoucherForRefund,
+  getMemberVoucherById,
 };

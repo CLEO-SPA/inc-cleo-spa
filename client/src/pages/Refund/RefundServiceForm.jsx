@@ -104,13 +104,62 @@ const RefundServiceForm = () => {
         }
     };
 
-    if (isLoading || !serviceItem) {
+    if (isLoading) {
         return (
             <div className="p-6 max-w-5xl mx-auto text-center text-gray-600">
                 Loading service item...
             </div>
         );
     }
+
+    if (!serviceItem) {
+        return (
+            <div className="[--header-height:calc(theme(spacing.14))]">
+                <SidebarProvider className="flex flex-col">
+                    <SiteHeader />
+                    <div className="flex flex-1">
+                        <AppSidebar />
+                        <SidebarInset>
+                            <div className="bg-white border-b border-gray-200 px-4 py-3">
+                                <div className="max-w-5xl mx-auto w-full flex items-center space-x-3">
+                                    <Button
+                                        variant="ghost"
+                                        onClick={() => navigate(-1)}
+                                        className="flex items-center text-gray-600 hover:text-gray-900 hover:bg-gray-100 px-2 py-1"
+                                    >
+                                        <ArrowLeft className="w-4 h-4 mr-1" />
+                                        Back
+                                    </Button>
+                                    <h1 className="text-lg font-semibold text-gray-900">Refund Service</h1>
+                                </div>
+                            </div>
+
+                            <div className="p-6 max-w-3xl mx-auto w-full">
+                                <Card>
+                                    <CardContent className="p-8 text-center text-gray-600">
+                                        <div className="space-y-4">
+                                            <h2 className="text-xl font-semibold text-gray-800">Sale Transaction Item Not Found</h2>
+                                            <p className="text-sm">
+                                                The service you’re trying to refund doesn’t exist or may have been removed.
+                                            </p>
+                                            <Button
+                                                onClick={() => navigate(-1)}
+                                                className="mt-4 bg-gray-800 hover:bg-black text-white"
+                                            >
+                                                Back to Previous Page
+                                            </Button>
+                                        </div>
+                                    </CardContent>
+                                </Card>
+                            </div>
+                        </SidebarInset>
+                    </div>
+                </SidebarProvider>
+            </div>
+        );
+    }
+
+
 
     if (serviceItem.is_fully_refunded) {
         return (

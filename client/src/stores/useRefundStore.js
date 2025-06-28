@@ -9,6 +9,7 @@ const useRefundStore = create((set) => ({
   error: null,
   memberVouchers: [],
   memberInfo: null,
+  selectedVoucher: null,
 
   fetchServiceTransactions: async ({ memberId, receiptNo, limit = 5, offset = 0 }) => {
     //console.log('Fetching service transactions with:', { memberId, receiptNo });
@@ -90,7 +91,7 @@ const useRefundStore = create((set) => ({
   fetchMemberVouchersByMemberId: async (memberId) => {
     set({ isLoading: true, error: null });
     try {
-      const res = await api.get(`/refund/member-voucher/${memberId}`);
+      const res = await api.get(`/refund/member-voucher/member/${memberId}`);
 
       set({
         memberVouchers: res.data.vouchers,
@@ -105,6 +106,35 @@ const useRefundStore = create((set) => ({
     }
   },
 
+  submitRefundMemberVoucher: async ({ memberVoucherId, refundedBy, refundDate, remarks }) => {
+    try {
+      const res = await api.post("/refund/member-voucher", {
+        memberVoucherId,
+        refundedBy,
+        refundDate,
+        remarks,
+      });
+      return res.data; // { refundTransactionId: number }
+    } catch (error) {
+      throw new Error(error.response?.data?.message || error.message || "Refund failed");
+    }
+  },
+
+  fetchMemberVoucherById: async (voucherId) => {
+    set({ isLoading: true, error: null });
+    try {
+      const res = await api.get(`/refund/member-voucher/${voucherId}`);
+      set({
+        selectedVoucher: res.data,
+        isLoading: false,
+      });
+    } catch (err) {
+      set({
+        error: err.response?.data?.message || "Failed to fetch voucher",
+        isLoading: false,
+      });
+    }
+  },
 
   clear: () => set({
     serviceTransactions: [],
@@ -113,6 +143,7 @@ const useRefundStore = create((set) => ({
     memberInfo: null,
     error: null,
     isLoading: false,
+    selectedVoucher: null,
   }),
 }));
 

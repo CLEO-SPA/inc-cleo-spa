@@ -54,10 +54,6 @@ import TestPMComponent from './pages/sale-transaction/AddPMMComponentTest';
 
 // Employees
 import ManagePositions from '@/pages/em/ManagePositions';
-import ManagePaymentMethodsPage from './pages/payment-method/ManagePaymentMethodsPage';
-import CreatePaymentMethodPage from './pages/payment-method/CreatePaymentMethodPage';
-import EditPaymentMethodPage from './pages/payment-method/EditPaymentMethodPage';
-import TestPMComponent from './pages/sale-transaction/AddPMMComponentTest';
 
 // Refund
 import RefundPage from '@/pages/Refund/Refund';
@@ -66,9 +62,8 @@ import MemberPackagesList from '@/components/refund/MemberPackagesList';
 import RefundServicesPage from '@/pages/Refund/RefundServicesPage';
 import RefundServiceForm from '@/pages/Refund/RefundServiceForm';
 import RefundVouchersPage from '@/pages/Refund/RefundVouchersPage';
+import RefundVoucherForm from '@/pages/Refund/RefundVoucherForm';
 
-// Employees
-import ManagePositions from '@/pages/em/ManagePositions';
 
 function App() {
   return (
@@ -147,12 +142,6 @@ function App() {
               <Route path='/view-sales-history/:service_id' element={<ViewSalesHistoryPage />} />
               <Route path='/manage-service-category' element={<ManageServiceCategoryPage />} />
 
-              {/* Payment Methods Management */}
-              <Route path='/payment-method' element={<ManagePaymentMethodsPage />} />
-              <Route path='/payment-method/create' element={<CreatePaymentMethodPage />} />
-              <Route path='/payment-method/edit/:id' element={<EditPaymentMethodPage />} />
-              <Route path='/payment-method/test' element={<TestPMComponent />} />
-
               {/* Refund */}
               <Route path='/refunds' element={<RefundPage />} />
               <Route path='/refunds/member/:memberId' element={<MemberPackagesList />} />
@@ -161,6 +150,7 @@ function App() {
               <Route path="/refunds/services/receipt/:no" element={<RefundServicesPage />} />
               <Route path="/refunds/service/:saleTransactionItemId" element={<RefundServiceForm />} />
               <Route path="/refunds/vouchers/member/:id" element={<RefundVouchersPage />} />
+              <Route path="/refunds/voucher/:voucherId" element={<RefundVoucherForm />} />
 
             </Route>
             <Route path='/login' element={<LoginPage />} />

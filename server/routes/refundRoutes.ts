@@ -14,7 +14,7 @@ import controller from '../controllers/refundController.js';
 // =========================
 //router.use(isAuthenticated);
 
-// API: /api/refunds/-
+// API: /api/refund/-
 // Service Refund
 router.get('/service/all', controller.viewAllRefundSaleTransactionRecords);
 // Fetch all service transactions. Includes optional filters for member_id, member_name, receipt_no, start_date_utc, and end_date_utc
@@ -47,7 +47,7 @@ router.get('/mcp/search', controller.searchMemberCarePackages);
 
 // Member Voucher Refund
 router.post('/member-voucher', controller.processRefundMemberVoucher);
-router.get('/member-voucher/:memberId', controller.getEligibleMemberVoucherForRefund);
-
+router.get('/member-voucher/member/:memberId', controller.getEligibleMemberVoucherForRefund);
+router.get('/member-voucher/:voucherId', controller.getMemberVoucherById);
 
 export default router;

@@ -18,7 +18,6 @@ import memberVoucherRoutes from './memberVoucherRoutes.js';
 import dataExportRoutes from './dataExportRoutes.js';
 import positionRoutes from './positionRoutes.js';
 import paymentMethodRoutes from './paymentMethodRoutes.js';
-import refundRoutes from './refundRoutes.js';
 
 router.use(simulationMiddleware);
 
