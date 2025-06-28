@@ -19,6 +19,7 @@ import { SidebarInset, SidebarProvider } from '@/components/ui/sidebar';
 import EmployeeSelect from '@/components/ui/forms/EmployeeSelect';
 import { useSimulationStore } from "@/stores/useSimulationStore";
 import { useAuth } from "@/context/AuthContext";
+import { set } from "date-fns";
 
 export default function UpdateProduct() {
   //Role-based access
@@ -68,11 +69,18 @@ export default function UpdateProduct() {
   });
 
   const getProduct = async (id) => {
+    setLoading(true);
     try {
       const response = await api.get(`/product/${id}`);
       setProduct(response.data);
     } catch (err) {
       console.error("Error fetching product:" + err);
+      if (err.response && err.response.status === 404) {
+        setErrorMsg("Product not found");
+        setModalOpen(true);
+      }
+    } finally{
+      setLoading(false);
     }
   }
 
