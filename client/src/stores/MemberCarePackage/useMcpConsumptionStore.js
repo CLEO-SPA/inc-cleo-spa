@@ -13,7 +13,7 @@ export const useConsumptionStore = create(
       mcpd_id: '', // ID of the member_care_package_detail to consume
       service_name: '', // Name of the service for display
       mcpd_quantity: -1,
-      mcpd_date: new Date().toISOString().split('T')[0], // Default to today
+      mcpd_date: new Date().toISOString().slice(0, 16), // Default to today
       max_quantity: 0, // Max consumable quantity for the selected service
     },
     currentPackageInfo: null, // stores { package: {...}, details: [{..., remaining_quantity: X}], transactionLogs: [...] }
@@ -47,7 +47,7 @@ export const useConsumptionStore = create(
             mcpd_id: '',
             service_name: '',
             mcpd_quantity: -1,
-            mcpd_date: new Date().toISOString().split('T')[0],
+            mcpd_date: new Date().toISOString().slice(0, 16),
             max_quantity: 0,
           },
           error: null,

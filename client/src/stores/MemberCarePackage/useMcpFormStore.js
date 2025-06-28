@@ -35,7 +35,7 @@ export const useMcpFormStore = create(
     mcpCreationQueue: [],
     mcpTransferQueue: [],
 
-    setBypassMode: (isBypass) => set({ isByPass: isBypass }, false, 'setBypassMode'),
+    setBypassMode: (isBypass) => set({ isByPass: isBypass, isCustomizable: true }, false, 'setBypassMode'),
 
     updateMainField: (field, value) =>
       set(
@@ -129,7 +129,7 @@ export const useMcpFormStore = create(
     },
 
     selectService: async (service) => {
-      if (!get().isCustomizable && get().mainFormData.package_name !== '') {
+      if (!get().isCustomizable && !get().isBypass && get().mainFormData.package_name !== '') {
         console.warn('Package is not customizable. Cannot select a new service.');
         return;
       }
