@@ -18,6 +18,7 @@ import dataExportRoutes from './dataExportRoutes.js';
 import positionRoutes from './positionRoutes.js';
 import paymentMethodRoutes from './paymentMethodRoutes.js';
 import stRoutes from './stRoutes.js';
+import voucherRoutes from './voucherRoute.js';
 
 router.use(simulationMiddleware);
 
@@ -35,6 +36,7 @@ router.use('/position', positionRoutes);
 router.use('/de', dataExportRoutes);
 router.use('/payment-method', paymentMethodRoutes);
 router.use('/st', stRoutes);
+router.use('/voucher', voucherRoutes);
 // router.use('/sa', superAdminRoutes);
 
 export default router;

@@ -67,6 +67,7 @@ import EditPositionPage from '@/pages/em/UpdatePositionPage';
 import ManageEmployeesPage from '@/pages/em/ManageEmployeesPage';
 import CreateEmployeePage from '@/pages/em/CreateEmployeePage';
 
+import SalesTransactionPage from '@/pages/sales-transaction/mockSalesTransactionPage';
 function App() {
   return (
     <AuthProvider>
@@ -154,6 +155,11 @@ function App() {
 
             {/* 404 Page */}
             <Route path='*' element={<NotFoundPage />} />
+            <Route path='/strans' element={<SalesTransactionPage />} />
+
+
+            {/*voucher page*/}
+
           </Routes>
         </Router>
       </DateRangeProvider>
