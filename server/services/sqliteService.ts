@@ -71,7 +71,7 @@ const getDb = (): Promise<sqlite3.Database> => {
 
 export const logSeededFile = async (
   tableName: string,
-  dataType: 'pre' | 'post',
+  dataType: 'pre' | 'post' | 'merged',
   fileNameWithoutExtension: string,
   fileContentHash: string
 ): Promise<void> => {
@@ -107,7 +107,7 @@ interface ActiveSeedInfo {
 
 export const getActiveSeedInfo = async (
   tableName: string,
-  dataType: 'pre' | 'post'
+  dataType: 'pre' | 'post' | 'merged'
 ): Promise<ActiveSeedInfo | null> => {
   const dbInstance = await getDb();
   return new Promise((resolve, reject) => {
@@ -123,7 +123,7 @@ export const getActiveSeedInfo = async (
   });
 };
 
-export const clearActiveSeedInfo = async (tableName: string, dataType: 'pre' | 'post'): Promise<void> => {
+export const clearActiveSeedInfo = async (tableName: string, dataType: 'pre' | 'post' | 'merged'): Promise<void> => {
   const dbInstance = await getDb();
   return new Promise((resolve, reject) => {
     const sql = `DELETE FROM active_seed_files WHERE table_name = ? AND data_type = ?`;

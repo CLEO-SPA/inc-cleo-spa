@@ -174,7 +174,7 @@ interface CsvRow {
   [key: string]: string | number | boolean | null;
 }
 
-const parseCsvLine = (line: string): string[] => {
+function parseCsvLine(line: string): string[] {
   const result: string[] = [];
   let currentField = '';
   let inQuotes = false;
@@ -198,9 +198,9 @@ const parseCsvLine = (line: string): string[] => {
   }
   result.push(currentField);
   return result;
-};
+}
 
-const readCSVFile = async (filePath: string): Promise<CsvRow[]> => {
+async function readCSVFile(filePath: string): Promise<CsvRow[]> {
   if (!fs.existsSync(filePath)) {
     throw new Error(`File not found at path: ${filePath}`);
   }
@@ -263,7 +263,7 @@ const readCSVFile = async (filePath: string): Promise<CsvRow[]> => {
       reject(err);
     });
   });
-};
+}
 
 async function insertRowIntoPg(client: any, tableName: string, rowData: CsvRow) {
   const columns = Object.keys(rowData)
@@ -402,12 +402,66 @@ function getDescendants(startNodeId: number, fullHierarchy: HierarchyInterface[]
   return descendants;
 }
 
+async function mergeData(filePath1: string, filePath2: string, targetTable: string, fileName: string): Promise<string> {
+  const mergedDataMap = new Map<string, CsvRow>();
+
+  const preData = await readCSVFile(filePath1);
+  const postData = await readCSVFile(filePath2);
+
+  preData.forEach((row) => {
+    if (row.id) {
+      mergedDataMap.set(String(row.id), row);
+    }
+  });
+
+  postData.forEach((row) => {
+    if (row.id) {
+      mergedDataMap.set(String(row.id), row);
+    }
+  });
+
+  const mergedData = Array.from(mergedDataMap.values());
+
+  if (mergedData.length === 0) {
+    return '';
+  }
+
+  const headers = Object.keys(mergedData[0]);
+  const csvHeader = headers.join(',') + '\n';
+  const csvBody = mergedData
+    .map((row) => {
+      return headers
+        .map((header) => {
+          const value = row[header];
+          if (value === null || value === undefined) return '';
+          const stringValue = String(value);
+          if (stringValue.includes(',')) return `"${stringValue}"`;
+          return stringValue;
+        })
+        .join(',');
+    })
+    .join('\n');
+
+  const csvContent = csvHeader + csvBody;
+
+  const mergedDir = path.join(csvFolderPath, 'merged', targetTable);
+  if (!fs.existsSync(mergedDir)) {
+    fs.mkdirSync(mergedDir, { recursive: true });
+  }
+
+  const mergedFilePath = path.join(mergedDir, `${fileName}.csv`);
+  await fs.promises.writeFile(mergedFilePath, csvContent, 'utf-8');
+
+  return mergedFilePath;
+}
+
 interface tablePayload {
   table: string;
   file: string;
+  type: 'pre' | 'post' | 'merged';
 }
 
-const insertPreDataModel = async (targetTable: string, tablePayload: tablePayload[]) => {
+const insertDataModel = async (targetTable: string, tablePayload: tablePayload[]) => {
   try {
     const targetTableInfo = hierarchy.find((f) => f.table === targetTable);
 
@@ -434,17 +488,38 @@ const insertPreDataModel = async (targetTable: string, tablePayload: tablePayloa
         );
       }
       const fileNameWithoutExtension = payloadEntry.file;
-      const csvFilePath = path.join(csvFolderPath, 'pre', tableName, `${fileNameWithoutExtension}.csv`);
-      if (!fs.existsSync(csvFilePath)) {
-        throw new Error(
-          `Seeding process for "${targetTable}" failed: File not found for dependency "${tableName}" at ${csvFilePath}.`
-        );
+      let csvFile;
+
+      if (payloadEntry.type !== 'merged') {
+        csvFile = path.join(csvFolderPath, payloadEntry.type, tableName, `${fileNameWithoutExtension}.csv`);
+        if (!fs.existsSync(csvFile)) {
+          throw new Error(
+            `Seeding process for "${targetTable}" failed: File not found for dependency "${tableName}" at ${csvFile}.`
+          );
+        }
+      } else {
+        const mergedFilePath = path.join(csvFolderPath, 'merged', tableName, `${fileNameWithoutExtension}.csv`);
+        if (fs.existsSync(mergedFilePath)) {
+          csvFile = mergedFilePath;
+        } else {
+          const preCsvPath = path.join(csvFolderPath, 'pre', tableName, `${fileNameWithoutExtension}.csv`);
+          const postCsvPath = path.join(csvFolderPath, 'post', tableName, `${fileNameWithoutExtension}.csv`);
+
+          if (!fs.existsSync(preCsvPath)) {
+            throw new Error(`Merging failed for "${tableName}": "pre" file not found at ${preCsvPath}.`);
+          }
+          if (!fs.existsSync(postCsvPath)) {
+            throw new Error(`Merging failed for "${tableName}": "post" file not found at ${postCsvPath}.`);
+          }
+
+          csvFile = await mergeData(preCsvPath, postCsvPath, tableName, fileNameWithoutExtension);
+        }
       }
 
-      const activeInfo = await getActiveSeedInfo(tableName, 'pre');
-      const currentHash = await calculateFileHash(csvFilePath);
+      const activeInfo = await getActiveSeedInfo(tableName, payloadEntry.type);
+      const currentHash = await calculateFileHash(csvFile);
 
-      if (activeInfo && activeInfo.file_content_hash === currentHash) {
+      if (activeInfo && activeInfo.file_content_hash === currentHash && payloadEntry.type !== 'merged') {
         tablesToIgnore.push(sortedOrderForInsert[i]);
       }
     }
@@ -482,7 +557,13 @@ const insertPreDataModel = async (targetTable: string, tablePayload: tablePayloa
       const payloadEntry = tablePayload.find((f) => f.table === tableName);
       if (payloadEntry) {
         const fileNameWithoutExtension = payloadEntry.file;
-        const csvFilePath = path.join(csvFolderPath, 'pre', tableName, `${fileNameWithoutExtension}.csv`);
+        let csvFilePath;
+        if (payloadEntry.type === 'merged') {
+          csvFilePath = path.join(csvFolderPath, 'merged', tableName, `${fileNameWithoutExtension}.csv`);
+        } else {
+          csvFilePath = path.join(csvFolderPath, payloadEntry.type, tableName, `${fileNameWithoutExtension}.csv`);
+        }
+
         if (fs.existsSync(csvFilePath)) {
           console.log(`Reading data for "${fileNameWithoutExtension}" from: ${csvFilePath}`);
           allTableData[tableName] = await readCSVFile(csvFilePath);
@@ -498,124 +579,20 @@ const insertPreDataModel = async (targetTable: string, tablePayload: tablePayloa
       const payloadEntry = tablePayload.find((f) => f.table === tableName);
       if (payloadEntry) {
         const fileNameWithoutExtension = payloadEntry.file;
-        const csvFilePath = path.join(csvFolderPath, 'pre', tableName, `${fileNameWithoutExtension}.csv`);
-        try {
-          if (fs.existsSync(csvFilePath)) {
-            const fileHash = await calculateFileHash(csvFilePath);
-            await logSeededFile(tableName, 'pre', fileNameWithoutExtension, fileHash);
-          }
-        } catch (logError: any) {
-          console.error(
-            `[saModel] Failed to log active seed status for pre/${tableName}/${fileNameWithoutExtension}.csv: ${logError.message}`
-          );
-        }
-      }
-    }
-
-    return {
-      message: `Seeding for specific tables ${targetTable} completed.`,
-      tables: finalOrderToSeed,
-    };
-  } catch (error: any) {
-    console.error('Error in insertPreDataModel', error.message);
-    throw error;
-  }
-};
-
-const insertPostDataModel = async (targetTable: string, tablePayload: tablePayload[]) => {
-  try {
-    const targetTableInfo = hierarchy.find((f) => f.table === targetTable);
-
-    if (!targetTableInfo) {
-      throw new Error(`No valid target table "${targetTable}" found in hierarchy. Exiting seeding process.`);
-    }
-
-    const requiredTableIdsForInsert = getAncestors(targetTableInfo.id, hierarchy);
-    const filteredHierarchyForInsert: HierarchyInterface[] = hierarchy.filter((tableInfo) =>
-      requiredTableIdsForInsert.has(tableInfo.id)
-    );
-    const sortedOrderForInsert = getSeedingOrder(filteredHierarchyForInsert);
-
-    const tablesToIgnore: string[] = [];
-
-    for (let i = 0; i < sortedOrderForInsert.length; i++) {
-      const tableName = sortedOrderForInsert[i];
-      const payloadEntry = tablePayload.find((p) => p.table === tableName);
-
-      if (!payloadEntry || !payloadEntry.file) {
-        throw new Error(
-          `Seeding process for "${targetTable}" failed: Missing file information for dependency "${tableName}".`
-        );
-      }
-      const fileNameWithoutExtension = payloadEntry.file;
-      const csvFilePath = path.join(csvFolderPath, 'post', tableName, `${fileNameWithoutExtension}.csv`);
-      if (!fs.existsSync(csvFilePath)) {
-        throw new Error(
-          `Seeding process for "${targetTable}" failed: File not found for dependency "${tableName}" at ${csvFilePath}.`
-        );
-      }
-
-      const activeInfo = await getActiveSeedInfo(tableName, 'post');
-      const currentHash = await calculateFileHash(csvFilePath);
-
-      if (activeInfo && activeInfo.file_content_hash === currentHash) {
-        tablesToIgnore.push(sortedOrderForInsert[i]);
-      }
-    }
-
-    const finalOrderToSeed =
-      tablesToIgnore.length !== 0
-        ? sortedOrderForInsert.filter((f) => !tablesToIgnore.includes(f))
-        : sortedOrderForInsert;
-
-    const allAffectedTableIds = new Set<number>();
-    finalOrderToSeed.forEach((tableName) => {
-      const tableInfo = hierarchy.find((t) => t.table === tableName);
-      if (tableInfo) {
-        const descendants = getDescendants(tableInfo.id, hierarchy);
-        descendants.forEach((descendantId) => allAffectedTableIds.add(descendantId));
-      }
-    });
-
-    const fullSortedOrder = getSeedingOrder(hierarchy);
-    const tablesToTruncate: string[] = fullSortedOrder
-      .filter((tableName) => {
-        const id = hierarchy.find((t) => t.table === tableName && !tablesToIgnore.includes(tableName))?.id;
-        return id !== undefined && allAffectedTableIds.has(id);
-      })
-      .reverse();
-
-    const allTableData: AllTableData = {};
-
-    for (const tableName of finalOrderToSeed) {
-      const payloadEntry = tablePayload.find((f) => f.table === tableName);
-      if (payloadEntry) {
-        const fileNameWithoutExtension = payloadEntry.file;
-        const csvFilePath = path.join(csvFolderPath, 'post', tableName, `${fileNameWithoutExtension}.csv`);
-        if (fs.existsSync(csvFilePath)) {
-          console.log(`Reading data for "${fileNameWithoutExtension}" from: ${csvFilePath}`);
-          allTableData[tableName] = await readCSVFile(csvFilePath);
+        let csvFilePath;
+        if (payloadEntry.type === 'merged') {
+          csvFilePath = path.join(csvFolderPath, 'merged', tableName, `${fileNameWithoutExtension}.csv`);
         } else {
-          throw new Error(`No CSV file found for table "${tableName}" at ${csvFilePath}. Exiting seeding process.`);
+          csvFilePath = path.join(csvFolderPath, payloadEntry.type, tableName, `${fileNameWithoutExtension}.csv`);
         }
-      }
-    }
-
-    await performDbInserts(tablesToTruncate, finalOrderToSeed, allTableData);
-
-    for (const tableName of finalOrderToSeed) {
-      const payloadEntry = tablePayload.find((f) => f.table === tableName);
-      if (payloadEntry) {
-        const fileNameWithoutExtension = payloadEntry.file;
-        const csvFilePath = path.join(csvFolderPath, 'post', tableName, `${fileNameWithoutExtension}.csv`);
         try {
           if (fs.existsSync(csvFilePath)) {
             const fileHash = await calculateFileHash(csvFilePath);
-            await logSeededFile(tableName, 'post', fileNameWithoutExtension, fileHash);
+            await logSeededFile(tableName, payloadEntry.type, fileNameWithoutExtension, fileHash);
           }
         } catch (logError: any) {
           console.error(
-            `[saModel] Failed to log active seed status for post/${tableName}/${fileNameWithoutExtension}.csv: ${logError.message}`
+            `[saModel] Failed to log active seed status for ${payloadEntry.type}/${tableName}/${fileNameWithoutExtension}.csv: ${logError.message}`
           );
         }
       }
@@ -626,7 +603,7 @@ const insertPostDataModel = async (targetTable: string, tablePayload: tablePaylo
       tables: finalOrderToSeed,
     };
   } catch (error: any) {
-    console.error('Error in insertPostDataModel', error.message);
+    console.error('Error in insertDataModel', error.message);
     throw error;
   }
 };
@@ -708,6 +685,46 @@ const getPostDataModel = async (tableName: string, fileName: string) => {
   } catch (error) {
     console.error('Error in getPostDataModel', error);
     throw new Error('Error in getPostDataModel');
+  }
+};
+
+const getMergedDataModel = async (tableName: string, fileName: string) => {
+  const mergedDir = path.join(csvFolderPath, 'merged', tableName);
+  const mergedFilePath = path.join(mergedDir, `${fileName}.csv`);
+
+  try {
+    // If merged file doesn't exist, create it from pre and post files.
+    if (!fs.existsSync(mergedFilePath)) {
+      const preCsvPath = path.join(csvFolderPath, 'pre', tableName, `${fileName}.csv`);
+      const postCsvPath = path.join(csvFolderPath, 'post', tableName, `${fileName}.csv`);
+
+      if (!fs.existsSync(preCsvPath) || !fs.existsSync(postCsvPath)) {
+        throw new Error(
+          `Cannot create merged file for "${tableName}/${fileName}" because either the 'pre' or 'post' version is missing.`
+        );
+      }
+      // The mergeData function will create and save the file.
+      await mergeData(preCsvPath, postCsvPath, tableName, fileName);
+    }
+
+    const parsedCsvData: CsvRow[] = await readCSVFile(mergedFilePath);
+
+    if (!parsedCsvData || parsedCsvData.length === 0) {
+      throw new Error(`[saModel] Merged data CSV for table "${tableName}" is empty or could not be parsed.`);
+    }
+
+    const headers = Object.keys(parsedCsvData[0]);
+    const spreadsheetHeaderRow = headers.map((header) => ({ value: String(header) }));
+    const spreadsheetDataRows = parsedCsvData.map((row) =>
+      headers.map((headerKey) => ({
+        value: row[headerKey] === null || row[headerKey] === undefined ? '' : String(row[headerKey]),
+      }))
+    );
+
+    return [spreadsheetHeaderRow, ...spreadsheetDataRows];
+  } catch (error: any) {
+    console.error(`Error in getMergedDataModel for ${tableName}/${fileName}:`, error.message);
+    throw error; // Re-throw the original error to be handled by the controller
   }
 };
 
@@ -906,7 +923,7 @@ const getPostDataFilesModel = async (tableName: string) => {
 };
 
 const deleteSeedDataFileModel = async (
-  dataType: 'pre' | 'post',
+  dataType: 'pre' | 'post' | 'merged',
   tableName: string,
   fileName: string
 ): Promise<void> => {
@@ -920,10 +937,13 @@ const deleteSeedDataFileModel = async (
     await fs.promises.unlink(filePath);
     console.log(`[saModel] Successfully deleted file: ${filePath}`);
 
-    const activeInfo = await getActiveSeedInfo(tableName, dataType);
-    if (activeInfo && activeInfo.file_name === fileName) {
-      await clearActiveSeedInfo(tableName, dataType);
-      console.log(`[saModel] Cleared active seed status for deleted file: ${dataType}/${tableName}/${fileName}.csv`);
+    // Merged files don't have a "live" status in the same way, so we only clear for pre/post
+    if (dataType === 'pre' || dataType === 'post') {
+      const activeInfo = await getActiveSeedInfo(tableName, dataType);
+      if (activeInfo && activeInfo.file_name === fileName) {
+        await clearActiveSeedInfo(tableName, dataType);
+        console.log(`[saModel] Cleared active seed status for deleted file: ${dataType}/${tableName}/${fileName}.csv`);
+      }
     }
   } catch (error: any) {
     console.error(
@@ -938,15 +958,38 @@ const deleteSeedDataFileModel = async (
   }
 };
 
+const mergeDataFilesModel = async (tableName: string, fileName: string): Promise<string> => {
+  const preCsvPath = path.join(csvFolderPath, 'pre', tableName, `${fileName}.csv`);
+  const postCsvPath = path.join(csvFolderPath, 'post', tableName, `${fileName}.csv`);
+
+  if (!fs.existsSync(preCsvPath)) {
+    throw new Error(`Pre-data file not found for ${tableName}/${fileName}.`);
+  }
+
+  if (!fs.existsSync(postCsvPath)) {
+    throw new Error(`Post-data file not found for ${tableName}/${fileName}.`);
+  }
+
+  // Use the existing mergeData function to combine files
+  const mergedFilePath = await mergeData(preCsvPath, postCsvPath, tableName, fileName);
+
+  if (!mergedFilePath) {
+    throw new Error(`Failed to merge data files for ${tableName}/${fileName}.`);
+  }
+
+  return mergedFilePath;
+};
+
 export default {
-  insertPreDataModel,
-  insertPostDataModel,
+  insertDataModel,
   getPreDataModel,
   getPostDataModel,
+  getMergedDataModel,
   getAllExistingTablesModel,
   getCurrentSeedingOrderModel,
   getOrdersForTableModel,
   getPreDataFilesModel,
   getPostDataFilesModel,
   deleteSeedDataFileModel,
+  mergeDataFilesModel,
 };

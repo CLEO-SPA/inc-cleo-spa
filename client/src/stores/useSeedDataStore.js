@@ -7,7 +7,7 @@ export const defaultSpreadsheetData = [
   [{}, {}, {}],
 ];
 
-// Helper function to convert array of arrays of cell objects to CSV string (remains the same)
+// Helper function to convert array of arrays of cell objects to CSV string
 const convertDataToCSV = (data) => {
   return data
     .map((row) =>
@@ -33,9 +33,14 @@ export const useSeedDataStore = create((set, get) => ({
   seedingSetTables: [],
   activeTableForDisplay: null,
 
-  availableFiles: {}, // Object: { [tableName: string]: SeedFileStatus[] } | SeedFileStatus: { name: string, hash: string | null, isLive: boolean }
+  // Modified structure: { [tableName: string]: { pre: SeedFileStatus[], post: SeedFileStatus[] } }
+  availableFiles: {},
 
-  selectedFiles: {}, // Object: { [tableName: string]: string (fileName only) }
+  // Selected file name for each table
+  selectedFiles: {},
+
+  // Selected file type (pre/post) for each table
+  selectedFileTypes: {},
 
   // Action to set the data for a specific table
   setTableData: (tableName, newData) => {
@@ -68,55 +73,74 @@ export const useSeedDataStore = create((set, get) => ({
         activeTableForDisplay: null,
         availableFiles: {},
         selectedFiles: {},
+        selectedFileTypes: {},
       });
     }
   },
 
-  // Fetches available files for a specific table
-  fetchAvailableFilesForTable: async (tableName, dataType) => {
-    if (!tableName || !dataType) return;
+  // Fetches available pre and post files for a specific table
+  fetchAvailableFilesForTable: async (tableName) => {
+    if (!tableName) return;
     set((state) => ({
       isLoading: true,
       error: null,
-      availableFiles: { ...state.availableFiles, [tableName]: [] },
+      availableFiles: { ...state.availableFiles, [tableName]: { pre: [], post: [] } },
       selectedFiles: { ...state.selectedFiles, [tableName]: '' },
+      selectedFileTypes: { ...state.selectedFileTypes, [tableName]: 'pre' }, // Default to pre
       data: { ...state.data, [tableName]: defaultSpreadsheetData },
     }));
     try {
-      const response = await api.get(`/sa/seed/${dataType}/${tableName}`);
-      const filesStatus = response.data || []; // Expects SeedFileStatus[]
+      // Fetch both pre and post files
+      const [preResponse, postResponse] = await Promise.all([
+        api.get(`/sa/seed/pre/${tableName}`),
+        api.get(`/sa/seed/post/${tableName}`),
+      ]);
+
+      const preFiles = preResponse.data || [];
+      const postFiles = postResponse.data || [];
+
       set((state) => ({
-        availableFiles: { ...state.availableFiles, [tableName]: filesStatus },
+        availableFiles: {
+          ...state.availableFiles,
+          [tableName]: {
+            pre: preFiles,
+            post: postFiles,
+          },
+        },
         isLoading: false,
       }));
-      // Auto-select the first file if available
-      if (filesStatus.length > 0) {
-        // filesStatus[0] is a SeedFileStatus object, we need its name
-        get().setSelectedFileForTable(tableName, filesStatus[0].name, dataType);
+
+      // Auto-select the first pre file if available, otherwise first post file
+      if (preFiles.length > 0) {
+        get().setSelectedFileForTable(tableName, preFiles[0].name, 'pre');
+      } else if (postFiles.length > 0) {
+        get().setSelectedFileForTable(tableName, postFiles[0].name, 'post');
       }
     } catch (error) {
-      console.error(`Failed to fetch ${dataType} files for table ${tableName}:`, error);
+      console.error(`Failed to fetch files for table ${tableName}:`, error);
       const errorMessage = error.response?.data?.message || error.message || `Failed to load files for ${tableName}`;
       set((state) => ({
         error: errorMessage,
         isLoading: false,
-        availableFiles: { ...state.availableFiles, [tableName]: [] },
+        availableFiles: { ...state.availableFiles, [tableName]: { pre: [], post: [] } },
       }));
     }
   },
 
   // Sets the selected file for a table and fetches its data
-  setSelectedFileForTable: (tableName, fileName, dataType) => {
+  setSelectedFileForTable: (tableName, fileName, fileType) => {
+    // First update the selected type regardless of fileName
+    set((state) => ({
+      selectedFileTypes: { ...state.selectedFileTypes, [tableName]: fileType },
+    }));
+
+    // Then update the filename and fetch data if a filename was provided
     set((state) => ({
       selectedFiles: { ...state.selectedFiles, [tableName]: fileName },
     }));
+
     if (fileName) {
-      // The fileName here is just the string name, e.g., "my_data_v1"
-      if (dataType === 'pre') {
-        get().fetchTableData(tableName, fileName, 'pre');
-      } else {
-        get().fetchTableData(tableName, fileName, 'post');
-      }
+      get().fetchTableData(tableName, fileName, fileType);
     } else {
       set((state) => ({
         data: { ...state.data, [tableName]: defaultSpreadsheetData },
@@ -133,7 +157,8 @@ export const useSeedDataStore = create((set, get) => ({
       }));
       return;
     }
-    set({ isLoading: true, error: null }); // Global loading
+
+    set({ isLoading: true, error: null });
     try {
       const response = await api.get(`/sa/seed/${dataType}/${tableName}/${fileName}`);
       set((state) => ({
@@ -142,7 +167,6 @@ export const useSeedDataStore = create((set, get) => ({
           [tableName]: response.data && response.data.length > 0 ? response.data : defaultSpreadsheetData,
         },
         isLoading: false,
-        // selectedFiles: { ...state.selectedFiles, [tableName]: fileName }, // Already set by setSelectedFileForTable
       }));
     } catch (error) {
       console.error(`Failed to fetch ${dataType}-data for ${tableName}/${fileName}:`, error);
@@ -156,20 +180,23 @@ export const useSeedDataStore = create((set, get) => ({
   },
 
   // Loads the target table and its ancestors for seeding
-  loadTablesForSeedingSet: async (targetTableName, dataType) => {
-    if (!targetTableName || !dataType) return;
+  loadTablesForSeedingSet: async (targetTableName) => {
+    if (!targetTableName) return;
     set({
       isLoading: true,
       error: null,
       seedingSetTables: [],
       data: {},
-      availableFiles: {}, // Will be populated with SeedFileStatus[]
+      availableFiles: {},
       selectedFiles: {},
+      selectedFileTypes: {},
       activeTableForDisplay: null,
     });
+
     try {
       const orderResponse = await api.get(`/sa/seed/order/${targetTableName}`);
       const tablesInOrder = orderResponse.data?.sortedOrderForInsert || [];
+
       if (!tablesInOrder.includes(targetTableName)) {
         if (tablesInOrder.length === 0) {
           tablesInOrder.push(targetTableName);
@@ -177,21 +204,14 @@ export const useSeedDataStore = create((set, get) => ({
           throw new Error(`Target table ${targetTableName} not found in its own seeding order.`);
         }
       }
+
       set({ seedingSetTables: tablesInOrder, activeTableForDisplay: targetTableName });
 
+      // Fetch files for all tables in the set
       for (const tableNameInSet of tablesInOrder) {
-        await get().fetchAvailableFilesForTable(tableNameInSet, dataType);
-        const currentFilesForTable = get().availableFiles[tableNameInSet] || []; // This is SeedFileStatus[]
-        if (currentFilesForTable.length > 0) {
-          // Auto-select and load the first file's data
-          // currentFilesForTable[0] is a SeedFileStatus object, pass its name
-          await get().setSelectedFileForTable(tableNameInSet, currentFilesForTable[0].name, dataType);
-        } else {
-          set((state) => ({
-            data: { ...state.data, [tableNameInSet]: defaultSpreadsheetData },
-          }));
-        }
+        await get().fetchAvailableFilesForTable(tableNameInSet);
       }
+
       set({ isLoading: false });
     } catch (error) {
       console.error(`Failed to load seeding set for ${targetTableName}:`, error);
@@ -206,7 +226,6 @@ export const useSeedDataStore = create((set, get) => ({
       set((state) => ({
         data: { ...state.data, [activeTable]: defaultSpreadsheetData },
         selectedFiles: { ...state.selectedFiles, [activeTable]: '' },
-        // availableFiles for this table remain as they are
       }));
     }
   },
@@ -219,20 +238,24 @@ export const useSeedDataStore = create((set, get) => ({
       activeTableForDisplay: null,
       availableFiles: {},
       selectedFiles: {},
+      selectedFileTypes: {},
       error: null,
     });
   },
 
+  // Save data for a table with specified file type
   saveTableData: async (tableName, fileNameToSave, dataType) => {
     if (!tableName || !fileNameToSave || !dataType) {
       alert('Table name, file name, and data type are required to save.');
       return;
     }
+
     const tableData = get().data[tableName];
     if (!tableData) {
       alert(`No data found for table ${tableName} to save.`);
       return;
     }
+
     const nonEmptyData = tableData.filter((row) =>
       row.some((cell) => cell && cell.value !== undefined && cell.value !== null && cell.value !== '')
     );
@@ -241,6 +264,7 @@ export const useSeedDataStore = create((set, get) => ({
       alert('Cannot save empty data for the table.');
       return;
     }
+
     set({ isLoading: true, error: null });
     try {
       const csvData = convertDataToCSV(nonEmptyData);
@@ -248,15 +272,15 @@ export const useSeedDataStore = create((set, get) => ({
 
       const formData = new FormData();
       formData.append('file', file);
-      formData.append('tableName', tableName); // Server needs to know which subfolder
+      formData.append('tableName', tableName);
 
       await api.post(`/sa/update/${dataType}`, formData);
 
       set({ isLoading: false });
       alert(`${dataType}-data for table '${tableName}', file '${fileNameToSave}.csv' saved successfully!`);
+
       // Refresh files and data for the saved table
-      await get().fetchAvailableFilesForTable(tableName, dataType);
-      // After fetching files, re-select and fetch data for the just-saved file
+      await get().fetchAvailableFilesForTable(tableName);
       await get().setSelectedFileForTable(tableName, fileNameToSave, dataType);
     } catch (error) {
       console.error(`Failed to save ${dataType}-data for ${tableName}/${fileNameToSave}:`, error);
@@ -266,20 +290,57 @@ export const useSeedDataStore = create((set, get) => ({
     }
   },
 
+  // Merge pre and post files with the same name
+  mergeTableFiles: async (tableName, fileName) => {
+    if (!tableName || !fileName) {
+      throw new Error('Table name and file name are required for merging.');
+    }
+
+    set({ isLoading: true, error: null });
+    try {
+      // Check if both pre and post files exist
+      const availableFilesForTable = get().availableFiles[tableName] || { pre: [], post: [] };
+      const preFileExists = availableFilesForTable.pre?.some((f) => f.name === fileName);
+      const postFileExists = availableFilesForTable.post?.some((f) => f.name === fileName);
+
+      if (!preFileExists || !postFileExists) {
+        throw new Error(`Both pre and post files named "${fileName}.csv" must exist for merging.`);
+      }
+
+      // Call backend API to perform the merge
+      await api.post('/sa/seed/merge', {
+        tableName,
+        fileName,
+      });
+
+      // Refresh files for this table after merge
+      await get().fetchAvailableFilesForTable(tableName);
+      set({ isLoading: false });
+
+      return true;
+    } catch (error) {
+      console.error(`Failed to merge files for ${tableName}/${fileName}:`, error);
+      const errorMessage = error.response?.data?.message || error.message || `Failed to merge files`;
+      set({ error: errorMessage, isLoading: false });
+      throw error;
+    }
+  },
+
   copyTableDataFile: async (tableName, originalFileName, dataType) => {
     if (!tableName || !originalFileName || !dataType) {
       alert('Table name, original file name, and data type are required to copy.');
       return false;
     }
+
     set({ isLoading: true, error: null });
     try {
-      const currentAvailableFileObjects = get().availableFiles[tableName] || []; // Array of SeedFileStatus
+      const currentAvailableFileObjects = get().availableFiles[tableName]?.[dataType] || [];
       const baseName = originalFileName.replace(/\.csv$/i, '');
       let newFileName = '';
       let counter = 1;
+
       while (true) {
         const potentialName = `${baseName}_${counter}`;
-        // Check against the 'name' property of the file objects
         if (!currentAvailableFileObjects.some((fileObj) => fileObj.name === potentialName)) {
           newFileName = potentialName;
           break;
@@ -289,19 +350,23 @@ export const useSeedDataStore = create((set, get) => ({
 
       const response = await api.get(`/sa/seed/${dataType}/${tableName}/${originalFileName}`);
       const originalData = response.data;
+
       if (!originalData || originalData.length === 0) {
         throw new Error(
           `Original file ${originalFileName}.csv for table ${tableName} is empty or could not be fetched.`
         );
       }
+
       const csvData = convertDataToCSV(originalData);
       const fileToCopy = new File([csvData], `${newFileName}.csv`, { type: 'text/csv' });
       const formData = new FormData();
       formData.append('file', fileToCopy);
       formData.append('tableName', tableName);
+
       await api.post(`/sa/update/${dataType}`, formData);
       set({ isLoading: false });
-      await get().fetchAvailableFilesForTable(tableName, dataType);
+
+      await get().fetchAvailableFilesForTable(tableName);
       await get().setSelectedFileForTable(tableName, newFileName, dataType);
       return true;
     } catch (error) {
@@ -318,16 +383,17 @@ export const useSeedDataStore = create((set, get) => ({
       alert('Table name, file name, and data type are required to delete.');
       return false;
     }
+
     set({ isLoading: true, error: null });
     try {
       await api.delete(`/sa/seed/${dataType}/${tableName}/${fileNameToDelete}`);
       set({ isLoading: false });
-      // alert(`${dataType}-data file '${fileNameToDelete}.csv' for table '${tableName}' deleted successfully!`); // Optional success alert
 
       // Refresh files for the table
-      await get().fetchAvailableFilesForTable(tableName, dataType);
+      await get().fetchAvailableFilesForTable(tableName);
+
       // Clear selected file and data for this table if it was the one deleted
-      if (get().selectedFiles[tableName] === fileNameToDelete) {
+      if (get().selectedFiles[tableName] === fileNameToDelete && get().selectedFileTypes[tableName] === dataType) {
         set((state) => ({
           selectedFiles: { ...state.selectedFiles, [tableName]: '' },
           data: { ...state.data, [tableName]: defaultSpreadsheetData },
@@ -343,40 +409,40 @@ export const useSeedDataStore = create((set, get) => ({
     }
   },
 
-  // For seeding the entire set based on current selections
-  seedCurrentSet: async (targetTableName, dataType) => {
+  // For seeding the entire set using selected files and file types
+  seedCurrentSet: async (targetTableName) => {
     set({ isLoading: true, error: null });
     try {
       const tablesToSeed = get().seedingSetTables;
       const currentSelectedFiles = get().selectedFiles;
+      const currentSelectedFileTypes = get().selectedFileTypes;
 
       const tablePayload = tablesToSeed.map((tn) => {
         if (!currentSelectedFiles[tn]) {
-          // If strict, throw error. If lenient, filter out.
-          // For now, let's assume a file must be selected or it's an error to proceed.
           throw new Error(`File not selected for table: ${tn}. Please select a file for all tables in the set.`);
         }
-        return { table: tn, file: currentSelectedFiles[tn] };
+
+        return {
+          table: tn,
+          file: currentSelectedFiles[tn],
+          type: currentSelectedFileTypes[tn] || 'pre',
+        };
       });
-      // .filter(p => p.file); // Use this if you want to allow seeding only tables with files selected
 
       if (tablePayload.length !== tablesToSeed.length) {
-        // This case might be handled by the throw above, but as a fallback.
         alert('Not all tables in the seeding set have a selected file. Please select files for all tables.');
         set({ isLoading: false });
         return;
       }
 
-      const payload = { targetTable: targetTableName, tablePayload }; // Backend expects targetTable for context
-      console.log(payload);
-      await api.post(`/sa/seed/${dataType}`, payload);
-      // console.log(results);
+      const payload = { targetTable: targetTableName, tablePayload };
+      await api.post(`/sa/seed`, payload);
 
-      alert(`Seeding ${dataType}-data for ${targetTableName} and its dependencies initiated successfully.`);
+      alert(`Seeding data for ${targetTableName} and its dependencies initiated successfully.`);
       set({ isLoading: false });
     } catch (error) {
-      console.error(`Failed to seed ${dataType}-data for ${targetTableName}:`, error);
-      const errorMessage = error.response?.data?.message || error.message || `Failed to seed ${dataType}-data`;
+      console.error(`Failed to seed data for ${targetTableName}:`, error);
+      const errorMessage = error.response?.data?.message || error.message || `Failed to seed data`;
       set({ error: errorMessage, isLoading: false });
       alert(`Error: ${errorMessage}`);
     }

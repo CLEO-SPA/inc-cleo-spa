@@ -16,7 +16,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import { Label } from '@/components/ui/label';
 import { RadioGroup, RadioGroupItem } from '@/components/ui/radio-group';
 import { Input } from '@/components/ui/input';
-import { useSeedDataStore, defaultSpreadsheetData } from '@/stores/useSeedDataStore'; // Updated import
+import { useSeedDataStore, defaultSpreadsheetData } from '@/stores/useSeedDataStore';
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
 import {
   Terminal,
@@ -30,13 +30,14 @@ import {
   UploadCloud,
   XCircle,
   Copy,
-  Trash2, // Add Trash2 icon
+  Trash2,
+  GitMerge,
 } from 'lucide-react';
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
+import { Card, CardContent, CardDescription, CardHeader, CardTitle, CardFooter } from '@/components/ui/card';
 import { Separator } from '@/components/ui/separator';
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip';
-import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs'; // Import Tabs
-import { Badge } from '@/components/ui/badge'; // Import Badge for "Live" indicator
+import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
+import { Badge } from '@/components/ui/badge';
 
 const DataSeedingPage = () => {
   const {
@@ -49,6 +50,7 @@ const DataSeedingPage = () => {
     activeTableForDisplay,
     availableFiles,
     selectedFiles,
+    selectedFileTypes,
     setTableData,
     setActiveTableForDisplay,
     setSelectedFileForTable,
@@ -66,9 +68,8 @@ const DataSeedingPage = () => {
   } = useSeedDataStore();
 
   // Component State
-  const [selectedTargetTable, setSelectedTargetTable] = useState(''); // The main table selected to initiate a seeding set
-  const [selectedDataType, setSelectedDataType] = useState('pre'); // 'pre' or 'post'
-  const [newFileNameInputs, setNewFileNameInputs] = useState({}); // Object: { [tableName: string]: string }
+  const [selectedTargetTable, setSelectedTargetTable] = useState('');
+  const [newFileNameInputs, setNewFileNameInputs] = useState({});
 
   const stableFetchAvailableTables = useCallback(fetchAvailableTables, [fetchAvailableTables]);
   const stableLoadTablesForSeedingSet = useCallback(loadTablesForSeedingSet, [loadTablesForSeedingSet]);
@@ -81,15 +82,15 @@ const DataSeedingPage = () => {
     };
   }, [stableFetchAvailableTables, stableClearCurrentSeedingSet]);
 
-  // Effect to load/reload the seeding set when target table or data type changes
+  // Effect to load/reload the seeding set when target table changes
   useEffect(() => {
-    if (selectedTargetTable && selectedDataType) {
-      stableLoadTablesForSeedingSet(selectedTargetTable, selectedDataType);
+    if (selectedTargetTable) {
+      stableLoadTablesForSeedingSet(selectedTargetTable);
       setNewFileNameInputs({}); // Reset all filename inputs for the new set
     } else {
       stableClearCurrentSeedingSet(); // Clear if no target table selected
     }
-  }, [selectedTargetTable, selectedDataType, stableLoadTablesForSeedingSet, stableClearCurrentSeedingSet]);
+  }, [selectedTargetTable, stableLoadTablesForSeedingSet, stableClearCurrentSeedingSet]);
 
   // Update individual filename input when a file is selected for a table in a tab
   useEffect(() => {
@@ -106,9 +107,22 @@ const DataSeedingPage = () => {
     // The useEffect above will handle loading the seeding set
   };
 
-  const handleDataTypeChange = (value) => {
-    setSelectedDataType(value);
-    // The useEffect above will handle loading the seeding set
+  const handleFileTypeChange = (tableName, fileType) => {
+    // When switching data types, we should select the first available file of the new type
+    // rather than trying to keep the same filename which may not exist in the other folder
+    const filesForType = availableFiles[tableName]?.[fileType] || [];
+
+    if (filesForType.length > 0) {
+      // Select the first file of the new type
+      setSelectedFileForTable(tableName, filesForType[0].name, fileType);
+    } else {
+      // No files available for this type, just update the type but clear the file
+      setNewFileNameInputs((prev) => ({ ...prev, [tableName]: '' }));
+
+      // Update state in the store but don't try to fetch a file
+      // (this will trigger a UI update showing "No files available")
+      setSelectedFileForTable(tableName, '', fileType);
+    }
   };
 
   const handleFileNameInputChange = (tableName, value) => {
@@ -121,17 +135,18 @@ const DataSeedingPage = () => {
       alert(`Please enter a filename for table ${tableName}.`);
       return;
     }
-    saveTableData(tableName, fileNameToSave.replace(/\.csv$/i, ''), selectedDataType);
+    const fileType = selectedFileTypes[tableName] || 'pre'; // Default to pre if not set
+    saveTableData(tableName, fileNameToSave.replace(/\.csv$/i, ''), fileType);
   };
 
   const handleCreateCopy = async (tableName) => {
     const originalFileName = selectedFiles[tableName];
     if (!originalFileName) {
-      alert('Please select a file to copy first.'); // Keep this validation
+      alert('Please select a file to copy first.');
       return;
     }
-
-    await copyTableDataFile(tableName, originalFileName, selectedDataType);
+    const fileType = selectedFileTypes[tableName] || 'pre';
+    await copyTableDataFile(tableName, originalFileName, fileType);
   };
 
   const handleDeleteSelectedFile = async (tableName) => {
@@ -141,15 +156,15 @@ const DataSeedingPage = () => {
       return;
     }
 
+    const fileType = selectedFileTypes[tableName] || 'pre';
+
     if (
       confirm(
-        `Are you sure you want to delete the file "${fileNameToDelete}.csv" for table "${tableName}"? This action cannot be undone.`
+        `Are you sure you want to delete the ${fileType} file "${fileNameToDelete}.csv" for table "${tableName}"? This action cannot be undone.`
       )
     ) {
-      const success = await deleteTableDataFile(tableName, fileNameToDelete, selectedDataType);
+      const success = await deleteTableDataFile(tableName, fileNameToDelete, fileType);
       if (success) {
-        // The store action handles refreshing files and clearing selection/data.
-        // If the deleted file was in newFileNameInputs, clear it.
         setNewFileNameInputs((prev) => {
           const updatedInputs = { ...prev };
           if (updatedInputs[tableName] === fileNameToDelete) {
@@ -166,14 +181,26 @@ const DataSeedingPage = () => {
       alert('Please select a target table first.');
       return;
     }
-    seedCurrentSet(selectedTargetTable, selectedDataType);
+    seedCurrentSet(selectedTargetTable);
   };
 
   const handleResetEntireView = () => {
     setSelectedTargetTable('');
-    // setSelectedDataType('pre'); // Optionally reset data type
     stableClearCurrentSeedingSet();
     setNewFileNameInputs({});
+  };
+
+  const handleToggleMerged = (tableName) => {
+    const currentType = selectedFileTypes[tableName];
+    const fileName = selectedFiles[tableName];
+
+    if (currentType === 'merged') {
+      // Switch back to pre data
+      setSelectedFileForTable(tableName, fileName, 'pre');
+    } else {
+      // Toggle to merged mode - use the same filename but change type to merged
+      setSelectedFileForTable(tableName, fileName, 'merged');
+    }
   };
 
   return (
@@ -213,16 +240,14 @@ const DataSeedingPage = () => {
                 </Alert>
               )}
 
-              {/* Enhanced UI for Controls */}
+              {/* Configuration Card */}
               <Card>
                 <CardHeader className='pb-3'>
                   <CardTitle>Seeding Configuration</CardTitle>
-                  <CardDescription>
-                    Select a target table and data type. Ancestor tables will be loaded for editing.
-                  </CardDescription>
+                  <CardDescription>Select a target table. Ancestor tables will be loaded for editing.</CardDescription>
                 </CardHeader>
                 <CardContent>
-                  <div className='grid grid-cols-1 md:grid-cols-3 gap-4 mb-3 items-end'>
+                  <div className='grid grid-cols-1 md:grid-cols-2 gap-4 mb-3 items-end'>
                     <div className='space-y-2'>
                       <Label htmlFor='target-table-select' className='flex items-center gap-2'>
                         <Database className='h-4 w-4' /> Select Target Table
@@ -239,31 +264,6 @@ const DataSeedingPage = () => {
                           ))}
                         </SelectContent>
                       </Select>
-                    </div>
-
-                    <div className='space-y-2'>
-                      <Label htmlFor='data-type-select' className='flex items-center gap-2'>
-                        <Type className='h-4 w-4' /> Seeding Type
-                      </Label>
-                      <RadioGroup
-                        id='data-type-select'
-                        value={selectedDataType}
-                        onValueChange={handleDataTypeChange}
-                        className='flex space-x-4 pt-2'
-                      >
-                        <div className='flex items-center space-x-2 bg-muted/20 px-4 py-2 rounded-md'>
-                          <RadioGroupItem value='pre' id='pre-data' />
-                          <Label htmlFor='pre-data' className='font-medium cursor-pointer'>
-                            Pre-Seeding
-                          </Label>
-                        </div>
-                        <div className='flex items-center space-x-2 bg-muted/20 px-4 py-2 rounded-md'>
-                          <RadioGroupItem value='post' id='post-data' />
-                          <Label htmlFor='post-data' className='font-medium cursor-pointer'>
-                            Post-Seeding
-                          </Label>
-                        </div>
-                      </RadioGroup>
                     </div>
                     <Button
                       variant='destructive'
@@ -283,9 +283,11 @@ const DataSeedingPage = () => {
                   <TabsList className='grid w-full grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 gap-1 h-auto'>
                     {seedingSetTables.map((tableName) => {
                       const selectedFileNameForTab = selectedFiles[tableName];
+                      const selectedFileType = selectedFileTypes[tableName] || 'pre';
                       const isSelectedFileLive =
                         selectedFileNameForTab &&
-                        availableFiles[tableName]?.find((f) => f.name === selectedFileNameForTab)?.isLive;
+                        availableFiles[tableName]?.[selectedFileType]?.find((f) => f.name === selectedFileNameForTab)
+                          ?.isLive;
 
                       return (
                         <TabsTrigger
@@ -307,8 +309,8 @@ const DataSeedingPage = () => {
                                 <TooltipContent side='bottom'>
                                   <p>
                                     {isSelectedFileLive
-                                      ? `File "${selectedFileNameForTab}.csv" is live in DB.`
-                                      : `File "${selectedFileNameForTab}.csv" selected.`}
+                                      ? `${selectedFileType}/${selectedFileNameForTab}.csv is live in DB.`
+                                      : `${selectedFileType}/${selectedFileNameForTab}.csv selected.`}
                                   </p>
                                 </TooltipContent>
                               </Tooltip>
@@ -325,60 +327,100 @@ const DataSeedingPage = () => {
                         <CardHeader>
                           <CardTitle>Editing: {currentTabTable}</CardTitle>
                           <CardDescription>
-                            Select or create a file for this table. Changes are per-table.
+                            Select or create a file for this table. Choose between pre and post data.
                           </CardDescription>
                         </CardHeader>
                         <CardContent className='space-y-4'>
-                          <div className='grid grid-cols-1 md:grid-cols-2 gap-4 items-end'>
+                          <div className='grid grid-cols-1 md:grid-cols-3 gap-4 items-end'>
+                            <div className='space-y-2'>
+                              <Label htmlFor={`file-type-${currentTabTable}`} className='flex items-center gap-2'>
+                                <Type className='h-4 w-4' /> Data Type
+                              </Label>
+                              <RadioGroup
+                                id={`file-type-${currentTabTable}`}
+                                value={selectedFileTypes[currentTabTable] || 'pre'}
+                                onValueChange={(value) => handleFileTypeChange(currentTabTable, value)}
+                                className='flex space-x-2'
+                              >
+                                <div className='flex items-center space-x-2 bg-muted/20 px-3 py-1.5 rounded-md'>
+                                  <RadioGroupItem value='pre' id={`pre-${currentTabTable}`} />
+                                  <Label htmlFor={`pre-${currentTabTable}`} className='text-sm cursor-pointer'>
+                                    Pre
+                                  </Label>
+                                </div>
+                                <div className='flex items-center space-x-2 bg-muted/20 px-3 py-1.5 rounded-md'>
+                                  <RadioGroupItem value='post' id={`post-${currentTabTable}`} />
+                                  <Label htmlFor={`post-${currentTabTable}`} className='text-sm cursor-pointer'>
+                                    Post
+                                  </Label>
+                                </div>
+                                {selectedFileTypes[currentTabTable] === 'merged' && (
+                                  <div className='flex items-center space-x-2 bg-amber-100 px-3 py-1.5 rounded-md'>
+                                    <RadioGroupItem value='merged' id={`merged-${currentTabTable}`} />
+                                    <Label htmlFor={`merged-${currentTabTable}`} className='text-sm cursor-pointer'>
+                                      Merged
+                                    </Label>
+                                  </div>
+                                )}
+                              </RadioGroup>
+                            </div>
+
                             <div className='space-y-2'>
                               <Label htmlFor={`file-select-${currentTabTable}`} className='flex items-center gap-2'>
-                                <FileCheck className='h-4 w-4' /> Select File for {currentTabTable}
+                                <FileCheck className='h-4 w-4' /> Select File
                               </Label>
                               <Select
-                                onValueChange={(
-                                  fileName // fileName is the string name
-                                ) => setSelectedFileForTable(currentTabTable, fileName, selectedDataType)}
+                                onValueChange={(fileName) =>
+                                  setSelectedFileForTable(
+                                    currentTabTable,
+                                    fileName,
+                                    selectedFileTypes[currentTabTable] || 'pre'
+                                  )
+                                }
                                 value={selectedFiles[currentTabTable] || ''}
                                 disabled={
                                   isLoading ||
-                                  !(availableFiles[currentTabTable] && availableFiles[currentTabTable].length > 0)
+                                  !(
+                                    availableFiles[currentTabTable]?.[selectedFileTypes[currentTabTable] || 'pre']
+                                      ?.length > 0
+                                  )
                                 }
                               >
                                 <SelectTrigger id={`file-select-${currentTabTable}`} className='w-full'>
                                   <SelectValue
                                     placeholder={
-                                      availableFiles[currentTabTable] && availableFiles[currentTabTable].length > 0
+                                      availableFiles[currentTabTable]?.[selectedFileTypes[currentTabTable] || 'pre']
+                                        ?.length > 0
                                         ? 'Choose a file...'
                                         : 'No files available'
                                     }
                                   />
                                 </SelectTrigger>
                                 <SelectContent>
-                                  {(availableFiles[currentTabTable] || []).map(
-                                    (
-                                      fileStatus // fileStatus is SeedFileStatus
-                                    ) => (
-                                      <SelectItem key={fileStatus.name} value={fileStatus.name}>
-                                        <div className='flex items-center justify-between w-full'>
-                                          <span>{fileStatus.name}.csv</span>
-                                          {fileStatus.isLive && (
-                                            <Badge
-                                              variant='outline'
-                                              className='ml-2 text-green-600 border-green-600 px-1.5 py-0.5 text-xs'
-                                            >
-                                              Live
-                                            </Badge>
-                                          )}
-                                        </div>
-                                      </SelectItem>
-                                    )
-                                  )}
+                                  {(
+                                    availableFiles[currentTabTable]?.[selectedFileTypes[currentTabTable] || 'pre'] || []
+                                  ).map((fileStatus) => (
+                                    <SelectItem key={fileStatus.name} value={fileStatus.name}>
+                                      <div className='flex items-center justify-between w-full'>
+                                        <span>{fileStatus.name}.csv</span>
+                                        {fileStatus.isLive && (
+                                          <Badge
+                                            variant='outline'
+                                            className='ml-2 text-green-600 border-green-600 px-1.5 py-0.5 text-xs'
+                                          >
+                                            Live
+                                          </Badge>
+                                        )}
+                                      </div>
+                                    </SelectItem>
+                                  ))}
                                 </SelectContent>
                               </Select>
                             </div>
+
                             <div className='space-y-2'>
                               <Label htmlFor={`filename-input-${currentTabTable}`} className='flex items-center gap-2'>
-                                <FilePlus className='h-4 w-4' /> Save Filename for {currentTabTable}
+                                <FilePlus className='h-4 w-4' /> Save Filename
                               </Label>
                               <div className='flex space-x-2'>
                                 <Input
@@ -396,13 +438,14 @@ const DataSeedingPage = () => {
                               </div>
                             </div>
                           </div>
+
                           <div className='flex flex-wrap gap-2 items-center'>
                             <Button
                               onClick={() => handleSaveTableData(currentTabTable)}
                               disabled={isLoading || !newFileNameInputs[currentTabTable]}
                               className='flex items-center gap-2'
                             >
-                              <Save className='h-4 w-4' /> Save Data for {currentTabTable}
+                              <Save className='h-4 w-4' /> Save Data
                             </Button>
                             <Button
                               variant='outline'
@@ -410,7 +453,7 @@ const DataSeedingPage = () => {
                               disabled={isLoading || !selectedFiles[currentTabTable]}
                               className='flex items-center gap-2'
                             >
-                              <Copy className='h-4 w-4' /> Create New Copy
+                              <Copy className='h-4 w-4' /> Create Copy
                             </Button>
                             <TooltipProvider>
                               <Tooltip>
@@ -426,10 +469,47 @@ const DataSeedingPage = () => {
                                 </TooltipTrigger>
                                 <TooltipContent side='bottom'>
                                   <p>
-                                    Delete{' '}
+                                    Delete {selectedFileTypes[currentTabTable] || 'pre'}/
                                     {selectedFiles[currentTabTable]
                                       ? `${selectedFiles[currentTabTable]}.csv`
                                       : 'selected file'}
+                                  </p>
+                                </TooltipContent>
+                              </Tooltip>
+                            </TooltipProvider>
+
+                            {/* Merge button for combining pre/post data */}
+                            <TooltipProvider>
+                              <Tooltip>
+                                <TooltipTrigger asChild>
+                                  <Button
+                                    variant={selectedFileTypes[currentTabTable] === 'merged' ? 'default' : 'secondary'}
+                                    onClick={() => handleToggleMerged(currentTabTable)}
+                                    disabled={
+                                      isLoading ||
+                                      !selectedFiles[currentTabTable] ||
+                                      !availableFiles[currentTabTable]?.pre?.some(
+                                        (f) => f.name === selectedFiles[currentTabTable]
+                                      ) ||
+                                      !availableFiles[currentTabTable]?.post?.some(
+                                        (f) => f.name === selectedFiles[currentTabTable]
+                                      )
+                                    }
+                                    className={`flex items-center gap-2 ${
+                                      selectedFileTypes[currentTabTable] === 'merged'
+                                        ? 'bg-amber-500 hover:bg-amber-600'
+                                        : ''
+                                    }`}
+                                  >
+                                    <GitMerge className='h-4 w-4' />{' '}
+                                    {selectedFileTypes[currentTabTable] === 'merged' ? 'Using Merged' : 'Use Merged'}
+                                  </Button>
+                                </TooltipTrigger>
+                                <TooltipContent side='bottom'>
+                                  <p>
+                                    {selectedFileTypes[currentTabTable] === 'merged'
+                                      ? 'Currently using merged data (pre+post)'
+                                      : 'Toggle to use merged data from pre and post files'}
                                   </p>
                                 </TooltipContent>
                               </Tooltip>

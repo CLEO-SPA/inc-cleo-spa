@@ -4,7 +4,7 @@ import path from 'path';
 import model from '../models/superAdminModel.js';
 import { postSeedDir, preSeedDir } from '../store/multerStore.js';
 
-const insertPreDataController = async (req: Request, res: Response, next: NextFunction): Promise<void> => {
+const insertDataController = async (req: Request, res: Response, next: NextFunction): Promise<void> => {
   try {
     const { targetTable, tablePayload } = req.body;
 
@@ -14,7 +14,7 @@ const insertPreDataController = async (req: Request, res: Response, next: NextFu
     }
 
     const isValidTablePayload = tablePayload.every((s) => {
-      return typeof s.table === 'string' && typeof s.file === 'string';
+      return typeof s.table === 'string' && typeof s.file === 'string' && typeof s.type === 'string';
     });
 
     if (!isValidTablePayload) {
@@ -22,38 +22,11 @@ const insertPreDataController = async (req: Request, res: Response, next: NextFu
       return;
     }
 
-    const results = await model.insertPreDataModel(targetTable, tablePayload);
+    const results = await model.insertDataModel(targetTable, tablePayload);
 
     res.status(200).json(results);
   } catch (error) {
-    console.error('Error in insertPreDataController', error);
-    next(error);
-  }
-};
-
-const insertPostDataController = async (req: Request, res: Response, next: NextFunction): Promise<void> => {
-  try {
-    const { targetTable, tablePayload } = req.body;
-
-    if (!Array.isArray(tablePayload)) {
-      res.status(400).json({ message: 'Missing required fields or invalid data format' });
-      return;
-    }
-
-    const isValidTablePayload = tablePayload.every((s) => {
-      return typeof s.table === 'string' && typeof s.file === 'string';
-    });
-
-    if (!isValidTablePayload) {
-      res.status(400).json({ message: 'Missing required fields or invalid data format' });
-      return;
-    }
-
-    const results = await model.insertPostDataModel(targetTable, tablePayload);
-
-    res.status(200).json(results);
-  } catch (error) {
-    console.error('Error in insertPostDataController', error);
+    console.error('Error in insertDataController', error);
     next(error);
   }
 };
@@ -128,6 +101,23 @@ const getPostDataController = async (req: Request, res: Response, next: NextFunc
     res.status(200).json(results);
   } catch (error) {
     console.error('Error in getPostDataController', error);
+    next(error);
+  }
+};
+
+const getMergedDataController = async (req: Request, res: Response, next: NextFunction): Promise<void> => {
+  try {
+    const { table, file } = req.params;
+
+    if (!table || !file) {
+      res.status(400).json({ message: 'Missing required table or file parameters.' });
+      return;
+    }
+
+    const results = await model.getMergedDataModel(table, file);
+    res.status(200).json(results);
+  } catch (error) {
+    console.error('Error in getMergedDataController', error);
     next(error);
   }
 };
@@ -247,12 +237,12 @@ const deleteSeedDataFileController = async (req: Request, res: Response, next: N
   try {
     const { dataType, table, file } = req.params;
 
-    if (!dataType || (dataType !== 'pre' && dataType !== 'post') || !table || !file) {
+    if (!dataType || (dataType !== 'pre' && dataType !== 'post' && dataType !== 'merged') || !table || !file) {
       res.status(400).json({ message: 'Invalid parameters: dataType, table, and file name are required.' });
       return;
     }
 
-    await model.deleteSeedDataFileModel(dataType as 'pre' | 'post', table, file);
+    await model.deleteSeedDataFileModel(dataType as 'pre' | 'post' | 'merged', table, file);
     res.status(200).json({ message: `File '${file}.csv' for table '${table}' (${dataType}) deleted successfully.` });
   } catch (error: any) {
     console.error('Error in deleteSeedDataFileController:', error.message);
@@ -264,11 +254,32 @@ const deleteSeedDataFileController = async (req: Request, res: Response, next: N
   }
 };
 
+const mergeDataFilesController = async (req: Request, res: Response, next: NextFunction): Promise<void> => {
+  try {
+    const { tableName, fileName } = req.body;
+
+    if (!tableName || !fileName) {
+      res.status(400).json({ message: 'Table name and file name are required for merging.' });
+      return;
+    }
+
+    const result = await model.mergeDataFilesModel(tableName, fileName);
+
+    res.status(200).json({
+      message: `Successfully merged pre and post data for ${tableName}/${fileName}`,
+      mergedFilePath: result,
+    });
+  } catch (error) {
+    console.error('Error in mergeDataFilesController', error);
+    next(error);
+  }
+};
+
 export default {
-  insertPreDataController,
-  insertPostDataController,
+  insertDataController,
   getPreDataController,
   getPostDataController,
+  getMergedDataController,
   getAllExistingTables,
   getCurrentSeedingOrderController,
   getOrdersForTableController,
@@ -277,4 +288,5 @@ export default {
   savePreDataController,
   savePostDataController,
   deleteSeedDataFileController,
+  mergeDataFilesController,
 };
