@@ -49,7 +49,7 @@ const ProcessPaymentSaleTransaction = () => {
                 console.log('Fetching transaction data for ID:', id);
 
                 // Fetch transaction details
-                const transactionResponse = await api.get(`/st/${id}`);
+                const transactionResponse = await api.get(`/st/list/${id}`);
                 
                 if (!transactionResponse.data?.success) {
                     throw new Error('Failed to fetch transaction data');

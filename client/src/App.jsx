@@ -31,6 +31,8 @@ import MockSalesTransactionPage from '@/pages/sale-transaction/mockSaleTransacti
 import SaleTransactionList from '@/pages/sale-transaction/SaleTransactionList';
 import SaleTransactionDetail from '@/pages/sale-transaction/SaleTransactionDetail';
 import SaleTransactionSummary from '@/pages/sale-transaction/SaleTransactionSummary';
+import ProcessPaymentSaleTransaction from '@/pages/sale-transaction/ProcessPaymentSaleTransaction';
+
 
 import CreateMemberVoucherConsumptionPage from '@/pages/MemberVoucher/CreateConsumptionPage';
 // Service Management
@@ -113,6 +115,7 @@ function App() {
               <Route path='/sale-transaction/list' element={<SaleTransactionList />} />
               <Route path='/sale-transaction/:id' element={<SaleTransactionDetail />} />
               <Route path='/sale-transaction/summary' element={<SaleTransactionSummary />} />
+              <Route path='/sale-transaction/process-payment/:id' element={<ProcessPaymentSaleTransaction />} />
 
               <Route path='/mcp/:packageId/consume' element={<CreateMcpConsumptionPage />} />
 

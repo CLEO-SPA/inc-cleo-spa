@@ -211,6 +211,17 @@ const SaleTransactionDetail = () => {
                                 <RefreshCcw className="h-4 w-4" />
                                 <span>Refresh</span>
                             </Button>
+                            {transaction.process_payment && (
+                                <Button 
+                                    variant="default" 
+                                    size="sm"
+                                    className="flex items-center gap-1 bg-green-600 hover:bg-green-700"
+                                    onClick={() => navigate(`/sale-transaction/process-payment/${id}`)}
+                                >
+                                    <CreditCard className="h-4 w-4" />
+                                    <span>Process Payment</span>
+                                </Button>
+                            )}
                             <Button 
                                 variant="outline" 
                                 size="sm"

@@ -544,7 +544,7 @@ const SaleTransactionList = () => {
                                                                     )}
                                                                     {(transaction.process_payment) && (
                                                                         <button
-                                                                            onClick={() => navigate(`/transactions/payment/${transaction.transaction_id}`)}
+                                                                            onClick={() => navigate(`/sale-transaction/process-payment/${transaction.transaction_id}`)}
                                                                             className="inline-flex items-center px-3 py-1.5 bg-green-50 text-green-700 rounded-md text-sm font-medium hover:bg-green-100 transition-colors"
                                                                         >
                                                                             Pay Balance
