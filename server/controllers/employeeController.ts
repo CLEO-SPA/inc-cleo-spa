@@ -172,6 +172,11 @@ const createAndInviteEmployee = async (
       return;
     }
 
+    if (await model.checkEmployeeEmailExists(email)) {
+      res.status(409).json({ message: 'Employee email already in use.' });
+      return;
+    }
+
     if (await model.checkEmployeeCodeExists(code)) {
       res.status(409).json({ message: 'Employee code already in use.' });
       return;

@@ -15,6 +15,23 @@ const checkEmployeeCodeExists = async (employee_code: number) => {
 };
 
 /**
+ * Check if an e-mail address is already linked to an employee.
+ * Returns true when **any** row matches.
+ */
+const checkEmployeeEmailExists = async (employee_email: string) => {
+  try {
+    const query  = `SELECT 1 FROM employees WHERE employee_email = $1`;
+    const values = [employee_email.trim().toLowerCase()];
+
+    const result = await pool().query(query, values);
+    return (result.rowCount ?? 0) > 0;           // true if at least one match
+  } catch (error) {
+    console.error('Error checking employee email existence:', error);
+    throw new Error('Error checking employee email existence');
+  }
+};
+
+/**
  * Check if a phone / contact number is already linked to an employee.
  * Returns true when **any** row matches.
  */
@@ -576,6 +593,7 @@ const updateEmployee = async (data: UpdateEmployeeData) => {
 export default {
   checkEmployeeCodeExists,
   checkEmployeePhoneExists,
+  checkEmployeeEmailExists,
   getAuthUser,
   updateEmployeePassword,
   getAllEmployees,
