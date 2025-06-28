@@ -18,6 +18,7 @@ import {
 import { SiteHeader } from '@/components/site-header';
 import { SidebarInset, SidebarProvider } from '@/components/ui/sidebar';
 import EmployeeSelect from '@/components/ui/forms/EmployeeSelect';
+import { useAuth } from "@/context/AuthContext";
 
 export default function CreateProduct() {
   //Role-based access

@@ -13,6 +13,7 @@ import {
 } from "@/components/ui/select";
 import { SiteHeader } from '@/components/site-header';
 import { SidebarInset, SidebarProvider } from '@/components/ui/sidebar';
+import { useAuth } from "@/context/AuthContext";
 
 export default function ReorderProduct() {
   //Role-based access
