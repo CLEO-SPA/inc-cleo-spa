@@ -63,7 +63,7 @@ const CreateMemberCarePackageConsumptionPage = () => {
       </div>
       <div className='flex justify-between border-b py-1'>
         <span className='font-medium text-muted-foreground'>Date</span>
-        <span className='font-semibold'>{new Date(detailForm.mcpd_date + 'T00:00:00').toLocaleDateString()}</span>
+        <span className='font-semibold'>{new Date(detailForm.mcpd_date).toLocaleDateString()}</span>
       </div>
     </div>
   );

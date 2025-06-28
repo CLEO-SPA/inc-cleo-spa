@@ -6,6 +6,7 @@ import ServiceTab from '@/pages/sale-transaction/tabs/ServiceTab';
 import ProductTab from '@/pages/sale-transaction/tabs/ProductTab';
 import CreateMemberCarePackageForm from './tabs/CreateMemberCarePackageForm';
 import CreateMemberCarePackageTransfer from './tabs/CreateMemberCarePackageTransfer';
+import TransferVoucherForm from './tabs/transferVoucherForm';
 
 export default function FormSelectorPanel() {
   const [selectedTab, setSelectedTab] = useState('services');
@@ -31,7 +32,7 @@ export default function FormSelectorPanel() {
       case 'vouchers':
         return <CreateMemberVoucherForm />;
       case 'transfer_voucher':
-        return <div>Select a tab</div>;
+        return <TransferVoucherForm />;
       case 'transfer_mcp':
         return <CreateMemberCarePackageTransfer />;
       default:

@@ -40,6 +40,7 @@ const CreateMemberCarePackageTransfer = () => {
     fetchMemberCarePackageOptionsByMember,
     memberCarePackageOptions,
     mcpTransferQueue,
+    setBypassMode,
   } = useMcpFormStore();
 
   const [sourceMcpId, setSourceMcpId] = useState('');
@@ -76,6 +77,8 @@ const CreateMemberCarePackageTransfer = () => {
 
   const handleBypassToggle = (checked) => {
     setBypassPackage(checked);
+    setBypassMode(checked);
+
     if (checked) {
       if (mainFormData.package_name && mainFormData.services.length > 0) {
         const keepTemplate = confirm(
@@ -236,17 +239,21 @@ const CreateMemberCarePackageTransfer = () => {
         <CardContent className='space-y-4'>
           {error && <p className='text-red-500 text-sm mb-4'>{error}</p>}
           <div className='grid grid-cols-1 md:grid-cols-2 gap-6 items-start'>
-            <div className='space-y-2'>
+            <div className='space-y-3.5'>
               <Label>Source Package</Label>
-              <Combobox
-                options={sourceOptions}
-                value={sourceMcpId}
-                onChange={(value) => {
-                  setSourceMcpId(value);
-                  setAmount('');
-                }}
-                placeholder='Select source package...'
-              />
+              <div></div>
+              <div className='w-full overflow-hidden'>
+                <Combobox
+                  options={sourceOptions}
+                  value={sourceMcpId}
+                  onChange={(value) => {
+                    setSourceMcpId(value);
+                    setAmount('');
+                  }}
+                  placeholder='Select source package...'
+                  // className='truncate'
+                />
+              </div>
             </div>
             <div className='space-y-2'>
               <div className='flex items-center justify-between'>
@@ -259,12 +266,14 @@ const CreateMemberCarePackageTransfer = () => {
                 </div>
               </div>
               {!isNewDestination ? (
-                <Combobox
-                  options={memberCarePackageOptions.filter((p) => p.value !== sourceMcpId)}
-                  value={destinationMcpId}
-                  onChange={setDestinationMcpId}
-                  placeholder='Select destination package...'
-                />
+                <div className='w-full overflow-hidden'>
+                  <Combobox
+                    options={memberCarePackageOptions.filter((p) => p.value !== sourceMcpId)}
+                    value={destinationMcpId}
+                    onChange={setDestinationMcpId}
+                    placeholder='Select destination package...'
+                  />
+                </div>
               ) : (
                 <div className='flex items-center justify-center h-10 px-3 text-sm text-slate-500 bg-slate-100 border rounded-md'>
                   New package details will appear below
@@ -281,7 +290,17 @@ const CreateMemberCarePackageTransfer = () => {
                 type='number'
                 placeholder={`Max available: $${remainingBalance.toFixed(2)}`}
                 value={amount}
-                onChange={(e) => setAmount(e.target.value)}
+                onChange={(e) => {
+                  const value = e.target.value;
+                  if (value === '') {
+                    setAmount('');
+                  } else {
+                    const numValue = parseFloat(value) || 0;
+                    // Ensure amount is non-negative and doesn't exceed remaining balance
+                    const validValue = Math.min(Math.max(0, numValue), remainingBalance);
+                    setAmount(validValue);
+                  }
+                }}
                 max={remainingBalance}
                 className='rounded-md'
               />
@@ -321,6 +340,31 @@ const CreateMemberCarePackageTransfer = () => {
                       />
                     </div>
                   )}
+
+                  {/* Adding the datetime input with the same style */}
+                  <div className='space-y-1'>
+                    <Label htmlFor='created_at' className='text-sm font-medium pb-1 text-gray-700'>
+                      Creation date & time *
+                    </Label>
+                    <div></div>
+                    <Input
+                      type='datetime-local'
+                      id='created_at'
+                      value={
+                        mainFormData.created_at
+                          ? new Date(mainFormData.created_at).toISOString().slice(0, 16)
+                          : new Date().toISOString().slice(0, 16)
+                      }
+                      onChange={(e) => {
+                        const newValue = e.target.value || new Date().toISOString().slice(0, 16);
+                        updateMainField('created_at', newValue);
+                        updateMainField('updated_at', newValue);
+                      }}
+                      step='1'
+                      className='rounded-md'
+                    />
+                  </div>
+
                   <div className='space-y-1'>
                     <Label htmlFor='package_remarks'>Package Remarks</Label>
                     <Textarea
@@ -360,6 +404,26 @@ const CreateMemberCarePackageTransfer = () => {
                   />
                 </CardContent>
               </Card>
+
+              {/* package summary */}
+              <div className='bg-gray-50 p-4 rounded-lg'>
+                <div className='grid grid-cols-1 md:grid-cols-3 gap-4'>
+                  <div className='space-y-1'>
+                    <Label className='text-sm font-medium text-gray-700'>Total Services</Label>
+                    <div className='text-lg font-semibold'>{mainFormData.services.length}</div>
+                  </div>
+                  <div className='space-y-1'>
+                    <Label className='text-sm font-medium text-gray-700'>Total Amount</Label>
+                    <div className='text-lg font-semibold text-green-600'>
+                      ${(mainFormData.package_price || 0).toFixed(2)}
+                    </div>
+                  </div>
+                  <div className='space-y-1'>
+                    <Label className='text-sm font-medium text-gray-700'>Customizable</Label>
+                    <div className='text-lg font-semibold'>{isCustomizable ? 'Yes' : 'No'}</div>
+                  </div>
+                </div>
+              </div>
             </div>
           )}
 
@@ -390,6 +454,7 @@ const ServicesSection = ({
   resetServiceForm,
 }) => {
   const canModifyServices = bypassPackage || isCustomizable;
+  console.log('isCustomizable', canModifyServices);
 
   return (
     <div className='space-y-4'>
@@ -413,27 +478,48 @@ const ServicesSection = ({
                   disabled={isLoading}
                 />
               </div>
-              <div className='space-y-1'>
+              <div className='space-y-3'>
                 <Label className='text-sm font-medium text-gray-700'>Quantity</Label>
                 <Input
                   type='number'
                   min='1'
                   value={serviceForm.quantity}
-                  onChange={(e) => updateServiceFormField('quantity', parseInt(e.target.value) || 1)}
+                  onChange={(e) => {
+                    const value = e.target.value;
+                    if (value === '') {
+                      updateServiceFormField('quantity', '');
+                    } else {
+                      const numValue = parseInt(value) || 0;
+                      // Ensure quantity is at least 1
+                      const validValue = Math.max(1, numValue);
+                      updateServiceFormField('quantity', validValue);
+                    }
+                  }}
                   className='h-9 rounded-md'
                 />
               </div>
-              <div className='space-y-1'>
+              <div className='space-y-3'>
                 <Label className='text-sm font-medium text-gray-700'>Price</Label>
                 <Input
                   type='number'
                   step='0.01'
+                  min='0'
                   value={serviceForm.price}
-                  onChange={(e) => updateServiceFormField('price', parseFloat(e.target.value) || 0)}
+                  onChange={(e) => {
+                    const value = e.target.value;
+                    if (value === '') {
+                      updateServiceFormField('price', '');
+                    } else {
+                      const numValue = parseFloat(value) || 0;
+                      // Ensure price is non-negative
+                      const validValue = Math.max(0, numValue);
+                      updateServiceFormField('price', validValue);
+                    }
+                  }}
                   className='h-9 rounded-md'
                 />
               </div>
-              <div className='space-y-1'>
+              <div className='space-y-3'>
                 <Label className='text-sm font-medium text-gray-700'>Discount</Label>
                 <Input
                   type='number'
@@ -441,7 +527,17 @@ const ServicesSection = ({
                   min='0'
                   max='1'
                   value={serviceForm.discount}
-                  onChange={(e) => updateServiceFormField('discount', parseFloat(e.target.value) || 1)}
+                  onChange={(e) => {
+                    const value = e.target.value;
+                    if (value === '') {
+                      updateServiceFormField('discount', '');
+                    } else {
+                      const numValue = parseFloat(value) || 0;
+                      // Ensure discount is between 0 and 1
+                      const validValue = Math.min(1, Math.max(0, numValue));
+                      updateServiceFormField('discount', validValue);
+                    }
+                  }}
                   className='h-9 rounded-md'
                 />
               </div>
@@ -530,7 +626,17 @@ const ServiceRow = ({ service, index, canModify, onUpdate, onRemove }) => {
               type='number'
               min='1'
               value={editData.quantity}
-              onChange={(e) => setEditData({ ...editData, quantity: parseInt(e.target.value) || 1 })}
+              onChange={(e) => {
+                const value = e.target.value;
+                if (value === '') {
+                  setEditData({ ...editData, quantity: '' });
+                } else {
+                  const numValue = parseInt(value) || 0;
+                  // Ensure quantity is at least 1
+                  const validValue = Math.max(1, numValue);
+                  setEditData({ ...editData, quantity: validValue });
+                }
+              }}
               className='h-8 w-full rounded-md'
             />
           ) : (
@@ -544,8 +650,19 @@ const ServiceRow = ({ service, index, canModify, onUpdate, onRemove }) => {
             <Input
               type='number'
               step='0.01'
+              min='0'
               value={editData.price}
-              onChange={(e) => setEditData({ ...editData, price: parseFloat(e.target.value) || 0 })}
+              onChange={(e) => {
+                const value = e.target.value;
+                if (value === '') {
+                  setEditData({ ...editData, price: '' });
+                } else {
+                  const numValue = parseFloat(value) || 0;
+                  // Ensure price is non-negative
+                  const validValue = Math.max(0, numValue);
+                  setEditData({ ...editData, price: validValue });
+                }
+              }}
               className='h-8 w-full rounded-md'
             />
           ) : (

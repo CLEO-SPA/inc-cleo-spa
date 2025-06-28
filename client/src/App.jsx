@@ -33,7 +33,6 @@ import SaleTransactionDetail from '@/pages/sale-transaction/SaleTransactionDetai
 import SaleTransactionSummary from '@/pages/sale-transaction/SaleTransactionSummary';
 import ProcessPaymentSaleTransaction from '@/pages/sale-transaction/ProcessPaymentSaleTransaction';
 
-
 import CreateMemberVoucherConsumptionPage from '@/pages/MemberVoucher/CreateConsumptionPage';
 // Service Management
 import ManageServicePage from '@/pages/service/ManageServicePage';
@@ -51,7 +50,7 @@ import EditCarePackagePage from '@/pages/CarePackages/EditCarePackagePage';
 // Member Care Package Management
 import ManageMemberCarePackagesPage from './pages/MemberCarePackages/ManageMemberCarePackagesPage';
 import ViewMemberCarePackageDetailsPage from '@/pages/MemberCarePackages/ViewMemberCarePackageDetailsPage';
-import CreateMcpConsumptionPage from '@/pages/MemberCarePackages/CreateConsumptionPage';
+import CreateMcpConsumptionPage from '@/pages/MemberCarePackages/CreateMcpConsumptionPage';
 // import CreateMemberCarePackageFormPage from '@/pages/CarePackages/CreateMemberCarePackageFormPage';
 // Data Export
 import DataExportPage from './pages/miscellaneous/DateExportPage';

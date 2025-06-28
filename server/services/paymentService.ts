@@ -1,9 +1,7 @@
 // services/paymentService.ts
 import { pool, getProdPool as prodPool } from '../config/database.js';
 
-export const getMemberOutstandingAmounts = async (): Promise<
-  Record<number, number>
-> => {
+export const getMemberOutstandingAmounts = async (): Promise<Record<number, number>> => {
   const query = `
     WITH RECURSIVE payment_chains AS (
       SELECT 

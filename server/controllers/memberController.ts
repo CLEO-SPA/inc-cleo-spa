@@ -6,16 +6,9 @@ const getAllMembers = async (req: Request, res: Response, next: NextFunction) =>
   try {
     const { start_date_utc, end_date_utc } = req.session;
 
-    const {
-      page = '1',
-      limit = '10',
-      startDate_utc,
-      endDate_utc,
-      createdBy,
-      search
-    } = req.query;
+    const { page = '1', limit = '10', startDate_utc, endDate_utc, createdBy, search } = req.query;
 
-    const offset = (parseInt(page as string)-1) * parseInt(limit as string);
+    const offset = (parseInt(page as string) - 1) * parseInt(limit as string);
     const pageLimit = parseInt(limit as string);
 
     const result = await model.getAllMembers(
@@ -29,20 +22,20 @@ const getAllMembers = async (req: Request, res: Response, next: NextFunction) =>
       end_date_utc!
     );
 
-      res.status(200).json({
+    res.status(200).json({
       data: result.members,
       pageInfo: {
         currentPage: parseInt(page as string),
         totalPages: result.totalPages,
-        totalCount: result.totalCount, 
-        limit: pageLimit
-      }
-    });  } catch (error) {
+        totalCount: result.totalCount,
+        limit: pageLimit,
+      },
+    });
+  } catch (error) {
     console.error('Error in getAllMembers:', error);
     next(error);
   }
 };
-
 
 // Create a new member
 const createMember = async (req: Request, res: Response) => {
@@ -51,7 +44,7 @@ const createMember = async (req: Request, res: Response) => {
     res.status(201).json(newMember);
   } catch (error) {
     console.error('Error in createMember:', error);
-    
+
     // Check for specific validation errors
     if (error instanceof Error) {
       if (error.message === 'Email already exists') {
@@ -64,7 +57,7 @@ const createMember = async (req: Request, res: Response) => {
         return res.status(500).json({ message: 'Failed to create member' });
       }
     }
-    
+
     // Generic error fallback
     res.status(500).json({ message: 'Failed to create member' });
   }
@@ -74,16 +67,16 @@ const createMember = async (req: Request, res: Response) => {
 const updateMember = async (req: Request, res: Response) => {
   try {
     const { id } = req.params;
-    
+
     const updatedMember = await model.updateMember({
       ...req.body,
       id: Number(id),
     });
-    
+
     res.status(200).json(updatedMember);
   } catch (error) {
     console.error('Error in updateMember:', error);
-    
+
     // Check for specific validation errors
     if (error instanceof Error) {
       if (error.message === 'Email already exists') {
@@ -99,12 +92,11 @@ const updateMember = async (req: Request, res: Response) => {
         return res.status(500).json({ message: 'Failed to update member' });
       }
     }
-    
+
     // Generic error fallback
     res.status(500).json({ message: 'Failed to update member' });
   }
 };
-
 
 // Delete a member by ID
 const deleteMember = async (req: Request, res: Response, next: NextFunction) => {
@@ -114,7 +106,7 @@ const deleteMember = async (req: Request, res: Response, next: NextFunction) => 
     res.status(200).json(result);
   } catch (error) {
     console.error('Error in deleteMember:', error);
-    
+
     // Pass specific error message if it's an Error instance
     if (error instanceof Error) {
       res.status(400).json({ message: error.message });
@@ -123,7 +115,6 @@ const deleteMember = async (req: Request, res: Response, next: NextFunction) => 
     }
   }
 };
-
 
 // Get a single member by ID
 const getMemberById = async (req: Request, res: Response, next: NextFunction): Promise<void> => {
@@ -169,7 +160,6 @@ const searchMemberByNameOrPhone = async (req: Request, res: Response, next: Next
   }
 };
 
-
 const getMemberVouchers = async (req: Request, res: Response, next: NextFunction): Promise<void> => {
   try {
     const memberId = parseInt(req.params.memberId, 10);
@@ -184,12 +174,7 @@ const getMemberVouchers = async (req: Request, res: Response, next: NextFunction
 
     const offset = (page - 1) * limit;
 
-    const { vouchers, totalPages, totalCount } = await model.getMemberVouchers(
-      memberId,
-      offset,
-      limit,
-      searchTerm
-    );
+    const { vouchers, totalPages, totalCount } = await model.getMemberVouchers(memberId, offset, limit, searchTerm);
 
     res.status(200).json({
       data: vouchers,
@@ -197,15 +182,14 @@ const getMemberVouchers = async (req: Request, res: Response, next: NextFunction
         currentPage: page,
         totalPages,
         totalCount,
-        limit
-      }
+        limit,
+      },
     });
   } catch (error) {
     console.error('Error in getMemberVouchers:', error);
     next(error);
   }
 };
-
 
 const getMemberCarePackages = async (req: Request, res: Response, next: NextFunction): Promise<void> => {
   try {
@@ -237,8 +221,8 @@ const getMemberCarePackages = async (req: Request, res: Response, next: NextFunc
         currentPage: page,
         totalPages,
         totalCount,
-        limit
-      }
+        limit,
+      },
     });
   } catch (error) {
     console.error('Error in getMemberCarePackages:', error);
@@ -246,15 +230,14 @@ const getMemberCarePackages = async (req: Request, res: Response, next: NextFunc
   }
 };
 
-
 // Export all handlers in the same pattern
 export default {
   getAllMembers,
-  getMemberById, 
+  getMemberById,
   createMember,
   updateMember,
   deleteMember,
   searchMemberByNameOrPhone,
-  getMemberVouchers,  
-  getMemberCarePackages
+  getMemberVouchers,
+  getMemberCarePackages,
 };

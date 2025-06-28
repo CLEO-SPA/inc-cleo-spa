@@ -97,11 +97,6 @@ const data = {
           title: 'Manage Voucher Templates',
           url: '/voucher-template',
         },
-        {
-          title: 'Manage Member Vouchers',
-          url: '/mv'
-
-        }
       ],
     },
     {
@@ -177,6 +172,25 @@ const data = {
         {
           title: 'Add New Appointment',
           url: '#',
+        },
+      ],
+    },
+    {
+      title: 'Vouchers',
+      url: '#',
+      icon: Tickets,
+      items: [
+        {
+          title: 'Create Voucher Template',
+          url: '/voucher-template/create',
+        },
+        {
+          title: 'Manage Voucher Templates',
+          url: '/voucher-template',
+        },
+        {
+          title: 'Transfer Voucher',
+          url: '/strans',
         },
       ],
     },
