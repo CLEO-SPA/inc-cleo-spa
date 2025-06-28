@@ -25,6 +25,9 @@ export default function UpdateProduct() {
   const { user } = useAuth();
   const allowedRoles = ['super_admin', 'data_admin'];
 
+  // Loading
+  const [loading, setLoading] = useState(false);
+
   // Get Product Id from Params
   const { product_id } = useParams();
 
@@ -93,6 +96,7 @@ export default function UpdateProduct() {
 
   const handleSubmit = async (e) => {
     e.preventDefault();
+    setLoading(true);
     try {
       const response = await api.put(`/product/update-product/${product_id}`, formData, {
         headers: {
@@ -108,6 +112,8 @@ export default function UpdateProduct() {
       console.error('Error updating product:' + err);
       setErrorMsg(err.response.data.message);
       setModalOpen(true);
+    } finally {
+      setLoading(false);
     }
   };
 
@@ -123,7 +129,7 @@ export default function UpdateProduct() {
   // Redirect to 404 page if user does not have the right role
   useEffect(() => {
     if (!user || !allowedRoles.includes(user.role)) {
-      navigate('*'); 
+      navigate('*');
     }
   }, [user, navigate]);
 
@@ -235,145 +241,155 @@ export default function UpdateProduct() {
               )}
 
               <Card className={"w-full px-4"}>
-                <CardHeader>
-                  <CardTitle><h2 className="text-2xl font-bold">Edit Product Details</h2></CardTitle>
-                </CardHeader>
-                <CardContent>
-                  <FormProvider {...methods}>
-                    <form onSubmit={handleSubmit} className="space-y-3">
-                      <div className="grid auto-rows-min gap-3 lg:grid-cols-2">
-                        {/* Updated At */}
-                        <div>
-                          <label className="block text-md font-medium">Last Updated at*</label>
-                          <DatePicker
-                            value={updatedAt}
-                            onChange={setUpdatedAt}
-                            required />
-                        </div>
+                {loading ? (
+                  <CardContent>
+                    <div className="flex justify-center items-center h-full">
+                      <span className="text-xl text-gray-500">Loading...</span>
+                    </div>
+                  </CardContent>
+                ) : (
+                  <>
+                    <CardHeader>
+                      <CardTitle><h2 className="text-2xl font-bold">Edit Product Details</h2></CardTitle>
+                    </CardHeader>
+                    <CardContent>
+                      <FormProvider {...methods}>
+                        <form onSubmit={handleSubmit} className="space-y-3">
+                          <div className="grid auto-rows-min gap-3 lg:grid-cols-2">
+                            {/* Updated At */}
+                            <div>
+                              <label className="block text-md font-medium">Last Updated at*</label>
+                              <DatePicker
+                                value={updatedAt}
+                                onChange={setUpdatedAt}
+                                required />
+                            </div>
 
-                        {/* Updated By */}
-                        <div>
-                          <label className="block text-md font-medium">Updated By*</label>
-                          <EmployeeSelect
-                            name='updated_by'
-                            label=''
-                            rules={{ required: 'Updated_by is required' }} />
-                        </div>
+                            {/* Updated By */}
+                            <div>
+                              <label className="block text-md font-medium">Updated By*</label>
+                              <EmployeeSelect
+                                name='updated_by'
+                                label=''
+                                rules={{ required: 'Updated_by is required' }} />
+                            </div>
 
-                        {/* Date of Creation */}
-                        <div>
-                          <label className="block text-md font-medium">Date of Creation*</label>
-                          <DatePicker
-                            value={createdAt}
-                            onChange={setCreatedAt}
-                            required />
-                        </div>
+                            {/* Date of Creation */}
+                            <div>
+                              <label className="block text-md font-medium">Date of Creation*</label>
+                              <DatePicker
+                                value={createdAt}
+                                onChange={setCreatedAt}
+                                required />
+                            </div>
 
-                        {/* Created By */}
-                        <div>
-                          <label className="block text-md font-medium">Created By*</label>
-                          <EmployeeSelect name='created_by' label='' rules={{ required: 'Created_by is required' }} />
-                        </div>
+                            {/* Created By */}
+                            <div>
+                              <label className="block text-md font-medium">Created By*</label>
+                              <EmployeeSelect name='created_by' label='' rules={{ required: 'Created_by is required' }} />
+                            </div>
 
-                        {/* Product Name */}
-                        <div>
-                          <label className="block text-md font-medium">Product Name*</label>
-                          <Input
-                            type="text"
-                            name="product_name"
-                            value={formData.product_name}
-                            onChange={handleChange}
-                            className="w-[250px] p-2 border rounded-md"
-                            placeholder="Enter product name"
-                            required
-                          />
-                        </div>
+                            {/* Product Name */}
+                            <div>
+                              <label className="block text-md font-medium">Product Name*</label>
+                              <Input
+                                type="text"
+                                name="product_name"
+                                value={formData.product_name}
+                                onChange={handleChange}
+                                className="w-[250px] p-2 border rounded-md"
+                                placeholder="Enter product name"
+                                required
+                              />
+                            </div>
 
-                        {/* Unit Cost Price */}
-                        <div>
-                          <label className="block text-md font-medium">Unit Cost Price*</label>
-                          <input
-                            type="number"
-                            name="product_unit_cost_price"
-                            value={formData.product_unit_cost_price}
-                            onChange={handleChange}
-                            className="w-40 px-2 py-1 border rounded-md"
-                            placeholder="100"
-                            required
-                          /> SGD
-                        </div>
+                            {/* Unit Cost Price */}
+                            <div>
+                              <label className="block text-md font-medium">Unit Cost Price*</label>
+                              <input
+                                type="number"
+                                name="product_unit_cost_price"
+                                value={formData.product_unit_cost_price}
+                                onChange={handleChange}
+                                className="w-40 px-2 py-1 border rounded-md"
+                                placeholder="100"
+                                required
+                              /> SGD
+                            </div>
 
-                        {/* Product Category */}
-                        <div>
-                          <label className="block text-md font-medium">Product Category*</label>
-                          <Select value={selectedCategory} onValueChange={setSelectedCategory}>
-                            <SelectTrigger className="w-[250px]">
-                              <SelectValue placeholder="Select Category" />
-                            </SelectTrigger>
-                            <SelectContent>
-                              <div className="max-h-48 overflow-y-auto">
-                                {categories.map((category) => (
-                                  <SelectItem key={category.id} value={category.id}>
-                                    {category.product_category_name}
-                                  </SelectItem>
-                                ))}
-                              </div>
-                            </SelectContent>
-                          </Select>
-                        </div>
+                            {/* Product Category */}
+                            <div>
+                              <label className="block text-md font-medium">Product Category*</label>
+                              <Select value={selectedCategory} onValueChange={setSelectedCategory}>
+                                <SelectTrigger className="w-[250px]">
+                                  <SelectValue placeholder="Select Category" />
+                                </SelectTrigger>
+                                <SelectContent>
+                                  <div className="max-h-48 overflow-y-auto">
+                                    {categories.map((category) => (
+                                      <SelectItem key={category.id} value={category.id}>
+                                        {category.product_category_name}
+                                      </SelectItem>
+                                    ))}
+                                  </div>
+                                </SelectContent>
+                              </Select>
+                            </div>
 
-                        {/* Unit Selling Price */}
-                        <div>
-                          <label className="block text-md font-medium">Unit Sale Price*</label>
-                          <input
-                            type="number"
-                            name="product_unit_sale_price"
-                            value={formData.product_unit_sale_price}
-                            onChange={handleChange}
-                            className="w-40 px-2 py-1 border rounded-md"
-                            placeholder="100"
-                            required
-                          /> SGD
-                        </div>
+                            {/* Unit Selling Price */}
+                            <div>
+                              <label className="block text-md font-medium">Unit Sale Price*</label>
+                              <input
+                                type="number"
+                                name="product_unit_sale_price"
+                                value={formData.product_unit_sale_price}
+                                onChange={handleChange}
+                                className="w-40 px-2 py-1 border rounded-md"
+                                placeholder="100"
+                                required
+                              /> SGD
+                            </div>
 
-                      </div>
-                      {/* Product Description */}
-                      <div>
-                        <label className="block text-md font-medium">Product Description</label>
-                        <textarea
-                          name="product_description"
-                          value={formData.product_description}
-                          onChange={handleChange}
-                          className="w-full p-2 border rounded-md"
-                          placeholder="Enter product description"
-                        />
-                      </div>
+                          </div>
+                          {/* Product Description */}
+                          <div>
+                            <label className="block text-md font-medium">Product Description</label>
+                            <textarea
+                              name="product_description"
+                              value={formData.product_description}
+                              onChange={handleChange}
+                              className="w-full p-2 border rounded-md"
+                              placeholder="Enter product description"
+                            />
+                          </div>
 
-                      {/* Remarks */}
-                      <div>
-                        <label className="block text-md font-medium ">Remarks</label>
-                        <textarea
-                          name="product_remarks"
-                          value={formData.product_remarks}
-                          onChange={handleChange}
-                          className="w-full p-2 border rounded-md"
-                          placeholder="Enter remarks"
-                        />
-                      </div>
+                          {/* Remarks */}
+                          <div>
+                            <label className="block text-md font-medium ">Remarks</label>
+                            <textarea
+                              name="product_remarks"
+                              value={formData.product_remarks}
+                              onChange={handleChange}
+                              className="w-full p-2 border rounded-md"
+                              placeholder="Enter remarks"
+                            />
+                          </div>
 
-                      {/* Submit Button */}
-                      <div className="flex justify-center space-x-4">
-                        <Button type="submit" className="bg-blue-600 rounded-md hover:bg-blue-500">
-                          Save Changes
-                        </Button>
-                        <Button onClick={() => navigate(-1)} className="rounded-md hover:bg-gray-500">
-                          Cancel
-                        </Button>
-                      </div>
-                    </form>
-                  </FormProvider>
+                          {/* Submit Button */}
+                          <div className="flex justify-center space-x-4">
+                            <Button type="submit" className="bg-blue-600 rounded-md hover:bg-blue-500">
+                              Save Changes
+                            </Button>
+                            <Button onClick={() => navigate(-1)} className="rounded-md hover:bg-gray-500">
+                              Cancel
+                            </Button>
+                          </div>
+                        </form>
+                      </FormProvider>
 
-                </CardContent>
+                    </CardContent>
+                  </>
+                )}
               </Card>
             </div>
           </SidebarInset>

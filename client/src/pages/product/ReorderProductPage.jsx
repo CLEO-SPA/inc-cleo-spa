@@ -20,6 +20,10 @@ export default function ReorderProduct() {
   const { user } = useAuth();
   const allowedRoles = ['super_admin', 'data_admin'];
 
+  // loading
+  const [loading, setLoading] = useState(false);
+  const [catLoading, setCatLoading] = useState(false);
+
   // For modal
   const [modalOpen, setModalOpen] = useState(false);
   const [errorMsg, setErrorMsg] = useState('');
@@ -65,6 +69,7 @@ export default function ReorderProduct() {
   };
 
   const handleSave = async () => {
+    setLoading(true);
     try {
       // update order api
       const response = await api.put(`/product/reorder-product`, products, {
@@ -75,17 +80,19 @@ export default function ReorderProduct() {
       if (response.status === 200) {
         getProducts(selectedCategory);
         setErrorMsg("");
-        setModalOpen(true);
       }
     } catch (err) {
       console.error('Error updating product order:', err);
       setErrorMsg(err.response.data.message);
+    } finally {
+      setLoading(false);
       setModalOpen(true);
     }
   }
 
   // get Categories
   const getCategories = async () => {
+    setCatLoading(true);
     try {
       const response = await api.get(`/product/product-cat`);
       if (response.status === 200) {
@@ -95,11 +102,14 @@ export default function ReorderProduct() {
       }
     } catch (err) {
       console.error('Error fetching product categories:', err);
+    } finally {
+      setCatLoading(false);
     }
   }
 
   // get products in the category
   const getProducts = async (category_id) => {
+    setLoading(true);
     try {
       const response = await api.get(`/product/all-by-cat/${category_id}`);
       if (response.status === 200) {
@@ -109,6 +119,8 @@ export default function ReorderProduct() {
       }
     } catch (err) {
       console.error('Error fetching product:', err);
+    } finally {
+      setLoading(false);
     }
   }
 
@@ -124,7 +136,7 @@ export default function ReorderProduct() {
   // Redirect to 404 page if user does not have the right role
   useEffect(() => {
     if (!user || !allowedRoles.includes(user.role)) {
-      navigate('*'); 
+      navigate('*');
     }
   }, [user, navigate]);
 
@@ -162,20 +174,20 @@ export default function ReorderProduct() {
               {errorMsg ? (
                 <p className="text-xl text-red-500">{errorMsg}</p>
               ) : (
-                  <p className="text-xl text-green-600">Changes were saved!</p>
+                <p className="text-xl text-green-600">Changes were saved!</p>
               )}
             </div>
             <div className="mt-4 flex justify-end gap-2">
               {errorMsg ? "" : (
                 <Button
-                  onClick={() =>  navigate('/manage-product')}
+                  onClick={() => navigate('/manage-product')}
                   className="bg-blue-600 rounded-md hover:bg-blue-500"
                 >
                   View Products
                 </Button>
               )}
               <Button
-                onClick={() => { setModalOpen(false);}}
+                onClick={() => { setModalOpen(false); }}
                 className="text-white py-2 px-4 rounded-md hover:bg-gray-700"
               >
                 Close
@@ -198,19 +210,19 @@ export default function ReorderProduct() {
                   Back
                 </Button>
                 {/* Select Category */}
-                
+
                 <Select value={selectedCategory} onValueChange={setSelectedCategory}>
                   <SelectTrigger className="w-[200px]">
                     <SelectValue placeholder="Select Category" />
                   </SelectTrigger>
                   <SelectContent>
                     <div className="max-h-60 overflow-y-auto">
-                    <SelectItem value="0" selected>Select a Category</SelectItem>
-                    {categories.map((category) => (
-                      <SelectItem key={category.id} value={category.id}>
-                        {category.product_category_name}
-                      </SelectItem>
-                    ))}
+                      <SelectItem value="0" selected>{catLoading ? ("Loading...") : ("Select a Category")}</SelectItem>
+                      {categories.map((category) => (
+                        <SelectItem key={category.id} value={category.id}>
+                          {category.product_category_name}
+                        </SelectItem>
+                      ))}
                     </div>
                   </SelectContent>
                 </Select>
@@ -218,50 +230,58 @@ export default function ReorderProduct() {
 
               {/* Products list container - grows to fill available space */}
               <div className="p-4 h-[75vh] flex flex-col rounded-xl bg-muted/50">
-                <div className="flex-1 overflow-y-auto">
-                  {selectedCategory === '0' ? (
-                    <div className="flex justify-center text-xl text-gray-500 items-center gap-3 p-2 bg-white border rounded">
-                      Please Select a Category
-                    </div>
-                  ) : (
-                    <div className="space-y-2">
-                      {products.length === 0 && (
-                        <div className="flex items-center gap-3 p-2 bg-white border rounded cursor-move hover:bg-gray-50 justify-center">
-                          <span className="text-sm text-gray-500">No products found in this category.</span>
+                {loading ? (
+                  <div className="flex justify-center items-center h-full">
+                    <span className="text-xl text-gray-500">Loading...</span>
+                  </div>
+                ) : (
+                  <>
+                    <div className="flex-1 overflow-y-auto">
+                      {selectedCategory === '0' ? (
+                        <div className="flex justify-center text-xl text-gray-500 items-center gap-3 p-2 bg-white border rounded">
+                          Please Select a Category
+                        </div>
+                      ) : (
+                        <div className="space-y-2">
+                          {products.length === 0 && (
+                            <div className="flex items-center gap-3 p-2 bg-white border rounded cursor-move hover:bg-gray-50 justify-center">
+                              <span className="text-sm text-gray-500">No products found in this category.</span>
+                            </div>
+                          )}
+                          {products.map((product, productIndex) => (
+                            <div
+                              key={product.product_id}
+                              draggable
+                              onDragStart={(e) => handleDragStart(e, productIndex)}
+                              onDragOver={(e) => handleDragOver(e, productIndex)}
+                              onDragEnd={handleDragEnd}
+                              className="flex items-center gap-3 p-2 bg-white border rounded cursor-move hover:bg-gray-50"
+                            >
+                              <span className="text-sm text-gray-500">
+                                #{product.product_sequence_no}
+                              </span>
+                              <span className="text-sm">{product.product_name}</span>
+                              <GripVertical className="ml-auto text-gray-400" size={16} />
+                            </div>
+                          ))}
                         </div>
                       )}
-                      {products.map((product, productIndex) => (
-                        <div
-                          key={product.product_id}
-                          draggable
-                          onDragStart={(e) => handleDragStart(e, productIndex)}
-                          onDragOver={(e) => handleDragOver(e, productIndex)}
-                          onDragEnd={handleDragEnd}
-                          className="flex items-center gap-3 p-2 bg-white border rounded cursor-move hover:bg-gray-50"
-                        >
-                          <span className="text-sm text-gray-500">
-                            #{product.product_sequence_no}
-                          </span>
-                          <span className="text-sm">{product.product_name}</span>
-                          <GripVertical className="ml-auto text-gray-400" size={16} />
-                        </div>
-                      ))}
                     </div>
-                  )}
-                </div>
 
-                {/* Save button - positioned at bottom, only shown when category is selected */}
-                {selectedCategory !== '0' && (
-                  <div className="mt-4 ml-auto pt-4 border-t border-gray-200 space-x-4">
-                    <Button onClick={() => getProducts(selectedCategory)} className="rounded-md">
-                      Reset Order
-                    </Button>
-                    <Button onClick={handleSave} className="bg-blue-600 rounded-md hover:bg-blue-500">
-                      Save Changes
-                    </Button>
-                  </div>
-                )}
+                    {/* Save button - positioned at bottom, only shown when category is selected */}
+                    {selectedCategory !== '0' && (
+                      <div className="mt-4 ml-auto pt-4 border-t border-gray-200 space-x-4">
+                        <Button onClick={() => getProducts(selectedCategory)} className="rounded-md">
+                          Reset Order
+                        </Button>
+                        <Button onClick={handleSave} className="bg-blue-600 rounded-md hover:bg-blue-500">
+                          Save Changes
+                        </Button>
+                      </div>
+                    )}
+                  </>)}
               </div>
+
             </div>
           </SidebarInset>
         </div>
