@@ -19,7 +19,7 @@ router.get('/seed/order', saController.getCurrentSeedingOrderController);
 router.get('/seed/order/:tableName', saController.getOrdersForTableController);
 
 router.post('/seed', saController.insertDataController);
-router.post('/seed/merge', saController.mergeDataFilesController); // New merge endpoint
+router.post('/seed/merge', saController.mergeDataFilesController);
 router.post('/update/pre', preUpload.single('file'), saController.savePreDataController);
 router.post('/update/post', postUpload.single('file'), saController.savePostDataController);
 
