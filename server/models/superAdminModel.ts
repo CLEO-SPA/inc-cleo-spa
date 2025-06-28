@@ -13,43 +13,44 @@ interface HierarchyInterface {
   id: number;
   table: string;
   dependencies: number[];
+  group: number;
 }
 
 const hierarchy: HierarchyInterface[] = [
-  { id: 1, table: 'employees', dependencies: [9, 37, 16] },
-  { id: 2, table: 'care_packages', dependencies: [1] },
-  { id: 3, table: 'care_package_item_details', dependencies: [2, 7] },
-  { id: 4, table: 'member_care_packages', dependencies: [1, 17] },
-  { id: 5, table: 'member_care_package_details', dependencies: [4, 7] },
-  { id: 6, table: 'member_care_package_transaction_logs', dependencies: [1, 5, 7] },
-  { id: 7, table: 'services', dependencies: [1, 8] },
-  { id: 8, table: 'service_categories', dependencies: [] },
-  { id: 9, table: 'positions', dependencies: [] },
-  { id: 11, table: 'refunds', dependencies: [1] },
-  { id: 12, table: 'refund_items', dependencies: [11] },
-  { id: 16, table: 'statuses', dependencies: [] },
-  { id: 17, table: 'members', dependencies: [37, 19] },
-  { id: 18, table: 'membership_accounts', dependencies: [17, 19, 16] },
-  { id: 19, table: 'membership_types', dependencies: [] },
-  { id: 20, table: 'payment_methods', dependencies: [] },
-  { id: 21, table: 'product_categories', dependencies: [] },
-  { id: 22, table: 'products', dependencies: [] },
-  { id: 23, table: 'roles', dependencies: [] },
-  { id: 24, table: 'translations', dependencies: [] },
-  { id: 25, table: 'user_to_role', dependencies: [23, 37] },
-  { id: 26, table: 'appointments', dependencies: [17, 1] },
-  { id: 27, table: 'member_voucher_details', dependencies: [29, 7] },
-  { id: 28, table: 'member_voucher_transaction_logs', dependencies: [29, 1] },
-  { id: 29, table: 'member_vouchers', dependencies: [35, 1, 17] },
-  { id: 30, table: 'payment_to_sale_transactions', dependencies: [20, 32, 1] },
-  { id: 31, table: 'sale_transaction_items', dependencies: [32, 4, 29] },
-  { id: 32, table: 'sale_transactions', dependencies: [17, 1] },
-  { id: 33, table: 'timetables', dependencies: [] },
-  { id: 34, table: 'voucher_template_details', dependencies: [35, 7, 8] },
-  { id: 35, table: 'voucher_templates', dependencies: [1] },
-  { id: 36, table: 'system_parameters', dependencies: [] },
-  { id: 37, table: 'user_auth', dependencies: [] },
-  { id: 38, table: 'employee_to_position', dependencies: [1, 9] },
+  { id: 1, table: 'employees', dependencies: [9, 37, 16], group: 1 },
+  { id: 2, table: 'care_packages', dependencies: [1], group: 5 },
+  { id: 3, table: 'care_package_item_details', dependencies: [2, 7], group: 5 },
+  { id: 4, table: 'member_care_packages', dependencies: [1, 17], group: 3 },
+  { id: 5, table: 'member_care_package_details', dependencies: [4, 7], group: 3 },
+  { id: 6, table: 'member_care_package_transaction_logs', dependencies: [1, 5, 7], group: 3 },
+  { id: 7, table: 'services', dependencies: [1, 8], group: 5 },
+  { id: 8, table: 'service_categories', dependencies: [], group: 5 },
+  { id: 9, table: 'positions', dependencies: [], group: 1 },
+  { id: 11, table: 'refunds', dependencies: [1], group: 8 },
+  { id: 12, table: 'refund_items', dependencies: [11], group: 8 },
+  { id: 16, table: 'statuses', dependencies: [], group: 1 },
+  { id: 17, table: 'members', dependencies: [37, 19], group: 1 },
+  { id: 18, table: 'membership_accounts', dependencies: [17, 19, 16], group: 0 },
+  { id: 19, table: 'membership_types', dependencies: [1], group: 1 },
+  { id: 20, table: 'payment_methods', dependencies: [], group: 8 },
+  { id: 21, table: 'product_categories', dependencies: [], group: 6 },
+  { id: 22, table: 'products', dependencies: [], group: 6 },
+  { id: 23, table: 'roles', dependencies: [], group: 1 },
+  { id: 24, table: 'translations', dependencies: [], group: 10 },
+  { id: 25, table: 'user_to_role', dependencies: [23, 37], group: 1 },
+  { id: 26, table: 'appointments', dependencies: [17, 1], group: 9 },
+  { id: 27, table: 'member_voucher_details', dependencies: [29, 7], group: 7 },
+  { id: 28, table: 'member_voucher_transaction_logs', dependencies: [29, 1], group: 7 },
+  { id: 29, table: 'member_vouchers', dependencies: [35, 1, 17], group: 7 },
+  { id: 30, table: 'payment_to_sale_transactions', dependencies: [20, 32, 1], group: 8 },
+  { id: 31, table: 'sale_transaction_items', dependencies: [32, 4, 29], group: 8 },
+  { id: 32, table: 'sale_transactions', dependencies: [17, 1], group: 8 },
+  { id: 33, table: 'timetables', dependencies: [], group: 9 },
+  { id: 34, table: 'voucher_template_details', dependencies: [35, 7, 8], group: 7 },
+  { id: 35, table: 'voucher_templates', dependencies: [1], group: 7 },
+  { id: 36, table: 'system_parameters', dependencies: [], group: 11 },
+  { id: 37, table: 'user_auth', dependencies: [], group: 1 },
+  { id: 38, table: 'employee_to_position', dependencies: [1, 9], group: 1 },
 ];
 
 const csvFolderPath = path.join(__dirname, '..', '..', 'seed');
@@ -455,6 +456,18 @@ async function mergeData(filePath1: string, filePath2: string, targetTable: stri
   return mergedFilePath;
 }
 
+function getTablesByGroupId(groupId: number): Set<number> {
+  const tableIds = new Set<number>();
+
+  hierarchy.forEach((table) => {
+    if (table.group === groupId) {
+      tableIds.add(table.id);
+    }
+  });
+
+  return tableIds;
+}
+
 interface tablePayload {
   table: string;
   file: string;
@@ -470,6 +483,15 @@ const insertDataModel = async (targetTable: string, tablePayload: tablePayload[]
     }
 
     const requiredTableIdsForInsert = getAncestors(targetTableInfo.id, hierarchy);
+
+    const tablesInSameGroup = getTablesByGroupId(targetTableInfo.group);
+
+    console.log(`Including ${tablesInSameGroup.size} tables from group ID ${targetTableInfo.group}`);
+
+    tablesInSameGroup.forEach((id) => {
+      requiredTableIdsForInsert.add(id);
+    });
+
     const filteredHierarchyForInsert: HierarchyInterface[] = hierarchy.filter((tableInfo) =>
       requiredTableIdsForInsert.has(tableInfo.id)
     );
@@ -791,6 +813,10 @@ const getOrdersForTableModel = async (tableName: string) => {
     }
 
     const requiredTableIdsForInsert = getAncestors(targetTableInfo.id, hierarchy);
+    const tablesInSameGroup = getTablesByGroupId(targetTableInfo.group);
+    tablesInSameGroup.forEach((id) => {
+      requiredTableIdsForInsert.add(id);
+    });
     const filteredHierarchyForInsert: HierarchyInterface[] = hierarchy.filter((tableInfo) =>
       requiredTableIdsForInsert.has(tableInfo.id)
     );

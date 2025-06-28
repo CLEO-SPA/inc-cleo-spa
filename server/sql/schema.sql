@@ -223,10 +223,12 @@ CREATE TABLE "membership_accounts" (
 CREATE TABLE "membership_types" (
     "id" BIGSERIAL NOT NULL,
     "membership_type_name" VARCHAR(50) NOT NULL,
-    "default_discount_for_products" DECIMAL,
-    "default_discount_percentage_for_service" DECIMAL,
+    "default_percentage_discount_for_products" DECIMAL,
+    "default_percentage_discount_for_services" DECIMAL,
     "created_at" TIMESTAMPTZ(6),
     "updated_at" TIMESTAMPTZ(6),
+    "created_by" BIGINT NOT NULL,
+    "last_updated_by" BIGINT NOT NULL,
 
     CONSTRAINT "membership_types_pkey" PRIMARY KEY ("id")
 );
@@ -592,6 +594,10 @@ ALTER TABLE "membership_accounts" ADD CONSTRAINT "membership_accounts_membership
 -- Foreign Keys for table "members"
 ALTER TABLE "members" ADD CONSTRAINT "members_membership_type_id_fkey" FOREIGN KEY ("membership_type_id") REFERENCES "membership_types"("id") ON DELETE SET NULL ON UPDATE CASCADE;
 ALTER TABLE "members" ADD CONSTRAINT "members_created_by_fkey" FOREIGN KEY ("created_by") REFERENCES "employees"("id") ON DELETE SET NULL ON UPDATE CASCADE;
+
+-- Foreign Keys for table "membership_types"
+ALTER TABLE "membership_types" ADD CONSTRAINT "membership_types_created_by_fkey" FOREIGN KEY ("created_by") REFERENCES "employees"("id") ON DELETE SET NULL ON UPDATE CASCADE;
+ALTER TABLE "membership_types" ADD CONSTRAINT "membership_types_last_updated_by_fkey" FOREIGN KEY ("last_updated_by") REFERENCES "employees"("id") ON DELETE SET NULL ON UPDATE CASCADE;
 
 -- Foreign Keys for table "products"
 ALTER TABLE "products" ADD CONSTRAINT "products_product_category_id_fkey" FOREIGN KEY ("product_category_id") REFERENCES "product_categories"("id") ON DELETE SET NULL ON UPDATE CASCADE;
