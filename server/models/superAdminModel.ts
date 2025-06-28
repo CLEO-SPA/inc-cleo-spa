@@ -551,7 +551,7 @@ const insertDataModel = async (targetTable: string, tablePayload: tablePayload[]
       }
     }
 
-    console.log('First Pass', tablesToIgnore);
+    console.log('First ignored tables', tablesToIgnore);
 
     // Build a set of all tables that must be processed due to merged data dependencies
     const mustProcessTables = new Set<string>();
