@@ -14,6 +14,8 @@ export const useMcpFormStore = create(
       package_remarks: '',
       package_price: 0, // SUM(service.finalPrice * service.quantity)
       services: [],
+      created_at: new Date(),
+      updated_at: new Date(),
     },
     serviceForm: {
       id: '',
@@ -55,6 +57,8 @@ export const useMcpFormStore = create(
             package_remarks: '',
             package_price: 0,
             services: [],
+            created_at: new Date(),
+            updated_at: new Date(),
           },
           isCustomizable: true, // Reset to default customizable state
           isByPass: false,
@@ -400,6 +404,37 @@ export const useMcpFormStore = create(
       }
     },
 
+    voidMemberCarePackage: async (packageId) => {
+      set({ isLoading: true, error: null }, false, 'VoidMemberCarePackageOptions/pending');
+      try {
+        await api.delete('/mcp/void/' + packageId);
+
+        set({ isLoading: false }, false, 'voidMemberCarePackageOptions/fulfilled');
+      } catch (error) {
+        const errorMessage = error.response?.data?.message || error.message || 'An unknown error occurred';
+        set({ error: errorMessage, isLoading: false }, false, 'voidMemberCarePackageOptions/rejected');
+        console.error('Error voiding member care package options:', error);
+        throw error;
+      }
+    },
+
+    updateMemberCarePackageStatus: async (packageId, servicesPayload) => {
+      set({ isLoading: true, error: null }, false, 'updateMemberCarePackageStatus/pending');
+      try {
+        const response = await api.put('/mcp/u/s', {
+          id: packageId,
+          services: servicesPayload,
+        });
+        set({ isLoading: false }, false, 'updateMemberCarePackageStatus/fulfilled');
+        return response.data;
+      } catch (error) {
+        const errorMessage = error.response?.data?.message || error.message || 'An unknown error occurred';
+        set({ error: errorMessage, isLoading: false }, false, 'updateMemberCarePackageStatus/rejected');
+        console.error('Error updating member care package status:', error);
+        throw error;
+      }
+    },
+
     addMcpToTransferQueue: (transferData) => {
       const { mcp_id1, mcp_id2, newDestinationData, amount } = transferData;
       const queue = get().mcpTransferQueue;
@@ -462,7 +497,7 @@ export const useMcpFormStore = create(
     processMcpTransferQueue: async () => {
       const queue = get().mcpTransferQueue;
       if (queue.length === 0) {
-        return { success: true, results: [] };
+        return { success: true, results: [], packages: [] };
       }
 
       set({ isLoading: true, error: null }, false, 'processMcpTransferQueue/pending');
@@ -498,14 +533,17 @@ export const useMcpFormStore = create(
           return {
             mcp_id1: item.mcp_id1,
             mcp_id2: destinationId,
+            isNew: !!item.newDestinationData,
             amount: item.amount,
           };
         });
 
+        console.log(transferPayload);
+
         const transferResponse = await api.post('/mcp/transfer', { packages: transferPayload });
 
         set({ isLoading: false, mcpTransferQueue: [] }, false, 'processMcpTransferQueue/fulfilled');
-        return { success: true, results: transferResponse.data };
+        return { success: true, results: transferResponse.data, packages: transferPayload };
       } catch (error) {
         const errorMessage =
           error.response?.data?.message || error.message || 'An unknown error occurred during MCP transfer';

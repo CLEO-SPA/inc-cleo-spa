@@ -263,15 +263,32 @@ const CreateMemberCarePackageForm = () => {
         {/* employee selection */}
         <Card>
           <CardContent className='space-y-4 pt-6'>
-            <div className='space-y-1'>
-              <EmployeeSelect
-                name='employee_id'
-                label='Created By *'
-                value={mainFormData.employee_id}
-                onChange={(employeeId) => updateMainField('employee_id', employeeId)}
-                options={employeeOptions}
-                errors={{}}
-              />
+            <div className='grid grid-cols-1 md:grid-cols-2 gap-4'>
+              <div className='space-y-1'>
+                <EmployeeSelect
+                  name='employee_id'
+                  label='Created By *'
+                  value={mainFormData.employee_id}
+                  onChange={(employeeId) => updateMainField('employee_id', employeeId)}
+                  options={employeeOptions}
+                  errors={{}}
+                />
+              </div>
+              <div className='space-y-1'>
+                <Label htmlFor='created_at' className='text-sm font-medium pb-1 text-gray-700'>
+                  Creation date & time *
+                </Label>
+                <div></div>
+                <Input
+                  type='datetime-local'
+                  id='created_at'
+                  onChange={(e) => {
+                    updateMainField('created_at', e.target.value);
+                    updateMainField('updated_at', e.target.value);
+                  }}
+                  step='1'
+                />
+              </div>
             </div>
 
             <div className='space-y-2'>

@@ -1,5 +1,5 @@
 /* eslint-disable @typescript-eslint/no-explicit-any */
-import { QueryResult, PoolClient } from 'pg';
+import { PoolClient } from 'pg';
 import { pool } from '../config/database.js';
 import { CursorPayload, FieldMapping, PaginatedOptions, PaginatedReturn } from '../types/common.types.js';
 import {
@@ -222,6 +222,7 @@ function buildDataQuery(
       fp.id AS mcp_id,
       fp.package_name,
       fp.status,
+      fp.balance,
       fp.package_remarks,
       fp.member_name,
       fp.employee_name,
@@ -821,32 +822,42 @@ interface mcpServiceStatusPayload {
   status_name: 'ENABLED' | 'DISABLED';
 }
 
-const enableMemberCarePackage = async (id: string, payload: mcpServiceStatusPayload[]) => {
+const updateMemberCarePackageStatus = async (id: string, payload: mcpServiceStatusPayload[]) => {
   const client = await pool().connect();
   try {
     await client.query('BEGIN');
 
-    // Check if mcp exists
-    const results = await getMemberCarePackageById(id);
-    if (!results) {
+    const mcpData = await getMemberCarePackageById(id);
+    if (!mcpData) {
       throw new Error(`Member care package with id ${id} not found for updating status.`);
     }
 
-    const u_mcp_sql = 'UPDATE member_care_packages SET status = $1 WHERE id = $2';
-    const u_mcpd_sql = 'UPDATE member_care_package_details SET status = $1 WHERE id = $2';
+    const existingServiceIds = new Set(mcpData.details.map((d) => d.id));
+    for (const service of payload) {
+      if (!existingServiceIds.has(service.id)) {
+        throw new Error(`Service with id ${service.id} does not belong to member care package ${id}.`);
+      }
+    }
 
-    const mcp = await client.query(u_mcp_sql, ['ENABLED', id]);
-    const mcpd: QueryResult[] = [];
-    const servicePromise = payload.map(async (service) => {
-      const results = await client.query(u_mcpd_sql, ['ENABLED', service.id]);
-      mcpd.push(results);
+    const u_mcpd_sql = 'UPDATE member_care_package_details SET status = $1 WHERE id = $2';
+    const serviceUpdatePromises = payload.map((service) => {
+      return client.query(u_mcpd_sql, [service.status_name, service.id]);
     });
 
-    await Promise.all(servicePromise);
+    await Promise.all(serviceUpdatePromises);
+
+    const g_all_mcpd_sql = 'SELECT status FROM member_care_package_details WHERE member_care_package_id = $1';
+    const { rows: allServices } = await client.query<{ status: string }>(g_all_mcpd_sql, [id]);
+
+    const allServicesDisabled = allServices.every((s) => s.status === 'DISABLED');
+    const finalPackageStatus = allServicesDisabled ? 'DISABLED' : 'ENABLED';
+
+    const u_mcp_sql = 'UPDATE member_care_packages SET status = $1, updated_at = NOW() WHERE id = $2 RETURNING *';
+    const { rows: updatedMcp } = await client.query(u_mcp_sql, [finalPackageStatus, id]);
 
     await client.query('COMMIT');
 
-    return { mcp, mcpd };
+    return { updatedMcp: updatedMcp[0] };
   } catch (error) {
     console.error('Error changing member care package status:', error);
     await client.query('ROLLBACK');
@@ -1260,7 +1271,7 @@ export default {
   removeMemberCarePackage,
   deleteMemberCarePackage,
   createConsumption,
-  enableMemberCarePackage,
+  updateMemberCarePackageStatus,
   checkMcpUpdatable,
   transferMemberCarePackage,
   emulateMemberCarePackage,
