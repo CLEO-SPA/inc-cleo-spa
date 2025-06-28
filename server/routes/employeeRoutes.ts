@@ -25,6 +25,8 @@ router.post(
   employeeController.createAndInviteEmployee
 );
 
+
+
 router.get('/dropdown', employeeController.getAllEmployeesForDropdown);
 router.get('/basic-details', employeeController.getBasicEmployeeDetails);
 
@@ -34,6 +36,11 @@ router.post(
   '/regenerate-uri',
   roleMiddleware.hasRole(['super_admin', 'data_admin']),
   employeeController.regenerateInvitationLink
+);
+
+router.put(
+  '/employees/:id', 
+  employeeController.updateEmployee
 );
 
 export default router;

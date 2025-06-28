@@ -396,6 +396,58 @@ const getAllRolesForDropdown = async (req: Request, res: Response, next: NextFun
   }
 };
 
+const updateEmployee = async (req: Request, res: Response, next: NextFunction): Promise<void> => {
+  try {
+    /* ------------------------------------------------------------- params */
+    const employee_id = Number(req.params.id);
+    if (!employee_id || Number.isNaN(employee_id)) {
+      res.status(400).json({ message: 'Invalid or missing employee ID in URL.' });
+      return;
+    }
+
+    /* --------------------------------------------------------- sanitize ↓ */
+    const {
+      employee_email   = undefined,
+      employee_name    = undefined,
+      employee_contact = undefined,
+      employee_code    = undefined,
+      employee_is_active,
+      position_ids,
+    } = req.body;
+
+    const payload = {
+      employee_id,
+      email:            employee_email   ? employee_email.trim()   : undefined,
+      employee_name:    employee_name    ? employee_name.trim()    : undefined,
+      phone:            employee_contact ? employee_contact.trim() : undefined,
+      employee_contact: employee_contact ? employee_contact.trim() : undefined,
+      employee_code:    employee_code    !== undefined ? String(employee_code).trim() : undefined,
+      employee_is_active,
+      position_ids,
+      updated_at: new Date().toISOString(),
+    };
+
+    /* ------------------------------------------ quick format validations */
+    if (payload.email && !validator.isEmail(payload.email)) {
+      res.status(400).json({ message: 'Invalid email format.' });
+      return;
+    }
+    if (payload.phone && !validator.isMobilePhone(payload.phone, 'any')) {
+      res.status(400).json({ message: 'Invalid contact number format.' });
+      return;
+    }
+
+    /* ------------------------------ hand off to model (handles duplicates) */
+    await model.updateEmployee(payload);
+
+    res.status(200).json({ message: 'Employee updated successfully.' });
+  } catch (err) {
+    console.error('updateEmployee controller error:', err);
+    next(err);                          // central error-handler will 500 it
+  }
+};
+
+
 export default {
   defaultPassword,
   getAuthUser,
@@ -410,4 +462,5 @@ export default {
   getAllRolesForDropdown,
   verifyInviteURL,
   getBasicEmployeeDetails,
+  updateEmployee
 };

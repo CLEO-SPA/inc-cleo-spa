@@ -423,6 +423,155 @@ const getAllRolesForDropdown = async () => {
   }
 };
 
+/* --------------------------------------------------------------------------
+ * Update employee + auth + positions
+ * ------------------------------------------------------------------------ */
+
+export interface UpdateEmployeeData {
+  /** PK of the employee row to update */
+  employee_id: number;
+
+  /* user_auth-level */
+  email?: string;      // ❗️becomes ua.email
+  phone?: string;      // ❗️becomes ua.phone
+
+  /* employees-level */
+  employee_name?: string;
+  employee_code?: string;
+  employee_contact?: string; // same as phone but stored again in employees
+  employee_is_active?: boolean;
+
+  /* many-to-many */
+  position_ids?: string[];   // FULL replacement if provided
+
+  updated_at?: string;       // supply from controller (iso string / now())
+}
+
+const updateEmployee = async (data: UpdateEmployeeData) => {
+  const client = await pool().connect();
+  try {
+    await client.query('BEGIN');
+
+    /* ------------------------------------------------- 1. fetch current */
+    const current = await client.query<{
+      employee_id: number;
+      employee_code: string;
+      employee_contact: string;
+      email: string;
+      phone: string;
+    }>(
+      `SELECT e.id      AS employee_id,
+              e.employee_code,
+              e.employee_contact,
+              ua.email,
+              ua.phone
+         FROM employees     e
+         JOIN user_auth     ua ON ua.id = e.user_auth_id
+        WHERE e.id = $1
+        LIMIT 1`,
+      [data.employee_id],
+    );
+
+    if (current.rowCount === 0) {
+      throw new Error(`Employee ${data.employee_id} not found`);
+    }
+    const cur = current.rows[0];
+
+    /* ------------------------------------------------- 2. guard rails */
+    // duplicate email?
+    if (data.email && data.email !== cur.email) {
+      const { rowCount } = await client.query(`SELECT 1 FROM user_auth WHERE email = $1`, [
+        data.email,
+      ]);
+      if (rowCount) throw new Error('Email already in use');
+    }
+
+    // duplicate phone?
+    if (data.phone && data.phone !== cur.phone) {
+      const { rowCount } = await client.query(`SELECT 1 FROM user_auth WHERE phone = $1`, [
+        data.phone,
+      ]);
+      if (rowCount) throw new Error('Contact number already in use');
+    }
+
+    // duplicate employee_code?
+    if (data.employee_code && data.employee_code !== cur.employee_code) {
+      const { rowCount } = await client.query(
+        `SELECT 1 FROM employees WHERE employee_code = $1 AND id <> $2`,
+        [data.employee_code, data.employee_id],
+      );
+      if (rowCount) throw new Error('Employee code already in use');
+    }
+
+    /* ------------------------------------------------- 3. update user_auth */
+    if (data.email || data.phone) {
+      const sets: string[] = [];
+      const params: any[] = [];
+      let idx = 1;
+
+      if (data.email) sets.push(`email  = $${idx++}`), params.push(data.email);
+      if (data.phone) sets.push(`phone  = $${idx++}`), params.push(data.phone);
+      params.push(data.updated_at || new Date().toISOString());          // $idx
+      params.push(cur.employee_id);                                       // $idx+1
+
+      await client.query(
+        `UPDATE user_auth
+            SET ${sets.join(', ')},
+                updated_at = $${idx++}
+          WHERE id = (SELECT user_auth_id FROM employees WHERE id = $${idx})`,
+        params,
+      );
+    }
+
+    /* ------------------------------------------------- 4. update employees */
+    const empSets: string[] = [];
+    const empParams: any[] = [];
+    let eIdx = 1;
+
+    if (data.employee_name       !== undefined) empSets.push(`employee_name       = $${eIdx++}`), empParams.push(data.employee_name);
+    if (data.employee_code       !== undefined) empSets.push(`employee_code       = $${eIdx++}`), empParams.push(data.employee_code);
+    if (data.employee_contact    !== undefined) empSets.push(`employee_contact    = $${eIdx++}`), empParams.push(data.employee_contact);
+    if (data.employee_is_active  !== undefined) empSets.push(`employee_is_active  = $${eIdx++}`), empParams.push(data.employee_is_active);
+    empParams.push(data.updated_at || new Date().toISOString());          // $eIdx
+    empParams.push(data.employee_id);                                     // $eIdx+1
+
+    if (empSets.length) {
+      await client.query(
+        `UPDATE employees
+            SET ${empSets.join(', ')},
+                updated_at = $${eIdx++}
+          WHERE id = $${eIdx}`,
+        empParams,
+      );
+    }
+
+    /* ------------------------------------------------- 5. replace positions */
+    if (data.position_ids) {
+      // remove old
+      await client.query(`DELETE FROM employee_to_position WHERE employee_id = $1`, [
+        data.employee_id,
+      ]);
+      if (data.position_ids.length) {
+        await client.query(
+          `INSERT INTO employee_to_position (employee_id, position_id, created_at, updated_at)
+           SELECT $1, pid, NOW(), NOW()
+             FROM unnest($2::bigint[]) pid`,
+          [data.employee_id, data.position_ids],
+        );
+      }
+    }
+
+    await client.query('COMMIT');
+    return { success: true };
+  } catch (err) {
+    await client.query('ROLLBACK');
+    console.error('updateEmployee error:', err);
+    throw err;
+  } finally {
+    client.release();
+  }
+};
+
 export default {
   checkEmployeeCodeExists,
   checkEmployeePhoneExists,
@@ -438,4 +587,5 @@ export default {
   createAuthAndEmployee,
   getAllRolesForDropdown,
   touchEmployee,
+  updateEmployee
 };
