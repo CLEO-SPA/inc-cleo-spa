@@ -60,8 +60,10 @@ const MemberCarePackageConsumptionCreateForm = () => {
       </CardHeader>
       <CardContent>
         <form onSubmit={handleSubmit} className='space-y-6'>
-          <div>
-            <Label htmlFor='service'>Service</Label>
+          <div className='space-y-2'>
+            <Label htmlFor='service' className='text-sm font-medium text-gray-700'>
+              Service
+            </Label>
             <Select
               value={detailForm.mcpd_id}
               onValueChange={handleServiceChange}
@@ -88,8 +90,10 @@ const MemberCarePackageConsumptionCreateForm = () => {
 
           {detailForm.mcpd_id && (
             <>
-              <div>
-                <Label htmlFor='quantity'>Quantity</Label>
+              <div className='space-y-2'>
+                <Label htmlFor='quantity' className='text-sm font-medium text-gray-700'>
+                  Quantity
+                </Label>
                 <Input
                   id='quantity'
                   type='number'
@@ -112,14 +116,21 @@ const MemberCarePackageConsumptionCreateForm = () => {
                 )}
               </div>
 
-              <div>
-                <Label htmlFor='consumptionDate'>Date</Label>
+              <div className='space-y-2'>
+                <Label htmlFor='consumptionDate' className='text-sm font-medium text-gray-700'>
+                  Consumption date & time *
+                </Label>
                 <Input
                   id='consumptionDate'
-                  type='date'
+                  type='datetime-local'
                   value={detailForm.mcpd_date}
-                  onChange={(e) => updateDetailFormField('mcpd_date', e.target.value)}
+                  onChange={(e) => {
+                    const newValue = e.target.value || new Date().toISOString().slice(0, 16);
+                    updateDetailFormField('mcpd_date', newValue);
+                  }}
                   disabled={isLoading || isSubmitting}
+                  step='1'
+                  className='rounded-md'
                   required
                 />
               </div>

@@ -49,7 +49,7 @@ import EditCarePackagePage from '@/pages/CarePackages/EditCarePackagePage';
 // Member Care Package Management
 import ManageMemberCarePackagesPage from './pages/MemberCarePackages/ManageMemberCarePackagesPage';
 import ViewMemberCarePackageDetailsPage from '@/pages/MemberCarePackages/ViewMemberCarePackageDetailsPage';
-import CreateMcpConsumptionPage from '@/pages/MemberCarePackages/CreateConsumptionPage';
+import CreateMcpConsumptionPage from '@/pages/MemberCarePackages/CreateMcpConsumptionPage';
 // import CreateMemberCarePackageFormPage from '@/pages/CarePackages/CreateMemberCarePackageFormPage';
 // Data Export
 import DataExportPage from './pages/miscellaneous/DateExportPage';
