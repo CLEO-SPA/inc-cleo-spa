@@ -308,6 +308,7 @@ const getBasicEmployeeDetails = async (req: Request, res: Response) => {
   }
 };
 
+
 const getAllEmployeesForDropdown = async (req: Request, res: Response, next: NextFunction) => {
   try {
     const employees = await model.getAllEmployeesForDropdown();

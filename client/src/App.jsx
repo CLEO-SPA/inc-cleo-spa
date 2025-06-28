@@ -17,6 +17,7 @@ import ManageMembersPage from '@/pages/member/ManageMembersPage';
 import CreateMemberPage from '@/pages/member/CreateMemberPage';
 import EditMemberPage from '@/pages/member/EditMemberPage';
 import ManageMembershipTypePage from '@/pages/MembershipType/ManageMembershipTypePage';
+
 // Voucher Template
 import CreateVoucherTemplatesPage from '@/pages/voucher-template/CreateVoucherTemplatePage';
 import ManageVoucherTemplatesPage from '@/pages/voucher-template/ManageVoucherTemplatesPage';
@@ -46,6 +47,13 @@ import CreateConsumptionPage from '@/pages/CarePackages/CreateConsumptionPage';
 // import CreateMemberCarePackageFormPage from '@/pages/CarePackages/CreateMemberCarePackageFormPage';
 // Data Export
 import DataExportPage from './pages/miscellaneous/DateExportPage';
+import ManagePaymentMethodsPage from './pages/payment-method/ManagePaymentMethodsPage';
+import CreatePaymentMethodPage from './pages/payment-method/CreatePaymentMethodPage';
+import EditPaymentMethodPage from './pages/payment-method/EditPaymentMethodPage';
+import TestPMComponent from './pages/sale-transaction/AddPMMComponentTest';
+
+// Employees
+import ManagePositions from '@/pages/em/ManagePositions';
 import ManagePaymentMethodsPage from './pages/payment-method/ManagePaymentMethodsPage';
 import CreatePaymentMethodPage from './pages/payment-method/CreatePaymentMethodPage';
 import EditPaymentMethodPage from './pages/payment-method/EditPaymentMethodPage';
@@ -95,6 +103,11 @@ function App() {
               {/* Employees Routes */}
               <Route path='/positions' element={<ManagePositions />} />
 
+              {/* Service Management */}
+              <Route path='/create-service' element={<CreateServicePage />} />
+              <Route path='/update-service/:service_id' element={<UpdateServicePage />} />
+              <Route path='/reorder-service' element={<ReorderServicePage />} />
+
               {/* Voucher Template */}
               <Route path='/voucher-template/create' element={<CreateVoucherTemplatesPage />} />
               <Route path='/voucher-template' element={<ManageVoucherTemplatesPage />} />
@@ -117,6 +130,17 @@ function App() {
 
               {/* Service Management */}
               <Route path='/manage-service' element={<ManageServicePage />} />
+              <Route path='/create-service' element={<CreateServicePage />} />
+              <Route path='/update-service/:service_id' element={<UpdateServicePage />} />
+              <Route path='/reorder-service' element={<ReorderServicePage />} />
+              <Route path='/view-sales-history/:service_id' element={<ViewSalesHistoryPage />} />
+              <Route path='/manage-service-category' element={<ManageServiceCategoryPage />} />
+
+              {/* Payment Methods Management */}
+              <Route path='/payment-method' element={<ManagePaymentMethodsPage />} />
+              <Route path='/payment-method/create' element={<CreatePaymentMethodPage />} />
+              <Route path='/payment-method/edit/:id' element={<EditPaymentMethodPage />} />
+              <Route path='/payment-method/test' element={<TestPMComponent />} />
               <Route path='/create-service' element={<CreateServicePage />} />
               <Route path='/update-service/:service_id' element={<UpdateServicePage />} />
               <Route path='/reorder-service' element={<ReorderServicePage />} />
