@@ -61,6 +61,7 @@ const CreateAppointmentPage = () => {
 
   // Set default created_at to current SGT time
   useEffect(() => {
+    resetDateTimeStore(); // Reset any previous state
     const sgtNow = new Date(Date.now() + 8 * 60 * 60 * 1000);
     const val = sgtNow.toISOString().slice(0, 16); // "YYYY-MM-DDTHH:mm"
     setValue('created_at', val);
