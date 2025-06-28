@@ -9,6 +9,7 @@ import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { Alert, AlertDescription } from '@/components/ui/alert';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
+import { BadgeCheckIcon } from 'lucide-react';
 import {
   Pagination,
   PaginationContent,
@@ -150,6 +151,7 @@ export default function ManageEmployeePage() {
                             <TableHead>Code</TableHead>
                             <TableHead>Contact</TableHead>
                             <TableHead>Status</TableHead>
+                            <TableHead>Verification</TableHead>
                             <TableHead>Positions</TableHead>
                             <TableHead>Created</TableHead>
                             <TableHead>Updated</TableHead>
@@ -170,14 +172,26 @@ export default function ManageEmployeePage() {
                                   className={
                                     employee.employee_is_active
                                       ? 'bg-green-100 text-green-700'
-                                      : 'bg-muted text-muted-foreground'
+                                      : 'bg-red-100 text-red-700'
                                   }
                                 >
-                                  {employee.verification_status.toLowerCase() === 'verified' &&
-                                  employee.employee_is_active
-                                    ? 'Active'
-                                    : 'UnVerified'}
+                                  {employee.employee_is_active ? 'Active' : 'Inactive'}
                                 </Badge>
+                              </TableCell>
+                              <TableCell>
+                                {employee.verification_status.toLowerCase() === 'verified' ? (
+                                  <Badge
+                                    variant="secondary"
+                                    className="bg-blue-500 text-white dark:bg-blue-600 gap-1"
+                                  >
+                                    <BadgeCheckIcon className="w-4 h-4" />
+                                    Verified
+                                  </Badge>
+                                ) : (
+                                  <Badge className="bg-gray-200 text-gray-600 dark:bg-gray-700 dark:text-gray-300">
+                                    Unverified
+                                  </Badge>
+                                )}
                               </TableCell>
                               <TableCell>
                                 <div className='flex flex-wrap gap-1'>
