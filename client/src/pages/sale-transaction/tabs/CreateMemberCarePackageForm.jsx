@@ -282,9 +282,15 @@ const CreateMemberCarePackageForm = () => {
                 <Input
                   type='datetime-local'
                   id='created_at'
+                  value={
+                    mainFormData.created_at
+                      ? new Date(mainFormData.created_at).toISOString().slice(0, 16)
+                      : new Date().toISOString().slice(0, 16)
+                  }
                   onChange={(e) => {
-                    updateMainField('created_at', e.target.value);
-                    updateMainField('updated_at', e.target.value);
+                    const newValue = e.target.value || new Date().toISOString().slice(0, 16);
+                    updateMainField('created_at', newValue);
+                    updateMainField('updated_at', newValue);
                   }}
                   step='1'
                 />
@@ -381,6 +387,7 @@ const ServicesSection = ({
   resetServiceForm,
 }) => {
   const canModifyServices = bypassPackage || isCustomizable;
+  console.log('isCustomizable', canModifyServices);
 
   return (
     <div className='space-y-4'>
@@ -405,7 +412,7 @@ const ServicesSection = ({
                   disabled={isLoading}
                 />
               </div>
-              <div className='space-y-1'>
+              <div className='space-y-3'>
                 <Label className='text-sm font-medium text-gray-700'>Quantity</Label>
                 <Input
                   type='number'
@@ -415,7 +422,7 @@ const ServicesSection = ({
                   className='h-9'
                 />
               </div>
-              <div className='space-y-1'>
+              <div className='space-y-3'>
                 <Label className='text-sm font-medium text-gray-700'>Price</Label>
                 <Input
                   type='number'
@@ -425,7 +432,7 @@ const ServicesSection = ({
                   className='h-9'
                 />
               </div>
-              <div className='space-y-1'>
+              <div className='space-y-3'>
                 <Label className='text-sm font-medium text-gray-700'>Discount</Label>
                 <Input
                   type='number'

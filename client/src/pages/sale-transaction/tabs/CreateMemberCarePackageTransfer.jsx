@@ -40,6 +40,7 @@ const CreateMemberCarePackageTransfer = () => {
     fetchMemberCarePackageOptionsByMember,
     memberCarePackageOptions,
     mcpTransferQueue,
+    setBypassMode,
   } = useMcpFormStore();
 
   const [sourceMcpId, setSourceMcpId] = useState('');
@@ -76,6 +77,8 @@ const CreateMemberCarePackageTransfer = () => {
 
   const handleBypassToggle = (checked) => {
     setBypassPackage(checked);
+    setBypassMode(checked);
+
     if (checked) {
       if (mainFormData.package_name && mainFormData.services.length > 0) {
         const keepTemplate = confirm(
@@ -236,17 +239,21 @@ const CreateMemberCarePackageTransfer = () => {
         <CardContent className='space-y-4'>
           {error && <p className='text-red-500 text-sm mb-4'>{error}</p>}
           <div className='grid grid-cols-1 md:grid-cols-2 gap-6 items-start'>
-            <div className='space-y-2'>
+            <div className='space-y-3.5'>
               <Label>Source Package</Label>
-              <Combobox
-                options={sourceOptions}
-                value={sourceMcpId}
-                onChange={(value) => {
-                  setSourceMcpId(value);
-                  setAmount('');
-                }}
-                placeholder='Select source package...'
-              />
+              <div></div>
+              <div className='w-full overflow-hidden'>
+                <Combobox
+                  options={sourceOptions}
+                  value={sourceMcpId}
+                  onChange={(value) => {
+                    setSourceMcpId(value);
+                    setAmount('');
+                  }}
+                  placeholder='Select source package...'
+                  // className='truncate'
+                />
+              </div>
             </div>
             <div className='space-y-2'>
               <div className='flex items-center justify-between'>
@@ -259,12 +266,14 @@ const CreateMemberCarePackageTransfer = () => {
                 </div>
               </div>
               {!isNewDestination ? (
-                <Combobox
-                  options={memberCarePackageOptions.filter((p) => p.value !== sourceMcpId)}
-                  value={destinationMcpId}
-                  onChange={setDestinationMcpId}
-                  placeholder='Select destination package...'
-                />
+                <div className='w-full overflow-hidden'>
+                  <Combobox
+                    options={memberCarePackageOptions.filter((p) => p.value !== sourceMcpId)}
+                    value={destinationMcpId}
+                    onChange={setDestinationMcpId}
+                    placeholder='Select destination package...'
+                  />
+                </div>
               ) : (
                 <div className='flex items-center justify-center h-10 px-3 text-sm text-slate-500 bg-slate-100 border rounded-md'>
                   New package details will appear below
@@ -321,6 +330,31 @@ const CreateMemberCarePackageTransfer = () => {
                       />
                     </div>
                   )}
+
+                  {/* Adding the datetime input with the same style */}
+                  <div className='space-y-1'>
+                    <Label htmlFor='created_at' className='text-sm font-medium pb-1 text-gray-700'>
+                      Creation date & time *
+                    </Label>
+                    <div></div>
+                    <Input
+                      type='datetime-local'
+                      id='created_at'
+                      value={
+                        mainFormData.created_at
+                          ? new Date(mainFormData.created_at).toISOString().slice(0, 16)
+                          : new Date().toISOString().slice(0, 16)
+                      }
+                      onChange={(e) => {
+                        const newValue = e.target.value || new Date().toISOString().slice(0, 16);
+                        updateMainField('created_at', newValue);
+                        updateMainField('updated_at', newValue);
+                      }}
+                      step='1'
+                      className='rounded-md'
+                    />
+                  </div>
+
                   <div className='space-y-1'>
                     <Label htmlFor='package_remarks'>Package Remarks</Label>
                     <Textarea
@@ -360,6 +394,26 @@ const CreateMemberCarePackageTransfer = () => {
                   />
                 </CardContent>
               </Card>
+
+              {/* package summary */}
+              <div className='bg-gray-50 p-4 rounded-lg'>
+                <div className='grid grid-cols-1 md:grid-cols-3 gap-4'>
+                  <div className='space-y-1'>
+                    <Label className='text-sm font-medium text-gray-700'>Total Services</Label>
+                    <div className='text-lg font-semibold'>{mainFormData.services.length}</div>
+                  </div>
+                  <div className='space-y-1'>
+                    <Label className='text-sm font-medium text-gray-700'>Total Amount</Label>
+                    <div className='text-lg font-semibold text-green-600'>
+                      ${(mainFormData.package_price || 0).toFixed(2)}
+                    </div>
+                  </div>
+                  <div className='space-y-1'>
+                    <Label className='text-sm font-medium text-gray-700'>Customizable</Label>
+                    <div className='text-lg font-semibold'>{isCustomizable ? 'Yes' : 'No'}</div>
+                  </div>
+                </div>
+              </div>
             </div>
           )}
 
@@ -390,6 +444,7 @@ const ServicesSection = ({
   resetServiceForm,
 }) => {
   const canModifyServices = bypassPackage || isCustomizable;
+  console.log('isCustomizable', canModifyServices);
 
   return (
     <div className='space-y-4'>
@@ -413,7 +468,7 @@ const ServicesSection = ({
                   disabled={isLoading}
                 />
               </div>
-              <div className='space-y-1'>
+              <div className='space-y-3'>
                 <Label className='text-sm font-medium text-gray-700'>Quantity</Label>
                 <Input
                   type='number'
@@ -423,7 +478,7 @@ const ServicesSection = ({
                   className='h-9 rounded-md'
                 />
               </div>
-              <div className='space-y-1'>
+              <div className='space-y-3'>
                 <Label className='text-sm font-medium text-gray-700'>Price</Label>
                 <Input
                   type='number'
@@ -433,7 +488,7 @@ const ServicesSection = ({
                   className='h-9 rounded-md'
                 />
               </div>
-              <div className='space-y-1'>
+              <div className='space-y-3'>
                 <Label className='text-sm font-medium text-gray-700'>Discount</Label>
                 <Input
                   type='number'
