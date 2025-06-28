@@ -188,6 +188,8 @@ const RefundServiceForm = () => {
         transaction_created_at: created_at,
     } = serviceItem;
 
+    //console.log("Service Item:", serviceItem);
+
 
     const discountDecimal = parseFloat(discount_percentage ?? "1");
     const discountPercent = ((1 - discountDecimal) * 100).toFixed(0);
@@ -197,8 +199,15 @@ const RefundServiceForm = () => {
             ? `${discountDecimal} (${discountPercent}% discount)`
             : "No discount";
 
-    const unitPrice = parseFloat(custom_unit_price ?? original_unit_price ?? "0");
-    const refundAmount = quantity * unitPrice;
+    //const unitPrice = parseFloat(custom_unit_price ?? original_unit_price ?? "0");
+    const originalAmount = parseFloat(serviceItem.amount ?? "0");
+    const remainingQuantity = parseFloat(serviceItem.remaining_quantity ?? originalQuantity);
+
+    // Calculate actual unit price
+    const actualUnitPrice = originalAmount / originalQuantity;
+
+    // Calculate refund amount for the quantity user selected 
+    const refundAmount = quantity * actualUnitPrice;
 
     return (
         <div className="[--header-height:calc(theme(spacing.14))]">
