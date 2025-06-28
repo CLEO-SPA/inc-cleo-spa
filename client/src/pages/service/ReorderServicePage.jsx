@@ -23,6 +23,7 @@ export default function ReorderService() {
   // loading
   const [loading, setLoading] = useState(false);
   const [catLoading, setCatLoading] = useState(false);
+  
   // For modal
   const [modalOpen, setModalOpen] = useState(false);
   const [errorMsg, setErrorMsg] = useState('');

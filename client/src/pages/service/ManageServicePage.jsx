@@ -56,6 +56,7 @@ export default function ManageService() {
   const [changeService, setChangeService] = useState(null);
   const [changeStatus, setChangeStatus] = useState(false);
   const [updateForm, setUpdateForm] = useState({
+    enabled: false,
     updated_at: "",
     updated_by: "",
     service_remarks: ""
@@ -142,6 +143,7 @@ export default function ManageService() {
     setUpdatedAt(null);
     reset();
     setUpdateForm({
+      enabled: false,
       updated_at: "",
       updated_by: "",
       service_remarks: ""
