@@ -37,22 +37,43 @@ const getAllRefundSaleTransactionRecords = async (start_date_utc?: string, end_d
 
 const getSaleTransactionItemById = async (itemId: number) => {
   const query = `
+    WITH original_item AS (
+      SELECT 
+        sti.*,
+        st.id AS original_transaction_id,
+        st.created_at AS transaction_created_at,
+        m.name AS member_name,
+        m.email AS member_email,
+        m.contact AS member_contact,
+        st.member_id
+      FROM sale_transaction_items sti
+      JOIN sale_transactions st ON st.id = sti.sale_transactions_id
+      LEFT JOIN members m ON st.member_id = m.id
+      WHERE sti.id = $1
+    ),
+    refunded_qty AS (
+      SELECT 
+        SUM(ABS(sti_ref.quantity)) AS total_refunded_quantity
+      FROM original_item oi
+      JOIN sale_transactions refund_st ON refund_st.reference_sales_transaction_id = oi.original_transaction_id
+      JOIN sale_transaction_items sti_ref ON sti_ref.sale_transactions_id = refund_st.id
+      WHERE sti_ref.service_name = oi.service_name
+        AND sti_ref.item_type = 'SERVICE'
+    )
     SELECT 
-      sti.*,
-      m.name AS member_name,
-      m.email AS member_email,
-      m.contact AS member_contact,
-      st.created_at
-    FROM sale_transaction_items sti
-    JOIN sale_transactions st ON st.id = sti.sale_transactions_id
-    LEFT JOIN members m ON st.member_id = m.id
-    WHERE sti.id = $1
-    LIMIT 1
+      oi.*,
+      COALESCE(rq.total_refunded_quantity, 0) AS total_refunded_quantity,
+      (oi.quantity - COALESCE(rq.total_refunded_quantity, 0)) AS remaining_quantity
+    FROM original_item oi
+    LEFT JOIN refunded_qty rq ON true
+    -- WHERE (oi.quantity - COALESCE(rq.total_refunded_quantity, 0)) > 0
+    LIMIT 1;
   `;
 
   const result = await pool().query(query, [itemId]);
   return result.rows[0];
 };
+
 
 const getServiceTransactionsForRefund = async (
   member_id?: number,
@@ -67,8 +88,23 @@ const getServiceTransactionsForRefund = async (
     FROM sale_transactions st
     LEFT JOIN members m ON st.member_id = m.id
     JOIN sale_transaction_items sti ON st.id = sti.sale_transactions_id
+
+    -- Left join to get total refunded quantity per sale transaction and service_name
+    LEFT JOIN (
+      SELECT
+        refund_st.reference_sales_transaction_id AS original_sale_transaction_id,
+        refund_sti.service_name,
+        SUM(ABS(refund_sti.quantity)) AS refunded_quantity
+      FROM sale_transactions refund_st
+      JOIN sale_transaction_items refund_sti ON refund_st.id = refund_sti.sale_transactions_id
+      WHERE refund_st.sale_transaction_status = 'REFUND'
+      GROUP BY refund_st.reference_sales_transaction_id, refund_sti.service_name
+    ) refunded_sum ON refunded_sum.original_sale_transaction_id = st.id
+                   AND refunded_sum.service_name = sti.service_name
+
     WHERE st.sale_transaction_status = 'FULL'
-    AND sti.item_type = 'SERVICE'
+      AND sti.item_type = 'SERVICE'
+      AND (sti.quantity - COALESCE(refunded_sum.refunded_quantity, 0)) > 0
   `;
 
   const values: any[] = [];
@@ -101,7 +137,7 @@ const getServiceTransactionsForRefund = async (
   );
   const total = Number(countResult.rows[0].total);
 
-  // Get actual data
+  // Select with adjusted quantity and amount
   let dataQuery = `
     SELECT 
       st.id AS sale_transaction_id,
@@ -117,8 +153,13 @@ const getServiceTransactionsForRefund = async (
       sti.original_unit_price,
       sti.custom_unit_price,
       sti.discount_percentage,
-      sti.amount AS service_amount,
-      sti.quantity
+      sti.quantity - COALESCE(refunded_sum.refunded_quantity, 0) AS unrefunded_quantity,
+      -- Calculate prorated unrefunded amount based on unit price and unrefunded quantity
+      CASE
+        WHEN sti.quantity > 0 THEN
+          (sti.amount / sti.quantity) * (sti.quantity - COALESCE(refunded_sum.refunded_quantity, 0))
+        ELSE 0
+      END AS unrefunded_amount
     ${baseQuery}
     ORDER BY st.created_at DESC
   `;
@@ -133,84 +174,83 @@ const getServiceTransactionsForRefund = async (
   }
 
   const result = await pool().query(dataQuery, values);
+
+  type SaleTransactionItem = {
+    sale_transaction_id: number;
+    receipt_no: string;
+    member_id: number;
+    member_name: string | null;
+    member_email: string | null;
+    member_contact: string | null;
+    total_paid_amount: number;
+    created_at: string;
+    sale_transaction_item_id: number;
+    service_name: string;
+    original_unit_price: number | null;
+    custom_unit_price: number | null;
+    discount_percentage: number | null;
+    unrefunded_quantity: number;
+    unrefunded_amount: number;
+  };
+
+  type GroupedTransaction = {
+    sale_transaction_id: number;
+    receipt_no: string;
+    member_id: number;
+    member_name: string | null;
+    member_email: string | null;
+    member_contact: string | null;
+    total_paid_amount: number;
+    created_at: string;
+    items: {
+      id: number;
+      service_name: string;
+      amount: number;
+      quantity: number;
+      original_unit_price: number | null;
+      custom_unit_price: number | null;
+      discount_percentage: number | null;
+    }[];
+  };
+
+  const groupTransactions = (rows: SaleTransactionItem[]): GroupedTransaction[] => {
+    const transactionMap = new Map<number, GroupedTransaction>();
+
+    for (const row of rows) {
+      if (!transactionMap.has(row.sale_transaction_id)) {
+        transactionMap.set(row.sale_transaction_id, {
+          sale_transaction_id: row.sale_transaction_id,
+          receipt_no: row.receipt_no,
+          member_id: row.member_id,
+          member_name: row.member_name,
+          member_email: row.member_email,
+          member_contact: row.member_contact,
+          total_paid_amount: row.total_paid_amount,
+          created_at: row.created_at,
+          items: []
+        });
+      }
+
+      transactionMap.get(row.sale_transaction_id)!.items.push({
+        id: row.sale_transaction_item_id,
+        service_name: row.service_name,
+        amount: row.unrefunded_amount,
+        quantity: row.unrefunded_quantity,
+        original_unit_price: row.original_unit_price,
+        custom_unit_price: row.custom_unit_price,
+        discount_percentage: row.discount_percentage,
+      });
+    }
+
+    return Array.from(transactionMap.values());
+  };
+
   const groupedTransactions = groupTransactions(result.rows);
 
   return {
     transactions: groupedTransactions,
     total,
   };
-};
-
-type SaleTransactionItem = {
-  sale_transaction_id: number;
-  receipt_no: string;
-  member_id: number;
-  member_name: string | null;
-  member_email: string | null;
-  member_contact: string | null;
-  total_paid_amount: number;
-  created_at: string;
-  sale_transaction_item_id: number;
-  service_name: string;
-  service_amount: number;
-  quantity: number;
-  original_unit_price: number | null;
-  custom_unit_price: number | null;
-  discount_percentage: number | null;
-};
-
-type GroupedTransaction = {
-  sale_transaction_id: number;
-  receipt_no: string;
-  member_id: number;
-  member_name: string | null;
-  member_email: string | null;
-  member_contact: string | null;
-  total_paid_amount: number;
-  created_at: string;
-  items: {
-    id: number;
-    service_name: string;
-    amount: number;
-    quantity: number;
-    original_unit_price: number | null;
-    custom_unit_price: number | null;
-    discount_percentage: number | null;
-  }[];
-};
-
-const groupTransactions = (rows: SaleTransactionItem[]): GroupedTransaction[] => {
-  const transactionMap = new Map<number, GroupedTransaction>();
-
-  for (const row of rows) {
-    if (!transactionMap.has(row.sale_transaction_id)) {
-      // Create a new transaction entry if it doesn't exist
-      transactionMap.set(row.sale_transaction_id, {
-        sale_transaction_id: row.sale_transaction_id,
-        receipt_no: row.receipt_no,
-        member_id: row.member_id,
-        member_name: row.member_name,
-        member_email: row.member_email,
-        member_contact: row.member_contact,
-        total_paid_amount: row.total_paid_amount,
-        created_at: row.created_at,
-        items: []
-      });
-    }
-
-    // Push the current item into the correct transaction's items list
-    transactionMap.get(row.sale_transaction_id)!.items.push({
-      id: row.sale_transaction_item_id,
-      service_name: row.service_name,
-      amount: row.service_amount,
-      quantity: row.quantity,
-      original_unit_price: row.original_unit_price,
-      custom_unit_price: row.custom_unit_price,
-      discount_percentage: row.discount_percentage,
-    });
-  }
-
-  return Array.from(transactionMap.values());
 };
 
 
@@ -261,7 +301,7 @@ const processRefundService = async (body: {
         -1 * totalRefundAmount,
         0,
         'REFUND',
-        body.refundRemarks ?? `Refund for transaction #${original.id}`,
+        `Refund for transaction #${original.id}`,
         body.saleTransactionId,
         body.refundedBy,
         refundDate, // created_at
@@ -271,6 +311,45 @@ const processRefundService = async (body: {
 
     // 3. Insert refund items and map to employees
     for (const item of body.refundItems) {
+      // Check if the item is refundable
+      const { rows: refundCheckRows } = await client.query(
+        `
+      WITH original_item AS (
+        SELECT sti.*, st.id AS original_tx_id
+        FROM sale_transaction_items sti
+        JOIN sale_transactions st ON st.id = sti.sale_transactions_id
+        WHERE sti.id = $1
+      ),
+      refunded_qty AS (
+        SELECT SUM(ABS(sti_ref.quantity)) AS total_refunded_quantity
+        FROM original_item oi
+        JOIN sale_transactions refund_tx ON refund_tx.reference_sales_transaction_id = oi.original_tx_id
+        JOIN sale_transaction_items sti_ref ON sti_ref.sale_transactions_id = refund_tx.id
+        WHERE sti_ref.service_name = oi.service_name
+          AND sti_ref.item_type = 'SERVICE'
+      )
+      SELECT 
+        oi.quantity,
+        COALESCE(rq.total_refunded_quantity, 0) AS total_refunded_quantity,
+        (oi.quantity - COALESCE(rq.total_refunded_quantity, 0)) AS remaining_quantity
+      FROM original_item oi
+      LEFT JOIN refunded_qty rq ON true
+    `,
+        [item.sale_transaction_item_id]
+      );
+
+      if (refundCheckRows.length === 0) {
+        throw new Error(`Sale transaction item ${item.sale_transaction_item_id} not found`);
+      }
+
+      const { remaining_quantity } = refundCheckRows[0];
+      if (item.quantity > remaining_quantity) {
+        throw new Error(
+          `Refund quantity exceeds remaining refundable quantity for item ID ${item.sale_transaction_item_id}. Remaining: ${remaining_quantity}, Requested: ${item.quantity}`
+        );
+      }
+
+      // Insert refund item
       const { rows: refundItemRows } = await client.query(
         `INSERT INTO sale_transaction_items (
                     sale_transactions_id, 
@@ -318,29 +397,29 @@ const processRefundService = async (body: {
       }
     }
 
-// 4. Insert refund payment
-await client.query(
-  `INSERT INTO payment_to_sale_transactions (
+    // 4. Insert refund payment
+    await client.query(
+      `INSERT INTO payment_to_sale_transactions (
                 payment_method_id, sale_transaction_id, amount,
                 remarks, created_by, created_at, updated_by, updated_at
             ) VALUES ($1, $2, $3, $4, $5, now(), $5, now())`,
-  [
-    8, // Payment Method ID 8 = Refund
-    refundTxId,
-    -1 * totalRefundAmount,
-    'Refund',
-    body.refundedBy,
-  ]
-);
+      [
+        8, // Payment Method ID 8 = Refund
+        refundTxId,
+        -1 * totalRefundAmount,
+        'Refund',
+        body.refundedBy,
+      ]
+    );
 
-await client.query('COMMIT');
-return { refundTransactionId: refundTxId };
+    await client.query('COMMIT');
+    return { refundTransactionId: refundTxId };
   } catch (error) {
-  await client.query('ROLLBACK');
-  throw error;
-} finally {
-  client.release();
-}
+    await client.query('ROLLBACK');
+    throw error;
+  } finally {
+    client.release();
+  }
 };
 
 /////////////////////

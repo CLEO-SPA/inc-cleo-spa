@@ -139,20 +139,24 @@ const RefundServicesPage = () => {
                                             <CardHeader className="pb-4">
                                                 <div className="flex justify-between items-start">
                                                     <div>
-                                                        <CardTitle className="text-lg font-semibold text-gray-900">
+                                                        {/* Title: Date + Receipt */}
+                                                        <CardTitle className="text-base font-semibold text-gray-900 flex items-center gap-4">
+                                                            <div className="flex items-center gap-2">
+                                                                <Calendar className="h-5 w-5" />
+                                                                {formatDate(transaction.created_at)}
+                                                            </div>
+                                                            <div className="flex items-center gap-2">
+                                                                <Receipt className="h-5 w-5" />
+                                                                Receipt Number: {transaction.receipt_no || "No receipt"}
+                                                            </div>
+                                                        </CardTitle>
+
+                                                        {/* Subtext: Transaction ID */}
+                                                        <CardTitle className="text-sm font-medium text-gray-600 mt-1">
                                                             Transaction #{transaction.sale_transaction_id}
                                                         </CardTitle>
-                                                        <div className="flex items-center gap-4 mt-2 text-sm text-gray-600">
-                                                            <div className="flex items-center gap-1">
-                                                                <Calendar className="h-4 w-4" />
-                                                                <span>{formatDate(transaction.created_at)}</span>
-                                                            </div>
-                                                            <div className="flex items-center gap-1">
-                                                                <Receipt className="h-4 w-4" />
-                                                                <span>Receipt: {transaction.receipt_no || "No receipt"}</span>
-                                                            </div>
-                                                        </div>
                                                     </div>
+
                                                     <div className="text-right">
                                                         <div className="flex items-center gap-1 text-lg font-bold text-gray-900">
                                                             <DollarSign className="h-5 w-5" />

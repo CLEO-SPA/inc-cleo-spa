@@ -15,14 +15,14 @@ import { useAuth } from "@/context/AuthContext";
 const RefundServiceForm = () => {
     const { saleTransactionItemId } = useParams();
     const navigate = useNavigate();
-
     const { user } = useAuth();
 
     const [remarks, setRemarks] = useState("");
     const [quantity, setQuantity] = useState(1);
 
-    const [isSuccess, setIsSuccess] = useState(true);
+    const [isSuccess, setIsSuccess] = useState(false);
     const [refundId, setRefundId] = useState(null);
+
 
     const getLocalDateTimeString = () => {
         const now = new Date();
@@ -47,15 +47,15 @@ const RefundServiceForm = () => {
     useEffect(() => {
         if (serviceItem) {
             setRemarks(serviceItem.remarks || "");
-            setQuantity(Math.abs(serviceItem.quantity || 1));
+            setQuantity(serviceItem.remaining_quantity || 1);
         }
     }, [serviceItem]);
 
     const handleQuantityChange = (e) => {
         const val = Number(e.target.value);
         if (val < 1) return;
-        if (serviceItem && val > Math.abs(serviceItem.quantity)) {
-            setQuantity(Math.abs(serviceItem.quantity)); // cap at max quantity
+        if (serviceItem && val > serviceItem.remaining_quantity) {
+            setQuantity(serviceItem.remaining_quantity);
         } else {
             setQuantity(val);
         }
@@ -112,17 +112,80 @@ const RefundServiceForm = () => {
         );
     }
 
+    if (serviceItem.is_fully_refunded) {
+        return (
+            <div className="[--header-height:calc(theme(spacing.14))]">
+                <SidebarProvider className="flex flex-col">
+                    <SiteHeader />
+                    <div className="flex flex-1">
+                        <AppSidebar />
+                        <SidebarInset>
+                            <div className="bg-white border-b border-gray-200 px-4 py-3">
+                                <div className="max-w-5xl mx-auto w-full flex items-center space-x-3">
+                                    <Button
+                                        variant="ghost"
+                                        onClick={() => navigate(-1)}
+                                        className="flex items-center text-gray-600 hover:text-gray-900 hover:bg-gray-100 px-2 py-1"
+                                    >
+                                        <ArrowLeft className="w-4 h-4 mr-1" />
+                                        Back
+                                    </Button>
+                                    <h1 className="text-lg font-semibold text-gray-900">
+                                        Service Refund
+                                    </h1>
+                                </div>
+                            </div>
+
+                            <div className="p-6 max-w-4xl mx-auto mt-10">
+                                <div className="bg-red-50 border border-red-200 rounded-lg shadow-sm px-6 py-8 text-center">
+                                    <div className="flex flex-col items-center space-y-4">
+                                        <svg
+                                            xmlns="http://www.w3.org/2000/svg"
+                                            className="h-10 w-10 text-red-500"
+                                            fill="none"
+                                            viewBox="0 0 24 24"
+                                            stroke="currentColor"
+                                            strokeWidth={2}
+                                        >
+                                            <path strokeLinecap="round" strokeLinejoin="round" d="M6 18L18 6M6 6l12 12" />
+                                        </svg>
+
+                                        <h2 className="text-2xl font-semibold text-red-700">
+                                            This service has already been fully refunded.
+                                        </h2>
+
+                                        <p className="text-gray-700 text-sm">
+                                            {serviceItem.message || "No further refunds can be processed for this item."}
+                                        </p>
+
+                                        <Button
+                                            onClick={() => navigate(-1)}
+                                            className="mt-4 bg-gray-800 hover:bg-black text-white"
+                                        >
+                                            Back to Previous Page
+                                        </Button>
+                                    </div>
+                                </div>
+                            </div>
+                        </SidebarInset>
+                    </div>
+                </SidebarProvider>
+            </div>
+        );
+    }
+
     const {
         service_name,
         original_unit_price,
         custom_unit_price,
         discount_percentage,
         quantity: originalQuantity,
+        remaining_quantity,
         amount,
         member_name,
         member_email,
         member_contact,
-        created_at,
+        transaction_created_at: created_at,
     } = serviceItem;
 
 
@@ -161,7 +224,6 @@ const RefundServiceForm = () => {
                         {isSuccess ? (
                             <div className="p-8 max-w-3xl mx-auto mt-8 bg-gray-50 border border-gray-300 rounded-lg shadow-md text-gray-900">
                                 <div className="flex flex-col items-center space-y-4">
-                                    {/* Optional success icon */}
                                     <svg
                                         xmlns="http://www.w3.org/2000/svg"
                                         className="h-12 w-12 text-green-600"
@@ -235,13 +297,15 @@ const RefundServiceForm = () => {
                                                 <div>
                                                     <strong>Discount:</strong> {discountText}
                                                 </div>
-                                                <div>
-                                                    <strong>Original Quantity:</strong> {originalQuantity}
-                                                </div>
+
                                                 <div>
                                                     <strong>Transaction Date & Time:</strong>{" "}
                                                     {new Date(created_at).toLocaleString()}
                                                 </div>
+                                                <div>
+                                                    <strong>Original Quantity:</strong> {originalQuantity}
+                                                </div>
+                                                <div><strong>Refundable Quantity:</strong> {remaining_quantity}</div>
                                             </div>
 
                                             <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
@@ -252,13 +316,13 @@ const RefundServiceForm = () => {
                                                         id="quantity"
                                                         type="number"
                                                         min={1}
-                                                        max={Math.abs(originalQuantity)}
+                                                        max={remaining_quantity}
                                                         value={quantity}
                                                         onChange={handleQuantityChange}
-                                                        className="h-10 text-sm w-40" // 👈 limits width to 160px
+                                                        className="h-10 text-sm w-40"
                                                     />
                                                     <small className="text-xs text-gray-500">
-                                                        Max quantity: {Math.abs(originalQuantity)}
+                                                        Max refundable quantity: {remaining_quantity}
                                                     </small>
                                                 </div>
 

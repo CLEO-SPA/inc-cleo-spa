@@ -65,7 +65,14 @@ const getSaleTransactionItemById = async (
       return;
     }
 
-    res.status(200).json(item);
+    const isFullyRefunded = Number(item.remaining_quantity) <= 0;
+
+    res.status(200).json({
+      ...item,
+      is_fully_refunded: isFullyRefunded,
+      message: isFullyRefunded ? 'This item has been fully refunded.' : undefined,
+    });
+    
   } catch (error) {
     console.error('Error in getSaleTransactionItemById:', error);
     next(error);
