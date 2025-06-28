@@ -1009,6 +1009,12 @@ const getEligibleMemberVoucherForRefund = async (memberId: number) => {
   const client = await pool().connect();
 
   try {
+    const memberResult = await client.query(
+      `SELECT id, name, email, contact FROM members WHERE id = $1`,
+      [memberId]
+    );
+    const member = memberResult.rows[0];
+
     // Fetch all enabled vouchers with remaining balance
     const { rows: vouchers } = await client.query(
       `SELECT * FROM member_vouchers
@@ -1025,9 +1031,9 @@ const getEligibleMemberVoucherForRefund = async (memberId: number) => {
         const balanceQuery = `
                     SELECT st.outstanding_total_payment_amount
                     FROM sale_transactions st
-                    JOIN sale_transaction_items sti ON st.id = sti.sale_transaction_id
+                    JOIN sale_transaction_items sti ON st.id = sti.sale_transactions_id
                     WHERE sti.member_voucher_id = $1
-                    ORDER BY sti.sale_transaction_id DESC
+                    ORDER BY sti.sale_transactions_id DESC
                     LIMIT 1;
                 `;
 
@@ -1075,7 +1081,10 @@ const getEligibleMemberVoucherForRefund = async (memberId: number) => {
       })
     );
 
-    return eligibleVouchers.filter(Boolean); // Remove nulls
+    return {
+      member,
+      vouchers: eligibleVouchers.filter(Boolean)  // Remove nulls
+    };
   } finally {
     client.release();
   }

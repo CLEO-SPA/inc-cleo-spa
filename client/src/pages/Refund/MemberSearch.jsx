@@ -2,7 +2,7 @@ import { useState, useEffect, useCallback } from 'react';
 import api from '@/services/refundService';
 import { debounce } from 'lodash';
 
-const MemberSearch = ({ onViewMCP, onRefundServices }) => {
+const MemberSearch = ({ onViewMCP, onRefundServices, onRefundVouchers }) => {
   const [searchTerm, setSearchTerm] = useState('');
   const [searchResults, setSearchResults] = useState([]);
   const [isSearching, setIsSearching] = useState(false);
@@ -106,6 +106,12 @@ const MemberSearch = ({ onViewMCP, onRefundServices }) => {
                       className="px-3 py-1 bg-blue-100 text-blue-700 rounded hover:bg-blue-200"
                     >
                       Refund Services
+                    </button>
+                    <button
+                      onClick={() => onRefundVouchers(member)}
+                      className="px-3 py-1 bg-blue-100 text-blue-700 rounded hover:bg-blue-200"
+                    >
+                      Refund Member Vouchers
                     </button>
                   </div>
                 </div>

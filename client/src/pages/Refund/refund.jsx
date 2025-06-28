@@ -33,21 +33,19 @@ const RefundPage = () => {
                 <div className="mb-6 flex border-b border-gray-300">
                   <button
                     onClick={() => setActiveTab('member')}
-                    className={`px-4 py-2 -mb-px border-b-2 font-medium transition-colors duration-150 ${
-                      activeTab === 'member'
+                    className={`px-4 py-2 -mb-px border-b-2 font-medium transition-colors duration-150 ${activeTab === 'member'
                         ? 'border-gray-800 text-gray-800'
                         : 'border-transparent text-gray-500 hover:text-gray-800'
-                    }`}
+                      }`}
                   >
                     Search Member
                   </button>
                   <button
                     onClick={() => setActiveTab('receipt')}
-                    className={`px-4 py-2 -mb-px border-b-2 font-medium transition-colors duration-150 ${
-                      activeTab === 'receipt'
+                    className={`px-4 py-2 -mb-px border-b-2 font-medium transition-colors duration-150 ${activeTab === 'receipt'
                         ? 'border-gray-800 text-gray-800'
                         : 'border-transparent text-gray-500 hover:text-gray-800'
-                    }`}
+                      }`}
                   >
                     Search by Receipt
                   </button>
@@ -61,6 +59,9 @@ const RefundPage = () => {
                       }
                       onRefundServices={(member) =>
                         navigate(`/refunds/services/member/${member.id}`, { state: { member } })
+                      }
+                      onRefundVouchers={(member) =>
+                        navigate(`/refunds/vouchers/member/${member.id}`, { state: { member } })
                       }
                     />
                   )}

@@ -7,6 +7,8 @@ const useRefundStore = create((set) => ({
   total: 0,
   isLoading: false,
   error: null,
+  memberVouchers: [],
+  memberInfo: null,
 
   fetchServiceTransactions: async ({ memberId, receiptNo, limit = 5, offset = 0 }) => {
     //console.log('Fetching service transactions with:', { memberId, receiptNo });
@@ -85,12 +87,32 @@ const useRefundStore = create((set) => ({
     return res.data; // { refundTransactionId }
   },
 
+  fetchMemberVouchersByMemberId: async (memberId) => {
+    set({ isLoading: true, error: null });
+    try {
+      const res = await api.get(`/refund/member-voucher/${memberId}`);
+
+      set({
+        memberVouchers: res.data.vouchers,
+        memberInfo: res.data.member,
+        isLoading: false,
+      });
+    } catch (err) {
+      set({
+        error: err.response?.data?.message || "Failed to fetch member vouchers",
+        isLoading: false,
+      });
+    }
+  },
+
 
   clear: () => set({
     serviceTransactions: [],
     serviceItem: null,
+    memberVouchers: [],
+    memberInfo: null,
     error: null,
-    isLoading: false
+    isLoading: false,
   }),
 }));
 
