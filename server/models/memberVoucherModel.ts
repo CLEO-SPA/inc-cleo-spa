@@ -892,7 +892,7 @@ const createMemberVoucher = async (
       remarks: voucherRemarks,
       selected_template,
       starting_balance,
-      status = 'active', // Default status
+      status = 'is_enabled', // Default status
       total_price,
       voucher_template_id
     } = data;
