@@ -956,12 +956,12 @@ const createMemberVoucher = async (
 
     // FIXED: Payment calculations using correct logic
     const PENDING_PAYMENT_METHOD_ID = 7;
-    
-    const pendingPayments = payments.filter((payment: PaymentMethodRequest) => 
+
+    const pendingPayments = payments.filter((payment: PaymentMethodRequest) =>
       payment.methodId === PENDING_PAYMENT_METHOD_ID
     );
-    
-    const nonPendingPayments = payments.filter((payment: PaymentMethodRequest) => 
+
+    const nonPendingPayments = payments.filter((payment: PaymentMethodRequest) =>
       payment.methodId !== PENDING_PAYMENT_METHOD_ID
     );
 
@@ -1175,7 +1175,7 @@ const createMemberVoucher = async (
       RETURNING id
     `;
 
-    const itemParams: (string | number | null)[] = [
+    const itemParams: (string | number | Date | null)[] = [
       saleTransactionId,
       null, // service_name
       null, // product_name
@@ -1188,6 +1188,7 @@ const createMemberVoucher = async (
       pricing?.totalLinePrice || 0,
       'member voucher',
       item.remarks || '',
+      createdAt
     ];
 
     console.log('MV Item Query:', itemQuery);
@@ -1240,7 +1241,7 @@ const createMemberVoucher = async (
       id: saleTransactionId,
       receipt_no: finalReceiptNo,
       customer_type: customer_type?.toUpperCase() || 'MEMBER',
-      member_id: member_id ? member_id.toString() : null, 
+      member_id: member_id ? member_id.toString() : null,
       total_transaction_amount: totalTransactionAmount,
       total_paid_amount: totalPaidAmount,
       outstanding_total_payment_amount: outstandingAmount,
@@ -1248,7 +1249,7 @@ const createMemberVoucher = async (
       remarks: remarks || '',
       created_by,
       handled_by,
-      voucher_id: memberVoucherId, 
+      voucher_id: memberVoucherId,
       voucher_name: member_voucher_name,
       items_count: 1,
       payments_count: payments.filter((p: PaymentMethodRequest) => p.amount > 0).length
