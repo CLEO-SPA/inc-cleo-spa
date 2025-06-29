@@ -29,7 +29,7 @@ export const AuthProvider = ({ children }) => {
       const response = await api.get('/session/status');
       setStatuses(response.data || []);
       setStatusesFetched(true);
-      console.log('AuthContext: Statuses fetched and stored in context:', response.data);
+      // console.log('AuthContext: Statuses fetched and stored in context:', response.data);
     } catch (error) {
       const errorMessage = error.response?.data?.message || error.message || 'Failed to fetch statuses';
       console.error('AuthContext: Error fetching statuses:', errorMessage);

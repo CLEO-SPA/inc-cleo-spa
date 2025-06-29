@@ -33,7 +33,7 @@ const loginEmployee = async (req: Request, res: Response, next: NextFunction) =>
       req.session.email = res.locals.email;
       req.session.role = res.locals.role;
 
-      // console.log('My Date: ', req.session.end_date_utc);
+      console.log('My Date: ', req.session.end_date_utc);
 
       const userPayload = {
         user_id: res.locals.user_id,
@@ -246,26 +246,25 @@ const updateEmployeePassword = async (req: Request, res: Response, next: NextFun
   }
 };
 
-// const getAllEmployees = async (req: Request, res: Response, next: NextFunction) => {
-//   const page = parseInt(req.query.page) || 1;
-//   const limit = parseInt(req.query.limit) || 10;
-//   const offset = (page - 1) * limit;
-//   const { startDate_utc, endDate_utc } = req.session;
+const getAllEmployees = async (req: Request, res: Response, next: NextFunction) => {
+  const page = parseInt(req.query.page as string) || 1;
+  const limit = parseInt(req.query.limit as string) || 10;
+  const offset = (page - 1) * limit;
+  const { start_date_utc, end_date_utc } = req.session;
 
-//   try {
-//     const { employees, totalPages } = await model.getAllEmployees(offset, limit, startDate_utc, endDate_utc);
+  try {
+    const { employees, totalPages } = await model.getAllEmployees(offset, limit, start_date_utc!, end_date_utc!);
 
-//     res.status(200).json({
-//       currentPage: page,
-//       totalPages: totalPages,
-//       pageSize: limit,
-//       data: employees,
-//     });
-//   } catch (error) {
-//     console.log('Error getting employees:', error);
-//     res.status(500).json({ message: 'Error getting employees', error: error.message });
-//   }
-// };
+    res.status(200).json({
+      currentPage: page,
+      totalPages: totalPages,
+      pageSize: limit,
+      data: employees,
+    });
+  } catch (error) {
+    res.status(500).json({ message: 'Error getting employees', error: error });
+  }
+};
 
 const regenerateInvitationLink = async (req: Request, res: Response, next: NextFunction) => {
   const employeeEmail = req.body;
@@ -286,6 +285,40 @@ const regenerateInvitationLink = async (req: Request, res: Response, next: NextF
   }
 };
 
+const getBasicEmployeeDetails = async (req: Request, res: Response) => {
+  try {
+    console.log('Fetching basic employee details for search');
+    const employees = await model.getBasicEmployeeDetails();
+    console.log(`Found ${employees.length} active employees`);
+    res.status(200).json({
+      success: true,
+      data: employees,
+      total: employees.length,
+    });
+  } catch (error) {
+    console.error('Controller error in getBasicEmployeeDetails:', error);
+    res.status(500).json({
+      success: false,
+      error: {
+        code: 'INTERNAL_SERVER_ERROR',
+        message: 'Failed to fetch basic employee details for search',
+      },
+    });
+  }
+};
+
+const getAllEmployeesForDropdown = async (req: Request, res: Response, next: NextFunction) => {
+  try {
+    const employees = await model.getAllEmployeesForDropdown();
+    res.status(200).json(employees);
+  } catch (error) {
+    console.error('Error in getAllEmployeesForDropdown:', error);
+    res.status(500).json({ message: 'Failed to fetch employees for dropdown' });
+    console.error('Error fetching employee list:', error);
+    next(error);
+  }
+};
+
 export default {
   defaultPassword,
   // createEmployee,
@@ -295,6 +328,8 @@ export default {
   // inviteEmployee,
   acceptInvitation,
   updateEmployeePassword,
-  // getAllEmployees,
+  getAllEmployees,
   regenerateInvitationLink,
+  getBasicEmployeeDetails,
+  getAllEmployeesForDropdown,
 };

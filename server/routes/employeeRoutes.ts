@@ -15,9 +15,13 @@ import employeeController from '../controllers/employeeController.js';
 // =========================
 // Private routes
 // =========================
-router.use(isAuthenticated);
+// router.use(isAuthenticated);
 
 // router.get('/', employeeController.getAllEmployees);
+router.get('/dropdown', employeeController.getAllEmployeesForDropdown);
+router.get('/basic-details', employeeController.getBasicEmployeeDetails);
+
+router.get('/', employeeController.getAllEmployees);
 
 // router.post(
 //   '/create',
