@@ -223,6 +223,21 @@ const data = {
         },
       ],
     },
+    {
+      title: 'Timetables',
+      url: '#',
+      icon: CalendarDays,
+      items: [
+        {
+          title: 'Create Timetable',
+          url: '/et/create-employee-timetable',
+        },
+        {
+          title: 'Manage Timetable',
+          url: '/et',
+        },
+      ],
+    },
   ],
 };
 
