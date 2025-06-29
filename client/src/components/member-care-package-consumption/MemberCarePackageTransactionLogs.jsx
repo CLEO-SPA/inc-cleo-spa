@@ -20,7 +20,7 @@ const MemberCarePackageTransactionLogs = () => {
   const sortedLogs = useMemo(() => {
     return [...logs].sort((a, b) => {
       const dateComparison =
-        new Date(b.transaction_date || b.created_at) - new Date(a.transaction_date || a.created_at);
+        new Date(a.transaction_date || a.created_at) - new Date(b.transaction_date || b.created_at);
 
       if (dateComparison !== 0) {
         return dateComparison;
