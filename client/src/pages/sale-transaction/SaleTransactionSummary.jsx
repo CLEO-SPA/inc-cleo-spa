@@ -238,7 +238,7 @@ const SaleTransactionSummary = () => {
       // Log for debugging
       console.log('Checking item:', item);
 
-      return item.type !== 'transfer' && !itemEmployees[item.id];
+      return item.type !== 'transferMV' && !itemEmployees[item.id];
     });
 
 
