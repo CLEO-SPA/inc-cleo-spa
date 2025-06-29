@@ -69,6 +69,11 @@ import CreateProductPage from '@/pages/product/CreateProductPage';
 import UpdateProductPage from '@/pages/product/UpdateProductPage';
 import ViewProductSalesHistoryPage from '@/pages/product/ViewProductSalesHistoryPage';
 
+// Add this line with the other page imports (around line 20)
+import RefundPage from '@/pages/Refund/refund'; // Add this line
+import MCPDetail from '@/pages/Refund/MCPDetail';
+import MemberPackagesList from '@/components/refund/MemberPackagesList';
+
 function App() {
   return (
     <AuthProvider>
@@ -88,8 +93,10 @@ function App() {
               <Route path='/appointments/edit/:id' element={<EditAppointmentPage />} />
               <Route path='/appointments/:id' element={<ViewAppointmentDetailsPage />} />
 
-              {/* Protected Routes */}
-
+              {/* Refund */}
+              <Route path='/refunds' element={<RefundPage />} />
+              <Route path='/refunds/member/:memberId' element={<MemberPackagesList />} />
+              <Route path='/refunds/mcp/:packageId' element={<MCPDetail />} />
               {/* Member Management */}
               <Route path='/member' element={<ManageMembersPage />} />
               <Route path='/member/create' element={<CreateMemberPage />} />
@@ -147,21 +154,20 @@ function App() {
               <Route path='/payment-method/edit/:id' element={<EditPaymentMethodPage />} />
               <Route path='/payment-method/test' element={<TestPMComponent />} />
 
-               {/* Product Management */}
+              {/* Product Management */}
               <Route path='/manage-product' element={<ManageProductPage />} />
               <Route path='/create-product' element={<CreateProductPage />} />
               <Route path='/update-product/:product_id' element={<UpdateProductPage />} />
               <Route path='/reorder-product' element={<ReorderProductPage />} />
               <Route path='/manage-product-category' element={<ManageProductCategoryPage />} />
               <Route path='/view-product-sales-history/:product_id' element={<ViewProductSalesHistoryPage />} />
-                
+
               {/* Revenue Report Page */}
               <Route path='/rr' element={<RevenueReportPage />} />
               {/* Deferred Revenue Page */}
               <Route path='/dr' element={<DeferredRevenuePage />} />
             </Route>
             <Route path='/login' element={<LoginPage />} />
-
 
             {/* Invitation & Reset Password */}
             <Route path='/invites' element={<ResetPasswordPage />} />
