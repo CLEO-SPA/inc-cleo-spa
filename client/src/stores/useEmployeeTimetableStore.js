@@ -40,11 +40,11 @@ const useEmployeeTimetableStore = create((set, get) => ({
         pagination: { ...get().pagination, currentPage: 1 } // Reset to first page
     }),
     setCurrentMonth: (month) => {        
-        console.log('🔍 [STORE] setCurrentMonth called with:', month);
-        console.log('🔍 [STORE] Month toString():', month.toString());
-        console.log('🔍 [STORE] Month toISOString():', month.toISOString());
-        console.log('🔍 [STORE] Month getFullYear():', month.getFullYear());
-        console.log('🔍 [STORE] Month getMonth():', month.getMonth()); // 0-based!
+        console.log('[STORE] setCurrentMonth called with:', month);
+        console.log('[STORE] Month toString():', month.toString());
+        console.log('[STORE] Month toISOString():', month.toISOString());
+        console.log('[STORE] Month getFullYear():', month.getFullYear());
+        console.log('[STORE] Month getMonth():', month.getMonth()); // 0-based!
         
         set({ 
             currentMonth: month,
@@ -134,13 +134,6 @@ const useEmployeeTimetableStore = create((set, get) => ({
             loading: { ...state.loading, timetable: true }
         }));
         try {
-            console.log('🔍 [STORE] loadTimetableData called with month:', month);
-            console.log('🔍 [STORE] Month details:');
-            console.log('  - toString():', month.toString());
-            console.log('  - toISOString():', month.toISOString());
-            console.log('  - getFullYear():', month.getFullYear());
-            console.log('  - getMonth():', month.getMonth(), '(0-based, so add 1 for actual month)');
-
             const monthStr = format(month, 'yyyy-MM'); // Format month as 'YYYY-MM'
             console.log('Loading timetable data for month:', monthStr);
 
@@ -148,7 +141,6 @@ const useEmployeeTimetableStore = create((set, get) => ({
 
             // Build URL with pagination parameters
             let url = `/et/timetables?month=${monthStr}&page=${pagination.currentPage}&limit=${pagination.pageSize}`;
-            
             /**
              * Implement both employee and position filters
              */
@@ -161,7 +153,6 @@ const useEmployeeTimetableStore = create((set, get) => ({
             }
             
             console.log('Fetching timetable data from URL:', url);
-            console.log('🔍 [STORE] Final API URL:', url);
 
             // const response = await api.get(url);
             const response = await api.get(url);
