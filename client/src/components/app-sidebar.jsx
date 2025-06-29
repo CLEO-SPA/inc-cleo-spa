@@ -220,21 +220,21 @@ const data = {
         },
       ],
     },
-    {
-      title: 'Statistics',
-      url: '#',
-      icon: ChartColumnStacked,
-      items: [
-        {
-          title: 'View Database Report',
-          url: '/dbcr',
-        },
-        {
-          title: 'View Monthly Revenue Report',
-          url: '#',
-        },
-      ],
-    },
+    // {
+    //   title: 'Statistics',
+    //   url: '#',
+    //   icon: ChartColumnStacked,
+    //   items: [
+    //     {
+    //       title: 'View Database Report',
+    //       url: '/dbcr',
+    //     },
+    //     {
+    //       title: 'View Monthly Revenue Report',
+    //       url: '#',
+    //     },
+    //   ],
+    // },
     {
       title: 'Others',
       url: '#',
