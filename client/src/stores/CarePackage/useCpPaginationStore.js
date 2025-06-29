@@ -1,7 +1,7 @@
 import { create } from 'zustand';
 import api from '@/services/api';
 
-export const useMemberCarePackageStore = create((set, get) => ({
+export const useCpPaginationStore = create((set, get) => ({
   // States
   currentPage: 1,
   currentLimit: 10,
@@ -16,6 +16,9 @@ export const useMemberCarePackageStore = create((set, get) => ({
   isLoading: false,
   error: null,
   lastAction: null,
+  purchaseCountData: [],
+  isPurchaseCountLoading: false,
+  purchaseCountError: null,
 
   // Actions
   initializePagination: (initialLimit = 10, initialSearchTerm = '') => {
@@ -33,9 +36,12 @@ export const useMemberCarePackageStore = create((set, get) => ({
       isLoading: false,
       error: null,
       lastAction: null,
+      purchaseCountData: [],
+      isPurchaseCountLoading: false,
+      purchaseCountError: null,
     });
     // Fetch initial data after state is set
-    get().fetchMemberCarePackages();
+    get().fetchCarePackages();
   },
 
   setPaginationData: (data, pageInfo, searchTerm) =>
@@ -51,11 +57,11 @@ export const useMemberCarePackageStore = create((set, get) => ({
         isLoading: false, // Turn off loading after data is set
         error: null, // Clear any previous error
       };
-      console.log('State after setPaginationData:', { ...state, ...newState });
+      // console.log('State after setPaginationData:', { ...state, ...newState });
       return newState;
     }),
 
-  fetchMemberCarePackages: async () => {
+  fetchCarePackages: async () => {
     set({ isLoading: true, error: null }); // Set loading true, clear previous error
 
     const state = get(); // Get the current state
@@ -85,9 +91,9 @@ export const useMemberCarePackageStore = create((set, get) => ({
 
     try {
       // Use your imported API service
-      const response = await api.get('/mcp/packages', { params: queryParams });
+      const response = await api.get('/cp/pkg', { params: queryParams });
 
-      console.log(response);
+      // console.log(response);
 
       // Update state with fetched data
       get().setPaginationData(response.data.data, response.data.pageInfo, searchTerm);
@@ -104,7 +110,7 @@ export const useMemberCarePackageStore = create((set, get) => ({
       isOffsetMode: false,
       lastAction: 'next', // Track the action for `WorkspaceCarePackages`
     }));
-    get().fetchMemberCarePackages(); // Trigger fetch
+    get().fetchCarePackages(); // Trigger fetch
   },
 
   // Action to navigate to the previous page (cursor-based)
@@ -114,7 +120,7 @@ export const useMemberCarePackageStore = create((set, get) => ({
       isOffsetMode: false,
       lastAction: 'prev', // Track the action for `WorkspaceCarePackages`
     }));
-    get().fetchMemberCarePackages(); // Trigger fetch
+    get().fetchCarePackages(); // Trigger fetch
   },
 
   // Action for direct jump to page (offset-based)
@@ -126,7 +132,7 @@ export const useMemberCarePackageStore = create((set, get) => ({
       endCursor: null,
       lastAction: 'jump', // Track action
     }));
-    get().fetchMemberCarePackages(); // Trigger fetch
+    get().fetchCarePackages(); // Trigger fetch
   },
 
   // Actions that should reset to the first page and potentially switch mode
@@ -140,7 +146,7 @@ export const useMemberCarePackageStore = create((set, get) => ({
       isOffsetMode: false, // Reset to cursor mode for new search
       lastAction: 'search', // Track action
     }));
-    get().fetchMemberCarePackages(); // Trigger fetch
+    get().fetchCarePackages(); // Trigger fetch
   },
 
   setLimit: (newLimit) => {
@@ -153,6 +159,34 @@ export const useMemberCarePackageStore = create((set, get) => ({
       isOffsetMode: false, // Reset to cursor mode for new limit
       lastAction: 'limit', // Track action
     }));
-    get().fetchMemberCarePackages(); // Trigger fetch
+    get().fetchCarePackages(); // Trigger fetch
+  },
+
+  // used to fetch purchase count data
+  fetchPurchaseCount: async () => {
+    set({ isPurchaseCountLoading: true, purchaseCountError: null });
+
+    try {
+      const response = await api.get('/cp/pkgpc');
+
+      const purchaseCountArray = Object.entries(response.data).map(([packageId, data]) => ({
+        packageId: packageId,
+        purchase_count: data.purchase_count,
+        is_purchased: data.is_purchased,
+      }));
+
+      set({
+        purchaseCountData: response.data,
+        purchaseCountArray: purchaseCountArray,
+        isPurchaseCountLoading: false,
+        purchaseCountError: null,
+      });
+    } catch (err) {
+      console.error('Failed to fetch purchase count data:', err);
+      set({
+        purchaseCountError: err.message || 'Failed to fetch purchase count data',
+        isPurchaseCountLoading: false,
+      });
+    }
   },
 }));

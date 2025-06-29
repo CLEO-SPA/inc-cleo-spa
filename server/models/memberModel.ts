@@ -11,12 +11,20 @@ const getAllMembers = async (
   startDate_utc?: string,
   endDate_utc?: string,
   createdBy?: string,
-  search?: string
+  search?: string,
+  sessionStartDate_utc?: string, // simulation constraint
+  sessionEndDate_utc?: string
 ) => {
   try {
     const filters: string[] = [];
     const values: any[] = [];
     let idx = 1;
+
+    filters.push(`m.created_at BETWEEN $${idx++} AND $${idx++}`);
+    values.push(
+      sessionStartDate_utc || '0001-01-01T00:00:00Z',
+      sessionEndDate_utc || '9999-12-31T23:59:59Z'
+    );
 
     if (startDate_utc && endDate_utc) {
       filters.push(`m.created_at BETWEEN $${idx++} AND $${idx++}`);
@@ -129,6 +137,24 @@ const createMember = async ({
   try {
     await client.query('BEGIN');
 
+    // Validation: Check if email already exists
+    const emailCheckQuery = `
+      SELECT id FROM user_auth WHERE email = $1;
+    `;
+    const emailResult = await client.query(emailCheckQuery, [email]);
+    if (emailResult.rows.length > 0) {
+      throw new Error('Email already exists');
+    }
+
+    // Validation: Check if contact already exists
+    const contactCheckQuery = `
+      SELECT id FROM user_auth WHERE phone = $1;
+    `;
+    const contactResult = await client.query(contactCheckQuery, [contact]);
+    if (contactResult.rows.length > 0) {
+      throw new Error('Contact number already exists');
+    }
+
     // 1. Call the get_or_create_roles function
     const getRoleQuery = `
       SELECT get_or_create_roles($1) AS role_id;
@@ -193,7 +219,7 @@ const createMember = async ({
   } catch (error) {
     console.error('Error creating member:', error);
     await client.query('ROLLBACK');
-    throw new Error('Error creating member');
+    throw error; // Re-throw the original error to preserve the validation message
   } finally {
     client.release();
   }
@@ -225,6 +251,24 @@ const updateMember = async ({
     }
 
     const userAuthId = authIdResult.rows[0].user_auth_id;
+
+    // Validation: Check if email already exists (excluding current user)
+    const emailCheckQuery = `
+      SELECT id FROM user_auth WHERE email = $1 AND id != $2;
+    `;
+    const emailResult = await client.query(emailCheckQuery, [email, userAuthId]);
+    if (emailResult.rows.length > 0) {
+      throw new Error('Email already exists');
+    }
+
+    // Validation: Check if contact already exists (excluding current user)
+    const contactCheckQuery = `
+      SELECT id FROM user_auth WHERE phone = $1 AND id != $2;
+    `;
+    const contactResult = await client.query(contactCheckQuery, [contact, userAuthId]);
+    if (contactResult.rows.length > 0) {
+      throw new Error('Contact number already exists');
+    }
 
     // 2. Update user_auth with new email and phone
     const updateAuthQuery = `
@@ -273,46 +317,61 @@ const updateMember = async ({
   } catch (error) {
     console.error('Error updating member:', error);
     await client.query('ROLLBACK');
-    throw new Error('Could not update member');
+    throw error; // Re-throw the original error to preserve the validation message
   } finally {
     client.release();
   }
 };
 
-
 const deleteMember = async (memberId: number) => {
   const client = await pool().connect();
-
+  
   try {
     await client.query('BEGIN');
-
+    
     // Step 1: Get associated user_auth_id
     const getAuthIdQuery = `SELECT user_auth_id FROM members WHERE id = $1`;
     const { rows } = await client.query(getAuthIdQuery, [memberId]);
     if (rows.length === 0) throw new Error('Member not found');
     const userAuthId = rows[0].user_auth_id;
-
-    // Step 2: Delete from user_roles
+    
+    // Step 2: Check for existing sale transactions
+    const transactionCheckQuery = `SELECT COUNT(*) as count FROM sale_transactions WHERE member_id = $1`;
+    const transactionResult = await client.query(transactionCheckQuery, [memberId]);
+    const transactionCount = parseInt(transactionResult.rows[0].count);
+    
+    if (transactionCount > 0) {
+      throw new Error(`Cannot delete member: ${transactionCount} sale transaction(s) exist for this member`);
+    }
+    
+    // Step 3: Delete from user_roles
     await client.query(`DELETE FROM user_to_role WHERE user_auth_id = $1`, [userAuthId]);
-
-    // Step 3: Delete from members
+    
+    // Step 4: Delete from members
     await client.query(`DELETE FROM members WHERE id = $1`, [memberId]);
-
-    // Step 4: Delete from user_auth
+    
+    // Step 5: Delete from user_auth
     await client.query(`DELETE FROM user_auth WHERE id = $1`, [userAuthId]);
-
+    
     await client.query('COMMIT');
     return { success: true };
   } catch (error) {
     await client.query('ROLLBACK');
     console.error('Error deleting member:', error);
+    
+    // Re-throw the error with original message if it's our custom validation error
+    if (error instanceof Error && error.message.includes('Cannot delete member:')) {
+      throw error;
+    }
+    
     throw new Error('Could not delete member');
   } finally {
     client.release();
   }
 };
 
-const getMemberById = async (id: number) => {
+
+const getMemberById = async (id: number, sessionStartDate_utc?: string, sessionEndDate_utc?: string) => {
   try {
     const query = `
       SELECT 
@@ -322,10 +381,12 @@ const getMemberById = async (id: number) => {
       FROM members m
       LEFT JOIN membership_types mt ON m.membership_type_id::bigint = mt.id
       LEFT JOIN employees e ON m.created_by = e.id
-      WHERE m.id = $1;
+      WHERE m.id = $1
+      AND m.created_at BETWEEN $2 AND $3;
     `;
-
-    const result = await pool().query(query, [id]);
+    const sessionStart = sessionStartDate_utc || '0001-01-01T00:00:00Z';
+    const sessionEnd = sessionEndDate_utc || '9999-12-31T23:59:59Z';
+    const result = await pool().query(query,  [id, sessionStart, sessionEnd]);
 
     if (result.rows.length === 0) {
       throw new Error('Member not found');
@@ -351,28 +412,39 @@ const getMemberById = async (id: number) => {
   }
 };
 
-const searchMemberByNameOrPhone = async (searchTerm: string) => {
+const searchMemberByNameOrPhone = async (searchTerm: string, sessionStartDate_utc?: string, sessionEndDate_utc?: string) => {
   try {
     const query = `
       SELECT 
-        m.*,
-        mt.membership_type_name AS membership_type_name,
-        e.employee_name AS created_by_name,
-        (
-          SELECT COUNT(*) FROM member_vouchers mv
-          WHERE mv.member_id = m.id
-        ) AS voucher_count,
-        (
-          SELECT COUNT(*) FROM member_care_packages mcp
-          WHERE mcp.member_id = m.id
-        ) AS member_care_package_count
-      FROM members m
-      LEFT JOIN membership_types mt ON m.membership_type_id::bigint = mt.id
-      LEFT JOIN employees e ON m.created_by = e.id
-      WHERE m.name ILIKE $1 OR m.contact ILIKE $1;
-    `;
+  m.*,
+  mt.membership_type_name AS membership_type_name,
+  e.employee_name AS created_by_name,
 
-    const result = await pool().query(query, [`%${searchTerm}%`]);
+  (
+    SELECT COUNT(*) 
+    FROM member_vouchers mv
+    WHERE mv.member_id = m.id
+      AND mv.status = 'is_enabled'
+  ) AS voucher_count,
+
+  (
+    SELECT COUNT(*) 
+    FROM member_care_packages mcp
+    WHERE mcp.member_id = m.id
+      AND mcp.status = 'ENABLED'
+  ) AS member_care_package_count
+
+FROM members m
+LEFT JOIN membership_types mt ON m.membership_type_id::bigint = mt.id
+LEFT JOIN employees e ON m.created_by = e.id
+WHERE 
+  (m.name ILIKE $1 OR m.contact ILIKE $1)
+  AND m.created_at BETWEEN $2 AND $3;
+
+    `;
+    const sessionStart = sessionStartDate_utc || '0001-01-01T00:00:00Z';
+    const sessionEnd = sessionEndDate_utc || '9999-12-31T23:59:59Z';
+    const result = await pool().query(query, [`%${searchTerm}%`, sessionStart, sessionEnd]);
 
     // Get enrichment maps
     const outstandingMap = await getMemberOutstandingAmounts();
@@ -405,42 +477,52 @@ const searchMemberByNameOrPhone = async (searchTerm: string) => {
   }
 };
 
-
 const getMemberVouchers = async (
   memberId: number,
   offset: number,
   limit: number,
-  searchTerm?: string
+  searchTerm?: string,
+  sessionStartDate_utc?: string, // simulation constraint
+  sessionEndDate_utc?: string
 ) => {
   try {
     const hasSearch = !!searchTerm;
-
-    // Build SQL dynamically
+    
+    // Default session date range if not provided
+    const sessionStart = sessionStartDate_utc || '0001-01-01T00:00:00Z';
+    const sessionEnd = sessionEndDate_utc || '9999-12-31T23:59:59Z';
+    
+    // Build SQL dynamically with status = 'is_enabled' and session date filter
     const baseQuery = `
       SELECT *
-      FROM member_vouchers
+      FROM member_vouchers mv
       WHERE member_id = $1
+      AND mv.created_at BETWEEN $${hasSearch ? '5' : '4'} AND $${hasSearch ? '6' : '5'}
+      AND status = 'is_enabled'
       ${hasSearch ? `AND member_voucher_name ILIKE $2` : ''}
       ORDER BY created_at DESC
       LIMIT ${hasSearch ? '$3' : '$2'} OFFSET ${hasSearch ? '$4' : '$3'};
     `;
 
     const baseValues = hasSearch
-      ? [memberId, `%${searchTerm}%`, limit, offset]
-      : [memberId, limit, offset];
+      ? [memberId, `%${searchTerm}%`, limit, offset, sessionStart, sessionEnd]
+      : [memberId, limit, offset, sessionStart, sessionEnd];
 
     const result = await pool().query(baseQuery, baseValues);
 
-    // Count query
+    // Count query with session date filter
     const countQuery = `
       SELECT COUNT(*)
-      FROM member_vouchers
-      WHERE member_id = $1
+      FROM member_vouchers mv
+      WHERE member_id = $1 
+      AND mv.created_at BETWEEN $${hasSearch ? '3' : '2'} AND $${hasSearch ? '4' : '3'}
+      AND status = 'is_enabled'
       ${hasSearch ? `AND member_voucher_name ILIKE $2` : ''};
     `;
+    
     const countValues = hasSearch
-      ? [memberId, `%${searchTerm}%`]
-      : [memberId];
+      ? [memberId, `%${searchTerm}%`, sessionStart, sessionEnd]
+      : [memberId, sessionStart, sessionEnd];
 
     const countResult = await pool().query(countQuery, countValues);
     const totalCount = Number(countResult.rows[0].count);
@@ -455,11 +537,12 @@ const getMemberVouchers = async (
           JOIN sale_transaction_items sti ON st.id = sti.sale_transaction_id
           JOIN member_vouchers mv ON sti.member_voucher_id = mv.id
           WHERE sti.member_voucher_id = $1
+          AND st.created_at BETWEEN $2 AND $3
           ORDER BY sti.sale_transaction_id DESC
           LIMIT 1;
         `;
         
-        const balanceResult = await pool().query(balanceQuery, [voucher.id]);
+        const balanceResult = await pool().query(balanceQuery, [voucher.id, sessionStart, sessionEnd]);
         
         let currentPaidBalance = 0;
         if (balanceResult.rows && balanceResult.rows.length > 0) {
@@ -491,46 +574,54 @@ const getMemberVouchers = async (
     throw new Error('Error fetching member vouchers');
   }
 };
-
-
 const getMemberCarePackages = async (
   memberId: number,
   offset: number,
   limit: number,
-  searchTerm?: string
+  searchTerm?: string,
+  sessionStartDate_utc?: string,
+  sessionEndDate_utc?: string
 ) => {
   try {
     const hasSearch = !!searchTerm;
+
+    const sessionStart = sessionStartDate_utc || '0001-01-01T00:00:00Z';
+    const sessionEnd = sessionEndDate_utc || '9999-12-31T23:59:59Z';
 
     const baseQuery = `
       SELECT mcp.*
       FROM member_care_packages mcp
       WHERE mcp.member_id = $1
+      AND mcp.status = 'ENABLED'
+      AND mcp.created_at BETWEEN $${hasSearch ? '5' : '4'} AND $${hasSearch ? '6' : '5'}
       ${hasSearch ? `AND mcp.package_name ILIKE $2` : ''}
       ORDER BY mcp.created_at DESC
       LIMIT ${hasSearch ? '$3' : '$2'} OFFSET ${hasSearch ? '$4' : '$3'};
     `;
 
     const baseValues = hasSearch
-      ? [memberId, `%${searchTerm}%`, limit, offset]
-      : [memberId, limit, offset];
+      ? [memberId, `%${searchTerm}%`, limit, offset, sessionStart, sessionEnd]
+      : [memberId, limit, offset, sessionStart, sessionEnd];
 
     const result = await pool().query(baseQuery, baseValues);
 
-    // Count query
     const countQuery = `
-      SELECT COUNT(*) FROM member_care_packages mcp
+      SELECT COUNT(*)
+      FROM member_care_packages mcp
       WHERE mcp.member_id = $1
+      AND mcp.status = 'ENABLED'
+      AND mcp.created_at BETWEEN $${hasSearch ? '3' : '2'} AND $${hasSearch ? '4' : '3'}
       ${hasSearch ? `AND mcp.package_name ILIKE $2` : ''};
     `;
 
     const countValues = hasSearch
-      ? [memberId, `%${searchTerm}%`]
-      : [memberId];
+      ? [memberId, `%${searchTerm}%`, sessionStart, sessionEnd]
+      : [memberId, sessionStart, sessionEnd];
 
     const countResult = await pool().query(countQuery, countValues);
     const totalCount = Number(countResult.rows[0].count);
     const totalPages = Math.ceil(totalCount / limit);
+
     const formatted = result.rows.map((row) => ({
       ...row,
       created_at: row.created_at
@@ -549,6 +640,20 @@ const getMemberCarePackages = async (
   }
 };
 
+const getAllMembersForDropdown = async () => {
+  try {
+    const query = `
+      SELECT id, name, contact FROM members
+      ORDER BY name ASC
+    `;
+    const result = await pool().query(query);
+    return result.rows;
+  } catch (error) {
+    console.error('Error fetching member list:', error);
+    throw new Error('Error fetching member list');
+  }
+};
+
 
 
 export default {
@@ -560,4 +665,5 @@ export default {
   searchMemberByNameOrPhone,
   getMemberVouchers,
   getMemberCarePackages,
+  getAllMembersForDropdown,
 };

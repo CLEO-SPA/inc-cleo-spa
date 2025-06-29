@@ -15,6 +15,8 @@ import { useDatabaseReportStore } from '@/stores/useDatabaseReportStore';
 import { AppSidebar } from '@/components/app-sidebar';
 import { SiteHeader } from '@/components/site-header';
 import { SidebarInset, SidebarProvider } from '@/components/ui/sidebar';
+import { ErrorState } from '@/components/ErrorState';
+import { LoadingState } from '@/components/LoadingState';
 
 const DynamicDatabaseChangesReport = () => {
   const [expandedTables, setExpandedTables] = useState(new Set());
@@ -30,29 +32,70 @@ const DynamicDatabaseChangesReport = () => {
     isLoading,
     error,
     carePackageData,
-    fetchCarePackageCreationEmulationData,
-    fetchCarePackageUpdateEmulationData,
-    fetchCarePackageDeleteEmulationData,
+    addPackage,
+    updatePackage,
+    deletePackage,
     packages,
   } = useDatabaseReportStore();
+
+  // Generate sample data functions
+  const generateSamplePackage = () => ({
+    package_name: `Test Package ${Date.now()}`,
+    package_remarks: 'Sample package for testing database changes',
+    package_price: Math.floor(Math.random() * 1000) + 100,
+    is_customizable: true,
+    created_at: new Date().toISOString(),
+    updated_at: new Date().toISOString(),
+    services: [
+      {
+        id: '1',
+        name: 'GOLD LIFT TREATMENT',
+        quantity: 1,
+        price: 128,
+        finalPrice: 128,
+        discount: 0,
+      },
+    ],
+  });
+
+  const generateUpdatedPackageData = (existingPackage) => ({
+    package_name: `Updated ${existingPackage.care_package_name || existingPackage.package_name}`,
+    package_remarks: 'Updated package for testing database changes',
+    package_price: (existingPackage.care_package_price || existingPackage.package_price) + 50,
+    is_customizable: !(existingPackage.care_package_customizable || existingPackage.is_customizable),
+    services: [
+      {
+        id: '1',
+        name: 'GOLD LIFT TREATMENT',
+        quantity: 2,
+        price: 128,
+        finalPrice: 256,
+        discount: 10,
+      },
+      {
+        id: '2',
+        name: 'PLATINUM FACIAL',
+        quantity: 1,
+        price: 200,
+        finalPrice: 200,
+        discount: 0,
+      },
+    ],
+  });
 
   // auto-load on component mount, then manual refresh only
   useEffect(() => {
     const initialLoad = async () => {
-      console.log('Component mounted, performing initial load...');
       await fetchAllOperations(true); // true indicates initial load
     };
 
     initialLoad();
-  }, [fetchCarePackageCreationEmulationData, fetchCarePackageUpdateEmulationData, fetchCarePackageDeleteEmulationData]);
+  }, []);
 
   const fetchAllOperations = async (isInitialLoad = false) => {
     if (!isInitialLoad) {
       setIsManualLoading(true);
-      console.log('Manual refresh triggered, fetching all operations data...');
-    } else {
-      console.log('Initial load triggered, fetching all operations data...');
-    }
+    } 
 
     // reset data
     setAllOperationsData({
@@ -61,26 +104,44 @@ const DynamicDatabaseChangesReport = () => {
       delete: null,
     });
 
-    // fetch operations sequentially to avoid conflicts
+    // CREATE operation
     try {
-      const createData = await fetchCarePackageCreationEmulationData();
+      const samplePackage = generateSamplePackage();
+      const createData = await addPackage(samplePackage);
       setAllOperationsData((prev) => ({ ...prev, create: createData }));
     } catch (error) {
       console.error('CREATE operation failed:', error);
       setAllOperationsData((prev) => ({ ...prev, create: null }));
     }
 
+    // UPDATE operation
     try {
-      const updateData = await fetchCarePackageUpdateEmulationData();
-      setAllOperationsData((prev) => ({ ...prev, update: updateData }));
+      const currentPackages = useDatabaseReportStore.getState().packages;
+      if (currentPackages.length === 0) {
+        console.warn('No packages available to update. Skipping update operation.');
+        setAllOperationsData((prev) => ({ ...prev, update: null }));
+      } else {
+        const packageToUpdate = currentPackages[0];
+        const updatedData = generateUpdatedPackageData(packageToUpdate);
+        const updateData = await updatePackage(packageToUpdate.id, updatedData);
+        setAllOperationsData((prev) => ({ ...prev, update: updateData }));
+      }
     } catch (error) {
       console.error('UPDATE operation failed:', error);
       setAllOperationsData((prev) => ({ ...prev, update: null }));
     }
 
+    // DELETE operation
     try {
-      const deleteData = await fetchCarePackageDeleteEmulationData();
-      setAllOperationsData((prev) => ({ ...prev, delete: deleteData }));
+      const currentPackages = useDatabaseReportStore.getState().packages;
+      if (currentPackages.length === 0) {
+        console.warn('No packages available to delete. Skipping delete operation.');
+        setAllOperationsData((prev) => ({ ...prev, delete: null }));
+      } else {
+        const packageToDelete = currentPackages[currentPackages.length - 1];
+        const deleteData = await deletePackage(packageToDelete.id);
+        setAllOperationsData((prev) => ({ ...prev, delete: deleteData }));
+      }
     } catch (error) {
       console.error('DELETE operation failed:', error);
       // expected to fail if no package exists to delete
@@ -496,39 +557,14 @@ const DynamicDatabaseChangesReport = () => {
     // show loading during initial load or manual refresh
     if ((isLoading && !hasInitialLoad) || isManualLoading) {
       return (
-        <div className='max-w-full mx-auto p-6 bg-white min-h-screen'>
-          <div className='bg-white border border-gray-300 p-8'>
-            <div className='flex items-center justify-center space-x-3'>
-              <RefreshCw className='w-6 h-6 animate-spin' />
-              <span className='text-lg'>
-                {isManualLoading ? 'Refreshing database operations...' : 'Loading all database operations...'}
-              </span>
-            </div>
-          </div>
-        </div>
+        <LoadingState />
       );
     }
 
     // show error only if there is an issue when loading
     if (error) {
       return (
-        <div className='max-w-full mx-auto p-6 bg-white min-h-screen'>
-          <div className='bg-white border border-red-300 p-8'>
-            <div className='flex items-center justify-center space-x-3 text-red-600'>
-              <AlertCircle className='w-6 h-6' />
-              <span className='text-lg'>Error loading database changes: {error}</span>
-            </div>
-            <div className='mt-4 text-center'>
-              <button
-                onClick={() => fetchAllOperations()}
-                className='px-4 py-2 bg-black text-white border rounded-md border-black hover:bg-gray-800'
-              >
-                <RefreshCw className='w-4 h-4 inline mr-2' />
-                Try Again
-              </button>
-            </div>
-          </div>
-        </div>
+        <ErrorState />
       );
     }
 
