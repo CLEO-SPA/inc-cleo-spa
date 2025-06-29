@@ -151,7 +151,7 @@ CREATE TABLE "member_care_package_details" (
     "discount" DECIMAL(10,2) NOT NULL,
     "price" DECIMAL(10,2) NOT NULL,
     "member_care_package_id" BIGINT NOT NULL,
-    "service_id" BIGINT NOT NULL,
+    "service_id" BIGINT,
     "status" VARCHAR(50) NOT NULL,
     "quantity" INTEGER NOT NULL,
 
@@ -179,7 +179,7 @@ CREATE TABLE "member_care_package_transaction_logs" (
     "created_at" TIMESTAMPTZ(6) NOT NULL,
     "member_care_package_details_id" BIGINT NOT NULL,
     "employee_id" BIGINT NOT NULL,
-    "service_id" BIGINT NOT NULL,
+    "service_id" BIGINT,
 
     CONSTRAINT "member_care_package_transaction_logs_pkey" PRIMARY KEY ("id")
 );

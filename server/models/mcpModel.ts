@@ -473,7 +473,7 @@ const createMemberCarePackage = async (
         service.discount,
         service.price,
         memberCarePackageId,
-        service.id,
+        service.id || null,
         'ENABLED',
         service.quantity,
       ]);
@@ -491,7 +491,7 @@ const createMemberCarePackage = async (
         service.finalPrice * service.quantity,
         memberCarePackageDetailId,
         employee_id,
-        service.id,
+        service.id || null,
         created_at,
       ]);
     });

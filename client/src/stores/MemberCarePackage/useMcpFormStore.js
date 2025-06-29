@@ -271,8 +271,7 @@ export const useMcpFormStore = create(
         (state) => {
           const serviceToAdd = {
             ...currentServiceForm,
-            // Set ID to 0 for bypass mode (custom services)
-            id: state.isByPass ? 0 : currentServiceForm.id, // Fixed: changed from isBypass to isByPass
+            id: state.isByPass ? null : currentServiceForm.id,
           };
 
           const newServices = [...state.mainFormData.services, serviceToAdd];

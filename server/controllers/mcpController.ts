@@ -124,7 +124,7 @@ const createMemberCarePackage = async (req: Request, res: Response, next: NextFu
       const isValidService = services.every(
         (s: { id: string; name: string; quantity: number; price: number; finalPrice: number; discount: number }) => {
           return (
-            (typeof s.id === 'string' || typeof s.id === 'number') &&
+            (typeof s.id === 'string' || typeof s.id === 'number' || s.id === null) &&
             typeof s.name === 'string' &&
             typeof s.quantity === 'number' &&
             s.quantity > 0 &&
