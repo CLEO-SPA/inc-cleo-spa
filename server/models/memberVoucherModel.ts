@@ -1149,8 +1149,8 @@ const createMemberVoucher = async (
       processPayment,         
       handled_by,
       created_by,
-      customCreatedAt,      
-      customUpdatedAt       
+      createdAt,      
+      updatedAt       
     ];
 
     const transactionResult = await client.query(transactionQuery, transactionParams);
@@ -1219,8 +1219,8 @@ const createMemberVoucher = async (
           payment.amount,
           payment.remark || '',
           created_by,
-          customCreatedAt,  
-          customUpdatedAt      
+          createdAt,  
+          updatedAt      
         ];
 
         console.log('MV Payment Query:', paymentQuery);

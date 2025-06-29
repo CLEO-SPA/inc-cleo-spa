@@ -1387,9 +1387,6 @@ const createMvTransaction = async (
   }
 };
 
-
-
-
 const createMcpTransferTransaction = async (
   transactionData: SingleItemTransactionRequestData
 ): Promise<SingleItemTransactionCreationResult> => {
