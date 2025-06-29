@@ -292,7 +292,28 @@ const searchMemberCarePackages = async (req: Request, res: Response, next: NextF
   }
 };
 
+const getRefundDate = async (req: Request, res: Response) => {
+  try {
+    const { mcpId } = req.params;
+    const refundDate = await model.getRefundDateByMcpId(mcpId);
+    
+    if (!refundDate) {
+      return res.status(404).json({ 
+        error: 'Refund record not found for this MCP' 
+      });
+    }
 
+    res.json({ 
+      refund_date: refundDate 
+    });
+    
+  } catch (error) {
+    console.error('Error fetching refund date:', error);
+    res.status(500).json({ 
+      error: 'Failed to retrieve refund date' 
+    });
+  }
+};
 
 export default {
   viewAllRefundSaleTransactionRecords,
@@ -305,4 +326,5 @@ export default {
   searchMembers: searchMembers as RequestHandler,
   getMemberCarePackages: getMemberCarePackages as RequestHandler,
   searchMemberCarePackages: searchMemberCarePackages as RequestHandler,
+  getRefundDate: getRefundDate as RequestHandler,
 };

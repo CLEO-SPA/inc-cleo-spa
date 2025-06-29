@@ -439,13 +439,6 @@ const processFullRefundTransaction = async (params: {
         amount
       });
 
-      // Update package details
-      await client.query(
-        `UPDATE member_care_package_details
-         SET quantity = 0
-         WHERE id = $1`,
-        [service.id]
-      );
     }
 
     // Create refund payment
@@ -693,6 +686,27 @@ const searchMemberCarePackages = async (searchQuery: string, memberId: number | 
   return rows;
 };
 
+const getRefundDateByMcpId = async (mcpId: string) => {
+  const query = `
+    SELECT 
+      logs.transaction_date AS refund_date
+    FROM 
+      member_care_package_transaction_logs logs
+    JOIN 
+      member_care_package_details details 
+      ON logs.member_care_package_details_id = details.id
+    WHERE 
+      details.member_care_package_id = $1
+      AND logs.type = 'REFUND'
+    ORDER BY 
+      logs.transaction_date DESC
+    LIMIT 1;
+  `;
+
+  const { rows } = await pool().query(query, [mcpId]);
+  return rows[0]?.refund_date || null;
+};
+
 export default {
   getAllRefundSaleTransactionRecords,
   getServiceTransactionsForRefund,
@@ -704,6 +718,7 @@ export default {
   fetchMCPStatusById,
   searchMembers,
   getMemberCarePackages,
-  searchMemberCarePackages
+  searchMemberCarePackages,
+  getRefundDateByMcpId
 
 };

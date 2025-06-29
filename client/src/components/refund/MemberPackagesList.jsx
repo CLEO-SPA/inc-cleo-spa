@@ -71,6 +71,10 @@ const MemberPackagesList = () => {
         navigate(`/refunds/mcp/${packageId}`);
     };
 
+    const handleBack = () => {
+        navigate('/refunds');
+    };
+
     useEffect(() => {
         if (packages.length > 0) {
             debouncedSearch(searchTerm);
@@ -167,11 +171,22 @@ const MemberPackagesList = () => {
                                 {/* Header Section */}
                                 <div className="border-b border-gray-200 pb-6 mb-6">
                                     <div className="flex items-center justify-between">
-                                        <div>
-                                            <h1 className="text-2xl font-semibold text-gray-900">Member Care Packages</h1>
-                                            {memberName && (
-                                                <p className="text-sm text-gray-600 mt-1">Member: {memberName}</p>
-                                            )}
+                                        <div className="flex items-center gap-4">
+                                            <button
+                                                onClick={handleBack}
+                                                className="inline-flex items-center px-3 py-2 text-sm font-medium text-gray-700 bg-white border border-gray-300 rounded-md hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-1 transition-colors"
+                                            >
+                                                <svg className="w-4 h-4 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M15 19l-7-7 7-7" />
+                                                </svg>
+                                                Back
+                                            </button>
+                                            <div>
+                                                <h1 className="text-2xl font-semibold text-gray-900">Member Care Packages</h1>
+                                                {memberName && (
+                                                    <p className="text-sm text-gray-600 mt-1">Member: {memberName}</p>
+                                                )}
+                                            </div>
                                         </div>
                                         <div className="text-right">
                                             <p className="text-sm text-gray-500">Total Packages</p>
@@ -250,7 +265,11 @@ const MemberPackagesList = () => {
                                         {/* Package List */}
                                         {filteredPackages.length > 0 ? (
                                             filteredPackages.map((pkg, index) => (
-                                                <div key={pkg.id || index} className="bg-white border border-gray-200 rounded-lg hover:shadow-md transition-shadow duration-200">
+                                                <div 
+                                                    key={pkg.id || index} 
+                                                    className="bg-white border border-gray-200 rounded-lg hover:shadow-md transition-shadow duration-200 cursor-pointer"
+                                                    onClick={() => handleRefund(pkg.id)}
+                                                >
                                                     <div className="p-6">
                                                         <div className="grid grid-cols-13 gap-4 items-start">
                                                             {/* Package Details */}
@@ -333,7 +352,12 @@ const MemberPackagesList = () => {
 
                                                             {/* Status Column */}
                                                             <div className="col-span-1 flex items-center justify-center">
-                                                                {renderRefundStatus(pkg)}
+                                                                <div 
+                                                                    onClick={(e) => e.stopPropagation()}
+                                                                    className="inline-block"
+                                                                >
+                                                                    {renderRefundStatus(pkg)}
+                                                                </div>
                                                             </div>
                                                         </div>
                                                     </div>

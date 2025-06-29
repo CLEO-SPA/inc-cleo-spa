@@ -31,6 +31,15 @@ export default {
     return api.get(url).then(response => response.data);
   },
 
+  getRefundDate: (packageId) => 
+    api.get(`api/refund/${packageId}/refund-date`)
+      .then(response => response.data)
+      .catch(error => {
+        console.log("Package ID is " + packageId);
+        console.error('[GET REFUND DATE FAILED REFUNDSERVICE.JS]', error.response?.data || error.message);
+        throw error;
+      }),
+
   processRefund: (packageId, remarks, refundDate) => {
     return api.post('api/refund/mcp', {
       mcpId: packageId,

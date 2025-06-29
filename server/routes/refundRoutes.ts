@@ -42,4 +42,6 @@ router.get('/members/get-mcps/:memberId', controller.getMemberCarePackages);
 // Search for member care packages
 router.get('/mcp/search', controller.searchMemberCarePackages);
 
+router.get('/:mcpId/refund-date', controller.getRefundDate);
+
 export default router;
