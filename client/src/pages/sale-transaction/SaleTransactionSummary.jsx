@@ -234,13 +234,22 @@ const SaleTransactionSummary = () => {
     }
 
     // Check employee assignments for ALL items
-    const itemsNeedingEmployees = cartItems.filter(item => {
-      // Log for debugging
-      console.log('Checking item:', item);
+    // const itemsNeedingEmployees = cartItems.filter(item => {
+    //   // Log for debugging
+    //   // console.log('Checking item:', item);
 
-      return item.type !== 'transferMV' && !itemEmployees[item.id];
-    });
 
+    //   return item.type !== 'transferMV' && !itemEmployees[item.id];
+    // });
+
+
+    const itemsNeedingEmployees = cartItems.filter(item =>
+      !itemEmployees[item.id]
+    );
+
+    if (itemsNeedingEmployees.length > 0) {
+      errors.push(`Assign employees to all items (${itemsNeedingEmployees.length} items missing employee assignment)`);
+    }
 
     if (itemsNeedingEmployees.length > 0) {
       errors.push(`Assign employees to all items (${itemsNeedingEmployees.length} items missing employee assignment)`);
