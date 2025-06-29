@@ -2,7 +2,7 @@ import { Request, Response, NextFunction } from "express";
 import voucherModel from "../models/voucherModel.js";
 import memberVoucherTransactionLogsModel from "../models/memberVoucherTransactionLogsModel.js";
 import memberModel from "../models/memberModel.js";
-import memberVoucherModel from "../models/memberVoucher.js";
+import memberVoucherModel from "../models/memberVoucherModel.js";
 
 // Simple sanitization helper
 const sanitizeInput = (input: unknown): string => {
