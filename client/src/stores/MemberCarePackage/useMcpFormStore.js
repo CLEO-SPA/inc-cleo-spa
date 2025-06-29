@@ -102,7 +102,7 @@ export const useMcpFormStore = create(
     updateServiceFormField: (field, value) => {
       if (
         !get().isCustomizable &&
-        !get().isByPass &&
+        !get().isByPass && // Fixed: changed from isBypass to isByPass
         (field === 'price' || field === 'discount' || field === 'quantity')
       ) {
         console.warn('Package is not customizable. Cannot update service form field:', field);
@@ -129,7 +129,7 @@ export const useMcpFormStore = create(
     },
 
     selectService: async (service) => {
-      if (!get().isCustomizable && !get().isBypass && get().mainFormData.package_name !== '') {
+      if (!get().isCustomizable && !get().isByPass && get().mainFormData.package_name !== '') {
         console.warn('Package is not customizable. Cannot select a new service.');
         return;
       }
@@ -164,16 +164,24 @@ export const useMcpFormStore = create(
     },
 
     addServiceToPackage: () => {
-      if (!get().isCustomizable) {
+      if (!get().isCustomizable && !get().isByPass) {
         console.warn('Package is not customizable. Cannot add service.');
         return;
       }
       const currentServiceForm = get().serviceForm;
+      const isBypass = get().isByPass; // Fixed: changed from isBypass to isByPass
 
-      if (!currentServiceForm.id || !currentServiceForm.name) {
-        console.warn('Cannot add an empty or incomplete service. Please select a service and specify details.');
+      if (!currentServiceForm.name) {
+        console.warn('Cannot add an empty or incomplete service. Please specify service name.');
         return;
       }
+
+      // In bypass mode, we don't need a service ID, but in normal mode we do
+      if (!isBypass && !currentServiceForm.id) {
+        console.warn('Cannot add service without selecting from existing services.');
+        return;
+      }
+
       if (currentServiceForm.quantity <= 0) {
         console.warn('Service quantity must be greater than 0.');
         return;
@@ -181,7 +189,13 @@ export const useMcpFormStore = create(
 
       set(
         (state) => {
-          const newServices = [...state.mainFormData.services, { ...currentServiceForm }];
+          const serviceToAdd = {
+            ...currentServiceForm,
+            // Set ID to 0 for bypass mode (custom services)
+            id: state.isByPass ? 0 : currentServiceForm.id, // Fixed: changed from isBypass to isByPass
+          };
+
+          const newServices = [...state.mainFormData.services, serviceToAdd];
           const newPackagePrice = calculateOverallPackagePrice(newServices);
           return {
             mainFormData: {

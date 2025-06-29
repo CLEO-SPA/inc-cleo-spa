@@ -402,15 +402,24 @@ const ServicesSection = ({
             <div className='grid grid-cols-1 md:grid-cols-4 gap-4'>
               <div className='space-y-1'>
                 <Label className='text-sm font-medium text-gray-700'>Service</Label>
-                <ServiceSelect
-                  name='service_select'
-                  label=''
-                  value={serviceForm.id}
-                  onChange={() => {}}
-                  onSelectFullDetails={selectService}
-                  options={serviceOptions}
-                  disabled={isLoading}
-                />
+                {bypassPackage ? (
+                  <Input
+                    placeholder='Enter custom service name'
+                    value={serviceForm.name}
+                    onChange={(e) => updateServiceFormField('name', e.target.value)}
+                    className='h-9'
+                  />
+                ) : (
+                  <ServiceSelect
+                    name='service_select'
+                    label=''
+                    value={serviceForm.id}
+                    onChange={() => {}}
+                    onSelectFullDetails={selectService}
+                    options={serviceOptions}
+                    disabled={isLoading}
+                  />
+                )}
               </div>
               <div className='space-y-3'>
                 <Label className='text-sm font-medium text-gray-700'>Quantity</Label>
@@ -482,7 +491,7 @@ const ServicesSection = ({
                 <Button
                   type='button'
                   onClick={addServiceToPackage}
-                  disabled={!serviceForm.id || !serviceForm.name}
+                  disabled={!serviceForm.name || (bypassPackage ? false : !serviceForm.id)}
                   size='sm'
                 >
                   <Plus className='h-4 w-4 mr-1' />
