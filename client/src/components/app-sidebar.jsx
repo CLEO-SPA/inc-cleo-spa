@@ -159,7 +159,7 @@ const data = {
         },
         {
           title: 'Manage employees',
-          url: '/employees/create',
+          url: '/employees',
         },
         {
           title: 'Add new position',

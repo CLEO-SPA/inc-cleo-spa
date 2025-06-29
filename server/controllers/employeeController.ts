@@ -411,13 +411,20 @@ const getAllRolesForDropdown = async (req: Request, res: Response, next: NextFun
  * • If e-mail was actually changed, model returns { emailChanged: true }
  *   → we regenerate a fresh 3-day invite link and include it in the response.
  */
-const updateEmployee = async (req: Request, res: Response, next: NextFunction) => {
+/* --------------------------------------------------------------------------
+ * PUT /employees/:id
+ * Robust update (auth, employee row, positions)
+ * ------------------------------------------------------------------------ */
+export const updateEmployee = async (
+  req: Request,
+  res: Response,
+  next: NextFunction,
+) => {
   try {
     /* ------------------------------------------------- 0. URL param */
     const employee_id = Number(req.params.id);
     if (!employee_id || Number.isNaN(employee_id)) {
-      res.status(400).json({ message: 'Invalid employee ID.' });
-      return;
+      return res.status(400).json({ message: 'Invalid employee ID.' });
     }
 
     /* ------------------------------------------------- 1. Body sanitise */
@@ -428,47 +435,67 @@ const updateEmployee = async (req: Request, res: Response, next: NextFunction) =
       employee_code,
       employee_is_active,
       position_ids,
-    } = req.body;
+      updated_at,               // ← optional ISO string from client
+    } = req.body as {
+      employee_email?: string;
+      employee_name?: string;
+      employee_contact?: string;
+      employee_code?: string | number;
+      employee_is_active?: boolean;
+      position_ids?: string[];
+      updated_at?: string;
+    };
+
+    const sanitizedTs = validator.isISO8601(updated_at ?? '', {
+      strict: true,
+      strictSeparator: true,
+    })
+      ? updated_at
+      : undefined;
 
     const payload = {
       employee_id,
-      email:             employee_email   ? employee_email.trim()   : undefined,
-      phone:             employee_contact ? employee_contact.trim() : undefined,
-      employee_contact:  employee_contact ? employee_contact.trim() : undefined,
-      employee_name:     employee_name    ? employee_name.trim()    : undefined,
-      employee_code:     employee_code    !== undefined ? String(employee_code).trim() : undefined,
+      email:             employee_email?.trim(),
+      phone:             employee_contact?.trim(),
+      employee_contact:  employee_contact?.trim(),
+      employee_name:     employee_name?.trim(),
+      employee_code:     employee_code !== undefined
+        ? String(employee_code).trim()
+        : undefined,
       employee_is_active,
       position_ids,
-      updated_at: new Date().toISOString(),
+      updated_at: sanitizedTs ?? new Date().toISOString(), // fallback
     };
 
     /* ------------------------------------------------- 2. Quick format checks */
     if (payload.email && !validator.isEmail(payload.email)) {
-      res.status(400).json({ message: 'Invalid email format.' });
-      return;
+      return res.status(400).json({ message: 'Invalid email format.' });
     }
     if (payload.phone && !validator.isMobilePhone(payload.phone, 'any')) {
-      res.status(400).json({ message: 'Invalid contact number format.' });
-      return;
+      return res.status(400).json({ message: 'Invalid contact number format.' });
     }
 
-    /* ------------------------------------------------- 3. Update via model  */
+    /* ------------------------------------------------- 3. Update via model */
     const { emailChanged } = await model.updateEmployee(payload);
 
     /* ------------------------------------------------- 4. Optional invite link regeneration */
     let newInviteUrl: string | undefined;
     if (emailChanged && payload.email) {
-      // mark touched so "recently updated" filters pick it up
+      // update touched-at timestamp so “recently updated” filters pick it up
       await model.touchEmployee(payload.email);
 
-      const token = jwt.sign({ email: payload.email },
-                             process.env.INV_JWT_SECRET as string,
-                             { expiresIn: '3d' });
+      const token = jwt.sign(
+        { email: payload.email },
+        process.env.INV_JWT_SECRET as string,
+        { expiresIn: '3d' },
+      );
+
       newInviteUrl = `${process.env.LOCAL_FRONTEND_URL}/reset-password?token=${token}`;
     }
 
-    /* ------------------------------------------------- 5. Send response */
-    const updated = await model.getEmployeeById(employee_id);   // refreshed record
+    /* ------------------------------------------------- 5. Fetch & send response */
+    const updated = await model.getEmployeeById(employee_id);
+
     res.status(200).json({
       message: 'Employee updated.',
       ...(newInviteUrl ? { newInviteUrl } : {}),
