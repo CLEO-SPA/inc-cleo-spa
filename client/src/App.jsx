@@ -60,7 +60,6 @@ import CreateAppointmentPage from './pages/ab/CreateAppointmentPage';
 import EditAppointmentPage from './pages/ab/EditAppointmentPage.jsx';
 import ViewAppointmentDetailsPage from '@/pages/ab/ViewAppointmentDetailsPage.jsx';
 
-
 function App() {
   return (
     <AuthProvider>
@@ -74,12 +73,12 @@ function App() {
 
               {/* appointments */}
               <Route path='/appointments' element={<ManageAppointmentsPage />} />
-              
-              <Route path="/appointments/create" element={<CreateAppointmentPage />} />
-              <Route path="/employees" element={<CreateAppointmentPage />} />
+
+              <Route path='/appointments/create' element={<CreateAppointmentPage />} />
+              <Route path='/employees' element={<CreateAppointmentPage />} />
               <Route path='/appointments/edit/:id' element={<EditAppointmentPage />} />
               <Route path='/appointments/:id' element={<ViewAppointmentDetailsPage />} />
-              
+
               {/* Protected Routes */}
 
               {/* Member Management */}
@@ -144,8 +143,6 @@ function App() {
             {/* Invitation & Reset Password */}
             <Route path='/invites' element={<ResetPasswordPage />} />
             <Route path='/reset-password' element={<ResetPasswordPage />} />
-            
-
 
             {/* 404 Page */}
             <Route path='*' element={<NotFoundPage />} />
