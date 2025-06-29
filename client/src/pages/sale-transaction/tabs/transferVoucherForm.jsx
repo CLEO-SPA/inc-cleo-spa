@@ -81,10 +81,10 @@ const TransferVoucherForm = () => {
 
     const cartPayload = {
       id: 'transfer-auto',
-      type: 'transfer',
+      type: 'transferMV',
       data: {
         name: voucherNameToUse,
-        amount: Number(price),
+        amount: topUpBalance,
         description: `Transferred from: ${oldVouchers.join(', ')}`,
       },
     };

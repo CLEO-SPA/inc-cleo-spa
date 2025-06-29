@@ -15,15 +15,15 @@ import CartItemsWithPayment from './CartItemsWithPayment';
 
 const SaleTransactionSummary = () => {
   const navigate = useNavigate();
-  
+
   // Get cart data from store
   const { selectedMember, cartItems, clearCart } = useTransactionCartStore();
-  
+
   // Get sale transaction store - including transaction details management
-  const { 
-    isCreating, 
-    currentStep, 
-    progress, 
+  const {
+    isCreating,
+    currentStep,
+    progress,
     createdTransactions,
     failedTransactions,
     errors,
@@ -39,18 +39,18 @@ const SaleTransactionSummary = () => {
     validateTransactionDetails,
     reset: resetTransactionStore
   } = useSaleTransactionStore();
-  
+
   // State for cart items and payments (managed by child component)
   const [itemEmployees, setItemEmployees] = useState({});
   const [itemPricing, setItemPricing] = useState({});
   const [itemRemarks, setItemRemarks] = useState({});
   const [selectedPaymentMethods, setSelectedPaymentMethods] = useState({});
   const [sectionPayments, setSectionPayments] = useState({});
-  
+
   // Modal state
   const [modalMessage, setModalMessage] = useState('');
   const [showModal, setShowModal] = useState(false);
-  
+
   // Debug state
   const [showDebug, setShowDebug] = useState(true);
 
@@ -68,7 +68,7 @@ const SaleTransactionSummary = () => {
       setUpdatedAt(now);
     }
   }, []); // Empty dependency array - only run once on mount
-  
+
   // Get cart total (uses pricing data)
   const getUpdatedCartTotal = () => {
     return cartItems.reduce((total, item) => {
@@ -82,7 +82,7 @@ const SaleTransactionSummary = () => {
     const initialAssignments = {};
     const initialPricing = {};
     const initialRemarks = {};
-    
+
     cartItems.forEach(item => {
       // Auto-assign employee for vouchers with created_by
       if (item.type === 'member-voucher' && item.data?.created_by) {
@@ -90,7 +90,7 @@ const SaleTransactionSummary = () => {
       } else if (item.data?.employee_id) {
         initialAssignments[item.id] = item.data.employee_id;
       }
-      
+
       // Initialize pricing data for each item
       let originalPrice;
       if (item.type === 'transfer' || item.type === 'transferMCP' || item.type === 'transferMV') {
@@ -99,7 +99,7 @@ const SaleTransactionSummary = () => {
         originalPrice = item.data?.price || item.data?.total_price || 0;
       }
       const quantity = item.data?.quantity || 1;
-      
+
       initialPricing[item.id] = {
         originalPrice: originalPrice,
         customPrice: 0,
@@ -112,7 +112,7 @@ const SaleTransactionSummary = () => {
       // Initialize remarks for each item
       initialRemarks[item.id] = item.remarks || '';
     });
-    
+
     setItemEmployees(initialAssignments);
     setItemPricing(initialPricing);
     setItemRemarks(initialRemarks);
@@ -158,7 +158,7 @@ const SaleTransactionSummary = () => {
   const handlePaymentChange = (action, sectionId, data) => {
     setSectionPayments(prev => {
       const newState = { ...prev };
-      
+
       switch (action) {
         case 'add':
           newState[sectionId] = [...(prev[sectionId] || []), data];
@@ -183,7 +183,7 @@ const SaleTransactionSummary = () => {
         default:
           break;
       }
-      
+
       return newState;
     });
   };
@@ -199,25 +199,25 @@ const SaleTransactionSummary = () => {
   // Enhanced validation function for better error messages
   const getValidationErrors = () => {
     const errors = [];
-    
+
     // Check cart items
     if (cartItems.length === 0) {
       errors.push('Add items to your cart');
     }
-    
+
     // Check required transaction details
     if (!transactionDetails.receiptNumber || transactionDetails.receiptNumber.trim() === '') {
       errors.push('Receipt number is required');
     }
-    
+
     if (!transactionDetails.createdBy || transactionDetails.createdBy === '') {
       errors.push('Transaction creator must be selected');
     }
-    
+
     if (!transactionDetails.handledBy || transactionDetails.handledBy === '') {
       errors.push('Transaction handler must be selected');
     }
-    
+
     // Check creation date/time with validation
     if (!transactionDetails.createdAt || transactionDetails.createdAt.trim() === '') {
       errors.push('Creation date & time is required');
@@ -232,39 +232,43 @@ const SaleTransactionSummary = () => {
         errors.push('Creation date & time is invalid');
       }
     }
-    
+
     // Check employee assignments for ALL items
-    const itemsNeedingEmployees = cartItems.filter(item => 
-      !itemEmployees[item.id]
-    );
-    
+    const itemsNeedingEmployees = cartItems.filter(item => {
+      // Log for debugging
+      console.log('Checking item:', item);
+
+      return item.type !== 'transfer' && !itemEmployees[item.id];
+    });
+
+
     if (itemsNeedingEmployees.length > 0) {
       errors.push(`Assign employees to all items (${itemsNeedingEmployees.length} items missing employee assignment)`);
     }
-    
+
     // Check Services & Products payment requirement
     const servicesAndProducts = [
       ...cartItems.filter(item => item.type === 'service'),
       ...cartItems.filter(item => item.type === 'product')
     ];
-    
+
     if (servicesAndProducts.length > 0) {
       const sectionTotal = servicesAndProducts.reduce((total, item) => {
         const pricing = getItemPricing(item.id);
         return total + pricing.totalLinePrice;
       }, 0);
-      
-      const sectionPaymentTotal = sectionPayments['services-products']?.reduce((total, payment) => 
+
+      const sectionPaymentTotal = sectionPayments['services-products']?.reduce((total, payment) =>
         total + (payment.amount || 0), 0
       ) || 0;
-      
+
       const remainingAmount = sectionTotal - sectionPaymentTotal;
-      
+
       if (Math.abs(remainingAmount) >= 0.01) { // Allow for small rounding differences
         errors.push(`Services & Products section must be fully paid (remaining: ${formatCurrency(remainingAmount)})`);
       }
     }
-    
+
     return errors;
   };
 
@@ -276,9 +280,9 @@ const SaleTransactionSummary = () => {
   // Enhanced validation message component
   const ValidationMessage = () => {
     const validationErrors = getValidationErrors();
-    
+
     if (validationErrors.length === 0) return null;
-    
+
     return (
       <div className="bg-red-50 border border-red-200 text-red-800 px-4 py-3 rounded-md">
         <h3 className="font-bold mb-2">❌ Cannot proceed with transaction:</h3>
@@ -290,7 +294,7 @@ const SaleTransactionSummary = () => {
       </div>
     );
   };
-  
+
   // Format currency
   const formatCurrency = (amount) => {
     return (amount || 0).toLocaleString('en-SG', {
@@ -303,7 +307,7 @@ const SaleTransactionSummary = () => {
   // Format date for display
   const formatDate = (dateString) => {
     if (!dateString) return 'Not set';
-    
+
     try {
       return new Date(dateString).toLocaleString('en-SG', {
         year: 'numeric',
@@ -317,7 +321,7 @@ const SaleTransactionSummary = () => {
       return 'Invalid date';
     }
   };
-  
+
   // Handle confirm transaction with proper transfer grouping
   const handleConfirmTransaction = async () => {
     if (!isTransactionValid()) {
@@ -325,7 +329,7 @@ const SaleTransactionSummary = () => {
       setShowModal(true);
       return;
     }
-    
+
     try {
       // Group items by transaction type INCLUDING TRANSFERS
       const groupedItems = {
@@ -354,7 +358,7 @@ const SaleTransactionSummary = () => {
         servicesProducts: (() => {
           const items = [...groupedItems.services, ...groupedItems.products];
           if (items.length === 0) return null;
-          
+
           return {
             items: items.map(item => ({
               ...item,
@@ -365,7 +369,7 @@ const SaleTransactionSummary = () => {
             payments: sectionPayments['services-products'] || []
           };
         })(),
-        
+
         // Individual MCP transactions
         mcpTransactions: groupedItems.packages.map(pkg => ({
           item: {
@@ -376,7 +380,7 @@ const SaleTransactionSummary = () => {
           },
           payments: sectionPayments[`package-${pkg.id}`] || []
         })),
-        
+
         // Individual MV transactions
         mvTransactions: groupedItems.vouchers.map(voucher => ({
           item: {
@@ -416,7 +420,7 @@ const SaleTransactionSummary = () => {
 
       // Create transactions using the store (transaction details are handled automatically)
       const result = await createSaleTransactions(transactionData);
-      
+
       if (result.success) {
         if (result.hasPartialSuccess) {
           setModalMessage(`Partial success: ${result.createdTransactions.length} transactions created, ${result.failedTransactions.length} failed. Check the details below.`);
@@ -424,10 +428,10 @@ const SaleTransactionSummary = () => {
           setModalMessage('All transactions completed successfully!');
         }
         setShowModal(true);
-        
+
         // Clear cart after successful transaction creation
         clearCart();
-        
+
         // Navigate after a delay to show results
         setTimeout(() => {
           resetTransactionStore();
@@ -437,14 +441,14 @@ const SaleTransactionSummary = () => {
         setModalMessage(`Transaction creation failed: ${result.error || 'Unknown error'}`);
         setShowModal(true);
       }
-      
+
     } catch (error) {
       console.error('💥 Error in transaction creation:', error);
       setModalMessage(`Unexpected error: ${error.message}`);
       setShowModal(true);
     }
   };
-  
+
   return (
     <div className='[--header-height:calc(theme(spacing.14))]'>
       <SidebarProvider className='flex flex-col'>
@@ -453,15 +457,15 @@ const SaleTransactionSummary = () => {
           <AppSidebar />
           <SidebarInset>
             <div className="max-w-[1600px] mx-auto p-4 space-y-6">
-              
+
               {/* Header */}
               <Card>
                 <CardHeader className="pb-3">
                   <div className="flex items-center justify-between">
                     <CardTitle className="text-xl font-bold">Transaction Summary</CardTitle>
-                    <Button 
+                    <Button
                       onClick={() => navigate(-1)}
-                      variant="outline" 
+                      variant="outline"
                       size="sm"
                       className="flex items-center gap-1"
                       disabled={isCreating}
@@ -475,23 +479,23 @@ const SaleTransactionSummary = () => {
                   <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
                     <div>
                       <p className="text-sm text-gray-500">Review and complete your transaction</p>
-                      
+
                       {!selectedMember && (
                         <div className="mt-2 text-xs font-medium text-red-700 bg-red-50 px-2 py-1 rounded-full inline-block">
                           No member selected (Walk-in customer)
                         </div>
                       )}
-                      
+
                       {selectedMember && (
                         <div className="mt-2 text-xs font-medium text-green-700 bg-green-50 px-2 py-1 rounded-full inline-block">
                           Member: {selectedMember.name}
                         </div>
                       )}
-                      
+
                       <div className="mt-2 text-xs font-medium text-blue-700 bg-blue-50 px-2 py-1 rounded-full inline-block">
                         Items in cart: {cartItems.length}
                       </div>
-                      
+
                       <div className="mt-2 text-xs font-medium text-purple-700 bg-purple-50 px-2 py-1 rounded-full inline-block">
                         Total: {formatCurrency(getUpdatedCartTotal())}
                       </div>
@@ -521,8 +525,8 @@ const SaleTransactionSummary = () => {
                             <span>{progress.completed + progress.failed} / {progress.total}</span>
                           </div>
                           <div className="w-full bg-gray-200 rounded-full h-2">
-                            <div 
-                              className="bg-blue-600 h-2 rounded-full transition-all duration-300" 
+                            <div
+                              className="bg-blue-600 h-2 rounded-full transition-all duration-300"
                               style={{ width: `${((progress.completed + progress.failed) / progress.total) * 100}%` }}
                             ></div>
                           </div>
@@ -594,11 +598,10 @@ const SaleTransactionSummary = () => {
                         value={transactionDetails.receiptNumber || ''}
                         onChange={(e) => setReceiptNumber(e.target.value)}
                         disabled={isCreating}
-                        className={`w-full p-2 border rounded-md disabled:bg-gray-100 ${
-                          !transactionDetails.receiptNumber || transactionDetails.receiptNumber.trim() === ''
-                            ? 'border-red-300 focus:border-red-500 focus:ring-red-200' 
-                            : 'border-gray-300 focus:border-blue-500 focus:ring-blue-200'
-                        }`}
+                        className={`w-full p-2 border rounded-md disabled:bg-gray-100 ${!transactionDetails.receiptNumber || transactionDetails.receiptNumber.trim() === ''
+                          ? 'border-red-300 focus:border-red-500 focus:ring-red-200'
+                          : 'border-gray-300 focus:border-blue-500 focus:ring-blue-200'
+                          }`}
                         placeholder="Enter receipt number (required)"
                         required
                       />
@@ -606,13 +609,12 @@ const SaleTransactionSummary = () => {
                         <p className="text-red-500 text-xs mt-1">Receipt number is required</p>
                       )}
                     </div>
-                    
+
                     {/* Creation Date & Time Field */}
-                    <div className={`${
-                      !transactionDetails.createdAt || transactionDetails.createdAt.trim() === ''
-                        ? 'ring-2 ring-red-200 rounded-md p-2' 
-                        : ''
-                    }`}>
+                    <div className={`${!transactionDetails.createdAt || transactionDetails.createdAt.trim() === ''
+                      ? 'ring-2 ring-red-200 rounded-md p-2'
+                      : ''
+                      }`}>
                       <Label htmlFor='created_at' className='text-sm font-medium pb-1 text-gray-700'>
                         Creation date & time <span className="text-red-500">*</span>
                       </Label>
@@ -627,11 +629,10 @@ const SaleTransactionSummary = () => {
                         }}
                         disabled={isCreating}
                         step='1'
-                        className={`w-full ${
-                          !transactionDetails.createdAt || transactionDetails.createdAt.trim() === ''
-                            ? 'border-red-300 focus:border-red-500 focus:ring-red-200' 
-                            : ''
-                        }`}
+                        className={`w-full ${!transactionDetails.createdAt || transactionDetails.createdAt.trim() === ''
+                          ? 'border-red-300 focus:border-red-500 focus:ring-red-200'
+                          : ''
+                          }`}
                         required
                       />
                       {(!transactionDetails.createdAt || transactionDetails.createdAt.trim() === '') && (
@@ -639,7 +640,7 @@ const SaleTransactionSummary = () => {
                       )}
                     </div>
                   </div>
-                  
+
                   {/* Second Row: Transaction Remark (full width) */}
                   <div>
                     <label htmlFor="transactionRemark" className="block text-sm font-medium text-gray-700 mb-1">
@@ -655,15 +656,14 @@ const SaleTransactionSummary = () => {
                       rows={2}
                     />
                   </div>
-                  
+
                   {/* Third Row: Creator & Handler */}
                   <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                    <div className={`${
-                      !transactionDetails.createdBy || transactionDetails.createdBy === ''
-                        ? 'ring-2 ring-red-200 rounded-md p-2' 
-                        : ''
-                    }`}>
-                      <EmployeeSelect 
+                    <div className={`${!transactionDetails.createdBy || transactionDetails.createdBy === ''
+                      ? 'ring-2 ring-red-200 rounded-md p-2'
+                      : ''
+                      }`}>
+                      <EmployeeSelect
                         label="Transaction Creator *"
                         value={transactionDetails.createdBy || ""}
                         onChange={setCreatedBy}
@@ -674,13 +674,12 @@ const SaleTransactionSummary = () => {
                         <p className="text-red-500 text-xs mt-1">Transaction creator is required</p>
                       )}
                     </div>
-                    
-                    <div className={`${
-                      !transactionDetails.handledBy || transactionDetails.handledBy === ''
-                        ? 'ring-2 ring-red-200 rounded-md p-2' 
-                        : ''
-                    }`}>
-                      <EmployeeSelect 
+
+                    <div className={`${!transactionDetails.handledBy || transactionDetails.handledBy === ''
+                      ? 'ring-2 ring-red-200 rounded-md p-2'
+                      : ''
+                      }`}>
+                      <EmployeeSelect
                         label="Transaction Handler *"
                         value={transactionDetails.handledBy || ""}
                         onChange={setHandledBy}
@@ -692,7 +691,7 @@ const SaleTransactionSummary = () => {
                       )}
                     </div>
                   </div>
-                  
+
                   {/* Transaction Details Summary with Creation Date */}
                   <div className="mt-4 p-3 bg-gray-50 rounded-md">
                     <h4 className="text-sm font-medium text-gray-700 mb-2">Transaction Summary</h4>
@@ -721,7 +720,7 @@ const SaleTransactionSummary = () => {
                   </div>
                 </CardContent>
               </Card>
-              
+
               {/* Cart Items with Payment */}
               {cartItems.length === 0 ? (
                 <Card>
@@ -730,8 +729,8 @@ const SaleTransactionSummary = () => {
                       <ShoppingBag className="h-12 w-12 text-gray-400 mb-3" />
                       <p className="text-lg font-medium text-gray-600">Your cart is empty</p>
                       <p className="text-sm text-gray-500 mt-1">Add some items to continue</p>
-                      <Button 
-                        className="mt-4" 
+                      <Button
+                        className="mt-4"
                         onClick={() => navigate('/sal')}
                         disabled={isCreating}
                       >
@@ -756,13 +755,13 @@ const SaleTransactionSummary = () => {
                   disabled={isCreating}
                 />
               )}
-              
+
               {/* Transaction Actions */}
               {cartItems.length > 0 && (
                 <>
                   {/* Enhanced Validation Message */}
                   {!isTransactionValid() && !isCreating && <ValidationMessage />}
-                  
+
                   {/* Action Buttons */}
                   <div className="flex justify-end gap-4">
                     <Button
