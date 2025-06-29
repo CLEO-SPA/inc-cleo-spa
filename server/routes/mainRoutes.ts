@@ -18,6 +18,8 @@ import dataExportRoutes from './dataExportRoutes.js';
 import positionRoutes from './positionRoutes.js';
 import paymentMethodRoutes from './paymentMethodRoutes.js';
 import appointmentRoutes from './appointmentRoutes.js';
+import productRoutes from './productRoutes.js';
+import revenueRoutes from './revenueRoutes.js';
 
 router.use(simulationMiddleware);
 
@@ -35,6 +37,8 @@ router.use('/position', positionRoutes);
 router.use('/de', dataExportRoutes);
 router.use('/payment-method', paymentMethodRoutes);
 router.use('/ab', appointmentRoutes);
+router.use('/rr', revenueRoutes);
 // router.use('/sa', superAdminRoutes);
+router.use('/product', productRoutes);
 
 export default router;
