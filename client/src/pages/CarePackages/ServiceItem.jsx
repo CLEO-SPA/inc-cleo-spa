@@ -358,28 +358,7 @@ const ServiceItem = ({ service, index, isEditing, onEdit, onSave, onCancel, onRe
                 )}
               </div>
             </div>
-
-            {/* discount factor */}
-            <div>
-              <label className='block text-xs font-medium text-gray-600 mb-1'>Discount Factor</label>
-              <input
-                type='number'
-                value={editData.discount !== undefined && editData.discount !== null ? editData.discount : ''}
-                onChange={(e) => handleEditDataChange('discount', e.target.value)}
-                onBlur={(e) => handleBlur('discount', e.target.value)}
-                className='w-full px-3 py-2 border border-gray-300 rounded-md text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent'
-                min='0'
-                max='1'
-                step='0.01'
-                placeholder='1.0'
-              />
-              <div className='text-xs text-gray-500 mt-1'>
-                {editData.discount !== undefined && editData.discount !== null && editData.discount !== ''
-                  ? `${getDiscountPercentage(editData.discount)}% off`
-                  : 'Range: 0.0-1.0 (1.0 = full price, 0.0 = 100% off)'}
-              </div>
-            </div>
-
+            
             {/* quantity */}
             <div>
               <label className='block text-xs font-medium text-gray-600 mb-1'>Quantity</label>

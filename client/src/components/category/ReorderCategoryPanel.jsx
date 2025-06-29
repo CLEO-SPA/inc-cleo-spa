@@ -76,7 +76,9 @@ export default function ReorderCategoryPanel({ categories = [], onSave, category
       </div>
 
       <div className='pt-4 border-t border-gray-200 flex justify-end space-x-2'>
-        <Button onClick={() => setItems(categories)} variant='outline'>Reset</Button>
+        <Button onClick={() => setItems(categories)} variant='outline'>
+          Reset
+        </Button>
         <Button onClick={handleSave} disabled={saving} className='bg-blue-600 hover:bg-blue-500'>
           {saving ? 'Saving...' : 'Save Changes'}
         </Button>

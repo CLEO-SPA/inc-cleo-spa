@@ -1,15 +1,32 @@
 import React, { useState, useRef, useEffect } from 'react';
 import { Input } from '@/components/ui/input';
 import { Button } from '@/components/ui/button';
-import { FilePenLine, Check, X } from 'lucide-react';
+import { FilePenLine, Check, X, ChevronsLeft, ChevronLeft, ChevronRight, ChevronsRight } from 'lucide-react';
 import api from '@/services/api';
+import useAuth from '@/hooks/useAuth';
 
-export default function CategoryTableEditable({ data = [], loading = false, onRefresh, categoryType = 'service' }) {
+export default function CategoryTableEditable({
+  data = [],
+  loading = false,
+  onRefresh,
+  categoryType = 'service',
+  currentPage,
+  totalPages,
+  onPageChange,
+  searchQuery,
+  setSearchQuery,
+  itemsPerPage,
+  setItemsPerPage,
+}) {
   const inputRef = useRef(null);
   const [saving, setSaving] = useState(false);
   const [saveError, setSaveError] = useState('');
   const [editingId, setEditingId] = useState(null);
   const [editedName, setEditedName] = useState('');
+
+  // --- Role-based access ---
+  const { user } = useAuth();
+  const canEdit = user?.role === 'super_admin' || user?.role === 'data_admin';
 
   const startEditing = (cat) => {
     setEditingId(cat.id);
@@ -50,13 +67,33 @@ export default function CategoryTableEditable({ data = [], loading = false, onRe
   return (
     <div className='rounded-xl bg-muted/50 p-4 shadow-md overflow-x-auto'>
       <h2 className='text-2xl font-bold mb-4'>Categories</h2>
+
+      {/* Search */}
+      <div className='flex flex-wrap items-center justify-between mb-4'>
+        <div className='flex items-center space-x-2'>
+          <Input
+            type='text'
+            placeholder='Search categories...'
+            value={searchQuery}
+            onChange={(e) => setSearchQuery(e.target.value)}
+            onKeyDown={(e) => {
+              if (e.key === 'Enter') {
+                onPageChange(1);
+              }
+            }}
+            className='w-[250px]'
+          />
+        </div>
+      </div>
+
+      {/* Table */}
       <table className='table-auto w-full border-collapse border border-gray-300 text-left'>
         <thead className='bg-black text-white'>
           <tr>
             <th className='px-4 py-2 border border-gray-300'>ID</th>
             <th className='px-4 py-2 border border-gray-300'>Name</th>
             <th className='px-4 py-2 border border-gray-300'># of Items</th>
-            <th className='px-4 py-2 border border-gray-300'>Actions</th>
+            {canEdit && <th className='px-4 py-2 border border-gray-300'>Actions</th>}
           </tr>
         </thead>
         <tbody>
@@ -86,35 +123,37 @@ export default function CategoryTableEditable({ data = [], loading = false, onRe
                   )}
                 </td>
                 <td className='px-4 py-2 border border-gray-300'>{cat.total_services || cat.total_products || 0}</td>
-                <td className='px-4 py-2 border border-gray-300 space-x-2'>
-                  {editingId === cat.id ? (
-                    <>
+                {canEdit && (
+                  <td className='px-4 py-2 border border-gray-300 space-x-2'>
+                    {editingId === cat.id ? (
+                      <>
+                        <Button
+                          className='p-1 text-sm bg-blue-600 text-white rounded-lg hover:bg-blue-700'
+                          onClick={() => saveEditing(cat.id)}
+                          disabled={!editedName.trim() || saving}
+                        >
+                          <Check className='inline-block mr-1' size={16} />
+                          {saving ? 'Saving...' : 'Save'}
+                        </Button>
+                        <Button
+                          className='p-1 text-sm bg-gray-400 text-white rounded-lg hover:bg-gray-500'
+                          onClick={cancelEditing}
+                        >
+                          <X className='inline-block mr-1' size={16} />
+                          Cancel
+                        </Button>
+                      </>
+                    ) : (
                       <Button
-                        className='p-1 text-sm bg-blue-600 text-white rounded-lg hover:bg-blue-700'
-                        onClick={() => saveEditing(cat.id)}
-                        disabled={!editedName.trim() || saving}
+                        className='p-1 text-sm bg-green-600 text-white rounded-lg hover:bg-green-700'
+                        onClick={() => startEditing(cat)}
                       >
-                        <Check className='inline-block mr-1' size={16} />
-                        {saving ? 'Saving...' : 'Save'}
+                        <FilePenLine className='inline-block mr-1' size={16} />
+                        Update
                       </Button>
-                      <Button
-                        className='p-1 text-sm bg-gray-400 text-white rounded-lg hover:bg-gray-500'
-                        onClick={cancelEditing}
-                      >
-                        <X className='inline-block mr-1' size={16} />
-                        Cancel
-                      </Button>
-                    </>
-                  ) : (
-                    <Button
-                      className='p-1 text-sm bg-green-600 text-white rounded-lg hover:bg-green-700'
-                      onClick={() => startEditing(cat)}
-                    >
-                      <FilePenLine className='inline-block mr-1' size={16} />
-                      Update
-                    </Button>
-                  )}
-                </td>
+                    )}
+                  </td>
+                )}
               </tr>
             ))
           ) : (
@@ -126,6 +165,65 @@ export default function CategoryTableEditable({ data = [], loading = false, onRe
           )}
         </tbody>
       </table>
+
+      {/* Pagination */}
+      <div className='flex justify-between items-center mt-2 space-x-4 flex-shrink-0'>
+        <div className='flex items-center space-x-2'>
+          <label htmlFor='itemsPerPage' className='text-sm'>
+            Items per page:
+          </label>
+          <select
+            id='itemsPerPage'
+            value={itemsPerPage}
+            onChange={(e) => {
+              setItemsPerPage(Number(e.target.value));
+              onPageChange(1);
+            }}
+            className='border rounded p-1'
+          >
+            {[5, 10, 20, 50, 100].map((num) => (
+              <option key={num} value={num}>
+                {num}
+              </option>
+            ))}
+          </select>
+        </div>
+
+        {totalPages > 1 && (
+          <div className='flex items-center space-x-2'>
+            <Button variant='outline' size='icon' disabled={currentPage === 1} onClick={() => onPageChange(1)}>
+              <ChevronsLeft />
+            </Button>
+            <Button
+              variant='outline'
+              size='icon'
+              disabled={currentPage === 1}
+              onClick={() => onPageChange(currentPage - 1)}
+            >
+              <ChevronLeft />
+            </Button>
+            <span>
+              Page {currentPage} of {totalPages}
+            </span>
+            <Button
+              variant='outline'
+              size='icon'
+              disabled={currentPage === totalPages}
+              onClick={() => onPageChange(currentPage + 1)}
+            >
+              <ChevronRight />
+            </Button>
+            <Button
+              variant='outline'
+              size='icon'
+              disabled={currentPage === totalPages}
+              onClick={() => onPageChange(totalPages)}
+            >
+              <ChevronsRight />
+            </Button>
+          </div>
+        )}
+      </div>
     </div>
   );
 }

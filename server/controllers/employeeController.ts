@@ -319,7 +319,7 @@ const getBasicEmployeeDetails = async (req: Request, res: Response) => {
     console.log(`Found ${employees.length} active employees`);
     res.status(200).json({
       success: true,
-      data: employees, 
+      data: employees,
       total: employees.length,
     });
   } catch (error) {
@@ -339,6 +339,8 @@ const getAllEmployeesForDropdown = async (req: Request, res: Response, next: Nex
     const employees = await model.getAllEmployeesForDropdown();
     res.status(200).json(employees);
   } catch (error) {
+    console.error('Error in getAllEmployeesForDropdown:', error);
+    res.status(500).json({ message: 'Failed to fetch employees for dropdown' });
     console.error('Error fetching employee list:', error);
     next(error);
   }

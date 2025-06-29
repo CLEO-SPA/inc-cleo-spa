@@ -18,8 +18,13 @@ import {
 import { SiteHeader } from '@/components/site-header';
 import { SidebarInset, SidebarProvider } from '@/components/ui/sidebar';
 import EmployeeSelect from '@/components/ui/forms/EmployeeSelect';
+import { useAuth } from '@/context/AuthContext';
 
 export default function CreateService() {
+  //Role-based access
+  const { user } = useAuth();
+  const allowedRoles = ['super_admin', 'data_admin'];
+
   // Loading
   const [loading, setLoading] = useState(false);
   // Modal
@@ -117,6 +122,13 @@ export default function CreateService() {
       console.error('Error fetching data:' + err);
     }
   }, [])
+
+  // Redirect to 404 page if user does not have the right role
+  useEffect(() => {
+    if (!user || !allowedRoles.includes(user.role)) {
+      navigate('*'); 
+    }
+  }, [user, navigate]);
 
   useEffect(() => {
     try {

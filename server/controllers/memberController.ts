@@ -230,6 +230,16 @@ const getMemberCarePackages = async (req: Request, res: Response, next: NextFunc
   }
 };
 
+const getAllMembersForDropdown = async (req: Request, res: Response) => {
+  try {
+    const members = await model.getAllMembersForDropdown();
+    res.status(200).json(members);
+  } catch (error) {
+    console.error('Error in getAllMembersForDropdown:', error);
+    res.status(500).json({ message: 'Failed to fetch members for dropdown' });
+  }
+};
+
 // Export all handlers in the same pattern
 export default {
   getAllMembers,
@@ -240,4 +250,5 @@ export default {
   searchMemberByNameOrPhone,
   getMemberVouchers,
   getMemberCarePackages,
+  getAllMembersForDropdown,
 };
