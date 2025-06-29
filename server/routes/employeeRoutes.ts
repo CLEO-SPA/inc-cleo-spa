@@ -21,6 +21,8 @@ import employeeController from '../controllers/employeeController.js';
 router.get('/dropdown', employeeController.getAllEmployeesForDropdown);
 router.get('/basic-details', employeeController.getBasicEmployeeDetails);
 
+router.get('/', employeeController.getAllEmployees);
+
 // router.post(
 //   '/create',
 //   employeeController.defaultPassword,
