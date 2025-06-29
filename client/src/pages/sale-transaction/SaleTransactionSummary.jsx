@@ -6,6 +6,8 @@ import { SiteHeader } from '@/components/site-header';
 import { SidebarInset, SidebarProvider } from '@/components/ui/sidebar';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
+import { Label } from '@/components/ui/label';
+import { Input } from '@/components/ui/input';
 import EmployeeSelect from '@/components/ui/forms/EmployeeSelect';
 import useTransactionCartStore from '@/stores/useTransactionCartStore';
 import useSaleTransactionStore from '@/stores/SaleTransaction/useSaleTransactionStore';
@@ -31,6 +33,8 @@ const SaleTransactionSummary = () => {
     setCreatedBy,
     setHandledBy,
     setMemberInfo,
+    setCreatedAt,
+    setUpdatedAt,
     createSaleTransactions,
     validateTransactionDetails,
     reset: resetTransactionStore
@@ -54,6 +58,16 @@ const SaleTransactionSummary = () => {
   useEffect(() => {
     setMemberInfo(selectedMember);
   }, [selectedMember, setMemberInfo]);
+
+  // Initialize creation date/time when component mounts
+  useEffect(() => {
+    // Only set if not already set to avoid overriding user changes
+    if (!transactionDetails.createdAt) {
+      const now = new Date().toISOString().slice(0, 16);
+      setCreatedAt(now);
+      setUpdatedAt(now);
+    }
+  }, []); // Empty dependency array - only run once on mount
   
   // Get cart total (uses pricing data)
   const getUpdatedCartTotal = () => {
@@ -182,54 +196,7 @@ const SaleTransactionSummary = () => {
     }));
   };
 
-  // ✅ Enhanced validation function
-  const isTransactionValid = () => {
-    // Check transaction details validation from store
-    const { isValid } = validateTransactionDetails();
-    if (!isValid) return false;
-    
-    // Check basic transaction requirements
-    const hasCartItems = cartItems.length > 0;
-    
-    // ✅ UPDATED: Check if ALL items have assigned employees (including products)
-    const allItemsHaveEmployees = cartItems.every(item => 
-      itemEmployees[item.id] // Now ALL items need employee assignment
-    );
-    
-    // ✅ NEW: Check if Services & Products section is fully paid
-    const servicesAndProducts = [
-      ...cartItems.filter(item => item.type === 'service'),
-      ...cartItems.filter(item => item.type === 'product')
-    ];
-    
-    let servicesProductsFullyPaid = true;
-    if (servicesAndProducts.length > 0) {
-      const sectionTotal = servicesAndProducts.reduce((total, item) => {
-        const pricing = getItemPricing(item.id);
-        return total + pricing.totalLinePrice;
-      }, 0);
-      
-      const sectionPaymentTotal = sectionPayments['services-products']?.reduce((total, payment) => 
-        total + (payment.amount || 0), 0
-      ) || 0;
-      
-      servicesProductsFullyPaid = Math.abs(sectionTotal - sectionPaymentTotal) < 0.01; // Allow for small rounding differences
-    }
-    
-    // ✅ NEW: Check required transaction details
-    const hasReceiptNumber = transactionDetails.receiptNumber && transactionDetails.receiptNumber.trim() !== '';
-    const hasCreatedBy = transactionDetails.createdBy && transactionDetails.createdBy !== '';
-    const hasHandledBy = transactionDetails.handledBy && transactionDetails.handledBy !== '';
-    
-    return hasCartItems && 
-           allItemsHaveEmployees && 
-           servicesProductsFullyPaid && 
-           hasReceiptNumber && 
-           hasCreatedBy && 
-           hasHandledBy;
-  };
-
-  // ✅ NEW: Detailed validation function for better error messages
+  // Enhanced validation function for better error messages
   const getValidationErrors = () => {
     const errors = [];
     
@@ -251,7 +218,22 @@ const SaleTransactionSummary = () => {
       errors.push('Transaction handler must be selected');
     }
     
-    // ✅ UPDATED: Check employee assignments for ALL items
+    // Check creation date/time with validation
+    if (!transactionDetails.createdAt || transactionDetails.createdAt.trim() === '') {
+      errors.push('Creation date & time is required');
+    } else {
+      // Validate that the date is actually valid
+      try {
+        const dateValue = new Date(transactionDetails.createdAt);
+        if (isNaN(dateValue.getTime())) {
+          errors.push('Creation date & time is invalid');
+        }
+      } catch (error) {
+        errors.push('Creation date & time is invalid');
+      }
+    }
+    
+    // Check employee assignments for ALL items
     const itemsNeedingEmployees = cartItems.filter(item => 
       !itemEmployees[item.id]
     );
@@ -260,7 +242,7 @@ const SaleTransactionSummary = () => {
       errors.push(`Assign employees to all items (${itemsNeedingEmployees.length} items missing employee assignment)`);
     }
     
-    // ✅ NEW: Check Services & Products payment requirement
+    // Check Services & Products payment requirement
     const servicesAndProducts = [
       ...cartItems.filter(item => item.type === 'service'),
       ...cartItems.filter(item => item.type === 'product')
@@ -286,7 +268,12 @@ const SaleTransactionSummary = () => {
     return errors;
   };
 
-  // ✅ Enhanced validation message component
+  // Simplified validation function
+  const isTransactionValid = () => {
+    return getValidationErrors().length === 0;
+  };
+
+  // Enhanced validation message component
   const ValidationMessage = () => {
     const validationErrors = getValidationErrors();
     
@@ -312,8 +299,26 @@ const SaleTransactionSummary = () => {
       minimumFractionDigits: 2
     });
   };
+
+  // Format date for display
+  const formatDate = (dateString) => {
+    if (!dateString) return 'Not set';
+    
+    try {
+      return new Date(dateString).toLocaleString('en-SG', {
+        year: 'numeric',
+        month: '2-digit',
+        day: '2-digit',
+        hour: '2-digit',
+        minute: '2-digit',
+        hour12: false
+      });
+    } catch (error) {
+      return 'Invalid date';
+    }
+  };
   
-  // ✅ FIXED: Handle confirm transaction with proper transfer grouping
+  // Handle confirm transaction with proper transfer grouping
   const handleConfirmTransaction = async () => {
     if (!isTransactionValid()) {
       setModalMessage('Please ensure all transaction requirements are met before proceeding.');
@@ -322,18 +327,17 @@ const SaleTransactionSummary = () => {
     }
     
     try {
-      // ✅ FIXED: Group items by transaction type INCLUDING TRANSFERS
+      // Group items by transaction type INCLUDING TRANSFERS
       const groupedItems = {
         services: cartItems.filter(item => item.type === 'service'),
         products: cartItems.filter(item => item.type === 'product'),
         packages: cartItems.filter(item => item.type === 'package'),
         vouchers: cartItems.filter(item => item.type === 'member-voucher'),
-        // ✅ ADD MISSING TRANSFER GROUPINGS:
         mcpTransfers: cartItems.filter(item => item.type === 'transferMCP' || (item.type === 'transfer' && item.data?.queueItem?.mcp_id1)),
         mvTransfers: cartItems.filter(item => item.type === 'transferMV'),
       };
 
-      // ✅ DEBUG: Log grouped items to verify transfers are found
+      // DEBUG: Log grouped items to verify transfers are found
       console.log('🔍 Grouped Items:', {
         services: groupedItems.services.length,
         products: groupedItems.products.length,
@@ -344,7 +348,7 @@ const SaleTransactionSummary = () => {
         totalCartItems: cartItems.length
       });
 
-      // ✅ FIXED: Prepare transaction data including transfers
+      // Prepare transaction data including transfers
       const transactionData = {
         // Services + Products combined transaction
         servicesProducts: (() => {
@@ -384,7 +388,7 @@ const SaleTransactionSummary = () => {
           payments: sectionPayments[`voucher-${voucher.id}`] || []
         })),
 
-        // ✅ ADD MISSING TRANSFER TRANSACTIONS:
+        // MCP Transfer transactions
         mcpTransferTransactions: groupedItems.mcpTransfers.map(mcpTransfer => ({
           item: {
             ...mcpTransfer,
@@ -395,6 +399,7 @@ const SaleTransactionSummary = () => {
           payments: sectionPayments[`transfer-mcp-${mcpTransfer.id}`] || []
         })),
 
+        // MV Transfer transactions
         mvTransferTransactions: groupedItems.mvTransfers.map(mvTransfer => ({
           item: {
             ...mvTransfer,
@@ -570,117 +575,14 @@ const SaleTransactionSummary = () => {
                   </CardContent>
                 </Card>
               )}
-              
-              {/* Debug Panel - Sale Transaction Data Only */}
-              {showDebug && (
-                <Card className="border-2 border-blue-200 bg-blue-50">
-                  <CardHeader>
-                    <div className="flex items-center justify-between">
-                      <CardTitle className="text-lg text-blue-800">🐛 Debug: Sale Transaction Data</CardTitle>
-                      <Button 
-                        onClick={() => setShowDebug(!showDebug)}
-                        variant="outline" 
-                        size="sm"
-                      >
-                        Hide Debug
-                      </Button>
-                    </div>
-                  </CardHeader>
-                  <CardContent>
-                    {/* Prepared Transaction Data Preview */}
-                    <div className="bg-white p-3 rounded border">
-                      <h4 className="font-semibold text-sm mb-2 text-teal-700">📤 Prepared Sale Transaction Data</h4>
-                      <pre className="text-xs overflow-auto max-h-96 bg-gray-100 p-2 rounded">
-                        {JSON.stringify({
-                          // Transaction Details (from store)
-                          transactionDetails: {
-                            receiptNumber: transactionDetails.receiptNumber,
-                            transactionRemark: transactionDetails.transactionRemark,
-                            createdBy: transactionDetails.createdBy,
-                            handledBy: transactionDetails.handledBy,
-                            memberId: transactionDetails.memberId,
-                            customerType: transactionDetails.customerType
-                          },
-                          // Transaction Data
-                          servicesProducts: (() => {
-                            const groupedItems = {
-                              services: cartItems.filter(item => item.type === 'service'),
-                              products: cartItems.filter(item => item.type === 'product'),
-                            };
-                            const items = [...groupedItems.services, ...groupedItems.products];
-                            return items.length === 0 ? null : {
-                              items: items.map(item => ({
-                                ...item,
-                                pricing: getItemPricing(item.id),
-                                assignedEmployee: itemEmployees[item.id] || null,
-                                remarks: itemRemarks[item.id] || ''
-                              })),
-                              payments: sectionPayments['services-products'] || []
-                            };
-                          })(),
-                          mcpTransactions: cartItems.filter(item => item.type === 'package').map(pkg => ({
-                            item: {
-                              ...pkg,
-                              pricing: getItemPricing(pkg.id),
-                              assignedEmployee: itemEmployees[pkg.id] || null,
-                              remarks: itemRemarks[pkg.id] || ''
-                            },
-                            payments: sectionPayments[`package-${pkg.id}`] || []
-                          })),
-                          mvTransactions: cartItems.filter(item => item.type === 'member-voucher').map(voucher => ({
-                            item: {
-                              ...voucher,
-                              pricing: getItemPricing(voucher.id),
-                              assignedEmployee: itemEmployees[voucher.id] || null,
-                              remarks: itemRemarks[voucher.id] || ''
-                            },
-                            payments: sectionPayments[`voucher-${voucher.id}`] || []
-                          })),
-                          mcpTransferTransactions: cartItems.filter(item => item.type === 'transferMCP' || (item.type === 'transfer' && item.data?.queueItem?.mcp_id1)).map(mcpTransfer => ({
-                            item: {
-                              ...mcpTransfer,
-                              pricing: getItemPricing(mcpTransfer.id),
-                              assignedEmployee: itemEmployees[mcpTransfer.id] || null,
-                              remarks: itemRemarks[mcpTransfer.id] || ''
-                            },
-                            payments: sectionPayments[`transfer-mcp-${mcpTransfer.id}`] || []
-                          })),
-                          mvTransferTransactions: cartItems.filter(item => item.type === 'transferMV').map(mvTransfer => ({
-                            item: {
-                              ...mvTransfer,
-                              pricing: getItemPricing(mvTransfer.id),
-                              assignedEmployee: itemEmployees[mvTransfer.id] || null,
-                              remarks: itemRemarks[mvTransfer.id] || ''
-                            },
-                            payments: sectionPayments[`transfer-mv-${mvTransfer.id}`] || []
-                          }))
-                        }, null, 2)}
-                      </pre>
-                    </div>
-                  </CardContent>
-                </Card>
-              )}
 
-              {/* Debug Toggle Button (when debug is hidden) */}
-              {!showDebug && (
-                <div className="flex justify-center">
-                  <Button 
-                    onClick={() => setShowDebug(true)}
-                    variant="outline" 
-                    size="sm"
-                    className="border-blue-300 text-blue-600 hover:bg-blue-50"
-                  >
-                    🐛 Show Debug Info
-                  </Button>
-                </div>
-              )}
-              
-              {/* ✅ Enhanced Transaction Information - Using Store Management */}
+              {/* Transaction Information */}
               <Card>
                 <CardHeader>
                   <CardTitle className="text-lg">Transaction Information</CardTitle>
                 </CardHeader>
                 <CardContent className="space-y-4">
+                  {/* First Row: Receipt Number & Creation Date/Time */}
                   <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                     <div>
                       <label htmlFor="receiptNumber" className="block text-sm font-medium text-gray-700 mb-1">
@@ -689,7 +591,7 @@ const SaleTransactionSummary = () => {
                       <input
                         id="receiptNumber"
                         type="text"
-                        value={transactionDetails.receiptNumber}
+                        value={transactionDetails.receiptNumber || ''}
                         onChange={(e) => setReceiptNumber(e.target.value)}
                         disabled={isCreating}
                         className={`w-full p-2 border rounded-md disabled:bg-gray-100 ${
@@ -705,22 +607,56 @@ const SaleTransactionSummary = () => {
                       )}
                     </div>
                     
-                    <div>
-                      <label htmlFor="transactionRemark" className="block text-sm font-medium text-gray-700 mb-1">
-                        Transaction Remark
-                      </label>
-                      <textarea
-                        id="transactionRemark"
-                        value={transactionDetails.transactionRemark}
-                        onChange={(e) => setTransactionRemark(e.target.value)}
+                    {/* Creation Date & Time Field */}
+                    <div className={`${
+                      !transactionDetails.createdAt || transactionDetails.createdAt.trim() === ''
+                        ? 'ring-2 ring-red-200 rounded-md p-2' 
+                        : ''
+                    }`}>
+                      <Label htmlFor='created_at' className='text-sm font-medium pb-1 text-gray-700'>
+                        Creation date & time <span className="text-red-500">*</span>
+                      </Label>
+                      <Input
+                        type='datetime-local'
+                        id='created_at'
+                        value={transactionDetails.createdAt || new Date().toISOString().slice(0, 16)}
+                        onChange={(e) => {
+                          const newValue = e.target.value || new Date().toISOString().slice(0, 16);
+                          setCreatedAt(newValue);
+                          setUpdatedAt(newValue);
+                        }}
                         disabled={isCreating}
-                        className="w-full p-2 border border-gray-300 rounded-md disabled:bg-gray-100 focus:border-blue-500 focus:ring-blue-200"
-                        placeholder="Enter transaction remark (optional)"
-                        rows={1}
+                        step='1'
+                        className={`w-full ${
+                          !transactionDetails.createdAt || transactionDetails.createdAt.trim() === ''
+                            ? 'border-red-300 focus:border-red-500 focus:ring-red-200' 
+                            : ''
+                        }`}
+                        required
                       />
+                      {(!transactionDetails.createdAt || transactionDetails.createdAt.trim() === '') && (
+                        <p className="text-red-500 text-xs mt-1">Creation date & time is required</p>
+                      )}
                     </div>
                   </div>
                   
+                  {/* Second Row: Transaction Remark (full width) */}
+                  <div>
+                    <label htmlFor="transactionRemark" className="block text-sm font-medium text-gray-700 mb-1">
+                      Transaction Remark
+                    </label>
+                    <textarea
+                      id="transactionRemark"
+                      value={transactionDetails.transactionRemark || ''}
+                      onChange={(e) => setTransactionRemark(e.target.value)}
+                      disabled={isCreating}
+                      className="w-full p-2 border border-gray-300 rounded-md disabled:bg-gray-100 focus:border-blue-500 focus:ring-blue-200"
+                      placeholder="Enter transaction remark (optional)"
+                      rows={2}
+                    />
+                  </div>
+                  
+                  {/* Third Row: Creator & Handler */}
                   <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                     <div className={`${
                       !transactionDetails.createdBy || transactionDetails.createdBy === ''
@@ -757,7 +693,7 @@ const SaleTransactionSummary = () => {
                     </div>
                   </div>
                   
-                  {/* Transaction Details Summary */}
+                  {/* Transaction Details Summary with Creation Date */}
                   <div className="mt-4 p-3 bg-gray-50 rounded-md">
                     <h4 className="text-sm font-medium text-gray-700 mb-2">Transaction Summary</h4>
                     <div className="grid grid-cols-2 gap-4 text-xs">
@@ -768,6 +704,18 @@ const SaleTransactionSummary = () => {
                       <div>
                         <span className="text-gray-500">Member ID:</span>
                         <span className="ml-2 font-medium">{transactionDetails.memberId || 'N/A'}</span>
+                      </div>
+                      <div>
+                        <span className="text-gray-500">Created At:</span>
+                        <span className="ml-2 font-medium">
+                          {formatDate(transactionDetails.createdAt)}
+                        </span>
+                      </div>
+                      <div>
+                        <span className="text-gray-500">Updated At:</span>
+                        <span className="ml-2 font-medium">
+                          {formatDate(transactionDetails.updatedAt)}
+                        </span>
                       </div>
                     </div>
                   </div>
@@ -784,7 +732,7 @@ const SaleTransactionSummary = () => {
                       <p className="text-sm text-gray-500 mt-1">Add some items to continue</p>
                       <Button 
                         className="mt-4" 
-                        onClick={() => navigate('/cart-test')}
+                        onClick={() => navigate('/sal')}
                         disabled={isCreating}
                       >
                         Add Items
@@ -812,7 +760,7 @@ const SaleTransactionSummary = () => {
               {/* Transaction Actions */}
               {cartItems.length > 0 && (
                 <>
-                  {/* ✅ Enhanced Validation Message */}
+                  {/* Enhanced Validation Message */}
                   {!isTransactionValid() && !isCreating && <ValidationMessage />}
                   
                   {/* Action Buttons */}

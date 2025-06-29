@@ -27,7 +27,7 @@ import ViewVoucherTemplatePage from '@/pages/voucher-template/ViewVoucherTemplat
 import ManageVouchersPage from '@/pages/MemberVoucher/ManageVoucherPage';
 
 // Sale Transaction
-import MockSalesTransactionPage from '@/pages/sale-transaction/mockSaleTransactionPage';
+import SalesTransactionPage from '@/pages/sale-transaction/SaleTransactionPage';
 import SaleTransactionList from '@/pages/sale-transaction/SaleTransactionList';
 import SaleTransactionDetail from '@/pages/sale-transaction/SaleTransactionDetail';
 import SaleTransactionSummary from '@/pages/sale-transaction/SaleTransactionSummary';
@@ -110,7 +110,7 @@ function App() {
               <Route path='/voucher-template/:id' element={<ViewVoucherTemplatePage />} />
 
               {/* Sales Transactions */}
-              <Route path='/cart-test' element={<MockSalesTransactionPage />} />
+              <Route path='/sale-transaction' element={<SalesTransactionPage />} />
               <Route path='/sale-transaction/list' element={<SaleTransactionList />} />
               <Route path='/sale-transaction/:id' element={<SaleTransactionDetail />} />
               <Route path='/sale-transaction/summary' element={<SaleTransactionSummary />} />

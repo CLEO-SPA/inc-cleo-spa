@@ -153,6 +153,8 @@ export interface TransactionRequestData {
   handled_by: number;
   items: TransactionRequestItem[];
   payments: PaymentMethodRequest[];
+  created_at?: string; 
+  updated_at?: string;
 }
 
 export interface TransactionCreationResult {
@@ -216,6 +218,8 @@ export interface SingleItemTransactionRequestData {
   handled_by: number;
   item: SingleTransactionRequestItem; 
   payments: PaymentMethodRequest[];
+  created_at?: string; 
+  updated_at?: string;
 }
 
 export interface SingleItemTransactionCreationResult {

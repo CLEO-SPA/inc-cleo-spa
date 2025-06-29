@@ -7,7 +7,7 @@ import Cart from './Cart';
 import { useNavigate } from 'react-router-dom';
 import useTransactionCartStore from '@/stores/useTransactionCartStore';
 
-export default function MockSalesTransactionPage() {
+export default function SalesTransactionPage() {
     const navigate = useNavigate();
     const { getCartTotal, cartItems } = useTransactionCartStore();
     

@@ -144,7 +144,7 @@ const data = {
       items: [
         {
           title: 'Create Sale Transactions',
-          url: '/cart-test',
+          url: '/sale-transaction',
         },
         {
           title: 'View Sale Transactions',
