@@ -1019,7 +1019,7 @@ const createMcpTransaction = async (
       item.pricing?.discount || 0,
       item.pricing?.quantity || 1,
       item.pricing?.totalLinePrice || 0,
-      'package',
+      'member care package', 
       item.remarks || ''
     ];
 
@@ -1316,7 +1316,7 @@ const createMvTransaction = async (
       item.pricing?.discount || 0,
       item.pricing?.quantity || 1,
       item.pricing?.totalLinePrice || 0,
-      'member-voucher',
+      'member voucher',
       item.remarks || ''
     ];
 
@@ -1577,7 +1577,7 @@ const createMcpTransferTransaction = async (
       item.pricing?.discount || 0,
       item.pricing?.quantity || 1,
       item.pricing?.totalLinePrice || 0,
-      'mcp_transfer', 
+      'member care package', 
       transferRemarks
     ];
 
@@ -1841,7 +1841,7 @@ const createMvTransferTransaction = async (
       item.pricing?.discount || 0,
       item.pricing?.quantity || 1,
       item.pricing?.totalLinePrice || 0,
-      'mv_transfer',
+      'member voucher',
       item.remarks || item.data?.description || ''
     ];
 
@@ -2063,6 +2063,9 @@ const processPartialPayment = async (
     const newTransactionResult = await client.query(newTransactionQuery, newTransactionParams);
     const newTransactionId = newTransactionResult.rows[0].id;
 
+    const packageItems = originalItems.filter((item: any) => item.member_care_package_id);
+    const voucherItems = originalItems.filter((item: any) => item.member_voucher_id);
+
     console.log('Created new transaction with ID:', newTransactionId, 'handled by:', transaction_handler_id, 'created at:', customCreatedAt || 'current time');
 
     // Copy all items from original transaction
@@ -2074,6 +2077,12 @@ const processPartialPayment = async (
           remarks, amount, item_type
         ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12)
       `;
+
+          if (packageItems.length > 0) {
+    item.item_type = 'member care package';
+    }else if( voucherItems.length > 0) {
+      item.item_type = 'member voucher';
+    }
 
       const itemParams = [
         newTransactionId, item.service_name, item.product_name, 
@@ -2108,8 +2117,6 @@ const processPartialPayment = async (
     );
 
 
-    const packageItems = originalItems.filter((item: any) => item.member_care_package_id);
-    const voucherItems = originalItems.filter((item: any) => item.member_voucher_id);
 
 
     if (packageItems.length > 0) {
