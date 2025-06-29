@@ -23,7 +23,7 @@ import {
   PartialPaymentResult
 
 } from '../types/SaleTransactionTypes.js';
-
+import mcpModel from './mcpModel.js';
 
 const getSalesTransactionList = async (
   filter?: string,
@@ -830,24 +830,15 @@ const createMcpTransaction = async (
   transactionData: SingleItemTransactionRequestData
 ): Promise<SingleItemTransactionCreationResult> => {
   const client = await pool().connect();
-  
+  // Define mcpId outside the try block so it's available in the catch block
+  let mcpId: string | number | null | undefined = null;
+
   try {
     await client.query('BEGIN');
 
     // Extract data from request
-    const {
-      customer_type,
-      member_id,
-      receipt_number,
-      remarks,
-      created_by,
-      handled_by,
-      item,
-      payments,
-
-      created_at,
-      updated_at
-    } = transactionData;
+    const { customer_type, member_id, receipt_number, remarks, created_by, handled_by, item, payments } =
+      transactionData;
 
     // Validate required fields
     if (!created_by) {
@@ -866,69 +857,43 @@ const createMcpTransaction = async (
       throw new Error('payments array is required and cannot be empty');
     }
 
-    let customCreatedAt = null;
-    let customUpdatedAt = null;
-    
-    if (created_at) {
-      try {
-        customCreatedAt = new Date(created_at);
-        if (isNaN(customCreatedAt.getTime())) {
-          customCreatedAt = new Date();
-        }
-      } catch (error) {
-        customCreatedAt = new Date();
-      }
-    } else {
-      customCreatedAt = new Date();
-    }
-    
-    if (updated_at) {
-      try {
-        customUpdatedAt = new Date(updated_at);
-        if (isNaN(customUpdatedAt.getTime())) {
-          customUpdatedAt = customCreatedAt;
-        }
-      } catch (error) {
-        customUpdatedAt = customCreatedAt;
-      }
-    } else {
-      customUpdatedAt = customCreatedAt;
-    }
+    // Extract the actual MCP ID from the item data
+    mcpId = item.data?.member_care_package_id || item.data?.id;
 
-
-    const mcpId = item.data?.member_care_package_id || item.data?.id;
-    
     if (!mcpId) {
       throw new Error('member_care_package_id is required in item data');
     }
 
-    // Validate that the MCP ID exists in the database and get current balance
+    // Validate that the MCP ID exists in the database
     const mcpValidationQuery = `
-      SELECT id, package_name, balance 
+      SELECT id, package_name 
       FROM member_care_packages 
       WHERE id = $1
     `;
-    
+
     const mcpValidationResult = await client.query(mcpValidationQuery, [mcpId]);
-    
+
     if (mcpValidationResult.rows.length === 0) {
       throw new Error(`Member Care Package with ID ${mcpId} not found`);
     }
 
     const mcpRecord = mcpValidationResult.rows[0];
-    const currentBalance = parseFloat(mcpRecord.balance) || 0;
+    console.log('✅ Validated MCP exists:', {
+      mcpId: mcpId,
+      packageName: mcpRecord.care_package_name,
+    });
 
     // Calculate totals from single package item
     const totalTransactionAmount: number = item.pricing?.totalLinePrice || 0;
 
     const PENDING_PAYMENT_METHOD_ID = 7;
-    
-    const pendingPayments = payments.filter((payment: PaymentMethodRequest) => 
-      payment.methodId === PENDING_PAYMENT_METHOD_ID
+
+    const pendingPayments = payments.filter(
+      (payment: PaymentMethodRequest) => payment.methodId === PENDING_PAYMENT_METHOD_ID
     );
-    
-    const nonPendingPayments = payments.filter((payment: PaymentMethodRequest) => 
-      payment.methodId !== PENDING_PAYMENT_METHOD_ID
+
+    const nonPendingPayments = payments.filter(
+      (payment: PaymentMethodRequest) => payment.methodId !== PENDING_PAYMENT_METHOD_ID
     );
     const totalPaidAmount: number = nonPendingPayments.reduce((total: number, payment: PaymentMethodRequest) => {
       return total + (payment.amount || 0);
@@ -939,7 +904,18 @@ const createMcpTransaction = async (
     }, 0);
 
     const transactionStatus: 'FULL' | 'PARTIAL' = outstandingAmount <= 0 ? 'FULL' : 'PARTIAL';
-    const processPayment: boolean = outstandingAmount > 0; 
+    const processPayment: boolean = outstandingAmount > 0;
+
+    // Verification: total should match
+    const calculatedTotal = totalPaidAmount + outstandingAmount;
+    if (Math.abs(calculatedTotal - totalTransactionAmount) > 0.01) {
+      console.warn('Payment total mismatch:', {
+        totalTransactionAmount,
+        totalPaidAmount,
+        outstandingAmount,
+        calculatedTotal,
+      });
+    }
 
     // Use receipt number from frontend
     let finalReceiptNo: string = receipt_number || '';
@@ -951,6 +927,7 @@ const createMcpTransaction = async (
       finalReceiptNo = `ST${receiptResult.rows[0].next_number.toString().padStart(6, '0')}`;
     }
 
+    // Insert main sales transaction
     const transactionQuery: string = `
       INSERT INTO sale_transactions (
         customer_type,
@@ -965,11 +942,11 @@ const createMcpTransaction = async (
         created_by,
         created_at,
         updated_at
-      ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12)
+      ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, NOW(), NOW())
       RETURNING id
     `;
 
-    const transactionParams: (string | number | boolean | null | Date)[] = [
+    const transactionParams: (string | number | boolean | null)[] = [
       customer_type?.toUpperCase() || 'MEMBER',
       member_id || null,
       totalPaidAmount,
@@ -980,13 +957,14 @@ const createMcpTransaction = async (
       processPayment,
       handled_by,
       created_by,
-      customCreatedAt, 
-      customUpdatedAt 
     ];
+
+    console.log('MCP Transaction Query:', transactionQuery);
+    console.log('MCP Transaction Params:', transactionParams);
 
     const transactionResult = await client.query(transactionQuery, transactionParams);
     const saleTransactionId: number = transactionResult.rows[0].id;
-    
+
     console.log('Created MCP sale transaction with ID:', saleTransactionId);
 
     // Insert package item with actual MCP ID
@@ -1003,8 +981,10 @@ const createMcpTransaction = async (
         quantity,
         amount,
         item_type,
-        remarks
-      ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12)
+        remarks,
+        created_at,
+        updated_at
+      ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, NOW(), NOW())
       RETURNING id
     `;
 
@@ -1012,44 +992,30 @@ const createMcpTransaction = async (
       saleTransactionId,
       null, // service_name
       null, // product_name
-      mcpId, 
+      mcpId, // Use actual MCP ID instead of hardcoded value
       null, // member_voucher_id
       item.pricing?.originalPrice || 0,
       item.pricing?.customPrice || 0,
       item.pricing?.discount || 0,
       item.pricing?.quantity || 1,
       item.pricing?.totalLinePrice || 0,
-      'member care package', 
-      item.remarks || ''
+      'package',
+      item.remarks || '',
     ];
+
+    console.log('MCP Item Query:', itemQuery);
+    console.log('MCP Item Params (with actual MCP ID):', {
+      ...itemParams,
+      mcpId: mcpId,
+      packageName: mcpRecord.care_package_name,
+    });
 
     const itemResult = await client.query(itemQuery, itemParams);
     const saleTransactionItemId: number = itemResult.rows[0].id;
-    
+
     console.log('Created MCP sale transaction item with ID:', saleTransactionItemId);
 
-    // Update MCP balance with the paid amount (only non-pending payments)
-    if (totalPaidAmount > 0) {
-      const newBalance = currentBalance + totalPaidAmount;
-      
-      const updateBalanceQuery = `
-        UPDATE member_care_packages 
-        SET balance = $1, updated_at = $2
-        WHERE id = $3
-        RETURNING balance
-      `;
-      
-      const updateBalanceResult = await client.query(updateBalanceQuery, [newBalance, customUpdatedAt, mcpId]);
-      const updatedBalance = updateBalanceResult.rows[0].balance;
-      
-      console.log('✅ Updated MCP balance:', {
-        mcpId: mcpId,
-        previousBalance: currentBalance,
-        paidAmount: totalPaidAmount,
-        newBalance: updatedBalance
-      });
-    }
-
+    // Insert ALL payment records (both pending and non-pending)
     for (const payment of payments) {
       if (payment.amount > 0) {
         const paymentQuery: string = `
@@ -1061,19 +1027,20 @@ const createMcpTransaction = async (
             created_by,
             created_at,
             updated_at
-          ) VALUES ($1, $2, $3, $4, $5, $6, $7)
+          ) VALUES ($1, $2, $3, $4, $5, NOW(), NOW())
           RETURNING id
         `;
 
-        const paymentParams: (number | string | Date)[] = [
+        const paymentParams: (number | string)[] = [
           saleTransactionId,
           payment.methodId,
           payment.amount,
           payment.remark || '',
           created_by,
-          customCreatedAt, 
-          customUpdatedAt 
         ];
+
+        console.log('Payment Query:', paymentQuery);
+        console.log('Payment Params:', paymentParams);
 
         const paymentResult = await client.query(paymentQuery, paymentParams);
         console.log('Created payment with ID:', paymentResult.rows[0].id);
@@ -1091,25 +1058,36 @@ const createMcpTransaction = async (
       member_id: member_id ? member_id.toString() : null,
       total_transaction_amount: totalTransactionAmount,
       total_paid_amount: totalPaidAmount,
-      outstanding_total_payment_amount: outstandingAmount, 
+      outstanding_total_payment_amount: outstandingAmount,
       transaction_status: transactionStatus,
       remarks: remarks || '',
       created_by,
       handled_by,
-      package_id: mcpId,
-      package_name: mcpRecord.package_name, 
+      package_id: mcpId as number, // Use actual MCP ID
+      package_name: mcpRecord.care_package_name, // Use actual package name from database
       items_count: 1,
-      payments_count: payments.filter((p: PaymentMethodRequest) => p.amount > 0).length
+      payments_count: payments.filter((p: PaymentMethodRequest) => p.amount > 0).length,
     };
-
   } catch (error) {
     await client.query('ROLLBACK');
     console.error('Error creating MCP sale transaction:', error);
+
+    // Only attempt to delete the MCP if we have a valid ID
+    if (mcpId) {
+      try {
+        await mcpModel.deleteMemberCarePackage(mcpId as string);
+        console.log(`Successfully deleted MCP with ID ${mcpId} after transaction failure`);
+      } catch (deleteError) {
+        console.error(`Failed to delete MCP with ID ${mcpId} after transaction failure:`, deleteError);
+      }
+    }
+
     throw error;
   } finally {
     client.release();
   }
 };
+
 
 const createMvTransaction = async (
   transactionData: SingleItemTransactionRequestData
