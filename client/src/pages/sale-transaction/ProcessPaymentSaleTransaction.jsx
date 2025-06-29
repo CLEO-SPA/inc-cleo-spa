@@ -24,7 +24,7 @@ const ProcessPaymentSaleTransaction = () => {
     const dropdownPaymentMethods = usePaymentMethodStore((state) => state.dropdownPaymentMethods);
     const fetchDropdownPaymentMethods = usePaymentMethodStore((state) => state.fetchDropdownPaymentMethods);
     
-    // Proceed payment store with detailed logging
+    // Proceed payment store - UPDATED to include transaction handler
     const {
         // State
         transaction,
@@ -34,7 +34,9 @@ const ProcessPaymentSaleTransaction = () => {
         newPayments,
         selectedPaymentMethod,
         paymentHandlerId,
+        transactionHandlerId, // NEW: Added transaction handler
         generalRemark,
+        createdAt, // RESTORED: Added creation date
         PENDING_PAYMENT_METHOD_ID,
         
         // Actions
@@ -44,7 +46,9 @@ const ProcessPaymentSaleTransaction = () => {
         setProcessing,
         setSelectedPaymentMethod,
         setPaymentHandlerId,
+        setTransactionHandlerId, // NEW: Added transaction handler setter
         setGeneralRemark,
+        setCreatedAt, // RESTORED: Added creation date setter
         addPayment,
         removePayment,
         updatePaymentAmount,
@@ -60,25 +64,6 @@ const ProcessPaymentSaleTransaction = () => {
         // Utils
         reset
     } = useProceedPaymentStore();
-
-    // Debug: Log all store state changes
-    useEffect(() => {
-        console.log('🔍 Store State Debug:', {
-            newPayments,
-            selectedPaymentMethod,
-            paymentHandlerId,
-            processing,
-            transactionExists: !!transaction
-        });
-    }, [newPayments, selectedPaymentMethod, paymentHandlerId, processing, transaction]);
-
-    // Debug: Log payment methods from store
-    useEffect(() => {
-        console.log('🔍 Payment Methods Debug:', {
-            dropdownPaymentMethodsLength: dropdownPaymentMethods.length,
-            dropdownPaymentMethods: dropdownPaymentMethods.map(pm => ({ id: pm.id, name: pm.payment_method_name }))
-        });
-    }, [dropdownPaymentMethods]);
 
     // Load data on component mount
     useEffect(() => {
@@ -97,9 +82,14 @@ const ProcessPaymentSaleTransaction = () => {
                 }
 
                 const transactionData = transactionResponse.data.data;
-                setTransaction(transactionData);
+                setTransaction(transactionData); // This will auto-set transaction handler in updated store
 
                 console.log('✅ Transaction data loaded:', transactionData);
+
+                // Initialize creation date to current time if not set
+                if (!transactionData.createdAt) {
+                    setCreatedAt(new Date().toISOString().slice(0, 16));
+                }
 
                 // Load payment methods if not already loaded
                 if (dropdownPaymentMethods.length === 0) {
@@ -128,67 +118,46 @@ const ProcessPaymentSaleTransaction = () => {
         };
     }, [id, dropdownPaymentMethods.length, fetchDropdownPaymentMethods, setTransaction, setLoading, setError, reset]);
 
-    // Add new payment method with extensive debugging
+    // Add new payment method
     const handleAddPaymentMethod = () => {
         console.log('🎯 ADD PAYMENT METHOD CALLED');
-        console.log('🔍 Current selectedPaymentMethod:', selectedPaymentMethod, typeof selectedPaymentMethod);
-        console.log('🔍 Current newPayments before add:', newPayments);
-        console.log('🔍 Available dropdownPaymentMethods:', dropdownPaymentMethods);
         
         if (!selectedPaymentMethod) {
-            console.log('❌ No payment method selected, returning');
             alert('Please select a payment method first');
             return;
         }
 
-        // Keep as string for comparison since payment method IDs are strings
         const selectedId = selectedPaymentMethod.toString();
-        console.log('🔍 Selected ID as string:', selectedId, typeof selectedId);
 
         // Don't allow manual addition of pending payment method
         if (selectedId === PENDING_PAYMENT_METHOD_ID.toString()) {
-            console.log('❌ Attempting to add pending payment method');
             alert('Pending payment method is auto-managed and cannot be added manually');
             setSelectedPaymentMethod('');
             return;
         }
 
         // Find the method from the available payment methods
-        const method = dropdownPaymentMethods.find(m => {
-            console.log('🔍 Comparing method ID:', m.id, 'with selectedId:', selectedId, typeof m.id, typeof selectedId);
-            return m.id === selectedId;
-        });
-        
-        console.log('🔍 Found method:', method);
+        const method = dropdownPaymentMethods.find(m => m.id === selectedId);
         
         if (!method) {
-            console.error('❌ Payment method not found for ID:', selectedId);
-            console.error('❌ Available methods:', dropdownPaymentMethods.map(m => ({ id: m.id, name: m.payment_method_name })));
             alert(`Payment method with ID ${selectedId} not found. Please try again.`);
             return;
         }
 
         const newPayment = {
             id: Date.now(),
-            methodId: selectedId, // Keep as string to match the original data type
+            methodId: selectedId,
             methodName: method.payment_method_name,
             amount: 0,
             remark: ''
         };
 
         console.log('✅ Creating new payment:', newPayment);
-        
-        // Add to store
         addPayment(newPayment);
-        
-        console.log('✅ Payment added to store');
-        console.log('🔍 New payments after add should be updated...');
     };
 
     // Update payment amount with validation
     const handleUpdatePaymentAmount = (paymentId, amount) => {
-        console.log('💰 Updating payment amount:', { paymentId, amount });
-        
         const numAmount = parseFloat(amount) || 0;
         
         // Calculate total of other payments
@@ -208,7 +177,7 @@ const ProcessPaymentSaleTransaction = () => {
         updatePaymentAmount(paymentId, clampedAmount);
     };
 
-    // Process payment
+    // Process payment - UPDATED TO USE NEW ENDPOINT
     const handleProcessPayment = async () => {
         const validation = isValidForProcessing();
         
@@ -237,25 +206,29 @@ const ProcessPaymentSaleTransaction = () => {
 
             console.log('🔄 Processing payments:', allPayments);
 
-            // Process each payment
-            for (const payment of allPayments) {
-                const paymentData = {
-                    sale_transaction_id: parseInt(id),
-                    payment_method_id: payment.methodId,
+            // UPDATED: Prepare payment data in the format expected by processPartialPayment
+            const paymentData = {
+                payments: allPayments.map(payment => ({
+                    payment_method_id: parseInt(payment.methodId),
                     amount: parseFloat(payment.amount),
-                    remarks: payment.remark || generalRemark || '',
+                    remarks: payment.remark || '',
                     payment_handler_id: parseInt(paymentHandlerId)
-                };
+                })),
+                general_remarks: generalRemark || '',
+                transaction_handler_id: parseInt(transactionHandlerId), // Use the selected transaction handler
+                created_at: createdAt // RESTORED: Include custom creation date
+            };
 
-                console.log('📤 Sending payment:', paymentData);
+            console.log('📤 Sending payment data to /st/pp/' + id + ':', paymentData);
 
-                const response = await api.post('/st/payment', paymentData);
-                
-                if (!response.data.success) {
-                    throw new Error(response.data.message || 'Failed to process payment');
-                }
+            // UPDATED: Call the correct endpoint with transaction ID in the URL
+            const response = await api.post(`/st/pp/${id}`, paymentData);
+            
+            if (!response.data.success) {
+                throw new Error(response.data.message || 'Failed to process payment');
             }
 
+            console.log('✅ Payment processed successfully:', response.data);
             alert('Payment processed successfully!');
             navigate('/sale-transaction/list');
 
@@ -343,93 +316,7 @@ const ProcessPaymentSaleTransaction = () => {
             <SidebarInset>
                 <SiteHeader />
                 <div className="flex-1 space-y-4 p-4 md:p-8 pt-6">
-                    {/* Debug Panel */}
-                    <div className="bg-yellow-50 border border-yellow-200 p-4 rounded-lg">
-                        <h3 className="font-bold text-yellow-800 mb-2">🐛 Debug Information</h3>
-                        <div className="text-sm space-y-1">
-                            <div><strong>Selected Payment Method:</strong> {selectedPaymentMethod || 'None'} (type: {typeof selectedPaymentMethod})</div>
-                            <div><strong>Payment Handler ID:</strong> {paymentHandlerId || 'None'}</div>
-                            <div><strong>New Payments Count:</strong> {newPayments.length}</div>
-                            <div><strong>Payment Methods Available:</strong> {dropdownPaymentMethods.length}</div>
-                            <div><strong>Transaction Loaded:</strong> {transaction ? 'Yes' : 'No'}</div>
-                            <div><strong>Store Path:</strong> useProceedPaymentStore from @/stores/SaleTransaction/useProceedPaymentStore</div>
-                            <div><strong>PENDING_PAYMENT_METHOD_ID:</strong> {PENDING_PAYMENT_METHOD_ID} (type: {typeof PENDING_PAYMENT_METHOD_ID})</div>
-                        </div>
-                        
-                        {/* Payment Methods Debug */}
-                        <div className="mt-3">
-                            <strong>Available Payment Methods:</strong>
-                            <div className="text-xs bg-gray-100 p-2 rounded mt-1 max-h-32 overflow-auto">
-                                {dropdownPaymentMethods.length > 0 ? (
-                                    dropdownPaymentMethods.map((pm, index) => (
-                                        <div key={index} className="mb-1">
-                                            ID: {pm.id} ({typeof pm.id}) - Name: {pm.payment_method_name}
-                                        </div>
-                                    ))
-                                ) : (
-                                    <div className="text-gray-500">No payment methods loaded</div>
-                                )}
-                            </div>
-                        </div>
-
-                        {/* Store State Debug */}
-                        <div className="mt-3">
-                            <strong>Store State:</strong>
-                            <div className="text-xs bg-gray-100 p-2 rounded mt-1 max-h-40 overflow-auto">
-                                <div><strong>newPayments.length:</strong> {newPayments.length}</div>
-                                <div><strong>selectedPaymentMethod:</strong> "{selectedPaymentMethod}" ({typeof selectedPaymentMethod})</div>
-                                <div><strong>paymentHandlerId:</strong> "{paymentHandlerId}" ({typeof paymentHandlerId})</div>
-                                <div><strong>processing:</strong> {processing.toString()}</div>
-                                <div><strong>loading:</strong> {loading.toString()}</div>
-                                <div><strong>error:</strong> {error || 'null'}</div>
-                            </div>
-                        </div>
-
-                        {newPayments.length > 0 && (
-                            <div className="mt-3">
-                                <strong>Current Payments in Store:</strong>
-                                <div className="text-xs bg-green-100 p-2 rounded mt-1 max-h-32 overflow-auto">
-                                    {newPayments.map((payment, index) => (
-                                        <div key={index} className="mb-2 p-1 border-b border-green-200">
-                                            <div><strong>#{index + 1}:</strong> {payment.methodName}</div>
-                                            <div>ID: {payment.id}, Method ID: {payment.methodId}, Amount: {payment.amount}</div>
-                                        </div>
-                                    ))}
-                                </div>
-                            </div>
-                        )}
-
-                        {/* Action Test Buttons */}
-                        <div className="mt-3 space-x-2">
-                            <button 
-                                onClick={() => {
-                                    console.log('🔍 Manual Debug - Full Store State:');
-                                    console.log('newPayments:', newPayments);
-                                    console.log('selectedPaymentMethod:', selectedPaymentMethod);
-                                    console.log('dropdownPaymentMethods:', dropdownPaymentMethods);
-                                }}
-                                className="px-2 py-1 bg-blue-500 text-white text-xs rounded"
-                            >
-                                Log Store State
-                            </button>
-                            <button 
-                                onClick={() => {
-                                    const testPayment = {
-                                        id: Date.now(),
-                                        methodId: '1',
-                                        methodName: 'Test Payment',
-                                        amount: 10,
-                                        remark: 'Test'
-                                    };
-                                    console.log('🧪 Test: Adding payment directly:', testPayment);
-                                    addPayment(testPayment);
-                                }}
-                                className="px-2 py-1 bg-green-500 text-white text-xs rounded"
-                            >
-                                Test Add Payment
-                            </button>
-                        </div>
-                    </div>
+                    
 
                     {/* Header */}
                     <div className="flex items-center justify-between">
@@ -485,6 +372,12 @@ const ProcessPaymentSaleTransaction = () => {
                                             {transaction.member?.name || 'Walk-in Customer'}
                                         </p>
                                     </div>
+                                    <div>
+                                        <Label className="text-sm text-gray-500">Original Handler</Label>
+                                        <p className="font-medium">
+                                            {transaction.handler?.name || 'Not specified'}
+                                        </p>
+                                    </div>
                                 </div>
                                 
                                 {/* Payment Summary */}
@@ -523,6 +416,22 @@ const ProcessPaymentSaleTransaction = () => {
                                 </CardTitle>
                             </CardHeader>
                             <CardContent className="space-y-4">
+                                {/* NEW: Transaction Handler Selection */}
+                                <div>
+                                    <Label>Transaction Handler *</Label>
+                                    <EmployeeSelect
+                                        value={transactionHandlerId}
+                                        onChange={(handlerId) => {
+                                            console.log('🧑‍💼 Transaction handler changed:', handlerId);
+                                            setTransactionHandlerId(handlerId);
+                                        }}
+                                        errors={{}}
+                                    />
+                                    <p className="text-xs text-gray-500 mt-1">
+                                        Employee who will handle the new transaction (auto-filled from original transaction)
+                                    </p>
+                                </div>
+
                                 {/* Payment Handler Selection */}
                                 <div>
                                     <Label>Payment Handler *</Label>
@@ -534,6 +443,9 @@ const ProcessPaymentSaleTransaction = () => {
                                         }}
                                         errors={{}}
                                     />
+                                    <p className="text-xs text-gray-500 mt-1">
+                                        Employee who processed the payment
+                                    </p>
                                 </div>
 
                                 {/* Add Payment Method */}
@@ -551,11 +463,7 @@ const ProcessPaymentSaleTransaction = () => {
                                             />
                                         </div>
                                         <Button
-                                            onClick={() => {
-                                                console.log('🎯 Add button clicked!');
-                                                console.log('🔍 Current selectedPaymentMethod:', selectedPaymentMethod);
-                                                handleAddPaymentMethod();
-                                            }}
+                                            onClick={handleAddPaymentMethod}
                                             disabled={!selectedPaymentMethod}
                                             size="sm"
                                         >
@@ -615,13 +523,36 @@ const ProcessPaymentSaleTransaction = () => {
 
                                 {/* General Remark */}
                                 <div>
-                                    <Label>General Remark</Label>
+                                    <Label>New Transaction Remark</Label>
                                     <Textarea
                                         placeholder="Enter general remark for all payments..."
                                         value={generalRemark}
                                         onChange={(e) => setGeneralRemark(e.target.value)}
                                         rows={3}
                                     />
+                                </div>
+
+                                {/* RESTORED: Creation Date & Time */}
+                                <div className="space-y-1">
+                                    <Label htmlFor="created_at" className="text-sm font-medium pb-1 text-gray-700">
+                                        Creation date & time *
+                                    </Label>
+                                    <Input
+                                        type="datetime-local"
+                                        id="created_at"
+                                        value={
+                                            createdAt || new Date().toISOString().slice(0, 16)
+                                        }
+                                        onChange={(e) => {
+                                            const newValue = e.target.value || new Date().toISOString().slice(0, 16);
+                                            setCreatedAt(newValue);
+                                        }}
+                                        step="1"
+                                        className="rounded-md"
+                                    />
+                                    <p className="text-xs text-gray-500 mt-1">
+                                        Date and time for the new transaction
+                                    </p>
                                 </div>
                             </CardContent>
                         </Card>
@@ -665,7 +596,7 @@ const ProcessPaymentSaleTransaction = () => {
                                 <div className="flex items-end justify-end">
                                     <Button
                                         onClick={handleProcessPayment}
-                                        disabled={processing || newPayments.length === 0 || !paymentHandlerId}
+                                        disabled={processing || newPayments.length === 0 || !paymentHandlerId || !transactionHandlerId || !createdAt}
                                         size="lg"
                                         className="w-full md:w-auto"
                                     >

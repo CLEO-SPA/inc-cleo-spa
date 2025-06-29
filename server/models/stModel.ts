@@ -17,10 +17,13 @@ import {
   SingleItemTransactionCreationResult,
   SingleItemTransactionRequestData,
   SingleTransactionRequestItem,
-  ItemPricing 
+  ItemPricing,
+  ProcessPartialPaymentData,
+  ProcessPartialPaymentDataWithHandler,
+  PartialPaymentResult
+
 } from '../types/SaleTransactionTypes.js';
-
-
+import mcpModel from './mcpModel.js';
 
 const getSalesTransactionList = async (
   filter?: string,
@@ -268,6 +271,7 @@ const getSalesTransactionById = async (id: string): Promise<SalesTransactionDeta
         st.process_payment,
         st.handled_by,
         st.created_by,
+        st.reference_sales_transaction_id,
         -- Member information
         m.id as member_table_id,
         m.name as member_name,
@@ -360,6 +364,7 @@ const getSalesTransactionById = async (id: string): Promise<SalesTransactionDeta
       has_products: false,
       has_care_packages: false,
       process_payment: transaction.process_payment,
+      reference_sales_transaction_id: transaction.reference_sales_transaction_id,
 
       // Member information
       member: transaction.member_table_id ? {
@@ -565,7 +570,7 @@ const searchProducts = async (
 const createServicesProductsTransaction = async (
   transactionData: TransactionRequestData
 ): Promise<TransactionCreationResult> => {
-  const client  = await pool().connect();
+  const client = await pool().connect();
   
   try {
     await client.query('BEGIN');
@@ -579,7 +584,9 @@ const createServicesProductsTransaction = async (
       created_by,
       handled_by,
       items,
-      payments
+      payments,
+      created_at,
+      updated_at
     } = transactionData;
 
     // Validate required fields
@@ -597,6 +604,36 @@ const createServicesProductsTransaction = async (
 
     if (!payments || !Array.isArray(payments) || payments.length === 0) {
       throw new Error('payments array is required and cannot be empty');
+    }
+    let customCreatedAt = null;
+    let customUpdatedAt = null;
+    
+    if (created_at) {
+      try {
+        customCreatedAt = new Date(created_at);
+        if (isNaN(customCreatedAt.getTime())) {
+          throw new Error('Invalid created_at date format');
+        }
+      } catch (error) {
+        console.warn('Invalid created_at format, using current time:', created_at);
+        customCreatedAt = new Date();
+      }
+    } else {
+      customCreatedAt = new Date();
+    }
+    
+    if (updated_at) {
+      try {
+        customUpdatedAt = new Date(updated_at);
+        if (isNaN(customUpdatedAt.getTime())) {
+          throw new Error('Invalid updated_at date format');
+        }
+      } catch (error) {
+        console.warn('Invalid updated_at format, using created_at time:', updated_at);
+        customUpdatedAt = customCreatedAt;
+      }
+    } else {
+      customUpdatedAt = customCreatedAt;
     }
 
     // Calculate totals from items
@@ -624,7 +661,6 @@ const createServicesProductsTransaction = async (
       finalReceiptNo = `ST${receiptResult.rows[0].next_number.toString().padStart(6, '0')}`;
     }
 
-    // Insert main sales transaction
     const transactionQuery: string = `
       INSERT INTO sale_transactions (
         customer_type,
@@ -639,11 +675,11 @@ const createServicesProductsTransaction = async (
         created_by,
         created_at,
         updated_at
-      ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, NOW(), NOW())
+      ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12)
       RETURNING id
     `;
 
-    const transactionParams: (string | number | boolean | null)[] = [
+    const transactionParams: (string | number | boolean | null | Date)[] = [
       customer_type?.toUpperCase() || 'MEMBER',
       member_id || null,
       totalPaidAmount,
@@ -651,20 +687,22 @@ const createServicesProductsTransaction = async (
       transactionStatus,
       finalReceiptNo,
       remarks || '',
-      true, // process_payment
+      false, // process_payment always false for services/products transactions
       handled_by,
-      created_by
+      created_by,
+      customCreatedAt,
+      customUpdatedAt 
     ];
 
-    console.log('Transaction Query:', transactionQuery);
-    console.log('Transaction Params:', transactionParams);
+    console.log('Services/Products Transaction Query:', transactionQuery);
+    console.log('Services/Products Transaction Params:', transactionParams);
 
     const transactionResult = await client.query(transactionQuery, transactionParams);
     const saleTransactionId: number = transactionResult.rows[0].id;
 
     console.log('Created sale transaction with ID:', saleTransactionId);
 
-    // Insert sale transaction items (WITHOUT employee assignments)
+    // Insert sale transaction items
     for (const item of items) {
       const itemQuery: string = `
         INSERT INTO sale_transaction_items (
@@ -679,10 +717,8 @@ const createServicesProductsTransaction = async (
           quantity,
           amount,
           item_type,
-          remarks,
-          created_at,
-          updated_at
-        ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, NOW(), NOW())
+          remarks
+        ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12)
         RETURNING id
       `;
 
@@ -698,7 +734,6 @@ const createServicesProductsTransaction = async (
       let serviceName: string | null;
       let productName: string | null;
       
-      // Simplified logic for services and products only
       if (item.type === 'service') {
         itemType = 'service';
         serviceName = item.data?.name || null;
@@ -708,7 +743,7 @@ const createServicesProductsTransaction = async (
         serviceName = null;
         productName = item.data?.name || null;
       } else {
-        throw new Error(`Invalid item type '${item.type}' for services/products transaction. Only 'service' and 'product' are allowed.`);
+        throw new Error(`Invalid item type '${item.type}' for services/products transaction.`);
       }
 
       const itemParams: (string | number | null)[] = [
@@ -726,18 +761,12 @@ const createServicesProductsTransaction = async (
         item.remarks || '',
       ];
 
-      console.log('Item Query:', itemQuery);
-      console.log('Item Params:', itemParams);
-
       const itemResult = await client.query(itemQuery, itemParams);
       const saleTransactionItemId: number = itemResult.rows[0].id;
       
       console.log('Created sale transaction item with ID:', saleTransactionItemId);
-
-      // REMOVED: Employee assignment section completely removed
     }
 
-    // Insert payments
     for (const payment of payments) {
       if (payment.amount > 0) {
         const paymentQuery: string = `
@@ -749,28 +778,27 @@ const createServicesProductsTransaction = async (
             created_by,
             created_at,
             updated_at
-          ) VALUES ($1, $2, $3, $4, $5, NOW(), NOW())
+          ) VALUES ($1, $2, $3, $4, $5, $6, $7)
           RETURNING id
         `;
 
-        const paymentParams: (number | string)[] = [
+        const paymentParams: (number | string | Date)[] = [
           saleTransactionId,
           payment.methodId,
           payment.amount,
           payment.remark || '',
-          created_by
+          created_by,
+          customCreatedAt, 
+          customUpdatedAt 
         ];
 
-        console.log('Payment Query:', paymentQuery);
-        console.log('Payment Params:', paymentParams);
-
         const paymentResult = await client.query(paymentQuery, paymentParams);
-        console.log('Greated payment with ID:', paymentResult.rows[0].id);
+        console.log('Created payment with ID:', paymentResult.rows[0].id);
       }
     }
 
     await client.query('COMMIT');
-    console.log('Transaction committed successfully');
+    console.log('Services/Products Transaction committed successfully');
 
     // Return the created transaction data
     return {
@@ -802,21 +830,15 @@ const createMcpTransaction = async (
   transactionData: SingleItemTransactionRequestData
 ): Promise<SingleItemTransactionCreationResult> => {
   const client = await pool().connect();
-  
+  // Define mcpId outside the try block so it's available in the catch block
+  let mcpId: string | number | null | undefined = null;
+
   try {
     await client.query('BEGIN');
 
     // Extract data from request
-    const {
-      customer_type,
-      member_id,
-      receipt_number,
-      remarks,
-      created_by,
-      handled_by,
-      item,
-      payments
-    } = transactionData;
+    const { customer_type, member_id, receipt_number, remarks, created_by, handled_by, item, payments } =
+      transactionData;
 
     // Validate required fields
     if (!created_by) {
@@ -836,8 +858,8 @@ const createMcpTransaction = async (
     }
 
     // Extract the actual MCP ID from the item data
-    const mcpId = item.data?.member_care_package_id || item.data?.id;
-    
+    mcpId = item.data?.member_care_package_id || item.data?.id;
+
     if (!mcpId) {
       throw new Error('member_care_package_id is required in item data');
     }
@@ -848,9 +870,9 @@ const createMcpTransaction = async (
       FROM member_care_packages 
       WHERE id = $1
     `;
-    
+
     const mcpValidationResult = await client.query(mcpValidationQuery, [mcpId]);
-    
+
     if (mcpValidationResult.rows.length === 0) {
       throw new Error(`Member Care Package with ID ${mcpId} not found`);
     }
@@ -858,20 +880,20 @@ const createMcpTransaction = async (
     const mcpRecord = mcpValidationResult.rows[0];
     console.log('✅ Validated MCP exists:', {
       mcpId: mcpId,
-      packageName: mcpRecord.care_package_name
+      packageName: mcpRecord.care_package_name,
     });
 
     // Calculate totals from single package item
     const totalTransactionAmount: number = item.pricing?.totalLinePrice || 0;
 
     const PENDING_PAYMENT_METHOD_ID = 7;
-    
-    const pendingPayments = payments.filter((payment: PaymentMethodRequest) => 
-      payment.methodId === PENDING_PAYMENT_METHOD_ID
+
+    const pendingPayments = payments.filter(
+      (payment: PaymentMethodRequest) => payment.methodId === PENDING_PAYMENT_METHOD_ID
     );
-    
-    const nonPendingPayments = payments.filter((payment: PaymentMethodRequest) => 
-      payment.methodId !== PENDING_PAYMENT_METHOD_ID
+
+    const nonPendingPayments = payments.filter(
+      (payment: PaymentMethodRequest) => payment.methodId !== PENDING_PAYMENT_METHOD_ID
     );
     const totalPaidAmount: number = nonPendingPayments.reduce((total: number, payment: PaymentMethodRequest) => {
       return total + (payment.amount || 0);
@@ -882,7 +904,7 @@ const createMcpTransaction = async (
     }, 0);
 
     const transactionStatus: 'FULL' | 'PARTIAL' = outstandingAmount <= 0 ? 'FULL' : 'PARTIAL';
-    const processPayment: boolean = outstandingAmount > 0; 
+    const processPayment: boolean = outstandingAmount > 0;
 
     // Verification: total should match
     const calculatedTotal = totalPaidAmount + outstandingAmount;
@@ -891,7 +913,7 @@ const createMcpTransaction = async (
         totalTransactionAmount,
         totalPaidAmount,
         outstandingAmount,
-        calculatedTotal
+        calculatedTotal,
       });
     }
 
@@ -934,7 +956,7 @@ const createMcpTransaction = async (
       remarks || '',
       processPayment,
       handled_by,
-      created_by
+      created_by,
     ];
 
     console.log('MCP Transaction Query:', transactionQuery);
@@ -942,7 +964,7 @@ const createMcpTransaction = async (
 
     const transactionResult = await client.query(transactionQuery, transactionParams);
     const saleTransactionId: number = transactionResult.rows[0].id;
-    
+
     console.log('Created MCP sale transaction with ID:', saleTransactionId);
 
     // Insert package item with actual MCP ID
@@ -978,19 +1000,19 @@ const createMcpTransaction = async (
       item.pricing?.quantity || 1,
       item.pricing?.totalLinePrice || 0,
       'package',
-      item.remarks || ''
+      item.remarks || '',
     ];
 
     console.log('MCP Item Query:', itemQuery);
     console.log('MCP Item Params (with actual MCP ID):', {
       ...itemParams,
       mcpId: mcpId,
-      packageName: mcpRecord.care_package_name
+      packageName: mcpRecord.care_package_name,
     });
 
     const itemResult = await client.query(itemQuery, itemParams);
     const saleTransactionItemId: number = itemResult.rows[0].id;
-    
+
     console.log('Created MCP sale transaction item with ID:', saleTransactionItemId);
 
     // Insert ALL payment records (both pending and non-pending)
@@ -1014,7 +1036,7 @@ const createMcpTransaction = async (
           payment.methodId,
           payment.amount,
           payment.remark || '',
-          created_by
+          created_by,
         ];
 
         console.log('Payment Query:', paymentQuery);
@@ -1036,26 +1058,35 @@ const createMcpTransaction = async (
       member_id: member_id ? member_id.toString() : null,
       total_transaction_amount: totalTransactionAmount,
       total_paid_amount: totalPaidAmount,
-      outstanding_total_payment_amount: outstandingAmount, 
+      outstanding_total_payment_amount: outstandingAmount,
       transaction_status: transactionStatus,
       remarks: remarks || '',
       created_by,
       handled_by,
-      package_id: mcpId, // Use actual MCP ID
+      package_id: mcpId as number, // Use actual MCP ID
       package_name: mcpRecord.care_package_name, // Use actual package name from database
       items_count: 1,
-      payments_count: payments.filter((p: PaymentMethodRequest) => p.amount > 0).length
+      payments_count: payments.filter((p: PaymentMethodRequest) => p.amount > 0).length,
     };
-
   } catch (error) {
     await client.query('ROLLBACK');
     console.error('Error creating MCP sale transaction:', error);
+
+    // Only attempt to delete the MCP if we have a valid ID
+    if (mcpId) {
+      try {
+        await mcpModel.deleteMemberCarePackage(mcpId as string);
+        console.log(`Successfully deleted MCP with ID ${mcpId} after transaction failure`);
+      } catch (deleteError) {
+        console.error(`Failed to delete MCP with ID ${mcpId} after transaction failure:`, deleteError);
+      }
+    }
+
     throw error;
   } finally {
     client.release();
   }
 };
-
 
 
 const createMvTransaction = async (
@@ -1066,7 +1097,6 @@ const createMvTransaction = async (
   try {
     await client.query('BEGIN');
 
-    // Extract data from request
     const {
       customer_type,
       member_id,
@@ -1075,7 +1105,9 @@ const createMvTransaction = async (
       created_by,
       handled_by,
       item,
-      payments
+      payments,
+      created_at,
+      updated_at
     } = transactionData;
 
     // Validate required fields
@@ -1095,14 +1127,46 @@ const createMvTransaction = async (
       throw new Error('payments array is required and cannot be empty');
     }
 
-    // Extract the actual MV ID from the item data (FIXED)
+    let customCreatedAt = null;
+    let customUpdatedAt = null;
+    
+    if (created_at) {
+      try {
+        customCreatedAt = new Date(created_at);
+        if (isNaN(customCreatedAt.getTime())) {
+          console.warn('Invalid created_at format, using current time:', created_at);
+          customCreatedAt = new Date();
+        }
+      } catch (error) {
+        console.warn('Error parsing created_at, using current time:', error);
+        customCreatedAt = new Date();
+      }
+    } else {
+      customCreatedAt = new Date();
+    }
+    
+    if (updated_at) {
+      try {
+        customUpdatedAt = new Date(updated_at);
+        if (isNaN(customUpdatedAt.getTime())) {
+          console.warn('Invalid updated_at format, using created_at time:', updated_at);
+          customUpdatedAt = customCreatedAt;
+        }
+      } catch (error) {
+        console.warn('Error parsing updated_at, using created_at time:', error);
+        customUpdatedAt = customCreatedAt;
+      }
+    } else {
+      customUpdatedAt = customCreatedAt;
+    }
+
+
     const mvId = item.data?.member_voucher_id || item.data?.id;
     
     if (!mvId) {
       throw new Error('member_voucher_id is required in item data');
     }
 
-    // Validate that the MV ID exists in the database (ADDED)
     const mvValidationQuery = `
       SELECT id, member_voucher_name 
       FROM member_vouchers 
@@ -1144,7 +1208,6 @@ const createMvTransaction = async (
     const transactionStatus: 'FULL' | 'PARTIAL' = outstandingAmount <= 0 ? 'FULL' : 'PARTIAL';
     const processPayment: boolean = outstandingAmount > 0; 
 
-    // Verification: total should match (ADDED)
     const calculatedTotal = totalPaidAmount + outstandingAmount;
     if (Math.abs(calculatedTotal - totalTransactionAmount) > 0.01) {
       console.warn('Payment total mismatch:', {
@@ -1163,7 +1226,6 @@ const createMvTransaction = async (
       );
       finalReceiptNo = `ST${receiptResult.rows[0].next_number.toString().padStart(6, '0')}`;
     }
-
     const transactionQuery: string = `
       INSERT INTO sale_transactions (
         customer_type,
@@ -1178,11 +1240,11 @@ const createMvTransaction = async (
         created_by,
         created_at,
         updated_at
-      ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, NOW(), NOW())
+      ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12)
       RETURNING id
     `;
 
-    const transactionParams: (string | number | boolean | null)[] = [
+    const transactionParams: (string | number | boolean | null | Date)[] = [
       customer_type?.toUpperCase() || 'MEMBER',
       member_id || null,
       totalPaidAmount,        
@@ -1192,18 +1254,17 @@ const createMvTransaction = async (
       remarks || '',
       processPayment,      
       handled_by,
-      created_by
+      created_by,
+      customCreatedAt, // ✅ Use custom created_at instead of NOW()
+      customUpdatedAt  // ✅ Use custom updated_at instead of NOW()
     ];
-
-    console.log('MV Transaction Query:', transactionQuery);
-    console.log('MV Transaction Params:', transactionParams);
 
     const transactionResult = await client.query(transactionQuery, transactionParams);
     const saleTransactionId: number = transactionResult.rows[0].id;
     
-    console.log('Created MV sale transaction with ID:', saleTransactionId);
 
-    // Insert voucher item with actual MV ID (FIXED)
+
+    // Insert voucher item with actual MV ID 
     const itemQuery: string = `
       INSERT INTO sale_transaction_items (
         sale_transaction_id,
@@ -1217,10 +1278,8 @@ const createMvTransaction = async (
         quantity,
         amount,
         item_type,
-        remarks,
-        created_at,
-        updated_at
-      ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, NOW(), NOW())
+        remarks
+      ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12)
       RETURNING id
     `;
 
@@ -1235,23 +1294,15 @@ const createMvTransaction = async (
       item.pricing?.discount || 0,
       item.pricing?.quantity || 1,
       item.pricing?.totalLinePrice || 0,
-      'member-voucher',
+      'member voucher',
       item.remarks || ''
     ];
 
-    console.log('MV Item Query:', itemQuery);
-    console.log('MV Item Params (with actual MV ID):', {
-      ...itemParams,
-      mvId: mvId,
-      voucherName: mvRecord.member_voucher_name
-    });
 
     const itemResult = await client.query(itemQuery, itemParams);
     const saleTransactionItemId: number = itemResult.rows[0].id;
-    
-    console.log('Created MV sale transaction item with ID:', saleTransactionItemId);
 
-    // Insert ALL payment records (both pending and non-pending)
+
     for (const payment of payments) {
       if (payment.amount > 0) {
         const paymentQuery: string = `
@@ -1263,20 +1314,20 @@ const createMvTransaction = async (
             created_by,
             created_at,
             updated_at
-          ) VALUES ($1, $2, $3, $4, $5, NOW(), NOW())
+          ) VALUES ($1, $2, $3, $4, $5, $6, $7)
           RETURNING id
         `;
 
-        const paymentParams: (number | string)[] = [
+        const paymentParams: (number | string | Date)[] = [
           saleTransactionId,
           payment.methodId,
           payment.amount,
           payment.remark || '',
-          created_by
+          created_by,
+          customCreatedAt, 
+          customUpdatedAt 
         ];
 
-        console.log('MV Payment Query:', paymentQuery);
-        console.log('MV Payment Params:', paymentParams);
 
         const paymentResult = await client.query(paymentQuery, paymentParams);
         console.log('Created MV payment with ID:', paymentResult.rows[0].id);
@@ -1286,7 +1337,7 @@ const createMvTransaction = async (
     await client.query('COMMIT');
     console.log('MV Transaction committed successfully');
 
-    // Return the created transaction data (FIXED)
+    // Return the created transaction data
     return {
       id: saleTransactionId,
       receipt_no: finalReceiptNo,
@@ -1314,8 +1365,6 @@ const createMvTransaction = async (
   }
 };
 
-
-
 const createMcpTransferTransaction = async (
   transactionData: SingleItemTransactionRequestData
 ): Promise<SingleItemTransactionCreationResult> => {
@@ -1333,7 +1382,9 @@ const createMcpTransferTransaction = async (
       created_by,
       handled_by,
       item,
-      payments
+      payments,
+      created_at,
+      updated_at
     } = transactionData;
 
     // Validate required fields
@@ -1353,19 +1404,57 @@ const createMcpTransferTransaction = async (
       throw new Error('payments array is required and cannot be empty');
     }
 
+    let customCreatedAt = null;
+    let customUpdatedAt = null;
+    
+    if (created_at) {
+      try {
+        customCreatedAt = new Date(created_at);
+        if (isNaN(customCreatedAt.getTime())) {
+          console.warn('Invalid created_at format, using current time:', created_at);
+          customCreatedAt = new Date();
+        }
+      } catch (error) {
+        console.warn('Error parsing created_at, using current time:', error);
+        customCreatedAt = new Date();
+      }
+    } else {
+      customCreatedAt = new Date();
+    }
+    
+    if (updated_at) {
+      try {
+        customUpdatedAt = new Date(updated_at);
+        if (isNaN(customUpdatedAt.getTime())) {
+          console.warn('Invalid updated_at format, using created_at time:', updated_at);
+          customUpdatedAt = customCreatedAt;
+        }
+      } catch (error) {
+        console.warn('Error parsing updated_at, using created_at time:', error);
+        customUpdatedAt = customCreatedAt;
+      }
+    } else {
+      customUpdatedAt = customCreatedAt;
+    }
+
+    console.log('✅ MCP Transfer Using custom date/time:', {
+      created_at: customCreatedAt.toISOString(),
+      updated_at: customUpdatedAt.toISOString()
+    });
+
     // Calculate totals from single transfer item
     const totalTransactionAmount: number = item.pricing?.totalLinePrice || 0;
 
-    // For transfers, we expect full payment (no pending logic needed)
+    // For transfers, we expect full payment
     const totalPaidAmount: number = payments.reduce((total: number, payment: PaymentMethodRequest) => {
       return total + (payment.amount || 0);
     }, 0);
 
     const outstandingAmount: number = 0;
-    const transactionStatus: 'TRANSFER' | 'FULL' = 'TRANSFER'; // Transfers are always fully paid
+    const transactionStatus: 'TRANSFER' | 'FULL' = 'TRANSFER'; 
     const processPayment: boolean = false; 
 
-    // Verification: total should match (simplified for transfers)
+    // Verification: total should match 
     if (Math.abs(totalPaidAmount - totalTransactionAmount) > 0.01) {
       console.warn('MCP Transfer payment total mismatch:', {
         totalTransactionAmount,
@@ -1384,7 +1473,6 @@ const createMcpTransferTransaction = async (
       finalReceiptNo = `ST${receiptResult.rows[0].next_number.toString().padStart(6, '0')}`;
     }
 
-    // Insert main sales transaction
     const transactionQuery: string = `
       INSERT INTO sale_transactions (
         customer_type,
@@ -1399,11 +1487,11 @@ const createMcpTransferTransaction = async (
         created_by,
         created_at,
         updated_at
-      ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, NOW(), NOW())
+      ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12)
       RETURNING id
     `;
 
-    const transactionParams: (string | number | boolean | null)[] = [
+    const transactionParams: (string | number | boolean | null | Date)[] = [
       customer_type?.toUpperCase() || 'MEMBER',
       member_id || null,
       totalPaidAmount,        
@@ -1413,7 +1501,9 @@ const createMcpTransferTransaction = async (
       remarks || '',
       processPayment,         
       handled_by,
-      created_by
+      created_by,
+      customCreatedAt, 
+      customUpdatedAt  
     ];
 
     console.log('MCP Transfer Transaction Query:', transactionQuery);
@@ -1438,14 +1528,11 @@ const createMcpTransferTransaction = async (
         quantity,
         amount,
         item_type,
-        remarks,
-        created_at,
-        updated_at
-      ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, NOW(), NOW())
+        remarks
+      ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12)
       RETURNING id
     `;
 
-    // For transfer transactions, store destination MCP ID and include transfer details in remarks
     const transferDetails = item.data || {};
     const sourceMcpId = transferDetails.mcp_id1 || null;
     const destinationMcpId = transferDetails.mcp_id2 || null;
@@ -1456,16 +1543,16 @@ const createMcpTransferTransaction = async (
 
     const itemParams: (string | number | null)[] = [
       saleTransactionId,
-      null, // service_name
-      null, // product_name
-      destinationMcpId, // member_care_package_id - store the DESTINATION MCP (mcp_id2)
-      null, // member_voucher_id
+      null, 
+      null, 
+      destinationMcpId, 
+      null, 
       item.pricing?.originalPrice || 0,
       item.pricing?.customPrice || 0,
       item.pricing?.discount || 0,
       item.pricing?.quantity || 1,
       item.pricing?.totalLinePrice || 0,
-      'mcp_transfer', // item_type - correct type for MCP transfers
+      'member care package', 
       transferRemarks
     ];
 
@@ -1477,7 +1564,6 @@ const createMcpTransferTransaction = async (
     
     console.log('Created MCP Transfer sale transaction item with ID:', saleTransactionItemId);
 
-    // Insert ALL payment records (both pending and non-pending)
     for (const payment of payments) {
       if (payment.amount > 0) {
         const paymentQuery: string = `
@@ -1489,24 +1575,26 @@ const createMcpTransferTransaction = async (
             created_by,
             created_at,
             updated_at
-          ) VALUES ($1, $2, $3, $4, $5, NOW(), NOW())
+          ) VALUES ($1, $2, $3, $4, $5, $6, $7)
           RETURNING id
         `;
 
         // Handle special "transfer" payment method
         let paymentMethodId: number;
         if (payment.methodId === 'transfer') {
-          paymentMethodId = 9; // Assuming 9 is the ID for "Transfer" payment method
+          paymentMethodId = 9; 
         } else {
           paymentMethodId = typeof payment.methodId === 'string' ? parseInt(payment.methodId) : payment.methodId;
         }
 
-        const paymentParams: (number | string)[] = [
+        const paymentParams: (number | string | Date)[] = [
           saleTransactionId,
           paymentMethodId,
           payment.amount,
           payment.remark || '',
-          created_by
+          created_by,
+          customCreatedAt, 
+          customUpdatedAt  
         ];
 
         console.log('MCP Transfer Payment Query:', paymentQuery);
@@ -1568,7 +1656,9 @@ const createMvTransferTransaction = async (
       created_by,
       handled_by,
       item,
-      payments
+      payments,
+      created_at,
+      updated_at
     } = transactionData;
 
     // Validate required fields
@@ -1588,19 +1678,55 @@ const createMvTransferTransaction = async (
       throw new Error('payments array is required and cannot be empty');
     }
 
+    let customCreatedAt = null;
+    let customUpdatedAt = null;
+    
+    if (created_at) {
+      try {
+        customCreatedAt = new Date(created_at);
+        if (isNaN(customCreatedAt.getTime())) {
+          console.warn('Invalid created_at format, using current time:', created_at);
+          customCreatedAt = new Date();
+        }
+      } catch (error) {
+        console.warn('Error parsing created_at, using current time:', error);
+        customCreatedAt = new Date();
+      }
+    } else {
+      customCreatedAt = new Date();
+    }
+    
+    if (updated_at) {
+      try {
+        customUpdatedAt = new Date(updated_at);
+        if (isNaN(customUpdatedAt.getTime())) {
+          console.warn('Invalid updated_at format, using created_at time:', updated_at);
+          customUpdatedAt = customCreatedAt;
+        }
+      } catch (error) {
+        console.warn('Error parsing updated_at, using created_at time:', error);
+        customUpdatedAt = customCreatedAt;
+      }
+    } else {
+      customUpdatedAt = customCreatedAt;
+    }
+
+    console.log('✅ MV Transfer Using custom date/time:', {
+      created_at: customCreatedAt.toISOString(),
+      updated_at: customUpdatedAt.toISOString()
+    });
+
     // Calculate totals from single transfer item
     const totalTransactionAmount: number = item.pricing?.totalLinePrice || 0;
 
-    // For transfers, we expect full payment (no pending logic needed)
     const totalPaidAmount: number = payments.reduce((total: number, payment: PaymentMethodRequest) => {
       return total + (payment.amount || 0);
     }, 0);
 
-    const outstandingAmount: number = 0; // Transfers should always be fully paid
-    const transactionStatus: 'FULL' | 'PARTIAL' = 'FULL'; // Always full for transfers
-    const processPayment: boolean = false; // No further payment processing needed
+    const outstandingAmount: number = 0; 
+    const transactionStatus: 'FULL' | 'PARTIAL' = 'FULL';
+    const processPayment: boolean = false; 
 
-    // Verification: total should match (simplified for transfers)
     if (Math.abs(totalPaidAmount - totalTransactionAmount) > 0.01) {
       console.warn('MV Transfer payment total mismatch:', {
         totalTransactionAmount,
@@ -1619,7 +1745,6 @@ const createMvTransferTransaction = async (
       finalReceiptNo = `ST${receiptResult.rows[0].next_number.toString().padStart(6, '0')}`;
     }
 
-    // Insert main sales transaction
     const transactionQuery: string = `
       INSERT INTO sale_transactions (
         customer_type,
@@ -1634,11 +1759,11 @@ const createMvTransferTransaction = async (
         created_by,
         created_at,
         updated_at
-      ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, NOW(), NOW())
+      ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12)
       RETURNING id
     `;
 
-    const transactionParams: (string | number | boolean | null)[] = [
+    const transactionParams: (string | number | boolean | null | Date)[] = [
       customer_type?.toUpperCase() || 'MEMBER',
       member_id || null,
       totalPaidAmount,        
@@ -1648,7 +1773,9 @@ const createMvTransferTransaction = async (
       remarks || '',
       processPayment,         
       handled_by,
-      created_by
+      created_by,
+      customCreatedAt, 
+      customUpdatedAt  
     ];
 
     console.log('MV Transfer Transaction Query:', transactionQuery);
@@ -1673,25 +1800,23 @@ const createMvTransferTransaction = async (
         quantity,
         amount,
         item_type,
-        remarks,
-        created_at,
-        updated_at
-      ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, NOW(), NOW())
+        remarks
+      ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12)
       RETURNING id
     `;
 
     const itemParams: (string | number | null)[] = [
       saleTransactionId,
-      null, // service_name
-      null, // product_name
-      null, // member_care_package_id
-      item.data?.queueItem?.mv_id1 || null, // member_voucher_id (from transfer source)
+      null, 
+      null, 
+      null, 
+      item.data?.queueItem?.mv_id1 || null, 
       item.pricing?.originalPrice || 0,
       item.pricing?.customPrice || 0,
       item.pricing?.discount || 0,
       item.pricing?.quantity || 1,
       item.pricing?.totalLinePrice || 0,
-      'mv_transfer',
+      'member voucher',
       item.remarks || item.data?.description || ''
     ];
 
@@ -1703,7 +1828,6 @@ const createMvTransferTransaction = async (
     
     console.log('Created MV Transfer sale transaction item with ID:', saleTransactionItemId);
 
-    // Insert ALL payment records (both pending and non-pending)
     for (const payment of payments) {
       if (payment.amount > 0) {
         const paymentQuery: string = `
@@ -1715,26 +1839,26 @@ const createMvTransferTransaction = async (
             created_by,
             created_at,
             updated_at
-          ) VALUES ($1, $2, $3, $4, $5, NOW(), NOW())
+          ) VALUES ($1, $2, $3, $4, $5, $6, $7)
           RETURNING id
         `;
 
         // Handle special "transfer" payment method
         let paymentMethodId: number;
         if (payment.methodId === 'transfer') {
-          // Use a special payment method ID for transfers, or create one if needed
-          // For now, let's use method ID 9 (you may need to adjust this based on your payment_methods table)
-          paymentMethodId = 9; // Assuming 9 is the ID for "Transfer" payment method
+          paymentMethodId = 9; 
         } else {
           paymentMethodId = typeof payment.methodId === 'string' ? parseInt(payment.methodId) : payment.methodId;
         }
 
-        const paymentParams: (number | string)[] = [
+        const paymentParams: (number | string | Date)[] = [
           saleTransactionId,
           paymentMethodId,
           payment.amount,
           payment.remark || '',
-          created_by
+          created_by,
+          customCreatedAt, 
+          customUpdatedAt  
         ];
 
         console.log('MV Transfer Payment Query:', paymentQuery);
@@ -1778,6 +1902,259 @@ const createMvTransferTransaction = async (
 
 
 
+const processPartialPayment = async (
+  transactionId: string | number,
+  paymentData: ProcessPartialPaymentDataWithHandler
+): Promise<PartialPaymentResult> => {
+  const client = await pool().connect();
+  
+  try {
+    await client.query('BEGIN');
+
+    const { payments, general_remarks, transaction_handler_id, created_at } = paymentData;
+
+    console.log('Processing partial payment for transaction:', transactionId);
+    console.log('Payment data:', paymentData);
+
+    // Validate input
+    if (!payments || payments.length === 0) {
+      throw new Error('At least one payment method is required');
+    }
+
+    if (!transaction_handler_id) {
+      throw new Error('Transaction handler ID is required');
+    }
+
+    // Parse and validate creation date for sale_transactions
+    let customCreatedAt = null;
+    if (created_at) {
+      try {
+        customCreatedAt = new Date(created_at);
+        if (isNaN(customCreatedAt.getTime())) {
+          throw new Error('Invalid creation date format');
+        }
+      } catch (error) {
+        throw new Error('Invalid creation date format');
+      }
+    }
+
+    // Get original transaction details
+    const originalTransactionQuery = `
+      SELECT 
+        st.id,
+        st.customer_type,
+        st.member_id,
+        st.total_paid_amount,
+        st.outstanding_total_payment_amount,
+        st.sale_transaction_status,
+        st.remarks,
+        st.receipt_no,
+        st.handled_by,
+        st.created_by,
+        st.process_payment
+      FROM sale_transactions st
+      WHERE st.id = $1 AND st.process_payment = true
+    `;
+    
+    const originalResult = await client.query(originalTransactionQuery, [transactionId]);
+    
+    if (originalResult.rows.length === 0) {
+      throw new Error('Transaction not found or not available for payment processing');
+    }
+
+    const originalTransaction = originalResult.rows[0];
+
+    // Calculate payment amounts - EXCLUDE pending payments from total_paid_amount
+    const PENDING_PAYMENT_METHOD_ID = 7;
+    
+    const actualPayments = payments.filter(payment => payment.payment_method_id !== PENDING_PAYMENT_METHOD_ID);
+    const pendingPayments = payments.filter(payment => payment.payment_method_id === PENDING_PAYMENT_METHOD_ID);
+    
+    const totalActualPaymentAmount = actualPayments.reduce((sum, payment) => sum + payment.amount, 0);
+    const totalPendingAmount = pendingPayments.reduce((sum, payment) => sum + payment.amount, 0);
+    const totalNewPaymentAmount = totalActualPaymentAmount + totalPendingAmount;
+    
+    // Validate payment amount doesn't exceed outstanding
+    if (totalNewPaymentAmount > originalTransaction.outstanding_total_payment_amount) {
+      throw new Error(`Payment amount (${totalNewPaymentAmount}) exceeds outstanding amount (${originalTransaction.outstanding_total_payment_amount})`);
+    }
+
+    // Get original transaction items to copy
+    const originalItemsQuery = `
+      SELECT 
+        service_name, product_name, member_care_package_id, member_voucher_id,
+        original_unit_price, custom_unit_price, discount_percentage, quantity,
+        remarks, amount, item_type
+      FROM sale_transaction_items 
+      WHERE sale_transaction_id = $1
+    `;
+    
+    const originalItemsResult = await client.query(originalItemsQuery, [transactionId]);
+    const originalItems = originalItemsResult.rows;
+
+    // Calculate new transaction values 
+    const newTotalPaidAmount = totalActualPaymentAmount; 
+    const newOutstandingAmount = originalTransaction.outstanding_total_payment_amount - totalActualPaymentAmount;
+    const newTransactionStatus = newOutstandingAmount > 0.01 ? 'PARTIAL' : 'FULL';
+    const newProcessPayment = newOutstandingAmount > 0.01;
+
+    console.log('New transaction calculations:', {
+      originalOutstandingAmount: originalTransaction.outstanding_total_payment_amount,
+      newActualPaymentAmount: totalActualPaymentAmount,
+      newTotalPaidAmount,
+      newOutstandingAmount,
+      newTransactionStatus,
+      newProcessPayment
+    });
+
+    // Create new transaction with required transaction handler and custom date
+    const newTransactionQuery = `
+      INSERT INTO sale_transactions (
+        customer_type, member_id, total_paid_amount, outstanding_total_payment_amount,
+        sale_transaction_status, remarks, receipt_no, reference_sales_transaction_id,
+        handled_by, created_by, created_at, updated_at, process_payment
+      ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13)
+      RETURNING id
+    `;
+
+    const currentTime = customCreatedAt || new Date();
+
+    const newTransactionParams = [
+      originalTransaction.customer_type,
+      originalTransaction.member_id,
+      newTotalPaidAmount,
+      newOutstandingAmount,
+      newTransactionStatus,
+      general_remarks || `Additional payment for receipt ${originalTransaction.receipt_no}`,
+      originalTransaction.receipt_no, 
+      originalTransaction.id, 
+      transaction_handler_id, 
+      originalTransaction.created_by,
+      currentTime, 
+      currentTime, 
+      newProcessPayment
+    ];
+
+    const newTransactionResult = await client.query(newTransactionQuery, newTransactionParams);
+    const newTransactionId = newTransactionResult.rows[0].id;
+
+    const packageItems = originalItems.filter((item: any) => item.member_care_package_id);
+    const voucherItems = originalItems.filter((item: any) => item.member_voucher_id);
+
+    console.log('Created new transaction with ID:', newTransactionId, 'handled by:', transaction_handler_id, 'created at:', customCreatedAt || 'current time');
+
+    // Copy all items from original transaction
+    for (const item of originalItems) {
+      const insertItemQuery = `
+        INSERT INTO sale_transaction_items (
+          sale_transaction_id, service_name, product_name, member_care_package_id, member_voucher_id,
+          original_unit_price, custom_unit_price, discount_percentage, quantity,
+          remarks, amount, item_type
+        ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12)
+      `;
+
+          if (packageItems.length > 0) {
+    item.item_type = 'member care package';
+    }else if( voucherItems.length > 0) {
+      item.item_type = 'member voucher';
+    }
+
+      const itemParams = [
+        newTransactionId, item.service_name, item.product_name, 
+        item.member_care_package_id, item.member_voucher_id,
+        item.original_unit_price, item.custom_unit_price, item.discount_percentage,
+        item.quantity, item.remarks, item.amount, item.item_type
+      ];
+
+      await client.query(insertItemQuery, itemParams);
+    }
+
+    // Create payment records
+    for (const payment of payments) {
+      const insertPaymentQuery = `
+        INSERT INTO payment_to_sale_transactions (
+          sale_transaction_id, payment_method_id, amount, remarks, created_by, created_at, updated_at
+        ) VALUES ($1, $2, $3, $4, $5, $6, $7)
+      `;
+
+      const paymentParams = [
+        newTransactionId, payment.payment_method_id, payment.amount,
+        payment.remarks || '', payment.payment_handler_id, currentTime, currentTime
+      ];
+
+      await client.query(insertPaymentQuery, paymentParams);
+    }
+
+
+    await client.query(
+      'UPDATE sale_transactions SET process_payment = false WHERE id = $1',
+      [originalTransaction.id]
+    );
+
+
+
+
+    if (packageItems.length > 0) {
+      for (const packageItem of packageItems) {
+        await client.query(
+          'UPDATE member_care_packages SET balance = COALESCE(balance, 0) + $1 WHERE id = $2',
+          [totalActualPaymentAmount, packageItem.member_care_package_id]
+        );
+      }
+    }
+
+
+    if (voucherItems.length > 0 && newTransactionStatus === 'FULL') {
+      for (const voucherItem of voucherItems) {
+        const voucherResult = await client.query(
+          'SELECT free_of_charge FROM member_vouchers WHERE id = $1',
+          [voucherItem.member_voucher_id]
+        );
+        
+        if (voucherResult.rows.length > 0) {
+          const freeOfCharge = parseFloat(voucherResult.rows[0].free_of_charge) || 0;
+          if (freeOfCharge > 0) {
+            await client.query(
+              'UPDATE member_vouchers SET current_balance = COALESCE(current_balance, 0) + $1 WHERE id = $2',
+              [freeOfCharge, voucherItem.member_voucher_id]
+            );
+          }
+        }
+      }
+    }
+
+    await client.query('COMMIT');
+
+    console.log('Payment processing completed successfully');
+
+    return {
+      new_transaction: {
+        id: newTransactionId,
+        receipt_no: originalTransaction.receipt_no,
+        total_paid_amount: newTotalPaidAmount,
+        outstanding_amount: newOutstandingAmount,
+        transaction_status: newTransactionStatus,
+        process_payment: newProcessPayment
+      },
+      original_transaction: {
+        id: originalTransaction.id,
+        receipt_no: originalTransaction.receipt_no,
+        process_payment: false
+      },
+      payments_processed: payments.length,
+      total_payment_amount: totalNewPaymentAmount
+    };
+
+  } catch (error) {
+    await client.query('ROLLBACK');
+    console.error('Error processing partial payment:', error);
+    throw error;
+  } finally {
+    client.release();
+  }
+};
+
+
 export default {
   getSalesTransactionList,
   getSalesTransactionById,
@@ -1787,5 +2164,6 @@ export default {
   createMcpTransaction,
   createMvTransaction,
   createMcpTransferTransaction,
-  createMvTransferTransaction
+  createMvTransferTransaction,
+  processPartialPayment
 };

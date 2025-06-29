@@ -65,6 +65,7 @@ export interface SalesTransaction {
 export interface SalesTransactionDetail extends SalesTransaction {
   transaction_updated_at: Date;
   transaction_remark: string;
+  reference_sales_transaction_id: string | number | null;
   handler: Employee | null;
   creator: Employee | null;
   payments: PaymentDetail[];
@@ -152,6 +153,8 @@ export interface TransactionRequestData {
   handled_by: number;
   items: TransactionRequestItem[];
   payments: PaymentMethodRequest[];
+  created_at?: string; 
+  updated_at?: string;
 }
 
 export interface TransactionCreationResult {
@@ -215,6 +218,8 @@ export interface SingleItemTransactionRequestData {
   handled_by: number;
   item: SingleTransactionRequestItem; 
   payments: PaymentMethodRequest[];
+  created_at?: string; 
+  updated_at?: string;
 }
 
 export interface SingleItemTransactionCreationResult {
@@ -240,4 +245,38 @@ export interface SingleItemTransactionCreationResult {
   transfer_description?: string;
   items_count: number;
   payments_count: number;
+}
+
+export interface PartialPaymentRequest {
+  payment_method_id: number;
+  amount: number;
+  remarks?: string;
+  payment_handler_id: number;
+}
+
+export interface ProcessPartialPaymentData {
+  payments: PartialPaymentRequest[];
+  general_remarks?: string;
+}
+
+export interface PartialPaymentResult {
+  new_transaction: {
+    id: number;
+    receipt_no: string;
+    total_paid_amount: number;
+    outstanding_amount: number;
+    transaction_status: 'FULL' | 'PARTIAL';
+    process_payment: boolean;
+  };
+  original_transaction: {
+    id: number;
+    receipt_no: string;
+    process_payment: boolean;
+  };
+  payments_processed: number;
+  total_payment_amount: number;
+}
+export interface ProcessPartialPaymentDataWithHandler extends ProcessPartialPaymentData {
+  transaction_handler_id: number;
+  created_at?: string;
 }

@@ -14,7 +14,9 @@ const useProceedPaymentStore = create(
       newPayments: [],
       selectedPaymentMethod: '',
       paymentHandlerId: '',
+      transactionHandlerId: '', // NEW: For the transaction handler
       generalRemark: '',
+      createdAt: '', // RESTORED: For custom creation date
       
       // Constants
       PENDING_PAYMENT_METHOD_ID: 7,
@@ -22,7 +24,12 @@ const useProceedPaymentStore = create(
       // Actions
       setTransaction: (transaction) => {
         console.log('Store: Setting transaction:', transaction);
-        set({ transaction });
+        // Auto-set transaction handler if available from transaction data
+        const transactionHandler = transaction?.handler?.code || '';
+        set({ 
+          transaction,
+          transactionHandlerId: transactionHandler // Auto-populate from transaction
+        });
       },
       
       setLoading: (loading) => set({ loading }),
@@ -39,6 +46,16 @@ const useProceedPaymentStore = create(
       setPaymentHandlerId: (handlerId) => {
         console.log('Store: Setting payment handler:', handlerId);
         set({ paymentHandlerId: handlerId });
+      },
+      
+      setTransactionHandlerId: (handlerId) => {
+        console.log('Store: Setting transaction handler:', handlerId);
+        set({ transactionHandlerId: handlerId });
+      },
+      
+      setCreatedAt: (dateTime) => {
+        console.log('Store: Setting created at:', dateTime);
+        set({ createdAt: dateTime });
       },
       
       setGeneralRemark: (remark) => set({ generalRemark: remark }),
@@ -123,10 +140,18 @@ const useProceedPaymentStore = create(
       
       // Validation
       isValidForProcessing: () => {
-        const { paymentHandlerId, newPayments } = get();
+        const { paymentHandlerId, transactionHandlerId, newPayments, createdAt } = get();
         
         if (!paymentHandlerId) {
           return { valid: false, message: 'Please select a payment handler' };
+        }
+        
+        if (!transactionHandlerId) {
+          return { valid: false, message: 'Please select a transaction handler' };
+        }
+        
+        if (!createdAt) {
+          return { valid: false, message: 'Please set creation date and time' };
         }
         
         if (newPayments.length === 0) {
@@ -152,7 +177,9 @@ const useProceedPaymentStore = create(
           newPayments: [],
           selectedPaymentMethod: '',
           paymentHandlerId: '',
-          generalRemark: ''
+          transactionHandlerId: '',
+          generalRemark: '',
+          createdAt: new Date().toISOString().slice(0, 16) // Default to current datetime
         });
       },
       

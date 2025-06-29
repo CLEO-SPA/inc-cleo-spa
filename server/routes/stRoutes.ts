@@ -23,4 +23,5 @@ router.post('/mcp', controller.createMcpTransaction);
 router.post('/mv', controller.createMvTransaction);
 router.post('/mcp-transfer', controller.createMcpTransferTransaction);
 router.post('/mv-transfer', controller.createMvTransferTransaction);
+router.post('/pp/:id', controller.processPartialPayment);
 export default router;

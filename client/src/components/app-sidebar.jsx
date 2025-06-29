@@ -152,6 +152,21 @@ const data = {
         },
       ],
     },
+        {
+      title: 'Sale Transactions',
+      url: '#',
+      icon: CreditCard,
+      items: [
+        {
+          title: 'Create Sale Transactions',
+          url: '/sale-transaction',
+        },
+        {
+          title: 'View Sale Transactions',
+          url: '/sale-transaction/list',
+        }
+      ],
+    },
     {
       title: 'Employees',
       url: '',
