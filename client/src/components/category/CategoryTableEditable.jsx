@@ -23,6 +23,10 @@ export default function CategoryTableEditable({
   const [saveError, setSaveError] = useState('');
   const [editingId, setEditingId] = useState(null);
   const [editedName, setEditedName] = useState('');
+  
+  // --- Role-based access ---
+  const { user } = useAuth();
+  const canEdit = user?.role === 'super_admin' || user?.role === 'data_admin';
 
   // --- Role-based access ---
   const { user } = useAuth();
@@ -97,7 +101,7 @@ export default function CategoryTableEditable({
             {canEdit && (
             <th className='px-4 py-2 border border-gray-300'>Actions</th>
             )}
-            </tr>
+          </tr>
         </thead>
         <tbody>
           {loading ? (
