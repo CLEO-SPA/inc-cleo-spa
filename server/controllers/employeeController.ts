@@ -401,18 +401,24 @@ const getAllRolesForDropdown = async (req: Request, res: Response, next: NextFun
   }
 };
 
-/* ──────────────────────────────────────────────────────────────────────────
- *  Update
- * ──────────────────────────────────────────────────────────────────────── */
-
+/**
+ * PUT /employees/:id
+ * --------------------------------------------------------------
+ * • Validates inputs
+ * • Delegates to model.updateEmployee(...)
+ * • If e-mail was actually changed, model returns { emailChanged: true }
+ *   → we regenerate a fresh 3-day invite link and include it in the response.
+ */
 const updateEmployee = async (req: Request, res: Response, next: NextFunction) => {
   try {
+    /* ------------------------------------------------- 0. URL param */
     const employee_id = Number(req.params.id);
     if (!employee_id || Number.isNaN(employee_id)) {
       res.status(400).json({ message: 'Invalid employee ID.' });
       return;
     }
 
+    /* ------------------------------------------------- 1. Body sanitise */
     const {
       employee_email,
       employee_name,
@@ -434,7 +440,7 @@ const updateEmployee = async (req: Request, res: Response, next: NextFunction) =
       updated_at: new Date().toISOString(),
     };
 
-    /* quick format checks */
+    /* ------------------------------------------------- 2. Quick format checks */
     if (payload.email && !validator.isEmail(payload.email)) {
       res.status(400).json({ message: 'Invalid email format.' });
       return;
@@ -444,16 +450,34 @@ const updateEmployee = async (req: Request, res: Response, next: NextFunction) =
       return;
     }
 
-    await model.updateEmployee(payload);
+    /* ------------------------------------------------- 3. Update via model  */
+    const { emailChanged } = await model.updateEmployee(payload);
 
-    /* optional: fetch updated record */
-    const updated = await model.getEmployeeById(employee_id);
-    res.status(200).json({ message: 'Employee updated.', data: updated });
+    /* ------------------------------------------------- 4. Optional invite link regeneration */
+    let newInviteUrl: string | undefined;
+    if (emailChanged && payload.email) {
+      // mark touched so "recently updated" filters pick it up
+      await model.touchEmployee(payload.email);
+
+      const token = jwt.sign({ email: payload.email },
+                             process.env.INV_JWT_SECRET as string,
+                             { expiresIn: '3d' });
+      newInviteUrl = `${process.env.LOCAL_FRONTEND_URL}/reset-password?token=${token}`;
+    }
+
+    /* ------------------------------------------------- 5. Send response */
+    const updated = await model.getEmployeeById(employee_id);   // refreshed record
+    res.status(200).json({
+      message: 'Employee updated.',
+      ...(newInviteUrl ? { newInviteUrl } : {}),
+      data: updated,
+    });
   } catch (err) {
     console.error('updateEmployee ctrl error:', err);
     next(err);
   }
 };
+
 
 const getEmployeeById = async (req: Request, res: Response, next: NextFunction) => {
   const employeeId = Number(req.params.id);
