@@ -40,6 +40,7 @@ router.post(
 
 router.put(
   '/:id', 
+    roleMiddleware.hasRole(['super_admin', 'data_admin']),
   employeeController.updateEmployee
 );
 

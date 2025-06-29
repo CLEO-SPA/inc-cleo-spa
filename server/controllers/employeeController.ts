@@ -419,7 +419,7 @@ export const updateEmployee = async (
   req: Request,
   res: Response,
   next: NextFunction,
-) => {
+): Promise<void> => {
   try {
     /* ------------------------------------------------- 0. URL param */
     const employee_id = Number(req.params.id);
