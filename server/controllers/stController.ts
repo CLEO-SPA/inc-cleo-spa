@@ -3,7 +3,8 @@ import model from '../models/stModel.js';
 // import { decodeCursor } from '../utils/cursorUtils.js';
 // import { PaginatedOptions, CursorPayload } from '../types/common.types.js';
 // import { create } from 'domain';
-
+import { 
+  ProcessPartialPaymentDataWithHandler} from '../types/SaleTransactionTypes.js';
 
 const getSalesTransactionList = async (req: Request, res: Response): Promise<void> => {
   try {
@@ -251,6 +252,59 @@ const createMvTransferTransaction = async (req: Request, res: Response): Promise
     });
   }
 };
+const processPartialPayment = async (req: Request, res: Response): Promise<void> => {
+  try {
+    const { id } = req.params;
+    const paymentData: ProcessPartialPaymentDataWithHandler = req.body;
+
+    console.log('Processing partial payment for transaction:', id, req.body);
+
+    // Validate that we have the transaction ID
+    if (!id) {
+      res.status(400).json({
+        success: false,
+        message: 'Transaction ID is required'
+      });
+      return;
+    }
+
+    // Validate payment data structure
+    if (!paymentData.payments || !Array.isArray(paymentData.payments) || paymentData.payments.length === 0) {
+      res.status(400).json({
+        success: false,
+        message: 'At least one payment method is required'
+      });
+      return;
+    }
+
+    // Validate that we have the transaction handler ID
+    if (!paymentData.transaction_handler_id) {
+      res.status(400).json({
+        success: false,
+        message: 'Transaction handler ID is required'
+      });
+      return;
+    }
+
+    const result = await model.processPartialPayment(id, paymentData);
+
+    console.log('Partial payment processed successfully:', result);
+
+    res.status(201).json({
+      success: true,
+      message: 'Partial payment processed successfully',
+      data: result
+    });
+  } catch (error: any) {
+    console.error('Error processing partial payment:', error);
+    
+    res.status(500).json({
+      success: false,
+      error: 'Failed to process partial payment',
+      details: error.message
+    });
+  }
+};
 
 export default {
   getSalesTransactionList,
@@ -261,5 +315,6 @@ export default {
   createMcpTransaction,
   createMvTransaction,
   createMcpTransferTransaction,
-  createMvTransferTransaction
+  createMvTransferTransaction,
+  processPartialPayment
 };

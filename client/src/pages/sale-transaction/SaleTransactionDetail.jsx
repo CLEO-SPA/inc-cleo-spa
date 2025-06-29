@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
-import { ArrowLeft, Package, FileText, DollarSign, Receipt, Calendar, User, CreditCard, Info, RefreshCcw } from 'lucide-react';
+import { ArrowLeft, Package, FileText, DollarSign, Receipt, Calendar, User, CreditCard, Info, RefreshCcw, Eye } from 'lucide-react';
 import api from '@/services/api';
 import { AppSidebar } from '@/components/app-sidebar';
 import { SiteHeader } from '@/components/site-header';
@@ -211,6 +211,18 @@ const SaleTransactionDetail = () => {
                                 <RefreshCcw className="h-4 w-4" />
                                 <span>Refresh</span>
                             </Button>
+                            {/* Check if transaction has a reference_sales_transaction_id */}
+                            {transaction.reference_sales_transaction_id && transaction.reference_sales_transaction_id !== '0' && (
+                                <Button 
+                                    variant="outline" 
+                                    size="sm"
+                                    className="flex items-center gap-1 bg-blue-50 hover:bg-blue-100 text-blue-700 border-blue-300"
+                                    onClick={() => navigate(`/sale-transaction/${transaction.reference_sales_transaction_id}`)}
+                                >
+                                    <Eye className="h-4 w-4" />
+                                    <span>View Referenced Transaction</span>
+                                </Button>
+                            )}
                             {transaction.process_payment && (
                                 <Button 
                                     variant="default" 

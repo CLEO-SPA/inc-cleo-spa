@@ -426,7 +426,7 @@ const SaleTransactionSummary = () => {
         // Navigate after a delay to show results
         setTimeout(() => {
           resetTransactionStore();
-          navigate('/sale-transaction');
+          navigate('/sale-transaction/list');
         }, 3000);
       } else {
         setModalMessage(`Transaction creation failed: ${result.error || 'Unknown error'}`);
@@ -784,7 +784,7 @@ const SaleTransactionSummary = () => {
                       <p className="text-sm text-gray-500 mt-1">Add some items to continue</p>
                       <Button 
                         className="mt-4" 
-                        onClick={() => navigate('/sale-transaction/new')}
+                        onClick={() => navigate('/cart-test')}
                         disabled={isCreating}
                       >
                         Add Items

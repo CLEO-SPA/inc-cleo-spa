@@ -137,6 +137,21 @@ const data = {
         },
       ],
     },
+        {
+      title: 'Sale Transactions',
+      url: '#',
+      icon: CreditCard,
+      items: [
+        {
+          title: 'Create Sale Transactions',
+          url: '/cart-test',
+        },
+        {
+          title: 'View Sale Transactions',
+          url: '/sale-transaction/list',
+        }
+      ],
+    },
     {
       title: 'Employees',
       url: '',
