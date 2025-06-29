@@ -335,6 +335,9 @@ const processFullRefundTransaction = async (params: {
       throw new Error('Refund payment method not found in database');
     }
 
+    // Generate receipt number (R + MCP ID + timestamp)
+    const receiptNo = `R-${String(params.mcpId).padStart(4, '0')}-${new Date().toISOString().slice(0, 10).replace(/-/g, '')}`;
+
     // Create refund transaction
     const { rows: saleTransactionIdRows } = await client.query(
       `SELECT COALESCE(MAX(id), 0) + 1 AS next_id FROM sale_transactions`
@@ -345,16 +348,17 @@ const processFullRefundTransaction = async (params: {
       `INSERT INTO sale_transactions (
         id, customer_type, member_id, total_paid_amount, 
         outstanding_total_payment_amount, sale_transaction_status,
-        remarks, handled_by, created_by, created_at, updated_at
+        remarks, receipt_no, handled_by, created_by, created_at, updated_at
       ) VALUES (
         $1, 'MEMBER', $2, $3, 0, 'REFUND',
-        $4, $5, $6, $7, $7
+        $4, $5, $6, $7, $8, $8
       ) RETURNING id`,
       [
         saleTransactionNextId,
         params.memberId,
         (-totalRefund).toFixed(2),
         params.refundRemarks,
+        receiptNo,  // The generated receipt number
         params.refundedBy,
         params.refundedBy,
         formattedRefundDate
@@ -438,7 +442,6 @@ const processFullRefundTransaction = async (params: {
         quantity: service.quantity,
         amount
       });
-
     }
 
     // Create refund payment
@@ -454,7 +457,7 @@ const processFullRefundTransaction = async (params: {
       ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $8)`,
       [
         paymentNextId,
-        refundPaymentMethodId,  // Using the looked-up refund payment method ID
+        refundPaymentMethodId,
         refundTxId,
         -totalRefund,
         params.refundRemarks || 'Refund processed',
@@ -478,7 +481,8 @@ const processFullRefundTransaction = async (params: {
       refundTransactionId: refundTxId,
       totalRefund,
       refundedServices,
-      refundDate: refundDate.toISOString()
+      refundDate: refundDate.toISOString(),
+      receiptNo  // Include receipt number in the return object
     };
 
   } catch (error) {
