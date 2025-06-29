@@ -39,8 +39,14 @@ router.post(
 );
 
 router.put(
-  '/employees/:id', 
+  '/:id', 
   employeeController.updateEmployee
 );
+
+router.get(
+  '/:id',
+  employeeController.getEmployeeById
+);
+
 
 export default router;

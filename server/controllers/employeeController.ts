@@ -401,38 +401,40 @@ const getAllRolesForDropdown = async (req: Request, res: Response, next: NextFun
   }
 };
 
-const updateEmployee = async (req: Request, res: Response, next: NextFunction): Promise<void> => {
+/* ──────────────────────────────────────────────────────────────────────────
+ *  Update
+ * ──────────────────────────────────────────────────────────────────────── */
+
+const updateEmployee = async (req: Request, res: Response, next: NextFunction) => {
   try {
-    /* ------------------------------------------------------------- params */
     const employee_id = Number(req.params.id);
     if (!employee_id || Number.isNaN(employee_id)) {
-      res.status(400).json({ message: 'Invalid or missing employee ID in URL.' });
+      res.status(400).json({ message: 'Invalid employee ID.' });
       return;
     }
 
-    /* --------------------------------------------------------- sanitize ↓ */
     const {
-      employee_email   = undefined,
-      employee_name    = undefined,
-      employee_contact = undefined,
-      employee_code    = undefined,
+      employee_email,
+      employee_name,
+      employee_contact,
+      employee_code,
       employee_is_active,
       position_ids,
     } = req.body;
 
     const payload = {
       employee_id,
-      email:            employee_email   ? employee_email.trim()   : undefined,
-      employee_name:    employee_name    ? employee_name.trim()    : undefined,
-      phone:            employee_contact ? employee_contact.trim() : undefined,
-      employee_contact: employee_contact ? employee_contact.trim() : undefined,
-      employee_code:    employee_code    !== undefined ? String(employee_code).trim() : undefined,
+      email:             employee_email   ? employee_email.trim()   : undefined,
+      phone:             employee_contact ? employee_contact.trim() : undefined,
+      employee_contact:  employee_contact ? employee_contact.trim() : undefined,
+      employee_name:     employee_name    ? employee_name.trim()    : undefined,
+      employee_code:     employee_code    !== undefined ? String(employee_code).trim() : undefined,
       employee_is_active,
       position_ids,
       updated_at: new Date().toISOString(),
     };
 
-    /* ------------------------------------------ quick format validations */
+    /* quick format checks */
     if (payload.email && !validator.isEmail(payload.email)) {
       res.status(400).json({ message: 'Invalid email format.' });
       return;
@@ -442,13 +444,34 @@ const updateEmployee = async (req: Request, res: Response, next: NextFunction): 
       return;
     }
 
-    /* ------------------------------ hand off to model (handles duplicates) */
     await model.updateEmployee(payload);
 
-    res.status(200).json({ message: 'Employee updated successfully.' });
+    /* optional: fetch updated record */
+    const updated = await model.getEmployeeById(employee_id);
+    res.status(200).json({ message: 'Employee updated.', data: updated });
   } catch (err) {
-    console.error('updateEmployee controller error:', err);
-    next(err);                          // central error-handler will 500 it
+    console.error('updateEmployee ctrl error:', err);
+    next(err);
+  }
+};
+
+const getEmployeeById = async (req: Request, res: Response, next: NextFunction) => {
+  const employeeId = Number(req.params.id);
+  if (!employeeId || Number.isNaN(employeeId)) {
+    res.status(400).json({ message: 'Invalid employee ID.' });
+    return;
+  }
+
+  try {
+    const employee = await model.getEmployeeById(employeeId);
+    if (!employee) {
+      res.status(404).json({ message: 'Employee not found.' });
+      return;
+    }
+    res.status(200).json(employee);
+  } catch (error) {
+    console.error('Error fetching employee by ID:', error);
+    next(error);
   }
 };
 
@@ -467,5 +490,6 @@ export default {
   getAllRolesForDropdown,
   verifyInviteURL,
   getBasicEmployeeDetails,
-  updateEmployee
+  updateEmployee,
+  getEmployeeById,
 };
