@@ -12,6 +12,7 @@ import {
   Tickets,
   ChartColumnStacked,
   CreditCard,
+  DollarSign,
 } from 'lucide-react';
 import { NavMain } from '@/components/nav-main';
 import { NavUser } from '@/components/nav-user';
@@ -51,6 +52,22 @@ const data = {
         {
           title: 'Settings',
           url: '#',
+        },
+      ],
+    },
+    {
+      title: 'Revenue',
+      url: '#',
+      icon: DollarSign,
+      isActive: true,
+      items: [
+        {
+          title: 'Revenue Report',
+          url: '/rr',
+        },
+        {
+          title: 'Deferred Revenue',
+          url: '/dr',
         },
       ],
     },

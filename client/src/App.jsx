@@ -50,7 +50,8 @@ import ManagePaymentMethodsPage from './pages/payment-method/ManagePaymentMethod
 import CreatePaymentMethodPage from './pages/payment-method/CreatePaymentMethodPage';
 import EditPaymentMethodPage from './pages/payment-method/EditPaymentMethodPage';
 import TestPMComponent from './pages/sale-transaction/AddPMMComponentTest';
-
+import RevenueReportPage from './pages/revenue/RevenueReportPage';
+import DeferredRevenuePage from './pages/revenue/DeferredRevenuePage';
 // Employees
 import ManagePositions from '@/pages/em/ManagePositions';
 
@@ -120,6 +121,11 @@ function App() {
               <Route path='/payment-method/create' element={<CreatePaymentMethodPage />} />
               <Route path='/payment-method/edit/:id' element={<EditPaymentMethodPage />} />
               <Route path='/payment-method/test' element={<TestPMComponent />} />
+
+              {/* Revenue Report Page */}
+              <Route path='/rr' element={<RevenueReportPage />} />
+              {/* Deferred Revenue Page */}
+              <Route path='/dr' element={<DeferredRevenuePage />} />
             </Route>
             <Route path='/login' element={<LoginPage />} />
 
