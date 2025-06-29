@@ -5,41 +5,57 @@ import validator from 'validator';
 
 const createPosition = async (req: Request, res: Response, next: NextFunction): Promise<void> => {
   try {
-    const { position_name, position_description, position_is_active } = req.body;
+    // Normalise + trim first
+    const position_name_raw        = req.body.position_name ?? '';
+    const position_description_raw = req.body.position_description ?? '';
 
-    if (!position_name || !position_description) {
+    const position_name        = position_name_raw.trim();
+    const position_description = position_description_raw.trim();
+    const position_is_active   = req.body.position_is_active !== undefined
+      ? !!req.body.position_is_active
+      : true;
+
+    // ------------------------------------------------------------
+    // 1. Required fields (after trimming)
+    // ------------------------------------------------------------
+    if (validator.isEmpty(position_name) || validator.isEmpty(position_description)) {
       res.status(400).json({ message: 'Position name and description are required' });
       return;
     }
 
-    // Validate position name length
+    // ------------------------------------------------------------
+    // 2. Length constraints
+    // ------------------------------------------------------------
     if (!validator.isLength(position_name, { min: 2, max: 100 })) {
       res.status(400).json({ message: 'Position name must be between 2 and 100 characters' });
       return;
     }
 
-    // Validate description length
     if (!validator.isLength(position_description, { min: 5, max: 500 })) {
       res.status(400).json({ message: 'Position description must be between 5 and 500 characters' });
       return;
     }
 
-    // Check if the position name already exists
+    // ------------------------------------------------------------
+    // 3. Uniqueness check (case-insensitive)
+    // ------------------------------------------------------------
     const exists = await model.checkPositionNameExists(position_name);
     if (exists) {
       res.status(400).json({ message: 'Position name already exists' });
       return;
     }
 
-    const currentTime = new Date().toISOString();
+    // ------------------------------------------------------------
+    // 4. Create record
+    // ------------------------------------------------------------
+    const now = new Date().toISOString();
 
-    // Create the new position
     const newPosition = await model.createPosition({
-      position_name: position_name.trim(),
-      position_description: position_description.trim(),
-      position_is_active: position_is_active !== undefined ? position_is_active : true,
-      position_created_at: currentTime,
-      position_updated_at: currentTime,
+      position_name,
+      position_description,
+      position_is_active,
+      position_created_at: now,
+      position_updated_at: now,
     });
 
     res.status(201).json({
