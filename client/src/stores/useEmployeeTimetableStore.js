@@ -87,10 +87,10 @@ const useEmployeeTimetableStore = create((set, get) => ({
             loading: { ...state.loading, employees: true }
         }));
         try{
-            // const response = await api.get('/em/basic-details');
-            const response = await fetch('http://localhost:3000/api/em/basic-details');
+            const response = await api.get('/em/basic-details');
+
             console.log('Loading employees from API...', response);
-            const data = await response.json();
+            const data = await response.data;
             console.log('Employees loaded:', data);
             if(data.success) {
                 /**
@@ -111,13 +111,12 @@ const useEmployeeTimetableStore = create((set, get) => ({
             loading: { ...state.loading, positions: true }
         }));
         try {
-            // const response = await api.get('/em/positions');
+            const response = await api.get('/em/positions');
             /**
              * check errors 
              */
-            const response = await fetch('http://localhost:3000/api/em/positions');
             console.log('Loading positions from API...', response);
-            const data = await response.json();
+            const data = await response.data;
             console.log('Positions loaded:', data);
             if(data.success) {
                 set({ positions: data.data });
@@ -148,25 +147,25 @@ const useEmployeeTimetableStore = create((set, get) => ({
             const { selectedEmployee, selectedPosition, pagination } = get();
 
             // Build URL with pagination parameters
-            let url = `/api/et/timetables?month=${monthStr}&page=${pagination.currentPage}&limit=${pagination.pageSize}`;
+            let url = `/et/timetables?month=${monthStr}&page=${pagination.currentPage}&limit=${pagination.pageSize}`;
             
             /**
              * Implement both employee and position filters
              */
             if (selectedEmployee) {
                 // url += `&employeeId=${selectedEmployee.employee_id}`;
-                url = `/api/et/employee/${selectedEmployee.id}?month=${monthStr}`;
+                url = `/et/employee/${selectedEmployee.id}?month=${monthStr}`;
             } else if (selectedPosition) {
                 // url += `&position_id=${selectedPosition.position_id}`;
-                url = `/api/et/position/${selectedPosition.id}?month=${monthStr}`;
+                url = `/et/position/${selectedPosition.id}?month=${monthStr}`;
             }
             
             console.log('Fetching timetable data from URL:', url);
             console.log('🔍 [STORE] Final API URL:', url);
 
             // const response = await api.get(url);
-            const response = await fetch(`http://localhost:3000${url}`);
-            const data = await response.json();
+            const response = await api.get(url);
+            const data = await response.data;
             console.log('API Response when searching:', data);
             console.log('Pagination from API:', data.pagination);
             // console.log('Timetable data loaded:', data);

@@ -56,7 +56,7 @@ export default function EmployeeTimetablePage() {
                   
                   {/* Action Buttons */}
                   <div className='flex gap-2'>
-                    <Button 
+                    {/* <Button 
                       variant='outline' 
                       size='sm'
                       onClick={handleExport}
@@ -64,7 +64,7 @@ export default function EmployeeTimetablePage() {
                     >
                       <Download className='h-3 w-3' />
                       Export
-                    </Button>
+                    </Button> */}
                   {canCreate && (
                     <Button 
                       size='sm'
