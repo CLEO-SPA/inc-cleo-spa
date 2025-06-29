@@ -427,7 +427,6 @@ const getAllEmployeesForDropdown = async () => {
   }
 };
 
-<<<<<<< HEAD
 const getAllRolesForDropdown = async () => {
   try {
     const query = `
@@ -649,9 +648,6 @@ const updateEmployee = async (data: UpdateEmployeeData) => {
     client.release();
   }
 };
-
-=======
->>>>>>> origin/master
 export default {
   checkEmployeeCodeExists,
   checkEmployeePhoneExists,
@@ -665,13 +661,9 @@ export default {
   getUserData,
   getEmployeeIdByUserAuthId,
   getBasicEmployeeDetails,
-<<<<<<< HEAD
-  getAllEmployeesForDropdown,
   createAuthAndEmployee,
   getAllRolesForDropdown,
   touchEmployee,
   getEmployeeById,
   updateEmployee,
-=======
->>>>>>> origin/master
 };

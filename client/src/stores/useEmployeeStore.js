@@ -1,7 +1,3 @@
-<<<<<<< HEAD
-=======
-// src/stores/useEmployeeStore.js
->>>>>>> origin/master
 import { create } from 'zustand';
 import api from '@/services/api';
 

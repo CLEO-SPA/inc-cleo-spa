@@ -1,6 +1,5 @@
-'use client';
+"use client"
 
-<<<<<<< HEAD
 import { ChevronRight } from "lucide-react";
 import { Link } from "react-router-dom";
 import {
@@ -8,11 +7,6 @@ import {
   CollapsibleContent,
   CollapsibleTrigger,
 } from "@/components/ui/collapsible"
-=======
-import { ChevronRight } from 'lucide-react';
-
-import { Collapsible, CollapsibleContent, CollapsibleTrigger } from '@/components/ui/collapsible';
->>>>>>> origin/master
 import {
   SidebarGroup,
   SidebarGroupLabel,
@@ -23,48 +17,24 @@ import {
   SidebarMenuSub,
   SidebarMenuSubButton,
   SidebarMenuSubItem,
-} from '@/components/ui/sidebar';
+} from "@/components/ui/sidebar"
 
-export function NavMain({ items }) {
+export function NavMain({
+  items
+}) {
   return (
-    <SidebarGroup>
+    (<SidebarGroup>
       {/* <SidebarGroupLabel>Platform</SidebarGroupLabel> */}
       <SidebarMenu>
-        {items.map((item) =>
-          item.items?.length ? (
-            <Collapsible key={item.title} asChild defaultOpen={item.isActive}>
-              <SidebarMenuItem>
-                <CollapsibleTrigger asChild>
-                  <SidebarMenuButton tooltip={item.title}>
-                    <item.icon />
-                    <span>{item.title}</span>
-                    <ChevronRight className='ml-auto h-4 w-4 shrink-0 transition-transform duration-200 group-data-[state=open]/menu-item:rotate-90' />
-                  </SidebarMenuButton>
-                </CollapsibleTrigger>
-                <CollapsibleContent>
-                  <SidebarMenuSub>
-                    {item.items.map((subItem) => (
-                      <SidebarMenuSubItem key={subItem.title}>
-                        <SidebarMenuSubButton asChild>
-                          <a href={subItem.url}>
-                            <span>{subItem.title}</span>
-                          </a>
-                        </SidebarMenuSubButton>
-                      </SidebarMenuSubItem>
-                    ))}
-                  </SidebarMenuSub>
-                </CollapsibleContent>
-              </SidebarMenuItem>
-            </Collapsible>
-          ) : (
-            <SidebarMenuItem key={item.title}>
+        {items.map((item) => (
+          <Collapsible key={item.title} asChild defaultOpen={item.isActive}>
+            <SidebarMenuItem>
               <SidebarMenuButton asChild tooltip={item.title}>
                 <a href={item.url}>
                   <item.icon />
                   <span>{item.title}</span>
                 </a>
               </SidebarMenuButton>
-<<<<<<< HEAD
               {item.items?.length ? (
                 <>
                   <CollapsibleTrigger asChild>
@@ -88,12 +58,10 @@ export function NavMain({ items }) {
                   </CollapsibleContent>
                 </>
               ) : null}
-=======
->>>>>>> origin/master
             </SidebarMenuItem>
-          )
-        )}
+          </Collapsible>
+        ))}
       </SidebarMenu>
-    </SidebarGroup>
+    </SidebarGroup>)
   );
 }

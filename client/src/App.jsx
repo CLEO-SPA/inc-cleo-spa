@@ -50,7 +50,6 @@ import ManagePaymentMethodsPage from './pages/payment-method/ManagePaymentMethod
 import CreatePaymentMethodPage from './pages/payment-method/CreatePaymentMethodPage';
 import EditPaymentMethodPage from './pages/payment-method/EditPaymentMethodPage';
 import TestPMComponent from './pages/sale-transaction/AddPMMComponentTest';
-<<<<<<< HEAD
 
 // Employee Management
 import ManagePositions from '@/pages/em/ManagePositionsPage';
@@ -59,12 +58,9 @@ import EditPositionPage from '@/pages/em/UpdatePositionPage';
 import ManageEmployeesPage from '@/pages/em/ManageEmployeesPage';
 import CreateEmployeePage from '@/pages/em/CreateEmployeePage';
 import EditEmployeePage from '@/pages/em/UpdateEmployeePage';
-=======
 import RevenueReportPage from './pages/revenue/RevenueReportPage';
 import DeferredRevenuePage from './pages/revenue/DeferredRevenuePage';
-// Employees
-import ManagePositions from '@/pages/em/ManagePositions';
->>>>>>> origin/master
+
 
 // Appointments Management
 import ManageAppointmentsPage from '@/pages/ab/ManageAppointmentsPage';
@@ -100,7 +96,6 @@ function App() {
               <Route path='/appointments' element={<ManageAppointmentsPage />} />
 
               <Route path='/appointments/create' element={<CreateAppointmentPage />} />
-              <Route path='/employees' element={<CreateAppointmentPage />} />
               <Route path='/appointments/edit/:id' element={<EditAppointmentPage />} />
               <Route path='/appointments/:id' element={<ViewAppointmentDetailsPage />} />
 

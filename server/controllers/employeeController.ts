@@ -297,26 +297,38 @@ const updateEmployeePassword = async (req: Request, res: Response, next: NextFun
   }
 };
 
-// const getAllEmployees = async (req: Request, res: Response, next: NextFunction) => {
-//   const page = parseInt(req.query.page) || 1;
-//   const limit = parseInt(req.query.limit) || 10;
-//   const offset = (page - 1) * limit;
-//   const { startDate_utc, endDate_utc } = req.session;
+const getAllEmployees = async (req: Request, res: Response, next: NextFunction) => {
+  const page  = parseInt(req.query.page  as string || '1',  10);
+  const limit = parseInt(req.query.limit as string || '10', 10);
+  const offset = (page - 1) * limit;
 
-//   try {
-//     const { employees, totalPages } = await model.getAllEmployees(offset, limit, startDate_utc, endDate_utc);
+  // session keys are snake_case in the rest of the code
+  const { start_date_utc, end_date_utc } = req.session as typeof req.session & {
+    start_date_utc?: string;
+    end_date_utc?: string;
+  };
 
-//     res.status(200).json({
-//       currentPage: page,
-//       totalPages: totalPages,
-//       pageSize: limit,
-//       data: employees,
-//     });
-//   } catch (error) {
-//     console.log('Error getting employees:', error);
-//     res.status(500).json({ message: 'Error getting employees', error: error.message });
-//   }
-// };
+  // Defaults: open-ended range
+  const startUTC = start_date_utc ?? '0001-01-01';
+  const endUTC   = end_date_utc   ?? '9999-12-31';
+
+  try {
+    const { employees, totalPages, totalCount } =
+      await model.getAllEmployees(offset, limit, startUTC, endUTC);
+
+    res.status(200).json({
+      currentPage: page,
+      totalPages,
+      totalCount,
+      pageSize: limit,
+      data: employees,
+    });
+  } catch (err) {
+    console.error('Error getting employees:', err);
+    next(err);           // let central error-handler format the 500
+  }
+};
+
 
 const regenerateInvitationLink = async (req: Request, res: Response, next: NextFunction): Promise<void> => {
   const { email } = req.body;

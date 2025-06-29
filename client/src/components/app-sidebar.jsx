@@ -150,7 +150,7 @@ const data = {
     },
     {
       title: 'Employees',
-      url: '',
+      url: '/employees',
       icon: Users,
       items: [
         {
@@ -159,7 +159,7 @@ const data = {
         },
         {
           title: 'Manage employees',
-          url: '/employees',
+          url: '/employees/create',
         },
         {
           title: 'Add new position',
