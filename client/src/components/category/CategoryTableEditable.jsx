@@ -5,7 +5,7 @@ import { FilePenLine, Check, X, ChevronsLeft, ChevronLeft, ChevronRight, Chevron
 import api from '@/services/api';
 import useAuth from '@/hooks/useAuth';
 
-export default function CategoryTableEditable({ 
+export default function CategoryTableEditable({
   data = [],
   loading = false,
   onRefresh,
@@ -16,22 +16,17 @@ export default function CategoryTableEditable({
   searchQuery,
   setSearchQuery,
   itemsPerPage,
-  setItemsPerPage
- }) {
+  setItemsPerPage,
+}) {
   const inputRef = useRef(null);
   const [saving, setSaving] = useState(false);
   const [saveError, setSaveError] = useState('');
   const [editingId, setEditingId] = useState(null);
   const [editedName, setEditedName] = useState('');
-  
-  // --- Role-based access ---
-  const { user } = useAuth();
-  const canEdit = user?.role === 'super_admin' || user?.role === 'data_admin';
 
   // --- Role-based access ---
   const { user } = useAuth();
   const canEdit = user?.role === 'super_admin' || user?.role === 'data_admin';
-
 
   const startEditing = (cat) => {
     setEditingId(cat.id);
@@ -98,9 +93,7 @@ export default function CategoryTableEditable({
             <th className='px-4 py-2 border border-gray-300'>ID</th>
             <th className='px-4 py-2 border border-gray-300'>Name</th>
             <th className='px-4 py-2 border border-gray-300'># of Items</th>
-            {canEdit && (
-            <th className='px-4 py-2 border border-gray-300'>Actions</th>
-            )}
+            {canEdit && <th className='px-4 py-2 border border-gray-300'>Actions</th>}
           </tr>
         </thead>
         <tbody>
@@ -131,35 +124,35 @@ export default function CategoryTableEditable({
                 </td>
                 <td className='px-4 py-2 border border-gray-300'>{cat.total_services || cat.total_products || 0}</td>
                 {canEdit && (
-                <td className='px-4 py-2 border border-gray-300 space-x-2'>
-                  {editingId === cat.id ? (
-                    <>
+                  <td className='px-4 py-2 border border-gray-300 space-x-2'>
+                    {editingId === cat.id ? (
+                      <>
+                        <Button
+                          className='p-1 text-sm bg-blue-600 text-white rounded-lg hover:bg-blue-700'
+                          onClick={() => saveEditing(cat.id)}
+                          disabled={!editedName.trim() || saving}
+                        >
+                          <Check className='inline-block mr-1' size={16} />
+                          {saving ? 'Saving...' : 'Save'}
+                        </Button>
+                        <Button
+                          className='p-1 text-sm bg-gray-400 text-white rounded-lg hover:bg-gray-500'
+                          onClick={cancelEditing}
+                        >
+                          <X className='inline-block mr-1' size={16} />
+                          Cancel
+                        </Button>
+                      </>
+                    ) : (
                       <Button
-                        className='p-1 text-sm bg-blue-600 text-white rounded-lg hover:bg-blue-700'
-                        onClick={() => saveEditing(cat.id)}
-                        disabled={!editedName.trim() || saving}
+                        className='p-1 text-sm bg-green-600 text-white rounded-lg hover:bg-green-700'
+                        onClick={() => startEditing(cat)}
                       >
-                        <Check className='inline-block mr-1' size={16} />
-                        {saving ? 'Saving...' : 'Save'}
+                        <FilePenLine className='inline-block mr-1' size={16} />
+                        Update
                       </Button>
-                      <Button
-                        className='p-1 text-sm bg-gray-400 text-white rounded-lg hover:bg-gray-500'
-                        onClick={cancelEditing}
-                      >
-                        <X className='inline-block mr-1' size={16} />
-                        Cancel
-                      </Button>
-                    </>
-                  ) : (
-                    <Button
-                      className='p-1 text-sm bg-green-600 text-white rounded-lg hover:bg-green-700'
-                      onClick={() => startEditing(cat)}
-                    >
-                      <FilePenLine className='inline-block mr-1' size={16} />
-                      Update
-                    </Button>
-                  )}
-                </td>
+                    )}
+                  </td>
                 )}
               </tr>
             ))
@@ -174,54 +167,55 @@ export default function CategoryTableEditable({
       </table>
 
       {/* Pagination */}
-      <div className="flex justify-between items-center mt-2 space-x-4 flex-shrink-0">
-        <div className="flex items-center space-x-2">
-          <label htmlFor="itemsPerPage" className="text-sm">Items per page:</label>
+      <div className='flex justify-between items-center mt-2 space-x-4 flex-shrink-0'>
+        <div className='flex items-center space-x-2'>
+          <label htmlFor='itemsPerPage' className='text-sm'>
+            Items per page:
+          </label>
           <select
-            id="itemsPerPage"
+            id='itemsPerPage'
             value={itemsPerPage}
             onChange={(e) => {
               setItemsPerPage(Number(e.target.value));
               onPageChange(1);
             }}
-            className="border rounded p-1"
+            className='border rounded p-1'
           >
             {[5, 10, 20, 50, 100].map((num) => (
-              <option key={num} value={num}>{num}</option>
+              <option key={num} value={num}>
+                {num}
+              </option>
             ))}
           </select>
         </div>
 
         {totalPages > 1 && (
-          <div className="flex items-center space-x-2">
-            <Button
-              variant="outline"
-              size="icon"
-              disabled={currentPage === 1}
-              onClick={() => onPageChange(1)}
-            >
+          <div className='flex items-center space-x-2'>
+            <Button variant='outline' size='icon' disabled={currentPage === 1} onClick={() => onPageChange(1)}>
               <ChevronsLeft />
             </Button>
             <Button
-              variant="outline"
-              size="icon"
+              variant='outline'
+              size='icon'
               disabled={currentPage === 1}
               onClick={() => onPageChange(currentPage - 1)}
             >
               <ChevronLeft />
             </Button>
-            <span>Page {currentPage} of {totalPages}</span>
+            <span>
+              Page {currentPage} of {totalPages}
+            </span>
             <Button
-              variant="outline"
-              size="icon"
+              variant='outline'
+              size='icon'
               disabled={currentPage === totalPages}
               onClick={() => onPageChange(currentPage + 1)}
             >
               <ChevronRight />
             </Button>
             <Button
-              variant="outline"
-              size="icon"
+              variant='outline'
+              size='icon'
               disabled={currentPage === totalPages}
               onClick={() => onPageChange(totalPages)}
             >
