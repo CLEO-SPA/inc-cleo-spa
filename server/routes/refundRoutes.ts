@@ -12,7 +12,7 @@ import controller from '../controllers/refundController.js';
 // =========================
 // Private routes
 // =========================
-//router.use(isAuthenticated);
+router.use(isAuthenticated);
 
 // API: /api/refunds/-
 router.get('/all', controller.viewAllRefundSaleTransactionRecords);
@@ -23,12 +23,7 @@ router.post('/service', controller.processRefundService);
 /////////////////////////////
 
 //Process a refund for member care packages
-router.post(
-  '/mcp',
-  controller.validateMCPExists,
-  controller.verifyRefundableServices,
-  controller.processFullRefund
-);
+router.post('/mcp', controller.validateMCPExists, controller.verifyRefundableServices, controller.processFullRefund);
 
 //Return the info for member care package services
 router.get('/mcp-status/:id', controller.fetchMCPStatus);

@@ -2,6 +2,7 @@ import { useState } from 'react';
 import useSelectedMemberStore from '@/stores/useSelectedMemberStore'; 
 import { Button } from '@/components/ui/button'; 
 import CreateMemberVoucherForm from './tabs/CreateMemberVoucherForm'; 
+import CreateMemberCarePackageForm from './tabs/CreateMemberCarePackageForm';
 
 export default function FormSelectorPanel() { 
   const [selectedTab, setSelectedTab] = useState('services'); 
@@ -23,7 +24,7 @@ export default function FormSelectorPanel() {
       case 'products': 
         return <div>Select a tab</div>; 
       case 'mcp': 
-        return <div>Select a tab</div>; 
+        return <CreateMemberCarePackageForm />; 
       case 'vouchers': 
         return <CreateMemberVoucherForm />; 
       case 'transfer_voucher': 

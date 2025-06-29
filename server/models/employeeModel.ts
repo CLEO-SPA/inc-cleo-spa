@@ -281,17 +281,16 @@ const getAllEmployeesForDropdown = async () => {
   }
 };
 
-
 export default {
   // createEmployee,
   checkEmployeeCodeExists,
   getAuthUser,
   updateEmployeePassword,
   getAllEmployees,
+  getAllEmployeesForDropdown,
   createSuperUser,
   getUserCount,
   getUserData,
   getEmployeeIdByUserAuthId,
   getBasicEmployeeDetails,
-  getAllEmployeesForDropdown
 };
