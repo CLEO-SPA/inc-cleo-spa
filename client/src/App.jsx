@@ -50,7 +50,8 @@ import ManagePaymentMethodsPage from './pages/payment-method/ManagePaymentMethod
 import CreatePaymentMethodPage from './pages/payment-method/CreatePaymentMethodPage';
 import EditPaymentMethodPage from './pages/payment-method/EditPaymentMethodPage';
 import TestPMComponent from './pages/sale-transaction/AddPMMComponentTest';
-
+import RevenueReportPage from './pages/revenue/RevenueReportPage';
+import DeferredRevenuePage from './pages/revenue/DeferredRevenuePage';
 // Employees
 import ManagePositions from '@/pages/em/ManagePositions';
 
@@ -136,6 +137,11 @@ function App() {
               <Route path='/reorder-product' element={<ReorderProductPage />} />
               <Route path='/manage-product-category' element={<ManageProductCategoryPage />} />
               <Route path='/view-product-sales-history/:product_id' element={<ViewProductSalesHistoryPage />} />
+                
+              {/* Revenue Report Page */}
+              <Route path='/rr' element={<RevenueReportPage />} />
+              {/* Deferred Revenue Page */}
+              <Route path='/dr' element={<DeferredRevenuePage />} />
             </Route>
             <Route path='/login' element={<LoginPage />} />
 
