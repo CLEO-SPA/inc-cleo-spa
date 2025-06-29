@@ -297,38 +297,26 @@ const updateEmployeePassword = async (req: Request, res: Response, next: NextFun
   }
 };
 
-const getAllEmployees = async (req: Request, res: Response, next: NextFunction): Promise<void> => {
-  const page = parseInt(req.query.page as string) || 1;
-  const limit = parseInt(req.query.limit as string) || 10;
-  const offset = (page - 1) * limit;
+// const getAllEmployees = async (req: Request, res: Response, next: NextFunction) => {
+//   const page = parseInt(req.query.page) || 1;
+//   const limit = parseInt(req.query.limit) || 10;
+//   const offset = (page - 1) * limit;
+//   const { startDate_utc, endDate_utc } = req.session;
 
-  const { start_date_utc, end_date_utc } = req.session as typeof req.session & {
-    start_date_utc?: string;
-    end_date_utc?: string;
-  };
+//   try {
+//     const { employees, totalPages } = await model.getAllEmployees(offset, limit, startDate_utc, endDate_utc);
 
-  try {
-    const { employees, totalPages, totalCount } = await model.getAllEmployees(
-      offset,
-      limit,
-      start_date_utc ?? '0001-01-01',
-      end_date_utc ?? '9999-12-31'
-    );
-
-    res.status(200).json({
-      currentPage: page,
-      totalPages,
-      totalCount,
-      pageSize: limit,
-      data: employees,
-      start_date_utc,
-      end_date_utc,
-    });
-  } catch (error) {
-    console.error('Error getting employees:', error);
-    next(error);
-  }
-};
+//     res.status(200).json({
+//       currentPage: page,
+//       totalPages: totalPages,
+//       pageSize: limit,
+//       data: employees,
+//     });
+//   } catch (error) {
+//     console.log('Error getting employees:', error);
+//     res.status(500).json({ message: 'Error getting employees', error: error.message });
+//   }
+// };
 
 const regenerateInvitationLink = async (req: Request, res: Response, next: NextFunction): Promise<void> => {
   const { email } = req.body;
@@ -385,6 +373,8 @@ const getAllEmployeesForDropdown = async (req: Request, res: Response, next: Nex
     const employees = await model.getAllEmployeesForDropdown();
     res.status(200).json(employees);
   } catch (error) {
+    console.error('Error in getAllEmployeesForDropdown:', error);
+    res.status(500).json({ message: 'Failed to fetch employees for dropdown' });
     console.error('Error fetching employee list:', error);
     next(error);
   }

@@ -18,8 +18,14 @@ import { SiteHeader } from '@/components/site-header';
 import { SidebarInset, SidebarProvider } from '@/components/ui/sidebar';
 import EmployeeSelect from '@/components/ui/forms/EmployeeSelect';
 import { useSimulationStore } from "@/stores/useSimulationStore";
+import { useAuth } from "@/context/AuthContext";
 
 export default function ManageService() {
+  // Check user role
+  const { user } = useAuth();
+  const allowedRoles = ['super_admin', 'data_admin'];
+  const isAdmin = user && allowedRoles.includes(user.role);
+
   // Data
   const [services, setServices] = useState([]);
   const [categories, setCategories] = useState([]);
@@ -50,6 +56,7 @@ export default function ManageService() {
   const [changeService, setChangeService] = useState(null);
   const [changeStatus, setChangeStatus] = useState(false);
   const [updateForm, setUpdateForm] = useState({
+    enabled: false,
     updated_at: "",
     updated_by: "",
     service_remarks: ""
@@ -61,6 +68,7 @@ export default function ManageService() {
   const updatedBy = watch('updated_by');
   const [updatedAt, setUpdatedAt] = useState(null);
 
+  // get services
   const getServices = async () => {
     setServiceLoading(true); // Set loading state to true while fetching data
     try {
@@ -95,6 +103,7 @@ export default function ManageService() {
     }
   }
 
+  // get service categories
   const getCategories = async () => {
     try {
       const response = await api.get('/service/service-cat');
@@ -116,6 +125,7 @@ export default function ManageService() {
       setModalOpen(true);
       let updateData = {
         ...updateForm,
+        enabled: !service.service_is_enabled,
         updated_at: isSimulationActive ? new Date(simulationStartDate) : new Date(),
         service_remarks: service.service_remarks
       }
@@ -126,12 +136,14 @@ export default function ManageService() {
     }
   }
 
+  // Reset form fields and state for enable/disable service modal
   const resetForm = async () => {
     setChangeService(null);
     setChangeStatus(null);
     setUpdatedAt(null);
     reset();
     setUpdateForm({
+      enabled: false,
       updated_at: "",
       updated_by: "",
       service_remarks: ""
@@ -139,38 +151,26 @@ export default function ManageService() {
     setErrorMsg('');
   }
 
+  // Handle form submission for enabling/disabling service
   const handleSubmit = async (e) => {
     e.preventDefault();
     setStatusLoading(true);
     setModalOpen(true);
-    if (!updateForm.updated_by) {
+    if (!updateForm.updated_by || updateForm.updated_by === "") {
+      setStatusLoading(false);
       setErrorMsg('Please select who updated this service');
       return;
     }
     try {
-      if (changeStatus) {
-        // Enabled if True
-        // Disabled if False
-        const response = await api.put(`/service/enable-service/${changeService.id}`, updateForm, {
-          headers: {
-            "Content-Type": "application/json"
-          }
-        });
-        if (response.status === 200) {
-          setModalOpen(false);
-          getServices();
+      const response = await api.put(`/service/service-status/${changeService.id}`, updateForm, {
+        headers: {
+          "Content-Type": "application/json"
         }
-      } else {
-        // Disabled if False
-        const response = await api.put(`/service/disable-service/${changeService.id}`, updateForm, {
-          headers: {
-            "Content-Type": "application/json"
-          }
-        });
-        if (response.status === 200) {
-          setModalOpen(false);
-          getServices();
-        }
+      });
+      if (response.status === 200) {
+        setErrorMsg('');
+        setModalOpen(false);
+        getServices();
       }
     } catch (err) {
       console.error('Error changing service status:', err);
@@ -249,6 +249,7 @@ export default function ManageService() {
     }
   }, [updatedAt, updatedBy])
 
+
   return (
     <div className='[--header-height:calc(theme(spacing.14))]'>
       <SidebarProvider className='flex flex-col'>
@@ -276,9 +277,6 @@ export default function ManageService() {
                       </button>
                     </div>
                     <div className="mt-4">
-                      {errorMsg && (
-                        <span className="text-red-500">{errorMsg}</span>
-                      )}
                       <FormProvider {...methods}>
                         <form onSubmit={handleSubmit} className="space-y-3">
 
@@ -298,6 +296,9 @@ export default function ManageService() {
                               name='updated_by'
                               label=''
                               rules={{ required: 'Updated_by is required' }} />
+                            {errorMsg && (
+                              <span className="text-red-500">{errorMsg}</span>
+                            )}
                           </div>
 
                           {/* Remarks */}
@@ -334,13 +335,16 @@ export default function ManageService() {
                 </div>
               </div>
             )}
+
+
             <div className='flex flex-1 flex-col gap-4 p-4'>
               {/* Buttons for other Functionalities */}
               <div className="flex space-x-4 p-4 bg-muted/50 rounded-lg">
-                <Button onClick={() => navigate("/create-service")} className="rounded-xl">Create Service</Button>
-                <Button onClick={() => navigate("/reorder-service")} className="rounded-xl">Reorder Service</Button>
+                <Button onClick={() => navigate("/create-service")} className="rounded-xl" disabled={!isAdmin}>Create Service</Button>
+                <Button onClick={() => navigate("/reorder-service")} className="rounded-xl" disabled={!isAdmin}>Reorder Service</Button>
                 <Button onClick={() => navigate("/manage-service-category")} className="rounded-xl">Manage Categories</Button>
               </div>
+
               {/* Filter */}
               <div className="flex space-x-4 p-4 bg-muted/50 rounded-lg">
                 {/* Search bar */}
@@ -385,7 +389,7 @@ export default function ManageService() {
                 {/* Reset Button */}
                 <Button onClick={() => handleReset()} className="rounded-xl">Clear</Button>
                 {/* View all details */}
-                <Button onClick={handleViewAllDetails} className="rounded-xl">View All Details</Button>
+                <Button onClick={handleViewAllDetails} className="rounded-xl">{expandedRows.length === services.length ? 'Hide' : 'View'} All Details</Button>
               </div>
               <div className="p-4 h-[60vh] flex flex-col rounded-xl bg-muted/50">
                 <div className="overflow-y-auto flex-1">
@@ -428,15 +432,19 @@ export default function ManageService() {
                                   <td className="px-2 py-2 border border-gray-200">
                                     <Switch
                                       checked={service.service_is_enabled}
-                                      onCheckedChange={() => handleSwitchChange(service)}
+                                      onCheckedChange={() => handleSwitchChange(service)
+                                      }
+                                      disabled={!isAdmin}
                                     />
                                   </td>
                                   {/* Action Row */}
                                   <td className="px-4 py-2 border border-gray-200">
                                     <div className="flex space-x-2 space-y-1">
-                                      <Button className="p-1 bg-green-600 text-white text-sm font-medium rounded-xl hover:bg-green-700" onClick={() => navigate(`/update-service/${service.id}`)}>
-                                        <FilePenLine className="inline-block mr-1" />
-                                      </Button>
+                                      {isAdmin && (
+                                        <Button className="p-1 bg-green-600 text-white text-sm font-medium rounded-xl hover:bg-green-700" onClick={() => navigate(`/update-service/${service.id}`)}>
+                                          <FilePenLine className="inline-block mr-1" />
+                                        </Button>
+                                      )}
                                       <Button className="px-2 py-1 bg-gray-600 text-white text-sm font-medium rounded-xl hover:bg-blue-700" onClick={() => navigate(`/view-sales-history/${service.id}`)}>
                                         View Sales History
                                       </Button>

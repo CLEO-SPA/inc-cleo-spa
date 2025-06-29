@@ -32,6 +32,7 @@ router.get('/basic-details', employeeController.getBasicEmployeeDetails);
 
 router.get('/', employeeController.getAllEmployees);
 
+<<<<<<< HEAD
 router.post(
   '/regenerate-uri',
   roleMiddleware.hasRole(['super_admin', 'data_admin']),
@@ -48,5 +49,19 @@ router.get(
   employeeController.getEmployeeById
 );
 
+=======
+// router.post(
+//   '/create',
+//   employeeController.defaultPassword,
+//   hashPassword,
+//   employeeController.createEmployee
+//   // employeeController.inviteEmployee
+// );
+// router.post(
+//   'regenerate-uri',
+//   roleMiddleware.hasRole(['super_admin', 'data_admin']),
+//   employeeController.regenerateInvitationLink
+// );
+>>>>>>> origin/master
 
 export default router;
