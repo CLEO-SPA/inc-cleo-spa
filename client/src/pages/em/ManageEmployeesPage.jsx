@@ -63,7 +63,7 @@ export default function ManageEmployeePage() {
   };
 
   const navigateToEdit = (employee) => {
-    navigate(`/employees/update/${employee.id}`);
+    navigate(`/employees/edit/${employee.id}`);
   };
 
   const formatDate = (dateString) =>

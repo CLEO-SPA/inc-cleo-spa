@@ -591,6 +591,13 @@ const updateEmployee = async (data: UpdateEmployeeData) => {
     const eSets: string[] = [];
     const eParams: any[] = [];
     p = 1;
+
+    if (data.email !== undefined) {
+      // keep employees.email in sync
+      eSets.push(`employee_email      = $${p}`);
+      eParams.push(data.email);
+      p++;
+    }
     if (data.employee_name !== undefined) {
       eSets.push(`employee_name      = $${p}`);
       eParams.push(data.employee_name);
