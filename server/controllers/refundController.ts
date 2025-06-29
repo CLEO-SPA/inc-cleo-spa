@@ -411,7 +411,7 @@ export default {
   searchMemberCarePackages: searchMemberCarePackages as RequestHandler,
   processRefundMemberVoucher,
   getEligibleMemberVoucherForRefund,
-  getMemberVoucherById,
+  getMemberVoucherById: getMemberVoucherById as RequestHandler,
   getAllRefundRecords,
-  getRefundRecordDetails,
+  getRefundRecordDetails: getRefundRecordDetails as RequestHandler,
 };
