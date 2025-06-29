@@ -194,6 +194,8 @@ const fetchMCPStatus = async (req: Request, res: Response, next: NextFunction) =
       const consumed = parseInt(s.consumed) || 0;
       const refunded = parseInt(s.refunded) || 0;
       const unpaid = parseInt(s.unpaid) || 0;
+      const price = parseFloat(s.price) || 0;
+      const discount = parseFloat(s.discount) || 0;
 
       // Remaining is already set to 0 if refunded > 0 by the SQL query
       const remaining = parseInt(s.remaining) || 0;
@@ -211,6 +213,7 @@ const fetchMCPStatus = async (req: Request, res: Response, next: NextFunction) =
         service_id: s.service_id,
         service_name: s.service_name,
         totals: {
+          price,
           purchased,
           consumed,
           refunded,
@@ -221,7 +224,11 @@ const fetchMCPStatus = async (req: Request, res: Response, next: NextFunction) =
       };
     });
 
-    res.status(200).json({ package_id, package_name, services });
+    res.status(200).json({ 
+      package_id, 
+      package_name, 
+      services 
+    });
   } catch (error) {
     next(error);
   }

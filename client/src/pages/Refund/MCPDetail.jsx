@@ -50,6 +50,13 @@ const MCPDetail = () => {
   const [successMessage, setSuccessMessage] = useState('');
   const [refundDates, setRefundDates] = useState({});
 
+  const calculateRefundAmount = (service) => {
+    if (service.totals.refunded > 0) {
+      return (service.totals.refunded * service.totals.price).toFixed(2);
+    }
+    return (service.totals.remaining * service.totals.price).toFixed(2);
+  };
+
   useEffect(() => {
     const fetchPackageDetails = async () => {
       try {
@@ -57,7 +64,6 @@ const MCPDetail = () => {
         const data = await api.getPackageDetails(packageId);
         setPackageData(data);
         
-        // Fetch refund dates for refunded services
         const refundedServices = data.services?.filter(s => s.totals.refunded > 0) || [];
         const dates = {};
         
@@ -104,7 +110,6 @@ const MCPDetail = () => {
       setUseCustomDate(false);
       setSuccessMessage('Refund has been processed successfully');
       
-      // Refresh refund dates after successful refund
       const { refund_date } = await api.getRefundDate(packageId);
       setRefundDates(prev => ({
         ...prev,
@@ -113,7 +118,6 @@ const MCPDetail = () => {
       
       setTimeout(() => {
         setSuccessMessage('');
-        navigate(-1);
       }, 2000);
     } catch (err) {
       console.error('Refund processing failed:', err);
@@ -338,110 +342,128 @@ const MCPDetail = () => {
 
                       <div className="p-6">
                         <div className="space-y-6">
-                          {packageData.services?.map((service) => (
-                            <div key={service.service_id} className="border border-gray-200 rounded-lg overflow-hidden">
-                              <div className="bg-gray-50 px-6 py-4 border-b border-gray-200">
-                                <div className="flex items-center justify-between">
-                                  <div>
-                                    <h3 className="text-lg font-semibold text-gray-900">{service.service_name}</h3>
-                                    <p className="text-sm text-gray-600">Service ID: {service.service_id}</p>
-                                  </div>
-                                  {getStatusBadge(service)}
-                                </div>
-                              </div>
+                          {packageData.services?.map((service) => {
+                            const unitPrice = (service.price - (service.discount || 0)).toFixed(2);
+                            const refundAmount = calculateRefundAmount(service);
+                            const isRefunded = service.totals.refunded > 0;
+                            const isEligible = service.is_eligible_for_refund && !isRefunded;
 
-                              <div className="p-6">
-                                <div className="grid grid-cols-2 md:grid-cols-4 gap-6 mb-6">
-                                  <div className="text-center">
-                                    <div className="text-2xl font-bold text-blue-600">{service.totals.purchased}</div>
-                                    <div className="text-sm text-gray-600">Purchased</div>
-                                  </div>
-                                  <div className="text-center">
-                                    <div className="text-2xl font-bold text-green-600">{service.totals.consumed}</div>
-                                    <div className="text-sm text-gray-600">Consumed</div>
-                                  </div>
-                                  <div className="text-center">
-                                    <div className="text-2xl font-bold text-red-600">{service.totals.refunded}</div>
-                                    <div className="text-sm text-gray-600">Refunded</div>
-                                  </div>
-                                  <div className="text-center">
-                                    <div className="text-2xl font-bold text-orange-600">{service.totals.remaining}</div>
-                                    <div className="text-sm text-gray-600">Remaining</div>
+                            return (
+                              <div key={service.service_id} className="border border-gray-200 rounded-lg overflow-hidden">
+                                <div className="bg-gray-50 px-6 py-4 border-b border-gray-200">
+                                  <div className="flex items-center justify-between">
+                                    <div>
+                                      <h3 className="text-lg font-semibold text-gray-900">{service.service_name}</h3>
+                                      <p className="text-sm text-gray-600">Service ID: {service.service_id}</p>
+                                    </div>
+                                    {getStatusBadge(service)}
                                   </div>
                                 </div>
 
-                                <div className="mb-6">
-                                  <div className="flex justify-between text-sm text-gray-600 mb-2">
-                                    <span>Usage Progress</span>
-                                    <span>
-                                      {Math.round((service.totals.consumed / service.totals.purchased) * 100)}% utilized
-                                    </span>
-                                  </div>
-                                  <div className="w-full bg-gray-200 rounded-full h-2">
-                                    <div 
-                                      className="bg-blue-600 h-2 rounded-full transition-all duration-300"
-                                      style={{ 
-                                        width: `${Math.min((service.totals.consumed / service.totals.purchased) * 100, 100)}%` 
-                                      }}
-                                    ></div>
-                                  </div>
-                                </div>
-
-                                {service.totals.refunded > 0 && refundDates[service.service_id] && (
-                                  <div className="mb-4 p-3 bg-purple-50 border border-purple-200 rounded-lg">
-                                    <div className="flex items-center text-purple-800">
-                                      <Calendar className="w-4 h-4 mr-2" />
-                                      <span className="font-medium">Refund processed:</span>
-                                      <span className="ml-2">
-                                        {new Date(refundDates[service.service_id]).toLocaleString()}
-                                      </span>
+                                <div className="p-6">
+                                  <div className="grid grid-cols-2 md:grid-cols-5 gap-6 mb-6">
+                                    <div className="text-center">
+                                      <div className="text-2xl font-bold text-blue-600">{service.totals.purchased}</div>
+                                      <div className="text-sm text-gray-600">Purchased</div>
+                                    </div>
+                                    <div className="text-center">
+                                      <div className="text-2xl font-bold text-green-600">{service.totals.consumed}</div>
+                                      <div className="text-sm text-gray-600">Consumed</div>
+                                    </div>
+                                    <div className="text-center">
+                                      <div className="text-2xl font-bold text-red-600">{service.totals.refunded}</div>
+                                      <div className="text-sm text-gray-600">Refunded</div>
+                                    </div>
+                                    <div className="text-center">
+                                      <div className="text-2xl font-bold text-orange-600">{service.totals.remaining}</div>
+                                      <div className="text-sm text-gray-600">Remaining</div>
+                                    </div>
+                                    <div className="text-center">
+                                      <div className="text-2xl font-bold text-600">${(service.totals.price).toFixed(2)}</div>
+                                      <div className="text-sm text-gray-600">Unit Price</div>
                                     </div>
                                   </div>
-                                )}
 
-                                <div className="flex justify-end">
-                                  {service.totals.refunded > 0 ? (
-                                    <div className="text-right">
-                                      <div className="inline-flex items-center px-4 py-2 rounded-lg bg-gray-100 text-gray-700">
-                                        <CheckCircle className="w-4 h-4 mr-2 text-green-500" />
-                                        <span>Refunded</span>
+                                  {isRefunded && refundDates[service.service_id] && (
+                                    <div className="mb-4 p-3 bg-purple-50 border border-purple-200 rounded-lg">
+                                      <div className="grid grid-cols-2 gap-4">
+                                        <div>
+                                          <div className="flex items-center text-purple-800">
+                                            <Calendar className="w-4 h-4 mr-2" />
+                                            <span className="font-medium">Refund Date:</span>
+                                            <span className="ml-2">
+                                              {new Date(refundDates[service.service_id]).toLocaleString()}
+                                            </span>
+                                          </div>
+                                        </div>
+                                        <div>
+                                          <div className="flex items-center text-purple-800">
+                                            <DollarSign className="w-4 h-4 mr-2" />
+                                            <span className="font-medium">Refund Amount:</span>
+                                            <span className="ml-2">${refundAmount}</span>
+                                          </div>
+                                        </div>
                                       </div>
                                     </div>
-                                  ) : service.is_eligible_for_refund === "ineligible" ? (
-                                    <button
-                                      disabled
-                                      className="inline-flex items-center px-6 py-3 rounded-lg font-medium bg-gray-300 text-gray-500 cursor-not-allowed"
-                                    >
-                                      <AlertCircle className="w-4 h-4 mr-2" />
-                                      Ineligible for Refund
-                                    </button>
-                                  ) : service.is_eligible_for_refund ? (
-                                    <button
-                                      onClick={() => handleProcessRefund(service.service_id)}
-                                      disabled={isProcessing || !remarks.trim()}
-                                      className={`inline-flex items-center px-6 py-3 rounded-lg font-medium transition-all duration-200 ${
-                                        isProcessing || !remarks.trim()
-                                          ? 'bg-gray-300 text-gray-500 cursor-not-allowed' 
-                                          : 'bg-red-600 text-white hover:bg-red-700 hover:shadow-lg transform hover:-translate-y-0.5'
-                                      }`}
-                                    >
-                                      {isProcessing ? (
-                                        <>
-                                          <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-white mr-2"></div>
-                                          Processing Refund...
-                                        </>
-                                      ) : (
-                                        <>
-                                          <DollarSign className="w-4 h-4 mr-2" />
-                                          Process Refund
-                                        </>
-                                      )}
-                                    </button>
-                                  ) : null}
+                                  )}
+
+                                  {isEligible && (
+                                    <div className="mb-4 p-3 bg-blue-50 border border-blue-200 rounded-lg">
+                                      <div className="flex items-center text-blue-800">
+                                        <DollarSign className="w-4 h-4 mr-2" />
+                                        <span className="font-medium">Refund Amount:</span>
+                                        <span className="ml-2">${refundAmount}</span>
+                                        <span className="text-sm text-blue-600 ml-2">
+                                          ({service.totals.remaining} × ${service.totals.price})
+                                        </span>
+                                      </div>
+                                    </div>
+                                  )}
+
+                                  <div className="flex justify-end">
+                                    {isRefunded ? (
+                                      <div className="text-right">
+                                        <div className="inline-flex items-center px-4 py-2 rounded-lg bg-gray-100 text-gray-700">
+                                          <CheckCircle className="w-4 h-4 mr-2 text-green-500" />
+                                          <span>Refunded</span>
+                                        </div>
+                                      </div>
+                                    ) : service.is_eligible_for_refund === "ineligible" ? (
+                                      <button
+                                        disabled
+                                        className="inline-flex items-center px-6 py-3 rounded-lg font-medium bg-gray-300 text-gray-500 cursor-not-allowed"
+                                      >
+                                        <AlertCircle className="w-4 h-4 mr-2" />
+                                        Ineligible for Refund
+                                      </button>
+                                    ) : isEligible ? (
+                                      <button
+                                        onClick={() => handleProcessRefund(service.service_id)}
+                                        disabled={isProcessing || !remarks.trim()}
+                                        className={`inline-flex items-center px-6 py-3 rounded-lg font-medium transition-all duration-200 ${
+                                          isProcessing || !remarks.trim()
+                                            ? 'bg-gray-300 text-gray-500 cursor-not-allowed' 
+                                            : 'bg-red-600 text-white hover:bg-red-700 hover:shadow-lg transform hover:-translate-y-0.5'
+                                        }`}
+                                      >
+                                        {isProcessing ? (
+                                          <>
+                                            <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-white mr-2"></div>
+                                            Processing Refund...
+                                          </>
+                                        ) : (
+                                          <>
+                                            <DollarSign className="w-4 h-4 mr-2" />
+                                            Process Refund (${refundAmount})
+                                          </>
+                                        )}
+                                      </button>
+                                    ) : null}
+                                  </div>
                                 </div>
                               </div>
-                            </div>
-                          ))}
+                            );
+                          })}
                         </div>
                       </div>
                     </div>

@@ -322,7 +322,7 @@ const processFullRefundTransaction = async (params: {
 
     // Calculate total refund
     const totalRefund = parseFloat(params.remainingServices.reduce((sum, service) => {
-      return sum + ((service.price - service.discount) * service.quantity);
+      return sum + (service.price * service.quantity);
     }, 0).toFixed(2));
 
     // Look up Refund payment method
@@ -498,67 +498,67 @@ const processFullRefundTransaction = async (params: {
 const fetchMCPStatusById = async (packageId: number) => {
   const query = `
     WITH purchase_totals AS (
-  SELECT 
-    mcpd.id AS detail_id,
-    SUM(ABS(sti.quantity)) AS purchased
-  FROM member_care_package_details mcpd
-  LEFT JOIN sale_transaction_items sti 
-    ON sti.member_care_package_id = mcpd.member_care_package_id
-    AND sti.service_name = mcpd.service_name
-    AND sti.quantity > 0
-  WHERE mcpd.member_care_package_id = $1
-  GROUP BY mcpd.id
-),
-consumption_totals AS (
-  SELECT 
-    mcpd.id AS detail_id,
-    COUNT(*) AS consumed
-  FROM member_care_package_details mcpd
-  JOIN member_care_package_transaction_logs mcpctl 
-    ON mcpd.id = mcpctl.member_care_package_details_id
-    AND mcpctl.type = 'CONSUMPTION'
-  WHERE mcpd.member_care_package_id = $1
-  GROUP BY mcpd.id
-),
-refund_totals AS (
-  SELECT 
-    mcpd.id AS detail_id,
-    ABS(SUM(sti.quantity)) AS refunded
-  FROM member_care_package_details mcpd
-  JOIN sale_transaction_items sti 
-    ON sti.member_care_package_id = mcpd.member_care_package_id
-    AND sti.service_name = mcpd.service_name
-    AND sti.quantity < 0
-  WHERE mcpd.member_care_package_id = $1
-  GROUP BY mcpd.id
-)
-SELECT 
-  mcp.id AS package_id,
-  mcp.package_name,
-  mcpd.id,
-  mcpd.service_id,
-  mcpd.service_name,
-  mcpd.price,
-  mcpd.discount,
-  mcpd.quantity AS original_quantity,
-  COALESCE(pt.purchased, 0) AS purchased,
-  COALESCE(ct.consumed, 0) AS consumed,
-  COALESCE(rt.refunded, 0) AS refunded,
-  CASE 
-    WHEN COALESCE(rt.refunded, 0) > 0 THEN 0
-    ELSE (mcpd.quantity - COALESCE(ct.consumed, 0))
-  END AS remaining,
-  GREATEST(mcpd.quantity - COALESCE(pt.purchased, 0), 0) AS unpaid
-FROM member_care_packages mcp
-JOIN member_care_package_details mcpd 
-  ON mcp.id = mcpd.member_care_package_id
-LEFT JOIN purchase_totals pt 
-  ON mcpd.id = pt.detail_id
-LEFT JOIN consumption_totals ct 
-  ON mcpd.id = ct.detail_id
-LEFT JOIN refund_totals rt 
-  ON mcpd.id = rt.detail_id
-WHERE mcp.id = $1;
+      SELECT 
+        mcpd.id AS detail_id,
+        SUM(ABS(sti.quantity)) AS purchased
+      FROM member_care_package_details mcpd
+      LEFT JOIN sale_transaction_items sti 
+        ON sti.member_care_package_id = mcpd.member_care_package_id
+        AND sti.service_name = mcpd.service_name
+        AND sti.quantity > 0
+      WHERE mcpd.member_care_package_id = $1
+      GROUP BY mcpd.id
+    ),
+    consumption_totals AS (
+      SELECT 
+        mcpd.id AS detail_id,
+        COUNT(*) AS consumed
+      FROM member_care_package_details mcpd
+      JOIN member_care_package_transaction_logs mcpctl 
+        ON mcpd.id = mcpctl.member_care_package_details_id
+        AND mcpctl.type = 'CONSUMPTION'
+      WHERE mcpd.member_care_package_id = $1
+      GROUP BY mcpd.id
+    ),
+    refund_totals AS (
+      SELECT 
+        mcpd.id AS detail_id,
+        ABS(SUM(sti.quantity)) AS refunded
+      FROM member_care_package_details mcpd
+      JOIN sale_transaction_items sti 
+        ON sti.member_care_package_id = mcpd.member_care_package_id
+        AND sti.service_name = mcpd.service_name
+        AND sti.quantity < 0
+      WHERE mcpd.member_care_package_id = $1
+      GROUP BY mcpd.id
+    )
+    SELECT 
+      mcp.id AS package_id,
+      mcp.package_name,
+      mcpd.id,
+      mcpd.service_id,
+      mcpd.service_name,
+      mcpd.price,
+      mcpd.discount,
+      mcpd.quantity AS original_quantity,
+      COALESCE(pt.purchased, 0) AS purchased,
+      COALESCE(ct.consumed, 0) AS consumed,
+      COALESCE(rt.refunded, 0) AS refunded,
+      CASE 
+        WHEN COALESCE(rt.refunded, 0) > 0 THEN 0
+        ELSE (mcpd.quantity - COALESCE(ct.consumed, 0))
+      END AS remaining,
+      GREATEST(mcpd.quantity - COALESCE(pt.purchased, 0), 0) AS unpaid
+    FROM member_care_packages mcp
+    JOIN member_care_package_details mcpd 
+      ON mcp.id = mcpd.member_care_package_id
+    LEFT JOIN purchase_totals pt 
+      ON mcpd.id = pt.detail_id
+    LEFT JOIN consumption_totals ct 
+      ON mcpd.id = ct.detail_id
+    LEFT JOIN refund_totals rt 
+      ON mcpd.id = rt.detail_id
+    WHERE mcp.id = $1;
   `;
 
   const { rows } = await pool().query(query, [packageId]);
