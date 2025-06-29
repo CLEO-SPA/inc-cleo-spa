@@ -110,9 +110,10 @@ const getTotalCount = async (search: string | null, category: number | null, sta
 const getAllServicesForDropdown = async () => {
   try {
     const query = `
-      SELECT id, service_name, service_price FROM services
+      SELECT s.id, s.service_name, s.service_price FROM services s
+      LEFT JOIN service_categories AS sc ON s.service_category_id = sc.id
       WHERE service_is_enabled = true
-      ORDER BY service_name ASC
+      ORDER BY service_category_sequence_no, service_sequence_no ASC
     `;
     const result = await pool().query(query);
     return result.rows;
@@ -386,70 +387,38 @@ const reorderServices = async (services: { id: number; service_sequence_no: numb
   }
 };
 
-const disableService = async (updateData: {
+const changeServiceStatus = async (updateData: {
   id: number;
-  updated_at: string;
-  updated_by: number;
-  service_remarks?: string | null;
-}) => {
-  try {
-    let params = [updateData.updated_by, updateData.updated_at, updateData.id];
-    let query = `   
-    UPDATE services
-    SET
-      service_is_enabled = false,
-      service_sequence_no = 0,
-      updated_by = $1,
-      updated_at = $2`;
-
-    if (updateData.service_remarks) {
-      query += `,
-        remarks = $4
-      WHERE id = $3
-      RETURNING *`;
-      params.push(updateData.service_remarks);
-    } else {
-      query += `
-      WHERE id = $3
-      RETURNING *`;
-    }
-
-    const result = await pool().query(query, params);
-    return result.rows[0];
-  } catch (error) {
-    console.error('Error disabling service:', error);
-    throw new Error('Error disabling service');
-  }
-};
-
-const enableService = async (updateData: {
-  id: number;
+  enabled: boolean;
   updated_at: string;
   updated_by: number;
   service_sequence_no: number;
   service_remarks?: string | null;
 }) => {
   try {
-    let params = [updateData.service_sequence_no, updateData.updated_by, updateData.updated_at, updateData.id];
+    let params = [
+      updateData.enabled,
+      updateData.service_sequence_no,
+      updateData.updated_by,
+      updateData.updated_at,
+      updateData.id,
+    ];
     let query = `   
     UPDATE services
     SET
-      service_is_enabled = true,
-      service_sequence_no = $1,
-      updated_by = $2,
-      updated_at = $3`;
+      service_is_enabled = $1,
+      service_sequence_no = $2,
+      updated_by = $3,
+      updated_at = $4`;
 
     if (updateData.service_remarks) {
       query += `,
-        remarks = $5
-      WHERE id = $4
-      RETURNING *`;
+        remarks = $6`;
       params.push(updateData.service_remarks);
-    } else {
-      query += `
-      WHERE id = $4
-      RETURNING *`;
     }
+    query += `
+      WHERE id = $5
+      RETURNING *`;
 
     const result = await pool().query(query, params);
     return result.rows[0];
@@ -571,6 +540,62 @@ const reorderServiceCategory = async (categories: { id: number; service_category
   }
 };
 
+// get total pages for pagination
+const getServiceCategoriesCount = async (search: string | null) => {
+  try {
+    let query = `SELECT COUNT(*) AS total_count FROM service_categories`;
+    const conditions: string[] = [];
+    const params: any[] = [];
+
+    if (search != null) {
+      params.push(search);
+      conditions.push(`service_category_name ILIKE '%' || $${params.length}::TEXT || '%'`);
+    }
+
+    if (conditions.length > 0) {
+      query += ` WHERE ` + conditions.join(' AND ');
+    }
+
+    const result = await pool().query(query, params);
+    return result.rows[0].total_count;
+  } catch (error) {
+    console.error('Error in getServiceCategoriesCount:', error);
+    throw new Error('Error fetching category count');
+  }
+};
+
+// Get service categories with pagination and search filter
+const getServiceCategoriesPaginationFilter = async (page: number, limit: number, search: string | null) => {
+  try {
+    const offset = (page - 1) * limit;
+    const params: any[] = [limit, offset];
+    let filterClause = '';
+
+    if (search != null) {
+      params.push(`%${search}%`);
+      filterClause = `WHERE sc.service_category_name ILIKE $${params.length}::TEXT`;
+    }
+
+    const query = `
+      SELECT 
+        sc.*,
+        COUNT(s.id) AS total_services
+      FROM service_categories sc
+      LEFT JOIN services s ON s.service_category_id = sc.id
+      ${filterClause}
+      GROUP BY sc.id
+      ORDER BY sc.service_category_sequence_no
+      LIMIT $1 OFFSET $2;
+    `;
+
+    const result = await pool().query(query, params);
+    return result.rows;
+  } catch (error) {
+    console.error('Error in getServiceCategoriesPaginationFilter:', error);
+    throw new Error('Error fetching service categories with pagination');
+  }
+};
+
 export default {
   getAllServices,
   getServicesPaginationFilter,
@@ -584,12 +609,13 @@ export default {
   createService,
   updateService,
   reorderServices,
-  disableService,
-  enableService,
+  changeServiceStatus,
   getServiceCategories,
   getServiceCategoryById,
   getSalesHistoryByServiceId,
   createServiceCategory,
   updateServiceCategory,
   reorderServiceCategory,
+  getServiceCategoriesCount,
+  getServiceCategoriesPaginationFilter,
 };

@@ -20,6 +20,7 @@ import employeeController from '../controllers/employeeController.js';
 // GET /api/em/basic-details - for search functionality
 router.get('/basic-details', employeeController.getBasicEmployeeDetails);
 
+<
 // GET /api/em/positions - for position dropdown
 router.get('/positions', employeeController.getAllActivePositions);
 
@@ -37,6 +38,9 @@ router.get('/:employeeId', employeeController.getEmployeeById);
 // router.get('/', employeeController.getAllEmployees);
 // router.get('/dropdown', employeeController.getAllEmployeesForDropdown);
 // router.get('/basic-details', employeeController.getBasicEmployeeDetails);
+
+router.get('/', employeeController.getAllEmployees);
+
 
 // router.post(
 //   '/create',
