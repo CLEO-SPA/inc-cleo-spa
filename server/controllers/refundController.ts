@@ -360,6 +360,43 @@ const getMemberVoucherById = async (req: Request, res: Response, next: NextFunct
   }
 };
 
+
+const getAllRefundRecords = async (req: Request, res: Response, next: NextFunction) => {
+  try {
+    const { page, limit, memberName, refundType, startDate, endDate } = req.query;
+
+    const records = await model.getAllRefundRecords({
+      page: page ? Number(page) : 1,
+      limit: limit ? Number(limit) : 20,
+      memberName: memberName ? String(memberName) : undefined,
+      refundType: refundType ? String(refundType) as 'mcp' | 'mv' | 'service' : undefined,
+      startDate: startDate ? String(startDate) : undefined,
+      endDate: endDate ? String(endDate) : undefined,
+    });
+
+    res.status(200).json(records);
+  } catch (err) {
+    console.error('Error fetching refund records:', err);
+    next(err);
+  }
+};
+
+const getRefundRecordDetails = async (req: Request, res: Response, next: NextFunction) => {
+  try {
+    const id = Number(req.params.id);
+    if (isNaN(id)) return res.status(400).json({ error: 'Invalid refund record ID' });
+
+    const detail = await model.getRefundRecordDetails(id);
+    if (!detail) return res.status(404).json({ error: 'Refund record not found' });
+
+    res.status(200).json(detail);
+  } catch (err) {
+    console.error('Error fetching refund detail:', err);
+    next(err);
+  }
+};
+
+
 export default {
   viewAllRefundSaleTransactionRecords,
   getServiceTransactionsForRefund,
@@ -375,4 +412,6 @@ export default {
   processRefundMemberVoucher,
   getEligibleMemberVoucherForRefund,
   getMemberVoucherById,
+  getAllRefundRecords,
+  getRefundRecordDetails,
 };

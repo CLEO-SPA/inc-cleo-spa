@@ -63,7 +63,8 @@ import RefundServicesPage from '@/pages/Refund/RefundServicesPage';
 import RefundServiceForm from '@/pages/Refund/RefundServiceForm';
 import RefundVouchersPage from '@/pages/Refund/RefundVouchersPage';
 import RefundVoucherForm from '@/pages/Refund/RefundVoucherForm';
-
+import CreditNotesPage from '@/pages/Refund/CreditNotesPage';
+import CreditNoteDetailsPage from '@/pages/Refund/CreditNoteDetailsPage';
 
 function App() {
   return (
@@ -151,6 +152,8 @@ function App() {
               <Route path="/refunds/service/:saleTransactionItemId" element={<RefundServiceForm />} />
               <Route path="/refunds/vouchers/member/:id" element={<RefundVouchersPage />} />
               <Route path="/refunds/voucher/:voucherId" element={<RefundVoucherForm />} />
+              <Route path="/credit-notes" element={<CreditNotesPage />} />
+              <Route path="/credit-notes/:id" element={<CreditNoteDetailsPage />} />
 
             </Route>
             <Route path='/login' element={<LoginPage />} />

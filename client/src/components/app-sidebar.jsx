@@ -12,6 +12,7 @@ import {
   Tickets,
   ChartColumnStacked,
   CreditCard,
+  Receipt,
 } from 'lucide-react';
 import { NavMain } from '@/components/nav-main';
 import { NavUser } from '@/components/nav-user';
@@ -186,6 +187,11 @@ const data = {
           url: '/payment-method',
         },
       ],
+    },
+    {
+      title: 'Credit Notes',
+      url: '/credit-notes',
+      icon: Receipt,
     },
     {
       title: 'Statistics',

@@ -55,10 +55,16 @@ const getSaleTransactionItemById = async (itemId: number) => {
       SELECT 
         SUM(ABS(sti_ref.quantity)) AS total_refunded_quantity
       FROM original_item oi
-      JOIN sale_transactions refund_st ON refund_st.reference_sales_transaction_id = oi.original_transaction_id
-      JOIN sale_transaction_items sti_ref ON sti_ref.sale_transactions_id = refund_st.id
-      WHERE sti_ref.service_name = oi.service_name
-        AND sti_ref.item_type = 'SERVICE'
+      JOIN sale_transactions refund_st 
+        ON refund_st.reference_sales_transaction_id = oi.original_transaction_id
+      JOIN sale_transaction_items sti_ref 
+        ON sti_ref.sale_transactions_id = refund_st.id
+      WHERE 
+        sti_ref.service_name = oi.service_name AND
+        sti_ref.item_type = 'service' AND
+        COALESCE(sti_ref.original_unit_price, 0) = COALESCE(oi.original_unit_price, 0) AND
+        COALESCE(sti_ref.custom_unit_price, 0) = COALESCE(oi.custom_unit_price, 0) AND
+        COALESCE(sti_ref.discount_percentage, 0) = COALESCE(oi.discount_percentage, 0)
     )
     SELECT 
       oi.*,
@@ -66,12 +72,11 @@ const getSaleTransactionItemById = async (itemId: number) => {
       (oi.quantity - COALESCE(rq.total_refunded_quantity, 0)) AS remaining_quantity
     FROM original_item oi
     LEFT JOIN refunded_qty rq ON true
-    -- WHERE (oi.quantity - COALESCE(rq.total_refunded_quantity, 0)) > 0
     LIMIT 1;
   `;
 
   const result = await pool().query(query, [itemId]);
-  return result.rows[0];
+  return result.rows[0]; // Fixed typo here (Rows -> rows)
 };
 
 
@@ -89,23 +94,36 @@ const getServiceTransactionsForRefund = async (
     LEFT JOIN members m ON st.member_id = m.id
     JOIN sale_transaction_items sti ON st.id = sti.sale_transactions_id
 
-    -- Left join to get total refunded quantity per sale transaction and service_name
+    -- Include pricing attributes in refund grouping to distinguish items
     LEFT JOIN (
       SELECT
         refund_st.reference_sales_transaction_id AS original_sale_transaction_id,
         refund_sti.service_name,
+        refund_sti.original_unit_price,
+        refund_sti.custom_unit_price,
+        refund_sti.discount_percentage,
         SUM(ABS(refund_sti.quantity)) AS refunded_quantity
       FROM sale_transactions refund_st
       JOIN sale_transaction_items refund_sti ON refund_st.id = refund_sti.sale_transactions_id
       WHERE refund_st.sale_transaction_status = 'REFUND'
-      GROUP BY refund_st.reference_sales_transaction_id, refund_sti.service_name
-    ) refunded_sum ON refunded_sum.original_sale_transaction_id = st.id
-                   AND refunded_sum.service_name = sti.service_name
+      GROUP BY 
+        refund_st.reference_sales_transaction_id,
+        refund_sti.service_name,
+        refund_sti.original_unit_price,
+        refund_sti.custom_unit_price,
+        refund_sti.discount_percentage
+    ) refunded_sum 
+      ON refunded_sum.original_sale_transaction_id = st.id
+      AND refunded_sum.service_name = sti.service_name
+      AND COALESCE(refunded_sum.original_unit_price, 0) = COALESCE(sti.original_unit_price, 0)
+      AND COALESCE(refunded_sum.custom_unit_price, 0) = COALESCE(sti.custom_unit_price, 0)
+      AND COALESCE(refunded_sum.discount_percentage, 0) = COALESCE(sti.discount_percentage, 0)
 
     WHERE st.sale_transaction_status = 'FULL'
-      AND sti.item_type = 'SERVICE'
+      AND sti.item_type = 'service'
       AND (sti.quantity - COALESCE(refunded_sum.refunded_quantity, 0)) > 0
   `;
+
 
   const values: any[] = [];
   let i = 1;
@@ -309,32 +327,45 @@ const processRefundService = async (body: {
     );
     const refundTxId = refundTxRows[0].id;
 
+    const refundDateStr = refundDate.toISOString().slice(0, 10).replace(/-/g, '');
+    const receiptNo = `R-SVC-${refundTxId}-${refundDateStr}`;
+
+    await client.query(
+      `UPDATE sale_transactions SET receipt_no = $1 WHERE id = $2`,
+      [receiptNo, refundTxId]
+    );
+
     // 3. Insert refund items and map to employees
     for (const item of body.refundItems) {
       // Check if the item is refundable
       const { rows: refundCheckRows } = await client.query(
         `
       WITH original_item AS (
-        SELECT sti.*, st.id AS original_tx_id
-        FROM sale_transaction_items sti
-        JOIN sale_transactions st ON st.id = sti.sale_transactions_id
-        WHERE sti.id = $1
-      ),
-      refunded_qty AS (
-        SELECT SUM(ABS(sti_ref.quantity)) AS total_refunded_quantity
-        FROM original_item oi
-        JOIN sale_transactions refund_tx ON refund_tx.reference_sales_transaction_id = oi.original_tx_id
-        JOIN sale_transaction_items sti_ref ON sti_ref.sale_transactions_id = refund_tx.id
-        WHERE sti_ref.service_name = oi.service_name
-          AND sti_ref.item_type = 'SERVICE'
-      )
-      SELECT 
-        oi.quantity,
-        COALESCE(rq.total_refunded_quantity, 0) AS total_refunded_quantity,
-        (oi.quantity - COALESCE(rq.total_refunded_quantity, 0)) AS remaining_quantity
+      SELECT sti.*, st.id AS original_tx_id
+      FROM sale_transaction_items sti
+      JOIN sale_transactions st ON st.id = sti.sale_transactions_id
+      WHERE sti.id = $1
+    ),
+    refunded_qty AS (
+      SELECT SUM(ABS(sti_ref.quantity)) AS total_refunded_quantity
       FROM original_item oi
-      LEFT JOIN refunded_qty rq ON true
-    `,
+      JOIN sale_transactions refund_tx 
+        ON refund_tx.reference_sales_transaction_id = oi.original_tx_id
+      JOIN sale_transaction_items sti_ref 
+        ON sti_ref.sale_transactions_id = refund_tx.id
+      WHERE sti_ref.service_name = oi.service_name
+        AND sti_ref.item_type = 'service'
+        AND COALESCE(sti_ref.original_unit_price, 0) = COALESCE(oi.original_unit_price, 0)
+        AND COALESCE(sti_ref.custom_unit_price, 0) = COALESCE(oi.custom_unit_price, 0)
+        AND COALESCE(sti_ref.discount_percentage, 0) = COALESCE(oi.discount_percentage, 0)
+    )
+    SELECT 
+      oi.quantity,
+      COALESCE(rq.total_refunded_quantity, 0) AS total_refunded_quantity,
+      (oi.quantity - COALESCE(rq.total_refunded_quantity, 0)) AS remaining_quantity
+    FROM original_item oi
+    LEFT JOIN refunded_qty rq ON true
+  `,
         [item.sale_transaction_item_id]
       );
 
@@ -362,7 +393,7 @@ const processRefundService = async (body: {
                     amount, 
                     item_type
                 )
-                VALUES ($1, $2, $3, $4, $5, $6, $7, $8, 'SERVICE')
+                VALUES ($1, $2, $3, $4, $5, $6, $7, $8, 'service')
                 RETURNING id`,
         [
           refundTxId,
@@ -927,21 +958,25 @@ const processRefundMemberVoucher = async (body: {
       ]
     );
 
+    const dateStr = body.refundDate.slice(0, 10).replace(/-/g, '');
+    const receiptNo = `R-MV-${body.memberVoucherId}-${dateStr}`;
+
     // 9. Sale transaction (refund)
     const { rows: txRows } = await client.query(
       `INSERT INTO sale_transactions (
-        customer_type, member_id,
-        total_paid_amount, outstanding_total_payment_amount,
-        sale_transaction_status, remarks,
-        receipt_no, reference_sales_transaction_id,
-        handled_by, created_by, created_at, updated_at
-      )
-      VALUES ('member', $1, $2, 0, 'REFUND', $3, NULL, $4, $5, $5, $6, $6)
-      RETURNING id`,
+    customer_type, member_id,
+    total_paid_amount, outstanding_total_payment_amount,
+    sale_transaction_status, remarks,
+    receipt_no, reference_sales_transaction_id,
+    handled_by, created_by, created_at, updated_at
+  )
+  VALUES ('member', $1, $2, 0, 'REFUND', $3, $4, $5, $6, $6, $7, $7)
+  RETURNING id`,
       [
         voucher.members_id,
         -refundAmount,
         body.remarks || `Refund for Member Voucher #${body.memberVoucherId}`,
+        receiptNo,
         originalTxId,
         body.refundedBy,
         body.refundDate
@@ -1162,6 +1197,267 @@ const getMemberVoucherById = async (voucherId: number) => {
   }
 };
 
+interface RefundRecordsParams {
+  page?: number;
+  limit?: number;
+  memberName?: string;
+  refundType?: 'mcp' | 'mv' | 'service';
+  startDate?: string;
+  endDate?: string;
+}
+
+const getAllRefundRecords = async ({
+  page = 1,
+  limit = 20,
+  memberName,
+  refundType,
+  startDate,
+  endDate,
+}: RefundRecordsParams) => {
+  const client = await pool().connect();
+  try {
+    const offset = (page - 1) * limit;
+    const params: any[] = [];
+    let idx = 1;
+
+    let baseQuery = `
+      FROM sale_transactions st
+      LEFT JOIN members m ON m.id = st.member_id
+      JOIN sale_transaction_items sti ON sti.sale_transactions_id = st.id
+      LEFT JOIN member_care_packages mcp ON mcp.id = sti.member_care_package_id
+      LEFT JOIN member_vouchers mv ON mv.id = sti.member_voucher_id
+      WHERE st.sale_transaction_status = 'REFUND'
+    `;
+
+    // Member name filter
+    if (memberName) {
+      baseQuery += ` AND LOWER(m.name) LIKE $${idx++}`;
+      params.push(`%${memberName.toLowerCase()}%`);
+    }
+
+    // Date range filters
+    if (startDate) {
+      baseQuery += ` AND DATE(st.created_at) >= $${idx++}`;
+      params.push(startDate);
+    }
+
+    if (endDate) {
+      baseQuery += ` AND DATE(st.created_at) <= $${idx++}`;
+      params.push(endDate);
+    }
+
+    // Refund type filter
+    if (refundType) {
+      if (refundType === 'mcp') {
+        baseQuery += ` AND sti.member_care_package_id IS NOT NULL`;
+      } else if (refundType === 'mv') {
+        baseQuery += ` AND (sti.member_voucher_id IS NOT NULL OR sti.item_type = 'member voucher')`;
+      } else if (refundType === 'service') {
+        // Service: when both mcp and mv IDs are null, OR item_type is 'service'
+        baseQuery += ` AND (
+          (sti.member_care_package_id IS NULL AND sti.member_voucher_id IS NULL)
+          OR sti.item_type = 'service'
+        )`;
+      }
+    }
+
+    const countParams = [...params];
+
+    const dataQuery = `
+      SELECT
+        st.id,
+        st.created_at,
+        st.member_id,
+        m.name AS member_name,
+        st.total_paid_amount,
+        st.remarks,
+        st.sale_transaction_status,
+        CASE 
+          WHEN sti.member_care_package_id IS NOT NULL THEN 'mcp'
+          WHEN sti.member_voucher_id IS NOT NULL OR sti.item_type = 'member voucher' THEN 'mv'
+          WHEN (sti.member_care_package_id IS NULL AND sti.member_voucher_id IS NULL) 
+               OR sti.item_type = 'service' THEN 'service'
+          ELSE 'unknown'
+        END AS refund_type,
+        -- Add item names based on type
+        CASE 
+          WHEN sti.member_care_package_id IS NOT NULL THEN mcp.package_name
+          WHEN sti.member_voucher_id IS NOT NULL OR sti.item_type = 'member voucher' THEN mv.member_vouchers_name
+          WHEN (sti.member_care_package_id IS NULL AND sti.member_voucher_id IS NULL) 
+               OR sti.item_type = 'service' THEN sti.service_name
+          ELSE sti.service_name
+        END AS item_name,
+        sti.item_type
+      ${baseQuery}
+      GROUP BY st.id, m.name, refund_type, item_name, sti.item_type
+      ORDER BY st.created_at DESC
+      LIMIT $${idx++} OFFSET $${idx++}
+    `;
+
+    params.push(limit, offset);
+
+    const { rows } = await client.query(dataQuery, params);
+
+    const countQuery = `SELECT COUNT(DISTINCT st.id) AS total ${baseQuery}`;
+    const countResult = await client.query(countQuery, countParams);
+
+    const total = parseInt(countResult.rows[0]?.total || '0', 10);
+
+    return {
+      data: rows,
+      pagination: {
+        total,
+        page,
+        limit,
+        totalPages: Math.ceil(total / limit),
+      },
+    };
+  } finally {
+    client.release();
+  }
+};
+
+
+
+const getRefundRecordDetails = async (refundId: number) => {
+  const client = await pool().connect();
+  try {
+    // Get main refund record + member info + handled_by name
+    const refundQuery = `
+      SELECT
+        st.id,
+        st.created_at,
+        st.member_id,
+        m.name AS member_name,
+        m.email AS member_email,
+        m.contact AS member_contact,
+        e.employee_name AS handled_by_name,
+        st.total_paid_amount,
+        st.outstanding_total_payment_amount,
+        st.sale_transaction_status,
+        st.remarks,
+        st.receipt_no
+      FROM sale_transactions st
+      LEFT JOIN members m ON m.id = st.member_id
+      LEFT JOIN employees e ON e.id = st.handled_by
+      WHERE st.id = $1 AND st.sale_transaction_status = 'REFUND'
+    `;
+
+    const { rows } = await client.query(refundQuery, [refundId]);
+    if (rows.length === 0) return null;
+    const refund = rows[0];
+
+    // Fetch refund items for this refund transaction
+    const itemsQuery = `
+      SELECT
+        sti.id,
+        sti.service_name,
+        sti.product_name,
+        sti.member_care_package_id,
+        sti.member_voucher_id,
+        sti.original_unit_price,
+        sti.custom_unit_price,
+        sti.discount_percentage,
+        sti.quantity,
+        sti.remarks,
+        sti.amount,
+        sti.item_type
+      FROM sale_transaction_items sti
+      WHERE sti.sale_transactions_id = $1
+    `;
+    const { rows: items } = await client.query(itemsQuery, [refundId]);
+
+    // If any of the items are member vouchers, fetch voucher logs
+    const hasVoucher = items.some(item => item.member_voucher_id);
+    let voucherLogs = [];
+    if (hasVoucher) {
+      const voucherIds = items
+        .map(i => i.member_voucher_id)
+        .filter(Boolean);
+
+      const voucherLogQuery = `
+        SELECT
+          l.id,
+          l.member_voucher_id,
+          l.service_description,
+          l.service_date,
+          l.current_balance,
+          l.amount_change,
+          l.serviced_by,
+          l.type,
+          l.created_at,
+          l.updated_at
+        FROM member_voucher_transaction_logs l
+        WHERE l.member_voucher_id = ANY($1::int[])
+        ORDER BY id ASC
+      `;
+
+      const { rows: logs } = await client.query(voucherLogQuery, [voucherIds]);
+      voucherLogs = logs;
+    }
+
+    // get MCP details & logs if any mcp refund exists
+    const hasCarePackage = items.some(item => item.member_care_package_id);
+    let memberCarePackageDetails = [];
+    let memberCarePackageLogs = [];
+
+    if (hasCarePackage) {
+      const mcpDetailIds = items.map(i => i.member_care_package_id).filter(Boolean);
+
+      // a. MCP Details with Package Name
+      const mcpDetailsQuery = `
+        SELECT 
+          d.id AS detail_id,
+          d.member_care_package_id,
+          mcp.package_name,
+          d.service_id,
+          d.service_name,
+          d.price,
+          d.status,
+          d.discount,
+          d.quantity
+        FROM member_care_package_details d
+        JOIN member_care_packages mcp ON mcp.id = d.member_care_package_id
+        WHERE d.id = ANY($1::int[])
+      `;
+      const { rows: details } = await client.query(mcpDetailsQuery, [mcpDetailIds]);
+      memberCarePackageDetails = details;
+
+      // b. MCP Logs
+      const mcpLogsQuery = `
+        SELECT
+          l.id,
+          l.type,
+          l.description,
+          l.transaction_date,
+          l.transaction_amount,
+          l.amount_changed,
+          l.member_care_package_details_id,
+          l.employee_id,
+          l.service_id,
+          l.created_at
+        FROM member_care_package_transaction_logs l
+        WHERE l.member_care_package_details_id = ANY($1::int[])
+        ORDER BY transaction_date ASC
+      `;
+      const { rows: logs } = await client.query(mcpLogsQuery, [mcpDetailIds]);
+      memberCarePackageLogs = logs;
+    }
+
+    return {
+      ...refund,
+      items,
+      voucherLogs,
+      memberCarePackageDetails,
+      memberCarePackageLogs,
+    };
+  } catch (err) {
+    console.error('Error fetching refund detail:', err);
+    throw err;
+  } finally {
+    client.release();
+  }
+};
 
 export default {
   getAllRefundSaleTransactionRecords,
@@ -1179,4 +1475,6 @@ export default {
   getMemberCarePackages,
   searchMemberCarePackages,
   getMemberVoucherById,
+  getAllRefundRecords,
+  getRefundRecordDetails,
 };

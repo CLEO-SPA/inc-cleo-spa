@@ -10,6 +10,9 @@ const useRefundStore = create((set) => ({
   memberVouchers: [],
   memberInfo: null,
   selectedVoucher: null,
+  creditNotes: [],
+  selectedCreditNote: null,
+  creditNotesTotal: 0,
 
   fetchServiceTransactions: async ({ memberId, receiptNo, limit = 5, offset = 0 }) => {
     //console.log('Fetching service transactions with:', { memberId, receiptNo });
@@ -136,6 +139,50 @@ const useRefundStore = create((set) => ({
     }
   },
 
+  // Fetch paginated credit notes with optional filters
+  fetchCreditNotes: async ({ member, startDate, endDate, page = 1, pageSize = 10, type }) => {
+    set({ isLoading: true, error: null });
+    try {
+      const params = {
+        page,
+        limit: pageSize,
+      };
+      if (member) params.memberName = member;
+      if (startDate) params.startDate = startDate;
+      if (endDate) params.endDate = endDate;
+      if (type) params.refundType = type;
+
+      const res = await api.get('/refund/records', { params });
+      set({
+        creditNotes: res.data.data,
+        creditNotesTotal: res.data.pagination.total,
+        isLoading: false,
+      });
+    } catch (err) {
+      set({
+        error: err.response?.data?.message || 'Failed to fetch credit notes',
+        isLoading: false,
+      });
+    }
+  },
+
+  // Fetch detail by ID
+  fetchCreditNoteById: async (id) => {
+    set({ isLoading: true, error: null });
+    try {
+      const res = await api.get(`/refund/records/${id}`);
+      set({
+        selectedCreditNote: res.data,
+        isLoading: false,
+      });
+    } catch (err) {
+      set({
+        error: err.response?.data?.message || 'Failed to fetch credit note detail',
+        isLoading: false,
+      });
+    }
+  },
+
   clear: () => set({
     serviceTransactions: [],
     serviceItem: null,
@@ -144,6 +191,12 @@ const useRefundStore = create((set) => ({
     error: null,
     isLoading: false,
     selectedVoucher: null,
+  }),
+
+  clearCreditNotes: () => set({
+    creditNotes: [],
+    selectedCreditNote: null,
+    creditNotesTotal: 0,
   }),
 }));
 
