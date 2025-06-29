@@ -39,7 +39,6 @@ const data = {
       title: 'Users',
       url: '#',
       icon: ShieldUser,
-      isActive: true,
       items: [
         {
           title: 'View Users',
@@ -59,7 +58,6 @@ const data = {
       title: 'Revenue',
       url: '#',
       icon: DollarSign,
-      isActive: true,
       items: [
         {
           title: 'Revenue Report',
