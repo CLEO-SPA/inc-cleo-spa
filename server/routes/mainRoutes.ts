@@ -17,22 +17,28 @@ import memberVoucherRoutes from './memberVoucherRoutes.js';
 import dataExportRoutes from './dataExportRoutes.js';
 import positionRoutes from './positionRoutes.js';
 import paymentMethodRoutes from './paymentMethodRoutes.js';
+import appointmentRoutes from './appointmentRoutes.js';
+import productRoutes from './productRoutes.js';
+import revenueRoutes from './revenueRoutes.js';
 
 router.use(simulationMiddleware);
 
 router.use('/auth', authRoutes);
 router.use('/session', sessionRoutes);
+router.use('/em', employeeRoutes);
+router.use('/member', memberRoutes);
 router.use('/mv', memberVoucherRoutes);
 router.use('/service', serviceRoutes);
-router.use('/member', memberRoutes);
 router.use('/cp', carePackageRoutes);
 router.use('/membership-type', membershipTypeRoutes);
 router.use('/mcp', memberCarePackageRoutes);
-router.use('/em', employeeRoutes);
 router.use('/voucher-template', voucherTemplateRoutes);
 router.use('/position', positionRoutes);
 router.use('/de', dataExportRoutes);
 router.use('/payment-method', paymentMethodRoutes);
+router.use('/ab', appointmentRoutes);
+router.use('/rr', revenueRoutes);
 // router.use('/sa', superAdminRoutes);
+router.use('/product', productRoutes);
 
 export default router;

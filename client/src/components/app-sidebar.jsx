@@ -12,6 +12,7 @@ import {
   Tickets,
   ChartColumnStacked,
   CreditCard,
+  DollarSign,
 } from 'lucide-react';
 import { NavMain } from '@/components/nav-main';
 import { NavUser } from '@/components/nav-user';
@@ -55,6 +56,22 @@ const data = {
       ],
     },
     {
+      title: 'Revenue',
+      url: '#',
+      icon: DollarSign,
+      isActive: true,
+      items: [
+        {
+          title: 'Revenue Report',
+          url: '/rr',
+        },
+        {
+          title: 'Deferred Revenue',
+          url: '/dr',
+        },
+      ],
+    },
+    {
       title: 'Services',
       url: '#',
       icon: Wand,
@@ -76,11 +93,11 @@ const data = {
       items: [
         {
           title: 'Create Product',
-          url: '#',
+          url: '/create-product',
         },
         {
           title: 'Manage Products',
-          url: '#',
+          url: '/manage-product',
         },
       ],
     },
@@ -158,16 +175,16 @@ const data = {
     },
     {
       title: 'Appointments',
-      url: '#',
+      url: '/appointments',
       icon: CalendarDays,
       items: [
         {
           title: 'View Appointments',
-          url: '#',
+          url: '/appointments',
         },
         {
           title: 'Add New Appointment',
-          url: '#',
+          url: '/appointments/create',
         },
       ],
     },
