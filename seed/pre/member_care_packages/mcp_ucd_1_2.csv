@@ -1,7 +1,7 @@
 id,member_id,employee_id,package_name,package_remarks,status,total_price,balance,created_at,updated_at
-1,9,14,GOLD LIFT TREATMENT PACKAGE,Premium facial treatment package with 8 sessions and 20% discount,ENABLED,3712,3712,2025-02-02 17:00:00+08:00,2025-02-02 17:00:00+08:00
+1,10,14,GOLD LIFT TREATMENT PACKAGE,Premium facial treatment package with 8 sessions and 20% discount,ENABLED,3712,3712,2025-02-02 17:00:00+08:00,2025-02-02 17:00:00+08:00
 2,46,11,EYEBROW RESHAPING PACKAGE,Professional eyebrow reshaping package with 15 sessions,ENABLED,180,180,2025-03-27 14:32:17+08:00,2025-03-27 14:32:17+08:00
-3,9,5,CLASSIC PEDI PACKAGE,Classic pedicure package with 12 sessions and 15% discount,ENABLED,387.6,387.6,2025-04-21 15:18:45+08:00,2025-04-21 15:18:45+08:00
+3,10,5,CLASSIC PEDI PACKAGE,Classic pedicure package with 12 sessions and 15% discount,ENABLED,387.6,387.6,2025-04-21 15:18:45+08:00,2025-04-21 15:18:45+08:00
 4,15,7,CLASSIC GEL MANI PACKAGE,Gel manicure package with 10 sessions,ENABLED,480,480,2025-01-11 12:49:02+08:00,2025-01-11 12:49:02+08:00
 5,19,10,CLASSIC GEL PEDI PACKAGE,Gel pedicure package with 8 sessions and 25% discount,ENABLED,408,408,2025-02-17 13:25:10+08:00,2025-02-17 13:25:10+08:00
 6,29,6,EYEBROW TOUCH UP PACKAGE,Eyebrow touch-up package with 6 sessions,ENABLED,954,954,2025-03-03 16:41:36+08:00,2025-03-03 16:41:36+08:00
@@ -14,13 +14,13 @@ id,member_id,employee_id,package_name,package_remarks,status,total_price,balance
 13,29,10,LENITIVE TREATMENT PACKAGE,Calming lenitive treatment with 4 sessions and 25% discount,ENABLED,534,534,2025-02-17 13:25:10+08:00,2025-02-17 13:25:10+08:00
 14,28,6,VITAMIN & MINERAL TREATMENT PACKAGE,Vitamin & mineral treatment with 4 sessions and 20% discount,ENABLED,569.6,569.6,2025-03-03 16:41:36+08:00,2025-03-03 16:41:36+08:00
 15,4,11,ADVANCE ACNE TREATMENT PACKAGE,Advanced acne treatment with 3 sessions and 35% discount,ENABLED,347.7,347.7,2025-04-01 11:33:58+08:00,2025-04-01 11:33:58+08:00
-16,9,8,PROTEINASE REPAIR TREATMENT PACKAGE,Proteinase repair treatment with 3 sessions and 30% discount,ENABLED,415.8,415.8,2025-02-13 17:05:24+08:00,2025-02-13 17:05:24+08:00
+16,10,8,PROTEINASE REPAIR TREATMENT PACKAGE,Proteinase repair treatment with 3 sessions and 30% discount,ENABLED,415.8,415.8,2025-02-13 17:05:24+08:00,2025-02-13 17:05:24+08:00
 17,46,14,BIOCELL TREATMENT PACKAGE,Premium biocell treatment with 2 sessions and 25% discount,ENABLED,447,447,2025-01-29 12:17:53+08:00,2025-01-29 12:17:53+08:00
 18,46,5,OMEGA FIRMING TREATMENT PACKAGE,Omega firming treatment with 2 sessions and 30% discount,ENABLED,417.2,417.2,2025-02-02 15:56:11+08:00,2025-02-02 15:56:11+08:00
-19,9,14,RF FACIAL TREATMENT PACKAGE,RF facial treatment with 2 sessions and 15% discount,ENABLED,676.6,676.6,2025-02-02 15:56:11+08:00,2025-02-02 15:56:11+08:00
+19,10,14,RF FACIAL TREATMENT PACKAGE,RF facial treatment with 2 sessions and 15% discount,ENABLED,676.6,676.6,2025-02-02 15:56:11+08:00,2025-02-02 15:56:11+08:00
 20,15,5,CELL RENEWAL TREATMENT PACKAGE,Cell renewal treatment with 2 sessions and 10% discount,ENABLED,864,864,2025-03-15 14:20:30+08:00,2025-03-15 14:20:30+08:00
 21,19,14,HYDRO DEWY SKIN BOOSTER PACKAGE,Premium hydro dewy skin booster single session,ENABLED,580,580,2025-03-20 16:45:22+08:00,2025-03-20 16:45:22+08:00
 22,29,5,PDRN BABY SKIN BOOSTER PACKAGE,PDRN baby skin booster single session,ENABLED,680,680,2025-04-05 11:30:15+08:00,2025-04-05 11:30:15+08:00
 23,28,14,B-TOX RENEWAL TREATMENT PACKAGE,B-Tox renewal treatment single session,ENABLED,680,680,2025-04-10 13:25:40+08:00,2025-04-10 13:25:40+08:00
 24,4,5,MACARON REJUVENATING TREATMENT PACKAGE,Macaron rejuvenating treatment single session,ENABLED,680,680,2025-04-15 15:10:18+08:00,2025-04-15 15:10:18+08:00
-25,9,14,COLLAGEN REJUVENATING TREATMENT PACKAGE,Collagen rejuvenating treatment single session,ENABLED,780,780,2025-04-20 17:35:55+08:00,2025-04-20 17:35:55+08:00
+25,10,14,COLLAGEN REJUVENATING TREATMENT PACKAGE,Collagen rejuvenating treatment single session,ENABLED,780,780,2025-04-20 17:35:55+08:00,2025-04-20 17:35:55+08:00
