@@ -369,7 +369,7 @@ const processFullRefundTransaction = async (params: {
     // Process each service
     const refundedServices = [];
     for (const service of params.remainingServices) {
-      const amount = parseFloat(((service.price - service.discount) * service.quantity).toFixed(2));
+      const amount = parseFloat(((service.price) * service.quantity).toFixed(2));
 
       // Get original purchase details
       const { rows: originalPurchaseRows } = await client.query(
@@ -396,7 +396,7 @@ const processFullRefundTransaction = async (params: {
           id, sale_transaction_id, service_name, member_care_package_id,
           original_unit_price, custom_unit_price, discount_percentage, 
           quantity, amount, item_type, remarks
-        ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, 'MEMBER_CARE_PACKAGE', $10)`,
+        ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, 'member care package', $10)`,
         [
           itemNextId,
           refundTxId,
