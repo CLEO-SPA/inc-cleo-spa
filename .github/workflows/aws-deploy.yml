@@ -1,0 +1,156 @@
+name: Deploy to AWS EC2 via ECR
+
+on:
+  push:
+    branches: [main, feature/aws-hosting]
+  workflow_dispatch:
+
+env:
+  AWS_REGION: ${{ secrets.AWS_REGION }}
+  ECR_REGISTRY: ${{ secrets.AWS_ACCOUNT_ID }}.dkr.ecr.${{ secrets.AWS_REGION }}.amazonaws.com
+  ECR_REPOSITORY_API: cleo-dev
+  PROJECT_NAME: cleo-spa
+
+permissions:
+  contents: read
+  id-token: write
+
+jobs:
+  build-and-push:
+    runs-on: ubuntu-latest
+    outputs:
+      api-image: ${{ steps.build-api.outputs.image }}
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Configure AWS credentials
+        uses: aws-actions/configure-aws-credentials@v4
+        with:
+          aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID }}
+          aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+          aws-region: ${{ env.AWS_REGION }}
+
+      - name: Login to Amazon ECR
+        id: login-ecr
+        uses: aws-actions/amazon-ecr-login@v2
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+          cache: 'npm'
+          cache-dependency-path: './client/package-lock.json'
+
+      - name: Build frontend
+        working-directory: ./client
+        run: |
+          npm ci
+          npm run build
+
+      - name: Build and push API image
+        id: build-api
+        run: |
+          IMAGE_TAG=${{ github.sha }}
+          IMAGE_URI=$ECR_REGISTRY/$ECR_REPOSITORY_API:$IMAGE_TAG
+
+          docker build -t $IMAGE_URI ./server
+          docker push $IMAGE_URI
+          echo "image=$IMAGE_URI" >> $GITHUB_OUTPUT
+
+      - name: Create deployment compose override
+        run: |
+          cat > compose.override.yml << EOF
+          services:
+            api:
+              image: ${{ steps.build-api.outputs.image }}
+              build: {}  # Override build context to use pre-built image
+          EOF
+
+  deploy:
+    needs: build-and-push
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Setup SSH key
+        run: |
+          mkdir -p ~/.ssh
+          echo "${{ secrets.EC2_SSH_KEY }}" > ~/.ssh/deploy_key
+          chmod 400 ~/.ssh/deploy_key
+
+      - name: Create deployment files
+        run: |
+          # Create compose override for production
+          cat > compose.override.yml << EOF
+          services:
+            api:
+              image: ${{ needs.build-and-push.outputs.api-image }}
+              build: {}  # Override build to use ECR image
+          EOF
+
+      - name: Sync project files
+        run: |
+          rsync -avz --delete -e "ssh -i ~/.ssh/deploy_key -o StrictHostKeyChecking=no" \
+            --exclude '.git/' \
+            --exclude 'node_modules/' \
+            --exclude '.github/' \
+            --exclude 'client/node_modules/' \
+            ./ ${{ secrets.EC2_USERNAME }}@${{ secrets.EC2_HOST }}:/home/ec2-user/${{ env.PROJECT_NAME }}/
+
+      - name: Deploy to EC2
+        uses: appleboy/ssh-action@master
+        with:
+          host: ${{ secrets.EC2_HOST }}
+          username: ${{ secrets.EC2_USERNAME }}
+          key: ${{ secrets.EC2_SSH_KEY }}
+          script: |
+            cd /home/ec2-user/${{ env.PROJECT_NAME }}
+
+            # Configure AWS CLI on EC2 instance
+            aws configure set aws_access_key_id ${{ secrets.AWS_ACCESS_KEY_ID }}
+            aws configure set aws_secret_access_key ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+            aws configure set default.region ${{ env.AWS_REGION }}
+
+            # Login to ECR
+            aws ecr get-login-password --region ${{ env.AWS_REGION }} | docker login --username AWS --password-stdin ${{ env.ECR_REGISTRY }}
+
+            # Create .env file
+            echo "${{ secrets.ENV_FILE }}" > ./server/.env
+
+            # Ensure client/dist directory exists
+            mkdir -p client/dist
+
+            # Pull the latest API image
+            docker pull ${{ needs.build-and-push.outputs.api-image }}
+
+            # Deploy using existing compose.yml with override
+            docker compose -f compose.yml -f compose.override.yml up -d
+
+            # Health check
+            echo "Waiting for services to start..."
+            attempt=1
+            max_attempts=30
+            while [ $attempt -le $max_attempts ]; do
+              if ! docker compose ps | grep -q "starting" && \
+                 ! docker compose ps | grep -q "unhealthy"; then
+                break
+              fi
+              echo "Attempt $attempt: Services still starting or unhealthy..."
+              sleep 10
+              ((attempt++))
+            done
+
+            # Final status check
+            if docker compose ps | grep -q "Exit" || \
+               docker compose ps | grep -q "unhealthy"; then
+              echo "Deployment failed - some containers exited or are unhealthy"
+              docker compose logs
+              exit 1
+            else
+              echo "Deployment successful!"
+              docker compose ps
+              echo "Recent logs:"
+              docker compose logs --tail=50
+            fi
