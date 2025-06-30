@@ -54,7 +54,7 @@ jobs:
           IMAGE_TAG=${{ github.sha }}
           IMAGE_URI=$ECR_REGISTRY/$ECR_REPOSITORY_API:$IMAGE_TAG
 
-          docker build -t $IMAGE_URI
+          docker build -t $IMAGE_URI ./server
           docker push $IMAGE_URI
           echo "image=$IMAGE_URI" >> $GITHUB_OUTPUT
 
