@@ -639,7 +639,7 @@ export const updateEmployee = async (
 };
 
 
-const getEmployeeById = async (req: Request, res: Response, next: NextFunction) => {
+const getOnlyEmployeeById = async (req: Request, res: Response, next: NextFunction) => {
   const employeeId = Number(req.params.id);
   if (!employeeId || Number.isNaN(employeeId)) {
     res.status(400).json({ message: 'Invalid employee ID.' });
@@ -647,7 +647,7 @@ const getEmployeeById = async (req: Request, res: Response, next: NextFunction) 
   }
 
   try {
-    const employee = await model.getEmployeeById(employeeId);
+    const employee = await model.getOnlyEmployeeById(employeeId);
     if (!employee) {
       res.status(404).json({ message: 'Employee not found.' });
       return;

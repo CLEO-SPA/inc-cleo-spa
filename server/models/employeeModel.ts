@@ -522,6 +522,8 @@ const getAllActivePositions = async (): Promise<EmployeePosition[]> => {
 //     throw new Error('Failed to fetch employee details from database');
 //   }
 // }
+
+
 const getEmployeeById = async (employeeId: number): Promise<DetailedEmployee | null> => {
   const query = `
     SELECT
@@ -601,12 +603,7 @@ const getEmployeeNameByEmployeeById = async (employeeId: number): Promise<Detail
   }
 };
 
-export const getEmployeeIdByUserAuthId = async (id: string) => {
-  const employee_sql = 'SELECT id FROM employees WHERE user_auth_id = $1';
-  const params = [id];
 
-  return await pool().query<{ id: string }>(employee_sql, params);
-};
 
 // const getBasicEmployeeDetails = async (): Promise<Employee[]> => {
 //   const query = `
@@ -661,7 +658,7 @@ const getAllRolesForDropdown = async () => {
 /* --------------------------------------------------------------------------
  * One-shot fetch of a single employee (with positions & status)
  * ------------------------------------------------------------------------ */
-const getEmployeeById = async (employee_id: number) => {
+const getOnlyEmployeeById = async (employee_id: number) => {
   const query = `
     SELECT
       e.id                        AS employee_id,
@@ -917,7 +914,7 @@ export default {
   touchEmployee,
   getEmployeeById,
   updateEmployee,
-  getAllEmployeesForDropdown,
+  getOnlyEmployeeById,
   getAllActivePositions,
   employeeExists,
   getEmployeeNameByEmployeeById
