@@ -104,7 +104,7 @@ jobs:
           chmod 400 ~/.ssh/deploy_key
           echo "Host ec2
             HostName ${{ secrets.EC2_HOST }}
-            User ${{ secrets.EC2_USERNAME }}
+            User ${{ secrets.EC2_USER }}
             IdentityFile ~/.ssh/deploy_key
             StrictHostKeyChecking no" > ~/.ssh/config
 
@@ -162,7 +162,7 @@ jobs:
         uses: appleboy/ssh-action@master
         with:
           host: ${{ secrets.EC2_HOST }}
-          username: ${{ secrets.EC2_USERNAME }}
+          username: ${{ secrets.EC2_USER }}
           key: ${{ secrets.EC2_SSH_KEY }}
           script: |
             cd /home/ubuntu/${{ env.PROJECT_NAME }}
