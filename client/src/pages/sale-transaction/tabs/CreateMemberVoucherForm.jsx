@@ -4,7 +4,7 @@ import { Input } from '@/components/ui/input';
 import { Button } from '@/components/ui/button';
 import { Textarea } from '@/components/ui/textarea';
 import { Label } from '@/components/ui/label';
-import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
+import { Card, CardContent } from '@/components/ui/card';
 import { Switch } from '@/components/ui/switch';
 import { Plus, Trash2, ShoppingCart } from 'lucide-react';
 import EmployeeSelect from '@/components/ui/forms/EmployeeSelect';
@@ -411,7 +411,7 @@ const MemberVoucherDetailsSection = ({
                 type="button"
                 variant="outline"
                 size="sm"
-                onClick={onAddDetail}
+                onClick={() => onAddDetail()} 
                 className="h-8"
             >
                 <Plus className="h-4 w-4 mr-1" />

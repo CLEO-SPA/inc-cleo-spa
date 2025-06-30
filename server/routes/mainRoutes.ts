@@ -19,6 +19,8 @@ import memberVoucherRoutes from './memberVoucherRoutes.js';
 import dataExportRoutes from './dataExportRoutes.js';
 import positionRoutes from './positionRoutes.js';
 import paymentMethodRoutes from './paymentMethodRoutes.js';
+import stRoutes from './stRoutes.js';
+import voucherRoutes from './voucherRoute.js';
 
 import employeeRoutes from './employeeRoutes.js';
 import timetableRoutes from './timetableRoutes.js';
@@ -43,6 +45,8 @@ router.use('/refund', refundRoutes);
 router.use('/position', positionRoutes);
 router.use('/de', dataExportRoutes);
 router.use('/payment-method', paymentMethodRoutes);
+router.use('/st', stRoutes);
+router.use('/voucher', voucherRoutes);
 router.use('/em', employeeRoutes);
 router.use('/et', timetableRoutes);
 router.use('/ab', appointmentRoutes);

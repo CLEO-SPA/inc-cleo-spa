@@ -146,6 +146,25 @@ const data = {
           title: 'Manage Care Packages',
           url: '/cp',
         },
+        {
+          title: 'Manage Member Care Package',
+          url: '/mcp',
+        },
+      ],
+    },
+        {
+      title: 'Sale Transactions',
+      url: '#',
+      icon: CreditCard,
+      items: [
+        {
+          title: 'Create Sale Transactions',
+          url: '/sale-transaction',
+        },
+        {
+          title: 'View Sale Transactions',
+          url: '/sale-transaction/list',
+        }
       ],
     },
     {
@@ -183,6 +202,25 @@ const data = {
         {
           title: 'Add New Appointment',
           url: '/appointments/create',
+        },
+      ],
+    },
+    {
+      title: 'Vouchers',
+      url: '#',
+      icon: Tickets,
+      items: [
+        {
+          title: 'Create Voucher Template',
+          url: '/voucher-template/create',
+        },
+        {
+          title: 'Manage Voucher Templates',
+          url: '/voucher-template',
+        },
+        {
+          title: 'Transfer Voucher',
+          url: '/strans',
         },
       ],
     },

@@ -132,12 +132,12 @@ const checkPackageNameUniqueness = async (req: Request, res: Response, next: Nex
 
     // for updates, exclude the current package ID
     const excludeId = care_package_id || req.params.id;
-    
+
     const nameExists = await model.checkPackageNameExists(trimmedName, excludeId);
-    
+
     if (nameExists) {
-      res.status(400).json({ 
-        message: `A care package with the name "${trimmedName}" already exists. Please choose a different name.` 
+      res.status(400).json({
+        message: `A care package with the name "${trimmedName}" already exists. Please choose a different name.`,
       });
       return;
     }
@@ -277,7 +277,7 @@ const updateCarePackageStatus = async (req: Request, res: Response, next: NextFu
   try {
     const { care_package_id, status, employee_id } = req.body;
 
-    console.log(req.body);
+    // console.log(req.body);
 
     // validate required fields
     if (!care_package_id) {

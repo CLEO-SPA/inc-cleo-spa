@@ -20,7 +20,7 @@ export const parseConnectionString = (connectionString: string) => {
 
     // Check SSL parameters in query string
     const sslMode = url.searchParams.get('sslmode');
-    const ssl = sslMode === 'require' || sslMode === 'true' ? { rejectUnauthorized: true } : false;
+    const ssl = sslMode === 'require' || sslMode === 'true' ? { rejectUnauthorized: false } : false;
 
     // Extract max connections if provided
     const maxConnections = url.searchParams.get('max') ? parseInt(url.searchParams.get('max') || '10') : null;

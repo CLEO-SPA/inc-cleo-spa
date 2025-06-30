@@ -12,17 +12,27 @@ import LoginPage from '@/pages/LoginPage';
 import ResetPasswordPage from '@/pages/ResetPasswordPage';
 import NotFoundPage from '@/pages/404Page';
 import DatabaseReportPage from '@/pages/DatabaseReportPage';
+
 // Member Management
 import ManageMembersPage from '@/pages/member/ManageMembersPage';
 import CreateMemberPage from '@/pages/member/CreateMemberPage';
 import EditMemberPage from '@/pages/member/EditMemberPage';
 import ManageMembershipTypePage from '@/pages/MembershipType/ManageMembershipTypePage';
+
 // Voucher Template
 import CreateVoucherTemplatesPage from '@/pages/voucher-template/CreateVoucherTemplatePage';
 import ManageVoucherTemplatesPage from '@/pages/voucher-template/ManageVoucherTemplatesPage';
 import EditVoucherTemplatePage from '@/pages/voucher-template/EditVoucherTemplatePage';
 import ViewVoucherTemplatePage from '@/pages/voucher-template/ViewVoucherTemplatePage';
 import ManageVouchersPage from '@/pages/MemberVoucher/ManageVoucherPage';
+
+// Sale Transaction
+import SalesTransactionPage from '@/pages/sale-transaction/SaleTransactionPage';
+import SaleTransactionList from '@/pages/sale-transaction/SaleTransactionList';
+import SaleTransactionDetail from '@/pages/sale-transaction/SaleTransactionDetail';
+import SaleTransactionSummary from '@/pages/sale-transaction/SaleTransactionSummary';
+import ProcessPaymentSaleTransaction from '@/pages/sale-transaction/ProcessPaymentSaleTransaction';
+
 import CreateMemberVoucherConsumptionPage from '@/pages/MemberVoucher/CreateConsumptionPage';
 // Service Management
 import ManageServicePage from '@/pages/service/ManageServicePage';
@@ -32,8 +42,6 @@ import ReorderServicePage from '@/pages/service/ReorderServicePage';
 import ViewSalesHistoryPage from '@/pages/service/ViewSalesHistoryPage';
 import ManageServiceCategoryPage from '@/pages/service/ManageServiceCategoryPage';
 
-import MockSalesTransactionPage from '@/pages/sale-transaction/mockSaleTransactionPage';
-
 // Care Package Management
 import ManageCarePackagesPage from '@/pages/CarePackages/ManageCarePackagesPage';
 import ViewCarePackageDetailsPage from '@/pages/CarePackages/ViewCarePackageDetailsPage';
@@ -42,7 +50,7 @@ import EditCarePackagePage from '@/pages/CarePackages/EditCarePackagePage';
 // Member Care Package Management
 import ManageMemberCarePackagesPage from './pages/MemberCarePackages/ManageMemberCarePackagesPage';
 import ViewMemberCarePackageDetailsPage from '@/pages/MemberCarePackages/ViewMemberCarePackageDetailsPage';
-import CreateConsumptionPage from '@/pages/CarePackages/CreateConsumptionPage';
+import CreateMcpConsumptionPage from '@/pages/MemberCarePackages/CreateMcpConsumptionPage';
 // import CreateMemberCarePackageFormPage from '@/pages/CarePackages/CreateMemberCarePackageFormPage';
 // Data Export
 import DataExportPage from './pages/miscellaneous/DateExportPage';
@@ -117,10 +125,10 @@ function App() {
               <Route path='/cp' element={<ManageCarePackagesPage />} />
               <Route path='/cp/:id' element={<ViewCarePackageDetailsPage />} />
               <Route path='/cp/c' element={<CreateCarePackageFormPage />} />
-              <Route path='/cp/:id/edit' element={<EditCarePackagePage />} />
+              <Route path='/cp/:memberId/edit' element={<EditCarePackagePage />} />
 
               {/* Member Care Package Management */}
-              <Route path='/mcp/:id/consume' element={<CreateConsumptionPage />} />
+              <Route path='/mcp/:id/consume' element={<CreateMcpConsumptionPage />} />
               <Route path='/mcp' element={<ManageMemberCarePackagesPage />} />
               <Route path='/mcp/:id' element={<ViewMemberCarePackageDetailsPage />} />
               {/* <Route path='/mcp/c' element={<CreateMemberCarePackageFormPage />} /> */}
@@ -141,7 +149,15 @@ function App() {
               <Route path='/voucher-template' element={<ManageVoucherTemplatesPage />} />
               <Route path='/voucher-template/edit/:id' element={<EditVoucherTemplatePage />} />
               <Route path='/voucher-template/:id' element={<ViewVoucherTemplatePage />} />
-              <Route path='/cart-test' element={<MockSalesTransactionPage />} />
+
+              {/* Sales Transactions */}
+              <Route path='/sale-transaction' element={<SalesTransactionPage />} />
+              <Route path='/sale-transaction/list' element={<SaleTransactionList />} />
+              <Route path='/sale-transaction/:id' element={<SaleTransactionDetail />} />
+              <Route path='/sale-transaction/summary' element={<SaleTransactionSummary />} />
+              <Route path='/sale-transaction/process-payment/:id' element={<ProcessPaymentSaleTransaction />} />
+
+              <Route path='/mcp/:packageId/consume' element={<CreateMcpConsumptionPage />} />
 
               {/* member vouchers */}
               <Route path='/mv' element={<ManageVouchersPage />} />

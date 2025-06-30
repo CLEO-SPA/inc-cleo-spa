@@ -51,7 +51,7 @@ export const useMemberCarePackageStore = create((set, get) => ({
         isLoading: false, // Turn off loading after data is set
         error: null, // Clear any previous error
       };
-      console.log('State after setPaginationData:', { ...state, ...newState });
+      // console.log('State after setPaginationData:', { ...state, ...newState });
       return newState;
     }),
 
@@ -87,7 +87,7 @@ export const useMemberCarePackageStore = create((set, get) => ({
       // Use your imported API service
       const response = await api.get('/mcp/pkg', { params: queryParams });
 
-      console.log(response);
+      // console.log(response);
 
       // Update state with fetched data
       get().setPaginationData(response.data.data, response.data.pageInfo, searchTerm);

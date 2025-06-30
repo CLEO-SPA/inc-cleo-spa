@@ -1,34 +1,31 @@
 {
   "compilerOptions": {
     /* Visit https://aka.ms/tsconfig to read more about this file */
-
     /* Language and Environment */
     "target": "ES2024", // Or a newer ECMAScript version like ESNext
     "module": "NodeNext", //  Or "ES2020", "ES2022", "ESNext". This is critical for ES Modules.
     "moduleResolution": "NodeNext", // Or "Bundler" or "Node16". Important for how modules are found.
     "esModuleInterop": true, // Enables compatibility with CommonJS modules that might be dependencies.
     "forceConsistentCasingInFileNames": true, // Prevents issues on case-sensitive file systems.
-
     /* Emit */
     "outDir": "./dist", // Where your compiled JavaScript will go.
     "rootDir": "./", // Where your TypeScript source files are.
-
     /* Type Checking */
     "strict": true, // Enables all strict type-checking options. Highly recommended.
     "skipLibCheck": true, // Optional: Speeds up compilation by not type-checking declaration files from libraries.
-
     /* Source Maps */
     "sourceMap": true // Generates source map files for debugging.
 
     /* Interop Constraints */
     // "allowSyntheticDefaultImports": true, // Often used with esModuleInterop
-
     /* Modules */
     // "resolveJsonModule": true, // Allows importing .json files as modules.
-
     /* Experimental Options */
     // "experimentalDecorators": true,
     // "emitDecoratorMetadata": true,
   },
-  "exclude": ["node_modules", "dist"] // Specifies files/folders to exclude.
+  "exclude": [
+    "node_modules",
+    "dist"
+  ] // Specifies files/folders to exclude.
 }
