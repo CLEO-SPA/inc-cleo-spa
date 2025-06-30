@@ -84,7 +84,7 @@ jobs:
           chmod 400 ~/.ssh/deploy_key
           echo "Host ec2
             HostName ${{ secrets.EC2_HOST }}
-            User ${{ secrets.EC2_USERNAME }}
+            User ${{ secrets.EC2_USER }}
             IdentityFile ~/.ssh/deploy_key
             StrictHostKeyChecking no" > ~/.ssh/config
 
@@ -98,27 +98,14 @@ jobs:
               build: {}  # Override build to use ECR image
           EOF
 
-      - name: Sync project files
-        run: |
-          rsync -avz --delete \
-            --exclude '.git/' \
-            --exclude 'node_modules/' \
-            --exclude '.github/' \
-            ./ ec2:/home/ubuntu/${{ env.PROJECT_NAME }}/
-
-      - name: Setup EC2 Dependencies and Deploy
+      - name: Setup EC2 dependencies (one-time setup)
         uses: appleboy/ssh-action@master
         with:
           host: ${{ secrets.EC2_HOST }}
-          username: ${{ secrets.EC2_USERNAME }}
+          username: ${{ secrets.EC2_USER }}
           key: ${{ secrets.EC2_SSH_KEY }}
-          envs: API_IMAGE
-        env:
-          API_IMAGE: ${{ needs.build-and-push.outputs.api-image }}
-        script: |
-            cd /home/ubuntu/${{ env.PROJECT_NAME }}
-
-            # Install Docker if not already installed
+          script: |
+            # Check if Docker is installed
             if ! command -v docker &> /dev/null; then
               echo "Installing Docker..."
               sudo apt update
@@ -135,53 +122,47 @@ jobs:
               sudo usermod -aG docker ubuntu
               
               echo "Docker installed successfully"
+            else
+              echo "Docker is already installed"
             fi
-
-            # Install ECR credential helper if not already installed
+            
+            # Install ECR credential helper for automatic authentication
             if ! command -v docker-credential-ecr-login &> /dev/null; then
               echo "Installing ECR credential helper..."
-              sudo apt update
               sudo apt install -y amazon-ecr-credential-helper
               
               # Configure Docker to use ECR credential helper
               mkdir -p ~/.docker
-              cat > ~/.docker/config.json << 'DOCKER_CONFIG_EOF'
-            {
-                "credHelpers": {
-                    "${{ env.ECR_REGISTRY }}": "ecr-login"
-                }
-            }
-            DOCKER_CONFIG_EOF
-              
-              echo "ECR credential helper configured successfully"
+              cat > ~/.docker/config.json << 'EOFCRED'
+              {
+                  "credHelpers": {
+                      "${{ env.ECR_REGISTRY }}": "ecr-login"
+                  }
+              }
+              EOFCRED
+              echo "ECR credential helper configured"
+            else
+              echo "ECR credential helper is already installed"
             fi
-
-            # Ensure we can use docker without sudo (apply group membership)
-            if ! groups | grep -q docker; then
-              echo "Applying docker group membership..."
-              newgrp docker << 'DOCKER_COMMANDS_EOF'
-              # Test docker access
-              docker --version
-              docker compose version
-            DOCKER_COMMANDS_EOF
-            fi
-
-            # Debug: Print the image name being used
-            echo "DEBUG: API_IMAGE = ${API_IMAGE}"
-            echo "DEBUG: ECR_REGISTRY = ${{ env.ECR_REGISTRY }}"
-            echo "DEBUG: ECR_REPOSITORY_API = ${{ env.ECR_REPOSITORY_API }}"
             
-            # Create compose override for production deployment
-            cat > compose.override.yml << EOF
-            services:
-              api:
-                image: ${API_IMAGE}
-                build: {}
-            EOF
+            echo "Dependencies setup complete"
 
-            # Debug: Show the compose override content
-            echo "DEBUG: compose.override.yml content:"
-            cat compose.override.yml
+      - name: Sync project files
+        run: |
+          rsync -avz --delete \
+            --exclude '.git/' \
+            --exclude 'node_modules/' \
+            --exclude '.github/' \
+            ./ ec2:/home/ubuntu/${{ env.PROJECT_NAME }}/
+
+      - name: Deploy to EC2
+        uses: appleboy/ssh-action@master
+        with:
+          host: ${{ secrets.EC2_HOST }}
+          username: ${{ secrets.EC2_USER }}
+          key: ${{ secrets.EC2_SSH_KEY }}
+          script: |
+            cd /home/ubuntu/${{ env.PROJECT_NAME }}
 
             # Create .env file
             echo "${{ secrets.ENV_FILE }}" > ./server/.env
@@ -189,12 +170,15 @@ jobs:
             # Ensure client/dist directory exists
             mkdir -p client/dist
 
-            # Pull the latest API image (ECR credential helper handles authentication automatically)
-            echo "Pulling Docker image: ${API_IMAGE}"
-            docker pull "${API_IMAGE}"
+            # Apply docker group permissions (in case of first-time setup)
+            newgrp docker << 'EONG'
+            
+            # Pull the latest API image (uses ECR credential helper automatically)
+            echo "Pulling image: ${{ needs.build-and-push.outputs.api-image }}"
+            docker pull ${{ needs.build-and-push.outputs.api-image }}
 
             # Deploy using existing compose.yml with override
-            echo "Starting deployment with Docker Compose..."
+            echo "Starting deployment..."
             docker compose -f compose.yml -f compose.override.yml up -d
 
             # Health check
@@ -223,3 +207,5 @@ jobs:
               echo "Recent logs:"
               docker compose logs --tail=50
             fi
+            
+            EONG
