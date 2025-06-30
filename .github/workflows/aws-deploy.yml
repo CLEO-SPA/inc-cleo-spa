@@ -47,6 +47,16 @@ jobs:
         run: |
           npm ci
           npm run build
+          
+          # Debug: Check if build files exist
+          echo "Frontend build completed. Checking dist folder:"
+          ls -la dist/
+          
+          # Ensure index.html exists
+          if [ ! -f "dist/index.html" ]; then
+            echo "ERROR: dist/index.html not found!"
+            exit 1
+          fi
 
       - name: Build and push API image
         id: build-api
@@ -94,7 +104,7 @@ jobs:
           chmod 400 ~/.ssh/deploy_key
           echo "Host ec2
             HostName ${{ secrets.EC2_HOST }}
-            User ${{ secrets.EC2_USER }}
+            User ${{ secrets.EC2_USERNAME }}
             IdentityFile ~/.ssh/deploy_key
             StrictHostKeyChecking no" > ~/.ssh/config
 
@@ -133,17 +143,26 @@ jobs:
 
       - name: Sync project files
         run: |
+          # First sync everything except dist
           rsync -avz --delete \
             --exclude '.git/' \
             --exclude 'node_modules/' \
             --exclude '.github/' \
+            --exclude 'client/dist/' \
             ./ ec2:/home/ubuntu/${{ env.PROJECT_NAME }}/
+            
+          # Then sync the built frontend files specifically
+          rsync -avz \
+            ./client/dist/ ec2:/home/ubuntu/${{ env.PROJECT_NAME }}/client/dist/
+            
+          # Debug: Verify files were transferred
+          ssh ec2 "ls -la /home/ubuntu/${{ env.PROJECT_NAME }}/client/dist/"
 
       - name: Setup EC2 Dependencies and Deploy
         uses: appleboy/ssh-action@master
         with:
           host: ${{ secrets.EC2_HOST }}
-          username: ${{ secrets.EC2_USER }}
+          username: ${{ secrets.EC2_USERNAME }}
           key: ${{ secrets.EC2_SSH_KEY }}
           script: |
             cd /home/ubuntu/${{ env.PROJECT_NAME }}
@@ -199,8 +218,21 @@ jobs:
             # Create .env file
             echo "${{ secrets.ENV_FILE }}" > ./server/.env
 
-            # Ensure client/dist directory exists
+            # Ensure client/dist directory exists and has content
             mkdir -p client/dist
+            
+            # Debug: Check what's in the synced files
+            echo "Checking synced frontend files:"
+            ls -la client/
+            echo "Checking dist folder:"
+            ls -la client/dist/ || echo "dist folder is empty or missing"
+            
+            # If dist is empty, this is the problem!
+            if [ ! -f "client/dist/index.html" ]; then
+              echo "ERROR: Frontend dist files are missing!"
+              echo "The frontend build may have failed or files weren't synced properly."
+              exit 1
+            fi
 
             # Get image name from environment (set in previous step)
             IMAGE_TO_PULL="${{ env.DEPLOY_IMAGE }}"
