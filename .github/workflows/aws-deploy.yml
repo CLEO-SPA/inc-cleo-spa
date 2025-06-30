@@ -84,7 +84,7 @@ jobs:
           chmod 400 ~/.ssh/deploy_key
           echo "Host ec2
             HostName ${{ secrets.EC2_HOST }}
-            User ${{ secrets.EC2_USER }}
+            User ${{ secrets.EC2_USERNAME }}
             IdentityFile ~/.ssh/deploy_key
             StrictHostKeyChecking no" > ~/.ssh/config
 
@@ -102,7 +102,7 @@ jobs:
         uses: appleboy/ssh-action@master
         with:
           host: ${{ secrets.EC2_HOST }}
-          username: ${{ secrets.EC2_USER }}
+          username: ${{ secrets.EC2_USERNAME }}
           key: ${{ secrets.EC2_SSH_KEY }}
           script: |
             # Check if Docker is installed
@@ -119,7 +119,7 @@ jobs:
               sudo apt install -y docker-ce docker-ce-cli containerd.io docker-buildx-plugin docker-compose-plugin
               sudo systemctl start docker
               sudo systemctl enable docker
-              sudo usermod -aG docker ubuntu
+              sudo usermod -aG ubuntu docker
               
               echo "Docker installed successfully"
             else
@@ -133,13 +133,11 @@ jobs:
               
               # Configure Docker to use ECR credential helper
               mkdir -p ~/.docker
-              cat > ~/.docker/config.json << 'EOFCRED'
-              {
-                  "credHelpers": {
-                      "${{ env.ECR_REGISTRY }}": "ecr-login"
-                  }
-              }
-              EOFCRED
+              echo '{
+                "credHelpers": {
+                  "'${{ env.ECR_REGISTRY }}'": "ecr-login"
+                }
+              }' > ~/.docker/config.json
               echo "ECR credential helper configured"
             else
               echo "ECR credential helper is already installed"
@@ -159,7 +157,7 @@ jobs:
         uses: appleboy/ssh-action@master
         with:
           host: ${{ secrets.EC2_HOST }}
-          username: ${{ secrets.EC2_USER }}
+          username: ${{ secrets.EC2_USERNAME }}
           key: ${{ secrets.EC2_SSH_KEY }}
           script: |
             cd /home/ubuntu/${{ env.PROJECT_NAME }}
