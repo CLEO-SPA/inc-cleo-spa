@@ -24,7 +24,7 @@ const RefundServicesPage = () => {
         clear,
     } = useRefundStore();
 
-    const ITEMS_PER_PAGE = 3;
+    const ITEMS_PER_PAGE = 10;
 
     const [page, setPage] = useState(1);
 
