@@ -222,65 +222,57 @@ const data = {
           url: '/data-export',
         },
         {
-          title: "View Translations",
-          url: '/translations'
-        },
+          title: 'Translations',
+          url: '/translations',
+        }
       ],
     },
     {
-      title: 'Settings',
+      title: 'Timetables',
       url: '#',
-      icon: ShieldUser,
+      icon: CalendarDays,
       items: [
         {
-          title: "View Translations",
-          url: '/translations'
-
-      title: 'Timetables',
-          url: '#',
-          icon: CalendarDays,
-          items: [
-            {
-              title: 'Create Timetable',
-              url: '/et/create-employee-timetable',
-            },
-            {
-              title: 'Manage Timetable',
-              url: '/et',
-            },
-          ],
+          title: 'Create Timetable',
+          url: '/et/create-employee-timetable',
+        },
+        {
+          title: 'Manage Timetable',
+          url: '/et',
         },
       ],
-    };
+    },
+  ],
+};
 
-  export function AppSidebar({ ...props }) {
-    const { user } = useAuth();
+export function AppSidebar({ ...props }) {
+  const { user } = useAuth();
 
-return (
-  <Sidebar className='top-(--header-height) h-[calc(100svh-var(--header-height))]!' {...props}>
-    <SidebarHeader>
-      <SidebarMenu>
-        <SidebarMenuItem>
-          <SidebarMenuButton size='lg' asChild>
-            <a href='#'>
-              <div className='bg-sidebar-primary text-sidebar-primary-foreground flex aspect-square size-8 items-center justify-center rounded-lg'>
-                <Command className='size-4' />
-              </div>
-              <div className='grid flex-1 text-left text-sm leading-tight'>
-                <span className='truncate font-medium'>Cleo Spa</span>
-                <span className='truncate text-xs'>Enterprise</span>
-              </div>
-            </a>
-          </SidebarMenuButton>
-        </SidebarMenuItem>
-      </SidebarMenu>
-    </SidebarHeader>
-    <SidebarContent>
-      <NavMain items={data.navMain} />
-    </SidebarContent>
-    <SidebarFooter>
-      <NavUser user={user} />
-    </SidebarFooter>
-  </Sidebar>
-);
+  return (
+    <Sidebar className='top-(--header-height) h-[calc(100svh-var(--header-height))]!' {...props}>
+      <SidebarHeader>
+        <SidebarMenu>
+          <SidebarMenuItem>
+            <SidebarMenuButton size='lg' asChild>
+              <a href='#'>
+                <div className='bg-sidebar-primary text-sidebar-primary-foreground flex aspect-square size-8 items-center justify-center rounded-lg'>
+                  <Command className='size-4' />
+                </div>
+                <div className='grid flex-1 text-left text-sm leading-tight'>
+                  <span className='truncate font-medium'>Cleo Spa</span>
+                  <span className='truncate text-xs'>Enterprise</span>
+                </div>
+              </a>
+            </SidebarMenuButton>
+          </SidebarMenuItem>
+        </SidebarMenu>
+      </SidebarHeader>
+      <SidebarContent>
+        <NavMain items={data.navMain} />
+      </SidebarContent>
+      <SidebarFooter>
+        <NavUser user={user} />
+      </SidebarFooter>
+    </Sidebar>
+  );
 }
