@@ -204,9 +204,18 @@ const data = {
       ],
     },
     {
-      title: 'Credit Notes',
-      url: '/credit-notes',
+      title: 'Refunds',
       icon: Receipt,
+      items: [
+        {
+          title: 'Refund Management',
+          url: '/refunds',
+        },
+        {
+          title: 'Credit Notes',
+          url: '/credit-notes',
+        },
+      ],
     },
     // {
     //   title: 'Statistics',

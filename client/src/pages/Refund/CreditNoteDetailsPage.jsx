@@ -1,5 +1,3 @@
-"use client"
-
 import { useEffect } from "react"
 import { useNavigate, useParams } from "react-router-dom"
 import useRefundStore from "@/stores/useRefundStore"

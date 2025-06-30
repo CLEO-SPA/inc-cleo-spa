@@ -118,7 +118,7 @@ const RefundVoucherPage = () => {
                                         <Card key={voucher.id} className="shadow-sm">
                                             <CardHeader className="pb-2 border-b">
                                                 <CardTitle className="text-base font-semibold text-gray-900 flex items-center gap-2">
-                                                    {voucher.member_vouchers_name}
+                                                    {voucher.member_voucher_name}
                                                     <span className="text-sm text-gray-500">({`ID: ${voucher.id}`})</span>
                                                 </CardTitle>
                                             </CardHeader>

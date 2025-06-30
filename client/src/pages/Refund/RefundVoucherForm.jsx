@@ -246,7 +246,7 @@ const RefundVoucherForm = () => {
                         <div className="p-6 max-w-5xl mx-auto w-full">
                             <Card>
                                 <CardHeader>
-                                    <CardTitle className="text-gray-900">{voucher.member_vouchers_name}</CardTitle>
+                                    <CardTitle className="text-gray-900">{voucher.member_voucher_name}</CardTitle>
                                 </CardHeader>
                                 <CardContent className="space-y-6">
                                     {/* Customer Info */}

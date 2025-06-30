@@ -944,6 +944,7 @@ const processRefundMemberVoucher = async (body: {
          AND pts.payment_method_id IN (1, 2, 3, 4)`,
       [body.memberVoucherId]
     );
+    
     const totalPaid = parseFloat(paymentRows[0]?.total_paid || '0');
     const originalTxId = paymentRows[0].original_tx_id || null;
 
