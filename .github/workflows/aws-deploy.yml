@@ -114,6 +114,28 @@ jobs:
           key: ${{ secrets.EC2_SSH_KEY }}
           script: |
             cd /home/ubuntu/${{ env.PROJECT_NAME }}
+            
+            # Install docker and aws-cli if not present
+            # Check if Docker is installed
+            if ! command -v docker &> /dev/null; then
+              echo "Installing Docker..."
+              sudo apt update
+              sudo apt install -y docker.io docker-compose-plugin
+              sudo systemctl start docker
+              sudo systemctl enable docker
+              sudo usermod -aG docker ubuntu
+            fi
+            
+            # Check if AWS CLI is installed
+            if ! command -v aws &> /dev/null; then
+              echo "Installing AWS CLI..."
+              sudo apt install -y awscli
+            fi
+            
+            echo "Dependencies check complete"
+            docker --version
+            docker compose version
+            aws --version
 
             # Configure AWS CLI on EC2 instance
             aws configure set aws_access_key_id ${{ secrets.AWS_ACCESS_KEY_ID }}
