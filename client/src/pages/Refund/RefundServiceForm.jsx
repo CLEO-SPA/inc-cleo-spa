@@ -77,13 +77,13 @@ const RefundServiceForm = () => {
             quantity,
             refundDate,
             employeeId,
-            saleTransactionId: serviceItem.sale_transactions_id
+            saleTransactionId: serviceItem.sale_transaction_id
         });
         */
 
         try {
             const refundData = await submitRefundService({
-                saleTransactionId: serviceItem.sale_transactions_id,
+                saleTransactionId: serviceItem.sale_transaction_id,
                 saleTransactionItemId,
                 remarks,
                 quantity,

@@ -16,7 +16,7 @@ const getAllRefundSaleTransactionRecords = async (start_date_utc?: string, end_d
         ptst.remarks AS payment_remarks,
         pm.payment_method_name AS payment_method
     FROM sale_transactions st
-    LEFT JOIN sale_transaction_items sti ON st.id = sti.sale_transactions_id
+    LEFT JOIN sale_transaction_items sti ON st.id = sti.sale_transaction_id
     LEFT JOIN payment_to_sale_transactions ptst ON st.id = ptst.sale_transaction_id
     LEFT JOIN payment_methods pm ON ptst.payment_method_id = pm.id
         WHERE st.sale_transaction_status = 'REFUND'
@@ -47,7 +47,7 @@ const getSaleTransactionItemById = async (itemId: number) => {
         m.contact AS member_contact,
         st.member_id
       FROM sale_transaction_items sti
-      JOIN sale_transactions st ON st.id = sti.sale_transactions_id
+      JOIN sale_transactions st ON st.id = sti.sale_transaction_id
       LEFT JOIN members m ON st.member_id = m.id
       WHERE sti.id = $1
     ),
@@ -58,7 +58,7 @@ const getSaleTransactionItemById = async (itemId: number) => {
       JOIN sale_transactions refund_st 
         ON refund_st.reference_sales_transaction_id = oi.original_transaction_id
       JOIN sale_transaction_items sti_ref 
-        ON sti_ref.sale_transactions_id = refund_st.id
+        ON sti_ref.sale_transaction_id = refund_st.id
       WHERE 
         sti_ref.service_name = oi.service_name AND
         sti_ref.item_type = 'service' AND
@@ -92,7 +92,7 @@ const getServiceTransactionsForRefund = async (
   let baseQuery = `
     FROM sale_transactions st
     LEFT JOIN members m ON st.member_id = m.id
-    JOIN sale_transaction_items sti ON st.id = sti.sale_transactions_id
+    JOIN sale_transaction_items sti ON st.id = sti.sale_transaction_id
 
     -- Include pricing attributes in refund grouping to distinguish items
     LEFT JOIN (
@@ -104,7 +104,7 @@ const getServiceTransactionsForRefund = async (
         refund_sti.discount_percentage,
         SUM(ABS(refund_sti.quantity)) AS refunded_quantity
       FROM sale_transactions refund_st
-      JOIN sale_transaction_items refund_sti ON refund_st.id = refund_sti.sale_transactions_id
+      JOIN sale_transaction_items refund_sti ON refund_st.id = refund_sti.sale_transaction_id
       WHERE refund_st.sale_transaction_status = 'REFUND'
       GROUP BY 
         refund_st.reference_sales_transaction_id,
@@ -297,6 +297,7 @@ const processRefundService = async (body: {
       `SELECT * FROM sale_transactions WHERE id = $1`,
       [body.saleTransactionId]
     );
+
     if (originalTx.length === 0) throw new Error('Original transaction not found');
     const original = originalTx[0];
 
@@ -343,7 +344,7 @@ const processRefundService = async (body: {
       WITH original_item AS (
       SELECT sti.*, st.id AS original_tx_id
       FROM sale_transaction_items sti
-      JOIN sale_transactions st ON st.id = sti.sale_transactions_id
+      JOIN sale_transactions st ON st.id = sti.sale_transaction_id
       WHERE sti.id = $1
     ),
     refunded_qty AS (
@@ -352,7 +353,7 @@ const processRefundService = async (body: {
       JOIN sale_transactions refund_tx 
         ON refund_tx.reference_sales_transaction_id = oi.original_tx_id
       JOIN sale_transaction_items sti_ref 
-        ON sti_ref.sale_transactions_id = refund_tx.id
+        ON sti_ref.sale_transaction_id = refund_tx.id
       WHERE sti_ref.service_name = oi.service_name
         AND sti_ref.item_type = 'service'
         AND COALESCE(sti_ref.original_unit_price, 0) = COALESCE(oi.original_unit_price, 0)
@@ -383,7 +384,7 @@ const processRefundService = async (body: {
       // Insert refund item
       const { rows: refundItemRows } = await client.query(
         `INSERT INTO sale_transaction_items (
-                    sale_transactions_id, 
+                    sale_transaction_id, 
                     service_name, 
                     original_unit_price,
                     custom_unit_price,
@@ -582,7 +583,7 @@ const processFullRefundTransaction = async (params: {
 
       await client.query(
         `INSERT INTO sale_transaction_items (
-          id, sale_transactions_id, service_name, member_care_package_id,
+          id, sale_transaction_id, service_name, member_care_package_id,
           original_unit_price, custom_unit_price, discount_percentage, 
           quantity, amount, item_type, remarks
         ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, 'MEMBER_CARE_PACKAGE', $10)`,
@@ -937,8 +938,8 @@ const processRefundMemberVoucher = async (body: {
       `SELECT SUM(pts.amount)::float AS total_paid,
               MIN(st.id) AS original_tx_id
        FROM payment_to_sale_transactions pts
-       JOIN sale_transaction_items sti ON pts.sale_transaction_id = sti.sale_transactions_id
-       JOIN sale_transactions st ON st.id = sti.sale_transactions_id
+       JOIN sale_transaction_items sti ON pts.sale_transaction_id = sti.sale_transaction_id
+       JOIN sale_transactions st ON st.id = sti.sale_transaction_id
        WHERE sti.member_voucher_id = $1
          AND pts.payment_method_id IN (1, 2, 3, 4)`,
       [body.memberVoucherId]
@@ -1019,7 +1020,7 @@ const processRefundMemberVoucher = async (body: {
   VALUES ('member', $1, $2, 0, 'REFUND', $3, $4, $5, $6, $6, $7, $7)
   RETURNING id`,
       [
-        voucher.members_id,
+        voucher.member_id,
         -refundAmount,
         body.remarks || `Refund for Member Voucher #${body.memberVoucherId}`,
         receiptNo,
@@ -1033,7 +1034,7 @@ const processRefundMemberVoucher = async (body: {
     // 10. Sale transaction item
     await client.query(
       `INSERT INTO sale_transaction_items (
-        sale_transactions_id, member_voucher_id,
+        sale_transaction_id, member_voucher_id,
         quantity, remarks, amount, item_type
       )
       VALUES ($1, $2, 1, $3, $4, 'member voucher')`,
@@ -1087,7 +1088,7 @@ const getEligibleMemberVoucherForRefund = async (memberId: number) => {
     // Fetch all enabled vouchers with remaining balance
     const { rows: vouchers } = await client.query(
       `SELECT * FROM member_vouchers
-            WHERE members_id = $1
+            WHERE member_id = $1
                 AND status = 'is_enabled'
                 AND current_balance > 0
             ORDER BY updated_at DESC`,
@@ -1100,9 +1101,9 @@ const getEligibleMemberVoucherForRefund = async (memberId: number) => {
         const balanceQuery = `
                     SELECT st.outstanding_total_payment_amount
                     FROM sale_transactions st
-                    JOIN sale_transaction_items sti ON st.id = sti.sale_transactions_id
+                    JOIN sale_transaction_items sti ON st.id = sti.sale_transaction_id
                     WHERE sti.member_voucher_id = $1
-                    ORDER BY sti.sale_transactions_id DESC
+                    ORDER BY sti.sale_transaction_id DESC
                     LIMIT 1;
                 `;
 
@@ -1175,7 +1176,7 @@ const getMemberVoucherById = async (voucherId: number) => {
     // Get the member info
     const { rows: memberRows } = await client.query(
       `SELECT id, name, email, contact FROM members WHERE id = $1`,
-      [voucher.members_id]
+      [voucher.member_id]
     );
 
     const member = memberRows[0] || null;
@@ -1184,9 +1185,9 @@ const getMemberVoucherById = async (voucherId: number) => {
     const balanceQuery = `
       SELECT st.outstanding_total_payment_amount
       FROM sale_transactions st
-      JOIN sale_transaction_items sti ON st.id = sti.sale_transactions_id
+      JOIN sale_transaction_items sti ON st.id = sti.sale_transaction_id
       WHERE sti.member_voucher_id = $1
-      ORDER BY sti.sale_transactions_id DESC
+      ORDER BY sti.sale_transaction_id DESC
       LIMIT 1;
     `;
 
@@ -1269,7 +1270,7 @@ const getAllRefundRecords = async ({
     let baseQuery = `
       FROM sale_transactions st
       LEFT JOIN members m ON m.id = st.member_id
-      JOIN sale_transaction_items sti ON sti.sale_transactions_id = st.id
+      JOIN sale_transaction_items sti ON sti.sale_transaction_id = st.id
       LEFT JOIN member_care_packages mcp ON mcp.id = sti.member_care_package_id
       LEFT JOIN member_vouchers mv ON mv.id = sti.member_voucher_id
       WHERE st.sale_transaction_status = 'REFUND'
@@ -1328,7 +1329,7 @@ const getAllRefundRecords = async ({
         -- Add item names based on type
         CASE 
           WHEN sti.member_care_package_id IS NOT NULL THEN mcp.package_name
-          WHEN sti.member_voucher_id IS NOT NULL OR sti.item_type = 'member voucher' THEN mv.member_vouchers_name
+          WHEN sti.member_voucher_id IS NOT NULL OR sti.item_type = 'member voucher' THEN mv.member_voucher_name
           WHEN (sti.member_care_package_id IS NULL AND sti.member_voucher_id IS NULL) 
                OR sti.item_type = 'service' THEN sti.service_name
           ELSE sti.service_name
@@ -1409,7 +1410,7 @@ const getRefundRecordDetails = async (refundId: number) => {
         sti.amount,
         sti.item_type
       FROM sale_transaction_items sti
-      WHERE sti.sale_transactions_id = $1
+      WHERE sti.sale_transaction_id = $1
     `;
     const { rows: items } = await client.query(itemsQuery, [refundId]);
 

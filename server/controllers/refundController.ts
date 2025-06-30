@@ -38,6 +38,7 @@ const getServiceTransactionsForRefund = async (req: Request, res: Response, next
 
 const processRefundService = async (req: Request, res: Response, next: NextFunction) => {
   try {
+    console.log('Processing refund for service:', req.body);
     const refundResult = await model.processRefundService(req.body);
 
     res.status(200).json({ message: 'Refund processed successfully', refundTransactionId: refundResult.refundTransactionId });
