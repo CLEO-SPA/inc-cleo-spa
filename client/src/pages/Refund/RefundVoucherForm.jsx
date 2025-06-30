@@ -44,12 +44,14 @@ const RefundVoucherForm = () => {
         const employeeId = user?.user_id;
         if (!employeeId) return;
 
+        const formattedDate = new Date(refundDate).toISOString();
+        
         try {
             console.log("date:", refundDate);
             const data = await submitRefundMemberVoucher({
                 memberVoucherId: Number(voucherId),
                 refundedBy: employeeId,
-                refundDate,
+                refundDate: formattedDate,
                 remarks: remarks.trim() === "" ? null : remarks,
             });
             setRefundId(data.refundTransactionId);
@@ -112,7 +114,7 @@ const RefundVoucherForm = () => {
     const { voucher, member } = memberVoucherDetail;
 
     // Check if voucher is already refunded or non-refundable
-    if (voucher.refundable_amount <= 0 || voucher.status ==="disabled") {
+    if (voucher.refundable_amount <= 0 || voucher.status === "disabled") {
         return (
             <div className="[--header-height:calc(theme(spacing.14))]">
                 <SidebarProvider className="flex flex-col">

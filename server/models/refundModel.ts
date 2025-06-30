@@ -411,6 +411,7 @@ const processRefundService = async (body: {
 
       const refundItemId = refundItemRows[0].id;
 
+      /*
       // Insert a new entry in the serving_employee_to_sale_transaction_item table for the refund item
       // Get the original employee(s) linked to this item
       const { rows: employeeRows } = await client.query(
@@ -427,6 +428,7 @@ const processRefundService = async (body: {
           [refundItemId, emp.employee_id, 'Refunded Service', refundDate]
         );
       }
+      */
     }
 
     // 4. Insert refund payment
@@ -520,7 +522,7 @@ const processFullRefundTransaction = async (params: {
       `SELECT id FROM payment_methods WHERE payment_method_name = 'Refund' LIMIT 1`
     );
     const refundPaymentMethodId = paymentMethodRows[0]?.id;
-    
+
     if (!refundPaymentMethodId) {
       throw new Error('Refund payment method not found in database');
     }
@@ -944,7 +946,7 @@ const processRefundMemberVoucher = async (body: {
          AND pts.payment_method_id IN (1, 2, 3, 4)`,
       [body.memberVoucherId]
     );
-    
+
     const totalPaid = parseFloat(paymentRows[0]?.total_paid || '0');
     const originalTxId = paymentRows[0].original_tx_id || null;
 
@@ -1120,7 +1122,7 @@ const getEligibleMemberVoucherForRefund = async (memberId: number) => {
         // Step 3: Calculate paid amount
         const paidAmount = isFullyPaid
           ? parseFloat(voucher.default_total_price)
-          : parseFloat(voucher.starting_balance) - outstanding;
+          : parseFloat(voucher.default_total_price) - outstanding;
 
         // Step 4: Get consumption logs
         const logsQuery = `

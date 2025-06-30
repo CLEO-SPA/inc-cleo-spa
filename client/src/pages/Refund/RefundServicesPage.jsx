@@ -157,6 +157,7 @@ const RefundServicesPage = () => {
                                                         </CardTitle>
                                                     </div>
 
+                                                    {/*}
                                                     <div className="text-right">
                                                         <div className="flex items-center gap-1 text-lg font-bold text-gray-900">
                                                             <DollarSign className="h-5 w-5" />
@@ -164,14 +165,19 @@ const RefundServicesPage = () => {
                                                         </div>
                                                         <div className="text-sm text-gray-500">Total Paid</div>
                                                     </div>
+                                                    */}
                                                 </div>
+
                                             </CardHeader>
 
                                             <CardContent>
                                                 <div className="space-y-3">
                                                     <h4 className="font-medium text-gray-900 mb-3">Services:</h4>
                                                     {transaction.items.map((item) => {
-                                                        const unitPrice = item.custom_unit_price ?? item.original_unit_price ?? 0;
+                                                        const unitPrice = Number(item.custom_unit_price) > 0
+                                                            ? Number(item.custom_unit_price)
+                                                            : Number(item.original_unit_price) || 0;
+
                                                         const discountDecimal = parseFloat(item.discount_percentage) ?? 1;
                                                         const discountPercent = ((1 - discountDecimal) * 100).toFixed(0);
 
@@ -191,7 +197,9 @@ const RefundServicesPage = () => {
                                                                     </div>
                                                                     <div className="text-sm text-gray-500 mt-1">
                                                                         Original Unit Price: ${item.original_unit_price || 'N/A'} |{" "}
-                                                                        Custom Unit Price: {item.custom_unit_price ? `$${item.custom_unit_price}` : 'None'} |{" "}
+                                                                        Custom Unit Price: {Number(item.custom_unit_price) > 0
+                                                                            ? `$${Number(item.custom_unit_price).toFixed(2)}`
+                                                                            : 'None'} |{" "}
                                                                         Discount: {discountText}
                                                                     </div>
                                                                 </div>
