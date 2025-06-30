@@ -43,50 +43,6 @@ const useTranslationStore = create((set, get) => ({
             set({ loading: false, error: 'Failed to load translations' });
         }
     },
-
-    // Fetch single translation by English key
-    fetchTranslation: async (key) => {
-        try {
-            const response = await api.get(`/trans/all?english=${encodeURIComponent(key)}`);
-            const chineseTranslation = response.data[0]?.chinese || key;
-
-            set((state) => {
-                // Avoid duplicate addition
-                const exists = state.translations.some(
-                    (t) => t.english.toLowerCase() === key.toLowerCase()
-                );
-                if (exists) return {};
-                return { translations: [...state.translations, { english: key, chinese: chineseTranslation }] };
-            });
-
-            return chineseTranslation;
-        } catch (error) {
-            console.error('Error fetching translation:', error);
-            return key;
-        }
-    },
-
-    // Translation lookup function (similar to context t())
-    t: (key) => {
-        if (!key) return key;
-
-        const normalizedKey = key.replace(/([a-z])([A-Z])/g, '$1 $2').toLowerCase();
-
-        const existingTranslation = get().translations.find(
-            (item) => item.english.toLowerCase() === normalizedKey
-        );
-
-        if (existingTranslation) {
-            return `${key} (${existingTranslation.chinese})`;
-        }
-
-        // Trigger async fetch but don’t await here
-        get().fetchTranslation(normalizedKey);
-
-        // Fallback while fetching
-        return `${key} (${key})`;
-    },
-
     // Add new translation
     addTranslation: async (fetchTranslations, t) => {
         const { english, chinese, meaningEnglish, meaningChinese } = get();

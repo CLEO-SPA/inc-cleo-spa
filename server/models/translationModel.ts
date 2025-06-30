@@ -10,24 +10,6 @@ interface Translation {
     updated_at: string;
 }
 
-const getTranslations = async (english?: string): Promise<Translation[]> => {
-    try {
-        let query = "SELECT * FROM translations";
-        const values: any[] = [];
-
-        if (english) {
-            query += " WHERE LOWER(english) LIKE LOWER($1)";
-            values.push(`%${english}%`);
-        }
-
-        const result = await pool().query(query, values);
-        return result.rows;
-    } catch (error) {
-        console.error("Error fetching translations:", error);
-        throw new Error("Failed to fetch translations");
-    }
-};
-
 const addTranslation = async (
     english: string,
     chinese: string,
@@ -76,6 +58,20 @@ const deleteTranslation = async (id: number): Promise<{ message?: string; error?
     }
 };
 
+const getAllTranslations = async (): Promise<Translation[]> => {
+    try {
+        const query = "SELECT * FROM translations";
+        const result = await pool().query(query);
+
+        console.log("Fetched translations:", result.rows);
+        return result.rows;
+    } catch (error) {
+        console.error("Error fetching all translations:", error);
+        throw new Error("Failed to fetch all translations");
+    }
+};
+
+
 const updateTranslation = async (
     id: number,
     newChinese?: string,
@@ -111,8 +107,8 @@ const updateTranslation = async (
 };
 
 export default {
-    getTranslations,
     addTranslation,
+    getAllTranslations,
     deleteTranslation,
     updateTranslation,
 };

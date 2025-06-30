@@ -59,24 +59,22 @@ const addTranslationHandler = async (req: Request, res: Response): Promise<void>
     }
 };
 
-const getTranslationsHandler = async (req: Request, res: Response): Promise<void> => {
+const getAllTranslationsHandler = async (req: Request, res: Response): Promise<void> => {
     try {
-        const { english } = req.query;
-        const translations = english
-            ? await translationModel.getTranslations(String(english))
-            : await translationModel.getTranslations();
+        const translations = await translationModel.getAllTranslations();
 
         if (!translations || translations.length === 0) {
-            res.status(404).json({ message: "No matching translations found." });
+            res.status(404).json({ message: "No translations found." });
             return;
         }
 
         res.status(200).json(translations);
     } catch (error) {
-        console.error("Error fetching translations:", error);
-        res.status(500).json({ error: "Failed to retrieve translations" });
+        console.error("Error fetching all translations:", error);
+        res.status(500).json({ error: "Failed to retrieve all translations" });
     }
 };
+
 
 const deleteTranslationHandler = async (req: Request, res: Response): Promise<void> => {
     try {
@@ -170,8 +168,8 @@ const updateTranslationHandler = async (req: Request, res: Response): Promise<vo
 
 export default {
     addTranslationHandler,
-    getTranslationsHandler,
     deleteTranslationHandler,
     updateTranslationHandler,
+    getAllTranslationsHandler
 };
 

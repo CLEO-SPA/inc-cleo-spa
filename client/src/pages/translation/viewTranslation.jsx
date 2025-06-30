@@ -110,9 +110,21 @@ const ViewTranslations = () => {
         }
     };
 
-    const filteredTranslations = translations.filter((item) =>
-        item.english.toLowerCase().includes(searchQuery.toLowerCase())
-    );
+    // ✅ Only show valid DB entries
+    const filteredTranslations = translations
+        .filter(
+            (item) =>
+                item.id &&
+                item.english &&
+                item.chinese &&
+                typeof item.english === "string" &&
+                typeof item.chinese === "string" &&
+                item.english.length < 50 && // avoid long UI strings
+                /^[a-zA-Z\s-]+$/.test(item.english) // keep only real English terms
+        )
+        .filter((item) =>
+            item.english.toLowerCase().includes(searchQuery.toLowerCase())
+        );
 
     return (
         <div className="h-screen overflow-hidden [--header-height:calc(theme(spacing.14))] bg-gray-100 text-black">
@@ -150,12 +162,13 @@ const ViewTranslations = () => {
                                     <tr>
                                         <th className="py-3 px-4 text-left">{t("English", "英文")}</th>
                                         <th className="py-3 px-4 text-left">{t("Chinese", "中文")}</th>
-                                        <th className="py-3 px-4 text-left">{t("Meaning (English)", "英文释义")}</th>
-                                        <th className="py-3 px-4 text-left">{t("Meaning (Chinese)", "中文释义")}</th>
+                                        <th className="py-3 px-4 text-left">{t("Meaning in English", "英文释义")}</th>  {/* updated */}
+                                        <th className="py-3 px-4 text-left">{t("Meaning in Chinese", "中文释义")}</th>  {/* updated */}
                                         <th className="py-3 px-4 text-left">{t("Edit", "编辑")}</th>
                                         <th className="py-3 px-4 text-left">{t("Delete", "删除")}</th>
                                     </tr>
                                 </thead>
+
                                 <tbody>
                                     {filteredTranslations.length > 0 ? (
                                         filteredTranslations.map((item) => (
@@ -193,105 +206,117 @@ const ViewTranslations = () => {
                                     )}
                                 </tbody>
                             </table>
+
+
+                            {showEditModal && selectedTranslation && (
+                                <div className="fixed inset-0 bg-black bg-opacity-40 flex items-center justify-center z-50">
+                                    <div className="bg-white p-6 rounded-lg shadow-lg max-w-md w-full">
+                                        <h2 className="text-xl font-semibold mb-4 text-yellow-600">
+                                            {t("Edit Translation", "编辑翻译")}
+                                        </h2>
+
+                                        <label className="block text-sm text-gray-600 mb-1">
+                                            {t("English Word", "英文词汇")}
+                                        </label>
+                                        <input
+                                            type="text"
+                                            value={selectedTranslation.english}
+                                            readOnly
+                                            className="w-full p-2 mb-4 border border-gray-300 rounded bg-gray-100 cursor-not-allowed"
+                                        />
+
+                                        <label className="block text-sm text-gray-600 mb-1">
+                                            {t("Chinese Translation", "中文翻译")}
+                                        </label>
+                                        <input
+                                            type="text"
+                                            value={editInput}
+                                            onChange={(e) => setEditInput(e.target.value)}
+                                            className="w-full p-2 mb-4 border border-gray-300 rounded"
+                                        />
+
+                                        <label className="block text-sm text-gray-600 mb-1">
+                                            {t("Meaning (English)", "英文释义")}
+                                        </label>
+                                        <input
+                                            type="text"
+                                            value={editMeaningEn}
+                                            onChange={(e) => setEditMeaningEn(e.target.value)}
+                                            className="w-full p-2 mb-4 border border-gray-300 rounded"
+                                        />
+
+                                        <label className="block text-sm text-gray-600 mb-1">
+                                            {t("Meaning (Chinese)", "中文释义")}
+                                        </label>
+                                        <input
+                                            type="text"
+                                            value={editMeaningZh}
+                                            onChange={(e) => setEditMeaningZh(e.target.value)}
+                                            className="w-full p-2 mb-4 border border-gray-300 rounded"
+                                        />
+
+                                        {editError && <p className="text-red-600 mb-4">{editError}</p>}
+
+                                        <div className="flex justify-end space-x-2">
+                                            <button
+                                                onClick={() => setShowEditModal(false)}
+                                                className="bg-gray-300 hover:bg-gray-400 text-black px-4 py-2 rounded"
+                                            >
+                                                {t("Cancel", "取消")}
+                                            </button>
+                                            <button
+                                                onClick={saveEdit}
+                                                className="bg-yellow-500 hover:bg-yellow-600 text-white px-4 py-2 rounded"
+                                            >
+                                                {t("Save", "保存")}
+                                            </button>
+                                        </div>
+                                    </div>
+                                </div>
+                            )}
+
+                            {showConfirm && selectedTranslation && (
+                                <div className="fixed inset-0 bg-black bg-opacity-40 flex items-center justify-center z-50">
+                                    <div className="bg-white p-6 rounded-lg shadow-lg max-w-md w-full">
+                                        <h2 className="text-xl font-semibold mb-4 text-red-600">
+                                            {t("Confirm Deletion", "确认删除")}
+                                        </h2>
+                                        <p className="mb-3">
+                                            {t(
+                                                `Please type "${selectedTranslation.english}" to confirm deletion.`,
+                                                `请输入 "${selectedTranslation.english}" 以确认删除。`
+                                            )}
+                                        </p>
+                                        <input
+                                            type="text"
+                                            className="w-full p-2 border border-gray-300 rounded mb-4"
+                                            value={confirmInput}
+                                            onChange={(e) => setConfirmInput(e.target.value)}
+                                            placeholder={t("Type here", "在此输入")}
+                                        />
+                                        <div className="flex justify-end space-x-2">
+                                            <button
+                                                onClick={cancelDelete}
+                                                className="bg-gray-300 hover:bg-gray-400 text-black px-4 py-2 rounded"
+                                            >
+                                                {t("Cancel", "取消")}
+                                            </button>
+                                            <button
+                                                onClick={handleDelete}
+                                                disabled={confirmInput !== selectedTranslation.english}
+                                                className={`${confirmInput === selectedTranslation.english
+                                                    ? "bg-red-600 hover:bg-red-700"
+                                                    : "bg-red-300 cursor-not-allowed"
+                                                    } text-white px-4 py-2 rounded`}
+                                            >
+                                                {t("Delete", "删除")}
+                                            </button>
+                                        </div>
+                                    </div>
+                                </div>
+                            )}
+
                         </div>
-
-                        {/* Confirm Delete Popup */}
-                        {showConfirm && (
-                            <div className="fixed inset-0 bg-black bg-opacity-40 flex items-center justify-center z-50">
-                                <div className="bg-white p-6 rounded-lg shadow-lg max-w-md w-full">
-                                    <h2 className="text-xl font-semibold mb-4 text-red-600">{t("Confirm Deletion", "确认删除")}</h2>
-                                    <p className="mb-3">
-                                        {t(
-                                            `Please type "${selectedTranslation.english}" to confirm deletion.`,
-                                            `请输入 "${selectedTranslation.english}" 以确认删除。`
-                                        )}
-                                    </p>
-                                    <input
-                                        type="text"
-                                        className="w-full p-2 border border-gray-300 rounded mb-4"
-                                        value={confirmInput}
-                                        onChange={(e) => setConfirmInput(e.target.value)}
-                                        placeholder={t("Type here", "在此输入")}
-                                    />
-                                    <div className="flex justify-end space-x-2">
-                                        <button
-                                            onClick={cancelDelete}
-                                            className="bg-gray-300 hover:bg-gray-400 text-black px-4 py-2 rounded"
-                                        >
-                                            {t("Cancel", "取消")}
-                                        </button>
-                                        <button
-                                            onClick={handleDelete}
-                                            disabled={confirmInput !== selectedTranslation.english}
-                                            className={`${confirmInput === selectedTranslation.english
-                                                ? "bg-red-600 hover:bg-red-700"
-                                                : "bg-red-300 cursor-not-allowed"
-                                                } text-white px-4 py-2 rounded`}
-                                        >
-                                            {t("Delete", "删除")}
-                                        </button>
-                                    </div>
-                                </div>
-                            </div>
-                        )}
-
-                        {/* Edit Modal */}
-                        {showEditModal && (
-                            <div className="fixed inset-0 bg-black bg-opacity-40 flex items-center justify-center z-50">
-                                <div className="bg-white p-6 rounded-lg shadow-lg max-w-md w-full">
-                                    <h2 className="text-xl font-semibold mb-4 text-yellow-600">{t("Edit Translation", "编辑翻译")}</h2>
-
-                                    <label className="block text-sm text-gray-600 mb-1">{t("English Word", "英文词汇")}</label>
-                                    <input
-                                        type="text"
-                                        value={selectedTranslation.english}
-                                        readOnly
-                                        className="w-full p-2 mb-4 border border-gray-300 rounded bg-gray-100 cursor-not-allowed"
-                                    />
-
-                                    <label className="block text-sm text-gray-600 mb-1">{t("Chinese Translation", "中文翻译")}</label>
-                                    <input
-                                        type="text"
-                                        value={editInput}
-                                        onChange={(e) => setEditInput(e.target.value)}
-                                        className="w-full p-2 mb-4 border border-gray-300 rounded"
-                                    />
-
-                                    <label className="block text-sm text-gray-600 mb-1">{t("Meaning (English)", "英文释义")}</label>
-                                    <input
-                                        type="text"
-                                        value={editMeaningEn}
-                                        onChange={(e) => setEditMeaningEn(e.target.value)}
-                                        className="w-full p-2 mb-4 border border-gray-300 rounded"
-                                    />
-
-                                    <label className="block text-sm text-gray-600 mb-1">{t("Meaning (Chinese)", "中文释义")}</label>
-                                    <input
-                                        type="text"
-                                        value={editMeaningZh}
-                                        onChange={(e) => setEditMeaningZh(e.target.value)}
-                                        className="w-full p-2 mb-4 border border-gray-300 rounded"
-                                    />
-
-                                    {editError && <p className="text-red-600 mb-4">{editError}</p>}
-
-                                    <div className="flex justify-end space-x-2">
-                                        <button
-                                            onClick={() => setShowEditModal(false)}
-                                            className="bg-gray-300 hover:bg-gray-400 text-black px-4 py-2 rounded"
-                                        >
-                                            {t("Cancel", "取消")}
-                                        </button>
-                                        <button
-                                            onClick={saveEdit}
-                                            className="bg-yellow-500 hover:bg-yellow-600 text-white px-4 py-2 rounded"
-                                        >
-                                            {t("Save", "保存")}
-                                        </button>
-                                    </div>
-                                </div>
-                            </div>
-                        )}
                     </div>
                 </div>
             </SidebarProvider>

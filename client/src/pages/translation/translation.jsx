@@ -1,4 +1,6 @@
 import React from "react";
+import { useNavigate } from "react-router-dom";  // <-- import here
+
 import { useTranslation } from "@/context/TranslationContext";
 import useTranslationStore from "@/stores/useTranslationStore";
 
@@ -7,6 +9,8 @@ const isEnglishText = (text) => /^[A-Za-z\s.,!?'"()\-&$%#@*+<=>]*$/.test(text);
 const isChineseText = (text) => /^[\u4e00-\u9fff\s.,!?'"()\-&$%#@*+<=>]*$/.test(text);
 
 const TranslationForm = () => {
+    const navigate = useNavigate();  // <-- initialize navigate
+
     const {
         english,
         chinese,
@@ -75,6 +79,9 @@ const TranslationForm = () => {
     const handleConfirm = async () => {
         await addTranslation(fetchTranslations, t);
         setShowConfirm(false);
+        if (!error) {
+            navigate("/translations");
+        }
     };
 
     const handleCancel = () => setShowConfirm(false);

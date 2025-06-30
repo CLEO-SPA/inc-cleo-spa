@@ -11,7 +11,6 @@ const TranslationProvider = ({ children }) => {
         translations,
         loading,
         fetchTranslations,
-        fetchTranslation,
     } = useTranslationStore();
 
     // Fetch all translations on mount
@@ -33,8 +32,6 @@ const TranslationProvider = ({ children }) => {
             return `${key} (${existingTranslation.chinese})`;
         }
 
-        // Fire async fetch for missing translation, but don't await here
-        fetchTranslation(normalizedKey);
 
         return `${key} (${key})`; // fallback while loading
     };
