@@ -77,7 +77,7 @@ const createPosition = async ({
     const values = [
       position_name,
       position_description,
-      position_is_active || true,
+      position_is_active,
       position_created_at,
       position_updated_at,
     ];
@@ -123,7 +123,7 @@ const updatePosition = async (
         position_description = COALESCE($3, position_description),
         position_is_active = COALESCE($4, position_is_active),
         updated_at = $5,
-        created_at = COALESCE($6, position_created_at)
+        created_at = COALESCE($6, created_at)
 
       WHERE id = $1
       RETURNING *;
@@ -160,7 +160,7 @@ const deletePosition = async (id: number) => {
     await client.query('BEGIN');
 
     // Check if position is being used by any employees
-    const checkQuery = `SELECT COUNT(*) FROM employees WHERE position_id = $1`;
+    const checkQuery = `SELECT COUNT(*) FROM employee_to_position WHERE position_id = $1`;
     const checkResult = await client.query(checkQuery, [id]);
     const employeeCount = parseInt(checkResult.rows[0].count, 10);
 

@@ -1,5 +1,4 @@
-// ManageEmployeePage.jsx
-import React, { useEffect } from 'react';
+import React, { useEffect, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { AppSidebar } from '@/components/app-sidebar';
 import { SiteHeader } from '@/components/site-header';
@@ -9,6 +8,7 @@ import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { Alert, AlertDescription } from '@/components/ui/alert';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
+import { BadgeCheckIcon } from 'lucide-react';
 import {
   Pagination,
   PaginationContent,
@@ -23,7 +23,7 @@ import {
   DropdownMenuItem,
   DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu';
-import { MoreHorizontal, Edit, RefreshCw, Loader2, CheckCircle } from 'lucide-react';
+import { MoreHorizontal, Edit, RefreshCw, Loader2, CheckCircle, Copy } from 'lucide-react';
 import useEmployeeStore from '@/stores/useEmployeeStore';
 
 export default function ManageEmployeePage() {
@@ -44,6 +44,8 @@ export default function ManageEmployeePage() {
 
   const { currentPage, totalPages, totalCount, pageSize } = pagination;
 
+  const [copied, setCopied] = useState(false);
+
   useEffect(() => {
     fetchAllEmployees();
     return () => {
@@ -51,18 +53,14 @@ export default function ManageEmployeePage() {
     };
   }, [fetchAllEmployees, resetMessages]);
 
-  const isInviteExpired = (employee) => {
-    if (employee.verification_status === 'Verified') return false;
-    const expiryTime = new Date(employee.updated_at).getTime() + 3 * 24 * 60 * 60 * 1000; // 3 days
-    return Date.now() > expiryTime;
-  };
+
 
   const handleRegenerate = async (employee) => {
     await regenerateInviteLink(employee);
   };
 
   const navigateToEdit = (employee) => {
-    navigate(`/employees/update/${employee.id}`);
+    navigate(`/employees/edit/${employee.id}`);
   };
 
   const formatDate = (dateString) =>
@@ -147,7 +145,10 @@ export default function ManageEmployeePage() {
                             <TableHead>#</TableHead>
                             <TableHead>Name</TableHead>
                             <TableHead>Email</TableHead>
+                            <TableHead>Code</TableHead>
+                            <TableHead>Contact</TableHead>
                             <TableHead>Status</TableHead>
+                            <TableHead>Verification</TableHead>
                             <TableHead>Positions</TableHead>
                             <TableHead>Created</TableHead>
                             <TableHead>Updated</TableHead>
@@ -160,18 +161,33 @@ export default function ManageEmployeePage() {
                               <TableCell>{(currentPage - 1) * pageSize + index + 1}</TableCell>
                               <TableCell>{employee.employee_name}</TableCell>
                               <TableCell>{employee.employee_email}</TableCell>
+                              <TableCell>{employee.employee_code}</TableCell>
+                              <TableCell>{employee.employee_contact || 'N/A'}</TableCell>
                               <TableCell>
                                 <Badge
                                   className={
                                     employee.employee_is_active
                                       ? 'bg-green-100 text-green-700'
-                                      : 'bg-muted text-muted-foreground'
+                                      : 'bg-red-100 text-red-700'
                                   }
                                 >
-                                  {employee.verification_status === 'Verified' && employee.employee_is_active
-                                    ? 'Active'
-                                    : 'UnVerified'}
+                                  {employee.employee_is_active ? 'Active' : 'Inactive'}
                                 </Badge>
+                              </TableCell>
+                              <TableCell>
+                                {employee.verification_status.toLowerCase() === 'verified' ? (
+                                  <Badge
+                                    variant="secondary"
+                                    className="bg-blue-500 text-white dark:bg-blue-600 gap-1"
+                                  >
+                                    <BadgeCheckIcon className="w-4 h-4" />
+                                    Verified
+                                  </Badge>
+                                ) : (
+                                  <Badge className="bg-gray-200 text-gray-600 dark:bg-gray-700 dark:text-gray-300">
+                                    Unverified
+                                  </Badge>
+                                )}
                               </TableCell>
                               <TableCell>
                                 <div className='flex flex-wrap gap-1'>
@@ -195,19 +211,19 @@ export default function ManageEmployeePage() {
                                     <DropdownMenuItem onClick={() => navigateToEdit(employee)}>
                                       <Edit className='mr-2 h-4 w-4' /> Edit
                                     </DropdownMenuItem>
-                                    {isInviteExpired(employee) && (
-                                      <DropdownMenuItem
-                                        onClick={() => handleRegenerate(employee)}
-                                        disabled={regenerateLoading === employee.id}
-                                      >
-                                        {regenerateLoading === employee.id ? (
-                                          <Loader2 className='mr-2 h-4 w-4 animate-spin' />
-                                        ) : (
-                                          <RefreshCw className='mr-2 h-4 w-4' />
-                                        )}
-                                        Regenerate Invite
-                                      </DropdownMenuItem>
-                                    )}
+
+                                    <DropdownMenuItem
+                                      onClick={() => handleRegenerate(employee)}
+                                      disabled={regenerateLoading === employee.id}
+                                    >
+                                      {regenerateLoading === employee.id ? (
+                                        <Loader2 className='mr-2 h-4 w-4 animate-spin' />
+                                      ) : (
+                                        <RefreshCw className='mr-2 h-4 w-4' />
+                                      )}
+                                      Regenerate Invite
+                                    </DropdownMenuItem>
+
                                   </DropdownMenuContent>
                                 </DropdownMenu>
                               </TableCell>

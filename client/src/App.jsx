@@ -58,14 +58,23 @@ import ManagePaymentMethodsPage from './pages/payment-method/ManagePaymentMethod
 import CreatePaymentMethodPage from './pages/payment-method/CreatePaymentMethodPage';
 import EditPaymentMethodPage from './pages/payment-method/EditPaymentMethodPage';
 import TestPMComponent from './pages/sale-transaction/AddPMMComponentTest';
-import RevenueReportPage from './pages/revenue/RevenueReportPage';
-import DeferredRevenuePage from './pages/revenue/DeferredRevenuePage';
-// Employees
+
+// Employee Management
 import ManagePositions from '@/pages/em/ManagePositionsPage';
 import CreatePositionPage from '@/pages/em/CreatePositionPage';
 import EditPositionPage from '@/pages/em/UpdatePositionPage';
 import ManageEmployeesPage from '@/pages/em/ManageEmployeesPage';
 import CreateEmployeePage from '@/pages/em/CreateEmployeePage';
+import EditEmployeePage from '@/pages/em/UpdateEmployeePage';
+
+import RevenueReportPage from './pages/revenue/RevenueReportPage';
+import DeferredRevenuePage from './pages/revenue/DeferredRevenuePage';
+// Employees
+import EmployeeTimetablePage from './pages/EmployeeTimetable/EmployeeTimetable';
+
+// Employee Timetable Pages
+import CreateEmployeeTimetablePage from '@/pages/EmployeeTimetable/CreateEmployeeTimetablePage';
+import UpdateEmployeeTimetablePage from '@/pages/EmployeeTimetable/UpdateEmployeeTimetablePage';
 
 // Appointments Management
 import ManageAppointmentsPage from '@/pages/ab/ManageAppointmentsPage';
@@ -81,7 +90,6 @@ import CreateProductPage from '@/pages/product/CreateProductPage';
 import UpdateProductPage from '@/pages/product/UpdateProductPage';
 import ViewProductSalesHistoryPage from '@/pages/product/ViewProductSalesHistoryPage';
 
-// Add this line with the other page imports (around line 20)
 import RefundPage from '@/pages/Refund/refund'; // Add this line
 import MCPDetail from '@/pages/Refund/MCPDetail';
 import MemberPackagesList from '@/components/refund/MemberPackagesList';
@@ -101,7 +109,6 @@ function App() {
               <Route path='/appointments' element={<ManageAppointmentsPage />} />
 
               <Route path='/appointments/create' element={<CreateAppointmentPage />} />
-              <Route path='/employees' element={<CreateAppointmentPage />} />
               <Route path='/appointments/edit/:id' element={<EditAppointmentPage />} />
               <Route path='/appointments/:id' element={<ViewAppointmentDetailsPage />} />
 
@@ -135,6 +142,7 @@ function App() {
               <Route path='/positions/update/:id' element={<EditPositionPage />} />
               <Route path='/employees' element={<ManageEmployeesPage />} />
               <Route path='/employees/create' element={<CreateEmployeePage />} />
+              <Route path='/employees/edit/:id' element={<EditEmployeePage />} />
 
               {/* Voucher Template */}
               <Route path='/voucher-template/create' element={<CreateVoucherTemplatesPage />} />
@@ -177,6 +185,11 @@ function App() {
               <Route path='/payment-method/create' element={<CreatePaymentMethodPage />} />
               <Route path='/payment-method/edit/:id' element={<EditPaymentMethodPage />} />
               <Route path='/payment-method/test' element={<TestPMComponent />} />
+
+              {/* employee timetable */}
+              <Route path='/et/create-employee-timetable' element={<CreateEmployeeTimetablePage />} />
+              <Route path='/et/update-employee-timetable/:timetableId' element={<UpdateEmployeeTimetablePage />} />
+              <Route path='/et' element={<EmployeeTimetablePage />} />
 
               {/* Product Management */}
               <Route path='/manage-product' element={<ManageProductPage />} />

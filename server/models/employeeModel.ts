@@ -1,7 +1,34 @@
 import { pool, getProdPool as prodPool } from '../config/database.js';
 import { Employees, Positions } from '../types/model.types.js';
+import validator from 'validator';
 
-const checkEmployeeCodeExists = async (employee_code: number) => {
+export interface Employee {
+  id: number;
+  employee_code: number;
+  employee_name: string;
+  position_ids: number[];
+  positions: string[];
+}
+
+export interface EmployeePosition {
+  id: number;
+  position_name: string;
+}
+
+export interface DetailedEmployee {
+  id: number;
+  employee_name: string;
+  employee_code: number;
+  employee_is_active: boolean;
+  employee_contact?: string;
+  employee_email?: string; // optional, can be undefined
+  position_ids: number[];
+  position_names: string[];
+  created_at: Date;
+  updated_at: Date;
+}
+
+const checkEmployeeCodeExists = async (employee_code: string) => {
   try {
     const query = `SELECT * FROM employees WHERE employee_code = $1`;
     const values = [employee_code];
@@ -11,6 +38,43 @@ const checkEmployeeCodeExists = async (employee_code: number) => {
   } catch (error) {
     console.error('Error checking employee code existence', error);
     throw new Error('Error checking employee code existence');
+  }
+};
+
+/**
+ * Check if an e-mail address is already linked to an employee.
+ * Returns true when **any** row matches.
+ */
+const checkEmployeeEmailExists = async (employee_email: string) => {
+  try {
+    const query = `SELECT 1 FROM employees WHERE employee_email = $1`;
+    const values = [employee_email.trim().toLowerCase()];
+
+    const result = await pool().query(query, values);
+    return (result.rowCount ?? 0) > 0; // true if at least one match
+  } catch (error) {
+    console.error('Error checking employee email existence:', error);
+    throw new Error('Error checking employee email existence');
+  }
+};
+
+/**
+ * Check if a phone / contact number is already linked to an employee.
+ * Returns true when **any** row matches.
+ */
+const checkEmployeePhoneExists = async (employee_contact: string) => {
+  try {
+    const query = `SELECT 1 FROM employees WHERE employee_contact = $1`;
+    const values = [employee_contact.trim()];
+
+    const result = await pool().query(query, values);
+    if (result.rowCount === null) {
+      throw new Error('Unexpected result format from database');
+    }
+    return result.rowCount > 0; // ❯ true if at least one match
+  } catch (error) {
+    console.error('Error checking employee phone existence:', error);
+    throw new Error('Error checking employee phone existence');
   }
 };
 
@@ -41,9 +105,11 @@ const getAllEmployees = async (offset: number, limit: number, startDate_utc: str
     const dataQuery = `
       SELECT 
         e.id AS employee_id,
+        e.employee_code,
         e.employee_name,
         e.employee_email,
         e.employee_is_active,
+        e.employee_contact,
         e.created_at,
         e.updated_at,
         p.id AS position_id,
@@ -70,7 +136,9 @@ const getAllEmployees = async (offset: number, limit: number, startDate_utc: str
           id: empId,
           employee_name: row.employee_name,
           employee_email: row.employee_email,
+          employee_code: row.employee_code,
           employee_is_active: row.employee_is_active,
+          employee_contact: row.employee_contact,
           created_at: row.created_at,
           updated_at: row.updated_at,
           verification_status: row.status_name,
@@ -314,7 +382,7 @@ const updateEmployeePassword = async (email: string, password_hash: string, isIn
     if (isInvite) {
       const query = `
         UPDATE employees
-        SET verified_status_id = (SELECT get_or_create_status('Verified'))
+        SET verified_status_id = (SELECT get_or_create_status('Verified')), employee_is_active = true
         WHERE employee_email = $1;
       `;
       const values = [email];
@@ -350,15 +418,45 @@ export const getEmployeeIdByUserAuthId = async (id: string) => {
 
   return await pool().query<{ id: string }>(employee_sql, params);
 };
-
-const getBasicEmployeeDetails = async () => {
+/**
+ * Get all active employees with basic details
+ * This function is used for search functionality in the timetable management system.
+ */
+// const getBasicEmployeeDetails = async (): Promise<Employee[]> => {
+//   const query = `
+//     SELECT
+//       id,
+//       employee_name,
+//       position_id
+//     FROM employees e
+//     WHERE employee_is_active = true
+//     ORDER BY employee_name ASC`;
+//   try {
+//     const result = await pool().query(query);
+//     return result.rows.map((row: any) => ({
+//       id: row.id,
+//       employee_name: row.employee_name,
+//       position_id: row.position_id,
+//     }));
+//   } catch (error) {
+//     console.error('Database error in getBasicEmployeeDetails: ', error);
+//     throw new Error('Failed to fetch basic employee details from database');
+//   }
+// }
+const getBasicEmployeeDetails = async (): Promise<Employee[]> => {
   const query = `
     SELECT 
-      id, 
-      employee_name 
+      e.id, 
+      e.employee_name,
+      COALESCE(ARRAY_AGG(etp.position_id) FILTER (WHERE etp.position_id IS NOT NULL), '{}') AS position_ids,
+      COALESCE(ARRAY_AGG(p.position_name) FILTER (WHERE p.position_name IS NOT NULL), '{}') AS positions
     FROM employees e 
-    WHERE employee_is_active = true 
-    ORDER BY employee_name ASC`;
+    LEFT JOIN employee_to_position etp ON e.id = etp.employee_id
+    LEFT JOIN positions p ON etp.position_id = p.id
+    WHERE e.employee_is_active = true 
+    GROUP BY e.id, e.employee_name
+    ORDER BY e.employee_name ASC`;
+
   try {
     const result = await pool().query(query);
 
@@ -366,7 +464,9 @@ const getBasicEmployeeDetails = async () => {
     return result.rows.map((row: any) => ({
       id: row.id,
       employee_name: row.employee_name,
-      position_id: row.position_id,
+      employee_code: row.employee_code || 0,
+      position_ids: row.position_ids || [],
+      positions: row.positions || [],
     }));
   } catch (error) {
     console.error('Database error in getBasicEmployeeDetails: ', error);
@@ -374,10 +474,167 @@ const getBasicEmployeeDetails = async () => {
   }
 };
 
+/**
+ * Get all active positions
+ * This function is used for position dropdown in the timetable management system.
+ */
+const getAllActivePositions = async (): Promise<EmployeePosition[]> => {
+  const query = `
+    SELECT 
+      id, 
+      position_name 
+    FROM positions p 
+    WHERE p.position_is_active = true 
+    ORDER BY position_name ASC`;
+  try {
+    const result = await pool().query(query);
+    return result.rows.map((row: any) => ({
+      id: row.id,
+      position_name: row.position_name,
+    }));
+  } catch (error) {
+    console.error('Database error in getAllActivePositions: ', error);
+    throw new Error('Failed to fetch active positions from database');
+  }
+};
+
+/**
+ * Get detailed employee information
+ * This function is used to fetch detailed information about employees.
+ */
+// const getEmployeeById = async (employeeId: number): Promise<DetailedEmployee | null> => {
+//   const query = `
+//     SELECT
+//       e.id,
+//       e.employee_name,
+//       e.employee_code,
+//       e.employee_is_active,
+//       e.position_id,
+//       p.position_name,
+//       e.created_at,
+//       e.updated_at
+//     FROM employees e
+//     LEFT JOIN positions p ON e.position_id = p.id
+//     WHERE e.id = $1 AND e.employee_is_active = true
+//   `
+//   try {
+//     const result = await pool().query(query, [employeeId]);
+//     return result.rows.length > 0 ? result.rows[0] : null;
+//   } catch (error) {
+//     console.error('Database error in getEmployeeById: ', error);
+//     throw new Error('Failed to fetch employee details from database');
+//   }
+// }
+
+const getEmployeeById = async (employeeId: number): Promise<DetailedEmployee | null> => {
+  const query = `
+    SELECT
+      e.id,
+      e.employee_name,
+      e.employee_code,
+      e.employee_is_active,
+      e.employee_contact,
+      e.employee_email,
+      COALESCE(ARRAY_AGG(etp.position_id) FILTER (WHERE etp.position_id IS NOT NULL), '{}') AS position_ids,
+      COALESCE(ARRAY_AGG(p.position_name) FILTER (WHERE p.position_name IS NOT NULL), '{}') AS position_names,
+      e.created_at,
+      e.updated_at
+    FROM employees e
+    LEFT JOIN employee_to_position etp ON e.id = etp.employee_id
+    LEFT JOIN positions p ON etp.position_id = p.id
+    WHERE e.id = $1 AND e.employee_is_active = true
+    GROUP BY e.id, e.employee_name, e.employee_code, e.employee_is_active, e.created_at, e.updated_at
+  `;
+
+  try {
+    const result = await pool().query(query, [employeeId]);
+    if (result.rows.length === 0) return null;
+
+    const row = result.rows[0];
+    return {
+      id: row.id,
+      employee_name: row.employee_name,
+      employee_code: row.employee_code,
+      employee_contact: row.employee_contact,
+      employee_email: row.employee_email,
+      employee_is_active: row.employee_is_active,
+      position_ids: row.position_ids || [],
+      position_names: row.position_names || [],
+      created_at: row.created_at,
+      updated_at: row.updated_at,
+    };
+  } catch (error) {
+    console.error('Database error in getEmployeeById: ', error);
+    throw new Error('Failed to fetch employee details from database');
+  }
+};
+
+/**
+ * Check if an employee exists and is active by ID
+ * This function is used to verify if an employee exists in the database.
+ */
+const employeeExists = async (employeeId: number): Promise<boolean> => {
+  const query = `
+    SELECT 1 FROM employees 
+    FROM employees 
+    WHERE id = $1 AND employee_is_active = true
+  `;
+  try {
+    const result = await pool().query(query, [employeeId]);
+    return result.rows.length > 0;
+  } catch (error) {
+    console.error('Database error in employeeExists: ', error);
+    throw new Error('Failed to check employee existence in database');
+  }
+};
+
+/**
+ * Get /api/em/employeeName/:employeeId
+ * This endpoint retrieves employee name by employee id
+ */
+const getEmployeeNameByEmployeeById = async (employeeId: number): Promise<DetailedEmployee | null> => {
+  const query = `
+    SELECT
+      id,
+      employee_name
+    FROM employees
+    WHERE id = $1
+  `;
+  try {
+    const result = await pool().query(query, [employeeId]);
+    return result.rows.length > 0 ? result.rows[0] : null;
+  } catch (error) {
+    console.error('Database error in getEmployeeById: ', error);
+    throw new Error('Failed to fetch employee details from database');
+  }
+};
+
+// const getBasicEmployeeDetails = async (): Promise<Employee[]> => {
+//   const query = `
+//     SELECT
+//       id,
+//       employee_name
+//     FROM employees e
+//     WHERE employee_is_active = true
+//     ORDER BY employee_name ASC`;
+//   try {
+//     const result = await pool().query(query);
+//     return result.rows.map((row: any) => ({
+//       id: row.id,
+//       employee_name: row.employee_name,
+//       position_id: row.position_id,
+//     }));
+//   } catch (error) {
+//     console.error('Database error in getBasicEmployeeDetails: ', error);
+//     throw new Error('Failed to fetch basic employee details from database');
+//   }
+// };
+
 const getAllEmployeesForDropdown = async () => {
   try {
     const query = `
       SELECT id, employee_name FROM employees
+      WHERE employee_is_active = true
       ORDER BY employee_name ASC
     `;
     const result = await pool().query(query);
@@ -402,8 +659,249 @@ const getAllRolesForDropdown = async () => {
   }
 };
 
+// /* --------------------------------------------------------------------------
+//  * One-shot fetch of a single employee (with positions & status)
+//  * ------------------------------------------------------------------------ */
+// const getOnlyEmployeeById = async (employee_id: number) => {
+//   const query = `
+//     SELECT
+//       e.id                        AS employee_id,
+//       e.employee_code,
+//       e.employee_name,
+//       e.employee_email,
+//       e.employee_contact,
+//       e.employee_is_active,
+//       e.created_at,
+//       e.updated_at,
+//       (SELECT st.status_name
+//          FROM statuses st
+//         WHERE st.id = e.verified_status_id)      AS verification_status,
+//       p.id                        AS position_id,
+//       p.position_name
+//     FROM employees            e
+//     LEFT JOIN employee_to_position ep ON ep.employee_id = e.id
+//     LEFT JOIN positions            p ON p.id          = ep.position_id
+//     WHERE e.id = $1
+//   `;
+//   const { rows, rowCount } = await pool().query(query, [employee_id]);
+
+//   if (!rowCount) return null;
+
+//   // -- consolidate one row per employee
+//   const emp = {
+//     id: rows[0].employee_id,
+//     employee_name: rows[0].employee_name,
+//     employee_email: rows[0].employee_email,
+//     employee_code: rows[0].employee_code,
+//     employee_contact: rows[0].employee_contact,
+//     employee_is_active: rows[0].employee_is_active,
+//     verification_status: rows[0].verification_status,
+//     created_at: rows[0].created_at,
+//     updated_at: rows[0].updated_at,
+//     positions: [] as { position_id: string; position_name: string }[],
+//   };
+
+//   rows.forEach((r) => {
+//     if (r.position_id) {
+//       emp.positions.push({ position_id: r.position_id, position_name: r.position_name });
+//     }
+//   });
+
+//   return emp;
+// };
+
+export interface UpdateEmployeeData {
+  /* PK of the employees row to update */
+  employee_id: number;
+
+  /* user_auth-level */
+  email?: string; // becomes ua.email
+  phone?: string; // becomes ua.phone
+
+  /* employees-level */
+  employee_name?: string;
+  employee_code?: string;
+  employee_contact?: string; // same as phone but stored again in employees
+  employee_is_active?: boolean;
+
+  /* many-to-many */
+  position_ids?: string[]; // full replacement if supplied
+
+  /* timestamp */
+  updated_at?: string; // ISO string – supply in controller
+}
+
+/* --------------------------------------------------------------------------
+ * Robust UPDATE of employee + auth + positions
+ * ------------------------------------------------------------------------ */
+/* --------------------------------------------------------------------------
+ * Helper: validate timestamp (ISO-8601)
+ * ------------------------------------------------------------------------ */
+const validateTimestamp = (ts?: string) => ts && validator.isISO8601(ts, { strict: true, strictSeparator: true });
+
+/* --------------------------------------------------------------------------
+ * Main updater
+ * ------------------------------------------------------------------------ */
+const updateEmployee = async (data: UpdateEmployeeData) => {
+  const client = await pool().connect();
+  try {
+    await client.query('BEGIN');
+
+    /* -------------------------------------------------- 0. timestamp */
+    const customTs = validateTimestamp(data.updated_at) ? data.updated_at : null;
+
+    /* -------------------------------------------------- 1. fetch current */
+    const curSql = `
+      SELECT e.id              AS employee_id,
+             e.employee_code,
+             e.employee_contact,
+             ua.id             AS user_auth_id,
+             ua.email,
+             ua.phone
+        FROM employees   e
+        JOIN user_auth   ua ON ua.id = e.user_auth_id
+       WHERE e.id = $1
+       LIMIT 1`;
+    const {
+      rows: [cur],
+    } = await client.query(curSql, [data.employee_id]);
+
+    if (!cur) throw new Error(`Employee ${data.employee_id} not found`);
+
+    /* -------------------------------------------------- 2. duplicates (email / phone / code) */
+    if (data.email && data.email !== cur.email) {
+      const { rowCount } = await client.query(`SELECT 1 FROM user_auth WHERE email = $1`, [data.email]);
+      if (rowCount) throw new Error('E-mail already in use');
+    }
+
+    if (data.phone && data.phone !== cur.employee_contact) {
+      const { rowCount } = await client.query(`SELECT 1 FROM user_auth WHERE phone = $1`, [data.phone]);
+      if (rowCount) throw new Error('Contact number already in use');
+    }
+    if (data.employee_code && data.employee_code !== cur.employee_code) {
+      const { rowCount } = await client.query(`SELECT 1 FROM employees WHERE employee_code = $1 AND id <> $2`, [
+        data.employee_code,
+        data.employee_id,
+      ]);
+      if (rowCount) throw new Error('Employee code already in use');
+    }
+
+    /* -------------------------------------------------- 3. user_auth update */
+    const uaSets: string[] = [];
+    const uaParams: any[] = [];
+    let p = 1;
+
+    if (data.email) {
+      uaSets.push(`email = $${p}`);
+      uaParams.push(data.email);
+      p++;
+    }
+    if (data.phone) {
+      uaSets.push(`phone = $${p}`);
+      uaParams.push(data.phone);
+      p++;
+    }
+    if (uaSets.length) {
+      // updated_at (custom or NOW)
+      if (customTs) {
+        uaSets.push(`updated_at = $${p}`);
+        uaParams.push(customTs);
+        p++;
+      } else {
+        uaSets.push(`updated_at = NOW()`);
+      }
+
+      uaParams.push(cur.user_auth_id); // last param = WHERE id
+      await client.query(`UPDATE user_auth SET ${uaSets.join(', ')} WHERE id = $${p}`, uaParams);
+    }
+
+    /* >>> If e-mail changed: mark employee unverified + inactive */
+    const emailChanged = !!(data.email && data.email !== cur.email);
+    if (emailChanged) {
+      await client.query(
+        `UPDATE employees
+            SET verified_status_id = 18,        -- Unverified
+                employee_is_active = false,
+                updated_at = ${customTs ? ' $2::timestamptz ' : ' NOW() '}
+          WHERE id = $1`,
+        customTs ? [data.employee_id, customTs] : [data.employee_id]
+      );
+    }
+
+    /* -------------------------------------------------- 4. employees update */
+    const eSets: string[] = [];
+    const eParams: any[] = [];
+    p = 1;
+
+    if (data.email !== undefined) {
+      eSets.push(`employee_email = $${p}`);
+      eParams.push(data.email);
+      p++;
+    }
+    if (data.employee_name !== undefined) {
+      eSets.push(`employee_name = $${p}`);
+      eParams.push(data.employee_name);
+      p++;
+    }
+    if (data.employee_code !== undefined) {
+      eSets.push(`employee_code = $${p}`);
+      eParams.push(data.employee_code);
+      p++;
+    }
+    if (data.employee_contact !== undefined) {
+      eSets.push(`employee_contact = $${p}`);
+      eParams.push(data.employee_contact);
+      p++;
+    }
+    if (data.employee_is_active !== undefined) {
+      eSets.push(`employee_is_active = $${p}`);
+      eParams.push(data.employee_is_active);
+      p++;
+    }
+
+    // updated_at
+    if (customTs) {
+      eSets.push(`updated_at = $${p}`);
+      eParams.push(customTs);
+      p++;
+    } else {
+      eSets.push(`updated_at = NOW()`);
+    }
+
+    eParams.push(data.employee_id);
+    await client.query(`UPDATE employees SET ${eSets.join(', ')} WHERE id = $${p}`, eParams);
+
+    /* -------------------------------------------------- 5. positions (full replace) */
+    if (Array.isArray(data.position_ids)) {
+      await client.query(`DELETE FROM employee_to_position WHERE employee_id = $1`, [data.employee_id]);
+
+      if (data.position_ids.length) {
+        await client.query(
+          `INSERT INTO employee_to_position (employee_id, position_id, created_at, updated_at)
+           SELECT $1, pid,
+                  ${customTs ? '$2::timestamptz' : 'NOW()'},
+                  ${customTs ? '$2::timestamptz' : 'NOW()'}
+             FROM unnest($${customTs ? 3 : 2}::bigint[]) pid`,
+          customTs ? [data.employee_id, customTs, data.position_ids] : [data.employee_id, data.position_ids]
+        );
+      }
+    }
+
+    /* -------------------------------------------------- 6. commit */
+    await client.query('COMMIT');
+    return { success: true, emailChanged };
+  } catch (err) {
+    await client.query('ROLLBACK');
+    console.error('updateEmployee error:', err);
+    throw err;
+  } finally {
+    client.release();
+  }
+};
 export default {
   checkEmployeeCodeExists,
+  checkEmployeePhoneExists,
+  checkEmployeeEmailExists,
   getAuthUser,
   updateEmployeePassword,
   getAllEmployees,
@@ -416,4 +914,10 @@ export default {
   createAuthAndEmployee,
   getAllRolesForDropdown,
   touchEmployee,
+  getEmployeeById,
+  updateEmployee,
+  // getOnlyEmployeeById,
+  getAllActivePositions,
+  employeeExists,
+  getEmployeeNameByEmployeeById,
 };
