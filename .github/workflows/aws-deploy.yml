@@ -106,7 +106,7 @@ jobs:
             --exclude '.github/' \
             ./ ec2:/home/ubuntu/${{ env.PROJECT_NAME }}/
 
-      - name: Deploy to EC2
+      - name: Setup EC2 Dependencies and Deploy
         uses: appleboy/ssh-action@master
         with:
           host: ${{ secrets.EC2_HOST }}
@@ -114,36 +114,54 @@ jobs:
           key: ${{ secrets.EC2_SSH_KEY }}
           script: |
             cd /home/ubuntu/${{ env.PROJECT_NAME }}
-            
-            # Install docker and aws-cli if not present
-            # Check if Docker is installed
+
+            # Install Docker if not already installed
             if ! command -v docker &> /dev/null; then
               echo "Installing Docker..."
               sudo apt update
-              sudo apt install -y docker.io docker-compose-plugin
+              sudo apt install -y apt-transport-https ca-certificates curl software-properties-common
+              
+              # Add Docker's official GPG key and repository
+              curl -fsSL https://download.docker.com/linux/ubuntu/gpg | sudo gpg --dearmor -o /usr/share/keyrings/docker-archive-keyring.gpg
+              echo "deb [arch=$(dpkg --print-architecture) signed-by=/usr/share/keyrings/docker-archive-keyring.gpg] https://download.docker.com/linux/ubuntu $(lsb_release -cs) stable" | sudo tee /etc/apt/sources.list.d/docker.list > /dev/null
+              
+              sudo apt update
+              sudo apt install -y docker-ce docker-ce-cli containerd.io docker-buildx-plugin docker-compose-plugin
               sudo systemctl start docker
               sudo systemctl enable docker
               sudo usermod -aG docker ubuntu
+              
+              echo "Docker installed successfully"
             fi
-            
-            # Check if AWS CLI is installed
-            if ! command -v aws &> /dev/null; then
-              echo "Installing AWS CLI..."
-              sudo apt install -y awscli
+
+            # Install ECR credential helper if not already installed
+            if ! command -v docker-credential-ecr-login &> /dev/null; then
+              echo "Installing ECR credential helper..."
+              sudo apt update
+              sudo apt install -y amazon-ecr-credential-helper
+              
+              # Configure Docker to use ECR credential helper
+              mkdir -p ~/.docker
+              cat > ~/.docker/config.json << 'DOCKER_CONFIG_EOF'
+            {
+                "credHelpers": {
+                    "${{ env.ECR_REGISTRY }}": "ecr-login"
+                }
+            }
+            DOCKER_CONFIG_EOF
+              
+              echo "ECR credential helper configured successfully"
             fi
-            
-            echo "Dependencies check complete"
-            docker --version
-            docker compose version
-            aws --version
 
-            # Configure AWS CLI on EC2 instance
-            aws configure set aws_access_key_id ${{ secrets.AWS_ACCESS_KEY_ID }}
-            aws configure set aws_secret_access_key ${{ secrets.AWS_SECRET_ACCESS_KEY }}
-            aws configure set default.region ${{ env.AWS_REGION }}
-
-            # Login to ECR
-            aws ecr get-login-password --region ${{ env.AWS_REGION }} | docker login --username AWS --password-stdin ${{ env.ECR_REGISTRY }}
+            # Ensure we can use docker without sudo (apply group membership)
+            if ! groups | grep -q docker; then
+              echo "Applying docker group membership..."
+              newgrp docker << 'DOCKER_COMMANDS_EOF'
+              # Test docker access
+              docker --version
+              docker compose version
+            DOCKER_COMMANDS_EOF
+            fi
 
             # Create .env file
             echo "${{ secrets.ENV_FILE }}" > ./server/.env
@@ -151,10 +169,12 @@ jobs:
             # Ensure client/dist directory exists
             mkdir -p client/dist
 
-            # Pull the latest API image
+            # Pull the latest API image (ECR credential helper handles authentication automatically)
+            echo "Pulling Docker image: ${{ needs.build-and-push.outputs.api-image }}"
             docker pull ${{ needs.build-and-push.outputs.api-image }}
 
             # Deploy using existing compose.yml with override
+            echo "Starting deployment with Docker Compose..."
             docker compose -f compose.yml -f compose.override.yml up -d
 
             # Health check
