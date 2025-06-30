@@ -39,7 +39,6 @@ const data = {
       title: 'Users',
       url: '#',
       icon: ShieldUser,
-      isActive: true,
       items: [
         {
           title: 'View Users',
@@ -59,7 +58,6 @@ const data = {
       title: 'Revenue',
       url: '#',
       icon: DollarSign,
-      isActive: true,
       items: [
         {
           title: 'Revenue Report',
@@ -152,20 +150,20 @@ const data = {
     },
     {
       title: 'Employees',
-      url: '',
+      url: '/employees',
       icon: Users,
       items: [
         {
           title: 'Add new employee',
-          url: '#',
+          url: '/employees/create',
         },
         {
           title: 'Manage employees',
-          url: '#',
+          url: '/employees',
         },
         {
           title: 'Add new position',
-          url: '/positions/add',
+          url: '/positions/create',
         },
         {
           title: 'Manage positions',
@@ -199,21 +197,21 @@ const data = {
         },
       ],
     },
-    {
-      title: 'Statistics',
-      url: '#',
-      icon: ChartColumnStacked,
-      items: [
-        {
-          title: 'View Database Report',
-          url: '/dbcr',
-        },
-        {
-          title: 'View Monthly Revenue Report',
-          url: '#',
-        },
-      ],
-    },
+    // {
+    //   title: 'Statistics',
+    //   url: '#',
+    //   icon: ChartColumnStacked,
+    //   items: [
+    //     {
+    //       title: 'View Database Report',
+    //       url: '/dbcr',
+    //     },
+    //     {
+    //       title: 'View Monthly Revenue Report',
+    //       url: '#',
+    //     },
+    //   ],
+    // },
     {
       title: 'Others',
       url: '#',
@@ -222,6 +220,21 @@ const data = {
         {
           title: 'Data Export',
           url: '/data-export',
+        },
+      ],
+    },
+    {
+      title: 'Timetables',
+      url: '#',
+      icon: CalendarDays,
+      items: [
+        {
+          title: 'Create Timetable',
+          url: '/et/create-employee-timetable',
+        },
+        {
+          title: 'Manage Timetable',
+          url: '/et',
         },
       ],
     },

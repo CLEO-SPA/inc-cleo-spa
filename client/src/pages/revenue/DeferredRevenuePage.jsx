@@ -232,7 +232,9 @@ function BreakdownBox({ label, amount, positive = false }) {
     );
 }
 
-function ProductCard({ title, data = {}, previous, activity }) {
+function ProductCard({ title, data, previous, activity }) {
+    const safeData = data || {};
+
     return (
         <div className="border border-gray-300 dark:border-gray-600 rounded-lg overflow-hidden shadow-sm hover:shadow-md transition-shadow">
             <div className="bg-zinc-200 dark:bg-zinc-800 p-4 border-b border-gray-300 dark:border-gray-600">
@@ -240,13 +242,15 @@ function ProductCard({ title, data = {}, previous, activity }) {
             </div>
             <div className="bg-white dark:bg-zinc-900 divide-y divide-gray-200 dark:divide-gray-700">
                 <InfoRow label="Previous Deferred Amount" value={previous} />
-                <InfoRow label="Income (Paid by Customer)" value={data.income} isPositive />
-                <InfoRow label="Net Sales (Revenue Recognized)" value={data.net_sale} isNegative />
-                <InfoRow label="Refunded Amount" value={data.refund} isNegative />
+                <InfoRow label="Income (Paid by Customer)" value={safeData.income} isPositive />
+                <InfoRow label="Net Sales (Revenue Recognized)" value={safeData.net_sale} isNegative />
+                <InfoRow label="Refunded Amount" value={safeData.refund} isNegative />
                 <InfoRow label="Monthly Change" value={activity} isBold isChange />
                 <div className="p-4 flex justify-between bg-zinc-100 dark:bg-zinc-800">
                     <span className="font-semibold text-gray-800 dark:text-white">Current Deferred Amount</span>
-                    <span className="font-mono font-bold">${(data.deferred_amount || 0).toLocaleString('en-US', { minimumFractionDigits: 2 })}</span>
+                    <span className="font-mono font-bold">
+                        ${(safeData.deferred_amount || 0).toLocaleString('en-US', { minimumFractionDigits: 2 })}
+                    </span>
                 </div>
             </div>
         </div>

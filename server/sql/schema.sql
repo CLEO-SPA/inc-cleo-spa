@@ -2,12 +2,8 @@
 DROP TABLE IF EXISTS "care_packages" CASCADE;
 DROP TABLE IF EXISTS "care_package_item_details" CASCADE;
 DROP TABLE IF EXISTS "employees" CASCADE;
-DROP TABLE IF EXISTS "serving_employee_to_invoice_items" CASCADE;
 DROP TABLE IF EXISTS "refunds" CASCADE;
 DROP TABLE IF EXISTS "refund_items" CASCADE;
-DROP TABLE IF EXISTS "invoice_items" CASCADE;
-DROP TABLE IF EXISTS "invoice_payments" CASCADE;
-DROP TABLE IF EXISTS "invoices" CASCADE;
 DROP TABLE IF EXISTS "member_care_packages" CASCADE;
 DROP TABLE IF EXISTS "member_care_package_details" CASCADE;
 DROP TABLE IF EXISTS "statuses" CASCADE;
@@ -109,28 +105,6 @@ CREATE TABLE "employee_to_position" (
 );
 
 -- CreateTable
-CREATE TABLE "serving_employee_to_invoice_items" (
-    "id" BIGSERIAL NOT NULL,
-    "commission_percentage" DECIMAL(10,2),
-    "custom_commission_percentage" DECIMAL(10,2),
-    "final_calculated_commission_value" DECIMAL(10,2),
-    "reward_status" VARCHAR(10),
-    "rewarded_for_period_month" SMALLINT,
-    "rewarded_for_period_year" SMALLINT,
-    "system_generated_remarks" TEXT,
-    "user_remarks" TEXT,
-    "created_at" TIMESTAMPTZ(6) NOT NULL,
-    "updated_at" TIMESTAMPTZ(6) NOT NULL,
-    "invoice_item_id" BIGINT NOT NULL,
-    "reviewed_by_employee_id" BIGINT,
-    "sharing_ratio" DECIMAL,
-    "employee_id" BIGINT,
-    "final_revenue_performance" DECIMAL,
-
-    CONSTRAINT "serving_employee_to_invoice_items_pkey" PRIMARY KEY ("id")
-);
-
--- CreateTable
 CREATE TABLE "refunds" (
     "id" BIGSERIAL NOT NULL,
     "invoice_id" BIGINT,
@@ -152,58 +126,6 @@ CREATE TABLE "refund_items" (
     "refund_item_remarks" TEXT,
 
     CONSTRAINT "refund_items_pkey" PRIMARY KEY ("id")
-);
-
--- CreateTable
-CREATE TABLE "invoice_items" (
-    "id" BIGSERIAL NOT NULL,
-    "invoice_id" BIGINT NOT NULL,
-    "service_name" VARCHAR(255),
-    "product_name" VARCHAR(255),
-    "member_care_package_id" BIGINT,
-    "original_unit_price" DECIMAL(10,2),
-    "custom_unit_price" DECIMAL(10,2),
-    "discount_percentage" DECIMAL(10,2),
-    "quantity" INTEGER NOT NULL,
-    "remarks" TEXT,
-    "amount" DECIMAL(10,2),
-    "item_type" "item_type" NOT NULL,
-
-    CONSTRAINT "invoice_items_pkey" PRIMARY KEY ("id")
-);
-
--- CreateTable
-CREATE TABLE "invoice_payments" (
-    "id" BIGSERIAL NOT NULL,
-    "payment_method_id" BIGINT NOT NULL,
-    "invoice_id" BIGINT NOT NULL,
-    "invoice_payment_amount" DECIMAL(10,2),
-    "remarks" TEXT,
-    "invoice_payment_created_by" BIGINT NOT NULL,
-    "created_at" TIMESTAMPTZ(6) NOT NULL,
-    "invoice_payment_updated_by" BIGINT NOT NULL,
-    "updated_at" TIMESTAMPTZ(6) NOT NULL,
-
-    CONSTRAINT "invoice_payments_pkey" PRIMARY KEY ("id")
-);
-
--- CreateTable
-CREATE TABLE "invoices" (
-    "id" BIGSERIAL NOT NULL,
-    "customer_type" "customer_type" NOT NULL,
-    "member_id" BIGINT NOT NULL,
-    "total_paid_amount" DECIMAL(10,2) NOT NULL,
-    "outstanding_total_payment_amount" DECIMAL(10,2) NOT NULL,
-    "invoice_status" BIGINT NOT NULL,
-    "remarks" TEXT,
-    "manual_invoice_no" VARCHAR(50),
-    "reference_invoice_id" BIGINT,
-    "invoice_handler_employee_id" BIGINT NOT NULL,
-    "created_at" TIMESTAMPTZ(6) NOT NULL,
-    "updated_at" TIMESTAMPTZ(6) NOT NULL,
-    "total_invoice_amount" DECIMAL(10,2),
-
-    CONSTRAINT "invoices_pkey" PRIMARY KEY ("id")
 );
 
 -- CreateTable
@@ -284,7 +206,7 @@ CREATE TABLE "members" (
 
 -- CreateTable
 CREATE TABLE "membership_accounts" (
-    "membership_accounts_id" BIGSERIAL NOT NULL,
+    "id" BIGSERIAL NOT NULL,
     "member_id" BIGINT NOT NULL,
     "membership_type_id" BIGINT NOT NULL,
     "start_date" TIMESTAMP(6) NOT NULL,
@@ -294,7 +216,7 @@ CREATE TABLE "membership_accounts" (
     "updated_at" TIMESTAMP(6) NOT NULL,
     "status_id" BIGINT NOT NULL,
 
-    CONSTRAINT "cs_membership_accounts_pkey" PRIMARY KEY ("membership_accounts_id")
+    CONSTRAINT "cs_membership_accounts_pkey" PRIMARY KEY ("id")
 );
 
 -- CreateTable
@@ -382,8 +304,8 @@ CREATE TABLE "services" (
     "service_duration" DECIMAL NOT NULL,
     "service_price" DECIMAL(10,2) NOT NULL,
     "service_is_enabled" BOOLEAN NOT NULL,
-    "service_created_at" TIMESTAMPTZ(6) NOT NULL DEFAULT CURRENT_TIMESTAMP,
-    "service_updated_at" TIMESTAMPTZ(6) NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    "created_at" TIMESTAMPTZ(6) NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    "updated_at" TIMESTAMPTZ(6) NOT NULL DEFAULT CURRENT_TIMESTAMP,
     "service_category_id" BIGINT NOT NULL,
     "service_sequence_no" INTEGER NOT NULL,
     "created_by" BIGINT,
@@ -624,75 +546,157 @@ CREATE TABLE "user_auth" (
     CONSTRAINT "user_auth_pkey" PRIMARY KEY ("id")
 );
 
--- CreateIndex
-CREATE UNIQUE INDEX "statuses_status_name_key" ON "statuses"("status_name");
-
--- CreateIndex
-CREATE INDEX "fki_cs_service_service_category_id_fkey" ON "services"("service_category_id");
-
 -- Foreign Keys for table "care_packages"
-ALTER TABLE "care_packages" ADD CONSTRAINT "care_packages_created_by_fkey" FOREIGN KEY ("created_by") REFERENCES "employees"("id") ON DELETE SET NULL ON UPDATE CASCADE DEFERRABLE INITIALLY DEFERRED;
-ALTER TABLE "care_packages" ADD CONSTRAINT "care_packages_last_updated_by_fkey" FOREIGN KEY ("last_updated_by") REFERENCES "employees"("id") ON DELETE SET NULL ON UPDATE CASCADE DEFERRABLE INITIALLY DEFERRED;
+ALTER TABLE "care_packages" ADD CONSTRAINT "care_packages_created_by_fkey" FOREIGN KEY ("created_by") REFERENCES "employees"("id") ON DELETE SET NULL ON UPDATE CASCADE;
+ALTER TABLE "care_packages" ADD CONSTRAINT "care_packages_last_updated_by_fkey" FOREIGN KEY ("last_updated_by") REFERENCES "employees"("id") ON DELETE SET NULL ON UPDATE CASCADE;
 
 -- Foreign Keys for table "care_package_item_details"
-ALTER TABLE "care_package_item_details" ADD CONSTRAINT "care_package_item_details_care_package_id_fkey" FOREIGN KEY ("care_package_id") REFERENCES "care_packages"("id") ON DELETE CASCADE ON UPDATE CASCADE DEFERRABLE INITIALLY DEFERRED;
-ALTER TABLE "care_package_item_details" ADD CONSTRAINT "care_package_item_details_service_id_fkey" FOREIGN KEY ("service_id") REFERENCES "services"("id") ON DELETE RESTRICT ON UPDATE CASCADE DEFERRABLE INITIALLY DEFERRED;
+ALTER TABLE "care_package_item_details" ADD CONSTRAINT "care_package_item_details_care_package_id_fkey" FOREIGN KEY ("care_package_id") REFERENCES "care_packages"("id") ON DELETE CASCADE ON UPDATE CASCADE;
+ALTER TABLE "care_package_item_details" ADD CONSTRAINT "care_package_item_details_service_id_fkey" FOREIGN KEY ("service_id") REFERENCES "services"("id") ON DELETE RESTRICT ON UPDATE CASCADE;
 
 -- Foreign Keys for table "employees"
-ALTER TABLE "employees" ADD CONSTRAINT "employees_position_id_fkey" FOREIGN KEY ("position_id") REFERENCES "positions"("id") ON DELETE SET NULL ON UPDATE CASCADE DEFERRABLE INITIALLY DEFERRED;
-ALTER TABLE "employees" ADD CONSTRAINT "employees_user_auth_id_fkey" FOREIGN KEY ("user_auth_id") REFERENCES "user_auth"("id") ON DELETE RESTRICT ON UPDATE CASCADE DEFERRABLE INITIALLY DEFERRED;
-ALTER TABLE "employees" ADD CONSTRAINT "verified_status_id_fkey" FOREIGN KEY ("verified_status_id") REFERENCES "statuses"("id") ON UPDATE CASCADE DEFERRABLE INITIALLY DEFERRED;
+ALTER TABLE "employees" ADD CONSTRAINT "employees_user_auth_id_fkey" FOREIGN KEY ("user_auth_id") REFERENCES "user_auth"("id") ON DELETE RESTRICT ON UPDATE CASCADE;
+ALTER TABLE "employees" ADD CONSTRAINT "verified_status_id_fkey" FOREIGN KEY ("verified_status_id") REFERENCES "statuses"("id") ON UPDATE CASCADE;
 
 --  Foreign Keys for table "employee_to_position"
-ALTER TABLE "employee_to_position" ADD CONSTRAINT "employee_to_position_employee_id_fkey" FOREIGN KEY ("employee_id") REFERENCES "employees"("id") ON DELETE CASCADE ON UPDATE CASCADE DEFERRABLE INITIALLY DEFERRED;
-ALTER TABLE "employee_to_position" ADD CONSTRAINT "employee_to_position_position_id_fkey" FOREIGN KEY ("position_id") REFERENCES "positions"("id") ON DELETE RESTRICT ON UPDATE CASCADE DEFERRABLE INITIALLY DEFERRED;
+ALTER TABLE "employee_to_position" ADD CONSTRAINT "employee_to_position_employee_id_fkey" FOREIGN KEY ("employee_id") REFERENCES "employees"("id") ON DELETE CASCADE ON UPDATE CASCADE;
+ALTER TABLE "employee_to_position" ADD CONSTRAINT "employee_to_position_position_id_fkey" FOREIGN KEY ("position_id") REFERENCES "positions"("id") ON DELETE RESTRICT ON UPDATE CASCADE;
 ALTER TABLE "employee_to_position" ADD CONSTRAINT "employee_to_position_employee_id_position_id_key" UNIQUE ("employee_id", "position_id");
 
--- Foreign Keys for table "serving_employee_to_invoice_items"
-ALTER TABLE "serving_employee_to_invoice_items" ADD CONSTRAINT "serving_employee_to_invoice_ite_reviewed_by_employee_id_fkey" FOREIGN KEY ("reviewed_by_employee_id") REFERENCES "employees"("id") ON DELETE SET NULL ON UPDATE CASCADE DEFERRABLE INITIALLY DEFERRED;
-ALTER TABLE "serving_employee_to_invoice_items" ADD CONSTRAINT "serving_employee_to_invoice_items_invoice_item_id_fkey" FOREIGN KEY ("invoice_item_id") REFERENCES "invoice_items"("id") ON DELETE CASCADE ON UPDATE CASCADE DEFERRABLE INITIALLY DEFERRED;
-
 -- Foreign Keys for table "refunds"
-ALTER TABLE "refunds" ADD CONSTRAINT "fk_employee" FOREIGN KEY ("employee_id") REFERENCES "employees"("id") ON DELETE NO ACTION ON UPDATE NO ACTION DEFERRABLE INITIALLY DEFERRED;
-ALTER TABLE "refunds" ADD CONSTRAINT "fk_refunds_invoice_id" FOREIGN KEY ("invoice_id") REFERENCES "invoices"("id") ON DELETE NO ACTION ON UPDATE NO ACTION DEFERRABLE INITIALLY DEFERRED;
+ALTER TABLE "refunds" ADD CONSTRAINT "fk_employee" FOREIGN KEY ("employee_id") REFERENCES "employees"("id") ON DELETE NO ACTION ON UPDATE NO ACTION;
 
 -- Foreign Keys for table "refund_items"
-ALTER TABLE "refund_items" ADD CONSTRAINT "fk_refund_items_invoice_item_id" FOREIGN KEY ("invoice_item_id") REFERENCES "invoice_items"("id") ON DELETE NO ACTION ON UPDATE NO ACTION DEFERRABLE INITIALLY DEFERRED;
-ALTER TABLE "refund_items" ADD CONSTRAINT "fk_refund_items_refund_id" FOREIGN KEY ("refund_id") REFERENCES "refunds"("id") ON DELETE NO ACTION ON UPDATE NO ACTION DEFERRABLE INITIALLY DEFERRED;
-
--- Foreign Keys for table "invoice_items"
-ALTER TABLE "invoice_items" ADD CONSTRAINT "invoice_items_invoice_id_fkey" FOREIGN KEY ("invoice_id") REFERENCES "invoices"("id") ON DELETE CASCADE ON UPDATE NO ACTION DEFERRABLE INITIALLY DEFERRED;
-
--- Foreign Keys for table "invoice_payments"
-ALTER TABLE "invoice_payments" ADD CONSTRAINT "invoice_payments_invoice_id_fkey" FOREIGN KEY ("invoice_id") REFERENCES "invoices"("id") ON DELETE CASCADE ON UPDATE NO ACTION DEFERRABLE INITIALLY DEFERRED;
-ALTER TABLE "invoice_payments" ADD CONSTRAINT "invoice_payments_invoice_payment_created_by_fkey" FOREIGN KEY ("invoice_payment_created_by") REFERENCES "employees"("id") ON DELETE RESTRICT ON UPDATE CASCADE DEFERRABLE INITIALLY DEFERRED;
-ALTER TABLE "invoice_payments" ADD CONSTRAINT "invoice_payments_invoice_payment_updated_by_fkey" FOREIGN KEY ("invoice_payment_updated_by") REFERENCES "employees"("id") ON DELETE RESTRICT ON UPDATE CASCADE DEFERRABLE INITIALLY DEFERRED;
-ALTER TABLE "invoice_payments" ADD CONSTRAINT "invoice_payments_payment_method_id_fkey" FOREIGN KEY ("payment_method_id") REFERENCES "payment_methods"("id") ON DELETE RESTRICT ON UPDATE CASCADE DEFERRABLE INITIALLY DEFERRED;
-
--- Foreign Keys for table "invoices"
-ALTER TABLE "invoices" ADD CONSTRAINT "invoices_invoice_handler_employee_id_fkey" FOREIGN KEY ("invoice_handler_employee_id") REFERENCES "employees"("id") ON DELETE RESTRICT ON UPDATE CASCADE DEFERRABLE INITIALLY DEFERRED;
-ALTER TABLE "invoices" ADD CONSTRAINT "invoices_invoice_status_fkey" FOREIGN KEY ("invoice_status") REFERENCES "statuses"("id") ON DELETE RESTRICT ON UPDATE CASCADE DEFERRABLE INITIALLY DEFERRED;
-ALTER TABLE "invoices" ADD CONSTRAINT "invoices_member_id_fkey" FOREIGN KEY ("member_id") REFERENCES "members"("id") ON DELETE CASCADE ON UPDATE CASCADE DEFERRABLE INITIALLY DEFERRED;
+ALTER TABLE "refund_items" ADD CONSTRAINT "fk_refund_items_refund_id" FOREIGN KEY ("refund_id") REFERENCES "refunds"("id") ON DELETE NO ACTION ON UPDATE NO ACTION;
 
 -- Foreign Keys for table "member_care_packages"
-ALTER TABLE "member_care_packages" ADD CONSTRAINT "member_care_packages_employee_id_fkey" FOREIGN KEY ("employee_id") REFERENCES "employees"("id") ON DELETE RESTRICT ON UPDATE CASCADE DEFERRABLE INITIALLY DEFERRED;
-ALTER TABLE "member_care_packages" ADD CONSTRAINT "member_care_packages_member_id_fkey" FOREIGN KEY ("member_id") REFERENCES "members"("id") ON DELETE CASCADE ON UPDATE CASCADE DEFERRABLE INITIALLY DEFERRED;
+ALTER TABLE "member_care_packages" ADD CONSTRAINT "member_care_packages_employee_id_fkey" FOREIGN KEY ("employee_id") REFERENCES "employees"("id") ON DELETE RESTRICT ON UPDATE CASCADE;
+ALTER TABLE "member_care_packages" ADD CONSTRAINT "member_care_packages_member_id_fkey" FOREIGN KEY ("member_id") REFERENCES "members"("id") ON DELETE CASCADE ON UPDATE CASCADE;
 
 -- Foreign Keys for table "member_care_package_details"
-ALTER TABLE "member_care_package_details" ADD CONSTRAINT "member_care_package_details_member_care_package_id_fkey" FOREIGN KEY ("member_care_package_id") REFERENCES "member_care_packages"("id") ON DELETE CASCADE ON UPDATE CASCADE DEFERRABLE INITIALLY DEFERRED;
-ALTER TABLE "member_care_package_details" ADD CONSTRAINT "member_care_package_details_service_id_fkey" FOREIGN KEY ("service_id") REFERENCES "services"("id") ON DELETE SET NULL ON UPDATE CASCADE DEFERRABLE INITIALLY DEFERRED;
+ALTER TABLE "member_care_package_details" ADD CONSTRAINT "member_care_package_details_member_care_package_id_fkey" FOREIGN KEY ("member_care_package_id") REFERENCES "member_care_packages"("id") ON DELETE CASCADE ON UPDATE CASCADE;
+ALTER TABLE "member_care_package_details" ADD CONSTRAINT "member_care_package_details_service_id_fkey" FOREIGN KEY ("service_id") REFERENCES "services"("id") ON DELETE SET NULL ON UPDATE CASCADE;
 
 -- Foreign Keys for table "member_care_package_transaction_logs"
-ALTER TABLE "member_care_package_transaction_logs" ADD CONSTRAINT "member_care_package_transaction_logs_employee_id_fkey" FOREIGN KEY ("employee_id") REFERENCES "employees"("id") ON DELETE RESTRICT ON UPDATE CASCADE DEFERRABLE INITIALLY DEFERRED;
-ALTER TABLE "member_care_package_transaction_logs" ADD CONSTRAINT "member_care_package_transaction_logs_member_care_package_d_fkey" FOREIGN KEY ("member_care_package_details_id") REFERENCES "member_care_package_details"("id") ON DELETE CASCADE ON UPDATE CASCADE DEFERRABLE INITIALLY DEFERRED;
-ALTER TABLE "member_care_package_transaction_logs" ADD CONSTRAINT "member_care_package_transaction_logs_service_id_fkey" FOREIGN KEY ("service_id") REFERENCES "services"("id") ON DELETE RESTRICT ON UPDATE CASCADE DEFERRABLE INITIALLY DEFERRED;
+ALTER TABLE "member_care_package_transaction_logs" ADD CONSTRAINT "member_care_package_transaction_logs_employee_id_fkey" FOREIGN KEY ("employee_id") REFERENCES "employees"("id") ON DELETE RESTRICT ON UPDATE CASCADE;
+ALTER TABLE "member_care_package_transaction_logs" ADD CONSTRAINT "member_care_package_transaction_logs_member_care_package_d_fkey" FOREIGN KEY ("member_care_package_details_id") REFERENCES "member_care_package_details"("id") ON DELETE CASCADE ON UPDATE CASCADE;
+ALTER TABLE "member_care_package_transaction_logs" ADD CONSTRAINT "member_care_package_transaction_logs_service_id_fkey" FOREIGN KEY ("service_id") REFERENCES "services"("id") ON DELETE RESTRICT ON UPDATE CASCADE;
 
 -- Foreign Keys for table "members"
-ALTER TABLE "members" ADD CONSTRAINT "members_user_auth_id_fkey" FOREIGN KEY ("user_auth_id") REFERENCES "user_auth"("id") ON DELETE SET NULL ON UPDATE CASCADE DEFERRABLE INITIALLY DEFERRED;
+ALTER TABLE "members" ADD CONSTRAINT "members_user_auth_id_fkey" FOREIGN KEY ("user_auth_id") REFERENCES "user_auth"("id") ON DELETE SET NULL ON UPDATE CASCADE;
 
 -- Foreign Keys for table "membership_accounts"
-ALTER TABLE "membership_accounts" ADD CONSTRAINT "membership_accounts_status_id_fkey" FOREIGN KEY ("status_id") REFERENCES "statuses"("id") ON DELETE RESTRICT ON UPDATE CASCADE DEFERRABLE INITIALLY DEFERRED;
+ALTER TABLE "membership_accounts" ADD CONSTRAINT "membership_accounts_member_id_fkey" FOREIGN KEY ("member_id") REFERENCES "members"("id") ON DELETE CASCADE ON UPDATE CASCADE;
+ALTER TABLE "membership_accounts" ADD CONSTRAINT "membership_accounts_membership_type_id_fkey" FOREIGN KEY ("membership_type_id") REFERENCES "membership_types"("id") ON DELETE RESTRICT ON UPDATE CASCADE;
 
--- Foreign Keys for table "user_to_role"
-ALTER TABLE "user_to_role" ADD CONSTRAINT "user_to_role_role_id_fkey" FOREIGN KEY ("role_id") REFERENCES "roles"("id") ON DELETE RESTRICT ON UPDATE CASCADE DEFERRABLE INITIALLY DEFERRED;
-ALTER TABLE "user_to_role" ADD CONSTRAINT "user_to_role_user_id_fkey" FOREIGN KEY ("user_auth_id") REFERENCES "user_auth"("id") ON DELETE RESTRICT ON UPDATE CASCADE DEFERRABLE INITIALLY DEFERRED;
+-- Foreign Keys for table "members"
+ALTER TABLE "members" ADD CONSTRAINT "members_membership_type_id_fkey" FOREIGN KEY ("membership_type_id") REFERENCES "membership_types"("id") ON DELETE SET NULL ON UPDATE CASCADE;
+ALTER TABLE "members" ADD CONSTRAINT "members_created_by_fkey" FOREIGN KEY ("created_by") REFERENCES "employees"("id") ON DELETE SET NULL ON UPDATE CASCADE;
+
+-- Foreign Keys for table "products"
+ALTER TABLE "products" ADD CONSTRAINT "products_product_category_id_fkey" FOREIGN KEY ("product_category_id") REFERENCES "product_categories"("id") ON DELETE SET NULL ON UPDATE CASCADE;
+
+-- Foreign Keys for table "services"
+ALTER TABLE "services" ADD CONSTRAINT "services_service_category_id_fkey" FOREIGN KEY ("service_category_id") REFERENCES "service_categories"("id") ON DELETE RESTRICT ON UPDATE CASCADE;
+ALTER TABLE "services" ADD CONSTRAINT "services_created_by_fkey" FOREIGN KEY ("created_by") REFERENCES "employees"("id") ON DELETE SET NULL ON UPDATE CASCADE;
+ALTER TABLE "services" ADD CONSTRAINT "services_updated_by_fkey" FOREIGN KEY ("updated_by") REFERENCES "employees"("id") ON DELETE SET NULL ON UPDATE CASCADE;
+
+-- Foreign Keys for table "appointments"
+ALTER TABLE "appointments" ADD CONSTRAINT "appointments_member_id_fkey" FOREIGN KEY ("member_id") REFERENCES "members"("id") ON DELETE SET NULL ON UPDATE CASCADE;
+ALTER TABLE "appointments" ADD CONSTRAINT "appointments_servicing_employee_id_fkey" FOREIGN KEY ("servicing_employee_id") REFERENCES "employees"("id") ON DELETE SET NULL ON UPDATE CASCADE;
+ALTER TABLE "appointments" ADD CONSTRAINT "appointments_created_by_fkey" FOREIGN KEY ("created_by") REFERENCES "employees"("id") ON DELETE SET NULL ON UPDATE CASCADE;
+ALTER TABLE "appointments" ADD CONSTRAINT "appointments_updated_by_fkey" FOREIGN KEY ("updated_by") REFERENCES "employees"("id") ON DELETE SET NULL ON UPDATE CASCADE;
+
+-- Foreign Keys for table "member_voucher_details"
+ALTER TABLE "member_voucher_details" ADD CONSTRAINT "member_voucher_details_member_voucher_id_fkey" FOREIGN KEY ("member_voucher_id") REFERENCES "member_vouchers"("id") ON DELETE CASCADE ON UPDATE CASCADE;
+ALTER TABLE "member_voucher_details" ADD CONSTRAINT "member_voucher_details_service_id_fkey" FOREIGN KEY ("service_id") REFERENCES "services"("id") ON DELETE RESTRICT ON UPDATE CASCADE;
+
+-- Foreign Keys for table "member_voucher_transaction_logs"
+ALTER TABLE "member_voucher_transaction_logs" ADD CONSTRAINT "member_voucher_transaction_logs_member_voucher_id_fkey" FOREIGN KEY ("member_voucher_id") REFERENCES "member_vouchers"("id") ON DELETE CASCADE ON UPDATE CASCADE;
+ALTER TABLE "member_voucher_transaction_logs" ADD CONSTRAINT "member_voucher_transaction_logs_serviced_by_fkey" FOREIGN KEY ("serviced_by") REFERENCES "employees"("id") ON DELETE SET NULL ON UPDATE CASCADE;
+ALTER TABLE "member_voucher_transaction_logs" ADD CONSTRAINT "member_voucher_transaction_logs_created_by_fkey" FOREIGN KEY ("created_by") REFERENCES "employees"("id") ON DELETE SET NULL ON UPDATE CASCADE;
+ALTER TABLE "member_voucher_transaction_logs" ADD CONSTRAINT "member_voucher_transaction_logs_last_updated_by_fkey" FOREIGN KEY ("last_updated_by") REFERENCES "employees"("id") ON DELETE SET NULL ON UPDATE CASCADE;
+
+-- Foreign Keys for table "member_vouchers"
+ALTER TABLE "member_vouchers" ADD CONSTRAINT "member_vouchers_voucher_template_id_fkey" FOREIGN KEY ("voucher_template_id") REFERENCES "voucher_templates"("id") ON DELETE RESTRICT ON UPDATE CASCADE;
+ALTER TABLE "member_vouchers" ADD CONSTRAINT "member_vouchers_members_id_fkey" FOREIGN KEY ("members_id") REFERENCES "members"("id") ON DELETE CASCADE ON UPDATE CASCADE;
+ALTER TABLE "member_vouchers" ADD CONSTRAINT "member_vouchers_created_by_fkey" FOREIGN KEY ("created_by") REFERENCES "employees"("id") ON DELETE SET NULL ON UPDATE CASCADE;
+ALTER TABLE "member_vouchers" ADD CONSTRAINT "member_vouchers_handled_by_fkey" FOREIGN KEY ("handled_by") REFERENCES "employees"("id") ON DELETE SET NULL ON UPDATE CASCADE;
+ALTER TABLE "member_vouchers" ADD CONSTRAINT "member_vouchers_last_updated_by_fkey" FOREIGN KEY ("last_updated_by") REFERENCES "employees"("id") ON DELETE SET NULL ON UPDATE CASCADE;
+
+-- Foreign Keys for table "payment_to_sale_transactions"
+ALTER TABLE "payment_to_sale_transactions" ADD CONSTRAINT "payment_to_sale_transactions_payment_method_id_fkey" FOREIGN KEY ("payment_method_id") REFERENCES "payment_methods"("id") ON DELETE SET NULL ON UPDATE CASCADE;
+ALTER TABLE "payment_to_sale_transactions" ADD CONSTRAINT "payment_to_sale_transactions_sale_transaction_id_fkey" FOREIGN KEY ("sale_transaction_id") REFERENCES "sale_transactions"("id") ON DELETE CASCADE ON UPDATE CASCADE;
+ALTER TABLE "payment_to_sale_transactions" ADD CONSTRAINT "payment_to_sale_transactions_created_by_fkey" FOREIGN KEY ("created_by") REFERENCES "employees"("id") ON DELETE SET NULL ON UPDATE CASCADE;
+ALTER TABLE "payment_to_sale_transactions" ADD CONSTRAINT "payment_to_sale_transactions_updated_by_fkey" FOREIGN KEY ("updated_by") REFERENCES "employees"("id") ON DELETE SET NULL ON UPDATE CASCADE;
+
+-- Foreign Keys for table "sale_transaction_items"
+ALTER TABLE "sale_transaction_items" ADD CONSTRAINT "sale_transaction_items_sale_transactions_id_fkey" FOREIGN KEY ("sale_transactions_id") REFERENCES "sale_transactions"("id") ON DELETE CASCADE ON UPDATE CASCADE;
+ALTER TABLE "sale_transaction_items" ADD CONSTRAINT "sale_transaction_items_member_care_package_id_fkey" FOREIGN KEY ("member_care_package_id") REFERENCES "member_care_packages"("id") ON DELETE SET NULL ON UPDATE CASCADE;
+ALTER TABLE "sale_transaction_items" ADD CONSTRAINT "sale_transaction_items_member_voucher_id_fkey" FOREIGN KEY ("member_voucher_id") REFERENCES "member_vouchers"("id") ON DELETE SET NULL ON UPDATE CASCADE;
+
+-- Foreign Keys for table "sale_transactions"
+ALTER TABLE "sale_transactions" ADD CONSTRAINT "sale_transactions_member_id_fkey" FOREIGN KEY ("member_id") REFERENCES "members"("id") ON DELETE SET NULL ON UPDATE CASCADE;
+ALTER TABLE "sale_transactions" ADD CONSTRAINT "sale_transactions_reference_sales_transaction_id_fkey" FOREIGN KEY ("reference_sales_transaction_id") REFERENCES "sale_transactions"("id") ON DELETE SET NULL ON UPDATE CASCADE;
+ALTER TABLE "sale_transactions" ADD CONSTRAINT "sale_transactions_handled_by_fkey" FOREIGN KEY ("handled_by") REFERENCES "employees"("id") ON DELETE SET NULL ON UPDATE CASCADE;
+ALTER TABLE "sale_transactions" ADD CONSTRAINT "sale_transactions_created_by_fkey" FOREIGN KEY ("created_by") REFERENCES "employees"("id") ON DELETE SET NULL ON UPDATE CASCADE;
+
+-- Foreign Keys for table "timetables"
+ALTER TABLE "timetables" ADD CONSTRAINT "timetables_employee_id_fkey" FOREIGN KEY ("employee_id") REFERENCES "employees"("id") ON DELETE CASCADE ON UPDATE CASCADE;
+ALTER TABLE "timetables" ADD CONSTRAINT "timetables_created_by_fkey" FOREIGN KEY ("created_by") REFERENCES "employees"("id") ON DELETE SET NULL ON UPDATE CASCADE;
+ALTER TABLE "timetables" ADD CONSTRAINT "timetables_updated_by_fkey" FOREIGN KEY ("updated_by") REFERENCES "employees"("id") ON DELETE SET NULL ON UPDATE CASCADE;
+
+-- Foreign Keys for table "voucher_template_details"
+ALTER TABLE "voucher_template_details" ADD CONSTRAINT "voucher_template_details_voucher_template_id_fkey" FOREIGN KEY ("voucher_template_id") REFERENCES "voucher_templates"("id") ON DELETE CASCADE ON UPDATE CASCADE;
+ALTER TABLE "voucher_template_details" ADD CONSTRAINT "voucher_template_details_service_id_fkey" FOREIGN KEY ("service_id") REFERENCES "services"("id") ON DELETE RESTRICT ON UPDATE CASCADE;
+ALTER TABLE "voucher_template_details" ADD CONSTRAINT "voucher_template_details_service_category_id_fkey" FOREIGN KEY ("service_category_id") REFERENCES "service_categories"("id") ON DELETE SET NULL ON UPDATE CASCADE;
+
+-- Foreign Keys for table "voucher_templates"
+ALTER TABLE "voucher_templates" ADD CONSTRAINT "voucher_templates_created_by_fkey" FOREIGN KEY ("created_by") REFERENCES "employees"("id") ON DELETE SET NULL ON UPDATE CASCADE;
+ALTER TABLE "voucher_templates" ADD CONSTRAINT "voucher_templates_last_updated_by_fkey" FOREIGN KEY ("last_updated_by") REFERENCES "employees"("id") ON DELETE SET NULL ON UPDATE CASCADE;
+
+-- Performance Indexes
+
+-- Unique indexes for lookup columns that should be unique
+CREATE UNIQUE INDEX "statuses_status_name_key" ON "statuses"("status_name");
+CREATE UNIQUE INDEX "employees_employee_email_key" ON "employees"("employee_email");
+CREATE UNIQUE INDEX "employees_employee_code_key" ON "employees"("employee_code");
+CREATE UNIQUE INDEX "members_email_key" ON "members"("email");
+CREATE UNIQUE INDEX "members_nric_key" ON "members"("nric");
+CREATE UNIQUE INDEX "roles_role_name_key" ON "roles"("role_name");
+CREATE UNIQUE INDEX "positions_position_name_key" ON "positions"("position_name");
+
+-- Indexes on Foreign Keys and other searchable columns
+CREATE INDEX "fki_cs_service_service_category_id_fkey" ON "services"("service_category_id");
+CREATE INDEX "idx_care_packages_created_by" ON "care_packages"("created_by");
+CREATE INDEX "idx_care_package_item_details_care_package_id" ON "care_package_item_details"("care_package_id");
+CREATE INDEX "idx_care_package_item_details_service_id" ON "care_package_item_details"("service_id");
+CREATE INDEX "idx_employees_user_auth_id" ON "employees"("user_auth_id");
+CREATE INDEX "idx_employees_verified_status_id" ON "employees"("verified_status_id");
+CREATE INDEX "idx_member_care_packages_member_id" ON "member_care_packages"("member_id");
+CREATE INDEX "idx_member_care_packages_employee_id" ON "member_care_packages"("employee_id");
+CREATE INDEX "idx_member_care_package_details_mcp_id" ON "member_care_package_details"("member_care_package_id");
+CREATE INDEX "idx_mcp_transaction_logs_details_id" ON "member_care_package_transaction_logs"("member_care_package_details_id");
+CREATE INDEX "idx_members_user_auth_id" ON "members"("user_auth_id");
+CREATE INDEX "idx_members_membership_type_id" ON "members"("membership_type_id");
+CREATE INDEX "idx_membership_accounts_member_id" ON "membership_accounts"("member_id");
+CREATE INDEX "idx_membership_accounts_membership_type_id" ON "membership_accounts"("membership_type_id");
+CREATE INDEX "idx_membership_accounts_status_id" ON "membership_accounts"("status_id");
+CREATE INDEX "idx_products_product_category_id" ON "products"("product_category_id");
+CREATE INDEX "idx_products_product_name" ON "products"("product_name");
+CREATE INDEX "idx_services_service_name" ON "services"("service_name");
+CREATE INDEX "idx_user_to_role_user_auth_id" ON "user_to_role"("user_auth_id");
+CREATE INDEX "idx_user_to_role_role_id" ON "user_to_role"("role_id");
+CREATE INDEX "idx_appointments_member_id" ON "appointments"("member_id");
+CREATE INDEX "idx_appointments_servicing_employee_id" ON "appointments"("servicing_employee_id");
+CREATE INDEX "idx_appointments_appointment_date" ON "appointments"("appointment_date");
+CREATE INDEX "idx_member_voucher_details_mv_id" ON "member_voucher_details"("member_voucher_id");
+CREATE INDEX "idx_member_vouchers_members_id" ON "member_vouchers"("members_id");
+CREATE INDEX "idx_member_vouchers_voucher_template_id" ON "member_vouchers"("voucher_template_id");
+CREATE INDEX "idx_payment_to_sale_trans_sale_id" ON "payment_to_sale_transactions"("sale_transaction_id");
+CREATE INDEX "idx_sale_transaction_items_sale_id" ON "sale_transaction_items"("sale_transactions_id");
+CREATE INDEX "idx_sale_transactions_member_id" ON "sale_transactions"("member_id");
+CREATE INDEX "idx_sale_transactions_handled_by" ON "sale_transactions"("handled_by");
+CREATE INDEX "idx_sale_transactions_created_at" ON "sale_transactions"("created_at");
+CREATE INDEX "idx_timetables_employee_id" ON "timetables"("employee_id");
+CREATE INDEX "idx_voucher_template_details_template_id" ON "voucher_template_details"("voucher_template_id");
