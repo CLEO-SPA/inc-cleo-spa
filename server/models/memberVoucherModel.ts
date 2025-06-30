@@ -465,7 +465,7 @@ const getMemberVoucherPaidCurrentBalance = async (id: number, consumptionValue: 
   const client = await pool().connect();
   try {
     const query = `
-    SELECT st.outstanding_total_payment_amount, mv.current_balance, mv.free_of_charge
+    SELECT st.outstanding_total_payment_amount, mv.current_balance
     FROM sale_transactions st
     JOIN sale_transaction_items sti ON st.id = sti.sale_transaction_id
     JOIN member_vouchers mv ON sti.member_voucher_id = mv.id
@@ -483,13 +483,13 @@ const getMemberVoucherPaidCurrentBalance = async (id: number, consumptionValue: 
 
     const current_balance = parseFloat(results.rows[0].current_balance);
     const outstanding_total_payment_amount = parseFloat(results.rows[0].outstanding_total_payment_amount);
-    const free_of_charge = parseFloat(results.rows[0].free_of_charge);
+    // const free_of_charge = parseFloat(results.rows[0].free_of_charge);
 
     if (outstanding_total_payment_amount === 0) {
       return { success: true, data: current_balance };
     }
 
-    const paidBalance = current_balance - outstanding_total_payment_amount - free_of_charge;
+    const paidBalance = current_balance - outstanding_total_payment_amount //- free_of_charge;
 
     const paidbalanceAfterDeduction = paidBalance + consumptionValue;
 
@@ -812,7 +812,6 @@ const createMemberVoucher = async (
   created_at: string,
   updated_at: string,
   is_bypass: boolean = false,
-  is_partial_payment: boolean = false
 ) => {
   const client = await pool().connect();
 
@@ -876,8 +875,10 @@ const createMemberVoucher = async (
       current_balance = starting_balance;
     } else {
       // Partial payment: exclude FOC from balances
-      starting_balance = default_total_price;
-      current_balance = starting_balance;
+      starting_balance = default_total_price + free_of_charge;
+      current_balance = default_total_price;
+
+
     }
 
     console.log('Payment Status:', is_fully_paid ? 'FULL' : 'PARTIAL');
@@ -962,8 +963,8 @@ const createMemberVoucher = async (
       memberVoucherId,
       'N.A',
       created_at,
-      starting_balance, // Use starting_balance (includes FOC only if fully paid)
-      starting_balance, // amount_change same as current_balance
+      current_balance, // Use starting_balance (includes FOC only if fully paid)
+      current_balance, // amount_change same as current_balance
       employee_id,
       'PURCHASE',
       employee_id,
@@ -1027,6 +1028,7 @@ const createMemberVoucher = async (
       VALUES ($1, $2, $3, $4, $5, $6, $7) RETURNING id
     `;
 
+    // Process regular payments
     const paymentProcessingPromises = payments.map(async (payment) => {
       await client.query<{ id: string }>(i_ptst_sql, [
         payment.id,
@@ -1040,6 +1042,21 @@ const createMemberVoucher = async (
     });
 
     await Promise.all(paymentProcessingPromises);
+
+    // Add FOC as a payment if it's a full payment and FOC amount > 0
+    if (is_fully_paid && free_of_charge > 0) {
+      await client.query<{ id: string }>(i_ptst_sql, [
+        '6', // Payment method ID for "Free"
+        saleTransactionId,
+        free_of_charge,
+        employee_id,
+        created_at,
+        employee_id,
+        updated_at
+      ]);
+      
+      console.log('Added FOC payment:', free_of_charge);
+    }
 
     await client.query('COMMIT');
 

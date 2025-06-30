@@ -532,7 +532,7 @@ const getMemberVouchers = async (
     const vouchersWithBalance = await Promise.all(
       result.rows.map(async (voucher) => {
         const balanceQuery = `
-          SELECT st.outstanding_total_payment_amount, mv.current_balance, mv.free_of_charge
+          SELECT st.outstanding_total_payment_amount, mv.current_balance
           FROM sale_transactions st
           JOIN sale_transaction_items sti ON st.id = sti.sale_transaction_id
           JOIN member_vouchers mv ON sti.member_voucher_id = mv.id
@@ -548,12 +548,12 @@ const getMemberVouchers = async (
         if (balanceResult.rows && balanceResult.rows.length > 0) {
           const current_balance = parseFloat(balanceResult.rows[0].current_balance);
           const outstanding_total_payment_amount = parseFloat(balanceResult.rows[0].outstanding_total_payment_amount);
-          const free_of_charge = parseFloat(balanceResult.rows[0].free_of_charge);
+          // const free_of_charge = parseFloat(balanceResult.rows[0].free_of_charge);
           
           if (outstanding_total_payment_amount === 0) {
             currentPaidBalance = current_balance;
           } else {
-            currentPaidBalance = current_balance - outstanding_total_payment_amount - free_of_charge;
+            currentPaidBalance = current_balance - outstanding_total_payment_amount ;//- free_of_charge;
           }
         }
         

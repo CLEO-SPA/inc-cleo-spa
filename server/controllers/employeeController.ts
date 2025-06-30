@@ -34,7 +34,7 @@ const loginEmployee = async (req: Request, res: Response, next: NextFunction) =>
       req.session.email = res.locals.email;
       req.session.role = res.locals.role;
 
-      console.log('My Date: ', req.session.end_date_utc);
+      // console.log('My Date: ', req.session.end_date_utc);
 
       const userPayload = {
         user_id: res.locals.user_id,

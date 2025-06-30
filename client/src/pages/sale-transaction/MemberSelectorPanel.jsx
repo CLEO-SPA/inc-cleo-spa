@@ -5,15 +5,88 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@
 import { Button } from '@/components/ui/button';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Input } from '@/components/ui/input';
-import { ChevronLeft, ChevronRight, ChevronsLeft, ChevronsRight, Search } from 'lucide-react';
+import { AlertTriangle, MoreHorizontal, X, Package, RefreshCw, ChevronLeft, ChevronRight, ChevronsLeft, ChevronsRight, Search } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
+import { useLocation } from 'react-router-dom';
+
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuTrigger,
+  DropdownMenuSeparator,
+} from '@/components/ui/dropdown-menu';
+import {
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+  DialogFooter,
+  DialogTrigger,
+  DialogDescription
+} from '@/components/ui/dialog';
 
 export default function MemberSelectorPanel() {
   const navigate = useNavigate();
+  const location = useLocation();
   const [searchInput, setSearchInput] = useState('');
   const [notFound, setNotFound] = useState(false);
   const [selectedTab, setSelectedTab] = useState('info');
+  const [showOwedDialog, setShowOwedDialog] = useState(false);
+  const [cancelDialog, setCancelDialog] = useState({
+    isOpen: false,
+    type: null, // 'package' or 'voucher'
+    item: null,
+    isLoading: false
+  });
 
+  // Updated handlers that show confirmation dialog
+  const handleVoucherCancel = (voucher) => {
+    setCancelDialog({
+      isOpen: true,
+      type: 'voucher',
+      item: voucher,
+      isLoading: false
+    });
+  };
+
+  const handlePackageCancel = (mcp) => {
+    setCancelDialog({
+      isOpen: true,
+      type: 'package',
+      item: mcp,
+      isLoading: false
+    });
+  };
+
+  const handleConfirmCancel = async () => {
+    if (!cancelDialog.item) return;
+
+    setCancelDialog(prev => ({ ...prev, isLoading: true }));
+
+    try {
+      if (cancelDialog.type === 'package') {
+        // Call Zustand store method
+        await cancelMemberPackage(cancelDialog.item.id);
+      } else if (cancelDialog.type === 'voucher') {
+        // Call Zustand store method
+        await cancelMemberVoucher(cancelDialog.item.id);
+      }
+
+      // Close dialog on success
+      setCancelDialog({ isOpen: false, type: null, item: null, isLoading: false });
+
+      // Optional: Show success message
+      // toast.success('Cancellation successful');
+
+    } catch (error) {
+      console.error('Cancellation failed:', error);
+      setCancelDialog(prev => ({ ...prev, isLoading: false }));
+
+      // Optional: Show error message
+      // toast.error('Cancellation failed');
+    }
+  };
   // Store state and actions - Updated to match new store structure
   const {
     currentMember,
@@ -25,6 +98,8 @@ export default function MemberSelectorPanel() {
     error,
     errorMessage,
     searchMember,
+    refreshCurrentMemberData,
+    // Add this new method
 
     // Pagination states - Updated property names
     packagesCurrentPage,
@@ -45,7 +120,11 @@ export default function MemberSelectorPanel() {
     setPackagesSearchTerm,
     goToVouchersPage,
     setVouchersLimit,
-    setVouchersSearchTerm
+    setVouchersSearchTerm,
+
+    //Cancellation
+    cancelMemberPackage,
+    cancelMemberVoucher
   } = useSelectedMemberStore();
 
   const {
@@ -59,10 +138,12 @@ export default function MemberSelectorPanel() {
   } = useTransactionCartStore();
 
   useEffect(() => {
-    if (currentMember && (!selectedMember || selectedMember.id !== currentMember.id)) {
-      setSelectedMember(currentMember);
+    if (currentMember) {
+      console.log('Location changed — forcing refresh of member data...');
+      refreshCurrentMemberData(); // 🔁 Always fetch fresh data
     }
-  }, [currentMember, selectedMember, setSelectedMember]);
+  }, [location.pathname]);
+
 
   const handleSearch = async () => {
     if (!searchInput.trim()) return;
@@ -73,6 +154,13 @@ export default function MemberSelectorPanel() {
       if (member) {
         setNotFound(false);
         setSelectedTab('info');
+
+        setSelectedMember(member);
+
+        // Check if member has owed amount and show dialog
+        if (member.total_amount_owed > 0) {
+          setTimeout(() => setShowOwedDialog(true), 200); // Small delay for better UX
+        }
       } else {
         setNotFound(true);
       }
@@ -81,6 +169,7 @@ export default function MemberSelectorPanel() {
       console.error('Search failed:', error);
     }
   };
+
 
   // Debounced search handlers - Updated to use new method names
   const handlePackagesSearch = useCallback((searchTerm) => {
@@ -120,18 +209,30 @@ export default function MemberSelectorPanel() {
     return pageNumbers;
   };
 
-  // Placeholder handlers for voucher actions
-  const handleViewDetails = (voucher) => {
-    console.log('View details for voucher:', voucher);
-  };
+  // const handleVoucherCancel = (mvId) =>{
 
-  const handleRefund = (voucher) => {
+  // }
+
+  const handleVoucherRefund = (voucher) => {
     console.log('Refund voucher:', voucher);
   };
 
-  const handleConsume = (voucherId) => {
+  const handleVoucherConsume = (voucherId) => {
     navigate(`/mv/${voucherId}/consume`);
   };
+
+  // const handlePackageCancel = (mcpId) =>{
+
+  // }
+
+  const handlePackageRefund = (mcp) => {
+    console.log('Refund voucher:', mcp);
+  };
+
+  const handlePackageConsume = (mcp) => {
+    navigate(`/mcp/${mcp.id}/consume`);
+  };
+
 
   const PaginationControls = ({
     currentPage,
@@ -338,8 +439,8 @@ export default function MemberSelectorPanel() {
                       <span>Packages</span>
                       {packageCount > 0 && (
                         <div className={`rounded-full w-4 h-4 flex items-center justify-center text-xs font-medium ${isActive
-                            ? 'bg-white text-gray-800'
-                            : 'bg-gray-800 text-white'
+                          ? 'bg-white text-gray-800'
+                          : 'bg-gray-800 text-white'
                           }`}>
                           {packageCount}
                         </div>
@@ -353,8 +454,8 @@ export default function MemberSelectorPanel() {
                       <span>Vouchers</span>
                       {voucherCount > 0 && (
                         <div className={`rounded-full w-4 h-4 flex items-center justify-center text-xs font-medium ${isActive
-                            ? 'bg-white text-gray-800'
-                            : 'bg-gray-800 text-white'
+                          ? 'bg-white text-gray-800'
+                          : 'bg-gray-800 text-white'
                           }`}>
                           {voucherCount}
                         </div>
@@ -470,6 +571,7 @@ export default function MemberSelectorPanel() {
                           <TableRow>
                             <TableHead className="text-xs">Name</TableHead>
                             <TableHead className="text-xs">Total Price</TableHead>
+                            <TableHead className="text-xs">Balance</TableHead>
                             <TableHead className="text-xs">Remarks</TableHead>
                             <TableHead className="text-xs">Actions</TableHead>
                           </TableRow>
@@ -479,22 +581,39 @@ export default function MemberSelectorPanel() {
                             <TableRow key={mcp.id}>
                               <TableCell className="text-xs">{mcp.package_name}</TableCell>
                               <TableCell className="text-xs">${mcp.total_price}</TableCell>
+                              <TableCell className="text-xs">${mcp.balance}</TableCell>
                               <TableCell className="text-xs">{mcp.package_remarks}</TableCell>
-                              <TableCell className="text-xs space-x-2">
-                                <button onClick={() => handleViewDetails(mcp)} className="text-blue-600 hover:underline">
-                                  View
-                                </button>
-                                <button onClick={() => handleRefund(mcp)} className="text-red-600 hover:underline">
-                                  Refund
-                                </button>
-                                <button onClick={() => handleConsume(mcp)} className="text-green-600 hover:underline">
-                                  Consume
-                                </button>
+                              <TableCell className="w-20 px-1 py-1">
+                                <DropdownMenu>
+                                  <DropdownMenuTrigger asChild>
+                                    <Button variant='ghost' className='h-8 w-8 p-0'>
+                                      <span className='sr-only'>Open menu</span>
+                                      <MoreHorizontal className='h-4 w-4' />
+                                    </Button>
+                                  </DropdownMenuTrigger>
+                                  <DropdownMenuContent align='start'>
+                                    <DropdownMenuItem onClick={() => handlePackageCancel(mcp)}>
+                                      <X className='mr-2 h-4 w-4' />
+                                      Void
+                                    </DropdownMenuItem>
+                                    <DropdownMenuItem onClick={() => handlePackageConsume(mcp)}>
+                                      <Package className='mr-2 h-4 w-4' />
+                                      Consume
+                                    </DropdownMenuItem>
+                                    <DropdownMenuSeparator />
+                                    <DropdownMenuItem
+                                      onClick={() => handlePackageRefund(mcp)}
+                                      className='text-destructive focus:text-destructive focus:bg-destructive/10'
+                                    >
+                                      <RefreshCw className='mr-2 h-4 w-4' />
+                                      Refund
+                                    </DropdownMenuItem>
+                                  </DropdownMenuContent>
+                                </DropdownMenu>
                               </TableCell>
                             </TableRow>
                           ))}
                         </TableBody>
-
                       </Table>
                     </div>
                     <div className="flex justify-end mt-2">
@@ -547,7 +666,6 @@ export default function MemberSelectorPanel() {
                             <TableHead className="w-[120px] text-xs">Actions</TableHead>
                           </TableRow>
                         </TableHeader>
-
                         <TableBody>
                           {memberVouchers.map((voucher) => (
                             <TableRow key={voucher.id}>
@@ -560,16 +678,33 @@ export default function MemberSelectorPanel() {
                               <TableCell className="text-xs truncate" title={voucher.remarks}>
                                 {voucher.remarks}
                               </TableCell>
-                              <TableCell className="text-xs space-x-2 whitespace-nowrap">
-                                <button onClick={() => handleViewDetails(voucher)} className="text-blue-600 hover:underline">
-                                  View
-                                </button>
-                                <button onClick={() => handleRefund(voucher)} className="text-red-600 hover:underline">
-                                  Refund
-                                </button>
-                                <button onClick={() => handleConsume(voucher.id)} className="text-green-600 hover:underline">
-                                  Consume
-                                </button>
+                              <TableCell className="px-1 py-1">
+                                <DropdownMenu>
+                                  <DropdownMenuTrigger asChild>
+                                    <Button variant='ghost' className='h-8 w-8 p-0'>
+                                      <span className='sr-only'>Open menu</span>
+                                      <MoreHorizontal className='h-4 w-4' />
+                                    </Button>
+                                  </DropdownMenuTrigger>
+                                  <DropdownMenuContent align='start'>
+                                    <DropdownMenuItem onClick={() => handleVoucherCancel(voucher)}>
+                                      <X className='mr-2 h-4 w-4' />
+                                      Void
+                                    </DropdownMenuItem>
+                                    <DropdownMenuItem onClick={() => handleVoucherConsume(voucher.id)}>
+                                      <Package className='mr-2 h-4 w-4' />
+                                      Consume
+                                    </DropdownMenuItem>
+                                    <DropdownMenuSeparator />
+                                    <DropdownMenuItem
+                                      onClick={() => handleVoucherRefund(voucher)}
+                                      className='text-destructive focus:text-destructive focus:bg-destructive/10'
+                                    >
+                                      <RefreshCw className='mr-2 h-4 w-4' />
+                                      Refund
+                                    </DropdownMenuItem>
+                                  </DropdownMenuContent>
+                                </DropdownMenu>
                               </TableCell>
                             </TableRow>
                           ))}
@@ -600,6 +735,127 @@ export default function MemberSelectorPanel() {
           </>
         )}
       </div>
+      <div className="flex border border-gray-300 border-t-0">
+        <div className="flex items-center gap-2">
+
+          {currentMember && currentMember.total_amount_owed > 0 && (
+            <Dialog open={showOwedDialog} onOpenChange={setShowOwedDialog}>
+              <DialogTrigger asChild>
+              </DialogTrigger>
+              <DialogContent className="sm:max-w-md">
+                <DialogHeader>
+                  <DialogTitle className="flex items-center gap-2">
+                    <AlertTriangle className="h-5 w-5 text-amber-500" />
+                    Outstanding Balance Alert
+                  </DialogTitle>
+                  <DialogDescription>
+                    This member has an outstanding balance that needs attention.
+                  </DialogDescription>
+                </DialogHeader>
+                <div className="py-4">
+                  <div className="bg-amber-50 border border-amber-200 rounded-lg p-4">
+                    <div className="flex justify-between items-center mb-2">
+                      <span className="font-medium text-amber-800">Member:</span>
+                      <span className="text-amber-900">{currentMember.name}</span>
+                    </div>
+                    <div className="flex justify-between items-center">
+                      <span className="font-medium text-amber-800">Amount Owed:</span>
+                      <span className="text-xl font-bold text-amber-900">
+                        ${currentMember.total_amount_owed}
+                      </span>
+                    </div>
+                  </div>
+                  <p className="text-sm text-gray-600 mt-3">
+                    Please ensure this outstanding balance is addressed before proceeding with new transactions.
+                  </p>
+                </div>
+                <DialogFooter className="sm:justify-start">
+                  <Button
+                    type="button"
+                    variant="outline"
+                    onClick={() => setShowOwedDialog(false)}
+                  >
+                    Acknowledge
+                  </Button>
+                  <Button
+                    type="button"
+                    onClick={() => {
+                      setShowOwedDialog(false);
+                      // Add logic to handle payment or settlement
+                      // handleSettleBalance(currentMember.id);
+                    }}
+                  >
+                    Settle Balance
+                  </Button>
+                </DialogFooter>
+              </DialogContent>
+            </Dialog>
+          )}
+        </div>
+      </div>
+
+      {/* cancel dialog  */}
+      <Dialog open={cancelDialog.isOpen} onOpenChange={(open) =>
+        !cancelDialog.isLoading && setCancelDialog({ isOpen: open, type: null, item: null, isLoading: false })
+      }>
+        <DialogContent className="sm:max-w-md">
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2">
+              <AlertTriangle className="h-5 w-5 text-red-500" />
+              Confirm Cancellation
+            </DialogTitle>
+            <DialogDescription>
+              Are you sure you want to cancel this {cancelDialog.type}? This action cannot be undone.
+            </DialogDescription>
+          </DialogHeader>
+
+          {cancelDialog.item && (
+            <div className="py-4">
+              <div className="bg-red-50 border border-red-200 rounded-lg p-4">
+                <div className="flex justify-between items-center mb-2">
+                  <span className="font-medium text-red-800">
+                    {cancelDialog.type === 'package' ? 'Package:' : 'Voucher:'}
+                  </span>
+                  <span className="text-red-900">
+                    {cancelDialog.type === 'package'
+                      ? cancelDialog.item.package_name
+                      : cancelDialog.item.member_voucher_name}
+                  </span>
+                </div>
+                <div className="flex justify-between items-center">
+                  <span className="font-medium text-red-800">Amount:</span>
+                  <span className="text-xl font-bold text-red-900">
+                    ${cancelDialog.type === 'package'
+                      ? cancelDialog.item.total_price
+                      : cancelDialog.item.current_balance}
+                  </span>
+                </div>
+              </div>
+            </div>
+          )}
+
+          <DialogFooter className="sm:justify-start">
+            <Button
+              type="button"
+              variant="outline"
+              onClick={() => setCancelDialog({ isOpen: false, type: null, item: null, isLoading: false })}
+              disabled={cancelDialog.isLoading}
+            >
+              Keep {cancelDialog.type}
+            </Button>
+            <Button
+              type="button"
+              variant="destructive"
+              onClick={handleConfirmCancel}
+              disabled={cancelDialog.isLoading}
+            >
+              {cancelDialog.isLoading ? 'Cancelling...' : 'Yes, Cancel'}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
     </div>
+
   );
 }

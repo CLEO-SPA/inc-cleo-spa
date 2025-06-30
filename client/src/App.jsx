@@ -17,6 +17,7 @@ import ManageMembersPage from '@/pages/member/ManageMembersPage';
 import CreateMemberPage from '@/pages/member/CreateMemberPage';
 import EditMemberPage from '@/pages/member/EditMemberPage';
 import ManageMembershipTypePage from '@/pages/MembershipType/ManageMembershipTypePage';
+
 // Voucher Template
 import CreateVoucherTemplatesPage from '@/pages/voucher-template/CreateVoucherTemplatePage';
 import ManageVoucherTemplatesPage from '@/pages/voucher-template/ManageVoucherTemplatesPage';
@@ -81,10 +82,16 @@ import CreateProductPage from '@/pages/product/CreateProductPage';
 import UpdateProductPage from '@/pages/product/UpdateProductPage';
 import ViewProductSalesHistoryPage from '@/pages/product/ViewProductSalesHistoryPage';
 
-// Add this line with the other page imports (around line 20)
-import RefundPage from '@/pages/Refund/refund'; // Add this line
+// Refund
+import RefundPage from '@/pages/Refund/Refund';
 import MCPDetail from '@/pages/Refund/MCPDetail';
 import MemberPackagesList from '@/components/refund/MemberPackagesList';
+import RefundServicesPage from '@/pages/Refund/RefundServicesPage';
+import RefundServiceForm from '@/pages/Refund/RefundServiceForm';
+import RefundVouchersPage from '@/pages/Refund/RefundVouchersPage';
+import RefundVoucherForm from '@/pages/Refund/RefundVoucherForm';
+import CreditNotesPage from '@/pages/Refund/CreditNotesPage';
+import CreditNoteDetailsPage from '@/pages/Refund/CreditNoteDetailsPage';
 
 function App() {
   return (
@@ -108,6 +115,14 @@ function App() {
               <Route path='/refunds' element={<RefundPage />} />
               <Route path='/refunds/member/:memberId' element={<MemberPackagesList />} />
               <Route path='/refunds/mcp/:packageId' element={<MCPDetail />} />
+              <Route path="/refunds/services/member/:id" element={<RefundServicesPage />} />
+              <Route path="/refunds/services/receipt/:no" element={<RefundServicesPage />} />
+              <Route path="/refunds/service/:saleTransactionItemId" element={<RefundServiceForm />} />
+              <Route path="/refunds/vouchers/member/:id" element={<RefundVouchersPage />} />
+              <Route path="/refunds/voucher/:voucherId" element={<RefundVoucherForm />} />
+              <Route path="/credit-notes" element={<CreditNotesPage />} />
+              <Route path="/credit-notes/:id" element={<CreditNoteDetailsPage />} />
+
               {/* Member Management */}
               <Route path='/member' element={<ManageMembersPage />} />
               <Route path='/member/create' element={<CreateMemberPage />} />
@@ -135,6 +150,11 @@ function App() {
               <Route path='/employees' element={<ManageEmployeesPage />} />
               <Route path='/employees/create' element={<CreateEmployeePage />} />
               <Route path='/employees/edit/:id' element={<EditEmployeePage />} />
+
+              {/* Service Management */}
+              <Route path='/create-service' element={<CreateServicePage />} />
+              <Route path='/update-service/:service_id' element={<UpdateServicePage />} />
+              <Route path='/reorder-service' element={<ReorderServicePage />} />
 
               {/* Voucher Template */}
               <Route path='/voucher-template/create' element={<CreateVoucherTemplatesPage />} />
@@ -187,6 +207,12 @@ function App() {
               <Route path='/rr' element={<RevenueReportPage />} />
               {/* Deferred Revenue Page */}
               <Route path='/dr' element={<DeferredRevenuePage />} />
+
+              <Route path='/create-service' element={<CreateServicePage />} />
+              <Route path='/update-service/:service_id' element={<UpdateServicePage />} />
+              <Route path='/reorder-service' element={<ReorderServicePage />} />
+              <Route path='/view-sales-history/:service_id' element={<ViewSalesHistoryPage />} />
+              <Route path='/manage-service-category' element={<ManageServiceCategoryPage />} />
 
             </Route>
             <Route path='/login' element={<LoginPage />} />
