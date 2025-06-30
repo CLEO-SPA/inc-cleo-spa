@@ -600,10 +600,12 @@ export const updateEmployee = async (
 
     /* ------------------------------------------------- 2. Quick format checks */
     if (payload.email && !validator.isEmail(payload.email)) {
-      return res.status(400).json({ message: 'Invalid email format.' });
+      res.status(400).json({ message: 'Invalid email format.' });
+      return;
     }
     if (payload.phone && !validator.isMobilePhone(payload.phone, 'any')) {
-      return res.status(400).json({ message: 'Invalid contact number format.' });
+      res.status(400).json({ message: 'Invalid contact number format.' });
+      return;
     }
 
     /* ------------------------------------------------- 3. Update via model */
@@ -639,25 +641,25 @@ export const updateEmployee = async (
 };
 
 
-const getEmployeeById = async (req: Request, res: Response, next: NextFunction) => {
-  const employeeId = Number(req.params.id);
-  if (!employeeId || Number.isNaN(employeeId)) {
-    res.status(400).json({ message: 'Invalid employee ID.' });
-    return;
-  }
+// const getOnlyEmployeeById = async (req: Request, res: Response, next: NextFunction) => {
+//   const employeeId = Number(req.params.id);
+//   if (!employeeId || Number.isNaN(employeeId)) {
+//     res.status(400).json({ message: 'Invalid employee ID.' });
+//     return;
+//   }
 
-  try {
-    const employee = await model.getEmployeeById(employeeId);
-    if (!employee) {
-      res.status(404).json({ message: 'Employee not found.' });
-      return;
-    }
-    res.status(200).json(employee);
-  } catch (error) {
-    console.error('Error fetching employee by ID:', error);
-    next(error);
-  }
-};
+//   try {
+//     const employee = await model.getOnlyEmployeeById(employeeId);
+//     if (!employee) {
+//       res.status(404).json({ message: 'Employee not found.' });
+//       return;
+//     }
+//     res.status(200).json(employee);
+//   } catch (error) {
+//     console.error('Error fetching employee by ID:', error);
+//     next(error);
+//   }
+// };
 
 
 export default {
@@ -677,5 +679,6 @@ export default {
   updateEmployee,
   getEmployeeById,
   getAllActivePositions,
-  getEmployeeNameByEmployeeId
+  getEmployeeNameByEmployeeId,
+  // getOnlyEmployeeById
 };
