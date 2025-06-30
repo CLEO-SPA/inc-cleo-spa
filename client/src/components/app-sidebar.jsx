@@ -150,20 +150,20 @@ const data = {
     },
     {
       title: 'Employees',
-      url: '',
+      url: '/employees',
       icon: Users,
       items: [
         {
           title: 'Add new employee',
-          url: '#',
+          url: '/employees/create',
         },
         {
           title: 'Manage employees',
-          url: '#',
+          url: '/employees',
         },
         {
           title: 'Add new position',
-          url: '/positions/add',
+          url: '/positions/create',
         },
         {
           title: 'Manage positions',
@@ -220,6 +220,21 @@ const data = {
         {
           title: 'Data Export',
           url: '/data-export',
+        },
+      ],
+    },
+    {
+      title: 'Timetables',
+      url: '#',
+      icon: CalendarDays,
+      items: [
+        {
+          title: 'Create Timetable',
+          url: '/et/create-employee-timetable',
+        },
+        {
+          title: 'Manage Timetable',
+          url: '/et',
         },
       ],
     },
