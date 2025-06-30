@@ -414,7 +414,7 @@ const MCPDetail = () => {
                                         <span className="font-medium">Refund Amount:</span>
                                         <span className="ml-2">${refundAmount}</span>
                                         <span className="text-sm text-blue-600 ml-2">
-                                          ({service.totals.remaining} × ${service.totals.price})
+                                          ({service.totals.remaining} × ${(service.totals.price).toFixed(2)})
                                         </span>
                                       </div>
                                     </div>

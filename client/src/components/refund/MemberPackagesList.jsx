@@ -34,6 +34,20 @@ const MemberPackagesList = () => {
         fetchPackages();
     }, [memberId]);
 
+    const formatDiscount = (discountValue) => {
+        if (!discountValue || parseFloat(discountValue) <= 0) {
+            return 'No discount';
+        }
+
+        const discount = parseFloat(discountValue);
+        if (discount === 1.00) {
+            return 'No discount';
+        }
+
+        const discountPercentage = Math.round((1 - discount) * 100);
+        return `${discountPercentage}% discount`;
+    };
+
     const debouncedSearch = useCallback(
         debounce(async (query) => {
             if (query.trim().length === 0) {
@@ -265,8 +279,8 @@ const MemberPackagesList = () => {
                                         {/* Package List */}
                                         {filteredPackages.length > 0 ? (
                                             filteredPackages.map((pkg, index) => (
-                                                <div 
-                                                    key={pkg.id || index} 
+                                                <div
+                                                    key={pkg.id || index}
                                                     className="bg-white border border-gray-200 rounded-lg hover:shadow-md transition-shadow duration-200 cursor-pointer"
                                                     onClick={() => handleRefund(pkg.id)}
                                                 >
@@ -311,10 +325,7 @@ const MemberPackagesList = () => {
                                                                     <div>
                                                                         <p className="text-xs text-gray-500">Discount</p>
                                                                         <p className="text-sm text-gray-700">
-                                                                            {pkg.discount && parseFloat(pkg.discount) > 0
-                                                                                ? `-${formatCurrency(pkg.discount)}`
-                                                                                : 'No discount'
-                                                                            }
+                                                                            {formatDiscount(pkg.discount)}
                                                                         </p>
                                                                     </div>
                                                                 </div>
@@ -352,7 +363,7 @@ const MemberPackagesList = () => {
 
                                                             {/* Status Column */}
                                                             <div className="col-span-1 flex items-center justify-center">
-                                                                <div 
+                                                                <div
                                                                     onClick={(e) => e.stopPropagation()}
                                                                     className="inline-block"
                                                                 >

@@ -57,8 +57,8 @@ const validateMCPExists = async (req: Request, res: Response, next: NextFunction
       return;
     }
 
-    const refundedStatusId = await model.getStatusId('Refunded');
-    if (mcp.status_id === refundedStatusId) {
+    // Changed from checking status_id to checking status directly
+    if (mcp.status === 'Refunded') {
       res.status(400).json({ error: 'This Member Care Package has already been refunded.' });
       return;
     }
@@ -142,7 +142,7 @@ const processFullRefund = async (req: Request, res: Response, next: NextFunction
     }
 
     const reqWithExtras = req as Request & {
-      mcpData: { id: number; member_id: number; status_id: number };
+      mcpData: { id: number; member_id: number; status: string };
       remainingServices: Array<{
         id: number;
         service_id: number;
@@ -167,7 +167,8 @@ const processFullRefund = async (req: Request, res: Response, next: NextFunction
       refundTransactionId: result.refundTransactionId,
       totalRefundAmount: result.totalRefund,
       refundedServices: result.refundedServices,
-      refundDate: processedRefundDate.toISOString()
+      refundDate: processedRefundDate.toISOString(),
+      receiptNo: result.receiptNo
     });
   } catch (error) {
     console.error('Refund processing error:', error);

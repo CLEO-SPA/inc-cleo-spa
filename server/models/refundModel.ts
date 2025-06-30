@@ -266,9 +266,17 @@ const processRefundService = async (body: {
 
 /////////////////////
 
+/* const getStatusId = async (statusName: string) => {
+  const { rows } = await pool().query(
+    `SELECT id FROM statuses WHERE status_name = $1`,
+    [statusName]
+  );
+  return rows[0].id;
+}; */
+
 const getMCPById = async (mcpId: number) => {
   const { rows } = await pool().query(
-    `SELECT id, member_id, status_id 
+    `SELECT id, member_id, status 
      FROM member_care_packages 
      WHERE id = $1`,
     [mcpId]
@@ -287,14 +295,6 @@ const getRemainingServices = async (mcpId: number) => {
     [mcpId]
   );
   return rows;
-};
-
-const getStatusId = async (statusName: string) => {
-  const { rows } = await pool().query(
-    `SELECT id FROM statuses WHERE status_name = $1`,
-    [statusName]
-  );
-  return rows[0].id;
 };
 
 const processFullRefundTransaction = async (params: {
@@ -358,7 +358,7 @@ const processFullRefundTransaction = async (params: {
         params.memberId,
         (-totalRefund).toFixed(2),
         params.refundRemarks,
-        receiptNo,  // The generated receipt number
+        receiptNo,
         params.refundedBy,
         params.refundedBy,
         formattedRefundDate
@@ -393,7 +393,7 @@ const processFullRefundTransaction = async (params: {
 
       await client.query(
         `INSERT INTO sale_transaction_items (
-          id, sale_transactions_id, service_name, member_care_package_id,
+          id, sale_transaction_id, service_name, member_care_package_id,
           original_unit_price, custom_unit_price, discount_percentage, 
           quantity, amount, item_type, remarks
         ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, 'MEMBER_CARE_PACKAGE', $10)`,
@@ -467,10 +467,10 @@ const processFullRefundTransaction = async (params: {
       ]
     );
 
-    // Update MCP status
+    // Update MCP status - changed from status_id to status
     await client.query(
       `UPDATE member_care_packages
-       SET status_id = (SELECT id FROM statuses WHERE status_name = 'Refunded')
+       SET status = 'Refunded'
        WHERE id = $1`,
       [params.mcpId]
     );
@@ -482,7 +482,7 @@ const processFullRefundTransaction = async (params: {
       totalRefund,
       refundedServices,
       refundDate: refundDate.toISOString(),
-      receiptNo  // Include receipt number in the return object
+      receiptNo
     };
 
   } catch (error) {
@@ -500,21 +500,20 @@ const fetchMCPStatusById = async (packageId: number) => {
     WITH purchase_totals AS (
       SELECT 
         mcpd.id AS detail_id,
-        SUM(ABS(sti.quantity)) AS purchased
+        COALESCE(SUM(mcpctl.transaction_amount), 0) / NULLIF(mcpd.price, 0) AS purchased_quantity
       FROM member_care_package_details mcpd
-      LEFT JOIN sale_transaction_items sti 
-        ON sti.member_care_package_id = mcpd.member_care_package_id
-        AND sti.service_name = mcpd.service_name
-        AND sti.quantity > 0
+      LEFT JOIN member_care_package_transaction_logs mcpctl 
+        ON mcpd.id = mcpctl.member_care_package_details_id
+        AND mcpctl.type = 'PURCHASE'
       WHERE mcpd.member_care_package_id = $1
-      GROUP BY mcpd.id
+      GROUP BY mcpd.id, mcpd.price
     ),
     consumption_totals AS (
       SELECT 
         mcpd.id AS detail_id,
-        COUNT(*) AS consumed
+        COUNT(CASE WHEN mcpctl.type = 'CONSUMPTION' THEN 1 END) AS consumed
       FROM member_care_package_details mcpd
-      JOIN member_care_package_transaction_logs mcpctl 
+      LEFT JOIN member_care_package_transaction_logs mcpctl 
         ON mcpd.id = mcpctl.member_care_package_details_id
         AND mcpctl.type = 'CONSUMPTION'
       WHERE mcpd.member_care_package_id = $1
@@ -523,12 +522,11 @@ const fetchMCPStatusById = async (packageId: number) => {
     refund_totals AS (
       SELECT 
         mcpd.id AS detail_id,
-        ABS(SUM(sti.quantity)) AS refunded
+        COUNT(CASE WHEN mcpctl.type = 'REFUND' THEN 1 END) AS refunded
       FROM member_care_package_details mcpd
-      JOIN sale_transaction_items sti 
-        ON sti.member_care_package_id = mcpd.member_care_package_id
-        AND sti.service_name = mcpd.service_name
-        AND sti.quantity < 0
+      LEFT JOIN member_care_package_transaction_logs mcpctl 
+        ON mcpd.id = mcpctl.member_care_package_details_id
+        AND mcpctl.type = 'REFUND'
       WHERE mcpd.member_care_package_id = $1
       GROUP BY mcpd.id
     )
@@ -541,14 +539,14 @@ const fetchMCPStatusById = async (packageId: number) => {
       mcpd.price,
       mcpd.discount,
       mcpd.quantity AS original_quantity,
-      COALESCE(pt.purchased, 0) AS purchased,
+      FLOOR(COALESCE(pt.purchased_quantity, 0)) AS purchased,
       COALESCE(ct.consumed, 0) AS consumed,
       COALESCE(rt.refunded, 0) AS refunded,
       CASE 
         WHEN COALESCE(rt.refunded, 0) > 0 THEN 0
-        ELSE (mcpd.quantity - COALESCE(ct.consumed, 0))
+        ELSE (FLOOR(COALESCE(pt.purchased_quantity, 0)) - COALESCE(ct.consumed, 0))
       END AS remaining,
-      GREATEST(mcpd.quantity - COALESCE(pt.purchased, 0), 0) AS unpaid
+      GREATEST(mcpd.quantity - FLOOR(COALESCE(pt.purchased_quantity, 0)), 0) AS unpaid
     FROM member_care_packages mcp
     JOIN member_care_package_details mcpd 
       ON mcp.id = mcpd.member_care_package_id
@@ -612,7 +610,7 @@ const getMemberCarePackages = async (memberId: number) => {
       mcp.updated_at,
       mem.name AS member_name,
       emp.employee_name AS employee_name,
-      s.status_name,
+      mcp.status,  -- Changed from s.status_name to mcp.status
       mcpd.service_name,
       mcpd.discount,
       mcpd.price,
@@ -627,7 +625,6 @@ const getMemberCarePackages = async (memberId: number) => {
     JOIN member_care_package_details mcpd ON mcp.id = mcpd.member_care_package_id
     JOIN members mem ON mem.id = mcp.member_id
     JOIN employees emp ON emp.id = mcp.employee_id
-    JOIN statuses s ON s.id = mcp.status_id
     LEFT JOIN package_stats ps ON mcp.id = ps.package_id AND mcpd.id = ps.detail_id
     WHERE mcp.member_id = $1
     ORDER BY mcp.created_at DESC
@@ -661,7 +658,7 @@ const searchMemberCarePackages = async (searchQuery: string, memberId: number | 
       mcp.updated_at,
       mem.name AS member_name,
       emp.employee_name,
-      s.status_name,
+      mcp.status,  -- Changed from s.status_name to mcp.status
       mcpd.service_name,
       mcpd.discount,
       mcpd.price,
@@ -676,7 +673,6 @@ const searchMemberCarePackages = async (searchQuery: string, memberId: number | 
     JOIN member_care_package_details mcpd ON mcp.id = mcpd.member_care_package_id
     JOIN members mem ON mem.id = mcp.member_id
     JOIN employees emp ON emp.id = mcp.employee_id
-    JOIN statuses s ON s.id = mcp.status_id
     LEFT JOIN package_stats ps ON mcp.id = ps.package_id AND mcpd.id = ps.detail_id
     WHERE 
       (mcp.package_name ILIKE $1 OR mcpd.service_name ILIKE $1)
@@ -717,7 +713,7 @@ export default {
   processRefundService,
   getMCPById,
   getRemainingServices,
-  getStatusId,
+  //getStatusId,
   processFullRefundTransaction,
   fetchMCPStatusById,
   searchMembers,

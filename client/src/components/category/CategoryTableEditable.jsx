@@ -28,11 +28,6 @@ export default function CategoryTableEditable({
   const { user } = useAuth();
   const canEdit = user?.role === 'super_admin' || user?.role === 'data_admin';
 
-  // --- Role-based access ---
-  const { user } = useAuth();
-  const canEdit = user?.role === 'super_admin' || user?.role === 'data_admin';
-
-
   const startEditing = (cat) => {
     setEditingId(cat.id);
     setEditedName(cat.service_category_name || cat.product_category_name);
