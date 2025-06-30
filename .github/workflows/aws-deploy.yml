@@ -125,16 +125,16 @@ jobs:
           fi
 
           # Create client .env file
-          cat > client/.env << 'CLIENT_ENV_EOF'
-          ${{ secrets.CLIENT_ENV_FILE }}
-          CLIENT_ENV_EOF
+          # cat > client/.env << 'CLIENT_ENV_EOF'
+          # ${{ secrets.CLIENT_ENV_FILE }}
+          # CLIENT_ENV_EOF
 
           # Save image name for next step
           echo "DEPLOY_IMAGE=$IMAGE_NAME" >> $GITHUB_ENV
 
           # Debug: Show the created files
-          echo "Created client/.env:"
-          echo "CLIENT_ENV_FILE exists: $(test -f client/.env && echo 'yes' || echo 'no')"
+          # echo "Created client/.env:"
+          # echo "CLIENT_ENV_FILE exists: $(test -f client/.env && echo 'yes' || echo 'no')"
           echo "Using image: $IMAGE_NAME"
 
       - name: Sync project files
@@ -167,12 +167,12 @@ jobs:
             echo "${{ secrets.SERVER_ENV_FILE }}" > ./server/.env
 
             # Create client .env file  
-            echo "${{ secrets.CLIENT_ENV_FILE }}" > ./client/.env
+            # echo "${{ secrets.CLIENT_ENV_FILE }}" > ./client/.env
 
             # Debug: Check env files exist
             echo "Environment files check:"
             echo "Server .env exists: $(test -f ./server/.env && echo 'yes' || echo 'no')"
-            echo "Client .env exists: $(test -f ./client/.env && echo 'yes' || echo 'no')"
+            # echo "Client .env exists: $(test -f ./client/.env && echo 'yes' || echo 'no')"
 
             # Install Docker if not already installed
             if ! command -v docker &> /dev/null; then
