@@ -36,7 +36,12 @@ const TransferVoucherForm = () => {
   const [hasCustomPrice, setHasCustomPrice] = useState(false);
   const [hasCustomFoc, setHasCustomFoc] = useState(false);
   const [createdBy, setCreatedBy] = useState('');
-  const [updatedBy, setUpdatedBy] = useState('');
+  const [createdAt, setCreatedAt] = useState(() => {
+    const now = new Date();
+    now.setSeconds(0, 0); // truncate seconds/ms for input compatibility
+    return now.toISOString().slice(0, 16); // for datetime-local input
+  });
+
   const [remarks, setRemarks] = useState('');
   const isFocGreaterThanPrice = parseFloat(foc || '0') > parseFloat(price || '0');
 
@@ -65,7 +70,6 @@ const TransferVoucherForm = () => {
   useEffect(() => {
     if (!createdBy && employees?.length > 0) {
       setCreatedBy(employees[0].id);
-      setUpdatedBy(employees[0].id);
     }
   }, [employees]);
 
@@ -104,7 +108,7 @@ const TransferVoucherForm = () => {
       old_voucher_details: oldVoucherDetails,
       is_bypass: bypassTemplate,
       created_by: createdBy,
-      updated_by: updatedBy,
+      created_at: createdAt,
       remarks,
     };
 
@@ -119,7 +123,7 @@ const TransferVoucherForm = () => {
     bypassTemplate,
     customVoucherName,
     createdBy,
-    updatedBy,
+    createdAt,
     remarks,
   ]);
   const handleDecimalInput = (e, setter, setCustomFlag, isFoc = false) => {
@@ -314,7 +318,7 @@ const TransferVoucherForm = () => {
           <input type='text' className='w-full border px-3 py-2 rounded' value={topUpBalance} readOnly />
         </div>
 
-        {/* Created/Updated By */}
+        {/* Created By */}
         <div className='mb-6'>
           <label className='block font-medium mb-1'>Created By</label>
           <select
@@ -331,21 +335,18 @@ const TransferVoucherForm = () => {
           </select>
         </div>
 
+        {/* Created At */}
         <div className='mb-6'>
-          <label className='block font-medium mb-1'>Updated By</label>
-          <select
+          <label className='block font-medium mb-1'>Created At</label>
+          <input
+            type='datetime-local'
             className='w-full border px-3 py-2 rounded'
-            value={updatedBy}
-            onChange={(e) => setUpdatedBy(Number(e.target.value))}
-          >
-            <option value=''>Select employee</option>
-            {employees?.map((emp) => (
-              <option key={emp.id} value={emp.id}>
-                {emp.employee_name}
-              </option>
-            ))}
-          </select>
+            value={createdAt}
+            onChange={(e) => setCreatedAt(e.target.value)}
+          />
         </div>
+
+
 
         {/* Add to Cart Button */}
         <div className='mt-4 flex justify-end'>

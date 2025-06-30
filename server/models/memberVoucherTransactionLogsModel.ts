@@ -3,13 +3,11 @@ import { pool } from '../config/database.js';
 const addTransferMemberVoucherTransactionLog = async (
   memberId: number,
   memberVoucherName: string,
-  service_by: number,
+  serviced_by: number,
   created_by: number,
-  last_updated_by: number
+  created_at: string // ✅ New param
 ): Promise<void> => {
   try {
-    const now = new Date();
-
     // Step 1: Get the member's voucher record
     const getVoucherQuery = `
       SELECT id, current_balance, member_voucher_name
@@ -37,50 +35,47 @@ const addTransferMemberVoucherTransactionLog = async (
         serviced_by,
         type,
         created_by,
-        last_updated_by,
         created_at,
         updated_at
-      ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11)
+      ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10)
     `;
 
-    // Insert log: Transfer FROM this voucher
+    // "FROM" log entry
     const insertValuesFrom = [
       memberVoucher.id,
       `Transfer FROM ${memberVoucherName}`,
-      now,
+      created_at,
       0,
       amountChange,
-      service_by,
+      serviced_by,
       "TRANSFER FROM",
       created_by,
-      last_updated_by,
-      now,
-      now,
+      created_at,
+      created_at,
     ];
 
-    // Insert log: Transfer TO new voucher (log FROM context, not TO voucher ID)
+    // "TO" log entry
     const insertValuesTo = [
       memberVoucher.id,
       `Transfer TO new voucher`,
-      now,
+      created_at,
       0,
       amountChange,
-      service_by,
+      serviced_by,
       "TRANSFER TO",
       created_by,
-      last_updated_by,
-      now,
-      now,
+      created_at,
+      created_at,
     ];
 
     await pool().query(insertLogQuery, insertValuesFrom);
     await pool().query(insertLogQuery, insertValuesTo);
-
   } catch (error) {
     console.error("Error adding member voucher transaction log:", error);
     throw new Error("Failed to add member voucher transaction log");
   }
 };
+
 
 export default {
   addTransferMemberVoucherTransactionLog,

@@ -16,9 +16,11 @@ const useTransferVoucherStore = create((set, get) => ({
     transferFormData: null, // ✅ NEW STATE
 
     // New fields for created_by, updated_by, remarks
+    // New fields for created_by, created_at, and remarks
     created_by: "",
-    updated_by: "",
+    created_at: "", // added
     remarks: "",
+
 
     // Fetch voucher templates
     fetchVoucherTemplates: async () => {
@@ -97,9 +99,8 @@ const useTransferVoucherStore = create((set, get) => ({
     setOldVouchers: (vouchers) => set({ oldVouchers: vouchers }),
     setSelectedMember: (member) => set({ selectedMember: member }),
     setTransferFormData: (formData) => set({ transferFormData: formData }), // ✅ NEW SETTER
-    // New setters for created_by, updated_by, remarks
     setCreatedBy: (id) => set({ created_by: id }),
-    setUpdatedBy: (id) => set({ updated_by: id }),
+    setCreatedAt: (dateTime) => set({ created_at: dateTime }), // ✅ new setter
     setRemarks: (text) => set({ remarks: text }),
 
     // Derived values
@@ -133,7 +134,7 @@ const useTransferVoucherStore = create((set, get) => ({
             old_voucher_details,
             is_bypass,
             created_by,
-            updated_by,
+            created_at,
             remarks, // <-- added here
         } = formData;
 
@@ -159,9 +160,9 @@ const useTransferVoucherStore = create((set, get) => ({
                 member_voucher_name: v.member_voucher_name,
                 balance_to_transfer: Number(v.balance_to_transfer),
             })),
-            created_by: created_by,
-            updated_by: updated_by,
-            remarks: remarks, // <-- add remarks here
+            created_by,
+            created_at,
+            remarks,
         };
 
 

@@ -1308,8 +1308,6 @@ const removeMemberVoucher = async (id: string) => {
   }
 
 };
-
-
 const createMemberVoucherForTransfer = async (
   memberId: number,
   voucherTemplateName: string,
@@ -1317,44 +1315,44 @@ const createMemberVoucherForTransfer = async (
   price: number,
   foc: number,
   remarks: string,
-  createdBy: number,    // new optional params
-  handledBy: number,
-  lastUpdatedBy: number
+  createdBy: number,
+  createdAt: string // ✅ NEW
 ): Promise<MemberVouchers> => {
   try {
     const insertVoucherQuery = `
-      INSERT INTO member_vouchers (
-        member_id,
-        member_voucher_name,
-        voucher_template_id,
-        current_balance,
-        starting_balance,
-        free_of_charge,
-        default_total_price,
-        status,
-        remarks,
-        created_by,
-        handled_by,
-        last_updated_by,
-        created_at,
-        updated_at
-      ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, NOW(), NOW())
-      RETURNING *;
-    `;
+  INSERT INTO member_vouchers (
+    member_id,
+    member_voucher_name,
+    voucher_template_id,
+    current_balance,
+    starting_balance,
+    free_of_charge,
+    default_total_price,
+    status,
+    remarks,
+    created_by,
+    handled_by,
+    last_updated_by,
+    created_at,
+    updated_at
+  ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $10, $10, $11, $11)
+  RETURNING *;
+`;
+
+    const totalBalance = price + foc;
 
     const voucherValues = [
-      memberId,
-      voucherTemplateName,
-      voucherTemplateId,
-      price + foc,
-      price + foc,
-      foc,
-      price,
-      "is_enabled",
-      remarks,
-      createdBy || null,
-      handledBy || null,
-      lastUpdatedBy || null,
+      memberId,             // $1
+      voucherTemplateName,  // $2
+      voucherTemplateId,    // $3
+      totalBalance,         // $4
+      totalBalance,         // $5
+      foc,                  // $6
+      price,                // $7
+      "is_enabled",         // $8
+      remarks,              // $9
+      createdBy || null,    // $10
+      createdAt,            // $11
     ];
 
     const result = await pool().query(insertVoucherQuery, voucherValues);
@@ -1366,6 +1364,8 @@ const createMemberVoucherForTransfer = async (
     throw new Error("Failed to add member voucher");
   }
 };
+
+
 export default {
   getPaginatedVouchers,
   getServicesOfMemberVoucherById,
