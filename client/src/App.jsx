@@ -54,7 +54,7 @@ import RevenueReportPage from './pages/revenue/RevenueReportPage';
 import DeferredRevenuePage from './pages/revenue/DeferredRevenuePage';
 // Employees
 import ManagePositions from '@/pages/em/ManagePositions';
-import EmployeeTimetablePage from './pages/EmployeeTimetable/EmployeeTimetabel';
+import EmployeeTimetablePage from './pages/EmployeeTimetable/EmployeeTimetable';
 
 // Employee Timetable Pages
 import CreateEmployeeTimetablePage from '@/pages/EmployeeTimetable/CreateEmployeeTimetablePage'
