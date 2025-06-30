@@ -681,7 +681,7 @@ const SaleTransactionSummary = () => {
                         : ''
                     }`}>
                       <EmployeeSelect 
-                        label="Transaction Handler *"
+                        label="Payment Handler *"
                         value={transactionDetails.handledBy || ""}
                         onChange={setHandledBy}
                         disabled={isCreating}
