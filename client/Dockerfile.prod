@@ -1,0 +1,18 @@
+FROM nginx:alpine
+
+# Copy the built React app to nginx html directory
+COPY client/dist /usr/share/nginx/html
+
+# Create a simple index.html if dist doesn't exist (fallback)
+RUN if [ ! -f /usr/share/nginx/html/index.html ]; then \
+    echo '<!DOCTYPE html><html><head><title>Loading...</title></head><body><h1>Application Loading...</h1></body></html>' > /usr/share/nginx/html/index.html; \
+    fi
+
+# Set proper permissions
+RUN chmod -R 755 /usr/share/nginx/html
+
+# Expose port 80
+EXPOSE 80
+
+# Default command (will be overridden in docker-compose)
+CMD ["nginx", "-g", "daemon off;"]

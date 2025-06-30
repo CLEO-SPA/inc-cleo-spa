@@ -46,6 +46,14 @@ app.use(
 
 app.use('/api', mainRoutes);
 
+app.get('/api/health', (req, res) => {
+  res.status(200).json({ 
+    status: 'OK', 
+    timestamp: new Date().toISOString(),
+    uptime: process.uptime()
+  });
+});
+
 app.all('/*a', (req: Request, res: Response, next: NextFunction) => {
   throw new NotFoundError(`Can't find ${req.originalUrl} on this server!`);
 });

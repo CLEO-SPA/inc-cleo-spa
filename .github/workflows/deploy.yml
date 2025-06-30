@@ -1,0 +1,395 @@
+name: Deploy to AWS ECR and EC2
+
+on:
+  push:
+    branches: [ main, master, feature/aws-dev-deployment ]
+  pull_request:
+    branches: [ main, master ]
+  workflow_dispatch: # Allow manual triggering
+
+env:
+  AWS_REGION: ap-southeast-1 # Change to your preferred region
+  ECR_REPOSITORY_API: cleo-api
+  ECR_REPOSITORY_CLIENT: cleo-client
+  EC2_HOST: ${{ secrets.EC2_HOST }}
+  EC2_USER: ${{ secrets.EC2_USER }}
+
+jobs:
+  build-and-deploy:
+    runs-on: ubuntu-latest
+    
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v4
+
+    - name: Configure AWS credentials
+      uses: aws-actions/configure-aws-credentials@v4
+      with:
+        aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID }}
+        aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+        aws-region: ${{ env.AWS_REGION }}
+
+    - name: Login to Amazon ECR
+      id: login-ecr
+      uses: aws-actions/amazon-ecr-login@v2
+
+    - name: Get commit hash
+      id: get-commit-hash
+      run: echo "commit-hash=$(git rev-parse --short HEAD)" >> $GITHUB_OUTPUT
+
+    - name: Get timestamp
+      id: get-timestamp
+      run: echo "timestamp=$(date +'%Y%m%d-%H%M%S')" >> $GITHUB_OUTPUT
+
+    - name: Set up Docker Buildx
+      uses: docker/setup-buildx-action@v3
+
+    # Build and push client image
+    - name: Build client
+      run: |
+        cd client
+        npm ci
+        npm run build
+        cd ..
+
+    - name: Build and push client image
+      env:
+        ECR_REGISTRY: ${{ steps.login-ecr.outputs.registry }}
+        IMAGE_TAG: ${{ steps.get-commit-hash.outputs.commit-hash }}-${{ steps.get-timestamp.outputs.timestamp }}
+      run: |
+        # Build nginx image with client dist
+        docker build -f client/Dockerfile.prod -t $ECR_REGISTRY/$ECR_REPOSITORY_CLIENT:$IMAGE_TAG .
+        docker tag $ECR_REGISTRY/$ECR_REPOSITORY_CLIENT:$IMAGE_TAG $ECR_REGISTRY/$ECR_REPOSITORY_CLIENT:latest
+        docker push $ECR_REGISTRY/$ECR_REPOSITORY_CLIENT:$IMAGE_TAG
+        docker push $ECR_REGISTRY/$ECR_REPOSITORY_CLIENT:latest
+        echo "CLIENT_IMAGE=$ECR_REGISTRY/$ECR_REPOSITORY_CLIENT:$IMAGE_TAG" >> $GITHUB_ENV
+
+    # Build and push API image
+    - name: Build and push API image
+      env:
+        ECR_REGISTRY: ${{ steps.login-ecr.outputs.registry }}
+        IMAGE_TAG: ${{ steps.get-commit-hash.outputs.commit-hash }}-${{ steps.get-timestamp.outputs.timestamp }}
+      run: |
+        docker build -f server/Dockerfile -t $ECR_REGISTRY/$ECR_REPOSITORY_API:$IMAGE_TAG ./server
+        docker tag $ECR_REGISTRY/$ECR_REPOSITORY_API:$IMAGE_TAG $ECR_REGISTRY/$ECR_REPOSITORY_API:latest
+        docker push $ECR_REGISTRY/$ECR_REPOSITORY_API:$IMAGE_TAG
+        docker push $ECR_REGISTRY/$ECR_REPOSITORY_API:latest
+        echo "API_IMAGE=$ECR_REGISTRY/$ECR_REPOSITORY_API:$IMAGE_TAG" >> $GITHUB_ENV
+
+    # Deploy to EC2
+    - name: Deploy to EC2
+      env:
+        ECR_REGISTRY: ${{ steps.login-ecr.outputs.registry }}
+        IMAGE_TAG: ${{ steps.get-commit-hash.outputs.commit-hash }}-${{ steps.get-timestamp.outputs.timestamp }}
+      run: |
+        # Create deployment package
+        echo "Creating deployment package..."
+        
+        # Create docker-compose for production
+        cat > docker-compose.prod.yml << EOF
+        services:
+          nginx:
+            image: nginx:alpine
+            volumes:
+              - ./conf/nginx.conf:/etc/nginx/nginx.conf:ro
+              - client_dist:/usr/share/nginx/html:ro
+            ports:
+              - "80:80"
+              - "443:443"
+            deploy:
+              resources:
+                limits:
+                  cpus: "0.15"
+                  memory: 150M
+                reservations:
+                  cpus: "0.05"
+                  memory: 50M
+            depends_on:
+              - api
+              - client
+            healthcheck:
+              test: ["CMD", "test", "-f", "/usr/share/nginx/html/index.html"]
+              interval: 10s
+              timeout: 5s
+              retries: 3
+              start_period: 10s
+            restart: unless-stopped
+            command: >
+              /bin/sh -c "
+              until [ -f /usr/share/nginx/html/index.html ]; do
+                echo 'Waiting for index.html...'
+                sleep 2
+              done &&
+              apk add --no-cache openssl &&
+              mkdir -p /etc/nginx/conf.d &&
+              openssl req -x509 -nodes -days 365 -newkey rsa:2048 
+              -keyout /etc/nginx/conf.d/dummy.key 
+              -out /etc/nginx/conf.d/dummy.crt 
+              -subj '/C=US/ST=State/L=City/O=Organization/CN=localhost' &&
+              nginx -g 'daemon off;'"
+            networks:
+              - cleo-network
+
+          client:
+            image: $ECR_REGISTRY/$ECR_REPOSITORY_CLIENT:$IMAGE_TAG
+            volumes:
+              - client_dist:/usr/share/nginx/html
+            command: >
+              /bin/sh -c "
+              cp -r /usr/share/nginx/html/* /usr/share/nginx/html/ &&
+              echo 'Client files copied successfully' &&
+              tail -f /dev/null"
+            networks:
+              - cleo-network
+
+          api:
+            image: $ECR_REGISTRY/$ECR_REPOSITORY_API:$IMAGE_TAG
+            environment:
+              - NODE_ENV=production
+            volumes:
+              - ./server/.env:/usr/src/app/server/.env:ro
+            restart: unless-stopped
+            deploy:
+              resources:
+                limits:
+                  cpus: "0.35"
+                  memory: 350M
+                reservations:
+                  cpus: "0.10"
+                  memory: 100M
+              replicas: 2
+              update_config:
+                parallelism: 1
+                delay: 10s
+                order: start-first
+              restart_policy:
+                condition: on-failure
+                max_attempts: 3
+            networks:
+              - cleo-network
+
+        volumes:
+          client_dist:
+
+        networks:
+          cleo-network:
+            driver: bridge
+        EOF
+
+        # Create deployment script
+        cat > deploy.sh << 'EOF'
+        #!/bin/bash
+        set -e
+
+        echo "🚀 Starting deployment..."
+
+        # Navigate to app directory
+        cd /home/\$EC2_USER/cleo-app
+
+        # Login to ECR
+        aws ecr get-login-password --region \$AWS_REGION | docker login --username AWS --password-stdin \$ECR_REGISTRY
+
+        # Pull latest images
+        echo "📦 Pulling latest images..."
+        docker pull \$ECR_REGISTRY/\$ECR_REPOSITORY_API:\$IMAGE_TAG
+        docker pull \$ECR_REGISTRY/\$ECR_REPOSITORY_CLIENT:\$IMAGE_TAG
+
+        # Stop and remove old containers
+        echo "🛑 Stopping old containers..."
+        docker-compose -f docker-compose.prod.yml down --remove-orphans || true
+
+        # Clean up old images (keep last 3 versions)
+        echo "🧹 Cleaning up old images..."
+        docker image prune -f || true
+
+        # Start new containers
+        echo "🎯 Starting new containers..."
+        docker-compose -f docker-compose.prod.yml up -d
+
+        # Wait for health check
+        echo "🏥 Waiting for health check..."
+        sleep 30
+
+        # Verify deployment
+        if curl -f http://localhost/api/health > /dev/null 2>&1; then
+          echo "✅ API health check passed"
+        else
+          echo "❌ API health check failed"
+          docker-compose -f docker-compose.prod.yml logs api
+          exit 1
+        fi
+
+        if curl -f http://localhost > /dev/null 2>&1; then
+          echo "✅ Frontend health check passed"
+        else
+          echo "❌ Frontend health check failed"
+          docker-compose -f docker-compose.prod.yml logs nginx
+          exit 1
+        fi
+
+        echo "🎉 Deployment completed successfully!"
+        EOF
+
+        chmod +x deploy.sh
+
+    - name: Copy files to EC2 and deploy
+      uses: appleboy/ssh-action@v1.0.3
+      env:
+        ECR_REGISTRY: ${{ steps.login-ecr.outputs.registry }}
+        IMAGE_TAG: ${{ steps.get-commit-hash.outputs.commit-hash }}-${{ steps.get-timestamp.outputs.timestamp }}
+      with:
+        host: ${{ secrets.EC2_HOST }}
+        username: ${{ secrets.EC2_USER }}
+        key: ${{ secrets.EC2_PRIVATE_KEY }}
+        envs: ECR_REGISTRY,ECR_REPOSITORY_API,ECR_REPOSITORY_CLIENT,IMAGE_TAG,AWS_REGION,EC2_USER
+        script: |
+          # Create app directory
+          mkdir -p /home/$EC2_USER/cleo-app/conf
+          cd /home/$EC2_USER/cleo-app
+
+          # Copy docker-compose file
+          cat > docker-compose.prod.yml << 'EOF'
+          services:
+            nginx:
+              image: nginx:alpine
+              volumes:
+                - ./conf/nginx.conf:/etc/nginx/nginx.conf:ro
+                - client_dist:/usr/share/nginx/html:ro
+              ports:
+                - "80:80"
+                - "443:443"
+              deploy:
+                resources:
+                  limits:
+                    cpus: "0.15"
+                    memory: 150M
+                  reservations:
+                    cpus: "0.05"
+                    memory: 50M
+              depends_on:
+                - api
+                - client
+              healthcheck:
+                test: ["CMD", "test", "-f", "/usr/share/nginx/html/index.html"]
+                interval: 10s
+                timeout: 5s
+                retries: 3
+                start_period: 10s
+              restart: unless-stopped
+              command: >
+                /bin/sh -c "
+                until [ -f /usr/share/nginx/html/index.html ]; do
+                  echo 'Waiting for index.html...'
+                  sleep 2
+                done &&
+                apk add --no-cache openssl &&
+                mkdir -p /etc/nginx/conf.d &&
+                openssl req -x509 -nodes -days 365 -newkey rsa:2048 
+                -keyout /etc/nginx/conf.d/dummy.key 
+                -out /etc/nginx/conf.d/dummy.crt 
+                -subj '/C=US/ST=State/L=City/O=Organization/CN=localhost' &&
+                nginx -g 'daemon off;'"
+              networks:
+                - cleo-network
+
+            client:
+              image: $ECR_REGISTRY/$ECR_REPOSITORY_CLIENT:$IMAGE_TAG
+              volumes:
+                - client_dist:/usr/share/nginx/html
+              command: >
+                /bin/sh -c "
+                cp -r /usr/share/nginx/html/* /usr/share/nginx/html/ &&
+                echo 'Client files copied successfully' &&
+                tail -f /dev/null"
+              networks:
+                - cleo-network
+
+            api:
+              image: $ECR_REGISTRY/$ECR_REPOSITORY_API:$IMAGE_TAG
+              environment:
+                - NODE_ENV=production
+              volumes:
+                - ./server/.env:/usr/src/app/server/.env:ro
+              restart: unless-stopped
+              deploy:
+                resources:
+                  limits:
+                    cpus: "0.35"
+                    memory: 350M
+                  reservations:
+                    cpus: "0.10"
+                    memory: 100M
+                replicas: 2
+                update_config:
+                  parallelism: 1
+                  delay: 10s
+                  order: start-first
+                restart_policy:
+                  condition: on-failure
+                  max_attempts: 3
+              networks:
+                - cleo-network
+
+          volumes:
+            client_dist:
+
+          networks:
+            cleo-network:
+              driver: bridge
+          EOF
+
+          # Execute deployment
+          echo "🚀 Starting deployment..."
+
+          # Login to ECR
+          aws ecr get-login-password --region $AWS_REGION | docker login --username AWS --password-stdin $ECR_REGISTRY
+
+          # Pull latest images
+          echo "📦 Pulling latest images..."
+          docker pull $ECR_REGISTRY/$ECR_REPOSITORY_API:$IMAGE_TAG
+          docker pull $ECR_REGISTRY/$ECR_REPOSITORY_CLIENT:$IMAGE_TAG
+
+          # Stop and remove old containers
+          echo "🛑 Stopping old containers..."
+          docker-compose -f docker-compose.prod.yml down --remove-orphans || true
+
+          # Clean up old images (keep last 3 versions)
+          echo "🧹 Cleaning up old images..."
+          docker image prune -f || true
+
+          # Start new containers
+          echo "🎯 Starting new containers..."
+          docker-compose -f docker-compose.prod.yml up -d
+
+          # Wait for health check
+          echo "🏥 Waiting for health check..."
+          sleep 30
+
+          # Verify deployment
+          if curl -f http://localhost > /dev/null 2>&1; then
+            echo "✅ Frontend health check passed"
+          else
+            echo "❌ Frontend health check failed"
+            docker-compose -f docker-compose.prod.yml logs nginx
+            exit 1
+          fi
+
+          echo "🎉 Deployment completed successfully!"
+
+    - name: Copy nginx config to EC2
+      uses: appleboy/scp-action@v0.1.7
+      with:
+        host: ${{ secrets.EC2_HOST }}
+        username: ${{ secrets.EC2_USER }}
+        key: ${{ secrets.EC2_PRIVATE_KEY }}
+        source: "conf/nginx.conf"
+        target: "/home/${{ secrets.EC2_USER }}/cleo-app/"
+
+    - name: Notify deployment status
+      if: always()
+      run: |
+        if [ "${{ job.status }}" == "success" ]; then
+          echo "✅ Deployment successful! Application is running at http://${{ secrets.EC2_HOST }}"
+        else
+          echo "❌ Deployment failed. Check the logs for details."
+        fi
