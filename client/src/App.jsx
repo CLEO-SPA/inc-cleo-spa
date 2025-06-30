@@ -50,10 +50,17 @@ import ManagePaymentMethodsPage from './pages/payment-method/ManagePaymentMethod
 import CreatePaymentMethodPage from './pages/payment-method/CreatePaymentMethodPage';
 import EditPaymentMethodPage from './pages/payment-method/EditPaymentMethodPage';
 import TestPMComponent from './pages/sale-transaction/AddPMMComponentTest';
+
+// Employee Management
+import ManagePositions from '@/pages/em/ManagePositionsPage';
+import CreatePositionPage from '@/pages/em/CreatePositionPage';
+import EditPositionPage from '@/pages/em/UpdatePositionPage';
+import ManageEmployeesPage from '@/pages/em/ManageEmployeesPage';
+import CreateEmployeePage from '@/pages/em/CreateEmployeePage';
+import EditEmployeePage from '@/pages/em/UpdateEmployeePage';
 import RevenueReportPage from './pages/revenue/RevenueReportPage';
 import DeferredRevenuePage from './pages/revenue/DeferredRevenuePage';
 // Employees
-import ManagePositions from '@/pages/em/ManagePositions';
 import EmployeeTimetablePage from './pages/EmployeeTimetable/EmployeeTimetable';
 
 // Employee Timetable Pages
@@ -94,7 +101,6 @@ function App() {
               <Route path='/appointments' element={<ManageAppointmentsPage />} />
 
               <Route path='/appointments/create' element={<CreateAppointmentPage />} />
-              <Route path='/employees' element={<CreateAppointmentPage />} />
               <Route path='/appointments/edit/:id' element={<EditAppointmentPage />} />
               <Route path='/appointments/:id' element={<ViewAppointmentDetailsPage />} />
 
@@ -124,6 +130,11 @@ function App() {
 
               {/* Employees Routes */}
               <Route path='/positions' element={<ManagePositions />} />
+              <Route path='/positions/create' element={<CreatePositionPage />} />
+              <Route path='/positions/update/:id' element={<EditPositionPage />} />
+              <Route path='/employees' element={<ManageEmployeesPage />} />
+              <Route path='/employees/create' element={<CreateEmployeePage />} />
+              <Route path='/employees/edit/:id' element={<EditEmployeePage />} />
 
               {/* Voucher Template */}
               <Route path='/voucher-template/create' element={<CreateVoucherTemplatesPage />} />
