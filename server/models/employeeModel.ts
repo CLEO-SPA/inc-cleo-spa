@@ -21,6 +21,8 @@ export interface DetailedEmployee {
   employee_name: string;
   employee_code: number;
   employee_is_active: boolean;
+  employee_contact?: string; 
+  employee_email?: string; // optional, can be undefined
   position_ids: number[];
   position_names: string[];
   created_at: Date;
@@ -531,6 +533,8 @@ const getEmployeeById = async (employeeId: number): Promise<DetailedEmployee | n
       e.employee_name,
       e.employee_code,
       e.employee_is_active,
+      e.employee_contact,
+      e.employee_email,
       COALESCE(ARRAY_AGG(etp.position_id) FILTER (WHERE etp.position_id IS NOT NULL), '{}') AS position_ids,
       COALESCE(ARRAY_AGG(p.position_name) FILTER (WHERE p.position_name IS NOT NULL), '{}') AS position_names,
       e.created_at,
@@ -551,6 +555,8 @@ const getEmployeeById = async (employeeId: number): Promise<DetailedEmployee | n
       id: row.id,
       employee_name: row.employee_name,
       employee_code: row.employee_code,
+      employee_contact: row.employee_contact,
+      employee_email: row.employee_email,
       employee_is_active: row.employee_is_active,
       position_ids: row.position_ids || [],
       position_names: row.position_names || [],
@@ -655,56 +661,56 @@ const getAllRolesForDropdown = async () => {
   }
 };
 
-/* --------------------------------------------------------------------------
- * One-shot fetch of a single employee (with positions & status)
- * ------------------------------------------------------------------------ */
-const getOnlyEmployeeById = async (employee_id: number) => {
-  const query = `
-    SELECT
-      e.id                        AS employee_id,
-      e.employee_code,
-      e.employee_name,
-      e.employee_email,
-      e.employee_contact,
-      e.employee_is_active,
-      e.created_at,
-      e.updated_at,
-      (SELECT st.status_name
-         FROM statuses st
-        WHERE st.id = e.verified_status_id)      AS verification_status,
-      p.id                        AS position_id,
-      p.position_name
-    FROM employees            e
-    LEFT JOIN employee_to_position ep ON ep.employee_id = e.id
-    LEFT JOIN positions            p ON p.id          = ep.position_id
-    WHERE e.id = $1
-  `;
-  const { rows, rowCount } = await pool().query(query, [employee_id]);
+// /* --------------------------------------------------------------------------
+//  * One-shot fetch of a single employee (with positions & status)
+//  * ------------------------------------------------------------------------ */
+// const getOnlyEmployeeById = async (employee_id: number) => {
+//   const query = `
+//     SELECT
+//       e.id                        AS employee_id,
+//       e.employee_code,
+//       e.employee_name,
+//       e.employee_email,
+//       e.employee_contact,
+//       e.employee_is_active,
+//       e.created_at,
+//       e.updated_at,
+//       (SELECT st.status_name
+//          FROM statuses st
+//         WHERE st.id = e.verified_status_id)      AS verification_status,
+//       p.id                        AS position_id,
+//       p.position_name
+//     FROM employees            e
+//     LEFT JOIN employee_to_position ep ON ep.employee_id = e.id
+//     LEFT JOIN positions            p ON p.id          = ep.position_id
+//     WHERE e.id = $1
+//   `;
+//   const { rows, rowCount } = await pool().query(query, [employee_id]);
 
-  if (!rowCount) return null;
+//   if (!rowCount) return null;
 
-  // -- consolidate one row per employee
-  const emp = {
-    id: rows[0].employee_id,
-    employee_name: rows[0].employee_name,
-    employee_email: rows[0].employee_email,
-    employee_code: rows[0].employee_code,
-    employee_contact: rows[0].employee_contact,
-    employee_is_active: rows[0].employee_is_active,
-    verification_status: rows[0].verification_status,
-    created_at: rows[0].created_at,
-    updated_at: rows[0].updated_at,
-    positions: [] as { position_id: string; position_name: string }[],
-  };
+//   // -- consolidate one row per employee
+//   const emp = {
+//     id: rows[0].employee_id,
+//     employee_name: rows[0].employee_name,
+//     employee_email: rows[0].employee_email,
+//     employee_code: rows[0].employee_code,
+//     employee_contact: rows[0].employee_contact,
+//     employee_is_active: rows[0].employee_is_active,
+//     verification_status: rows[0].verification_status,
+//     created_at: rows[0].created_at,
+//     updated_at: rows[0].updated_at,
+//     positions: [] as { position_id: string; position_name: string }[],
+//   };
 
-  rows.forEach((r) => {
-    if (r.position_id) {
-      emp.positions.push({ position_id: r.position_id, position_name: r.position_name });
-    }
-  });
+//   rows.forEach((r) => {
+//     if (r.position_id) {
+//       emp.positions.push({ position_id: r.position_id, position_name: r.position_name });
+//     }
+//   });
 
-  return emp;
-};
+//   return emp;
+// };
 
 export interface UpdateEmployeeData {
   /* PK of the employees row to update */
@@ -914,7 +920,7 @@ export default {
   touchEmployee,
   getEmployeeById,
   updateEmployee,
-  getOnlyEmployeeById,
+  // getOnlyEmployeeById,
   getAllActivePositions,
   employeeExists,
   getEmployeeNameByEmployeeById

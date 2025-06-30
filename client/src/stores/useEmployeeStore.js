@@ -15,8 +15,14 @@ const getInitialState = () => ({
   },
 
   /* ------------ single-employee detail view ---------------------------- */
-  currentEmployee: null,     // ← NEW – holds object returned by GET /em/employees/:id
-  isFetchingOne: false,      // ← NEW
+  currentEmployee: null,
+  isFetchingOne: false,
+
+  /* ------------ dropdown and name-only fetch --------------------------- */
+  dropdownEmployees: [],
+  isFetchingDropdown: false,
+  isFetchingName: false,
+  employeeName: null,
 
   /* ------------ misc single-item state --------------------------------- */
   inviteLink: null,
@@ -35,14 +41,13 @@ const getInitialState = () => ({
   success: null,
   isCreating: false,
   isFetchingList: false,
-  isRegenerating: null,   // id
-  isUpdating: null,       // id
+  isRegenerating: null, // id
+  isUpdating: null,     // id
 });
 
 const useEmployeeStore = create((set, get) => ({
   /* ------------------------------------------------- state */
   ...getInitialState(),
-
 
   /* ------------------------------------------------- helpers */
   setEmployeeData: (field, value) => {
@@ -58,10 +63,6 @@ const useEmployeeStore = create((set, get) => ({
     get().fetchAllEmployees();
   },
 
-  // Get Employee Lists for Dropdown Functionality
-  fetchDropdownEmployees: async () => {
-    set({ isFetching: true, error: false, errorMessage: null });
-
   setCurrentPage: (currentPage) => {
     set((state) => ({
       pagination: { ...state.pagination, currentPage },
@@ -69,12 +70,18 @@ const useEmployeeStore = create((set, get) => ({
     get().fetchAllEmployees();
   },
 
+  resetMessages: () =>
+    set({ error: null, success: null, inviteLink: null }),
+
+  reset: () => set(getInitialState()),
+
   /* ------------------------------------------------- single fetch */
   getEmployeeById: async (employeeId) => {
     set({ isFetchingOne: true, error: null, currentEmployee: null });
     try {
       const res = await api.get(`/em/${employeeId}`);
-      set({ currentEmployee: res.data, isFetchingOne: false });
+      console.log('Fetched employee:', res.data.data);
+      set({ currentEmployee: res.data.data, isFetchingOne: false });
     } catch (err) {
       set({
         isFetchingOne: false,
@@ -117,15 +124,16 @@ const useEmployeeStore = create((set, get) => ({
     }
   },
 
+  /* ------------------------------------------------- dropdown fetch */
   fetchDropdownEmployees: async () => {
-    set({ isFetching: true, error: null });
+    set({ isFetchingDropdown: true, error: null });
     try {
       const res = await api.get('/em/dropdown');
-      set({ employees: res.data, isFetching: false });
+      set({ dropdownEmployees: res.data, isFetchingDropdown: false });
     } catch (err) {
       set({
-        employees: [],
-        isFetching: false,
+        dropdownEmployees: [],
+        isFetchingDropdown: false,
         error:
           err?.response?.data?.message ||
           err.message ||
@@ -203,43 +211,33 @@ const useEmployeeStore = create((set, get) => ({
     }
   },
 
-
-  /* ------------------------------------------------- misc */
-  resetMessages: () =>
-    set({ error: null, success: null, inviteLink: null }),
-
-  // Get Employee Name by Employee ID
+  /* ------------------------------------------------- name fetch */
   fetchEmployeeNameById: async (employeeId) => {
-    set({ isFetching: true, error: false, errorMessage: null });
-
+    set({ isFetchingName: true, error: null });
     try {
-      const response = await api.get(`/em/employeeName/${employeeId}`);  
-
+      const response = await api.get(`/em/employeeName/${employeeId}`);
       set({
-        employee: response.data,  
-        isFetching: false,
-        error: false,
-        errorMessage: null,
+        employeeName: response.data,
+        isFetchingName: false,
       });
-
-      return response.data;  
-
+      return response.data;
     } catch (error) {
       set({
-        employee: null,  
-        isFetching: false,
-        error: true,
-        errorMessage: error.response?.data?.message || error.message || 'Failed to fetch employee',
+        employeeName: null,
+        isFetchingName: false,
+        error:
+          error.response?.data?.message ||
+          error.message ||
+          'Failed to fetch employee',
       });
-
       console.error('Error fetching employee:', error);
-
-      throw new Error(error.response?.data?.message || error.message || 'Failed to fetch employee');
+      throw new Error(
+        error.response?.data?.message ||
+        error.message ||
+        'Failed to fetch employee'
+      );
     }
   },
-
-
-  reset: () => set(getInitialState()),
 }));
 
 export default useEmployeeStore;

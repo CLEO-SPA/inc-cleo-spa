@@ -52,6 +52,7 @@ router.post(
 
 router.put('/:id', roleMiddleware.hasRole(['super_admin', 'data_admin']), employeeController.updateEmployee);
 
-router.get('/:id', employeeController.getEmployeeById);
+// GET /api/em/:id - for fetching a single employee by ID
+// router.get('/:id', employeeController.getOnlyEmployeeById);
 
 export default router;

@@ -52,6 +52,8 @@ export default function UpdateEmployeePage() {
   /* ---------------- invite‑link helper ------------- */
   const [copied, setCopied] = useState(false);
 
+  console.log("cm",currentEmployee)
+
   /* ---------------- react-hook-form ---------------- */
   const defaultValues = useMemo(() => {
     if (!currentEmployee) return {};

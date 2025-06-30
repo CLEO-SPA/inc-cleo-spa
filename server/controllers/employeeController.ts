@@ -639,25 +639,25 @@ export const updateEmployee = async (
 };
 
 
-const getOnlyEmployeeById = async (req: Request, res: Response, next: NextFunction) => {
-  const employeeId = Number(req.params.id);
-  if (!employeeId || Number.isNaN(employeeId)) {
-    res.status(400).json({ message: 'Invalid employee ID.' });
-    return;
-  }
+// const getOnlyEmployeeById = async (req: Request, res: Response, next: NextFunction) => {
+//   const employeeId = Number(req.params.id);
+//   if (!employeeId || Number.isNaN(employeeId)) {
+//     res.status(400).json({ message: 'Invalid employee ID.' });
+//     return;
+//   }
 
-  try {
-    const employee = await model.getOnlyEmployeeById(employeeId);
-    if (!employee) {
-      res.status(404).json({ message: 'Employee not found.' });
-      return;
-    }
-    res.status(200).json(employee);
-  } catch (error) {
-    console.error('Error fetching employee by ID:', error);
-    next(error);
-  }
-};
+//   try {
+//     const employee = await model.getOnlyEmployeeById(employeeId);
+//     if (!employee) {
+//       res.status(404).json({ message: 'Employee not found.' });
+//       return;
+//     }
+//     res.status(200).json(employee);
+//   } catch (error) {
+//     console.error('Error fetching employee by ID:', error);
+//     next(error);
+//   }
+// };
 
 
 export default {
@@ -677,5 +677,6 @@ export default {
   updateEmployee,
   getEmployeeById,
   getAllActivePositions,
-  getEmployeeNameByEmployeeId
+  getEmployeeNameByEmployeeId,
+  // getOnlyEmployeeById
 };
