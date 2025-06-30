@@ -1,5 +1,19 @@
 import * as React from 'react';
-import { Command, Users, CalendarDays, ShieldUser, Box, Wand, LayoutDashboard, SquareUserRound, Package, Tickets, ChartColumnStacked } from 'lucide-react';
+import {
+  Command,
+  Users,
+  CalendarDays,
+  ShieldUser,
+  Box,
+  Wand,
+  LayoutDashboard,
+  SquareUserRound,
+  Package,
+  Tickets,
+  ChartColumnStacked,
+  CreditCard,
+  DollarSign,
+} from 'lucide-react';
 import { NavMain } from '@/components/nav-main';
 import { NavUser } from '@/components/nav-user';
 import {
@@ -25,7 +39,6 @@ const data = {
       title: 'Users',
       url: '#',
       icon: ShieldUser,
-      isActive: true,
       items: [
         {
           title: 'View Users',
@@ -42,17 +55,32 @@ const data = {
       ],
     },
     {
+      title: 'Revenue',
+      url: '#',
+      icon: DollarSign,
+      items: [
+        {
+          title: 'Revenue Report',
+          url: '/rr',
+        },
+        {
+          title: 'Deferred Revenue',
+          url: '/dr',
+        },
+      ],
+    },
+    {
       title: 'Services',
       url: '#',
       icon: Wand,
       items: [
         {
           title: 'Add New Service',
-          url: '#',
+          url: '/create-service',
         },
         {
           title: 'Manage Services',
-          url: 'manage-service',
+          url: '/manage-service',
         },
       ],
     },
@@ -63,11 +91,11 @@ const data = {
       items: [
         {
           title: 'Create Product',
-          url: '#',
+          url: '/create-product',
         },
         {
           title: 'Manage Products',
-          url: '#',
+          url: '/manage-product',
         },
       ],
     },
@@ -112,59 +140,78 @@ const data = {
       items: [
         {
           title: 'Create Care Package',
-          url: '#',
+          url: '/cp/c',
         },
         {
           title: 'Manage Care Packages',
-          url: '/mcp',
+          url: '/cp',
         },
       ],
     },
     {
       title: 'Employees',
-      url: '',
+      url: '/employees',
       icon: Users,
       items: [
         {
-          title: 'Add New Employee',
-          url: '#',
+          title: 'Add new employee',
+          url: '/employees/create',
         },
         {
-          title: 'Manage Employees',
-          url: '#',
+          title: 'Manage employees',
+          url: '/employees',
+        },
+        {
+          title: 'Add new position',
+          url: '/positions/create',
+        },
+        {
+          title: 'Manage positions',
+          url: '/positions',
         },
       ],
     },
     {
       title: 'Appointments',
-      url: '#',
+      url: '/appointments',
       icon: CalendarDays,
       items: [
         {
           title: 'View Appointments',
-          url: '#',
+          url: '/appointments',
         },
         {
           title: 'Add New Appointment',
-          url: '#',
+          url: '/appointments/create',
         },
       ],
     },
     {
-      title: 'Statistics',
-      url: '#',
-      icon: ChartColumnStacked,
+      title: 'Payment Methods',
+      url: '/payment-method',
+      icon: CreditCard,
       items: [
         {
-          title: 'View Database Report',
-          url: '/dbcr',
-        },
-        {
-          title: 'View Monthly Revenue Report',
-          url: '#',
+          title: 'Manage Payment Methods',
+          url: '/payment-method',
         },
       ],
     },
+    // {
+    //   title: 'Statistics',
+    //   url: '#',
+    //   icon: ChartColumnStacked,
+    //   items: [
+    //     {
+    //       title: 'View Database Report',
+    //       url: '/dbcr',
+    //     },
+    //     {
+    //       title: 'View Monthly Revenue Report',
+    //       url: '#',
+    //     },
+    //   ],
+    // },
     {
       title: 'Others',
       url: '#',
@@ -184,6 +231,18 @@ const data = {
         {
           title: "View Translations",
           url: '/translations'
+
+      title: 'Timetables',
+      url: '#',
+      icon: CalendarDays,
+      items: [
+        {
+          title: 'Create Timetable',
+          url: '/et/create-employee-timetable',
+        },
+        {
+          title: 'Manage Timetable',
+          url: '/et',
         },
       ],
     },

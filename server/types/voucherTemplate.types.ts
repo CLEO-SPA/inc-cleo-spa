@@ -47,6 +47,7 @@ export interface UpdateVoucherTemplateInput {
   remarks?: string;
   status?: string;
   last_updated_by?: string;
+  created_at?: string;
   updated_at?: string;
   details?: Omit<VoucherTemplateDetail, 'voucher_template_id'>[];
 }

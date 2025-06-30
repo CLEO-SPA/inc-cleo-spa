@@ -1,5 +1,5 @@
 // pages/UpdateVoucherTemplatePage.jsx
-import { useForm, FormProvider } from 'react-hook-form';
+import { useForm, FormProvider, Controller } from 'react-hook-form';
 import { useVoucherTemplateFormStore } from '@/stores/useVoucherTemplateFormStore';
 import { Input } from '@/components/ui/input';
 import { Button } from '@/components/ui/button';
@@ -74,11 +74,11 @@ const UpdateVoucherTemplatePage = () => {
     default_total_price: 0,
     remarks: '',
     status: 'is_enabled',
-    created_by: '',
+    last_updated_by: '',
   }), []);
 
   const methods = useForm({ defaultValues });
-  const { register, handleSubmit, reset, setValue, formState: { errors } } = methods;
+  const { register, handleSubmit, reset, setValue, formState: { errors }, control } = methods;
 
   // Load template data
   const loadTemplate = useCallback(async () => {
@@ -111,7 +111,6 @@ const UpdateVoucherTemplatePage = () => {
       setValue('default_total_price', templateData.default_total_price || 0);
       setValue('remarks', templateData.remarks || '');
       setValue('status', templateData.status || 'is_enabled');
-      setValue('created_by', templateData.created_by || '');
 
       setIsLoadingTemplate(false);
     } catch (error) {
@@ -138,18 +137,26 @@ const UpdateVoucherTemplatePage = () => {
     addServiceToTemplate();
   }, [serviceForm.service_id, addServiceToTemplate]);
 
-  const handleServiceFieldChange = useCallback((index, field, value) => {
-    const updatedData = { [field]: value };
+ 
+const handleServiceFieldChange = useCallback((index, field, value) => {
+  const updatedData = {};
 
-    if (field === 'custom_price' || field === 'discount') {
-      const service = mainFormData.details[index];
-      const customPrice = field === 'custom_price' ? value : service.custom_price;
-      const discount = field === 'discount' ? value : service.discount;
-      updatedData.final_price = customPrice - (customPrice * discount / 100);
-    }
+  if (field === 'discount' && value > 1) {
+    value = 1; // Cap discount at 1
+  }
 
-    updateServiceInTemplate(index, updatedData);
-  }, [mainFormData.details, updateServiceInTemplate]);
+  updatedData[field] = value;
+
+  if (field === 'custom_price' || field === 'discount') {
+    const service = mainFormData.details[index];
+    const customPrice = field === 'custom_price' ? value : service.custom_price;
+    const discount = field === 'discount' ? value : service.discount;
+    updatedData.final_price = customPrice * discount;
+  }
+
+  updateServiceInTemplate(index, updatedData);
+}, [mainFormData.details, updateServiceInTemplate]);
+
 
   const handleUpdateService = useCallback((index) => {
     setEditingServiceIndex(current => current === index ? null : index);
@@ -183,7 +190,6 @@ const UpdateVoucherTemplatePage = () => {
     clearError();
     const createdAtIso = new Date(data.created_at).toISOString();
 
-    console.log('Updating voucher template with data:', data);
     const templateData = {
       ...data,
       created_at: createdAtIso,
@@ -267,10 +273,10 @@ const UpdateVoucherTemplatePage = () => {
                 </div>
                 <div className="bg-red-50 border border-red-200 rounded-md p-4">
                   <p className="text-red-800">{loadError}</p>
-                  <Button 
-                    onClick={loadTemplate} 
-                    variant="outline" 
-                    size="sm" 
+                  <Button
+                    onClick={loadTemplate}
+                    variant="outline"
+                    size="sm"
                     className="mt-3"
                   >
                     Try Again
@@ -348,6 +354,44 @@ const UpdateVoucherTemplatePage = () => {
                           )}
                         </div>
 
+                       <div className="space-y-1">
+                          <Label className="text-sm font-medium text-gray-700">
+                            Status
+                          </Label>
+                          <Controller
+                            name="status" // This name must match the field name in your form data
+                            control={control} // Pass the control object from useForm
+                            defaultValue={mainFormData.status} // Set initial value from Zustand store
+                            render={({ field }) => ( // <--- 'field' is defined here
+                              <Select
+                                onValueChange={(val) => {
+                                  field.onChange(val); // <--- 'field' is accessible here
+                                  updateMainField('status', val); // Update your Zustand store
+                                }}
+                                value={field.value} // <--- 'field' is accessible here
+                              >
+                                <SelectTrigger className="w-full h-9">
+                                  <SelectValue placeholder="Select status" />
+                                </SelectTrigger>
+                                <SelectContent>
+                                  <SelectItem value="is_enabled">Enabled</SelectItem>
+                                  <SelectItem value="disabled">Disabled</SelectItem>
+                                </SelectContent>
+                              </Select>
+                            )}
+                          />
+                        </div>
+
+                        <div className="space-y-1">
+                          <EmployeeSelect
+                            name="last_updated_by"
+                            label="Updated By *"
+                          />
+                        </div>
+                      </div>
+
+                      {/* Second row with remaining fields */}
+                      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
                         <div className="space-y-1">
                           <Label htmlFor="default_starting_balance" className="text-sm font-medium text-gray-700">
                             Starting Balance
@@ -379,10 +423,6 @@ const UpdateVoucherTemplatePage = () => {
                             className="h-9"
                           />
                         </div>
-                      </div>
-
-                      {/* Second row with remaining fields */}
-                      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
                         <div className="space-y-1">
                           <Label htmlFor="default_total_price" className="text-sm font-medium text-gray-700">
                             Total Price
@@ -400,34 +440,8 @@ const UpdateVoucherTemplatePage = () => {
                             Auto-calculated: Starting Balance - Free Charge
                           </p>
                         </div>
-
-                        <div className="space-y-1">
-                          <Label className="text-sm font-medium text-gray-700">
-                            Status
-                          </Label>
-                          <Select
-                            onValueChange={(val) => handleFieldChange('status', val)}
-                            value={mainFormData.status}
-                          >
-                            <SelectTrigger className="w-full h-9">
-                              <SelectValue placeholder="Select status" />
-                            </SelectTrigger>
-                            <SelectContent>
-                              <SelectItem value="is_enabled">Enabled</SelectItem>
-                              <SelectItem value="disabled">Disabled</SelectItem>
-                            </SelectContent>
-                          </Select>
-                        </div>
-
-                        <div className="space-y-1">
-                          <EmployeeSelect 
-                            name="created_by" 
-                            label="Created By *" 
-                            defaultValue={mainFormData.created_by}
-                          />
-                        </div>
                       </div>
-                      
+
                       <div className="space-y-2 col-span-2">
                         <Label htmlFor="remarks" className="text-sm font-medium text-gray-700">
                           Remarks
