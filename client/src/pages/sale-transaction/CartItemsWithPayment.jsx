@@ -140,13 +140,15 @@ const CartItemsWithPayment = ({
       newPricing.quantity = Math.max(1, Math.floor(numValue));
     } else if (field === 'customPrice') {
       newPricing.customPrice = numValue;
-      newPricing.discount = 0; 
-      newPricing.finalUnitPrice = numValue > 0 ? numValue : newPricing.originalPrice;
+      // When custom price is used, set discount to 1 (full pay of custom amount)
+      newPricing.discount = 1;
+      newPricing.finalUnitPrice = numValue;
     } else if (field === 'discount') {
+      // Discount logic: 0 = free, 1 = full pay, 0.7 = 70% of original, 0.5 = 50% of original
       const discountValue = Math.max(0, Math.min(1, numValue)); 
       newPricing.discount = discountValue;
       newPricing.customPrice = 0; 
-      newPricing.finalUnitPrice = newPricing.originalPrice * (1 - discountValue);
+      newPricing.finalUnitPrice = newPricing.originalPrice * discountValue;
     }
 
     // Calculate total line price
@@ -160,7 +162,7 @@ const CartItemsWithPayment = ({
     return itemPricing[itemId] || {
       originalPrice: 0,
       customPrice: 0,
-      discount: 0,
+      discount: 1, // Default to full pay (1.0)
       quantity: 1,
       finalUnitPrice: 0,
       totalLinePrice: 0
@@ -196,7 +198,7 @@ const CartItemsWithPayment = ({
     console.log('Method name:', methodName);
 
     const newPayment = {
-      id: Date.now(),
+      id: crypto.randomUUID(),
       methodId: methodId,
       methodName: methodName,
       amount: 0,
@@ -274,7 +276,7 @@ const CartItemsWithPayment = ({
     // Only auto-add if there are no existing payments at all
     if (existingPayments.length === 0) {
       const transferPayment = {
-        id: Date.now(),
+        id: crypto.randomUUID(),
         methodId: 9,
         methodName: 'Transfer',
         amount: amount, // This should auto-fill the full amount
@@ -372,7 +374,7 @@ const CartItemsWithPayment = ({
                     <th className="px-4 py-3 text-center text-xs font-medium text-gray-500 uppercase tracking-wider">Qty</th>
                     <th className="px-4 py-3 text-right text-xs font-medium text-gray-500 uppercase tracking-wider">Original Price</th>
                     <th className="px-4 py-3 text-right text-xs font-medium text-gray-500 uppercase tracking-wider">Custom Price</th>
-                    <th className="px-4 py-3 text-right text-xs font-medium text-gray-500 uppercase tracking-wider">Discount</th>
+                    <th className="px-4 py-3 text-right text-xs font-medium text-gray-500 uppercase tracking-wider">Payment Ratio</th>
                     <th className="px-4 py-3 text-right text-xs font-medium text-gray-500 uppercase tracking-wider">Final Unit Price</th>
                     <th className="px-4 py-3 text-right text-xs font-medium text-gray-500 uppercase tracking-wider">Total Line Price</th>
                     <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Assigned Employee</th>
@@ -441,11 +443,11 @@ const CartItemsWithPayment = ({
                                 step="0.01"
                                 value={pricing.discount || ''}
                                 onChange={(e) => updateItemPricing(item.id, 'discount', e.target.value)}
-                                placeholder="0.00"
+                                placeholder="1.00"
                                 className="w-16 p-1 border border-gray-300 rounded text-right text-sm"
                               />
                               <span className="text-xs text-gray-500">
-                                ({((pricing.discount || 0) * 100).toFixed(0)}%)
+                                ({((pricing.discount || 0) * 100).toFixed(0)}% of original)
                               </span>
                             </div>
                           )}

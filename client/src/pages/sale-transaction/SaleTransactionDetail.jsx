@@ -423,7 +423,7 @@ const SaleTransactionDetail = () => {
                             )}
                             <div className="pt-2 border-t border-gray-200">
                                 <div className="flex justify-between">
-                                    <span className="text-sm font-medium text-gray-700">Balance</span>
+                                    <span className="text-sm font-medium text-gray-700">Outstanding Amount: </span>
                                     <span className={`text-sm font-bold ${transaction.transaction_status === 'FULL' ? 'text-green-600' : 'text-red-600'}`}>
                                         ${Number(transaction.outstanding_total_payment_amount).toFixed(2)}
                                     </span>

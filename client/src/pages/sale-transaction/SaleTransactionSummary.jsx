@@ -683,13 +683,14 @@ const SaleTransactionSummary = () => {
                         <p className="text-red-500 text-xs mt-1">Transaction creator is required</p>
                       )}
                     </div>
-
-                    <div className={`${!transactionDetails.handledBy || transactionDetails.handledBy === ''
-                      ? 'ring-2 ring-red-200 rounded-md p-2'
-                      : ''
-                      }`}>
-                      <EmployeeSelect
-                        label="Transaction Handler *"
+                    
+                    <div className={`${
+                      !transactionDetails.handledBy || transactionDetails.handledBy === ''
+                        ? 'ring-2 ring-red-200 rounded-md p-2' 
+                        : ''
+                    }`}>
+                      <EmployeeSelect 
+                        label="Payment Handler *"
                         value={transactionDetails.handledBy || ""}
                         onChange={setHandledBy}
                         disabled={isCreating}
