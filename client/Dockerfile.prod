@@ -1,11 +1,30 @@
+# client/Dockerfile.prod
+FROM node:18-alpine AS build
+
+# Set working directory
+WORKDIR /app
+
+# Copy package files
+COPY client/package*.json ./
+
+# Install dependencies
+RUN npm ci
+
+# Copy source code
+COPY client/ ./
+
+# Build the application
+RUN npm run build
+
+# Production stage
 FROM nginx:alpine
 
-# Copy the built React app to nginx html directory
-COPY client/dist /usr/share/nginx/html
+# Copy built application from build stage
+COPY --from=build /app/dist /usr/share/nginx/html
 
 # Create a simple index.html if dist doesn't exist (fallback)
 RUN if [ ! -f /usr/share/nginx/html/index.html ]; then \
-    echo '<!DOCTYPE html><html><head><title>Loading...</title></head><body><h1>Application Loading...</h1></body></html>' > /usr/share/nginx/html/index.html; \
+    echo '<!DOCTYPE html><html><head><title>Cleo Spa</title></head><body><h1>Cleo Spa Loading...</h1></body></html>' > /usr/share/nginx/html/index.html; \
     fi
 
 # Set proper permissions
@@ -14,5 +33,9 @@ RUN chmod -R 755 /usr/share/nginx/html
 # Expose port 80
 EXPOSE 80
 
-# Default command (will be overridden in docker-compose)
+# Health check
+HEALTHCHECK --interval=30s --timeout=3s --start-period=5s --retries=3 \
+  CMD test -f /usr/share/nginx/html/index.html || exit 1
+
+# Default command
 CMD ["nginx", "-g", "daemon off;"]
