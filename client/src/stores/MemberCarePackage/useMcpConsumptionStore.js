@@ -1,6 +1,47 @@
 import { create } from 'zustand';
 import { devtools } from 'zustand/middleware';
+import { format, parseISO } from 'date-fns';
 import api from '@/services/api';
+
+// Date utility functions (same as in useMcpFormStore)
+const toLocalDateTimeString = (dateValue) => {
+  try {
+    if (!dateValue) {
+      dateValue = new Date();
+    }
+
+    const date = dateValue instanceof Date ? dateValue : new Date(dateValue);
+
+    if (isNaN(date.getTime())) {
+      return format(new Date(), "yyyy-MM-dd'T'HH:mm");
+    }
+
+    // Simple format for datetime-local input (YYYY-MM-DDTHH:MM)
+    return format(date, "yyyy-MM-dd'T'HH:mm");
+  } catch (error) {
+    console.error('Error formatting date:', error);
+    return format(new Date(), "yyyy-MM-dd'T'HH:mm");
+  }
+};
+
+const fromLocalDateTimeString = (localDateTimeString) => {
+  try {
+    if (!localDateTimeString) {
+      return new Date().toISOString();
+    }
+
+    const localDate = parseISO(localDateTimeString);
+
+    if (isNaN(localDate.getTime())) {
+      return new Date().toISOString();
+    }
+
+    return localDate.toISOString();
+  } catch (error) {
+    console.error('Error parsing date:', error);
+    return new Date().toISOString();
+  }
+};
 
 export const useConsumptionStore = create(
   devtools((set, get) => ({
@@ -13,7 +54,7 @@ export const useConsumptionStore = create(
       mcpd_id: '', // ID of the member_care_package_detail to consume
       service_name: '', // Name of the service for display
       mcpd_quantity: -1,
-      mcpd_date: new Date().toISOString().slice(0, 16), // Default to today
+      mcpd_date: new Date().toISOString(), // Store as ISO string
       max_quantity: 0, // Max consumable quantity for the selected service
     },
     currentPackageInfo: null, // stores { package: {...}, details: [{..., remaining_quantity: X}], transactionLogs: [...] }
@@ -21,6 +62,10 @@ export const useConsumptionStore = create(
     error: null,
     isConfirming: false,
     isSubmitting: false,
+
+    // Expose date utility functions
+    toLocalDateTimeString,
+    fromLocalDateTimeString,
 
     setIsConfirming: (isConfirming) => set({ isConfirming }, false, 'setIsConfirming'),
 
@@ -47,7 +92,7 @@ export const useConsumptionStore = create(
             mcpd_id: '',
             service_name: '',
             mcpd_quantity: -1,
-            mcpd_date: new Date().toISOString().slice(0, 16),
+            mcpd_date: new Date().toISOString(), // Reset to current time as ISO string
             max_quantity: 0,
           },
           error: null,
@@ -70,6 +115,9 @@ export const useConsumptionStore = create(
             if (isNaN(parsedValue) || parsedValue >= 0) {
               parsedValue = -1;
             }
+          } else if (field === 'mcpd_date') {
+            // Convert datetime-local string to ISO string for storage
+            parsedValue = fromLocalDateTimeString(value);
           }
           return {
             detailForm: {
@@ -81,6 +129,31 @@ export const useConsumptionStore = create(
         false,
         `updateDetailFormField/${field}`
       ),
+
+    // Helper method to get formatted date for datetime-local inputs
+    getFormattedDate: (field) => {
+      const dateValue = get().detailForm[field];
+      return toLocalDateTimeString(dateValue);
+    },
+
+    // Helper method to update date fields from datetime-local inputs
+    updateDateField: (field, localDateTimeString) => {
+      try {
+        const isoString = fromLocalDateTimeString(localDateTimeString);
+        set(
+          (state) => ({
+            detailForm: {
+              ...state.detailForm,
+              [field]: isoString,
+            },
+          }),
+          false,
+          `updateDateField/${field}`
+        );
+      } catch (error) {
+        console.error('Error updating date field:', error);
+      }
+    },
 
     fetchPackageData: async (packageId) => {
       set({ isLoading: true, error: null, currentPackageInfo: null }, false, 'fetchPackageData/pending');
@@ -131,8 +204,6 @@ export const useConsumptionStore = create(
 
       const selectedService = currentPackageInfo.details.find((detail) => detail.id == serviceDetailId);
 
-      // console.log(selectedService);
-
       if (selectedService) {
         set(
           (state) => ({
@@ -162,7 +233,7 @@ export const useConsumptionStore = create(
           const newDetail = {
             mcpd_id: detailForm.mcpd_id,
             mcpd_quantity: Math.abs(detailForm.mcpd_quantity),
-            mcpd_date: detailForm.mcpd_date,
+            mcpd_date: detailForm.mcpd_date, // Already in ISO format
           };
 
           // The current UI supports one consumption at a time, so we replace the array.
@@ -271,6 +342,7 @@ export const useConsumptionStore = create(
               mcpd_id: '',
               service_name: '',
               mcpd_quantity: -1,
+              mcpd_date: new Date().toISOString(), // Reset to current time as ISO string
               max_quantity: 0,
             },
           }),

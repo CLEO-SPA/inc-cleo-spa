@@ -18,8 +18,12 @@ import { SiteHeader } from '@/components/site-header';
 import { SidebarInset, SidebarProvider } from '@/components/ui/sidebar';
 import EmployeeSelect from '@/components/ui/forms/EmployeeSelect';
 import { useSimulationStore } from "@/stores/useSimulationStore";
+import { useAuth } from "@/context/AuthContext";
 
 export default function UpdateService() {
+  //Role-based access
+    const { user } = useAuth();
+    const allowedRoles = ['super_admin', 'data_admin'];
   // Get Service Id from Params
   const { service_id } = useParams();
 
@@ -125,6 +129,12 @@ export default function UpdateService() {
       console.error('Error fetching data:' + err);
     }
   }, [service_id])
+
+  useEffect(() => {
+      if (!user || !allowedRoles.includes(user.role)) {
+        navigate('*'); 
+      }
+    }, [user, navigate]);
 
   useEffect(() => {
     // Fixed: Add null check before accessing service properties

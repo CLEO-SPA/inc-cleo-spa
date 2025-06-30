@@ -1,7 +1,6 @@
 export interface Employees {
   id?: string;
   user_auth_id: string;
-  department_id: string;
   employee_code: string;
   employee_contact: string;
   employee_email: string;

@@ -13,13 +13,17 @@ import {
 } from "@/components/ui/select";
 import { SiteHeader } from '@/components/site-header';
 import { SidebarInset, SidebarProvider } from '@/components/ui/sidebar';
-import { Label } from "@radix-ui/react-select";
-import { set } from "date-fns";
+import { useAuth } from '@/context/AuthContext';
 
 export default function ReorderService() {
+  //Role-based access
+    const { user } = useAuth();
+    const allowedRoles = ['super_admin', 'data_admin'];
+  
   // loading
   const [loading, setLoading] = useState(false);
   const [catLoading, setCatLoading] = useState(false);
+  
   // For modal
   const [modalOpen, setModalOpen] = useState(false);
   const [errorMsg, setErrorMsg] = useState('');
@@ -130,6 +134,12 @@ export default function ReorderService() {
     }
   }, [])
 
+  useEffect(() => {
+      if (!user || !allowedRoles.includes(user.role)) {
+        navigate('*'); 
+      }
+    }, [user, navigate]);
+
   // upon category being selected
   useEffect(() => {
     try {
@@ -234,6 +244,11 @@ export default function ReorderService() {
                         </div>
                       ) : (
                         <div className="space-y-2">
+                          {services.length === 0 && (
+                        <div className="flex items-center gap-3 p-2 bg-white border rounded cursor-move hover:bg-gray-50 justify-center">
+                          <span className="text-sm text-gray-500">No services found in this category.</span>
+                        </div>
+                      )}
                           {services.map((service, serviceIndex) => (
                             <div
                               key={service.service_id}

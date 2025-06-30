@@ -28,11 +28,7 @@ router.put('/update-service/:id', serviceController.validateServiceData, service
 router.put('/reorder-service', serviceController.reorderService);
 
 // update service status
-// disable service
-router.put('/disable-service/:id', serviceController.disableService);
-
-// enable service
-router.put('/enable-service/:id', serviceController.enableService);
+router.put('/service-status/:id', serviceController.changeServiceStatus);
 
 // SERVICE CATEGORIES ROUTES
 //  get all service categories
@@ -49,5 +45,8 @@ router.get('/:id', serviceController.getServiceById);
 
 // get sales history by service id, selected month and year
 router.get('/sales-history/:serviceId', serviceController.getSalesHistoryByServiceId);
+
+// Get service categories with pagination and search filter
+router.get('/service-cat/page-filter', serviceController.getServiceCategoriesPaginationFilter);
 
 export default router;

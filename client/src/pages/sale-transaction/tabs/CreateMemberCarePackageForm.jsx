@@ -36,6 +36,8 @@ const CreateMemberCarePackageForm = () => {
     selectCarePackage,
     addMcpToCreationQueue,
     setBypassMode,
+    getFormattedDate,
+    updateDateField,
   } = useMcpFormStore();
 
   const { selectedMember, addCartItem } = useTransactionCartStore();
@@ -278,20 +280,11 @@ const CreateMemberCarePackageForm = () => {
                 <Label htmlFor='created_at' className='text-sm font-medium pb-1 text-gray-700'>
                   Creation date & time *
                 </Label>
-                <div></div>
                 <Input
                   type='datetime-local'
                   id='created_at'
-                  value={
-                    mainFormData.created_at
-                      ? new Date(mainFormData.created_at).toISOString().slice(0, 16)
-                      : new Date().toISOString().slice(0, 16)
-                  }
-                  onChange={(e) => {
-                    const newValue = e.target.value || new Date().toISOString().slice(0, 16);
-                    updateMainField('created_at', newValue);
-                    updateMainField('updated_at', newValue);
-                  }}
+                  value={getFormattedDate('created_at')}
+                  onChange={(e) => updateDateField('created_at', e.target.value)}
                   step='1'
                 />
               </div>
@@ -387,7 +380,7 @@ const ServicesSection = ({
   resetServiceForm,
 }) => {
   const canModifyServices = bypassPackage || isCustomizable;
-  console.log('isCustomizable', canModifyServices);
+  // console.log('isCustomizable', canModifyServices);
 
   return (
     <div className='space-y-4'>
@@ -402,15 +395,26 @@ const ServicesSection = ({
             <div className='grid grid-cols-1 md:grid-cols-4 gap-4'>
               <div className='space-y-1'>
                 <Label className='text-sm font-medium text-gray-700'>Service</Label>
-                <ServiceSelect
-                  name='service_select'
-                  label=''
-                  value={serviceForm.id}
-                  onChange={() => {}}
-                  onSelectFullDetails={selectService}
-                  options={serviceOptions}
-                  disabled={isLoading}
-                />
+                {bypassPackage ? (
+                  <div className='pt-2'>
+                    <Input
+                      placeholder='Enter custom service name'
+                      value={serviceForm.name}
+                      onChange={(e) => updateServiceFormField('name', e.target.value)}
+                      className='h-9'
+                    />
+                  </div>
+                ) : (
+                  <ServiceSelect
+                    name='service_select'
+                    label=''
+                    value={serviceForm.id}
+                    onChange={() => {}}
+                    onSelectFullDetails={selectService}
+                    options={serviceOptions}
+                    disabled={isLoading}
+                  />
+                )}
               </div>
               <div className='space-y-3'>
                 <Label className='text-sm font-medium text-gray-700'>Quantity</Label>
@@ -482,7 +486,7 @@ const ServicesSection = ({
                 <Button
                   type='button'
                   onClick={addServiceToPackage}
-                  disabled={!serviceForm.id || !serviceForm.name}
+                  disabled={!serviceForm.name || (bypassPackage ? false : !serviceForm.id)}
                   size='sm'
                 >
                   <Plus className='h-4 w-4 mr-1' />

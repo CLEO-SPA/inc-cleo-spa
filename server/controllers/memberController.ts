@@ -38,7 +38,7 @@ const getAllMembers = async (req: Request, res: Response, next: NextFunction) =>
 };
 
 // Create a new member
-const createMember = async (req: Request, res: Response) => {
+const createMember = async (req: Request, res: Response) : Promise<void> => {
   try {
     const newMember = await model.createMember(req.body);
     res.status(201).json(newMember);
@@ -48,13 +48,16 @@ const createMember = async (req: Request, res: Response) => {
     // Check for specific validation errors
     if (error instanceof Error) {
       if (error.message === 'Email already exists') {
-        return res.status(409).json({ message: 'Email already exists' });
+        res.status(409).json({ message: 'Email already exists' });
+        return;
       }
       if (error.message === 'Contact number already exists') {
-        return res.status(409).json({ message: 'Contact number already exists' });
+        res.status(409).json({ message: 'Contact number already exists' });
+        return;
       }
       if (error.message === 'Error creating member') {
-        return res.status(500).json({ message: 'Failed to create member' });
+        res.status(500).json({ message: 'Failed to create member' });
+        return;
       }
     }
 
@@ -64,7 +67,7 @@ const createMember = async (req: Request, res: Response) => {
 };
 
 // Update an existing member
-const updateMember = async (req: Request, res: Response) => {
+const updateMember = async (req: Request, res: Response) : Promise<void> => {
   try {
     const { id } = req.params;
 
@@ -80,16 +83,20 @@ const updateMember = async (req: Request, res: Response) => {
     // Check for specific validation errors
     if (error instanceof Error) {
       if (error.message === 'Email already exists') {
-        return res.status(409).json({ message: 'Email already exists' });
+        res.status(409).json({ message: 'Email already exists' });
+        return;
       }
       if (error.message === 'Contact number already exists') {
-        return res.status(409).json({ message: 'Contact number already exists' });
+        res.status(409).json({ message: 'Contact number already exists' });
+        return;
       }
       if (error.message.includes('Member with ID') && error.message.includes('not found')) {
-        return res.status(404).json({ message: error.message });
+        res.status(404).json({ message: error.message });
+        return;
       }
       if (error.message === 'Could not update member') {
-        return res.status(500).json({ message: 'Failed to update member' });
+        res.status(500).json({ message: 'Failed to update member' });
+        return;
       }
     }
 
@@ -230,6 +237,16 @@ const getMemberCarePackages = async (req: Request, res: Response, next: NextFunc
   }
 };
 
+const getAllMembersForDropdown = async (req: Request, res: Response) => {
+  try {
+    const members = await model.getAllMembersForDropdown();
+    res.status(200).json(members);
+  } catch (error) {
+    console.error('Error in getAllMembersForDropdown:', error);
+    res.status(500).json({ message: 'Failed to fetch members for dropdown' });
+  }
+};
+
 // Export all handlers in the same pattern
 export default {
   getAllMembers,
@@ -240,4 +257,5 @@ export default {
   searchMemberByNameOrPhone,
   getMemberVouchers,
   getMemberCarePackages,
+  getAllMembersForDropdown,
 };
