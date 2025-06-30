@@ -34,8 +34,18 @@ export default function FormDateTimePicker({ label, name, date, onDateChange, op
               onChange={(e) => {
                 const val = e.target.value;
                 if (val) {
-                  const selected = new Date(val);
-                  field.onChange(selected.toISOString());
+                  const [year, month, day] = val.split('-');
+                  const selected = new Date(
+                    Number(year),
+                    Number(month) - 1,
+                    Number(day),
+                    0,
+                    0,
+                    0
+                  );
+                  const formatted = format(selected, "yyyy-MM-dd'T'HH:mm:ssXXX");
+                  console.log('Formatted date:', formatted);
+                  field.onChange(formatted);
                   onDateChange?.(selected);
                 } else {
                   field.onChange('');

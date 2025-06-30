@@ -1,8 +1,18 @@
 import React from 'react';
-import { format } from 'date-fns';
+import { format, parseISO } from 'date-fns';
 import { Button } from '@/components/ui/button';
 
 const dayNames = ['Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday', 'Sunday'];
+const formatDate = (value, formatStr = 'yyyy-MM-dd') => {
+  if (!value) return '—';
+
+  const date =
+    typeof value === 'string'
+      ? parseISO(value)
+      : value;
+
+  return format(date, formatStr);
+};
 
 const CreateUpdateConfirmation = ({
   mode = 'create',
@@ -20,7 +30,7 @@ const CreateUpdateConfirmation = ({
   const timestamp = mode === 'update' ? updated_at : created_at;
 
   const hasConflicts = conflictDetails.length > 0;
-
+  
   return (
     <div className='space-y-6'>
       <div>
@@ -60,14 +70,16 @@ const CreateUpdateConfirmation = ({
               <td className='px-4 py-2'>
                 <strong>Effective Start Date</strong>
               </td>
-              <td className='px-4 py-2'>{effective_startdate?.split('T')[0] || '—'}</td>
+              <td className="px-4 py-2">
+                {formatDate(effective_startdate)}
+              </td>
             </tr>
             <tr>
               <td className='px-4 py-2'>
                 <strong>Effective End Date</strong>
               </td>
               <td className='px-4 py-2'>
-                {effective_enddate?.split('T')[0] || '—'}
+                {formatDate(effective_enddate)}
                 {!effective_enddate && (
                   <span className='text-muted-foreground'> (timetable remains active indefinitely)</span>
                 )}
@@ -95,10 +107,10 @@ const CreateUpdateConfirmation = ({
           <p className='font-semibold'>Existing Timetable Updated</p>
           <ul className='list-disc pl-6 text-sm leading-relaxed'>
             <li>Rest Day: {dayNames[updatedPreviousTimetable.restday_number - 1]}</li>
-            <li>Start Date: {updatedPreviousTimetable.effective_startdate.split('T')[0]}</li>
+            <li>Start Date: {formatDate(updatedPreviousTimetable.effective_startdate)}</li>
             <li>
               <div>
-                <strong>Updated End Date: {updatedPreviousTimetable.effective_enddate.split('T')[0]} </strong>
+                <strong>Updated End Date: {formatDate(updatedPreviousTimetable.effective_enddate)} </strong>
                 <div className='text-sm text-muted-foreground'>
                   (The end date is updated to 1 day before the effective start date of the {mode === 'update' ? 'updated' : 'new'} timetable)
                 </div>
@@ -116,10 +128,10 @@ const CreateUpdateConfirmation = ({
           </p>
           <ul className='list-disc pl-6 text-sm leading-relaxed'>
             <li>Rest Day: {dayNames[restday_number - 1]}</li>
-            <li>Start Date: {effective_startdate?.split('T')[0] || '—'}</li>
+            <li>Start Date: {formatDate(effective_startdate)}</li>
             <li>
               <div>
-                <strong>Updated End Date: {updatedNewTimetableEffectiveEndDate.split('T')[0]}</strong>
+                <strong>Updated End Date: {formatDate(updatedNewTimetableEffectiveEndDate)}</strong>
                 <div className='text-sm text-muted-foreground'>
                   (The end date is updated to 1 day before the effective start date of the existing upcoming timetable)
                 </div>

@@ -20,7 +20,7 @@ import employeeController from '../controllers/employeeController.js';
 // GET /api/em/basic-details - for search functionality
 router.get('/basic-details', employeeController.getBasicEmployeeDetails);
 
-<
+
 // GET /api/em/positions - for position dropdown
 router.get('/positions', employeeController.getAllActivePositions);
 
