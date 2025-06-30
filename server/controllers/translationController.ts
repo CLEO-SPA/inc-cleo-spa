@@ -13,7 +13,13 @@ const sanitizeInput = (input: string): string => {
 
 const addTranslationHandler = async (req: Request, res: Response): Promise<void> => {
     try {
-        let { english, chinese, meaning_in_english, meaning_in_chinese } = req.body;
+        let {
+            english,
+            chinese,
+            meaning_in_english,
+            meaning_in_chinese,
+            created_at,
+        } = req.body;
 
         if (!english || !chinese || !meaning_in_english || !meaning_in_chinese) {
             res.status(400).json({
@@ -22,11 +28,13 @@ const addTranslationHandler = async (req: Request, res: Response): Promise<void>
             return;
         }
 
+        // Sanitize text fields
         english = sanitizeInput(english);
         chinese = sanitizeInput(chinese);
         meaning_in_english = sanitizeInput(meaning_in_english);
         meaning_in_chinese = sanitizeInput(meaning_in_chinese);
 
+        // Validate language fields
         if (!isEnglish(english)) {
             res.status(400).json({ error: "English field must contain only English characters." });
             return;
@@ -37,11 +45,19 @@ const addTranslationHandler = async (req: Request, res: Response): Promise<void>
             return;
         }
 
+        // Optional: Validate created_at format
+        if (created_at && isNaN(Date.parse(created_at))) {
+            res.status(400).json({ error: "Invalid created_at format. Use ISO 8601 datetime format." });
+            return;
+        }
+
+        // Call the model with created_at
         const newTranslation = await translationModel.addTranslation(
             english,
             chinese,
             meaning_in_english,
-            meaning_in_chinese
+            meaning_in_chinese,
+            created_at // <-- Pass it along
         );
 
         if ("error" in newTranslation) {
@@ -58,6 +74,7 @@ const addTranslationHandler = async (req: Request, res: Response): Promise<void>
         res.status(500).json({ error: "Failed to add translation" });
     }
 };
+
 
 const getAllTranslationsHandler = async (req: Request, res: Response): Promise<void> => {
     try {
@@ -102,7 +119,7 @@ const deleteTranslationHandler = async (req: Request, res: Response): Promise<vo
 const updateTranslationHandler = async (req: Request, res: Response): Promise<void> => {
     try {
         const { id } = req.params;
-        let { chinese, meaning_in_english, meaning_in_chinese } = req.body;
+        let { chinese, meaning_in_english, meaning_in_chinese, updated_at } = req.body;
 
         if (!id || isNaN(Number(id))) {
             res.status(400).json({ error: "Invalid or missing translation ID." });
@@ -138,6 +155,14 @@ const updateTranslationHandler = async (req: Request, res: Response): Promise<vo
             updates.meaning_in_chinese = meaning_in_chinese;
         }
 
+        if (updated_at !== undefined) {
+            if (isNaN(Date.parse(updated_at))) {
+                res.status(400).json({ error: "Invalid updated_at format. Use ISO 8601 datetime format." });
+                return;
+            }
+            updates.updated_at = updated_at;
+        }
+
         if (Object.keys(updates).length === 0) {
             res.status(400).json({ error: "No valid fields provided for update." });
             return;
@@ -147,7 +172,8 @@ const updateTranslationHandler = async (req: Request, res: Response): Promise<vo
             Number(id),
             updates.chinese,
             updates.meaning_in_english,
-            updates.meaning_in_chinese
+            updates.meaning_in_chinese,
+            updates.updated_at
         );
 
         if ("error" in result) {
@@ -164,6 +190,7 @@ const updateTranslationHandler = async (req: Request, res: Response): Promise<vo
         res.status(500).json({ error: "Failed to update translation" });
     }
 };
+
 
 
 export default {

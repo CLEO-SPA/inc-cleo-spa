@@ -14,7 +14,8 @@ const addTranslation = async (
     english: string,
     chinese: string,
     meaningInEnglish: string,
-    meaningInChinese: string
+    meaningInChinese: string,
+    createdAt?: string
 ): Promise<Translation | { error: string }> => {
     try {
         const existingCheck = await pool().query(
@@ -26,12 +27,20 @@ const addTranslation = async (
             return { error: `Translation for "${english}" already exists.` };
         }
 
+        const timestamp = createdAt ?? new Date().toISOString(); // fallback if not provided
+
         const result = await pool().query(
             `INSERT INTO translations (
-        english, chinese, meaning_in_english, meaning_in_chinese, created_at, updated_at
-      ) VALUES ($1, $2, $3, $4, NOW(), NOW())
-      RETURNING *`,
-            [english, chinese, meaningInEnglish, meaningInChinese]
+                english, chinese, meaning_in_english, meaning_in_chinese, created_at, updated_at
+            ) VALUES ($1, $2, $3, $4, $5, $5)
+            RETURNING *`,
+            [
+                english,
+                chinese,
+                meaningInEnglish,
+                meaningInChinese,
+                timestamp // used for both created_at and updated_at
+            ]
         );
 
         return result.rows[0];
@@ -40,6 +49,7 @@ const addTranslation = async (
         throw new Error("Failed to add translation");
     }
 };
+
 
 const deleteTranslation = async (id: number): Promise<{ message?: string; error?: string }> => {
     try {
@@ -63,7 +73,6 @@ const getAllTranslations = async (): Promise<Translation[]> => {
         const query = "SELECT * FROM translations";
         const result = await pool().query(query);
 
-        console.log("Fetched translations:", result.rows);
         return result.rows;
     } catch (error) {
         console.error("Error fetching all translations:", error);
@@ -71,12 +80,12 @@ const getAllTranslations = async (): Promise<Translation[]> => {
     }
 };
 
-
 const updateTranslation = async (
     id: number,
     newChinese?: string,
     newEnglishMeaning?: string,
-    newChineseMeaning?: string
+    newChineseMeaning?: string,
+    updatedAt?: string | Date  // Accept updatedAt as optional param (string or Date)
 ): Promise<Translation | { error: string }> => {
     try {
         const existing = await pool().query("SELECT * FROM translations WHERE id = $1", [id]);
@@ -85,7 +94,9 @@ const updateTranslation = async (
             return { error: "Translation not found." };
         }
 
-        const updateData: Record<string, any> = { updated_at: new Date() };
+        // Use passed updatedAt or default to current time
+        const updateData: Record<string, any> = { updated_at: updatedAt ? new Date(updatedAt) : new Date() };
+
         if (newChinese !== undefined) updateData.chinese = newChinese;
         if (newEnglishMeaning !== undefined) updateData.meaning_in_english = newEnglishMeaning;
         if (newChineseMeaning !== undefined) updateData.meaning_in_chinese = newChineseMeaning;
@@ -105,6 +116,7 @@ const updateTranslation = async (
         throw new Error("Failed to update translation");
     }
 };
+
 
 export default {
     addTranslation,

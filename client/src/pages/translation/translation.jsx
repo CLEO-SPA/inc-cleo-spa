@@ -1,5 +1,5 @@
 import React from "react";
-import { useNavigate } from "react-router-dom";  // <-- import here
+import { useNavigate } from "react-router-dom";
 
 import { useTranslation } from "@/context/TranslationContext";
 import useTranslationStore from "@/stores/useTranslationStore";
@@ -9,13 +9,14 @@ const isEnglishText = (text) => /^[A-Za-z\s.,!?'"()\-&$%#@*+<=>]*$/.test(text);
 const isChineseText = (text) => /^[\u4e00-\u9fff\s.,!?'"()\-&$%#@*+<=>]*$/.test(text);
 
 const TranslationForm = () => {
-    const navigate = useNavigate();  // <-- initialize navigate
+    const navigate = useNavigate();
 
     const {
         english,
         chinese,
         meaningEnglish,
         meaningChinese,
+        createdAt,
         error,
         success,
         showConfirm,
@@ -24,6 +25,7 @@ const TranslationForm = () => {
         setChinese,
         setMeaningEnglish,
         setMeaningChinese,
+        setCreatedAt,
         setError,
         setSuccess,
         setShowConfirm,
@@ -71,6 +73,7 @@ const TranslationForm = () => {
             chinese,
             meaning_in_english: meaningEnglish,
             meaning_in_chinese: meaningChinese,
+            created_at: createdAt,
         });
 
         setShowConfirm(true);
@@ -153,6 +156,19 @@ const TranslationForm = () => {
                     />
                 </div>
 
+                <div>
+                    <label htmlFor="createdAt" className="block text-md font-semibold text-gray-700 mb-1">
+                        {t("Created At", "创建时间")}
+                    </label>
+                    <input
+                        id="createdAt"
+                        type="datetime-local"
+                        value={createdAt}
+                        onChange={(e) => setCreatedAt(e.target.value)}
+                        className="w-full p-3 border border-gray-300 rounded-lg"
+                    />
+                </div>
+
                 {error && <div className="text-red-600 bg-red-100 rounded-md p-3">{error}</div>}
                 {success && <div className="text-green-700 bg-green-100 rounded-md p-3">{success}</div>}
 
@@ -181,6 +197,9 @@ const TranslationForm = () => {
                             )}
                             {confirmTranslation.meaning_in_chinese && (
                                 <p><strong>{t("Meaning in Chinese", "中文释义")}:</strong> {confirmTranslation.meaning_in_chinese}</p>
+                            )}
+                            {confirmTranslation.created_at && (
+                                <p><strong>{t("Created At", "创建时间")}:</strong> {confirmTranslation.created_at}</p>
                             )}
                         </div>
                         <div className="flex justify-center gap-6">

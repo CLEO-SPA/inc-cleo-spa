@@ -15,6 +15,8 @@ const useTranslationStore = create((set, get) => ({
     // Translation data and loading state
     translations: [],
     loading: false,
+    createdAt: '',
+    setCreatedAt: (value) => set({ createdAt: value }),
 
     // Setters
     setEnglish: (val) => set({ english: val }),
@@ -45,7 +47,13 @@ const useTranslationStore = create((set, get) => ({
     },
     // Add new translation
     addTranslation: async (fetchTranslations, t) => {
-        const { english, chinese, meaningEnglish, meaningChinese } = get();
+        const {
+            english,
+            chinese,
+            meaningEnglish,
+            meaningChinese,
+            createdAt,
+        } = get();
 
         try {
             const payload = {
@@ -53,6 +61,7 @@ const useTranslationStore = create((set, get) => ({
                 chinese,
                 ...(meaningEnglish && { meaning_in_english: meaningEnglish }),
                 ...(meaningChinese && { meaning_in_chinese: meaningChinese }),
+                ...(createdAt && { created_at: createdAt }),
             };
 
             const response = await api.post('/trans/add', payload);
@@ -65,6 +74,7 @@ const useTranslationStore = create((set, get) => ({
                     chinese: '',
                     meaningEnglish: '',
                     meaningChinese: '',
+                    createdAt: '',
                 });
                 await fetchTranslations();
             }
@@ -80,10 +90,19 @@ const useTranslationStore = create((set, get) => ({
         }
     },
 
+
     // Update existing translation by id
-    updateTranslation: async (id, { chinese, meaning_in_english, meaning_in_chinese }) => {
+    // Update existing translation by id
+    updateTranslation: async (id, { chinese, meaning_in_english, meaning_in_chinese, updated_at }) => {
         try {
-            await api.put(`/trans/${id}`, { chinese, meaning_in_english, meaning_in_chinese });
+            const payload = {
+                ...(chinese && { chinese }),
+                ...(meaning_in_english && { meaning_in_english }),
+                ...(meaning_in_chinese && { meaning_in_chinese }),
+                ...(updated_at && { updated_at }),
+            };
+
+            await api.put(`/trans/${id}`, payload);
             await get().fetchTranslations();
             set({ success: 'Translation updated successfully!', error: '' });
             return true;
@@ -93,6 +112,7 @@ const useTranslationStore = create((set, get) => ({
             return false;
         }
     },
+
 
     // Delete translation by id
     deleteTranslation: async (id) => {

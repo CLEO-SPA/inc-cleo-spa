@@ -34,6 +34,7 @@ const ViewTranslations = () => {
     const [editInput, setEditInput] = useState("");
     const [editMeaningEn, setEditMeaningEn] = useState("");
     const [editMeaningZh, setEditMeaningZh] = useState("");
+    const [editUpdatedAt, setEditUpdatedAt] = useState("");
     const [editError, setEditError] = useState("");
 
     useEffect(() => {
@@ -53,6 +54,11 @@ const ViewTranslations = () => {
             setEditInput(selected.chinese || "");
             setEditMeaningEn(selected.meaning_in_english || "");
             setEditMeaningZh(selected.meaning_in_chinese || "");
+            setEditUpdatedAt(
+                selected.updated_at
+                    ? new Date(selected.updated_at).toISOString().slice(0, 16)
+                    : ""
+            );
             setEditError("");
             setShowEditModal(true);
         }
@@ -70,6 +76,7 @@ const ViewTranslations = () => {
             chinese: editInput,
             meaning_in_english: editMeaningEn,
             meaning_in_chinese: editMeaningZh,
+            updated_at: editUpdatedAt,
         });
 
         if (success) {
@@ -78,6 +85,7 @@ const ViewTranslations = () => {
             setEditInput("");
             setEditMeaningEn("");
             setEditMeaningZh("");
+            setEditUpdatedAt("");
             setEditError("");
             setError("");
         } else {
@@ -110,7 +118,6 @@ const ViewTranslations = () => {
         }
     };
 
-    // ✅ Only show valid DB entries
     const filteredTranslations = translations
         .filter(
             (item) =>
@@ -119,8 +126,8 @@ const ViewTranslations = () => {
                 item.chinese &&
                 typeof item.english === "string" &&
                 typeof item.chinese === "string" &&
-                item.english.length < 50 && // avoid long UI strings
-                /^[a-zA-Z\s-]+$/.test(item.english) // keep only real English terms
+                item.english.length < 50 &&
+                /^[a-zA-Z\s-]+$/.test(item.english)
         )
         .filter((item) =>
             item.english.toLowerCase().includes(searchQuery.toLowerCase())
@@ -162,13 +169,12 @@ const ViewTranslations = () => {
                                     <tr>
                                         <th className="py-3 px-4 text-left">{t("English", "英文")}</th>
                                         <th className="py-3 px-4 text-left">{t("Chinese", "中文")}</th>
-                                        <th className="py-3 px-4 text-left">{t("Meaning in English", "英文释义")}</th>  {/* updated */}
-                                        <th className="py-3 px-4 text-left">{t("Meaning in Chinese", "中文释义")}</th>  {/* updated */}
+                                        <th className="py-3 px-4 text-left">{t("Meaning in English", "英文释义")}</th>
+                                        <th className="py-3 px-4 text-left">{t("Meaning in Chinese", "中文释义")}</th>
                                         <th className="py-3 px-4 text-left">{t("Edit", "编辑")}</th>
                                         <th className="py-3 px-4 text-left">{t("Delete", "删除")}</th>
                                     </tr>
                                 </thead>
-
                                 <tbody>
                                     {filteredTranslations.length > 0 ? (
                                         filteredTranslations.map((item) => (
@@ -206,7 +212,6 @@ const ViewTranslations = () => {
                                     )}
                                 </tbody>
                             </table>
-
 
                             {showEditModal && selectedTranslation && (
                                 <div className="fixed inset-0 bg-black bg-opacity-40 flex items-center justify-center z-50">
@@ -252,6 +257,16 @@ const ViewTranslations = () => {
                                             type="text"
                                             value={editMeaningZh}
                                             onChange={(e) => setEditMeaningZh(e.target.value)}
+                                            className="w-full p-2 mb-4 border border-gray-300 rounded"
+                                        />
+
+                                        <label className="block text-sm text-gray-600 mb-1">
+                                            {t("Updated At", "更新时间")}
+                                        </label>
+                                        <input
+                                            type="datetime-local"
+                                            value={editUpdatedAt}
+                                            onChange={(e) => setEditUpdatedAt(e.target.value)}
                                             className="w-full p-2 mb-4 border border-gray-300 rounded"
                                         />
 
@@ -305,8 +320,8 @@ const ViewTranslations = () => {
                                                 onClick={handleDelete}
                                                 disabled={confirmInput !== selectedTranslation.english}
                                                 className={`${confirmInput === selectedTranslation.english
-                                                    ? "bg-red-600 hover:bg-red-700"
-                                                    : "bg-red-300 cursor-not-allowed"
+                                                        ? "bg-red-600 hover:bg-red-700"
+                                                        : "bg-red-300 cursor-not-allowed"
                                                     } text-white px-4 py-2 rounded`}
                                             >
                                                 {t("Delete", "删除")}
@@ -315,7 +330,6 @@ const ViewTranslations = () => {
                                     </div>
                                 </div>
                             )}
-
                         </div>
                     </div>
                 </div>
