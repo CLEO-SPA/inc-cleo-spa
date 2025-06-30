@@ -461,12 +461,14 @@ const ServicesSection = ({
               <div className='space-y-1'>
                 <Label className='text-sm font-medium text-gray-700'>Service</Label>
                 {bypassPackage ? (
-                  <Input
-                    placeholder='Enter custom service name'
-                    value={serviceForm.name}
-                    onChange={(e) => updateServiceFormField('name', e.target.value)}
-                    className='h-9 rounded-md'
-                  />
+                  <div className='pt-2'>
+                    <Input
+                      placeholder='Enter custom service name'
+                      value={serviceForm.name}
+                      onChange={(e) => updateServiceFormField('name', e.target.value)}
+                      className='h-9 rounded-md'
+                    />
+                  </div>
                 ) : (
                   <ServiceSelect
                     name='service_select'
