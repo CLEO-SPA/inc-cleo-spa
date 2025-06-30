@@ -45,10 +45,10 @@ jobs:
           echo "Building image: $IMAGE_URI"
           docker build -t "$IMAGE_URI" ./server
           docker push "$IMAGE_URI"
-          
+
           # Set output for other steps
           echo "image=$IMAGE_URI" >> $GITHUB_OUTPUT
-          
+
           # Debug: Verify the output was set
           echo "Image built and pushed: $IMAGE_URI"
           echo "GITHUB_OUTPUT contents:"
@@ -65,36 +65,11 @@ jobs:
         run: |
           echo "All outputs from build-and-push job:"
           echo "api-image: '${{ needs.build-and-push.outputs.api-image }}'"
-          
+
           # Alternative way to construct image name if output is missing
           IMAGE_TAG="${{ github.sha }}"
           FALLBACK_IMAGE="${{ env.ECR_REGISTRY }}/${{ env.ECR_REPOSITORY_API }}:$IMAGE_TAG"
           echo "Fallback image would be: $FALLBACK_IMAGE"
-
-      - name: Setup Node.js for frontend build
-        uses: actions/setup-node@v4
-        with:
-          node-version: '20'
-          cache: 'npm'
-          cache-dependency-path: './client/package-lock.json'
-
-      - name: Build frontend for deployment
-        working-directory: ./client
-        run: |
-          npm ci
-          npm run build
-          
-          # Debug: Check if build files exist
-          echo "Frontend build completed. Checking dist folder:"
-          ls -la dist/
-          
-          # Ensure index.html exists
-          if [ ! -f "dist/index.html" ]; then
-            echo "ERROR: dist/index.html not found!"
-            exit 1
-          fi
-          
-          echo "Frontend build successful!"
 
       - name: Install rsync
         run: sudo apt-get update && sudo apt-get install -y rsync
@@ -110,11 +85,34 @@ jobs:
             IdentityFile ~/.ssh/deploy_key
             StrictHostKeyChecking no" > ~/.ssh/config
 
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+          cache: 'npm'
+          cache-dependency-path: './client/package-lock.json'
+
+      - name: Build frontend
+        working-directory: ./client
+        run: |
+          npm ci
+          npm run build
+
+          # Debug: Check if build files exist
+          echo "Frontend build completed. Checking dist folder:"
+          ls -la dist/
+
+          # Ensure index.html exists
+          if [ ! -f "dist/index.html" ]; then
+            echo "ERROR: dist/index.html not found!"
+            exit 1
+          fi
+
       - name: Create deployment files
         run: |
           # Debug: Show the image name we received
           echo "Received image: '${{ needs.build-and-push.outputs.api-image }}'"
-          
+
           # Use fallback image construction if output is empty
           if [ -z "${{ needs.build-and-push.outputs.api-image }}" ]; then
             echo "Image output is empty, constructing image name manually..."
@@ -125,7 +123,12 @@ jobs:
             IMAGE_NAME="${{ needs.build-and-push.outputs.api-image }}"
             echo "Using received image: $IMAGE_NAME"
           fi
-          
+
+          # Create client .env file
+          cat > client/.env << 'CLIENT_ENV_EOF'
+          ${{ secrets.CLIENT_ENV_FILE }}
+          CLIENT_ENV_EOF
+
           # Create compose override for production
           cat > compose.override.yml << EOF
           services:
@@ -133,31 +136,33 @@ jobs:
               image: "$IMAGE_NAME"
               build: {}
               ports:
-                - "5000:3000"  # Map nginx expected port 5000 to container port 3000
+                - "5000:3000"
           EOF
-          
+
           # Save image name for next step
           echo "DEPLOY_IMAGE=$IMAGE_NAME" >> $GITHUB_ENV
-          
-          # Debug: Show the created file
+
+          # Debug: Show the created files
           echo "Created compose.override.yml:"
           cat compose.override.yml
+          echo "Created client/.env:"
+          echo "CLIENT_ENV_FILE exists: $(test -f client/.env && echo 'yes' || echo 'no')"
 
       - name: Sync project files
         run: |
-          # Sync all project files except build artifacts
+          # First sync everything except dist
           rsync -avz --delete \
             --exclude '.git/' \
             --exclude 'node_modules/' \
             --exclude '.github/' \
+            --exclude 'client/dist/' \
             ./ ec2:/home/ubuntu/${{ env.PROJECT_NAME }}/
             
-          # Debug: Verify built frontend files exist locally
-          echo "Local frontend files:"
-          ls -la ./client/dist/
+          # Then sync the built frontend files specifically
+          rsync -avz \
+            ./client/dist/ ec2:/home/ubuntu/${{ env.PROJECT_NAME }}/client/dist/
             
-          # Debug: Verify files were transferred to EC2
-          echo "Remote frontend files after sync:"
+          # Debug: Verify files were transferred
           ssh ec2 "ls -la /home/ubuntu/${{ env.PROJECT_NAME }}/client/dist/"
 
       - name: Setup EC2 Dependencies and Deploy
@@ -168,6 +173,17 @@ jobs:
           key: ${{ secrets.EC2_SSH_KEY }}
           script: |
             cd /home/ubuntu/${{ env.PROJECT_NAME }}
+
+            # Create server .env file
+            echo "${{ secrets.SERVER_ENV_FILE }}" > ./server/.env
+
+            # Create client .env file  
+            echo "${{ secrets.CLIENT_ENV_FILE }}" > ./client/.env
+
+            # Debug: Check env files exist
+            echo "Environment files check:"
+            echo "Server .env exists: $(test -f ./server/.env && echo 'yes' || echo 'no')"
+            echo "Client .env exists: $(test -f ./client/.env && echo 'yes' || echo 'no')"
 
             # Install Docker if not already installed
             if ! command -v docker &> /dev/null; then
@@ -217,18 +233,12 @@ jobs:
             DOCKER_COMMANDS_EOF
             fi
 
-            # Create .env file
-            echo "${{ secrets.ENV_FILE }}" > ./server/.env
-
-            # Ensure client/dist directory exists and has content
-            mkdir -p client/dist
-            
             # Debug: Check what's in the synced files
             echo "Checking synced frontend files:"
             ls -la client/
             echo "Checking dist folder:"
             ls -la client/dist/ || echo "dist folder is empty or missing"
-            
+
             # If dist is empty, this is the problem!
             if [ ! -f "client/dist/index.html" ]; then
               echo "ERROR: Frontend dist files are missing!"
@@ -238,10 +248,10 @@ jobs:
 
             # Get image name from environment (set in previous step)
             IMAGE_TO_PULL="${{ env.DEPLOY_IMAGE }}"
-            
+
             # Debug: Show the image name we're trying to pull
             echo "Image to pull: '$IMAGE_TO_PULL'"
-            
+
             # Validate image name is not empty
             if [ -z "$IMAGE_TO_PULL" ]; then
               echo "Error: Image name is empty! Cannot proceed with deployment."

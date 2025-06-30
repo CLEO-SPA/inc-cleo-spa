@@ -18,6 +18,6 @@ RUN npm run build
 # Remove dev dependencies after build
 RUN npm prune --omit=dev
 
-EXPOSE 3000
+EXPOSE 5000
 
 CMD ["npm", "start"]
