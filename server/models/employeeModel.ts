@@ -746,7 +746,7 @@ const validateTimestamp = (ts?: string) =>
  * Main updater
  * ------------------------------------------------------------------------ */
 const updateEmployee = async (data: UpdateEmployeeData) => {
-  const client: PoolClient = await pool().connect();
+  const client = await pool().connect();
   try {
     await client.query('BEGIN');
 
@@ -776,7 +776,8 @@ const updateEmployee = async (data: UpdateEmployeeData) => {
       const { rowCount } = await client.query(`SELECT 1 FROM user_auth WHERE email = $1`, [data.email]);
       if (rowCount) throw new Error('E-mail already in use');
     }
-    if (data.phone && data.phone !== cur.phone) {
+
+    if (data.phone && data.phone !== cur.employee_contact) {
       const { rowCount } = await client.query(`SELECT 1 FROM user_auth WHERE phone = $1`, [data.phone]);
       if (rowCount) throw new Error('Contact number already in use');
     }

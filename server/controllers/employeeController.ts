@@ -600,10 +600,12 @@ export const updateEmployee = async (
 
     /* ------------------------------------------------- 2. Quick format checks */
     if (payload.email && !validator.isEmail(payload.email)) {
-      return res.status(400).json({ message: 'Invalid email format.' });
+      res.status(400).json({ message: 'Invalid email format.' });
+      return;
     }
     if (payload.phone && !validator.isMobilePhone(payload.phone, 'any')) {
-      return res.status(400).json({ message: 'Invalid contact number format.' });
+      res.status(400).json({ message: 'Invalid contact number format.' });
+      return;
     }
 
     /* ------------------------------------------------- 3. Update via model */
