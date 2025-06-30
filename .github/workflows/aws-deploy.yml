@@ -2,7 +2,7 @@ name: Deploy to AWS EC2 via ECR
 
 on:
   push:
-    branches: [main, feature/aws-hosting]
+    branches: [main, feature/aws-hosting, bugfix/master]
   workflow_dispatch:
 
 env:
