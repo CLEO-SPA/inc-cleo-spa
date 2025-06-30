@@ -43,6 +43,7 @@ const useEmployeeStore = create((set, get) => ({
   /* ------------------------------------------------- state */
   ...getInitialState(),
 
+
   /* ------------------------------------------------- helpers */
   setEmployeeData: (field, value) => {
     set((state) => ({
@@ -56,6 +57,10 @@ const useEmployeeStore = create((set, get) => ({
     }));
     get().fetchAllEmployees();
   },
+
+  // Get Employee Lists for Dropdown Functionality
+  fetchDropdownEmployees: async () => {
+    set({ isFetching: true, error: false, errorMessage: null });
 
   setCurrentPage: (currentPage) => {
     set((state) => ({
@@ -198,9 +203,42 @@ const useEmployeeStore = create((set, get) => ({
     }
   },
 
+
   /* ------------------------------------------------- misc */
   resetMessages: () =>
     set({ error: null, success: null, inviteLink: null }),
+
+  // Get Employee Name by Employee ID
+  fetchEmployeeNameById: async (employeeId) => {
+    set({ isFetching: true, error: false, errorMessage: null });
+
+    try {
+      const response = await api.get(`/em/employeeName/${employeeId}`);  
+
+      set({
+        employee: response.data,  
+        isFetching: false,
+        error: false,
+        errorMessage: null,
+      });
+
+      return response.data;  
+
+    } catch (error) {
+      set({
+        employee: null,  
+        isFetching: false,
+        error: true,
+        errorMessage: error.response?.data?.message || error.message || 'Failed to fetch employee',
+      });
+
+      console.error('Error fetching employee:', error);
+
+      throw new Error(error.response?.data?.message || error.message || 'Failed to fetch employee');
+    }
+  },
+
+
   reset: () => set(getInitialState()),
 }));
 

@@ -197,21 +197,21 @@ const data = {
         },
       ],
     },
-    {
-      title: 'Statistics',
-      url: '#',
-      icon: ChartColumnStacked,
-      items: [
-        {
-          title: 'View Database Report',
-          url: '/dbcr',
-        },
-        {
-          title: 'View Monthly Revenue Report',
-          url: '#',
-        },
-      ],
-    },
+    // {
+    //   title: 'Statistics',
+    //   url: '#',
+    //   icon: ChartColumnStacked,
+    //   items: [
+    //     {
+    //       title: 'View Database Report',
+    //       url: '/dbcr',
+    //     },
+    //     {
+    //       title: 'View Monthly Revenue Report',
+    //       url: '#',
+    //     },
+    //   ],
+    // },
     {
       title: 'Others',
       url: '#',
@@ -220,6 +220,21 @@ const data = {
         {
           title: 'Data Export',
           url: '/data-export',
+        },
+      ],
+    },
+    {
+      title: 'Timetables',
+      url: '#',
+      icon: CalendarDays,
+      items: [
+        {
+          title: 'Create Timetable',
+          url: '/et/create-employee-timetable',
+        },
+        {
+          title: 'Manage Timetable',
+          url: '/et',
         },
       ],
     },

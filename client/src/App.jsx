@@ -60,7 +60,12 @@ import CreateEmployeePage from '@/pages/em/CreateEmployeePage';
 import EditEmployeePage from '@/pages/em/UpdateEmployeePage';
 import RevenueReportPage from './pages/revenue/RevenueReportPage';
 import DeferredRevenuePage from './pages/revenue/DeferredRevenuePage';
+// Employees
+import EmployeeTimetablePage from './pages/EmployeeTimetable/EmployeeTimetable';
 
+// Employee Timetable Pages
+import CreateEmployeeTimetablePage from '@/pages/EmployeeTimetable/CreateEmployeeTimetablePage'
+import UpdateEmployeeTimetablePage from '@/pages/EmployeeTimetable/UpdateEmployeeTimetablePage'
 
 // Appointments Management
 import ManageAppointmentsPage from '@/pages/ab/ManageAppointmentsPage';
@@ -165,6 +170,11 @@ function App() {
               <Route path='/payment-method/edit/:id' element={<EditPaymentMethodPage />} />
               <Route path='/payment-method/test' element={<TestPMComponent />} />
 
+              {/* employee timetable */}
+              <Route path='/et/create-employee-timetable' element={<CreateEmployeeTimetablePage />} />
+              <Route path='/et/update-employee-timetable/:timetableId' element={<UpdateEmployeeTimetablePage />} />
+              <Route path='/et' element={<EmployeeTimetablePage />} />
+
               {/* Product Management */}
               <Route path='/manage-product' element={<ManageProductPage />} />
               <Route path='/create-product' element={<CreateProductPage />} />
@@ -177,6 +187,7 @@ function App() {
               <Route path='/rr' element={<RevenueReportPage />} />
               {/* Deferred Revenue Page */}
               <Route path='/dr' element={<DeferredRevenuePage />} />
+
             </Route>
             <Route path='/login' element={<LoginPage />} />
 
@@ -186,6 +197,7 @@ function App() {
 
             {/* 404 Page */}
             <Route path='*' element={<NotFoundPage />} />
+
           </Routes>
         </Router>
       </DateRangeProvider>

@@ -11,22 +11,26 @@ import memberRoutes from './memberRoutes.js';
 import carePackageRoutes from './cpRoutes.js';
 import membershipTypeRoutes from './membershipTypeRoutes.js';
 import memberCarePackageRoutes from './mcpRoutes.js';
-import employeeRoutes from './employeeRoutes.js';
+
 import refundRoutes from './refundRoutes.js';
+
 import voucherTemplateRoutes from './voucherTemplateRoutes.js';
 import memberVoucherRoutes from './memberVoucherRoutes.js';
 import dataExportRoutes from './dataExportRoutes.js';
 import positionRoutes from './positionRoutes.js';
 import paymentMethodRoutes from './paymentMethodRoutes.js';
+
+import employeeRoutes from './employeeRoutes.js';
+import timetableRoutes from './timetableRoutes.js';
 import appointmentRoutes from './appointmentRoutes.js';
 import productRoutes from './productRoutes.js';
 import revenueRoutes from './revenueRoutes.js';
+
 
 router.use(simulationMiddleware);
 
 router.use('/auth', authRoutes);
 router.use('/session', sessionRoutes);
-router.use('/em', employeeRoutes);
 router.use('/member', memberRoutes);
 router.use('/mv', memberVoucherRoutes);
 router.use('/service', serviceRoutes);
@@ -39,6 +43,8 @@ router.use('/refund', refundRoutes);
 router.use('/position', positionRoutes);
 router.use('/de', dataExportRoutes);
 router.use('/payment-method', paymentMethodRoutes);
+router.use('/em', employeeRoutes);
+router.use('/et', timetableRoutes);
 router.use('/ab', appointmentRoutes);
 router.use('/rr', revenueRoutes);
 // router.use('/sa', superAdminRoutes);
