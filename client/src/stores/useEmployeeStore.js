@@ -2,7 +2,6 @@ import { create } from 'zustand';
 import api from '@/services/api';
 
 const getInitialState = () => ({
-  /* ------------ form scaffold (for CreateEmployeePage etc.) ------------- */
   employeeData: {
     employee_name: '',
     employee_email: '',
@@ -24,10 +23,7 @@ const getInitialState = () => ({
   isFetchingName: false,
   employeeName: null,
 
-  /* ------------ misc single-item state --------------------------------- */
   inviteLink: null,
-
-  /* ------------ table + pagination ------------------------------------- */
   employees: [],
   pagination: {
     currentPage: 1,
@@ -35,8 +31,6 @@ const getInitialState = () => ({
     totalCount: 0,
     pageSize: 10,
   },
-
-  /* ------------ UI flags & messages ------------------------------------ */
   error: null,
   success: null,
   isCreating: false,
@@ -46,13 +40,14 @@ const getInitialState = () => ({
 });
 
 const useEmployeeStore = create((set, get) => ({
-  /* ------------------------------------------------- state */
   ...getInitialState(),
 
-  /* ------------------------------------------------- helpers */
   setEmployeeData: (field, value) => {
     set((state) => ({
-      employeeData: { ...state.employeeData, [field]: value },
+      employeeData: {
+        ...state.employeeData,
+        [field]: value,
+      },
     }));
   },
 
@@ -93,15 +88,14 @@ const useEmployeeStore = create((set, get) => ({
     }
   },
 
-  /* ------------------------------------------------- list fetch */
   fetchAllEmployees: async () => {
     const { pagination } = get();
     set({ isFetchingList: true, error: null });
     try {
-      const res = await api.get(
-        `/em?page=${pagination.currentPage}&limit=${pagination.pageSize}`
-      );
+      const res = await api.get(`/em?page=${pagination.currentPage}&limit=${pagination.pageSize}`);
       const data = res.data;
+
+      console.log(data);
 
       set({
         employees: data.data || [],
@@ -142,7 +136,7 @@ const useEmployeeStore = create((set, get) => ({
     }
   },
 
-  /* ------------------------------------------------- create */
+    /* ------------------------------------------------- create */
   createAndInviteEmployee: async (payload) => {
     set({ isCreating: true, error: null, success: null, inviteLink: null });
     try {
@@ -161,8 +155,25 @@ const useEmployeeStore = create((set, get) => ({
       throw new Error(msg);
     }
   },
+  // createAndInviteEmployee: async (data) => {
+  //   set({ isCreating: true, error: null, success: null, inviteLink: null });
 
-  /* ------------------------------------------------- update */
+  //   console.log(data);
+
+  //   try {
+  //     const response = await api.post('/em/create-invite', data);
+  //     set({
+  //       isCreating: false,
+  //       success: 'Employee created and invited successfully! The invite link is ready.',
+  //       inviteLink: response.data.resetUrl,
+  //     });
+  //   } catch (err) {
+  //     const apiMessage = err?.response?.data?.message || 'Failed to create employee';
+  //     set({ isCreating: false, error: apiMessage });
+  //     throw new Error(apiMessage);
+  //   }
+  // },
+
   updateEmployee: async (employeeId, updatePayload) => {
     set({ isUpdating: employeeId, error: null, success: null });
     try {
@@ -188,13 +199,10 @@ const useEmployeeStore = create((set, get) => ({
     }
   },
 
-  /* ------------------------------------------------- regenerate link */
   regenerateInviteLink: async (employee) => {
     set({ isRegenerating: employee.id, error: null, success: null });
     try {
-      const res = await api.post('/em/regenerate-uri', {
-        email: employee.employee_email,
-      });
+      const res = await api.post('/em/regenerate-uri', { email: employee.employee_email });
       const { callbackUrl } = res.data;
       await navigator.clipboard.writeText(callbackUrl);
       set({
@@ -205,13 +213,11 @@ const useEmployeeStore = create((set, get) => ({
     } catch (err) {
       set({
         isRegenerating: null,
-        error:
-          err?.response?.data?.message || 'Failed to regenerate link.',
+        error: err.response?.data?.message || 'Failed to regenerate link.',
       });
     }
   },
 
-  /* ------------------------------------------------- name fetch */
   fetchEmployeeNameById: async (employeeId) => {
     set({ isFetchingName: true, error: null });
     try {
@@ -238,6 +244,29 @@ const useEmployeeStore = create((set, get) => ({
       );
     }
   },
+  fetchDropdownEmployees: async () => {
+    set({ isFetching: true, error: false, errorMessage: null });
+
+    try {
+      const response = await api.get('/em/dropdown');
+      set({
+        employees: response.data,
+        isFetching: false,
+        error: false,
+        errorMessage: null,
+      });
+    } catch (error) {
+      set({
+        employees: [],
+        isFetching: false,
+        error: true,
+        errorMessage: error.response?.data?.message || error.message || 'Failed to fetch employees',
+      });
+    }
+  },
+
+  resetMessages: () => set({ error: null, success: null, inviteLink: null }),
+  reset: () => set(getInitialState()),
 }));
 
 export default useEmployeeStore;
