@@ -38,7 +38,8 @@ const useTransferVoucherStore = create((set, get) => ({
 
     // Fetch member vouchers
     fetchMemberVoucher: async (name) => {
-        if (!name) return;
+
+        console.log("name1", name)
         try {
             const res = await api.get(`/voucher/m?name=${encodeURIComponent(name)}`);
             set({ memberVouchers: res.status === 200 ? res.data.data : [] });

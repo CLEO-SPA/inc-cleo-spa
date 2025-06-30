@@ -2,7 +2,7 @@ import { Request, Response, NextFunction } from "express";
 import voucherModel from "../models/voucherModel.js";
 import memberVoucherTransactionLogsModel from "../models/memberVoucherTransactionLogsModel.js";
 import memberModel from "../models/memberModel.js";
-import memberVoucherModel from "../models/memberVoucher.js";
+import memberVoucherModel from "../models/memberVoucherModel.js";
 
 // Simple sanitization helper
 const sanitizeInput = (input: unknown): string => {
@@ -56,11 +56,18 @@ const getMemberVoucherDetailsHandler = async (
   next: NextFunction
 ): Promise<void> => {
   try {
-    const { name } = req.query;
+    const rawName = req.query.name;
 
-    const sanitized = sanitizeInput(name);
+    console.log("Received member name:", rawName);
+    // Validate presence but preserve original formatting
+    if (typeof rawName !== 'string') {
+      res.status(400).json({ error: 'Member name must be a string.' });
+      return;
+    }
 
-    const templatesDetails = await voucherModel.getMemberVoucherWithDetails(sanitized || null);
+    const name = rawName; // No trimming applied
+
+    const templatesDetails = await voucherModel.getMemberVoucherWithDetails(name);
     res.status(200).json({ data: templatesDetails });
   } catch (error) {
     console.error("Error fetching member voucher details:", error);
@@ -108,6 +115,7 @@ const transferVoucherDetailsHandler = async (
     } = req.body;
 
 
+    console.log("member_name:", member_name);
 
     // Validate required fields more strictly if needed
     if (

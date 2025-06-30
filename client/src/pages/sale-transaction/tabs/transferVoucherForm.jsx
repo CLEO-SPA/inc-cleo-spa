@@ -29,7 +29,7 @@ const TransferVoucherForm = () => {
     setTransferFormData,
   } = useTransferVoucherStore();
 
-  const { addCartItem, clearCart } = useTransactionCartStore();
+  const { addCartItem } = useTransactionCartStore();
   const { employees, fetchDropdownEmployees } = useEmployeeStore();
 
   const [customVoucherName, setCustomVoucherName] = useState('');
@@ -37,8 +37,8 @@ const TransferVoucherForm = () => {
   const [hasCustomFoc, setHasCustomFoc] = useState(false);
   const [createdBy, setCreatedBy] = useState('');
   const [updatedBy, setUpdatedBy] = useState('');
-
   const [remarks, setRemarks] = useState('');
+  const isFocGreaterThanPrice = parseFloat(foc || '0') > parseFloat(price || '0');
 
   useEffect(() => {
     fetchVoucherTemplates?.();
@@ -72,26 +72,8 @@ const TransferVoucherForm = () => {
   useEffect(() => {
     setHasCustomPrice(false);
     setHasCustomFoc(false);
-    clearCart();
+    // clearCart(); // ❌ DO NOT clear cart anymore
   }, [bypassTemplate]);
-
-  useEffect(() => {
-    const voucherNameToUse = bypassTemplate ? customVoucherName : selectedVoucherName;
-    if (!voucherNameToUse || !price) return;
-
-    const cartPayload = {
-      id: 'transfer-auto',
-      type: 'transfer',
-      data: {
-        name: voucherNameToUse,
-        amount: Number(price),
-        description: `Transferred from: ${oldVouchers.join(', ')}`,
-      },
-    };
-
-    clearCart();
-    addCartItem(cartPayload);
-  }, [customVoucherName, selectedVoucherName, price, bypassTemplate, oldVouchers]);
 
   useEffect(() => {
     const memberName = currentMember?.name;
@@ -123,7 +105,7 @@ const TransferVoucherForm = () => {
       is_bypass: bypassTemplate,
       created_by: createdBy,
       updated_by: updatedBy,
-      remarks: remarks, // <-- add remarks here
+      remarks,
     };
 
     setTransferFormData(payload);
@@ -138,12 +120,19 @@ const TransferVoucherForm = () => {
     customVoucherName,
     createdBy,
     updatedBy,
-    remarks, // add remarks here as dependency
+    remarks,
   ]);
-
-  const handleDecimalInput = (e, setter, setCustomFlag) => {
+  const handleDecimalInput = (e, setter, setCustomFlag, isFoc = false) => {
     const value = e.target.value;
     if (/^\d*(\.\d{0,2})?$/.test(value)) {
+      const numericValue = parseFloat(value || '0');
+      const currentPrice = parseFloat(price || '0');
+
+      if (isFoc && numericValue > currentPrice) {
+        alert('FOC cannot be greater than the price.');
+        return;
+      }
+
       setCustomFlag(true);
       setter(value);
     }
@@ -153,11 +142,29 @@ const TransferVoucherForm = () => {
   const isBalanceGreater = totalOldBalance > Number(price);
   const topUpBalance = getTopUpBalance();
 
+  const handleAddToCart = () => {
+    const voucherNameToUse = bypassTemplate ? customVoucherName : selectedVoucherName;
+    if (!voucherNameToUse || !price) return;
+
+    const cartPayload = {
+      id: `transfer-${Date.now()}`,
+      type: 'transferMV',
+      data: {
+        name: voucherNameToUse,
+        amount: Number(price),
+        description: `Transferred from: ${oldVouchers.join(', ')}`,
+      },
+    };
+
+    addCartItem(cartPayload);
+  };
+
   return (
     <div className='p-0'>
       <div className='p-3 bg-white shadow rounded-lg h-[700px] overflow-y-auto'>
         <h2 className='text-xl font-semibold mb-4'>Transfer Voucher</h2>
 
+        {/* New Voucher Name */}
         <div className='mb-6'>
           <label className='block font-medium mb-1'>New Voucher Name</label>
           {bypassTemplate ? (
@@ -184,6 +191,7 @@ const TransferVoucherForm = () => {
           )}
         </div>
 
+        {/* Price and Bypass */}
         <div className='mb-6 flex flex-col md:flex-row md:items-end gap-4'>
           <div className='flex-1'>
             <label className='block font-medium mb-1'>Price of New Voucher</label>
@@ -211,16 +219,23 @@ const TransferVoucherForm = () => {
           </div>
         </div>
 
+        {/* FOC */}
         <div className='mb-6'>
           <label className='block font-medium mb-1'>FOC</label>
           <input
             type='text'
             className='w-full border px-3 py-2 rounded'
             value={foc}
-            onChange={(e) => handleDecimalInput(e, setFoc, setHasCustomFoc)}
+            onChange={(e) => handleDecimalInput(e, setFoc, setHasCustomFoc, true)}
             placeholder={bypassTemplate ? 'Enter FOC' : 'Auto-filled unless changed'}
           />
         </div>
+        {parseFloat(foc || '0') > parseFloat(price || '0') && (
+          <div className='mb-4 p-2 bg-red-100 text-red-700 rounded'>
+            ⚠️ FOC cannot be more than price.
+          </div>
+        )}
+        {/* Remarks */}
         <div className='mb-6'>
           <label className='block font-medium mb-1'>Remarks</label>
           <input
@@ -231,6 +246,8 @@ const TransferVoucherForm = () => {
             onChange={(e) => setRemarks(e.target.value)}
           />
         </div>
+
+        {/* Old Vouchers */}
         <div className='mb-6'>
           <label className='block font-medium mb-1'>Old Voucher(s)</label>
           {oldVouchers.map((voucherName, index) => (
@@ -280,6 +297,7 @@ const TransferVoucherForm = () => {
           </button>
         </div>
 
+        {/* Totals */}
         <div className='mb-4'>
           <label className='block font-medium mb-1'>Balance of Old Vouchers</label>
           <input type='text' className='w-full border px-3 py-2 rounded' value={totalOldBalance} readOnly />
@@ -296,6 +314,7 @@ const TransferVoucherForm = () => {
           <input type='text' className='w-full border px-3 py-2 rounded' value={topUpBalance} readOnly />
         </div>
 
+        {/* Created/Updated By */}
         <div className='mb-6'>
           <label className='block font-medium mb-1'>Created By</label>
           <select
@@ -326,6 +345,20 @@ const TransferVoucherForm = () => {
               </option>
             ))}
           </select>
+        </div>
+
+        {/* Add to Cart Button */}
+        <div className='mt-4 flex justify-end'>
+          <button
+            onClick={handleAddToCart}
+            disabled={isFocGreaterThanPrice}
+            className={`px-6 py-2 rounded transition ${isFocGreaterThanPrice
+              ? 'bg-gray-400 cursor-not-allowed'
+              : 'bg-green-600 hover:bg-green-700 text-white'
+              }`}
+          >
+            Add to Cart
+          </button>
         </div>
       </div>
     </div>

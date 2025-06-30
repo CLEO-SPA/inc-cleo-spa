@@ -13,7 +13,9 @@ const getItemIcon = (type) => {
       return <Gift className='w-4 h-4' />;
     case 'package':
       return <CreditCard className='w-4 h-4' />;
-    case 'transfer':
+    case 'transferMCP':
+      return <ArrowRightLeft className='w-4 h-4' />;
+    case 'transferMV':
       return <ArrowRightLeft className='w-4 h-4' />;
     default:
       return <Package className='w-4 h-4' />;
@@ -30,8 +32,10 @@ const getItemTypeLabel = (type) => {
       return 'Voucher';
     case 'package':
       return 'Package';
-    case 'transfer':
-      return 'Transfer';
+    case 'transferMCP':
+      return 'Transfer Member Care Package';
+    case 'transferMV':
+      return 'Transfer Member Voucher';
     default:
       return 'Item';
   }
@@ -63,9 +67,15 @@ const formatItemDetails = (item) => {
         price: item.data.price,
         details: item.data.description || null,
       };
-    case 'transfer':
+    case 'transferMCP':
       return {
-        name: item.data.name || 'Balance Transfer',
+        name: item.data.name || 'Balance MCP Transfer',
+        price: item.data.amount,
+        details: item.data.description || null,
+      };
+    case 'transferMV':
+      return {
+        name: item.data.name || 'Balance MV Transfer',
         price: item.data.amount,
         details: item.data.description || null,
       };
@@ -178,11 +188,10 @@ export default function TransactionCart() {
                             <span className='font-semibold text-slate-900'>${itemDetails.price.toFixed(2)}</span>
                             {item.status && (
                               <span
-                                className={`px-2 py-1 text-xs rounded-full ${
-                                  item.status === 'pending'
-                                    ? 'bg-yellow-100 text-yellow-700'
-                                    : 'bg-green-100 text-green-700'
-                                }`}
+                                className={`px-2 py-1 text-xs rounded-full ${item.status === 'pending'
+                                  ? 'bg-yellow-100 text-yellow-700'
+                                  : 'bg-green-100 text-green-700'
+                                  }`}
                               >
                                 {item.status}
                               </span>
