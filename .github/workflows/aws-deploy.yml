@@ -79,6 +79,11 @@ jobs:
           mkdir -p ~/.ssh
           echo "${{ secrets.EC2_SSH_KEY }}" > ~/.ssh/deploy_key
           chmod 400 ~/.ssh/deploy_key
+          echo "Host ec2
+            HostName ${{ env.EC2_HOST }}
+            User ${{ secrets.EC2_USERNAME }}
+            IdentityFile ~/.ssh/deploy_key
+            StrictHostKeyChecking no" > ~/.ssh/config
 
       - name: Create deployment files
         run: |
