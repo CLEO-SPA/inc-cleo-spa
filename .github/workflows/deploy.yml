@@ -2,7 +2,7 @@ name: Deploy to AWS ECR and EC2
 
 on:
   push:
-    branches: [ main, master, feature/aws-dev-deployment ]
+    branches: [ main, master, feature/aws-dev-deployement ]
   pull_request:
     branches: [ main, master ]
   workflow_dispatch: # Allow manual triggering
