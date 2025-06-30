@@ -54,18 +54,11 @@ jobs:
           IMAGE_TAG=${{ github.sha }}
           IMAGE_URI=$ECR_REGISTRY/$ECR_REPOSITORY_API:$IMAGE_TAG
 
+          echo "Building image: $IMAGE_URI"
           docker build -t $IMAGE_URI ./server
           docker push $IMAGE_URI
           echo "image=$IMAGE_URI" >> $GITHUB_OUTPUT
-
-      - name: Create deployment compose override
-        run: |
-          cat > compose.override.yml << EOF
-          services:
-            api:
-              image: ${{ steps.build-api.outputs.image }}
-              build: {}  # Override build context to use pre-built image
-          EOF
+          echo "Image built and pushed: $IMAGE_URI"
 
   deploy:
     needs: build-and-push
@@ -84,19 +77,32 @@ jobs:
           chmod 400 ~/.ssh/deploy_key
           echo "Host ec2
             HostName ${{ secrets.EC2_HOST }}
-            User ${{ secrets.EC2_USER }}
+            User ${{ secrets.EC2_USERNAME }}
             IdentityFile ~/.ssh/deploy_key
             StrictHostKeyChecking no" > ~/.ssh/config
 
       - name: Create deployment files
         run: |
+          # Debug: Show the image name we received
+          echo "Received image: ${{ needs.build-and-push.outputs.api-image }}"
+          
+          # Validate image name is not empty
+          if [ -z "${{ needs.build-and-push.outputs.api-image }}" ]; then
+            echo "Error: Image name is empty!"
+            exit 1
+          fi
+          
           # Create compose override for production
           cat > compose.override.yml << EOF
           services:
             api:
-              image: ${{ needs.build-and-push.outputs.api-image }}
+              image: "${{ needs.build-and-push.outputs.api-image }}"
               build: {}  # Override build to use ECR image
           EOF
+          
+          # Debug: Show the created file
+          echo "Created compose.override.yml:"
+          cat compose.override.yml
 
       - name: Sync project files
         run: |
@@ -110,7 +116,7 @@ jobs:
         uses: appleboy/ssh-action@master
         with:
           host: ${{ secrets.EC2_HOST }}
-          username: ${{ secrets.EC2_USER }}
+          username: ${{ secrets.EC2_USERNAME }}
           key: ${{ secrets.EC2_SSH_KEY }}
           script: |
             cd /home/ubuntu/${{ env.PROJECT_NAME }}
@@ -169,9 +175,26 @@ jobs:
             # Ensure client/dist directory exists
             mkdir -p client/dist
 
+            # Debug: Show the image name we're trying to pull
+            echo "Image to pull: '${{ needs.build-and-push.outputs.api-image }}'"
+            
+            # Validate image name is not empty
+            if [ -z "${{ needs.build-and-push.outputs.api-image }}" ]; then
+              echo "Error: Image name is empty! Cannot proceed with deployment."
+              exit 1
+            fi
+
             # Pull the latest API image (ECR credential helper handles authentication automatically)
             echo "Pulling Docker image: ${{ needs.build-and-push.outputs.api-image }}"
-            docker pull ${{ needs.build-and-push.outputs.api-image }}
+            docker pull "${{ needs.build-and-push.outputs.api-image }}"
+
+            # Debug: Show the compose override file content
+            echo "Content of compose.override.yml:"
+            cat compose.override.yml
+
+            # Validate compose files
+            echo "Validating Docker Compose configuration..."
+            docker compose -f compose.yml -f compose.override.yml config
 
             # Deploy using existing compose.yml with override
             echo "Starting deployment with Docker Compose..."
