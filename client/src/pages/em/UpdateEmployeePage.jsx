@@ -52,8 +52,7 @@ export default function UpdateEmployeePage() {
   /* ---------------- invite‑link helper ------------- */
   const [copied, setCopied] = useState(false);
 
-  console.log("cm",currentEmployee)
-
+console.log(currentEmployee?.position_ids);
   /* ---------------- react-hook-form ---------------- */
   const defaultValues = useMemo(() => {
     if (!currentEmployee) return {};
@@ -63,7 +62,9 @@ export default function UpdateEmployeePage() {
       employee_contact: currentEmployee.employee_contact || '',
       employee_code: currentEmployee.employee_code || '',
       employee_is_active: !!currentEmployee.employee_is_active,
-      position_ids: currentEmployee.positions?.map((p) => p.position_id.toString()) || [],
+      // position_ids: currentEmployee.positions?.map((p) => p.position_id.toString()) || [],
+      position_ids: currentEmployee.position_ids?.map(String) || [],
+
       // show creation time but do not register (read‑only field)
       created_at_display: isoToLocalInput(currentEmployee.created_at),
       // editable update time defaults to today 10 AM
