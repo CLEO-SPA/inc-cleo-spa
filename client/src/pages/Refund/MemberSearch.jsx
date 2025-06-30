@@ -52,7 +52,7 @@ const MemberSearch = ({ onViewMCP, onRefundServices, onRefundVouchers }) => {
       <div className="relative">
         <input
           type="text"
-          placeholder="Search by name, email, or ID..."
+          placeholder="Search by name, email or phone number"
           value={searchTerm}
           onChange={(e) => setSearchTerm(e.target.value)}
           className="w-full p-3 border rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"

@@ -86,12 +86,12 @@ CREATE TABLE "employees" (
     "id" BIGSERIAL NOT NULL,
     "user_auth_id" BIGINT NOT NULL,
     "employee_code" VARCHAR(50) NOT NULL,
-    "created_at" TIMESTAMPTZ(6) NOT NULL,
     "employee_contact" VARCHAR(20) NOT NULL,
     "employee_email" VARCHAR(255) NOT NULL,
     "employee_is_active" BOOLEAN NOT NULL,
     "verified_status_id" BIGINT NOT NULL,
     "employee_name" VARCHAR(100) NOT NULL,
+    "created_at" TIMESTAMPTZ(6) NOT NULL,
     "updated_at" TIMESTAMPTZ(6) NOT NULL,
 
     CONSTRAINT "employees_pkey" PRIMARY KEY ("id")
@@ -430,7 +430,7 @@ CREATE TABLE "user_to_role" (
 
 -- CreateTable
 CREATE TABLE "appointments" (
-    "id" BIGINT NOT NULL,
+    "id" BIGSERIAL NOT NULL,
     "member_id" BIGINT,
     "servicing_employee_id" BIGINT,
     "appointment_date" TIMESTAMPTZ(6),

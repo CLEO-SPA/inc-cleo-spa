@@ -499,17 +499,35 @@ const processFullRefundTransaction = async (params: {
   }>;
   refundedBy: number;
   refundRemarks?: string;
+  refundDate?: Date;
 }) => {
   const client = await pool().connect();
   try {
     await client.query('BEGIN');
 
-    // 1. Calculate total refund (rounded to 2 decimal places)
+    // Format the refund date (use current date if not provided)
+    const refundDate = params.refundDate || new Date();
+    const formattedRefundDate = refundDate.toISOString();
+
+    // Calculate total refund
     const totalRefund = parseFloat(params.remainingServices.reduce((sum, service) => {
       return sum + ((service.price - service.discount) * service.quantity);
     }, 0).toFixed(2));
 
-    // 2. Get next ID for sale_transactions and create refund transaction
+    // Look up Refund payment method
+    const { rows: paymentMethodRows } = await client.query(
+      `SELECT id FROM payment_methods WHERE payment_method_name = 'Refund' LIMIT 1`
+    );
+    const refundPaymentMethodId = paymentMethodRows[0]?.id;
+    
+    if (!refundPaymentMethodId) {
+      throw new Error('Refund payment method not found in database');
+    }
+
+    // Generate receipt number (R + MCP ID + timestamp)
+    const receiptNo = `R-${String(params.mcpId).padStart(4, '0')}-${new Date().toISOString().slice(0, 10).replace(/-/g, '')}`;
+
+    // Create refund transaction
     const { rows: saleTransactionIdRows } = await client.query(
       `SELECT COALESCE(MAX(id), 0) + 1 AS next_id FROM sale_transactions`
     );
@@ -519,28 +537,30 @@ const processFullRefundTransaction = async (params: {
       `INSERT INTO sale_transactions (
         id, customer_type, member_id, total_paid_amount, 
         outstanding_total_payment_amount, sale_transaction_status,
-        remarks, handled_by, created_by, created_at, updated_at
+        remarks, receipt_no, handled_by, created_by, created_at, updated_at
       ) VALUES (
         $1, 'MEMBER', $2, $3, 0, 'REFUND',
-        $4, $5, $6, now(), now()
+        $4, $5, $6, $7, $8, $8
       ) RETURNING id`,
       [
         saleTransactionNextId,
         params.memberId,
         (-totalRefund).toFixed(2),
         params.refundRemarks,
+        receiptNo,  // The generated receipt number
         params.refundedBy,
-        params.refundedBy  // created_by
+        params.refundedBy,
+        formattedRefundDate
       ]
     );
     const refundTxId = txRows[0].id;
 
-    // 3. Process each service with custom_unit_price
+    // Process each service
     const refundedServices = [];
     for (const service of params.remainingServices) {
       const amount = parseFloat(((service.price - service.discount) * service.quantity).toFixed(2));
 
-      // Get original purchase details for this service
+      // Get original purchase details
       const { rows: originalPurchaseRows } = await client.query(
         `SELECT original_unit_price, discount_percentage, custom_unit_price
          FROM sale_transaction_items 
@@ -554,13 +574,12 @@ const processFullRefundTransaction = async (params: {
         custom_unit_price: service.price
       };
 
-      // Get next ID for sale_transaction_items (manual ID generation)
+      // Insert transaction item
       const { rows: itemIdRows } = await client.query(
         `SELECT COALESCE(MAX(id), 0) + 1 AS next_id FROM sale_transaction_items`
       );
       const itemNextId = itemIdRows[0].next_id;
 
-      // Insert transaction item with explicit ID
       await client.query(
         `INSERT INTO sale_transaction_items (
           id, sale_transactions_id, service_name, member_care_package_id,
@@ -581,7 +600,7 @@ const processFullRefundTransaction = async (params: {
         ]
       );
 
-      // Get next ID for member_care_package_transaction_logs and insert transaction log
+      // Insert transaction log
       const { rows: logIdRows } = await client.query(
         `SELECT COALESCE(MAX(id), 0) + 1 AS next_id FROM member_care_package_transaction_logs`
       );
@@ -593,9 +612,7 @@ const processFullRefundTransaction = async (params: {
           amount_changed, member_care_package_details_id,
           employee_id, service_id, transaction_date, created_at
         ) VALUES (
-          $1, 'REFUND', $2, $3, $4, $5, $6, $7, 
-          to_char(now(), 'YYYY-MM-DD HH24:MI:SS')::timestamp, 
-          to_char(now(), 'YYYY-MM-DD HH24:MI:SS')::timestamp
+          $1, 'REFUND', $2, $3, $4, $5, $6, $7, $8, $8
         )`,
         [
           logNextId,
@@ -604,7 +621,8 @@ const processFullRefundTransaction = async (params: {
           amount,
           service.id,
           params.refundedBy,
-          service.service_id
+          service.service_id,
+          formattedRefundDate
         ]
       );
 
@@ -613,17 +631,9 @@ const processFullRefundTransaction = async (params: {
         quantity: service.quantity,
         amount
       });
-
-      // Update package details
-      await client.query(
-        `UPDATE member_care_package_details
-         SET quantity = 0
-         WHERE id = $1`,
-        [service.id]
-      );
     }
 
-    // 4. Get next ID for payment_to_sale_transactions and insert refund payment
+    // Create refund payment
     const { rows: paymentIdRows } = await client.query(
       `SELECT COALESCE(MAX(id), 0) + 1 AS next_id FROM payment_to_sale_transactions`
     );
@@ -633,19 +643,20 @@ const processFullRefundTransaction = async (params: {
       `INSERT INTO payment_to_sale_transactions (
         id, payment_method_id, sale_transaction_id, amount,
         remarks, created_by, updated_by, created_at, updated_at
-      ) VALUES ($1, $2, $3, $4, $5, $6, $7, now(), now())`,
+      ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $8)`,
       [
         paymentNextId,
-        14, // Payment method ID 14 for refunds
+        refundPaymentMethodId,
         refundTxId,
         -totalRefund,
         params.refundRemarks || 'Refund processed',
         params.refundedBy,
-        params.refundedBy
+        params.refundedBy,
+        formattedRefundDate
       ]
     );
 
-    // 5. Update MCP status
+    // Update MCP status
     await client.query(
       `UPDATE member_care_packages
        SET status_id = (SELECT id FROM statuses WHERE status_name = 'Refunded')
@@ -658,18 +669,14 @@ const processFullRefundTransaction = async (params: {
     return {
       refundTransactionId: refundTxId,
       totalRefund,
-      refundedServices
+      refundedServices,
+      refundDate: refundDate.toISOString(),
+      receiptNo  // Include receipt number in the return object
     };
 
   } catch (error) {
     await client.query('ROLLBACK');
-    console.error('Refund processing failed:', {
-      error,
-      mcpId: params.mcpId,
-      memberId: params.memberId,
-      refundedBy: params.refundedBy,
-      timestamp: new Date().toISOString()
-    });
+    console.error('Refund processing failed:', error);
     throw error;
   } finally {
     client.release();
@@ -679,50 +686,68 @@ const processFullRefundTransaction = async (params: {
 // Update the model's fetchMCPStatusById to include price and discount
 const fetchMCPStatusById = async (packageId: number) => {
   const query = `
-    WITH purchase_counts AS (
-      SELECT 
-        mcpd.id AS detail_id,
-        SUM(sti.quantity) AS purchased
-      FROM member_care_package_details mcpd
-      LEFT JOIN sale_transaction_items sti 
-        ON sti.member_care_package_id = mcpd.member_care_package_id
-        AND sti.service_name = mcpd.service_name
-      WHERE mcpd.member_care_package_id = $1
-      GROUP BY mcpd.id
-    ),
-    log_counts AS (
-      SELECT 
-        mcpd.id AS detail_id,
-        COUNT(CASE WHEN mcpctl.type = 'CONSUMPTION' THEN 1 END) AS consumed,
-        COUNT(CASE WHEN mcpctl.type = 'REFUND' THEN 1 END) AS refunded
-      FROM member_care_package_details mcpd
-      LEFT JOIN member_care_package_transaction_logs mcpctl 
-        ON mcpd.id = mcpctl.member_care_package_details_id
-      WHERE mcpd.member_care_package_id = $1
-      GROUP BY mcpd.id
-    )
-    SELECT 
-      mcp.id AS package_id,
-      mcp.package_name,
-      mcpd.id,
-      mcpd.service_id,
-      mcpd.service_name,
-      mcpd.price,
-      mcpd.discount,
-      mcpd.quantity AS total_quantity,
-      COALESCE(pc.purchased, 0) AS purchased,
-      COALESCE(lc.consumed, 0) AS consumed,
-      COALESCE(lc.refunded, 0) AS refunded,
-      (mcpd.quantity - COALESCE(lc.consumed, 0) - COALESCE(lc.refunded, 0)) AS remaining,
-      GREATEST(mcpd.quantity - COALESCE(pc.purchased, 0), 0) AS unpaid
-    FROM member_care_packages mcp
-    JOIN member_care_package_details mcpd 
-      ON mcp.id = mcpd.member_care_package_id
-    LEFT JOIN purchase_counts pc 
-      ON mcpd.id = pc.detail_id
-    LEFT JOIN log_counts lc 
-      ON mcpd.id = lc.detail_id
-    WHERE mcp.id = $1;
+    WITH purchase_totals AS (
+  SELECT 
+    mcpd.id AS detail_id,
+    SUM(ABS(sti.quantity)) AS purchased
+  FROM member_care_package_details mcpd
+  LEFT JOIN sale_transaction_items sti 
+    ON sti.member_care_package_id = mcpd.member_care_package_id
+    AND sti.service_name = mcpd.service_name
+    AND sti.quantity > 0
+  WHERE mcpd.member_care_package_id = $1
+  GROUP BY mcpd.id
+),
+consumption_totals AS (
+  SELECT 
+    mcpd.id AS detail_id,
+    COUNT(*) AS consumed
+  FROM member_care_package_details mcpd
+  JOIN member_care_package_transaction_logs mcpctl 
+    ON mcpd.id = mcpctl.member_care_package_details_id
+    AND mcpctl.type = 'CONSUMPTION'
+  WHERE mcpd.member_care_package_id = $1
+  GROUP BY mcpd.id
+),
+refund_totals AS (
+  SELECT 
+    mcpd.id AS detail_id,
+    ABS(SUM(sti.quantity)) AS refunded
+  FROM member_care_package_details mcpd
+  JOIN sale_transaction_items sti 
+    ON sti.member_care_package_id = mcpd.member_care_package_id
+    AND sti.service_name = mcpd.service_name
+    AND sti.quantity < 0
+  WHERE mcpd.member_care_package_id = $1
+  GROUP BY mcpd.id
+)
+SELECT 
+  mcp.id AS package_id,
+  mcp.package_name,
+  mcpd.id,
+  mcpd.service_id,
+  mcpd.service_name,
+  mcpd.price,
+  mcpd.discount,
+  mcpd.quantity AS original_quantity,
+  COALESCE(pt.purchased, 0) AS purchased,
+  COALESCE(ct.consumed, 0) AS consumed,
+  COALESCE(rt.refunded, 0) AS refunded,
+  CASE 
+    WHEN COALESCE(rt.refunded, 0) > 0 THEN 0
+    ELSE (mcpd.quantity - COALESCE(ct.consumed, 0))
+  END AS remaining,
+  GREATEST(mcpd.quantity - COALESCE(pt.purchased, 0), 0) AS unpaid
+FROM member_care_packages mcp
+JOIN member_care_package_details mcpd 
+  ON mcp.id = mcpd.member_care_package_id
+LEFT JOIN purchase_totals pt 
+  ON mcpd.id = pt.detail_id
+LEFT JOIN consumption_totals ct 
+  ON mcpd.id = ct.detail_id
+LEFT JOIN refund_totals rt 
+  ON mcpd.id = rt.detail_id
+WHERE mcp.id = $1;
   `;
 
   const { rows } = await pool().query(query, [packageId]);
@@ -852,6 +877,27 @@ const searchMemberCarePackages = async (searchQuery: string, memberId: number | 
   const values = memberId ? [`%${searchQuery}%`, memberId] : [`%${searchQuery}%`];
   const { rows } = await pool().query(query, values);
   return rows;
+};
+
+const getRefundDateByMcpId = async (mcpId: string) => {
+  const query = `
+    SELECT 
+      logs.transaction_date AS refund_date
+    FROM 
+      member_care_package_transaction_logs logs
+    JOIN 
+      member_care_package_details details 
+      ON logs.member_care_package_details_id = details.id
+    WHERE 
+      details.member_care_package_id = $1
+      AND logs.type = 'REFUND'
+    ORDER BY 
+      logs.transaction_date DESC
+    LIMIT 1;
+  `;
+
+  const { rows } = await pool().query(query, [mcpId]);
+  return rows[0]?.refund_date || null;
 };
 
 
@@ -1474,6 +1520,7 @@ export default {
   searchMembers,
   getMemberCarePackages,
   searchMemberCarePackages,
+  getRefundDateByMcpId,
   getMemberVoucherById,
   getAllRefundRecords,
   getRefundRecordDetails,

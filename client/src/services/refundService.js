@@ -31,13 +31,22 @@ export default {
     return api.get(url).then(response => response.data);
   },
 
-  processRefund: (packageId, remarks) => {
+  getRefundDate: (packageId) => 
+    api.get(`api/refund/${packageId}/refund-date`)
+      .then(response => response.data)
+      .catch(error => {
+        console.log("Package ID is " + packageId);
+        console.error('[GET REFUND DATE FAILED REFUNDSERVICE.JS]', error.response?.data || error.message);
+        throw error;
+      }),
+
+  processRefund: (packageId, remarks, refundDate) => {
     return api.post('api/refund/mcp', {
       mcpId: packageId,
-      refundRemarks: remarks
-      // No need for user ID anymore!
+      refundRemarks: remarks,
+      refundDate: refundDate ? refundDate.toISOString() : null
     }, {
-      withCredentials: true // Ensures cookies are sent
+      withCredentials: true
     }).catch(error => {
       console.error('[REFUND FAILED]', error.response?.data || error.message);
       throw error;

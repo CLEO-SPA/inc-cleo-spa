@@ -1,5 +1,29 @@
 import { pool, getProdPool as prodPool } from '../config/database.js';
 
+export interface Employee {
+  id: number;
+  employee_code: number;
+  employee_name: string;
+  position_ids: number[];
+  positions: string[];
+}
+
+export interface EmployeePosition {
+  id: number;
+  position_name: string;
+}
+
+export interface DetailedEmployee {
+  id: number;
+  employee_name: string;
+  employee_code: number;
+  employee_is_active: boolean;
+  position_ids: number[];
+  position_names: string[];
+  created_at: Date;
+  updated_at: Date;
+}
+
 const checkEmployeeCodeExists = async (employee_code: number) => {
   try {
     const query = `SELECT * FROM employees WHERE employee_code = $1`;
@@ -238,6 +262,190 @@ const getUserCount = async () => {
   }
 };
 
+/**
+ * Get all active employees with basic details
+ * This function is used for search functionality in the timetable management system.
+ */
+// const getBasicEmployeeDetails = async (): Promise<Employee[]> => {
+//   const query = `
+//     SELECT 
+//       id, 
+//       employee_name, 
+//       position_id 
+//     FROM employees e 
+//     WHERE employee_is_active = true 
+//     ORDER BY employee_name ASC`;
+//   try {
+//     const result = await pool().query(query);
+//     return result.rows.map((row: any) => ({
+//       id: row.id,
+//       employee_name: row.employee_name,
+//       position_id: row.position_id,
+//     }));
+//   } catch (error) {
+//     console.error('Database error in getBasicEmployeeDetails: ', error);
+//     throw new Error('Failed to fetch basic employee details from database');
+//   }
+// }
+const getBasicEmployeeDetails = async (): Promise<Employee[]> => {
+  const query = `
+    SELECT 
+      e.id, 
+      e.employee_name,
+      COALESCE(ARRAY_AGG(etp.position_id) FILTER (WHERE etp.position_id IS NOT NULL), '{}') AS position_ids,
+      COALESCE(ARRAY_AGG(p.position_name) FILTER (WHERE p.position_name IS NOT NULL), '{}') AS positions
+    FROM employees e 
+    LEFT JOIN employee_to_position etp ON e.id = etp.employee_id
+    LEFT JOIN positions p ON etp.position_id = p.id
+    WHERE e.employee_is_active = true 
+    GROUP BY e.id, e.employee_name
+    ORDER BY e.employee_name ASC`;
+  
+  try {
+    const result = await pool().query(query);
+    return result.rows.map((row: any) => ({
+      id: row.id,
+      employee_name: row.employee_name,
+      employee_code: row.employee_code || 0, 
+      position_ids: row.position_ids || [],
+      positions: row.positions || [],
+    }));
+  } catch (error) {
+    console.error('Database error in getBasicEmployeeDetails: ', error);
+    throw new Error('Failed to fetch basic employee details from database');
+  }
+}
+
+/**
+ * Get all active positions
+ * This function is used for position dropdown in the timetable management system.
+ */
+const getAllActivePositions = async (): Promise<EmployeePosition[]> => {
+  const query = `
+    SELECT 
+      id, 
+      position_name 
+    FROM positions p 
+    WHERE p.position_is_active = true 
+    ORDER BY position_name ASC`;
+  try {
+    const result = await pool().query(query);
+    return result.rows.map((row: any) => ({
+      id: row.id,
+      position_name: row.position_name,
+    }));
+  } catch (error) {
+    console.error('Database error in getAllActivePositions: ', error);
+    throw new Error('Failed to fetch active positions from database');
+  }
+}
+
+/**
+ * Get detailed employee information
+ * This function is used to fetch detailed information about employees.
+ */
+// const getEmployeeById = async (employeeId: number): Promise<DetailedEmployee | null> => {
+//   const query = `
+//     SELECT
+//       e.id,
+//       e.employee_name,
+//       e.employee_code,
+//       e.employee_is_active,
+//       e.position_id,
+//       p.position_name,
+//       e.created_at,
+//       e.updated_at
+//     FROM employees e
+//     LEFT JOIN positions p ON e.position_id = p.id
+//     WHERE e.id = $1 AND e.employee_is_active = true
+//   `
+//   try {
+//     const result = await pool().query(query, [employeeId]);
+//     return result.rows.length > 0 ? result.rows[0] : null;
+//   } catch (error) {
+//     console.error('Database error in getEmployeeById: ', error);
+//     throw new Error('Failed to fetch employee details from database');
+//   }
+// }
+const getEmployeeById = async (employeeId: number): Promise<DetailedEmployee | null> => {
+  const query = `
+    SELECT
+      e.id,
+      e.employee_name,
+      e.employee_code,
+      e.employee_is_active,
+      COALESCE(ARRAY_AGG(etp.position_id) FILTER (WHERE etp.position_id IS NOT NULL), '{}') AS position_ids,
+      COALESCE(ARRAY_AGG(p.position_name) FILTER (WHERE p.position_name IS NOT NULL), '{}') AS position_names,
+      e.created_at,
+      e.updated_at
+    FROM employees e
+    LEFT JOIN employee_to_position etp ON e.id = etp.employee_id
+    LEFT JOIN positions p ON etp.position_id = p.id
+    WHERE e.id = $1 AND e.employee_is_active = true
+    GROUP BY e.id, e.employee_name, e.employee_code, e.employee_is_active, e.created_at, e.updated_at
+  `;
+  
+  try {
+    const result = await pool().query(query, [employeeId]);
+    if (result.rows.length === 0) return null;
+    
+    const row = result.rows[0];
+    return {
+      id: row.id,
+      employee_name: row.employee_name,
+      employee_code: row.employee_code,
+      employee_is_active: row.employee_is_active,
+      position_ids: row.position_ids || [],
+      position_names: row.position_names || [],
+      created_at: row.created_at,
+      updated_at: row.updated_at
+    };
+  } catch (error) {
+    console.error('Database error in getEmployeeById: ', error);
+    throw new Error('Failed to fetch employee details from database');
+  }
+}
+
+/**
+ * Check if an employee exists and is active by ID
+ * This function is used to verify if an employee exists in the database.
+ */
+const employeeExists = async (employeeId: number): Promise<boolean> => {
+  const query = `
+    SELECT 1 FROM employees 
+    FROM employees 
+    WHERE id = $1 AND employee_is_active = true
+  `;
+  try {
+    const result = await pool().query(query, [employeeId]);
+    return result.rows.length > 0;
+  } catch (error) {
+    console.error('Database error in employeeExists: ', error);
+    throw new Error('Failed to check employee existence in database');
+  }
+}
+
+/**
+ * Get /api/em/employeeName/:employeeId
+ * This endpoint retrieves employee name by employee id
+ */
+const getEmployeeNameByEmployeeById = async (employeeId: number): Promise<DetailedEmployee | null> => {
+  const query = `
+    SELECT
+      id,
+      employee_name
+    FROM employees
+    WHERE id = $1
+  `;
+  try {
+    const result = await pool().query(query, [employeeId]);
+    return result.rows.length > 0 ? result.rows[0] : null;
+  } catch (error) {
+    console.error('Database error in getEmployeeById: ', error);
+    throw new Error('Failed to fetch employee details from database');
+  }
+};
+
 export const getEmployeeIdByUserAuthId = async (id: string) => {
   const employee_sql = 'SELECT id FROM employees WHERE user_auth_id = $1';
   const params = [id];
@@ -245,26 +453,26 @@ export const getEmployeeIdByUserAuthId = async (id: string) => {
   return await pool().query<{ id: string }>(employee_sql, params);
 };
 
-const getBasicEmployeeDetails = async (): Promise<Employee[]> => {
-  const query = `
-    SELECT 
-      id, 
-      employee_name 
-    FROM employees e 
-    WHERE employee_is_active = true 
-    ORDER BY employee_name ASC`;
-  try {
-    const result = await pool().query(query);
-    return result.rows.map((row: any) => ({
-      id: row.id,
-      employee_name: row.employee_name,
-      position_id: row.position_id,
-    }));
-  } catch (error) {
-    console.error('Database error in getBasicEmployeeDetails: ', error);
-    throw new Error('Failed to fetch basic employee details from database');
-  }
-};
+// const getBasicEmployeeDetails = async (): Promise<Employee[]> => {
+//   const query = `
+//     SELECT 
+//       id, 
+//       employee_name 
+//     FROM employees e 
+//     WHERE employee_is_active = true 
+//     ORDER BY employee_name ASC`;
+//   try {
+//     const result = await pool().query(query);
+//     return result.rows.map((row: any) => ({
+//       id: row.id,
+//       employee_name: row.employee_name,
+//       position_id: row.position_id,
+//     }));
+//   } catch (error) {
+//     console.error('Database error in getBasicEmployeeDetails: ', error);
+//     throw new Error('Failed to fetch basic employee details from database');
+//   }
+// };
 
 const getAllEmployeesForDropdown = async () => {
   try {
@@ -279,16 +487,23 @@ const getAllEmployeesForDropdown = async () => {
     throw new Error('Error fetching employee list');
   }
 };
+
 export default {
   // createEmployee,
   checkEmployeeCodeExists,
   getAuthUser,
   updateEmployeePassword,
   getAllEmployees,
+  getAllEmployeesForDropdown,
   createSuperUser,
   getUserCount,
   getUserData,
   getEmployeeIdByUserAuthId,
   getBasicEmployeeDetails,
   getAllEmployeesForDropdown,
+  getAllActivePositions,
+  getEmployeeById,
+  employeeExists,
+  getEmployeeNameByEmployeeById
+
 };

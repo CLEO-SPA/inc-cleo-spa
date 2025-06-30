@@ -12,7 +12,7 @@ import controller from '../controllers/refundController.js';
 // =========================
 // Private routes
 // =========================
-//router.use(isAuthenticated);
+router.use(isAuthenticated);
 
 // API: /api/refund/-
 // ------------------------------
@@ -30,14 +30,9 @@ router.get('/service-item/:id', controller.getSaleTransactionItemById);
 // Member Care Package Refund
 // ------------------------------
 //Process a refund for member care packages
-router.post(
-  '/mcp',
-  controller.validateMCPExists,
-  controller.verifyRefundableServices,  // Replaces checkRemainingServices
-  controller.processFullRefund
-);
+router.post('/mcp', controller.validateMCPExists, controller.verifyRefundableServices, controller.processFullRefund);
 
-//Return the service info of a member care package
+//Return the info for member care package services
 router.get('/mcp-status/:id', controller.fetchMCPStatus);
 
 //Search for a member via name (searchbar)
@@ -48,6 +43,8 @@ router.get('/members/get-mcps/:memberId', controller.getMemberCarePackages);
 
 // Search for member care packages
 router.get('/mcp/search', controller.searchMemberCarePackages);
+
+router.get('/:mcpId/refund-date', controller.getRefundDate);
 
 // ------------------------------
 // Member Voucher Refund

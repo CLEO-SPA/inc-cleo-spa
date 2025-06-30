@@ -171,11 +171,20 @@ const verifyRefundableServices = async (req: Request, res: Response, next: NextF
 // Controller: Handle full refund of a Member Care Package
 const processFullRefund = async (req: Request, res: Response, next: NextFunction) => {
   try {
-    const { mcpId, refundRemarks } = req.body;
-    const refundedBy = req.session.user_id; // From session
+    const { mcpId, refundRemarks, refundDate } = req.body;
+    const refundedBy = req.session.user_id;
 
     if (!refundedBy) {
       return res.status(401).json({ error: 'Authentication required' });
+    }
+
+    // Validate refundDate if provided
+    let processedRefundDate = new Date();
+    if (refundDate) {
+      processedRefundDate = new Date(refundDate);
+      if (isNaN(processedRefundDate.getTime())) {
+        return res.status(400).json({ error: 'Invalid refund date format' });
+      }
     }
 
     const reqWithExtras = req as Request & {
@@ -195,14 +204,16 @@ const processFullRefund = async (req: Request, res: Response, next: NextFunction
       memberId: reqWithExtras.mcpData.member_id,
       remainingServices: reqWithExtras.remainingServices,
       refundedBy: Number(refundedBy),
-      refundRemarks
+      refundRemarks,
+      refundDate: processedRefundDate
     });
 
     res.status(201).json({
       message: 'Refund processed successfully',
       refundTransactionId: result.refundTransactionId,
       totalRefundAmount: result.totalRefund,
-      refundedServices: result.refundedServices
+      refundedServices: result.refundedServices,
+      refundDate: processedRefundDate.toISOString()
     });
   } catch (error) {
     console.error('Refund processing error:', error);
@@ -210,9 +221,7 @@ const processFullRefund = async (req: Request, res: Response, next: NextFunction
   }
 };
 
-const fetchMCPStatus = async (
-  req: Request, res: Response, next: NextFunction
-) => {
+const fetchMCPStatus = async (req: Request, res: Response, next: NextFunction) => {
   try {
     const id = parseInt(req.params.id, 10);
     if (isNaN(id)) {
@@ -230,7 +239,10 @@ const fetchMCPStatus = async (
       const purchased = parseInt(s.purchased) || 0;
       const consumed = parseInt(s.consumed) || 0;
       const refunded = parseInt(s.refunded) || 0;
-      const remaining = purchased - consumed; // Your definition
+      const unpaid = parseInt(s.unpaid) || 0;
+
+      // Remaining is already set to 0 if refunded > 0 by the SQL query
+      const remaining = parseInt(s.remaining) || 0;
 
       let refundStatus;
       if (refunded > 0) {
@@ -248,8 +260,8 @@ const fetchMCPStatus = async (
           purchased,
           consumed,
           refunded,
-          remaining,
-          unpaid: s.total_quantity - purchased
+          remaining, // Will be 0 if refunded > 0
+          unpaid
         },
         is_eligible_for_refund: refundStatus
       };
@@ -326,7 +338,28 @@ const searchMemberCarePackages = async (req: Request, res: Response, next: NextF
   }
 };
 
+const getRefundDate = async (req: Request, res: Response) => {
+  try {
+    const { mcpId } = req.params;
+    const refundDate = await model.getRefundDateByMcpId(mcpId);
+    
+    if (!refundDate) {
+      return res.status(404).json({ 
+        error: 'Refund record not found for this MCP' 
+      });
+    }
 
+    res.json({ 
+      refund_date: refundDate 
+    });
+    
+  } catch (error) {
+    console.error('Error fetching refund date:', error);
+    res.status(500).json({ 
+      error: 'Failed to retrieve refund date' 
+    });
+  }
+};
 
 const getEligibleMemberVoucherForRefund = async (req: Request, res: Response, next: NextFunction) => {
   try {
@@ -409,6 +442,7 @@ export default {
   searchMembers: searchMembers as RequestHandler,
   getMemberCarePackages: getMemberCarePackages as RequestHandler,
   searchMemberCarePackages: searchMemberCarePackages as RequestHandler,
+  getRefundDate: getRefundDate as RequestHandler,
   processRefundMemberVoucher,
   getEligibleMemberVoucherForRefund,
   getMemberVoucherById: getMemberVoucherById as RequestHandler,

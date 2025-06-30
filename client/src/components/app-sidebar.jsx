@@ -12,6 +12,7 @@ import {
   Tickets,
   ChartColumnStacked,
   CreditCard,
+  DollarSign,
   Receipt,
 } from 'lucide-react';
 import { NavMain } from '@/components/nav-main';
@@ -39,7 +40,6 @@ const data = {
       title: 'Users',
       url: '#',
       icon: ShieldUser,
-      isActive: true,
       items: [
         {
           title: 'View Users',
@@ -52,6 +52,21 @@ const data = {
         {
           title: 'Settings',
           url: '#',
+        },
+      ],
+    },
+    {
+      title: 'Revenue',
+      url: '#',
+      icon: DollarSign,
+      items: [
+        {
+          title: 'Revenue Report',
+          url: '/rr',
+        },
+        {
+          title: 'Deferred Revenue',
+          url: '/dr',
         },
       ],
     },
@@ -77,11 +92,11 @@ const data = {
       items: [
         {
           title: 'Create Product',
-          url: '#',
+          url: '/create-product',
         },
         {
           title: 'Manage Products',
-          url: '#',
+          url: '/manage-product',
         },
       ],
     },
@@ -164,16 +179,16 @@ const data = {
     },
     {
       title: 'Appointments',
-      url: '#',
+      url: '/appointments',
       icon: CalendarDays,
       items: [
         {
           title: 'View Appointments',
-          url: '#',
+          url: '/appointments',
         },
         {
           title: 'Add New Appointment',
-          url: '#',
+          url: '/appointments/create',
         },
       ],
     },
@@ -193,21 +208,21 @@ const data = {
       url: '/credit-notes',
       icon: Receipt,
     },
-    {
-      title: 'Statistics',
-      url: '#',
-      icon: ChartColumnStacked,
-      items: [
-        {
-          title: 'View Database Report',
-          url: '/dbcr',
-        },
-        {
-          title: 'View Monthly Revenue Report',
-          url: '#',
-        },
-      ],
-    },
+    // {
+    //   title: 'Statistics',
+    //   url: '#',
+    //   icon: ChartColumnStacked,
+    //   items: [
+    //     {
+    //       title: 'View Database Report',
+    //       url: '/dbcr',
+    //     },
+    //     {
+    //       title: 'View Monthly Revenue Report',
+    //       url: '#',
+    //     },
+    //   ],
+    // },
     {
       title: 'Others',
       url: '#',
@@ -216,6 +231,21 @@ const data = {
         {
           title: 'Data Export',
           url: '/data-export',
+        },
+      ],
+    },
+    {
+      title: 'Timetables',
+      url: '#',
+      icon: CalendarDays,
+      items: [
+        {
+          title: 'Create Timetable',
+          url: '/et/create-employee-timetable',
+        },
+        {
+          title: 'Manage Timetable',
+          url: '/et',
         },
       ],
     },
