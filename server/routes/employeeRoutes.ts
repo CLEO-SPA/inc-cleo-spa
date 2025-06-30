@@ -26,7 +26,21 @@ router.post(
 );
 
 router.get('/dropdown', employeeController.getAllEmployeesForDropdown);
+// GET /api/em/basic-details - for search functionality
+
 router.get('/basic-details', employeeController.getBasicEmployeeDetails);
+
+// GET /api/em/positions - for position dropdown
+router.get('/positions', employeeController.getAllActivePositions);
+
+// GET /api/em/dropdown - for employee lists for dropdown option
+router.get('/dropdown', employeeController.getAllEmployeesForDropdown);
+
+// GET /api/em/employeeName/:employeeId - for employee name by employee ID
+router.get('/employeeName/:employeeId', employeeController.getEmployeeNameByEmployeeId);
+
+// GET /api/em/:employeeId - for employee details
+router.get('/:employeeId', employeeController.getEmployeeById);
 
 router.get('/', employeeController.getAllEmployees);
 
@@ -35,5 +49,9 @@ router.post(
   roleMiddleware.hasRole(['super_admin', 'data_admin']),
   employeeController.regenerateInvitationLink
 );
+
+router.put('/:id', roleMiddleware.hasRole(['super_admin', 'data_admin']), employeeController.updateEmployee);
+
+router.get('/:id', employeeController.getEmployeeById);
 
 export default router;

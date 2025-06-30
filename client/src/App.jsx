@@ -59,12 +59,40 @@ import CreatePaymentMethodPage from './pages/payment-method/CreatePaymentMethodP
 import EditPaymentMethodPage from './pages/payment-method/EditPaymentMethodPage';
 import TestPMComponent from './pages/sale-transaction/AddPMMComponentTest';
 
-// Employees
+// Employee Management
 import ManagePositions from '@/pages/em/ManagePositionsPage';
 import CreatePositionPage from '@/pages/em/CreatePositionPage';
 import EditPositionPage from '@/pages/em/UpdatePositionPage';
 import ManageEmployeesPage from '@/pages/em/ManageEmployeesPage';
 import CreateEmployeePage from '@/pages/em/CreateEmployeePage';
+import EditEmployeePage from '@/pages/em/UpdateEmployeePage';
+import RevenueReportPage from './pages/revenue/RevenueReportPage';
+import DeferredRevenuePage from './pages/revenue/DeferredRevenuePage';
+// Employees
+import EmployeeTimetablePage from './pages/EmployeeTimetable/EmployeeTimetable';
+
+// Employee Timetable Pages
+import CreateEmployeeTimetablePage from '@/pages/EmployeeTimetable/CreateEmployeeTimetablePage'
+import UpdateEmployeeTimetablePage from '@/pages/EmployeeTimetable/UpdateEmployeeTimetablePage'
+
+// Appointments Management
+import ManageAppointmentsPage from '@/pages/ab/ManageAppointmentsPage';
+import CreateAppointmentPage from './pages/ab/CreateAppointmentPage';
+import EditAppointmentPage from './pages/ab/EditAppointmentPage.jsx';
+import ViewAppointmentDetailsPage from '@/pages/ab/ViewAppointmentDetailsPage.jsx';
+
+// Product Management
+import ManageProductPage from '@/pages/product/ManageProductPage';
+import ManageProductCategoryPage from '@/pages/product/ManageProductCategoryPage';
+import ReorderProductPage from '@/pages/product/ReorderProductPage';
+import CreateProductPage from '@/pages/product/CreateProductPage';
+import UpdateProductPage from '@/pages/product/UpdateProductPage';
+import ViewProductSalesHistoryPage from '@/pages/product/ViewProductSalesHistoryPage';
+
+// Add this line with the other page imports (around line 20)
+import RefundPage from '@/pages/Refund/refund'; // Add this line
+import MCPDetail from '@/pages/Refund/MCPDetail';
+import MemberPackagesList from '@/components/refund/MemberPackagesList';
 
 function App() {
   return (
@@ -74,8 +102,20 @@ function App() {
         <Router>
           <Routes>
             <Route path='/' element={<ProtectedRoute />}>
+              {/* Home page */}
               <Route index element={<HomePage />} />
 
+              {/* appointments */}
+              <Route path='/appointments' element={<ManageAppointmentsPage />} />
+
+              <Route path='/appointments/create' element={<CreateAppointmentPage />} />
+              <Route path='/appointments/edit/:id' element={<EditAppointmentPage />} />
+              <Route path='/appointments/:id' element={<ViewAppointmentDetailsPage />} />
+
+              {/* Refund */}
+              <Route path='/refunds' element={<RefundPage />} />
+              <Route path='/refunds/member/:memberId' element={<MemberPackagesList />} />
+              <Route path='/refunds/mcp/:packageId' element={<MCPDetail />} />
               {/* Member Management */}
               <Route path='/member' element={<ManageMembersPage />} />
               <Route path='/member/create' element={<CreateMemberPage />} />
@@ -102,6 +142,7 @@ function App() {
               <Route path='/positions/update/:id' element={<EditPositionPage />} />
               <Route path='/employees' element={<ManageEmployeesPage />} />
               <Route path='/employees/create' element={<CreateEmployeePage />} />
+              <Route path='/employees/edit/:id' element={<EditEmployeePage />} />
 
               {/* Voucher Template */}
               <Route path='/voucher-template/create' element={<CreateVoucherTemplatesPage />} />
@@ -144,6 +185,25 @@ function App() {
               <Route path='/payment-method/create' element={<CreatePaymentMethodPage />} />
               <Route path='/payment-method/edit/:id' element={<EditPaymentMethodPage />} />
               <Route path='/payment-method/test' element={<TestPMComponent />} />
+
+              {/* employee timetable */}
+              <Route path='/et/create-employee-timetable' element={<CreateEmployeeTimetablePage />} />
+              <Route path='/et/update-employee-timetable/:timetableId' element={<UpdateEmployeeTimetablePage />} />
+              <Route path='/et' element={<EmployeeTimetablePage />} />
+
+              {/* Product Management */}
+              <Route path='/manage-product' element={<ManageProductPage />} />
+              <Route path='/create-product' element={<CreateProductPage />} />
+              <Route path='/update-product/:product_id' element={<UpdateProductPage />} />
+              <Route path='/reorder-product' element={<ReorderProductPage />} />
+              <Route path='/manage-product-category' element={<ManageProductCategoryPage />} />
+              <Route path='/view-product-sales-history/:product_id' element={<ViewProductSalesHistoryPage />} />
+
+              {/* Revenue Report Page */}
+              <Route path='/rr' element={<RevenueReportPage />} />
+              {/* Deferred Revenue Page */}
+              <Route path='/dr' element={<DeferredRevenuePage />} />
+
             </Route>
             <Route path='/login' element={<LoginPage />} />
 
@@ -153,6 +213,7 @@ function App() {
 
             {/* 404 Page */}
             <Route path='*' element={<NotFoundPage />} />
+
           </Routes>
         </Router>
       </DateRangeProvider>

@@ -6,7 +6,14 @@ const getAllMembers = async (req: Request, res: Response, next: NextFunction) =>
   try {
     const { start_date_utc, end_date_utc } = req.session;
 
-    const { page = '1', limit = '10', startDate_utc, endDate_utc, createdBy, search } = req.query;
+    const {
+      page = '1',
+      limit = '10',
+      startDate_utc,
+      endDate_utc,
+      createdBy,
+      search
+    } = req.query;
 
     const offset = (parseInt(page as string) - 1) * parseInt(limit as string);
     const pageLimit = parseInt(limit as string);
@@ -28,14 +35,15 @@ const getAllMembers = async (req: Request, res: Response, next: NextFunction) =>
         currentPage: parseInt(page as string),
         totalPages: result.totalPages,
         totalCount: result.totalCount,
-        limit: pageLimit,
-      },
+        limit: pageLimit
+      }
     });
   } catch (error) {
     console.error('Error in getAllMembers:', error);
     next(error);
   }
 };
+
 
 // Create a new member
 const createMember = async (req: Request, res: Response) => {
@@ -98,6 +106,7 @@ const updateMember = async (req: Request, res: Response) => {
   }
 };
 
+
 // Delete a member by ID
 const deleteMember = async (req: Request, res: Response, next: NextFunction) => {
   try {
@@ -115,6 +124,7 @@ const deleteMember = async (req: Request, res: Response, next: NextFunction) => 
     }
   }
 };
+
 
 // Get a single member by ID
 const getMemberById = async (req: Request, res: Response, next: NextFunction): Promise<void> => {
@@ -160,6 +170,7 @@ const searchMemberByNameOrPhone = async (req: Request, res: Response, next: Next
   }
 };
 
+
 const getMemberVouchers = async (req: Request, res: Response, next: NextFunction): Promise<void> => {
   try {
     const memberId = parseInt(req.params.memberId, 10);
@@ -174,7 +185,12 @@ const getMemberVouchers = async (req: Request, res: Response, next: NextFunction
 
     const offset = (page - 1) * limit;
 
-    const { vouchers, totalPages, totalCount } = await model.getMemberVouchers(memberId, offset, limit, searchTerm);
+    const { vouchers, totalPages, totalCount } = await model.getMemberVouchers(
+      memberId,
+      offset,
+      limit,
+      searchTerm
+    );
 
     res.status(200).json({
       data: vouchers,
@@ -182,14 +198,15 @@ const getMemberVouchers = async (req: Request, res: Response, next: NextFunction
         currentPage: page,
         totalPages,
         totalCount,
-        limit,
-      },
+        limit
+      }
     });
   } catch (error) {
     console.error('Error in getMemberVouchers:', error);
     next(error);
   }
 };
+
 
 const getMemberCarePackages = async (req: Request, res: Response, next: NextFunction): Promise<void> => {
   try {
@@ -221,14 +238,25 @@ const getMemberCarePackages = async (req: Request, res: Response, next: NextFunc
         currentPage: page,
         totalPages,
         totalCount,
-        limit,
-      },
+        limit
+      }
     });
   } catch (error) {
     console.error('Error in getMemberCarePackages:', error);
     next(error);
   }
 };
+
+const getAllMembersForDropdown = async (req: Request, res: Response) => {
+  try {
+    const members = await model.getAllMembersForDropdown();
+    res.status(200).json(members);
+  } catch (error) {
+    console.error('Error in getAllMembersForDropdown:', error);
+    res.status(500).json({ message: 'Failed to fetch members for dropdown' });
+  }
+};
+
 
 // Export all handlers in the same pattern
 export default {
@@ -240,4 +268,5 @@ export default {
   searchMemberByNameOrPhone,
   getMemberVouchers,
   getMemberCarePackages,
+  getAllMembersForDropdown
 };
