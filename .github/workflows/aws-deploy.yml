@@ -129,24 +129,13 @@ jobs:
           ${{ secrets.CLIENT_ENV_FILE }}
           CLIENT_ENV_EOF
 
-          # Create compose override for production
-          cat > compose.override.yml << EOF
-          services:
-            api:
-              image: "$IMAGE_NAME"
-              build: {}
-              ports:
-                - "5000:3000"
-          EOF
-
           # Save image name for next step
           echo "DEPLOY_IMAGE=$IMAGE_NAME" >> $GITHUB_ENV
 
           # Debug: Show the created files
-          echo "Created compose.override.yml:"
-          cat compose.override.yml
           echo "Created client/.env:"
           echo "CLIENT_ENV_FILE exists: $(test -f client/.env && echo 'yes' || echo 'no')"
+          echo "Using image: $IMAGE_NAME"
 
       - name: Sync project files
         run: |
@@ -260,19 +249,15 @@ jobs:
 
             # Pull the latest API image (ECR credential helper handles authentication automatically)
             echo "Pulling Docker image: $IMAGE_TO_PULL"
+
+            # Pull the latest API image
             docker pull "$IMAGE_TO_PULL"
 
-            # Debug: Show the compose override file content
-            echo "Content of compose.override.yml:"
-            cat compose.override.yml
+            # Tag the pulled image to match compose.yml expectations
+            docker tag "$IMAGE_TO_PULL" "${{ env.PROJECT_NAME }}-api:latest"
 
-            # Validate compose files
-            echo "Validating Docker Compose configuration..."
-            docker compose -f compose.yml -f compose.override.yml config
-
-            # Deploy using existing compose.yml with override
-            echo "Starting deployment with Docker Compose..."
-            docker compose -f compose.yml -f compose.override.yml up -d
+            # Update services with zero downtime
+            docker compose up -d --build
 
             # Health check
             echo "Waiting for services to start..."
