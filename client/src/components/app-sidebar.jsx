@@ -174,6 +174,10 @@ const data = {
           title: 'Data Export',
           url: '/data-export',
         },
+        {
+          title: "View Translations",
+          url: '/translations'
+        },
       ],
     },
     {
@@ -181,10 +185,7 @@ const data = {
       url: '#',
       icon: ShieldUser,
       items: [
-        {
-          title: "View Translations",
-          url: '/translations'
-        },
+
       ],
     },
   ],
