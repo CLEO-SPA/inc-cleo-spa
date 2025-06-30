@@ -23,7 +23,6 @@ const TransferVoucherForm = () => {
     setPrice,
     setFoc,
     setOldVouchers,
-    getTotalOldBalance,
     getTopUpBalance,
     setSelectedMember,
     setTransferFormData,
@@ -79,6 +78,21 @@ const TransferVoucherForm = () => {
     // clearCart(); // ❌ DO NOT clear cart anymore
   }, [bypassTemplate]);
 
+  // Calculate total old voucher balance excluding FOC amounts
+  const totalOldBalance = oldVouchers.reduce((acc, voucherName) => {
+    const voucher = memberVouchers.find(
+      (v) => v.member_voucher_name.trim().toLowerCase() === voucherName.trim().toLowerCase()
+    );
+    if (!voucher) return acc;
+    // Assumes voucher.current_balance includes total balance
+    // and voucher.foc_balance contains FOC portion, change if property names differ
+    const nonFocBalance = Number(voucher.current_balance) - (Number(voucher.free_of_charge) || 0);
+    return acc + (nonFocBalance > 0 ? nonFocBalance : 0);
+  }, 0);
+
+  // Calculate top-up balance based on price and totalOldBalance
+  const topUpBalance = Math.max(0, Number(price) - totalOldBalance);
+
   useEffect(() => {
     const memberName = currentMember?.name;
     const voucherNameToUse = bypassTemplate ? customVoucherName : selectedVoucherName;
@@ -96,7 +110,7 @@ const TransferVoucherForm = () => {
       .map((v) => ({
         voucher_id: v.id,
         member_voucher_name: v.member_voucher_name,
-        balance_to_transfer: Number(v.current_balance),
+        balance_to_transfer: Number(v.current_balance) - (Number(v.foc_balance) || 0),
       }));
 
     const payload = {
@@ -126,6 +140,7 @@ const TransferVoucherForm = () => {
     createdAt,
     remarks,
   ]);
+
   const handleDecimalInput = (e, setter, setCustomFlag, isFoc = false) => {
     const value = e.target.value;
     if (/^\d*(\.\d{0,2})?$/.test(value)) {
@@ -142,9 +157,7 @@ const TransferVoucherForm = () => {
     }
   };
 
-  const totalOldBalance = getTotalOldBalance();
   const isBalanceGreater = totalOldBalance > Number(price);
-  const topUpBalance = getTopUpBalance();
 
   const handleAddToCart = () => {
     const voucherNameToUse = bypassTemplate ? customVoucherName : selectedVoucherName;
@@ -239,6 +252,7 @@ const TransferVoucherForm = () => {
             ⚠️ FOC cannot be more than price.
           </div>
         )}
+
         {/* Remarks */}
         <div className='mb-6'>
           <label className='block font-medium mb-1'>Remarks</label>
@@ -303,7 +317,7 @@ const TransferVoucherForm = () => {
 
         {/* Totals */}
         <div className='mb-4'>
-          <label className='block font-medium mb-1'>Balance of Old Vouchers</label>
+          <label className='block font-medium mb-1'>Balance of Old Vouchers (Excluding FOC)</label>
           <input type='text' className='w-full border px-3 py-2 rounded' value={totalOldBalance} readOnly />
         </div>
 
@@ -345,8 +359,6 @@ const TransferVoucherForm = () => {
             onChange={(e) => setCreatedAt(e.target.value)}
           />
         </div>
-
-
 
         {/* Add to Cart Button */}
         <div className='mt-4 flex justify-end'>
