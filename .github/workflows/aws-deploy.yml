@@ -98,14 +98,24 @@ jobs:
               build: {}  # Override build to use ECR image
           EOF
 
-      - name: Setup EC2 dependencies (one-time setup)
+      - name: Sync project files
+        run: |
+          rsync -avz --delete \
+            --exclude '.git/' \
+            --exclude 'node_modules/' \
+            --exclude '.github/' \
+            ./ ec2:/home/ubuntu/${{ env.PROJECT_NAME }}/
+
+      - name: Setup EC2 Dependencies and Deploy
         uses: appleboy/ssh-action@master
         with:
           host: ${{ secrets.EC2_HOST }}
           username: ${{ secrets.EC2_USERNAME }}
           key: ${{ secrets.EC2_SSH_KEY }}
           script: |
-            # Check if Docker is installed
+            cd /home/ubuntu/${{ env.PROJECT_NAME }}
+
+            # Install Docker if not already installed
             if ! command -v docker &> /dev/null; then
               echo "Installing Docker..."
               sudo apt update
@@ -119,48 +129,39 @@ jobs:
               sudo apt install -y docker-ce docker-ce-cli containerd.io docker-buildx-plugin docker-compose-plugin
               sudo systemctl start docker
               sudo systemctl enable docker
-              sudo usermod -aG ubuntu docker
+              sudo usermod -aG docker ubuntu
               
               echo "Docker installed successfully"
-            else
-              echo "Docker is already installed"
             fi
-            
-            # Install ECR credential helper for automatic authentication
+
+            # Install ECR credential helper if not already installed
             if ! command -v docker-credential-ecr-login &> /dev/null; then
               echo "Installing ECR credential helper..."
+              sudo apt update
               sudo apt install -y amazon-ecr-credential-helper
               
               # Configure Docker to use ECR credential helper
               mkdir -p ~/.docker
-              echo '{
+              cat > ~/.docker/config.json << 'DOCKER_CONFIG_EOF'
+            {
                 "credHelpers": {
-                  "'${{ env.ECR_REGISTRY }}'": "ecr-login"
+                    "${{ env.ECR_REGISTRY }}": "ecr-login"
                 }
-              }' > ~/.docker/config.json
-              echo "ECR credential helper configured"
-            else
-              echo "ECR credential helper is already installed"
+            }
+            DOCKER_CONFIG_EOF
+              
+              echo "ECR credential helper configured successfully"
             fi
-            
-            echo "Dependencies setup complete"
 
-      - name: Sync project files
-        run: |
-          rsync -avz --delete \
-            --exclude '.git/' \
-            --exclude 'node_modules/' \
-            --exclude '.github/' \
-            ./ ec2:/home/ubuntu/${{ env.PROJECT_NAME }}/
-
-      - name: Deploy to EC2
-        uses: appleboy/ssh-action@master
-        with:
-          host: ${{ secrets.EC2_HOST }}
-          username: ${{ secrets.EC2_USERNAME }}
-          key: ${{ secrets.EC2_SSH_KEY }}
-          script: |
-            cd /home/ubuntu/${{ env.PROJECT_NAME }}
+            # Ensure we can use docker without sudo (apply group membership)
+            if ! groups | grep -q docker; then
+              echo "Applying docker group membership..."
+              newgrp docker << 'DOCKER_COMMANDS_EOF'
+              # Test docker access
+              docker --version
+              docker compose version
+            DOCKER_COMMANDS_EOF
+            fi
 
             # Create .env file
             echo "${{ secrets.ENV_FILE }}" > ./server/.env
@@ -168,15 +169,12 @@ jobs:
             # Ensure client/dist directory exists
             mkdir -p client/dist
 
-            # Apply docker group permissions (in case of first-time setup)
-            newgrp docker << 'EONG'
-            
-            # Pull the latest API image (uses ECR credential helper automatically)
-            echo "Pulling image: ${{ needs.build-and-push.outputs.api-image }}"
+            # Pull the latest API image (ECR credential helper handles authentication automatically)
+            echo "Pulling Docker image: ${{ needs.build-and-push.outputs.api-image }}"
             docker pull ${{ needs.build-and-push.outputs.api-image }}
 
             # Deploy using existing compose.yml with override
-            echo "Starting deployment..."
+            echo "Starting deployment with Docker Compose..."
             docker compose -f compose.yml -f compose.override.yml up -d
 
             # Health check
@@ -205,5 +203,3 @@ jobs:
               echo "Recent logs:"
               docker compose logs --tail=50
             fi
-            
-            EONG
