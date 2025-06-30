@@ -84,7 +84,7 @@ jobs:
           chmod 400 ~/.ssh/deploy_key
           echo "Host ec2
             HostName ${{ secrets.EC2_HOST }}
-            User ${{ secrets.EC2_USER }}
+            User ${{ secrets.EC2_USERNAME }}
             IdentityFile ~/.ssh/deploy_key
             StrictHostKeyChecking no" > ~/.ssh/config
 
@@ -110,9 +110,12 @@ jobs:
         uses: appleboy/ssh-action@master
         with:
           host: ${{ secrets.EC2_HOST }}
-          username: ${{ secrets.EC2_USER }}
+          username: ${{ secrets.EC2_USERNAME }}
           key: ${{ secrets.EC2_SSH_KEY }}
-          script: |
+          envs: API_IMAGE
+        env:
+          API_IMAGE: ${{ needs.build-and-push.outputs.api-image }}
+        script: |
             cd /home/ubuntu/${{ env.PROJECT_NAME }}
 
             # Install Docker if not already installed
@@ -163,6 +166,23 @@ jobs:
             DOCKER_COMMANDS_EOF
             fi
 
+            # Debug: Print the image name being used
+            echo "DEBUG: API_IMAGE = ${API_IMAGE}"
+            echo "DEBUG: ECR_REGISTRY = ${{ env.ECR_REGISTRY }}"
+            echo "DEBUG: ECR_REPOSITORY_API = ${{ env.ECR_REPOSITORY_API }}"
+            
+            # Create compose override for production deployment
+            cat > compose.override.yml << EOF
+            services:
+              api:
+                image: ${API_IMAGE}
+                build: {}
+            EOF
+
+            # Debug: Show the compose override content
+            echo "DEBUG: compose.override.yml content:"
+            cat compose.override.yml
+
             # Create .env file
             echo "${{ secrets.ENV_FILE }}" > ./server/.env
 
@@ -170,8 +190,8 @@ jobs:
             mkdir -p client/dist
 
             # Pull the latest API image (ECR credential helper handles authentication automatically)
-            echo "Pulling Docker image: ${{ needs.build-and-push.outputs.api-image }}"
-            docker pull ${{ needs.build-and-push.outputs.api-image }}
+            echo "Pulling Docker image: ${API_IMAGE}"
+            docker pull "${API_IMAGE}"
 
             # Deploy using existing compose.yml with override
             echo "Starting deployment with Docker Compose..."
