@@ -133,12 +133,16 @@ const CreditNoteDetailsPage = () => {
                                             <div className="p-6">
                                                 <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
                                                     <div className="space-y-1">
-                                                        <p className="text-sm font-medium text-gray-600">Credit Note ID</p>
-                                                        <p className="text-lg font-semibold text-gray-900">{note.id}</p>
+                                                        <p className="text-sm font-medium text-gray-600">Credit Note No.</p>
+                                                        <p className="text-lg font-semibold text-gray-900">{note.receipt_no || "N/A"}</p>
                                                     </div>
                                                     <div className="space-y-1">
-                                                        <p className="text-sm font-medium text-gray-600">Receipt Number</p>
-                                                        <p className="text-lg font-semibold text-gray-900">{note.receipt_no || "N/A"}</p>
+                                                        <p className="text-sm font-medium text-gray-600">Handled By</p>
+                                                        <p className="text-lg font-semibold text-gray-900">{note.handled_by_name || "N/A"}</p>
+                                                    </div>
+                                                    <div className="space-y-1">
+                                                        <p className="text-sm font-medium text-gray-600">Created By</p>
+                                                        <p className="text-lg font-semibold text-gray-900">{note.created_by_name || "N/A"}</p>
                                                     </div>
                                                     <div className="space-y-1">
                                                         <p className="text-sm font-medium text-gray-600">Processed At</p>
@@ -153,10 +157,6 @@ const CreditNoteDetailsPage = () => {
                                                                 })
                                                                 : "N/A"}
                                                         </p>
-                                                    </div>
-                                                    <div className="space-y-1">
-                                                        <p className="text-sm font-medium text-gray-600">Handled By</p>
-                                                        <p className="text-lg font-semibold text-gray-900">{note.handled_by_name || "N/A"}</p>
                                                     </div>
                                                     <div className="space-y-1">
                                                         <p className="text-sm font-medium text-gray-600">Refunded Amount</p>

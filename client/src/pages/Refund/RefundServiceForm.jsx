@@ -11,6 +11,7 @@ import { AppSidebar } from "@/components/app-sidebar";
 import { SidebarInset, SidebarProvider } from "@/components/ui/sidebar";
 import useRefundStore from "@/stores/useRefundStore";
 import { useAuth } from "@/context/AuthContext";
+import useEmployeeStore from "@/stores/useEmployeeStore";
 
 const RefundServiceForm = () => {
     const { saleTransactionItemId } = useParams();
@@ -23,6 +24,7 @@ const RefundServiceForm = () => {
     const [isSuccess, setIsSuccess] = useState(false);
     const [refundId, setRefundId] = useState(null);
 
+    const [creditNoteNo, setCreditNoteNo] = useState("");
 
     const getLocalDateTimeString = () => {
         const now = new Date();
@@ -51,6 +53,19 @@ const RefundServiceForm = () => {
         }
     }, [serviceItem]);
 
+
+    const [handledById, setHandledById] = useState(null);
+
+    const {
+        employees,
+        isLoading: isLoadingEmployees,
+        fetchDropdownEmployees
+    } = useEmployeeStore();
+
+    useEffect(() => {
+        fetchDropdownEmployees()
+    }, []);
+
     const handleQuantityChange = (e) => {
         const val = Number(e.target.value);
         if (val < 1) return;
@@ -62,8 +77,13 @@ const RefundServiceForm = () => {
     };
 
     const handleSubmit = async () => {
-        const employeeId = user?.user_id;
+        if (!handledById) {
+            setError("Please select the staff who handled this refund.");
+            return;
+        }
+        setError(null);
 
+        const employeeId = user?.user_id;
         if (!employeeId) {
             console.error("Employee ID is missing. Please log in again.");
             return;
@@ -89,6 +109,8 @@ const RefundServiceForm = () => {
                 quantity,
                 refundDate,
                 employeeId: user?.user_id,
+                handledById: Number(handledById),
+                creditNoteNo: creditNoteNo.trim() || null,
                 servicename: serviceItem.service_name,
                 originalUnitPrice: serviceItem.original_unit_price,
                 customUnitPrice: serviceItem.custom_unit_price,
@@ -350,7 +372,8 @@ const RefundServiceForm = () => {
                                                 </div>
                                                 <div>
                                                     <strong>Custom Unit Price:</strong>{" "}
-                                                    {custom_unit_price ? custom_unit_price : "-"}
+                                                    {!custom_unit_price || parseFloat(custom_unit_price) === 0 ? "-" : custom_unit_price}
+
                                                 </div>
                                                 <div>
                                                     <strong>Discount:</strong> {discountText}
@@ -395,6 +418,36 @@ const RefundServiceForm = () => {
                                                         className="h-10 text-sm w-60"
                                                     />
                                                 </div>
+                                            </div>
+
+                                            <div className="space-y-1">
+                                                <Label htmlFor="handledBy">Handled By</Label>
+                                                <select
+                                                    id="handledBy"
+                                                    value={handledById ?? ""}
+                                                    onChange={(e) => setHandledById(e.target.value ? Number(e.target.value) : null)}
+                                                    className="border rounded px-3 py-2 text-sm w-60"
+                                                >
+                                                    <option value="">Select a staff</option>
+                                                    {employees.map((emp) => (
+                                                        <option key={emp.id} value={emp.id}>
+                                                            {emp.employee_name}
+                                                        </option>
+                                                    ))}
+                                                </select>
+                                                {isLoadingEmployees && <p className="text-sm text-gray-500">Loading staff...</p>}
+                                            </div>
+
+                                            <div className="space-y-1">
+                                                <Label htmlFor="creditNoteNo">Manual Credit Note No. (optional)</Label>
+                                                <Input
+                                                    id="creditNoteNo"
+                                                    type="text"
+                                                    placeholder="e.g. CFS 001"
+                                                    value={creditNoteNo}
+                                                    onChange={(e) => setCreditNoteNo(e.target.value)}
+                                                    className="h-10 text-sm w-60"
+                                                />
                                             </div>
 
                                             <div className="text-base md:text-lg text-gray-800">

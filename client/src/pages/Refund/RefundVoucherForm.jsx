@@ -11,6 +11,7 @@ import { AppSidebar } from "@/components/app-sidebar";
 import { SidebarInset, SidebarProvider } from "@/components/ui/sidebar";
 import useRefundStore from "@/stores/useRefundStore";
 import { useAuth } from "@/context/AuthContext";
+import useEmployeeStore from "@/stores/useEmployeeStore";
 
 const RefundVoucherForm = () => {
     const { voucherId } = useParams();
@@ -27,6 +28,7 @@ const RefundVoucherForm = () => {
     const [isSuccess, setIsSuccess] = useState(false);
     const [refundId, setRefundId] = useState(null);
     const [error, setError] = useState(null);
+    const [creditNoteNo, setCreditNoteNo] = useState("");
 
     const {
         fetchMemberVoucherById,
@@ -35,24 +37,43 @@ const RefundVoucherForm = () => {
         submitRefundMemberVoucher,
     } = useRefundStore();
 
+
     useEffect(() => {
         if (voucherId) fetchMemberVoucherById(Number(voucherId));
         //console.log("Fetching voucher with ID:", voucherId);
     }, [voucherId]);
 
+    const [handledById, setHandledById] = useState(null);
+
+    const {
+        employees,
+        isLoading: isLoadingEmployees,
+        fetchDropdownEmployees
+    } = useEmployeeStore();
+
+    useEffect(() => {
+        fetchDropdownEmployees()
+    }, []);
+
     const handleSubmit = async () => {
-        const employeeId = user?.user_id;
-        if (!employeeId) return;
+        const createdById = user?.user_id;
+
+        if (!createdById || !handledById) {
+            setError("Please select a staff to handle this refund.");
+            return;
+        }
 
         const formattedDate = new Date(refundDate).toISOString();
-        
+
         try {
             console.log("date:", refundDate);
             const data = await submitRefundMemberVoucher({
                 memberVoucherId: Number(voucherId),
-                refundedBy: employeeId,
+                refundedBy: Number(handledById),  
+                createdBy: createdById,     
                 refundDate: formattedDate,
                 remarks: remarks.trim() === "" ? null : remarks,
+                creditNoteNumber: creditNoteNo.trim() === "" ? null : creditNoteNo.trim(),
             });
             setRefundId(data.refundTransactionId);
             setIsSuccess(true);
@@ -306,6 +327,35 @@ const RefundVoucherForm = () => {
                                                 type="datetime-local"
                                                 value={refundDate}
                                                 onChange={(e) => setRefundDate(e.target.value)}
+                                                className="h-10 text-sm w-60"
+                                            />
+                                        </div>
+                                        <div className="space-y-1">
+                                            <Label htmlFor="handledBy">Handled By</Label>
+                                            <select
+                                                id="handledBy"
+                                                value={handledById ?? ""}
+                                                onChange={(e) => setHandledById(e.target.value)}
+                                                className="border rounded px-3 py-2 text-sm w-60"
+                                            >
+                                                <option value="">Select a staff</option>
+                                                {employees.map((emp) => (
+                                                    <option key={emp.id} value={emp.id}>
+                                                        {emp.employee_name}
+                                                    </option>
+                                                ))}
+                                            </select>
+                                            {isLoadingEmployees && <p className="text-sm text-gray-500">Loading staff...</p>}
+                                        </div>
+
+                                        <div className="space-y-1">
+                                            <Label htmlFor="creditNoteNo">Manual Credit Note No. (optional)</Label>
+                                            <Input
+                                                id="creditNoteNo"
+                                                type="text"
+                                                placeholder="e.g. CFS 001"
+                                                value={creditNoteNo}
+                                                onChange={(e) => setCreditNoteNo(e.target.value)}
                                                 className="h-10 text-sm w-60"
                                             />
                                         </div>

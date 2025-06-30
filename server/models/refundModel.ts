@@ -275,7 +275,9 @@ const getServiceTransactionsForRefund = async (
 const processRefundService = async (body: {
   saleTransactionId: number;
   refundRemarks?: string;
-  refundedBy: number;
+  refundedBy: number; // the person who submitted
+  handledBy?: number; //the person who handled the refund
+  creditNoteNo?: string;
   refundDate?: string;
   refundItems: {
     sale_transaction_item_id: number;
@@ -308,12 +310,12 @@ const processRefundService = async (body: {
 
     const { rows: refundTxRows } = await client.query(
       `INSERT INTO sale_transactions (
-      customer_type, member_id, total_paid_amount, outstanding_total_payment_amount,
-      sale_transaction_status, remarks, receipt_no, reference_sales_transaction_id,
-      handled_by, created_by, created_at, updated_at
-      )
-      VALUES ($1,$2,$3,$4,$5,$6,null,$7,$8,$8,$9,$9)
-      RETURNING id`,
+    customer_type, member_id, total_paid_amount, outstanding_total_payment_amount,
+    sale_transaction_status, remarks, receipt_no, reference_sales_transaction_id,
+    handled_by, created_by, created_at, updated_at
+  )
+  VALUES ($1,$2,$3,$4,$5,$6,null,$7,$8,$9,$10,$10)
+  RETURNING id`,
       [
         original.customer_type,
         original.member_id,
@@ -322,14 +324,19 @@ const processRefundService = async (body: {
         'REFUND',
         `Refund for transaction #${original.id}`,
         body.saleTransactionId,
+        body.handledBy || body.refundedBy, // use handledBy if available, fallback to refundedBy
         body.refundedBy,
         refundDate, // created_at
       ]
     );
     const refundTxId = refundTxRows[0].id;
 
+    /*
     const refundDateStr = refundDate.toISOString().slice(0, 10).replace(/-/g, '');
     const receiptNo = `R-SVC-${refundTxId}-${refundDateStr}`;
+    */
+
+    const receiptNo = body.creditNoteNo?.trim() || null;
 
     await client.query(
       `UPDATE sale_transactions SET receipt_no = $1 WHERE id = $2`,
@@ -906,9 +913,11 @@ const getRefundDateByMcpId = async (mcpId: string) => {
 
 const processRefundMemberVoucher = async (body: {
   memberVoucherId: number;
-  refundedBy: number;
+  refundedBy: number; // handled by
+  createdBy: number;  // logged-in user who created the refund
   refundDate: string;
   remarks?: string;
+  creditNoteNumber?: string;
 }): Promise<{ refundTransactionId: number }> => {
   const client = await pool().connect();
 
@@ -972,7 +981,7 @@ const processRefundMemberVoucher = async (body: {
       `UPDATE member_vouchers
        SET current_balance = 0, status = 'disabled', last_updated_by = $1, updated_at = $3
        WHERE id = $2`,
-      [body.refundedBy, body.memberVoucherId, body.refundDate]
+      [body.createdBy, body.memberVoucherId, body.refundDate]
     );
 
     // 7. Log REMOVE FOC (optional)
@@ -982,53 +991,57 @@ const processRefundMemberVoucher = async (body: {
           member_voucher_id, service_description, service_date,
           current_balance, amount_change, serviced_by, type,
           created_by, last_updated_by, created_at, updated_at
-        ) VALUES ($1, 'Remove Free Of Charge', $2, $3, $4, $5, 'REMOVE FOC', $5, $5, $2, $2)`,
+        ) VALUES ($1, 'Remove Free Of Charge', $2, $3, $4, $5, 'REMOVE FOC', $6, $6, $2, $2)`,
         [
           body.memberVoucherId,
           body.refundDate,
           newBalanceAfterFOC,
           -freeOfCharge,
-          body.refundedBy
+          body.refundedBy,  // handled_by = refundedBy
+          body.createdBy    // created_by = logged-in user
         ]
       );
     }
-
     // 8. Log REFUND
     await client.query(
       `INSERT INTO member_voucher_transaction_logs (
         member_voucher_id, service_description, service_date,
         current_balance, amount_change, serviced_by, type,
         created_by, last_updated_by, created_at, updated_at
-      ) VALUES ($1, 'REFUND', $2, 0, $3, $4, 'REFUND', $4, $4, $2, $2)`,
+      ) VALUES ($1, 'REFUND', $2, 0, $3, $4, 'REFUND', $5, $5, $2, $2)`,
       [
         body.memberVoucherId,
         body.refundDate,
         -refundAmount,
-        body.refundedBy
+        body.refundedBy,  // handled_by
+        body.createdBy    // created_by
       ]
     );
 
-    const dateStr = body.refundDate.slice(0, 10).replace(/-/g, '');
-    const receiptNo = `R-MV-${body.memberVoucherId}-${dateStr}`;
+    const receiptNo = body.creditNoteNumber?.trim() ?? null;
+
+    //const dateStr = body.refundDate.slice(0, 10).replace(/-/g, '');
+    //const receiptNo = `R-MV-${body.memberVoucherId}-${dateStr}`;
 
     // 9. Sale transaction (refund)
     const { rows: txRows } = await client.query(
       `INSERT INTO sale_transactions (
-    customer_type, member_id,
-    total_paid_amount, outstanding_total_payment_amount,
-    sale_transaction_status, remarks,
-    receipt_no, reference_sales_transaction_id,
-    handled_by, created_by, created_at, updated_at
-  )
-  VALUES ('member', $1, $2, 0, 'REFUND', $3, $4, $5, $6, $6, $7, $7)
-  RETURNING id`,
+        customer_type, member_id,
+        total_paid_amount, outstanding_total_payment_amount,
+        sale_transaction_status, remarks,
+        receipt_no, reference_sales_transaction_id,
+        handled_by, created_by, created_at, updated_at
+      )
+      VALUES ('member', $1, $2, 0, 'REFUND', $3, $4, $5, $6, $7, $8, $8)
+      RETURNING id`,
       [
         voucher.member_id,
         -refundAmount,
         body.remarks || `Refund for Member Voucher #${body.memberVoucherId}`,
         receiptNo,
         originalTxId,
-        body.refundedBy,
+        body.refundedBy, // handled_by = selected employee
+        body.createdBy,  // created_by = logged-in user
         body.refundDate
       ]
     );
@@ -1060,7 +1073,7 @@ const processRefundMemberVoucher = async (body: {
         refundTxId,
         -refundAmount,
         body.remarks || `Refund for Member Voucher #${body.memberVoucherId}`,
-        body.refundedBy,
+        body.createdBy,
         body.refundDate
       ]
     );
@@ -1374,23 +1387,25 @@ const getRefundRecordDetails = async (refundId: number) => {
   try {
     // Get main refund record + member info + handled_by name
     const refundQuery = `
-      SELECT
-        st.id,
-        st.created_at,
-        st.member_id,
-        m.name AS member_name,
-        m.email AS member_email,
-        m.contact AS member_contact,
-        e.employee_name AS handled_by_name,
-        st.total_paid_amount,
-        st.outstanding_total_payment_amount,
-        st.sale_transaction_status,
-        st.remarks,
-        st.receipt_no
-      FROM sale_transactions st
-      LEFT JOIN members m ON m.id = st.member_id
-      LEFT JOIN employees e ON e.id = st.handled_by
-      WHERE st.id = $1 AND st.sale_transaction_status = 'REFUND'
+    SELECT
+      st.id,
+      st.created_at,
+      st.member_id,
+      m.name AS member_name,
+      m.email AS member_email,
+      m.contact AS member_contact,
+      e_handled.employee_name AS handled_by_name,
+      e_created.employee_name AS created_by_name,
+      st.total_paid_amount,
+      st.outstanding_total_payment_amount,
+      st.sale_transaction_status,
+      st.remarks,
+      st.receipt_no
+    FROM sale_transactions st
+    LEFT JOIN members m ON m.id = st.member_id
+    LEFT JOIN employees e_handled ON e_handled.id = st.handled_by
+    LEFT JOIN employees e_created ON e_created.id = st.created_by
+    WHERE st.id = $1 AND st.sale_transaction_status = 'REFUND'
     `;
 
     const { rows } = await client.query(refundQuery, [refundId]);

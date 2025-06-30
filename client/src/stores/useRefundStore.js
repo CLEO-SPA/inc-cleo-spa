@@ -65,6 +65,8 @@ const useRefundStore = create((set) => ({
     customUnitPrice,
     discountPercentage,
     amount,
+    handledById,
+    creditNoteNo,
   }) => {
     if (!employeeId) throw new Error("Employee ID is missing.");
 
@@ -72,7 +74,9 @@ const useRefundStore = create((set) => ({
       saleTransactionId,
       refundRemarks: remarks,
       refundedBy: employeeId,
+      handledBy: handledById,
       refundDate,
+      creditNoteNo,
       refundItems: [
         {
           sale_transaction_item_id: Number(saleTransactionItemId),
@@ -109,13 +113,15 @@ const useRefundStore = create((set) => ({
     }
   },
 
-  submitRefundMemberVoucher: async ({ memberVoucherId, refundedBy, refundDate, remarks }) => {
+  submitRefundMemberVoucher: async ({ memberVoucherId, refundedBy, createdBy, refundDate, remarks, creditNoteNumber }) => {
     try {
       const res = await api.post("/refund/member-voucher", {
         memberVoucherId,
-        refundedBy,
+        refundedBy,   // staff who handled refund
+        createdBy,    // user who created the refund (logged-in user)
         refundDate,
         remarks,
+        creditNoteNumber,
       });
       return res.data; // { refundTransactionId: number }
     } catch (error) {
