@@ -2136,17 +2136,57 @@ const processPartialPayment = async (
     if (voucherItems.length > 0 && newTransactionStatus === 'FULL') {
       for (const voucherItem of voucherItems) {
         const voucherResult = await client.query(
-          'SELECT free_of_charge FROM member_vouchers WHERE id = $1',
+          'SELECT free_of_charge, current_balance FROM member_vouchers WHERE id = $1',
           [voucherItem.member_voucher_id]
         );
 
         if (voucherResult.rows.length > 0) {
-          const freeOfCharge = parseFloat(voucherResult.rows[0].free_of_charge) || 0;
+          const voucher = voucherResult.rows[0];
+          const freeOfCharge = parseFloat(voucher.free_of_charge) || 0;
+          const currentBalance = parseFloat(voucher.current_balance) || 0;
+          
           if (freeOfCharge > 0) {
+            // Update the voucher balance
             await client.query(
               'UPDATE member_vouchers SET current_balance = COALESCE(current_balance, 0) + $1 WHERE id = $2',
               [freeOfCharge, voucherItem.member_voucher_id]
             );
+
+            // Insert transaction log for the fully paid voucher
+            const insertVoucherLogQuery = `
+              INSERT INTO member_voucher_transaction_logs (
+                member_voucher_id,
+                service_description,
+                service_date,
+                current_balance,
+                amount_change,
+                serviced_by,
+                type,
+                created_by,
+                last_updated_by,
+                created_at,
+                updated_at
+              ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11)
+            `;
+
+            const newBalance = currentBalance + freeOfCharge;
+            const voucherLogParams = [
+              voucherItem.member_voucher_id,
+              `Payment completed for receipt ${originalTransaction.receipt_no}`,
+              currentTime,
+              newBalance,
+              freeOfCharge,
+              transaction_handler_id,
+              'ADD FOC',
+              transaction_handler_id,
+              transaction_handler_id,
+              currentTime,
+              currentTime
+            ];
+
+            await client.query(insertVoucherLogQuery, voucherLogParams);
+            
+            console.log(`Inserted voucher transaction log for voucher ID ${voucherItem.member_voucher_id}, balance change: +${freeOfCharge}`);
           }
         }
       }
@@ -2182,7 +2222,6 @@ const processPartialPayment = async (
     client.release();
   }
 };
-
 
 export default {
   getSalesTransactionList,
