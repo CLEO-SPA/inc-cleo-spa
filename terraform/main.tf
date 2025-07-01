@@ -229,21 +229,6 @@ resource "aws_iam_role_policy_attachment" "secrets_manager_attachment" {
 }
 
 # 6. ECS Task Definition and Service
-data "template_file" "task_definition" {
-  template = file("../task-definition.json")
-
-  vars = {
-    backend_image_uri     = var.backend_image_uri
-    frontend_image_uri    = var.frontend_image_uri
-    secret_arn_prefix     = aws_secretsmanager_secret.db_creds.arn
-    jwt_secret_arn_prefix = aws_secretsmanager_secret.jwt_secrets.arn
-  }
-}
-
-locals {
-  task_def_json = jsondecode(data.template_file.task_definition.rendered)
-}
-
 resource "aws_ecs_task_definition" "app" {
   family                   = "${var.project_name}-task"
   network_mode             = "bridge"
@@ -251,7 +236,91 @@ resource "aws_ecs_task_definition" "app" {
   cpu                      = "256"
   memory                   = "512"
   execution_role_arn       = aws_iam_role.ecs_task_execution_role.arn
-  container_definitions    = jsonencode(local.task_def_json.containerDefinitions)
+  
+  container_definitions = jsonencode([
+    {
+      name      = "frontend"
+      image     = var.frontend_image_uri
+      cpu       = 128
+      memory    = 256
+      essential = true
+      portMappings = [
+        {
+          containerPort = 80
+          hostPort      = 80
+        }
+      ]
+    },
+    {
+      name      = "backend"
+      image     = var.backend_image_uri
+      cpu       = 128
+      memory    = 256
+      essential = true
+      portMappings = [
+        {
+          containerPort = 3000
+          hostPort      = 3000
+        }
+      ]
+      secrets = [
+        {
+          name      = "DB_HOST"
+          valueFrom = "${aws_secretsmanager_secret.db_creds.arn}:host::"
+        },
+        {
+          name      = "DB_USER"
+          valueFrom = "${aws_secretsmanager_secret.db_creds.arn}:username::"
+        },
+        {
+          name      = "DB_PASSWORD"
+          valueFrom = "${aws_secretsmanager_secret.db_creds.arn}:password::"
+        },
+        {
+          name      = "DB_NAME"
+          valueFrom = "${aws_secretsmanager_secret.db_creds.arn}:dbname::"
+        },
+        {
+          name      = "AUTH_JWT_SECRET"
+          valueFrom = "${aws_secretsmanager_secret.jwt_secrets.arn}:auth_jwt_secret::"
+        },
+        {
+          name      = "INV_JWT_SECRET"
+          valueFrom = "${aws_secretsmanager_secret.jwt_secrets.arn}:inv_jwt_secret::"
+        },
+        {
+          name      = "REMEMBER_TOKEN"
+          valueFrom = "${aws_secretsmanager_secret.jwt_secrets.arn}:remember_token::"
+        },
+        {
+          name      = "SESSION_SECRET"
+          valueFrom = "${aws_secretsmanager_secret.jwt_secrets.arn}:session_secret::"
+        },
+        {
+          name      = "LOCAL_FRONTEND_URL"
+          valueFrom = "${aws_secretsmanager_secret.jwt_secrets.arn}:local_frontend_url::"
+        },
+        {
+          name      = "LOCAL_BACKEND_URL"
+          valueFrom = "${aws_secretsmanager_secret.jwt_secrets.arn}:local_backend_url::"
+        },
+        {
+          name      = "AWS_FRONTEND_URL"
+          valueFrom = "${aws_secretsmanager_secret.jwt_secrets.arn}:aws_frontend_url::"
+        }
+      ]
+      environment = [
+        {
+          name  = "PORT"
+          value = "3000"
+        },
+        {
+          name  = "NODE_ENV"
+          value = "production"
+        }
+      ]
+    }
+  ])
 }
 
 resource "aws_ecs_service" "main" {
