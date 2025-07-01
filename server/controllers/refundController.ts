@@ -17,12 +17,15 @@ const viewAllRefundSaleTransactionRecords = async (req: Request, res: Response, 
 
 const getServiceTransactionsForRefund = async (req: Request, res: Response, next: NextFunction): Promise<void> => {
   try {
+    //console.log(req.query.member_id)
     const results = await model.getServiceTransactionsForRefund(
       req.query.member_id ? Number(req.query.member_id) : undefined,
       req.query.member_name as string | undefined,
       req.query.receipt_no as string | undefined,
       req.query.start_date_utc as string | undefined,
-      req.query.end_date_utc as string | undefined
+      req.query.end_date_utc as string | undefined,
+      req.query.limit ? Number(req.query.limit) : undefined,
+      req.query.offset ? Number(req.query.offset) : undefined,
     );
 
     res.status(200).json(results);
@@ -35,9 +38,53 @@ const getServiceTransactionsForRefund = async (req: Request, res: Response, next
 
 const processRefundService = async (req: Request, res: Response, next: NextFunction) => {
   try {
+    console.log('Processing refund for service:', req.body);
     const refundResult = await model.processRefundService(req.body);
 
-    res.status(201).json({ message: 'Refund processed successfully', refundTransactionId: refundResult.refundTransactionId });
+    res.status(200).json({ message: 'Refund processed successfully', refundTransactionId: refundResult.refundTransactionId });
+  } catch (error) {
+    console.error('Error in RefundController.processRefund:', error);
+    next(error);
+  }
+};
+
+const getSaleTransactionItemById = async (
+  req: Request,
+  res: Response,
+  next: NextFunction
+) => {
+  const itemId = Number(req.params.id);
+  if (isNaN(itemId)) {
+    res.status(400).json({ message: 'Invalid sale_transaction_item_id' });
+    return;
+  }
+
+  try {
+    const item = await model.getSaleTransactionItemById(itemId);
+    if (!item) {
+      res.status(404).json({ message: 'Sale transaction item not found' });
+      return;
+    }
+
+    const isFullyRefunded = Number(item.remaining_quantity) <= 0;
+
+    res.status(200).json({
+      ...item,
+      is_fully_refunded: isFullyRefunded,
+      message: isFullyRefunded ? 'This item has been fully refunded.' : undefined,
+    });
+
+  } catch (error) {
+    console.error('Error in getSaleTransactionItemById:', error);
+    next(error);
+  }
+};
+
+const processRefundMemberVoucher = async (req: Request, res: Response, next: NextFunction) => {
+  try {
+    const refundResult = await model.processRefundMemberVoucher(req.body);
+
+    res.status(200).json({ message: 'Refund processed successfully', refundTransactionId: refundResult.refundTransactionId });
   } catch (error) {
     console.error('Error in RefundController.processRefund:', error);
     next(error);
@@ -57,8 +104,8 @@ const validateMCPExists = async (req: Request, res: Response, next: NextFunction
       return;
     }
 
-    const refundedStatusId = await model.getStatusId('Refunded');
-    if (mcp.status_id === refundedStatusId) {
+    // Changed from checking status_id to checking status directly
+    if (mcp.status === 'Refunded') {
       res.status(400).json({ error: 'This Member Care Package has already been refunded.' });
       return;
     }
@@ -142,7 +189,7 @@ const processFullRefund = async (req: Request, res: Response, next: NextFunction
     }
 
     const reqWithExtras = req as Request & {
-      mcpData: { id: number; member_id: number; status_id: number };
+      mcpData: { id: number; member_id: number; status: string };
       remainingServices: Array<{
         id: number;
         service_id: number;
@@ -167,7 +214,8 @@ const processFullRefund = async (req: Request, res: Response, next: NextFunction
       refundTransactionId: result.refundTransactionId,
       totalRefundAmount: result.totalRefund,
       refundedServices: result.refundedServices,
-      refundDate: processedRefundDate.toISOString()
+      refundDate: processedRefundDate.toISOString(),
+      receiptNo: result.receiptNo
     });
   } catch (error) {
     console.error('Refund processing error:', error);
@@ -194,6 +242,8 @@ const fetchMCPStatus = async (req: Request, res: Response, next: NextFunction) =
       const consumed = parseInt(s.consumed) || 0;
       const refunded = parseInt(s.refunded) || 0;
       const unpaid = parseInt(s.unpaid) || 0;
+      const price = parseFloat(s.price) || 0;
+      const discount = parseFloat(s.discount) || 0;
 
       // Remaining is already set to 0 if refunded > 0 by the SQL query
       const remaining = parseInt(s.remaining) || 0;
@@ -211,6 +261,7 @@ const fetchMCPStatus = async (req: Request, res: Response, next: NextFunction) =
         service_id: s.service_id,
         service_name: s.service_name,
         totals: {
+          price,
           purchased,
           consumed,
           refunded,
@@ -221,7 +272,11 @@ const fetchMCPStatus = async (req: Request, res: Response, next: NextFunction) =
       };
     });
 
-    res.status(200).json({ package_id, package_name, services });
+    res.status(200).json({ 
+      package_id, 
+      package_name, 
+      services 
+    });
   } catch (error) {
     next(error);
   }
@@ -315,10 +370,80 @@ const getRefundDate = async (req: Request, res: Response) => {
   }
 };
 
+const getEligibleMemberVoucherForRefund = async (req: Request, res: Response, next: NextFunction) => {
+  try {
+    const memberId = Number(req.params.memberId);
+    const results = await model.getEligibleMemberVoucherForRefund(memberId);
+
+    res.status(200).json(results);
+  } catch (error) {
+    console.error('Error in RefundController.getMemberVoucherByMemberId:', error);
+    next(error);
+  }
+};
+
+const getMemberVoucherById = async (req: Request, res: Response, next: NextFunction) => {
+  try {
+    const voucherId = Number(req.params.voucherId);
+    if (isNaN(voucherId)) {
+      return res.status(400).json({ error: 'Invalid voucherId parameter' });
+    }
+
+    const voucher = await model.getMemberVoucherById(voucherId);
+
+    if (!voucher) {
+      return res.status(404).json({ error: 'Member voucher not found' });
+    }
+
+    res.status(200).json(voucher);
+  } catch (error) {
+    console.error('Error in RefundController.getMemberVoucherById:', error);
+    next(error);
+  }
+};
+
+
+const getAllRefundRecords = async (req: Request, res: Response, next: NextFunction) => {
+  try {
+    const { page, limit, memberName, refundType, startDate, endDate } = req.query;
+
+    const records = await model.getAllRefundRecords({
+      page: page ? Number(page) : 1,
+      limit: limit ? Number(limit) : 20,
+      memberName: memberName ? String(memberName) : undefined,
+      refundType: refundType ? String(refundType) as 'mcp' | 'mv' | 'service' : undefined,
+      startDate: startDate ? String(startDate) : undefined,
+      endDate: endDate ? String(endDate) : undefined,
+    });
+
+    res.status(200).json(records);
+  } catch (err) {
+    console.error('Error fetching refund records:', err);
+    next(err);
+  }
+};
+
+const getRefundRecordDetails = async (req: Request, res: Response, next: NextFunction) => {
+  try {
+    const id = Number(req.params.id);
+    if (isNaN(id)) return res.status(400).json({ error: 'Invalid refund record ID' });
+
+    const detail = await model.getRefundRecordDetails(id);
+    if (!detail) return res.status(404).json({ error: 'Refund record not found' });
+
+    res.status(200).json(detail);
+  } catch (err) {
+    console.error('Error fetching refund detail:', err);
+    next(err);
+  }
+};
+
+
 export default {
   viewAllRefundSaleTransactionRecords,
   getServiceTransactionsForRefund,
   processRefundService,
+  getSaleTransactionItemById,
   validateMCPExists,
   verifyRefundableServices: verifyRefundableServices as RequestHandler,
   processFullRefund: processFullRefund as RequestHandler,
@@ -327,4 +452,9 @@ export default {
   getMemberCarePackages: getMemberCarePackages as RequestHandler,
   searchMemberCarePackages: searchMemberCarePackages as RequestHandler,
   getRefundDate: getRefundDate as RequestHandler,
+  processRefundMemberVoucher,
+  getEligibleMemberVoucherForRefund,
+  getMemberVoucherById: getMemberVoucherById as RequestHandler,
+  getAllRefundRecords,
+  getRefundRecordDetails: getRefundRecordDetails as RequestHandler,
 };
