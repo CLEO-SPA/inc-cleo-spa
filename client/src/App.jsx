@@ -95,9 +95,15 @@ import UpdateProductPage from '@/pages/product/UpdateProductPage';
 import ViewProductSalesHistoryPage from '@/pages/product/ViewProductSalesHistoryPage';
 
 // Refund
-import RefundPage from '@/pages/Refund/refund';
+import RefundPage from '@/pages/Refund/Refund';
 import MCPDetail from '@/pages/Refund/MCPDetail';
 import MemberPackagesList from '@/components/refund/MemberPackagesList';
+import RefundServicesPage from '@/pages/Refund/RefundServicesPage';
+import RefundServiceForm from '@/pages/Refund/RefundServiceForm';
+import RefundVouchersPage from '@/pages/Refund/RefundVouchersPage';
+import RefundVoucherForm from '@/pages/Refund/RefundVoucherForm';
+import CreditNotesPage from '@/pages/Refund/CreditNotesPage';
+import CreditNoteDetailsPage from '@/pages/Refund/CreditNoteDetailsPage';
 
 function App() {
   return (
@@ -138,6 +144,18 @@ function App() {
                 <Route path='/mcp' element={<ManageMemberCarePackagesPage />} />
                 <Route path='/mcp/:id' element={<ViewMemberCarePackageDetailsPage />} />
                 {/* <Route path='/mcp/c' element={<CreateMemberCarePackageFormPage />} /> */}
+
+                {/* Refund */}
+                <Route path='/refunds' element={<RefundPage />} />
+                <Route path='/refunds/member/:memberId' element={<MemberPackagesList />} />
+                <Route path='/refunds/mcp/:packageId' element={<MCPDetail />} />
+                <Route path='/refunds/services/member/:id' element={<RefundServicesPage />} />
+                <Route path='/refunds/services/receipt/:no' element={<RefundServicesPage />} />
+                <Route path='/refunds/service/:saleTransactionItemId' element={<RefundServiceForm />} />
+                <Route path='/refunds/vouchers/member/:id' element={<RefundVouchersPage />} />
+                <Route path='/refunds/voucher/:voucherId' element={<RefundVoucherForm />} />
+                <Route path='/credit-notes' element={<CreditNotesPage />} />
+                <Route path='/credit-notes/:id' element={<CreditNoteDetailsPage />} />
 
                 {/* Statistics Management */}
                 <Route path='/dbcr' element={<DatabaseReportPage />} />
