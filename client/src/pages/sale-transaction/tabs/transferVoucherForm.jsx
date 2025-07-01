@@ -123,7 +123,7 @@ const TransferVoucherForm = () => {
       is_bypass: bypassTemplate,
       created_by: createdBy,
       created_at: createdAt,
-      remarks,
+      remarks: remarks.trim() === '' ? 'NA' : remarks, // <-- this ensures "NA" only if it's empty or whitespace
     };
 
     setTransferFormData(payload);
