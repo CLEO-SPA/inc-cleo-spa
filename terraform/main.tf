@@ -378,8 +378,7 @@ resource "aws_instance" "app_instance" {
     aws ecr get-login-password --region ${var.aws_region} | docker login --username AWS --password-stdin ${aws_ecr_repository.backend.repository_url}
     docker pull ${aws_ecr_repository.backend.repository_url}:latest
     docker pull ${aws_ecr_repository.frontend.repository_url}:latest
-    docker-compose down
-    docker-compose up -d
+    docker-compose up --build
     SCRIPT
     
     # Make script executable

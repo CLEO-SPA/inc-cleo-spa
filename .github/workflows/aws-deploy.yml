@@ -54,7 +54,9 @@ jobs:
           echo "${{ secrets.EC2_SSH_KEY }}" > ~/.ssh/id_rsa
           chmod 600 ~/.ssh/id_rsa
           ssh-keyscan -H ${{ env.EC2_HOST }} >> ~/.ssh/known_hosts
+          # Add debug output (will only show connection attempt, not the key)
+          ssh -v -o StrictHostKeyChecking=no ec2-user@${{ env.EC2_HOST }} 'echo SSH connection successful'
 
       - name: Deploy to EC2
         run: |
-          ssh ec2-user@${{ env.EC2_HOST }} '/home/ec2-user/app/update.sh'
+          ssh -o StrictHostKeyChecking=no ec2-user@${{ env.EC2_HOST }} '/home/ec2-user/app/update.sh'
