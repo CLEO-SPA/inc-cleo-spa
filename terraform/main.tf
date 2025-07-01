@@ -401,9 +401,13 @@ resource "aws_instance" "app_instance" {
     cat > /home/ec2-user/app/update.sh << 'SCRIPT'
     #!/bin/bash
     cd /home/ec2-user/app
+    # Stop any process using port 3000
+    sudo fuser -k 3000/tcp 2>/dev/null || true
     aws ecr get-login-password --region ${var.aws_region} | docker login --username AWS --password-stdin ${aws_ecr_repository.backend.repository_url}
     docker pull ${aws_ecr_repository.backend.repository_url}:latest
     docker pull ${aws_ecr_repository.frontend.repository_url}:latest
+    # Clean up any dangling resources
+    docker system prune -f
     docker-compose up -d --build
     SCRIPT
     
