@@ -19,6 +19,7 @@ const useTransferVoucherStore = create((set, get) => ({
     created_by: "",
     updated_by: "",
     remarks: "",
+    topUpBalance: 0,  // <-- new state field
 
     // Fetch voucher templates
     fetchVoucherTemplates: async () => {
@@ -100,6 +101,8 @@ const useTransferVoucherStore = create((set, get) => ({
     setCreatedBy: (id) => set({ created_by: id }),
     setUpdatedBy: (id) => set({ updated_by: id }),
     setRemarks: (text) => set({ remarks: text }),
+    setTopUpBalance: (value) => set({ topUpBalance: value }),
+
 
     // Derived values
     getTotalOldBalance: () => {
@@ -110,11 +113,6 @@ const useTransferVoucherStore = create((set, get) => ({
         }, 0);
     },
 
-    getTopUpBalance: () => {
-        const total = get().getTotalOldBalance();
-        const priceNum = Number(get().price) || 0;
-        return Math.max(0, priceNum - total);
-    },
 
     // Final transfer submission
     submitTransfer: async (formData) => {
@@ -133,6 +131,8 @@ const useTransferVoucherStore = create((set, get) => ({
             created_by,
             updated_by,
             remarks,
+            top_up_balance
+
         } = formData;
 
         if (
@@ -145,7 +145,6 @@ const useTransferVoucherStore = create((set, get) => ({
             throw new Error("Missing required fields for voucher transfer.");
         }
 
-        const top_up_balance = get().getTopUpBalance(); // ✅ Add this line
 
         const payload = {
             member_name,

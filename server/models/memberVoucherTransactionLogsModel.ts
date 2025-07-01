@@ -5,15 +5,19 @@ const addTransferMemberVoucherTransactionLog = async (
   memberId: number,
   newMemberVoucherId: number,
   memberVoucherName: string,
-  foc: number,
   voucherTemplateName: string,
   servicedBy: number,
   createdBy: number,
-  createdAt: string,
-  topUpBalance: number
-): Promise<void> => {
+  createdAt: string
+): Promise<number> => {
   try {
-    // Step 1: Retrieve the old voucher being transferred
+
+    const createdDateObj = new Date(createdAt);
+    if (isNaN(createdDateObj.getTime())) {
+      throw new Error(`Invalid date string for createdAt: ${createdAt}`);
+    }
+    const createdAtISO = createdDateObj.toISOString();
+    // Get old voucher details
     const getVoucherQuery = `
       SELECT id, current_balance
       FROM member_vouchers
@@ -21,15 +25,27 @@ const addTransferMemberVoucherTransactionLog = async (
       LIMIT 1
     `;
     const voucherResult = await pool().query(getVoucherQuery, [memberId, memberVoucherName]);
-
     if (voucherResult.rows.length === 0) {
       throw new Error("Member voucher record not found");
     }
-
     const memberVoucher = voucherResult.rows[0];
-    var transferAmount = memberVoucher.current_balance;
+    const transferAmount = Number(memberVoucher.current_balance);
 
-    // Common insert query for all log types
+    // Get the latest current_balance for the new voucher from transaction logs
+    const getLatestBalanceQuery = `
+      SELECT current_balance
+      FROM member_voucher_transaction_logs
+      WHERE member_voucher_id = $1
+      ORDER BY created_at DESC, id DESC
+      LIMIT 1
+    `;
+    const latestBalanceResult = await pool().query(getLatestBalanceQuery, [newMemberVoucherId]);
+
+    const latestBalance = latestBalanceResult.rows.length > 0 ? Number(latestBalanceResult.rows[0].current_balance) : 0;
+
+    const newBalance = latestBalance + transferAmount;
+
+    // Insert log query
     const insertLogQuery = `
       INSERT INTO member_voucher_transaction_logs (
         member_voucher_id,
@@ -45,7 +61,7 @@ const addTransferMemberVoucherTransactionLog = async (
       ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10)
     `;
 
-    // ➤ Log: Transfer TO old voucher
+    // Log: Transfer TO old voucher
     const insertValuesTo = [
       memberVoucher.id,
       `Transfer TO ${voucherTemplateName} voucher`,
@@ -55,78 +71,110 @@ const addTransferMemberVoucherTransactionLog = async (
       servicedBy,
       "TRANSFER TO",
       createdBy,
-      createdAt,
-      createdAt,
+      createdAtISO,
+      createdAtISO,
     ];
 
-    // ➤ Log: Transfer FROM to new voucher
     const insertValuesFrom = [
       newMemberVoucherId,
       `Transfer FROM ${memberVoucherName}`,
       createdAt,
-      transferAmount,
+      newBalance,  // cumulative balance in new voucher transaction logs
       transferAmount,
       servicedBy,
       "TRANSFER FROM",
       createdBy,
-      createdAt,
-      createdAt,
+      createdAtISO,
+      createdAtISO,
     ];
 
-    transferAmount = Number(memberVoucher.current_balance);
+
+    await pool().query(insertLogQuery, insertValuesTo);
+    await pool().query(insertLogQuery, insertValuesFrom);
+
+    return transferAmount;
+  } catch (error) {
+    console.error("❌ Error logging transfer:", error);
+    throw new Error("Failed to log member voucher transfer");
+  }
+};
+
+
+
+const addPaymentFOCMemberVoucherTransactionLogs = async (
+  newMemberVoucherId: number,
+  voucherTemplateName: string,
+  foc: number,
+  servicedBy: number,
+  createdBy: number,
+  createdAt: string,
+  topUpBalance: number,
+  baseBalance: number // this is the current balance before top-up and foc
+): Promise<void> => {
+  try {
+    const insertLogQuery = `
+      INSERT INTO member_voucher_transaction_logs (
+        member_voucher_id,
+        service_description,
+        service_date,
+        current_balance,
+        amount_change,
+        serviced_by,
+        type,
+        created_by,
+        created_at,
+        updated_at
+      ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10)
+    `;
+
     const topUpAmount = Number(topUpBalance);
     const focAmount = Number(foc);
-    console.log("foc:", foc);
-    console.log("topUpBalance:", topUpBalance);
-    console.log(transferAmount, "transferAmount");
+
     // ➤ Log: Top-Up (only if topUpBalance > 0)
-    const topUpNewCurrentBalance = transferAmount + topUpAmount;
-    console.log("Top Up New Current Balance:", topUpNewCurrentBalance);
+    const topUpNewCurrentBalance = baseBalance + topUpAmount;
 
     const insertValuesTopUp = [
       newMemberVoucherId,
       `Top Up ${voucherTemplateName}`,
       createdAt,
       topUpNewCurrentBalance,
-      topUpBalance,
+      topUpAmount,
       servicedBy,
       "TOP UP",
       createdBy,
       createdAt,
       createdAt,
     ];
+
+    await pool().query(insertLogQuery, insertValuesTopUp);
+
+
     // ➤ Log: Add FOC (only if foc > 0)
+    const FOCNewCurrentBalance = baseBalance + topUpAmount + focAmount;
 
-    const FOCNewCurrentBalance = transferAmount + topUpAmount + focAmount
-
-    console.log("FOC CURRENT BALANCE", FOCNewCurrentBalance)
     const insertValuesFOC = [
       newMemberVoucherId,
       `Add FOC ${voucherTemplateName}`,
       createdAt,
       FOCNewCurrentBalance,
-      foc,
+      focAmount,
       servicedBy,
       "ADD FOC",
       createdBy,
       createdAt,
       createdAt,
     ];
-    // Execute logs in order
-    await pool().query(insertLogQuery, insertValuesTo);
-    await pool().query(insertLogQuery, insertValuesFrom);
-
-    await pool().query(insertLogQuery, insertValuesTopUp);
 
     await pool().query(insertLogQuery, insertValuesFOC);
 
-
   } catch (error) {
-    console.error("❌ Error adding member voucher transaction log:", error);
-    throw new Error("Failed to add member voucher transaction log");
+    console.error("❌ Error adding payment/FOC voucher transaction log:", error);
+    throw new Error("Failed to add payment/FOC transaction log");
   }
 };
 
+
 export default {
   addTransferMemberVoucherTransactionLog,
+  addPaymentFOCMemberVoucherTransactionLogs
 };

@@ -58,7 +58,6 @@ const getMemberVoucherDetailsHandler = async (
   try {
     const rawName = req.query.name;
 
-    console.log("Received member name:", rawName);
     // Validate presence but preserve original formatting
     if (typeof rawName !== 'string') {
       res.status(400).json({ error: 'Member name must be a string.' });
@@ -95,10 +94,9 @@ const transferVoucherDetailsHandler = async (
       old_voucher_details,
       is_bypass,
       created_by,
-      created_at,  // ✅ NEW
+      created_at,
       remarks,
-      top_up_balance, // ✅ NEW
-
+      top_up_balance,
     }: {
       member_name: string;
       voucher_template_name: string;
@@ -112,15 +110,12 @@ const transferVoucherDetailsHandler = async (
       }[];
       is_bypass?: boolean;
       created_by: number;
-      created_at: string;   // ✅ NEW
+      created_at: string;
       remarks: string;
-      top_up_balance: number; // ✅ NEW
-
+      top_up_balance: number;
     } = req.body;
 
-    console.log("member_name:", member_name);
-
-    // Validate required fields
+    // Validate input
     if (
       !member_name ||
       !voucher_template_name ||
@@ -133,7 +128,7 @@ const transferVoucherDetailsHandler = async (
       return;
     }
 
-    // Search for member
+    // Lookup member
     const members = await memberModel.searchMemberByNameOrPhone(member_name);
     if (!members || members.members.length === 0) {
       res.status(404).json({ success: false, message: "Member not found" });
@@ -141,18 +136,18 @@ const transferVoucherDetailsHandler = async (
     }
     const memberId = members.members[0].id;
 
+    // Lookup template
     let voucherTemplateId = 0;
-
     if (!is_bypass) {
-      const voucherTemplates = await voucherModel.getVoucherTemplatesDetails(voucher_template_name);
-      if (!voucherTemplates || voucherTemplates.length === 0) {
+      const templates = await voucherModel.getVoucherTemplatesDetails(voucher_template_name);
+      if (!templates || templates.length === 0) {
         res.status(404).json({ success: false, message: "Voucher template not found" });
         return;
       }
-      voucherTemplateId = voucherTemplates[0].id;
+      voucherTemplateId = templates[0].id;
     }
 
-    // Create new member voucher for the transfer
+    // Create new member voucher
     const createdVoucher = await memberVoucherModel.createMemberVoucherForTransfer(
       memberId,
       voucher_template_name,
@@ -161,41 +156,55 @@ const transferVoucherDetailsHandler = async (
       foc,
       remarks || "",
       created_by,
-      created_at // ✅ passed to model
+      created_at
     );
-
-
-
     const newVoucherId = Number(createdVoucher.id);
 
-    // Process old vouchers
-    for (const { member_voucher_name, balance_to_transfer } of old_voucher_details) {
+    // Sum actual current balances from DB
+    let totalActualTransferredBalance = 0;
+
+    for (const { member_voucher_name } of old_voucher_details) {
       const isFOCUsed = await voucherModel.checkIfFreeOfChargeIsUsed(memberId, member_voucher_name);
       if (!isFOCUsed) {
         await voucherModel.removeFOCFromVoucher(memberId, member_voucher_name, created_by, created_at);
       }
 
+
+      const currentBalance = await voucherModel.getMemberVoucherCurrentBalance(memberId, member_voucher_name);
+
+
       await memberVoucherTransactionLogsModel.addTransferMemberVoucherTransactionLog(
         memberId,
         newVoucherId,
         member_voucher_name,
-        foc,
         voucher_template_name,
-        created_by,     // ✅ serviced_by
-        created_by,     // ✅ created_by
-        created_at,      // ✅ created_at
-        top_up_balance,
-
+        created_by,
+        created_by,
+        created_at,
       );
-
 
       await voucherModel.setMemberVoucherBalanceAfterTransfer(
         memberId,
         member_voucher_name,
-        balance_to_transfer,
+        currentBalance,
         created_at
       );
+
+      totalActualTransferredBalance += currentBalance;
+
     }
+
+    // Add Top-Up + FOC logs
+    await memberVoucherTransactionLogsModel.addPaymentFOCMemberVoucherTransactionLogs(
+      newVoucherId,
+      voucher_template_name,
+      foc,
+      created_by,
+      created_by,
+      created_at,
+      top_up_balance,
+      totalActualTransferredBalance
+    );
 
     res.status(200).json({
       success: true,
@@ -203,8 +212,6 @@ const transferVoucherDetailsHandler = async (
       newVoucherId,
     });
   } catch (error: any) {
-    console.log('❌ Error in controller - MV Transfer:', error); // 🔄 changed from console.error to console.log
-
     res.status(500).json({
       success: false,
       error: 'Failed to create MV Transfer transaction',
@@ -212,7 +219,6 @@ const transferVoucherDetailsHandler = async (
     });
   }
 };
-
 
 
 

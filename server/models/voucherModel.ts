@@ -252,6 +252,30 @@ const setMemberVoucherBalanceAfterTransfer = async (
     }
 };
 
+const getMemberVoucherCurrentBalance = async (
+    memberId: number,
+    memberVoucherName: string
+): Promise<number> => {
+    try {
+        const query = `
+      SELECT current_balance
+      FROM member_vouchers
+      WHERE member_id = $1 AND member_voucher_name = $2
+      LIMIT 1
+    `;
+        const values = [memberId, memberVoucherName];
+        const result = await pool().query(query, values);
+
+        if (result.rows.length === 0) {
+            throw new Error('Voucher not found for current balance lookup');
+        }
+
+        return Number(result.rows[0].current_balance);
+    } catch (error) {
+        console.error('❌ Error getting voucher current balance:', error);
+        throw new Error('Failed to get current balance');
+    }
+};
 
 
 export default {
@@ -260,5 +284,6 @@ export default {
     getAllVoucherTemplateNames,
     checkIfFreeOfChargeIsUsed,
     removeFOCFromVoucher,
-    setMemberVoucherBalanceAfterTransfer
+    setMemberVoucherBalanceAfterTransfer,
+    getMemberVoucherCurrentBalance
 };
