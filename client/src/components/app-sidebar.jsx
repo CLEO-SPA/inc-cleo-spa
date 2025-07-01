@@ -221,6 +221,10 @@ const data = {
           title: 'Data Export',
           url: '/data-export',
         },
+        {
+          title: 'Translations',
+          url: '/translations',
+        }
       ],
     },
     {
