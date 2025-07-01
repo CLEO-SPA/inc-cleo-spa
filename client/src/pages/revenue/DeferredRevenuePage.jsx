@@ -247,9 +247,9 @@ function ProductCard({ title, data, previous, activity }) {
                 <InfoRow label="Refunded Amount" value={safeData.refund} isNegative />
                 <InfoRow label="Monthly Change" value={activity} isBold isChange />
                 <div className="p-4 flex justify-between bg-zinc-100 dark:bg-zinc-800">
-                    <span className="font-semibold text-gray-800 dark:text-white">Current Deferred Amount</span>
+                    <span className="font-semibold text-gray-800 dark:text-white">Current Total Deferred Amount</span>
                     <span className="font-mono font-bold">
-                        ${(safeData.deferred_amount || 0).toLocaleString('en-US', { minimumFractionDigits: 2 })}
+                        ${(safeData.deferred_amount + previous || 0).toLocaleString('en-US', { minimumFractionDigits: 2 })}
                     </span>
                 </div>
             </div>

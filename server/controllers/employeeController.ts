@@ -6,6 +6,7 @@ import crypto from 'crypto';
 import jwt from 'jsonwebtoken';
 import 'dotenv/config';
 import { InvJwtPayload } from '../types/auth.types.js';
+import bcrypt from 'bcryptjs';
 
 const defaultPassword = async (req: Request, res: Response, next: NextFunction) => {
   const randomPassword = crypto.randomBytes(8).toString('hex');
@@ -115,103 +116,119 @@ const getAuthUser = async (req: Request, res: Response, next: NextFunction): Pro
   }
 };
 
-// const createEmployee = async (req: Request, res: Response, next: NextFunction) => {
-//   try {
-//     const {
-//       employee_code,
-//       department_id,
-//       employee_contact,
-//       employee_email,
-//       employee_name,
-//       position_id,
-//       employee_role,
-//       // eslint-disable-next-line no-unused-vars
-//       employeeIsActive,
-//       commission_percentage,
-//     } = req.body;
-//     const password_hash = res.locals.hash;
+const createAndInviteEmployee = async (
+  req: Request,
+  res: Response,
+  next: NextFunction
+): Promise<void> => {
+  try {
+    /* -------------------------------------------------------------------- *
+     * 1.  Trim inputs so "   " → ""  (prevents sneaky whitespace values)   *
+     * -------------------------------------------------------------------- */
+    const {
+      employee_email   = '',
+      employee_name    = '',
+      employee_contact = '',
+      employee_code    = '',
+      role_name        = '',
+      position_ids,
+      created_at,
+      updated_at,
+    } = req.body;
 
-//     if (
-//       !employee_code ||
-//       !department_id ||
-//       !employee_contact ||
-//       !employee_email ||
-//       !employee_name ||
-//       !position_id ||
-//       !employee_role
-//     ) {
-//       return res.status(400).json({ message: 'All fields are required' });
-//     }
-//     if (!validator.isEmail(employee_email)) {
-//       return res.status(400).json({ message: 'Invalid email format' });
-//     }
-//     if (!validator.isMobilePhone(employee_contact, 'any', { strictMode: false })) {
-//       return res.status(400).json({ message: 'Invalid contact number format' });
-//     }
-//     if (commission_percentage && !validator.isFloat(commission_percentage.toString(), { min: 0 })) {
-//       return res.status(400).json({ message: 'Invalid commission percentage' });
-//     }
+    const email        = employee_email.trim();
+    const name         = employee_name.trim();
+    const contact      = employee_contact.trim();
+    const code         = String(employee_code).trim(); // cope with numeric codes
+    const role         = role_name.trim();
 
-//     // Check if the employee code already exists
-//     const exists = await model.checkEmployeeCodeExists(employee_code);
-//     if (exists) {
-//       return res.status(400).json({ message: 'Employee code already exists' });
-//     }
+    /* -------------------------------------------------------------------- *
+     * 2.  Required-field & format checks                                   *
+     * -------------------------------------------------------------------- */
+    const missing =
+      !email || !name || !contact || !code || !role;
 
-//     // Create the new employee
-//     const newEmployee = await model.createEmployee({ ...req.body, password_hash });
+    if (missing) {
+      res.status(400).json({ message: 'All required fields must be non-blank.' });
+      return;
+    }
 
-//     const token = jwt.sign({ email: employee_email }, process.env.INV_JWT_SECRET as string, {
-//       expiresIn: '3d',
-//     });
+    if (!validator.isEmail(email)) {
+      res.status(400).json({ message: 'Invalid email format.' });
+      return;
+    }
 
-//     const callbackUrl = `${process.env.LOCAL_FRONTEND_URL as string}/invites?token=${token}`;
+    // (Optional) strict phone test; tweak locale list as needed
+    if (!validator.isMobilePhone(contact, 'any', { strictMode: false })) {
+      res.status(400).json({ message: 'Invalid contact number format.' });
+      return;
+    }
 
-//     // next();
-//     res.status(201).json({
-//       message: 'Employee created successfully',
-//       employee: newEmployee,
-//       url: callbackUrl,
-//     });
-//   } catch (error) {
-//     throw new Error('Error Creating Employee');
-//   }
-// };
+    /* -------------------------------------------------------------------- *
+     * 3.  Uniqueness checks                                                *
+     * -------------------------------------------------------------------- */
+    if (await model.getAuthUser(email)) {
+      res.status(409).json({ message: 'User with this email already exists.' });
+      return;
+    }
 
-// const inviteEmployee = async (req, res) => {
-//   const { employeeEmail } = req.body;
-//   if (!employeeEmail) {
-//     return res.status(400).json({ message: 'Email is required' });
-//   }
+    if (await model.checkEmployeeEmailExists(email)) {
+      res.status(409).json({ message: 'Employee email already in use.' });
+      return;
+    }
 
-//   try {
-//     const token = jwt.sign({ email: employeeEmail }, process.env.INV_JWT_SECRET, {
-//       expiresIn: '3d',
-//     });
-//     const callbackUrl = `${process.LOCAL_FRONTEND_URL}/invites?token=${token}`;
+    if (await model.checkEmployeeCodeExists(code)) {
+      res.status(409).json({ message: 'Employee code already in use.' });
+      return;
+    }
 
-//     // console.log(`Invitation link: ${callbackUrl}`);
+    if (await model.checkEmployeePhoneExists(contact)) {
+      res.status(409).json({ message: 'Employee contact already in use.' });
+      return;
+    }
 
-//     await mailService.sendMail({
-//       to: employeeEmail,
-//       subject: 'Employee Invitation',
-//       text: `You have been invited to join. Click the link to accept the invitation: ${callbackUrl}`,
-//     });
+    /* -------------------------------------------------------------------- *
+     * 4.  Create user + employee                                           *
+     * -------------------------------------------------------------------- */
+    const defaultPassword = crypto.randomBytes(8).toString('hex');
+    const password_hash   = await bcrypt.hash(defaultPassword, 10);
 
-//     res.status(200).json({ message: 'Invitation sent successfully' });
-//   } catch (error) {
-//     res.status(500).json({ message: 'Error sending invitation', error: error.message });
-//   }
-// };
+    const results = await model.createAuthAndEmployee({
+      email,
+      password_hash,
+      phone:        contact,
+      role_name:    role,
+      employee_code: code,
+      employee_name: name,
+      employee_is_active: false,
+      position_ids,
+      created_at,
+      updated_at,
+    });
 
-const acceptInvitation = async (req: Request, res: Response, next: NextFunction) => {
-  const token: string = req.query.token as string;
-  const password: string = req.body.password;
-  if (!token) {
-    return res.status(400).json({ message: 'Token is required' });
+    /* -------------------------------------------------------------------- *
+     * 5.  Send invite link                                                 *
+     * -------------------------------------------------------------------- */
+    const token = jwt.sign({ email }, process.env.INV_JWT_SECRET as string, { expiresIn: '3d' });
+    const resetUrl = `${process.env.LOCAL_FRONTEND_URL}/reset-password?token=${token}`;
+
+    res.status(201).json({
+      message: 'Employee created successfully. Send the link below so they can set a password.',
+      resetUrl,
+      results,
+    });
+  } catch (error) {
+    console.error('Error in createAndInviteEmployee:', error);
+    next(error);
   }
-  if (!password) {
-    return res.status(400).json({ message: 'Password is required' });
+};
+
+const verifyInviteURL = async (req: Request, res: Response, next: NextFunction): Promise<void> => {
+  const token: string = req.query.token as string;
+
+  if (!token) {
+    res.status(400).json({ message: 'Token is required' });
+    return;
   }
 
   try {
@@ -223,8 +240,42 @@ const acceptInvitation = async (req: Request, res: Response, next: NextFunction)
     const employee = await model.getUserData(email);
 
     if (!employee) {
-      return res.status(404).json({ message: 'Employee not found' });
+      res.status(404).json({ message: 'Employee not found' });
+      return;
     }
+    res.status(200).send();
+  } catch (error) {
+    console.error('Error verifying invitation url', error);
+    next(error);
+  }
+};
+
+const acceptInvitation = async (req: Request, res: Response, next: NextFunction): Promise<void> => {
+  const token: string = req.query.token as string;
+  const password: string = req.body.password;
+  if (!token) {
+    res.status(400).json({ message: 'Token is required' });
+    return;
+  }
+  if (!password) {
+    res.status(400).json({ message: 'Password is required' });
+    return;
+  }
+
+  try {
+    const decoded = jwt.verify(token, process.env.INV_JWT_SECRET as string) as unknown as InvJwtPayload;
+    const { email } = decoded;
+
+    res.locals.email = email;
+
+    const employee = await model.getUserData(email);
+
+    if (!employee) {
+      res.status(404).json({ message: 'Employee not found' });
+      return;
+    }
+
+    res.locals.isInvite = true;
 
     next();
   } catch (error) {
@@ -237,7 +288,7 @@ const updateEmployeePassword = async (req: Request, res: Response, next: NextFun
   const password_hash = res.locals.hash;
 
   try {
-    await model.updateEmployeePassword(res.locals.email, password_hash);
+    await model.updateEmployeePassword(res.locals.email, password_hash, res.locals.isInvite);
 
     res.status(200).json({ message: 'Password updated successfully' });
   } catch (error) {
@@ -247,41 +298,63 @@ const updateEmployeePassword = async (req: Request, res: Response, next: NextFun
 };
 
 const getAllEmployees = async (req: Request, res: Response, next: NextFunction) => {
-  const page = parseInt(req.query.page as string) || 1;
-  const limit = parseInt(req.query.limit as string) || 10;
+  const page  = parseInt(req.query.page  as string || '1',  10);
+  const limit = parseInt(req.query.limit as string || '10', 10);
   const offset = (page - 1) * limit;
-  const { start_date_utc, end_date_utc } = req.session;
+
+  // session keys are snake_case in the rest of the code
+  const { start_date_utc, end_date_utc } = req.session as typeof req.session & {
+    start_date_utc?: string;
+    end_date_utc?: string;
+  };
+
+  // Defaults: open-ended range
+  const startUTC = start_date_utc ?? '0001-01-01';
+  const endUTC   = end_date_utc   ?? '9999-12-31';
 
   try {
-    const { employees, totalPages } = await model.getAllEmployees(offset, limit, start_date_utc!, end_date_utc!);
+    const { employees, totalPages, totalCount } =
+      await model.getAllEmployees(offset, limit, startUTC, endUTC);
 
     res.status(200).json({
       currentPage: page,
-      totalPages: totalPages,
+      totalPages,
+      totalCount,
       pageSize: limit,
       data: employees,
     });
-  } catch (error) {
-    res.status(500).json({ message: 'Error getting employees', error: error });
+  } catch (err) {
+    console.error('Error getting employees:', err);
+    next(err);           // let central error-handler format the 500
   }
 };
 
-const regenerateInvitationLink = async (req: Request, res: Response, next: NextFunction) => {
-  const employeeEmail = req.body;
-  if (!employeeEmail) {
-    return res.status(400).json({ message: 'Email is required' });
+
+const regenerateInvitationLink = async (req: Request, res: Response, next: NextFunction): Promise<void> => {
+  const { email } = req.body;
+  if (!email) {
+    res.status(400).json({ message: 'Email is required' });
+    return;
   }
 
   try {
-    const token = jwt.sign({ email: employeeEmail }, process.env.INV_JWT_SECRET as string, {
+    const user = await model.getUserData(email);
+    if (!user) {
+      res.status(404).json({ message: 'Employee not found.' });
+      return;
+    }
+
+    await model.touchEmployee(email);
+
+    const token = jwt.sign({ email: email }, process.env.INV_JWT_SECRET as string, {
       expiresIn: '3d',
     });
-    const callbackUrl = `${process.env.LOCAL_FRONTEND_URL as string}/invites?token=${token}`;
+    const callbackUrl = `${process.env.LOCAL_FRONTEND_URL as string}/reset-password?token=${token}`;
 
     res.status(200).json({ message: 'Invitation link regenerated successfully', callbackUrl });
   } catch (error) {
     console.error('Error regenerating invitation link', error);
-    throw new Error('Error regenerating invitation link');
+    next(error);
   }
 };
 
@@ -450,20 +523,163 @@ const getEmployeeNameByEmployeeId = async (req: Request, res: Response) => {
   }
 };
 
+const getAllRolesForDropdown = async (req: Request, res: Response, next: NextFunction) => {
+  try {
+    const roles = await model.getAllRolesForDropdown();
+
+    res.status(200).json(roles);
+  } catch (error) {
+    console.error('Error fetching getAllRolesForDropdown', error);
+    next(error);
+  }
+};
+
+/**
+ * PUT /employees/:id
+ * --------------------------------------------------------------
+ * • Validates inputs
+ * • Delegates to model.updateEmployee(...)
+ * • If e-mail was actually changed, model returns { emailChanged: true }
+ *   → we regenerate a fresh 3-day invite link and include it in the response.
+ */
+/* --------------------------------------------------------------------------
+ * PUT /employees/:id
+ * Robust update (auth, employee row, positions)
+ * ------------------------------------------------------------------------ */
+export const updateEmployee = async (
+  req: Request,
+  res: Response,
+  next: NextFunction,
+): Promise<void> => {
+  try {
+    /* ------------------------------------------------- 0. URL param */
+    const employee_id = Number(req.params.id);
+    if (!employee_id || Number.isNaN(employee_id)) {
+      res.status(400).json({ message: 'Invalid employee ID.' });
+      return;
+    }
+
+    /* ------------------------------------------------- 1. Body sanitise */
+    const {
+      employee_email,
+      employee_name,
+      employee_contact,
+      employee_code,
+      employee_is_active,
+      position_ids,
+      updated_at,               // ← optional ISO string from client
+    } = req.body as {
+      employee_email?: string;
+      employee_name?: string;
+      employee_contact?: string;
+      employee_code?: string | number;
+      employee_is_active?: boolean;
+      position_ids?: string[];
+      updated_at?: string;
+    };
+
+    const sanitizedTs = validator.isISO8601(updated_at ?? '', {
+      strict: true,
+      strictSeparator: true,
+    })
+      ? updated_at
+      : undefined;
+
+    const payload = {
+      employee_id,
+      email:             employee_email?.trim(),
+      phone:             employee_contact?.trim(),
+      employee_contact:  employee_contact?.trim(),
+      employee_name:     employee_name?.trim(),
+      employee_code:     employee_code !== undefined
+        ? String(employee_code).trim()
+        : undefined,
+      employee_is_active,
+      position_ids,
+      updated_at: sanitizedTs ?? new Date().toISOString(), // fallback
+    };
+
+    /* ------------------------------------------------- 2. Quick format checks */
+    if (payload.email && !validator.isEmail(payload.email)) {
+      res.status(400).json({ message: 'Invalid email format.' });
+      return;
+    }
+    if (payload.phone && !validator.isMobilePhone(payload.phone, 'any')) {
+      res.status(400).json({ message: 'Invalid contact number format.' });
+      return;
+    }
+
+    /* ------------------------------------------------- 3. Update via model */
+    const { emailChanged } = await model.updateEmployee(payload);
+
+    /* ------------------------------------------------- 4. Optional invite link regeneration */
+    let newInviteUrl: string | undefined;
+    if (emailChanged && payload.email) {
+      // update touched-at timestamp so “recently updated” filters pick it up
+      await model.touchEmployee(payload.email);
+
+      const token = jwt.sign(
+        { email: payload.email },
+        process.env.INV_JWT_SECRET as string,
+        { expiresIn: '3d' },
+      );
+
+      newInviteUrl = `${process.env.LOCAL_FRONTEND_URL}/reset-password?token=${token}`;
+    }
+
+    /* ------------------------------------------------- 5. Fetch & send response */
+    const updated = await model.getEmployeeById(employee_id);
+
+    res.status(200).json({
+      message: 'Employee updated.',
+      ...(newInviteUrl ? { newInviteUrl } : {}),
+      data: updated,
+    });
+  } catch (err) {
+    console.error('updateEmployee ctrl error:', err);
+    next(err);
+  }
+};
+
+
+// const getOnlyEmployeeById = async (req: Request, res: Response, next: NextFunction) => {
+//   const employeeId = Number(req.params.id);
+//   if (!employeeId || Number.isNaN(employeeId)) {
+//     res.status(400).json({ message: 'Invalid employee ID.' });
+//     return;
+//   }
+
+//   try {
+//     const employee = await model.getOnlyEmployeeById(employeeId);
+//     if (!employee) {
+//       res.status(404).json({ message: 'Employee not found.' });
+//       return;
+//     }
+//     res.status(200).json(employee);
+//   } catch (error) {
+//     console.error('Error fetching employee by ID:', error);
+//     next(error);
+//   }
+// };
+
+
 export default {
   defaultPassword,
-  // createEmployee,
   getAuthUser,
   loginEmployee,
   logoutEmployee,
-  // inviteEmployee,
+  createAndInviteEmployee,
   acceptInvitation,
   updateEmployeePassword,
   getAllEmployees,
   regenerateInvitationLink,
   getAllEmployeesForDropdown,
+  getAllRolesForDropdown,
+  verifyInviteURL,
   getBasicEmployeeDetails,
+  updateEmployee,
   getEmployeeById,
   getAllActivePositions,
-  getEmployeeNameByEmployeeId
+  getEmployeeNameByEmployeeId,
+  // getOnlyEmployeeById
 };
