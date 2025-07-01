@@ -1,6 +1,6 @@
 import { Request, Response, NextFunction } from 'express';
 import validator from 'validator';
-import { getProdPool, pool } from '../config/database.js';
+import { getProdPool as pool } from '../config/database.js';
 import { addSseClient, testNotification } from '../services/sseService.js';
 import { SystemParameters } from '../types/model.types.js';
 
@@ -43,7 +43,7 @@ const setDateRange = (req: Request, res: Response, next: NextFunction): void => 
   });
 };
 
-const getDateRange = (req: Request, res: Response, next: NextFunction): void => {
+const getDateRange = (req: Request, res: Response, next: NextFunction) => {
   const { start_date_utc, end_date_utc } = req.session; // These are UTC ISO strings
   res.status(200).json({
     start_date_utc: start_date_utc || null,
@@ -63,7 +63,7 @@ const toggleSimulation = async (req: Request, res: Response, next: NextFunction)
     const funcQuery = `SELECT set_simulation($1, $2, $3)`;
     const values = [is_simulation, start_date_utc, end_date_utc];
 
-    const { rows, rowCount } = await getProdPool().query(funcQuery, values);
+    const { rows, rowCount } = await pool().query(funcQuery, values);
 
     // console.log('\n', typeof rows, rows);
 
@@ -89,7 +89,7 @@ const getSimulation = async (req: Request, res: Response, next: NextFunction): P
     const query = 'SELECT * FROM system_parameters WHERE id = $1';
     const values = [1];
 
-    const result = await getProdPool().query<SystemParameters>(query, values);
+    const result = await pool().query<SystemParameters>(query, values);
     if (result.rowCount === 0) {
       res.status(404).json({ message: 'Simulation state not found.' });
       return;
@@ -108,7 +108,7 @@ const getSimulation = async (req: Request, res: Response, next: NextFunction): P
 };
 
 // SSE Event
-const streamSimEvent = async (req: Request, res: Response, next: NextFunction): Promise<void> => {
+const streamSimEvent = async (req: Request, res: Response, next: NextFunction) => {
   res.setHeader('Content-Type', 'text/event-stream');
   res.setHeader('Cache-Control', 'no-cache');
   res.setHeader('Connection', 'keep-alive');
@@ -120,7 +120,7 @@ const streamSimEvent = async (req: Request, res: Response, next: NextFunction): 
   res.write('data: {"message": "SSE connection established"}\n\n');
 };
 
-const testSSE = async (req: Request, res: Response, next: NextFunction): Promise<void> => {
+const testSSE = async (req: Request, res: Response, next: NextFunction) => {
   await testNotification();
   res.json({ message: 'Test notification sent' });
 };

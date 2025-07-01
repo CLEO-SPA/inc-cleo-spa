@@ -6,7 +6,7 @@ const getInitialState = () => ({
   // MEMBER STATE
   currentMember: null,
   memberSearchLoading: false,
-  
+
   // PACKAGES PAGINATION STATE
   memberCarePackages: [],
   packagesCurrentPage: 1,
@@ -15,7 +15,7 @@ const getInitialState = () => ({
   packagesTotalCount: 0,
   packagesSearchTerm: '',
   packagesisFetching: false,
-  
+
   // VOUCHERS PAGINATION STATE
   memberVouchers: [],
   vouchersCurrentPage: 1,
@@ -130,10 +130,10 @@ const useSelectedMemberStore = create(
 
         try {
           const response = await api.get(`/member/${memberId}/member-care-packages`, {
-            params: { 
+            params: {
               page: queryParams.page,
               limit: queryParams.limit,
-              searchTerm: queryParams.search 
+              searchTerm: queryParams.search
             }
           });
           const { data, pageInfo } = response.data;
@@ -160,59 +160,76 @@ const useSelectedMemberStore = create(
       },
 
 
-fetchMemberVouchers: async (params = {}) => {
-  const { currentMember } = get();
-  if (!currentMember) return;
+      fetchMemberVouchers: async (params = {}) => {
+        const { currentMember } = get();
+        if (!currentMember) return;
 
-  set({ vouchersisFetching: true, error: false, errorMessage: null });
+        set({ vouchersisFetching: true, error: false, errorMessage: null });
 
-  const state = get();
-  const queryParams = {
-    page: params.page || state.vouchersCurrentPage,
-    limit: params.limit || state.vouchersCurrentLimit,
-    search: params.search ?? state.vouchersSearchTerm,
-  };
+        const state = get();
+        const queryParams = {
+          page: params.page || state.vouchersCurrentPage,
+          limit: params.limit || state.vouchersCurrentLimit,
+          search: params.search ?? state.vouchersSearchTerm,
+        };
 
-  // Update state with new parameters
-  if (params.page) set({ vouchersCurrentPage: params.page });
-  if (params.limit) set({ vouchersCurrentLimit: params.limit });
-  if (params.search !== undefined) set({ vouchersSearchTerm: params.search });
+        // Update state with new parameters
+        if (params.page) set({ vouchersCurrentPage: params.page });
+        if (params.limit) set({ vouchersCurrentLimit: params.limit });
+        if (params.search !== undefined) set({ vouchersSearchTerm: params.search });
 
-  const memberId = params.memberId || currentMember.id;
+        const memberId = params.memberId || currentMember.id;
 
-  try {
-    const response = await api.get(`/member/${memberId}/member-vouchers`, {
-      params: { 
-        page: queryParams.page,
-        limit: queryParams.limit,
-        searchTerm: queryParams.search
-      }
-    });
+        try {
+          const response = await api.get(`/member/${memberId}/member-vouchers`, {
+            params: {
+              page: queryParams.page,
+              limit: queryParams.limit,
+              searchTerm: queryParams.search
+            }
+          });
 
-    const { data, pageInfo } = response.data;
+          const { data, pageInfo } = response.data;
 
-    set({
-      memberVouchers: data || [],
-      vouchersTotalCount: pageInfo?.totalCount || 0,
-      vouchersTotalPages: pageInfo?.totalPages || 0,
-      vouchersisFetching: false,
-      error: false,
-      errorMessage: null,
-    });
-  } catch (error) {
-    console.error('Error fetching member vouchers:', error);
-    set({
-      memberVouchers: [],
-      vouchersTotalCount: 0,
-      vouchersTotalPages: 0,
-      vouchersisFetching: false,
-      error: true,
-      errorMessage: error.response?.data?.message || error.message || 'Failed to fetch vouchers',
-    });
-  }
-},
+          set({
+            memberVouchers: data || [],
+            vouchersTotalCount: pageInfo?.totalCount || 0,
+            vouchersTotalPages: pageInfo?.totalPages || 0,
+            vouchersisFetching: false,
+            error: false,
+            errorMessage: null,
+          });
+        } catch (error) {
+          console.error('Error fetching member vouchers:', error);
+          set({
+            memberVouchers: [],
+            vouchersTotalCount: 0,
+            vouchersTotalPages: 0,
+            vouchersisFetching: false,
+            error: true,
+            errorMessage: error.response?.data?.message || error.message || 'Failed to fetch vouchers',
+          });
+        }
+      },
 
+      refreshCurrentMemberData: async () => {
+        const { currentMember } = get();
 
+        if (!currentMember) {
+          console.warn('No current member to refresh');
+          return;
+        }
+
+        try {
+          // Refresh packages and vouchers while preserving current pagination/search state
+          await Promise.all([
+            get().fetchMemberPackages({ memberId: currentMember.id }),
+            get().fetchMemberVouchers({ memberId: currentMember.id })
+          ]);
+        } catch (error) {
+          console.error('Failed to refresh current member data:', error);
+        }
+      },
       // PACKAGES PAGINATION CONTROLS
       goToPackagesPage: (pageNumber) => {
         const { packagesCurrentLimit, packagesSearchTerm } = get();
@@ -297,6 +314,43 @@ fetchMemberVouchers: async (params = {}) => {
         });
       },
 
+      cancelMemberPackage: async (mcpId) => {
+        try {
+          const response = await api.delete(`/mcp/${mcpId}/rm`);
+
+          // Refresh all member data to get updated counts
+          const { currentMember } = get();
+          if (currentMember) {
+            // This will refresh member info including counts, and reload packages/vouchers
+            await get().searchMember(currentMember.name || currentMember.contact);
+          }
+
+          return response.data;
+
+        } catch (error) {
+          console.error('Error cancelling package:', error);
+          throw error; // Re-throw so component can handle
+        }
+      },
+
+      cancelMemberVoucher: async (mvId) => {
+        try {
+          const response = await api.delete(`/mv/${mvId}/rm`);
+
+          // Refresh all member data to get updated counts
+          const { currentMember } = get();
+          if (currentMember) {
+            // This will refresh member info including counts, and reload packages/vouchers
+            await get().searchMember(currentMember.name || currentMember.contact);
+          }
+
+          return response.data;
+
+        } catch (error) {
+          console.error('Error cancelling voucher:', error);
+          throw error; // Re-throw so component can handle
+        }
+      },
       // CLEAR MEMBER DATA
       clearMemberData: () => {
         set({

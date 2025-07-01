@@ -13,6 +13,7 @@ import {
   ChartColumnStacked,
   CreditCard,
   DollarSign,
+  Receipt,
 } from 'lucide-react';
 import { NavMain } from '@/components/nav-main';
 import { NavUser } from '@/components/nav-user';
@@ -112,6 +113,11 @@ const data = {
           title: 'Manage Voucher Templates',
           url: '/voucher-template',
         },
+        {
+          title: 'Manage Member Vouchers',
+          url: '/mv'
+
+        }
       ],
     },
     {
@@ -194,6 +200,20 @@ const data = {
         {
           title: 'Manage Payment Methods',
           url: '/payment-method',
+        },
+      ],
+    },
+    {
+      title: 'Refunds',
+      icon: Receipt,
+      items: [
+        {
+          title: 'Refund Management',
+          url: '/refunds',
+        },
+        {
+          title: 'Credit Notes',
+          url: '/credit-notes',
         },
       ],
     },

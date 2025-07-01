@@ -127,26 +127,46 @@ const useMemberVoucherFormStore = create(
 
       // Update form field
       updateFormField: (field, value) => {
-        set((state) => {
-          const newFormData = { ...state.formData, [field]: value };
-          
-          // Auto-calculate total price if in bypass mode
-          if (state.bypassTemplate && (field === 'starting_balance' || field === 'free_of_charge')) {
-            const startingBalance = field === 'starting_balance' ? parseFloat(value) || 0 : state.formData.starting_balance;
-            const freeOfCharge = field === 'free_of_charge' ? parseFloat(value) || 0 : state.formData.free_of_charge;
+    set((state) => {
+        const newFormData = { ...state.formData, [field]: value };
+        
+        // Perform calculations whenever we're updating balance or FOC fields
+        if (field === 'starting_balance' || field === 'free_of_charge') {
+            const startingBalance = field === 'starting_balance' ? parseFloat(value) || 0 : (state.formData.starting_balance || 0);
+            let freeOfCharge = field === 'free_of_charge' ? parseFloat(value) || 0 : (state.formData.free_of_charge || 0);
+            
+            // Validation: If FOC exceeds starting balance, reset FOC to 0
+            if (freeOfCharge > startingBalance) {
+                freeOfCharge = 0;
+                newFormData.free_of_charge = 0;
+                
+                // Add error message
+                newFormData.formErrors = {
+                    ...state.formErrors,
+                    free_of_charge: "Free of charge cannot exceed starting balance"
+                };
+            } else {
+                // Clear FOC error if validation passes
+                newFormData.formErrors = {
+                    ...state.formErrors,
+                    free_of_charge: undefined
+                };
+            }
+            
+            // Calculate total price: starting balance - free of charge
             newFormData.total_price = Math.max(0, startingBalance - freeOfCharge);
-          }
-
-          return {
+        }
+        
+        return {
             formData: newFormData,
-            // Clear specific field error when user starts typing
-            formErrors: {
-              ...state.formErrors,
-              [field]: undefined,
-            },
-          };
-        });
-      },
+            // Clear specific field error when user starts typing (except for FOC validation above)
+            formErrors: field !== 'free_of_charge' ? {
+                ...state.formErrors,
+                [field]: undefined,
+            } : (newFormData.formErrors || state.formErrors),
+        };
+    });
+},
 
       // Member voucher details management
       addMemberVoucherDetail: (newDetail = {}) => {

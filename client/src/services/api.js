@@ -8,27 +8,19 @@ console.log(url);
 export const apiClient = axios.create({
   baseURL: url,
   withCredentials: true,
-  // headers: {
-  //   'Content-Type': 'application/json',
-  // },
+  headers: {
+    'Content-Type': 'application/json',
+  },
 });
 
 apiClient.interceptors.request.use(
   (config) => {
     const localDateTime = getBrowserTimezone();
 
-    if (config.data instanceof FormData) {
-      // console.log(
-      //   '[Interceptor] Request data IS FormData. Headers before sending:',
-      //   JSON.parse(JSON.stringify(config.headers))
-      // );
-    } else if (config.data) {
-      // console.log('[Interceptor] Request data is NOT FormData. Applying transformations.');
-      const localDateTime = getBrowserTimezone();
+    if (config.data) {
+      // console.log('Original request data:', config.data);
       config.data = transformRequestDates(config.data, localDateTime);
-      if (!config.headers['Content-Type']) {
-        config.headers['Content-Type'] = 'application/json';
-      }
+      // console.log('Transformed request data:', config.data);
     }
 
     if (config.params) {
