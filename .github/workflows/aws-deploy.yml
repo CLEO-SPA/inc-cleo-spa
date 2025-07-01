@@ -40,7 +40,7 @@ jobs:
         run: |
           docker build -t $ECR_REGISTRY/$ECR_REPOSITORY_BACKEND:$IMAGE_TAG ./server
           docker push $ECR_REGISTRY/$ECR_REPOSITORY_BACKEND:$IMAGE_TAG
-          echo "backend_image=$ECR_REGISTRY/$ECR_REPOSITORY_BACKEND:$IMAGE_TAG" >> $GITHUB_ENV
+          echo "backend_image=$ECR_REGISTRY/$ECR_REPOSITORY_BACKEND:$IMAGE_TAG" >> $GITHUB_OUTPUT
 
       - name: Build, tag, and push frontend image
         id: build-frontend
@@ -50,20 +50,28 @@ jobs:
         run: |
           docker build -t $ECR_REGISTRY/$ECR_REPOSITORY_FRONTEND:$IMAGE_TAG ./client
           docker push $ECR_REGISTRY/$ECR_REPOSITORY_FRONTEND:$IMAGE_TAG
-          echo "frontend_image=$ECR_REGISTRY/$ECR_REPOSITORY_FRONTEND:$IMAGE_TAG" >> $GITHUB_ENV
+          echo "frontend_image=$ECR_REGISTRY/$ECR_REPOSITORY_FRONTEND:$IMAGE_TAG" >> $GITHUB_OUTPUT
 
-      - name: Render Amazon ECS task definition
-        id: render-task-def
+      - name: Render backend container in task definition
+        id: render-backend
         uses: aws-actions/amazon-ecs-render-task-definition@v1
         with:
           task-definition: ${{ env.ECS_TASK_DEFINITION }}
-          container-name: backend,frontend
-          image: ${{ env.backend_image }},${{ env.frontend_image }}
+          container-name: backend
+          image: ${{ steps.build-backend.outputs.backend_image }}
+
+      - name: Render frontend container in task definition
+        id: render-frontend
+        uses: aws-actions/amazon-ecs-render-task-definition@v1
+        with:
+          task-definition: ${{ steps.render-backend.outputs.task-definition }}
+          container-name: frontend
+          image: ${{ steps.build-frontend.outputs.frontend_image }}
 
       - name: Deploy to Amazon ECS
         uses: aws-actions/amazon-ecs-deploy-task-definition@v1
         with:
-          task-definition: ${{ steps.render-task-def.outputs.task-definition }}
+          task-definition: ${{ steps.render-frontend.outputs.task-definition }}
           service: ${{ env.ECS_SERVICE_NAME }}
           cluster: ${{ env.ECS_CLUSTER_NAME }}
           wait-for-service-stability: true
