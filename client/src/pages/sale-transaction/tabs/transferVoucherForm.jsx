@@ -123,8 +123,10 @@ const TransferVoucherForm = () => {
       is_bypass: bypassTemplate,
       created_by: createdBy,
       created_at: createdAt,
-      remarks: remarks.trim() === '' ? 'NA' : remarks, // <-- this ensures "NA" only if it's empty or whitespace
+      remarks: remarks.trim() === '' ? 'NA' : remarks,
+      top_up_balance: topUpBalance, // ✅ Add this line
     };
+
 
     setTransferFormData(payload);
   }, [

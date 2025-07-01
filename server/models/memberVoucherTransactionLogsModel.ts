@@ -1,30 +1,35 @@
+import { tr } from 'date-fns/locale';
 import { pool } from '../config/database.js';
 
 const addTransferMemberVoucherTransactionLog = async (
   memberId: number,
+  newMemberVoucherId: number,
   memberVoucherName: string,
-  serviced_by: number,
-  created_by: number,
-  created_at: string // ✅ New param
+  foc: number,
+  voucherTemplateName: string,
+  servicedBy: number,
+  createdBy: number,
+  createdAt: string,
+  topUpBalance: number
 ): Promise<void> => {
   try {
-    // Step 1: Get the member's voucher record
+    // Step 1: Retrieve the old voucher being transferred
     const getVoucherQuery = `
-      SELECT id, current_balance, member_voucher_name
+      SELECT id, current_balance
       FROM member_vouchers
       WHERE member_id = $1 AND member_voucher_name = $2
       LIMIT 1
     `;
-    const voucherValues = [memberId, memberVoucherName];
-    const voucherResult = await pool().query(getVoucherQuery, voucherValues);
+    const voucherResult = await pool().query(getVoucherQuery, [memberId, memberVoucherName]);
 
     if (voucherResult.rows.length === 0) {
       throw new Error("Member voucher record not found");
     }
 
     const memberVoucher = voucherResult.rows[0];
-    const amountChange = memberVoucher.current_balance ? -memberVoucher.current_balance : 0;
+    var transferAmount = memberVoucher.current_balance;
 
+    // Common insert query for all log types
     const insertLogQuery = `
       INSERT INTO member_voucher_transaction_logs (
         member_voucher_id,
@@ -40,42 +45,87 @@ const addTransferMemberVoucherTransactionLog = async (
       ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10)
     `;
 
-    // "FROM" log entry
-    const insertValuesFrom = [
-      memberVoucher.id,
-      `Transfer FROM ${memberVoucherName}`,
-      created_at,
-      0,
-      amountChange,
-      serviced_by,
-      "TRANSFER FROM",
-      created_by,
-      created_at,
-      created_at,
-    ];
-
-    // "TO" log entry
+    // ➤ Log: Transfer TO old voucher
     const insertValuesTo = [
       memberVoucher.id,
-      `Transfer TO new voucher`,
-      created_at,
+      `Transfer TO ${voucherTemplateName} voucher`,
+      createdAt,
       0,
-      amountChange,
-      serviced_by,
+      -transferAmount,
+      servicedBy,
       "TRANSFER TO",
-      created_by,
-      created_at,
-      created_at,
+      createdBy,
+      createdAt,
+      createdAt,
     ];
 
-    await pool().query(insertLogQuery, insertValuesFrom);
+    // ➤ Log: Transfer FROM to new voucher
+    const insertValuesFrom = [
+      newMemberVoucherId,
+      `Transfer FROM ${memberVoucherName}`,
+      createdAt,
+      transferAmount,
+      transferAmount,
+      servicedBy,
+      "TRANSFER FROM",
+      createdBy,
+      createdAt,
+      createdAt,
+    ];
+
+    transferAmount = Number(memberVoucher.current_balance);
+    const topUpAmount = Number(topUpBalance);
+    const focAmount = Number(foc);
+    console.log("foc:", foc);
+    console.log("topUpBalance:", topUpBalance);
+    console.log(transferAmount, "transferAmount");
+    // ➤ Log: Top-Up (only if topUpBalance > 0)
+    const topUpNewCurrentBalance = transferAmount + topUpAmount;
+    console.log("Top Up New Current Balance:", topUpNewCurrentBalance);
+
+    const insertValuesTopUp = [
+      newMemberVoucherId,
+      `Top Up ${voucherTemplateName}`,
+      createdAt,
+      topUpNewCurrentBalance,
+      topUpBalance,
+      servicedBy,
+      "TOP UP",
+      createdBy,
+      createdAt,
+      createdAt,
+    ];
+    // ➤ Log: Add FOC (only if foc > 0)
+
+    const FOCNewCurrentBalance = transferAmount + topUpAmount + focAmount
+
+    console.log("FOC CURRENT BALANCE", FOCNewCurrentBalance)
+    const insertValuesFOC = [
+      newMemberVoucherId,
+      `Add FOC ${voucherTemplateName}`,
+      createdAt,
+      FOCNewCurrentBalance,
+      foc,
+      servicedBy,
+      "ADD FOC",
+      createdBy,
+      createdAt,
+      createdAt,
+    ];
+    // Execute logs in order
     await pool().query(insertLogQuery, insertValuesTo);
+    await pool().query(insertLogQuery, insertValuesFrom);
+
+    await pool().query(insertLogQuery, insertValuesTopUp);
+
+    await pool().query(insertLogQuery, insertValuesFOC);
+
+
   } catch (error) {
-    console.error("Error adding member voucher transaction log:", error);
+    console.error("❌ Error adding member voucher transaction log:", error);
     throw new Error("Failed to add member voucher transaction log");
   }
 };
-
 
 export default {
   addTransferMemberVoucherTransactionLog,

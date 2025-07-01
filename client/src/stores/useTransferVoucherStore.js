@@ -118,7 +118,6 @@ const useTransferVoucherStore = create((set, get) => ({
 
     // Final transfer submission
     submitTransfer: async (formData) => {
-
         if (!formData) {
             throw new Error("No form data provided for voucher transfer.");
         }
@@ -133,7 +132,7 @@ const useTransferVoucherStore = create((set, get) => ({
             is_bypass,
             created_by,
             updated_by,
-            remarks, // <-- added here
+            remarks,
         } = formData;
 
         if (
@@ -145,6 +144,8 @@ const useTransferVoucherStore = create((set, get) => ({
         ) {
             throw new Error("Missing required fields for voucher transfer.");
         }
+
+        const top_up_balance = get().getTopUpBalance(); // ✅ Add this line
 
         const payload = {
             member_name,
@@ -158,11 +159,11 @@ const useTransferVoucherStore = create((set, get) => ({
                 member_voucher_name: v.member_voucher_name,
                 balance_to_transfer: Number(v.balance_to_transfer),
             })),
-            created_by: created_by,
-            updated_by: updated_by,
-            remarks: remarks, // <-- add remarks here
+            created_by,
+            updated_by,
+            remarks,
+            top_up_balance, // ✅ Include top_up_balance in the payload
         };
-
 
         const res = await api.post("/voucher/transfer", payload);
         return res.data;

@@ -97,6 +97,8 @@ const transferVoucherDetailsHandler = async (
       created_by,
       created_at,  // ✅ NEW
       remarks,
+      top_up_balance, // ✅ NEW
+
     }: {
       member_name: string;
       voucher_template_name: string;
@@ -112,6 +114,8 @@ const transferVoucherDetailsHandler = async (
       created_by: number;
       created_at: string;   // ✅ NEW
       remarks: string;
+      top_up_balance: number; // ✅ NEW
+
     } = req.body;
 
     console.log("member_name:", member_name);
@@ -160,7 +164,9 @@ const transferVoucherDetailsHandler = async (
       created_at // ✅ passed to model
     );
 
-    const newVoucherId = createdVoucher.id;
+
+
+    const newVoucherId = Number(createdVoucher.id);
 
     // Process old vouchers
     for (const { member_voucher_name, balance_to_transfer } of old_voucher_details) {
@@ -171,10 +177,15 @@ const transferVoucherDetailsHandler = async (
 
       await memberVoucherTransactionLogsModel.addTransferMemberVoucherTransactionLog(
         memberId,
+        newVoucherId,
+        member_voucher_name,
+        foc,
         voucher_template_name,
         created_by,     // ✅ serviced_by
         created_by,     // ✅ created_by
-        created_at      // ✅ created_at
+        created_at,      // ✅ created_at
+        top_up_balance,
+
       );
 
 
@@ -191,11 +202,13 @@ const transferVoucherDetailsHandler = async (
       message: "Voucher transfer processed and new voucher created successfully",
       newVoucherId,
     });
-  } catch (error) {
-    console.error("Error in transferVoucherDetailsHandler:", error);
+  } catch (error: any) {
+    console.log('❌ Error in controller - MV Transfer:', error); // 🔄 changed from console.error to console.log
+
     res.status(500).json({
       success: false,
-      message: "Failed to process voucher transfer",
+      error: 'Failed to create MV Transfer transaction',
+      details: error?.message || 'Unknown error'
     });
   }
 };
