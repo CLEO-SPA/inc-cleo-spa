@@ -213,8 +213,8 @@ const getSalesTransactionList = async (
           payment_method: payment.payment_method_name,
         }));
 
-      const totalAmount =
-        parseFloat(transaction.total_paid_amount || 0) + parseFloat(transaction.outstanding_total_payment_amount || 0);
+      const totalAmount = parseFloat(transaction.total_paid_amount || 0) +
+        parseFloat(transaction.outstanding_total_payment_amount || 0);
 
       return {
         transaction_id: transaction.id.toString(),
@@ -346,8 +346,8 @@ const getSalesTransactionById = async (id: string): Promise<SalesTransactionDeta
     const paymentsResult = await pool().query(paymentsQuery, [id]);
 
     // Transform the transaction data
-    const totalAmount =
-      parseFloat(transaction.total_paid_amount || 0) + parseFloat(transaction.outstanding_total_payment_amount || 0);
+    const totalAmount = parseFloat(transaction.total_paid_amount || 0) +
+      parseFloat(transaction.outstanding_total_payment_amount || 0);
 
     const transformedTransaction: SalesTransactionDetail = {
       transaction_id: transaction.id.toString(),
@@ -434,7 +434,9 @@ const getSalesTransactionById = async (id: string): Promise<SalesTransactionDeta
   }
 };
 
-const searchServices = async (searchQuery: string): Promise<Service[]> => {
+const searchServices = async (
+  searchQuery: string
+): Promise<Service[]> => {
   try {
     let query = `
       SELECT 
@@ -691,7 +693,7 @@ const createServicesProductsTransaction = async (
       handled_by,
       created_by,
       customCreatedAt,
-      customUpdatedAt,
+      customUpdatedAt
     ];
 
     console.log('Services/Products Transaction Query:', transactionQuery);
@@ -787,9 +789,9 @@ const createServicesProductsTransaction = async (
           payment.methodId,
           payment.amount,
           payment.remark || '',
-          created_by,
-          customCreatedAt,
-          customUpdatedAt,
+          handled_by,
+          customCreatedAt, 
+          customUpdatedAt 
         ];
 
         const paymentResult = await client.query(paymentQuery, paymentParams);
@@ -829,7 +831,7 @@ const createMcpTransaction = async (
   transactionData: SingleItemTransactionRequestData
 ): Promise<SingleItemTransactionCreationResult> => {
   const client = await pool().connect();
-  let mcpId: string | number | null | undefined = null;
+    let mcpId: string | number | null | undefined = null;
   try {
     await client.query('BEGIN');
 
@@ -845,7 +847,7 @@ const createMcpTransaction = async (
       payments,
 
       created_at,
-      updated_at,
+      updated_at
     } = transactionData;
 
     // Validate required fields
@@ -894,8 +896,9 @@ const createMcpTransaction = async (
       customUpdatedAt = customCreatedAt;
     }
 
-    mcpId = item.data?.member_care_package_id || item.data?.id;
 
+   mcpId = item.data?.member_care_package_id || item.data?.id;
+    
     if (!mcpId) {
       throw new Error('member_care_package_id is required in item data');
     }
@@ -921,12 +924,12 @@ const createMcpTransaction = async (
 
     const PENDING_PAYMENT_METHOD_ID = 7;
 
-    const pendingPayments = payments.filter(
-      (payment: PaymentMethodRequest) => payment.methodId === PENDING_PAYMENT_METHOD_ID
+    const pendingPayments = payments.filter((payment: PaymentMethodRequest) =>
+      payment.methodId === PENDING_PAYMENT_METHOD_ID
     );
 
-    const nonPendingPayments = payments.filter(
-      (payment: PaymentMethodRequest) => payment.methodId !== PENDING_PAYMENT_METHOD_ID
+    const nonPendingPayments = payments.filter((payment: PaymentMethodRequest) =>
+      payment.methodId !== PENDING_PAYMENT_METHOD_ID
     );
     const totalPaidAmount: number = nonPendingPayments.reduce((total: number, payment: PaymentMethodRequest) => {
       return total + (payment.amount || 0);
@@ -979,7 +982,7 @@ const createMcpTransaction = async (
       handled_by,
       created_by,
       customCreatedAt,
-      customUpdatedAt,
+      customUpdatedAt
     ];
 
     const transactionResult = await client.query(transactionQuery, transactionParams);
@@ -1017,8 +1020,8 @@ const createMcpTransaction = async (
       item.pricing?.discount || 0,
       item.pricing?.quantity || 1,
       item.pricing?.totalLinePrice || 0,
-      'member care package',
-      item.remarks || '',
+      'member care package', 
+      item.remarks || ''
     ];
 
     const itemResult = await client.query(itemQuery, itemParams);
@@ -1044,7 +1047,7 @@ const createMcpTransaction = async (
         mcpId: mcpId,
         previousBalance: currentBalance,
         paidAmount: totalPaidAmount,
-        newBalance: updatedBalance,
+        newBalance: updatedBalance
       });
     }
 
@@ -1068,9 +1071,9 @@ const createMcpTransaction = async (
           payment.methodId,
           payment.amount,
           payment.remark || '',
-          created_by,
-          customCreatedAt,
-          customUpdatedAt,
+          handled_by,
+          customCreatedAt, 
+          customUpdatedAt 
         ];
 
         const paymentResult = await client.query(paymentQuery, paymentParams);
@@ -1094,12 +1097,13 @@ const createMcpTransaction = async (
       remarks: remarks || '',
       created_by,
       handled_by,
-      package_name: mcpRecord.package_name,
+      package_name: mcpRecord.package_name, 
       items_count: 1,
-      payments_count: payments.filter((p: PaymentMethodRequest) => p.amount > 0).length,
+      payments_count: payments.filter((p: PaymentMethodRequest) => p.amount > 0).length
     };
+
   } catch (error) {
-    await client.query('ROLLBACK');
+await client.query('ROLLBACK');
     console.error('Error creating MCP sale transaction:', error);
 
     // Only attempt to delete the MCP if we have a valid ID
@@ -1217,12 +1221,12 @@ const createMvTransaction = async (
 
     const PENDING_PAYMENT_METHOD_ID = 7;
 
-    const pendingPayments = payments.filter(
-      (payment: PaymentMethodRequest) => payment.methodId === PENDING_PAYMENT_METHOD_ID
+    const pendingPayments = payments.filter((payment: PaymentMethodRequest) =>
+      payment.methodId === PENDING_PAYMENT_METHOD_ID
     );
 
-    const nonPendingPayments = payments.filter(
-      (payment: PaymentMethodRequest) => payment.methodId !== PENDING_PAYMENT_METHOD_ID
+    const nonPendingPayments = payments.filter((payment: PaymentMethodRequest) =>
+      payment.methodId !== PENDING_PAYMENT_METHOD_ID
     );
 
     const totalPaidAmount: number = nonPendingPayments.reduce((total: number, payment: PaymentMethodRequest) => {
@@ -1290,6 +1294,8 @@ const createMvTransaction = async (
     const transactionResult = await client.query(transactionQuery, transactionParams);
     const saleTransactionId: number = transactionResult.rows[0].id;
 
+
+
     // Insert voucher item with actual MV ID
     const itemQuery: string = `
       INSERT INTO sale_transaction_items (
@@ -1347,9 +1353,9 @@ const createMvTransaction = async (
           payment.methodId,
           payment.amount,
           payment.remark || '',
-          created_by,
-          customCreatedAt,
-          customUpdatedAt,
+          handled_by,
+          customCreatedAt, 
+          customUpdatedAt 
         ];
 
         const paymentResult = await client.query(paymentQuery, paymentParams);
@@ -1696,6 +1702,7 @@ const createMvTransferTransaction = async (
       handled_by,
       item,
       payments,
+      // payment_method
       created_at,
       updated_at,
     } = transactionData;
@@ -2003,8 +2010,8 @@ const processPartialPayment = async (
     // Calculate payment amounts - EXCLUDE pending payments from total_paid_amount
     const PENDING_PAYMENT_METHOD_ID = 7;
 
-    const actualPayments = payments.filter((payment) => payment.payment_method_id !== PENDING_PAYMENT_METHOD_ID);
-    const pendingPayments = payments.filter((payment) => payment.payment_method_id === PENDING_PAYMENT_METHOD_ID);
+    const actualPayments = payments.filter(payment => payment.payment_method_id !== PENDING_PAYMENT_METHOD_ID);
+    const pendingPayments = payments.filter(payment => payment.payment_method_id === PENDING_PAYMENT_METHOD_ID);
 
     const totalActualPaymentAmount = actualPayments.reduce((sum, payment) => sum + payment.amount, 0);
     const totalPendingAmount = pendingPayments.reduce((sum, payment) => sum + payment.amount, 0);
@@ -2030,7 +2037,7 @@ const processPartialPayment = async (
     const originalItemsResult = await client.query(originalItemsQuery, [transactionId]);
     const originalItems = originalItemsResult.rows;
 
-    // Calculate new transaction values
+    // Calculate new transaction values 
     const newTotalPaidAmount = totalActualPaymentAmount;
     const newOutstandingAmount = originalTransaction.outstanding_total_payment_amount - totalActualPaymentAmount;
     const newTransactionStatus = newOutstandingAmount > 0.01 ? 'PARTIAL' : 'FULL';
@@ -2070,7 +2077,7 @@ const processPartialPayment = async (
       originalTransaction.created_by,
       currentTime,
       currentTime,
-      newProcessPayment,
+      newProcessPayment
     ];
 
     const newTransactionResult = await client.query(newTransactionQuery, newTransactionParams);
@@ -2105,18 +2112,10 @@ const processPartialPayment = async (
       }
 
       const itemParams = [
-        newTransactionId,
-        item.service_name,
-        item.product_name,
-        item.member_care_package_id,
-        item.member_voucher_id,
-        item.original_unit_price,
-        item.custom_unit_price,
-        item.discount_percentage,
-        item.quantity,
-        item.remarks,
-        item.amount,
-        item.item_type,
+        newTransactionId, item.service_name, item.product_name,
+        item.member_care_package_id, item.member_voucher_id,
+        item.original_unit_price, item.custom_unit_price, item.discount_percentage,
+        item.quantity, item.remarks, item.amount, item.item_type
       ];
 
       await client.query(insertItemQuery, itemParams);
@@ -2156,17 +2155,58 @@ const processPartialPayment = async (
 
     if (voucherItems.length > 0 && newTransactionStatus === 'FULL') {
       for (const voucherItem of voucherItems) {
-        const voucherResult = await client.query('SELECT free_of_charge FROM member_vouchers WHERE id = $1', [
-          voucherItem.member_voucher_id,
-        ]);
+        const voucherResult = await client.query(
+          'SELECT free_of_charge, current_balance FROM member_vouchers WHERE id = $1',
+          [voucherItem.member_voucher_id]
+        );
 
         if (voucherResult.rows.length > 0) {
-          const freeOfCharge = parseFloat(voucherResult.rows[0].free_of_charge) || 0;
+          const voucher = voucherResult.rows[0];
+          const freeOfCharge = parseFloat(voucher.free_of_charge) || 0;
+          const currentBalance = parseFloat(voucher.current_balance) || 0;
+          
           if (freeOfCharge > 0) {
+            // Update the voucher balance
             await client.query(
               'UPDATE member_vouchers SET current_balance = COALESCE(current_balance, 0) + $1 WHERE id = $2',
               [freeOfCharge, voucherItem.member_voucher_id]
             );
+
+            // Insert transaction log for the fully paid voucher
+            const insertVoucherLogQuery = `
+              INSERT INTO member_voucher_transaction_logs (
+                member_voucher_id,
+                service_description,
+                service_date,
+                current_balance,
+                amount_change,
+                serviced_by,
+                type,
+                created_by,
+                last_updated_by,
+                created_at,
+                updated_at
+              ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11)
+            `;
+
+            const newBalance = currentBalance + freeOfCharge;
+            const voucherLogParams = [
+              voucherItem.member_voucher_id,
+              `Payment completed for receipt ${originalTransaction.receipt_no}`,
+              currentTime,
+              newBalance,
+              freeOfCharge,
+              transaction_handler_id,
+              'ADD FOC',
+              transaction_handler_id,
+              transaction_handler_id,
+              currentTime,
+              currentTime
+            ];
+
+            await client.query(insertVoucherLogQuery, voucherLogParams);
+            
+            console.log(`Inserted voucher transaction log for voucher ID ${voucherItem.member_voucher_id}, balance change: +${freeOfCharge}`);
           }
         }
       }

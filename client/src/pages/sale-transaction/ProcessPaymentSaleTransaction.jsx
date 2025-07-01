@@ -418,7 +418,7 @@ const ProcessPaymentSaleTransaction = () => {
                             <CardContent className="space-y-4">
                                 {/* NEW: Transaction Handler Selection */}
                                 <div>
-                                    <Label>Transaction Handler *</Label>
+                                    <Label>Transaction Creator *</Label>
                                     <EmployeeSelect
                                         value={transactionHandlerId}
                                         onChange={(handlerId) => {
