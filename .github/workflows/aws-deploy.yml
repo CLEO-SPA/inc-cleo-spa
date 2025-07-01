@@ -7,6 +7,9 @@ on:
 
 env:
   AWS_REGION: ${{ secrets.AWS_REGION }}
+  AWS_ACCOUNT_ID: ${{ secrets.AWS_ACCOUNT_ID }}
+  SECRET_NAME: cleo-spa-app/db-credentials
+  JWT_SECRET_NAME: cleo-spa-app/jwt-secrets
   ECR_REPOSITORY_BACKEND: cleo-spa-app-backend
   ECR_REPOSITORY_FRONTEND: cleo-spa-app-frontend
   ECS_TASK_DEFINITION: task-definition.json
@@ -27,6 +30,11 @@ jobs:
           aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID }}
           aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
           aws-region: ${{ env.AWS_REGION }}
+      
+      # Add step to get AWS account ID if not provided in secrets
+      - name: Get AWS account ID
+        if: env.AWS_ACCOUNT_ID == ''
+        run: echo "AWS_ACCOUNT_ID=$(aws sts get-caller-identity --query Account --output text)" >> $GITHUB_ENV
 
       - name: Login to Amazon ECR
         id: login-ecr
@@ -52,11 +60,19 @@ jobs:
           docker push $ECR_REGISTRY/$ECR_REPOSITORY_FRONTEND:$IMAGE_TAG
           echo "frontend_image=$ECR_REGISTRY/$ECR_REPOSITORY_FRONTEND:$IMAGE_TAG" >> $GITHUB_OUTPUT
 
+      # Prepare the task definition by replacing variables
+      - name: Process task definition
+        run: |
+          sed -i -e "s|\${AWS_REGION}|$AWS_REGION|g" \
+                 -e "s|\${AWS_ACCOUNT_ID}|$AWS_ACCOUNT_ID|g" \
+                 -e "s|\${SECRET_NAME}|$SECRET_NAME|g" \
+                 -e "s|\${JWT_SECRET_NAME}|$JWT_SECRET_NAME|g" \
+                 ${{ env.ECS_TASK_DEFINITION }}
+          cat ${{ env.ECS_TASK_DEFINITION }}
+
       - name: Debug task definition file
         run: |
-          echo "Checking if task definition file exists..."
-          ls -la ${{ env.ECS_TASK_DEFINITION }}
-          echo "Task definition content:"
+          echo "Task definition content after processing:"
           cat ${{ env.ECS_TASK_DEFINITION }}
 
       - name: Render backend container in task definition
@@ -67,11 +83,6 @@ jobs:
           container-name: backend
           image: ${{ steps.build-backend.outputs.backend_image }}
 
-      - name: Debug backend render output
-        run: |
-          echo "Backend render output:"
-          cat ${{ steps.render-backend.outputs.task-definition }}
-
       - name: Render frontend container in task definition
         id: render-frontend
         uses: aws-actions/amazon-ecs-render-task-definition@v1
@@ -79,11 +90,6 @@ jobs:
           task-definition: ${{ steps.render-backend.outputs.task-definition }}
           container-name: frontend
           image: ${{ steps.build-frontend.outputs.frontend_image }}
-
-      - name: Debug frontend render output
-        run: |
-          echo "Frontend render output:"
-          cat ${{ steps.render-frontend.outputs.task-definition }}
 
       - name: Deploy to Amazon ECS
         uses: aws-actions/amazon-ecs-deploy-task-definition@v1

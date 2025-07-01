@@ -18,17 +18,17 @@
       "portMappings": [{ "containerPort": 3000, "hostPort": 3000 }],
       "essential": true,
       "secrets": [
-        { "name": "DB_HOST", "valueFrom": "${secret_arn_prefix}:host::" },
-        { "name": "DB_USER", "valueFrom": "${secret_arn_prefix}:username::" },
-        { "name": "DB_PASSWORD", "valueFrom": "${secret_arn_prefix}:password::" },
-        { "name": "DB_NAME", "valueFrom": "${secret_arn_prefix}:dbname::" },
-        { "name": "AUTH_JWT_SECRET", "valueFrom": "${jwt_secret_arn_prefix}:auth_jwt_secret::" },
-        { "name": "INV_JWT_SECRET", "valueFrom": "${jwt_secret_arn_prefix}:inv_jwt_secret::" },
-        { "name": "REMEMBER_TOKEN", "valueFrom": "${jwt_secret_arn_prefix}:remember_token::" },
-        { "name": "SESSION_SECRET", "valueFrom": "${jwt_secret_arn_prefix}:session_secret::" },
-        { "name": "LOCAL_FRONTEND_URL", "valueFrom": "${jwt_secret_arn_prefix}:local_frontend_url::" },
-        { "name": "LOCAL_BACKEND_URL", "valueFrom": "${jwt_secret_arn_prefix}:local_backend_url::" },
-        { "name": "AWS_FRONTEND_URL", "valueFrom": "${jwt_secret_arn_prefix}:aws_frontend_url::" }
+        { "name": "DB_HOST", "valueFrom": "arn:aws:secretsmanager:${AWS_REGION}:${AWS_ACCOUNT_ID}:secret:${SECRET_NAME}:host::" },
+        { "name": "DB_USER", "valueFrom": "arn:aws:secretsmanager:${AWS_REGION}:${AWS_ACCOUNT_ID}:secret:${SECRET_NAME}:username::" },
+        { "name": "DB_PASSWORD", "valueFrom": "arn:aws:secretsmanager:${AWS_REGION}:${AWS_ACCOUNT_ID}:secret:${SECRET_NAME}:password::" },
+        { "name": "DB_NAME", "valueFrom": "arn:aws:secretsmanager:${AWS_REGION}:${AWS_ACCOUNT_ID}:secret:${SECRET_NAME}:dbname::" },
+        { "name": "AUTH_JWT_SECRET", "valueFrom": "arn:aws:secretsmanager:${AWS_REGION}:${AWS_ACCOUNT_ID}:secret:${JWT_SECRET_NAME}:auth_jwt_secret::" },
+        { "name": "INV_JWT_SECRET", "valueFrom": "arn:aws:secretsmanager:${AWS_REGION}:${AWS_ACCOUNT_ID}:secret:${JWT_SECRET_NAME}:inv_jwt_secret::" },
+        { "name": "REMEMBER_TOKEN", "valueFrom": "arn:aws:secretsmanager:${AWS_REGION}:${AWS_ACCOUNT_ID}:secret:${JWT_SECRET_NAME}:remember_token::" },
+        { "name": "SESSION_SECRET", "valueFrom": "arn:aws:secretsmanager:${AWS_REGION}:${AWS_ACCOUNT_ID}:secret:${JWT_SECRET_NAME}:session_secret::" },
+        { "name": "LOCAL_FRONTEND_URL", "valueFrom": "arn:aws:secretsmanager:${AWS_REGION}:${AWS_ACCOUNT_ID}:secret:${JWT_SECRET_NAME}:local_frontend_url::" },
+        { "name": "LOCAL_BACKEND_URL", "valueFrom": "arn:aws:secretsmanager:${AWS_REGION}:${AWS_ACCOUNT_ID}:secret:${JWT_SECRET_NAME}:local_backend_url::" },
+        { "name": "AWS_FRONTEND_URL", "valueFrom": "arn:aws:secretsmanager:${AWS_REGION}:${AWS_ACCOUNT_ID}:secret:${JWT_SECRET_NAME}:aws_frontend_url::" }
       ],
       "environment": [
         { "name": "PORT", "value": "3000" },

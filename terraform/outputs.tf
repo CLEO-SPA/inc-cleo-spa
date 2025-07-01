@@ -22,3 +22,13 @@ output "db_credentials_secret_arn" {
   description = "The ARN of the secret containing the database credentials."
   value       = aws_secretsmanager_secret.db_creds.arn
 }
+
+output "secret_arn_prefix" {
+  description = "The prefix for the secret ARN used in the ECS task definition."
+  value       = "${aws_secretsmanager_secret.db_creds.arn}:"
+}
+
+output "jwt_secret_arn_prefix" {
+  description = "The prefix for the JWT secrets ARN used in the ECS task definition."
+  value       = "${aws_secretsmanager_secret.jwt_secrets.arn}:"
+}
