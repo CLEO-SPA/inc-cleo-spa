@@ -101,13 +101,6 @@ resource "aws_security_group" "app_sg" {
     cidr_blocks = ["0.0.0.0/0"]
   }
 
-  ingress {
-    from_port   = 3000
-    to_port     = 3000
-    protocol    = "tcp"
-    cidr_blocks = ["0.0.0.0/0"]
-  }
-
   egress {
     from_port   = 0
     to_port     = 0
@@ -347,13 +340,13 @@ resource "aws_instance" "app_instance" {
         image: ${aws_ecr_repository.backend.repository_url}:latest
         restart: always
         ports:
-          - '3000:3000'
+          - '5000:5000'
         environment:
           DB_HOST: ${aws_db_instance.default.address}
           DB_USER: ${aws_db_instance.default.username}
           DB_PASSWORD: ${var.db_password}
           DB_NAME: ${aws_db_instance.default.db_name}
-          PORT: 3000
+          PORT: 5000
           NODE_ENV: production
           AUTH_JWT_SECRET: ${var.auth_jwt_secret}
           INV_JWT_SECRET: ${var.inv_jwt_secret}
