@@ -1,8 +1,7 @@
 import { pool, getProdPool as prodPool } from '../config/database.js';
 
-
 export const getLastVisitedDatesForMembers = async (): Promise<Record<number, string>> => {
-const query = `
+  const query = `
   WITH voucher_dates AS (
     SELECT 
       mv.member_id, 
@@ -45,7 +44,6 @@ const query = `
   SELECT member_id, last_visited
   FROM unified_dates;
 `;
-
 
   const result = await pool().query(query);
   const map: Record<number, string> = {};

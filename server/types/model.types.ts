@@ -220,3 +220,108 @@ export interface MemberDetailsData {
   address: string;
   nric: string;
 }
+
+export interface MemberVouchers {
+  id?: number;
+  member_voucher_name: string;
+  voucher_template_id: number;
+  member_id: number;
+  current_balance: number;
+  starting_balance: number;
+  free_of_charge: number;
+  default_total_price: number;
+  status: string;
+  remarks: string;
+  created_by: number;
+  handled_by: number;
+  last_updated_by: number;
+  created_at: string;
+  updated_at: string;
+}
+
+export interface MemberVoucherServices {
+  id?: number;
+  service_name: string;
+  original_price: number;
+  custom_price: number;
+  discount: number;
+  duration: number;
+}
+
+export interface MemberVoucherTransactionLogs {
+  id?: number;
+  member_voucher_id: number;
+  service_description: string;
+  service_date: string;
+  current_balance: number;
+  amount_change: number;
+  serviced_by: number;
+  type: string;
+  created_by: number;
+  updated_by: number;
+  created_at: string;
+  updated_at: string;
+}
+
+export interface Employee {
+  id: number;
+  employee_name: string;
+  position_id: number | null;
+}
+
+export interface MemberVoucherTransactionLogCreateData {
+  id: number;
+  consumptionValue: number;
+  remarks: string;
+  date: string;
+  time: string;
+  type: string;
+  createdBy: number;
+  handledBy: number;
+  current_balance: number;
+}
+
+export interface MemberName {
+  id?: number;
+  member_name: string;
+}
+
+export interface MemberVoucherTransactionLogUpdateData {
+  member_voucher_id: number;
+  transaction_log_id: number;
+  consumptionValue: number;
+  remarks: string;
+  date: string;
+  time: string;
+  type: string;
+  createdBy: number;
+  handledBy: number;
+  lastUpdatedBy: number;
+}
+
+export interface MembershipType {
+  id: number;
+  membership_type_name: string;
+  default_percentage_discount_for_products: number;
+  default_percentage_discount_for_services: number;
+  created_at: Date;
+  updated_at: Date;
+  created_by: number;
+  last_updated_by: number;
+}
+
+export interface VoucherTemplate {
+  id: number;
+  voucher_template_name: string;
+  [key: string]: any;
+}
+
+export interface VoucherTemplateDetail {
+  service_id: number;
+  service_name: string;
+  original_price: number;
+  custom_price: number;
+  discount: number;
+  final_price: number;
+  duration: number;
+}

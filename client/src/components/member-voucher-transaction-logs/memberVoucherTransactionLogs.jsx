@@ -213,7 +213,7 @@ const MemberVoucherTransactionLogs = () => {
                                                 );
                                             }
                                             if (header.key === 'service_date') {
-                                                return <TableCell key={header.key}>{new Date(transaction[header.key]).toUTCString()}</TableCell>;
+                                                return <TableCell key={header.key}>{new Date(transaction[header.key]).toLocaleString()}</TableCell>;
                                             }
                                             if (header.key === 'id') {
                                                 const rowNumber = (currentPage - 1) * currentLimit + index + 1;

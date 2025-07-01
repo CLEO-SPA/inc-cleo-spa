@@ -172,19 +172,23 @@ RETURNS TABLE (
 LANGUAGE SQL
 AS $$
 SELECT 
-    TO_CHAR(DATE_TRUNC('day', ptst.created_at AT TIME ZONE 'Asia/Singapore'), 'YYYY-MM-DD') AS refund_date_gmt8,
-    SUM(ABS(ptst.amount))::NUMERIC(10,2) AS total_refund_amount
-FROM payment_to_sale_transactions ptst
-JOIN sale_transaction_items sti
-  ON sti.sale_transaction_id = ptst.sale_transaction_id
-WHERE ptst.payment_method_id = (
-    SELECT id
-    FROM payment_methods
-    WHERE payment_method_name = 'Refund'
-)
-AND sti.item_type = 'member care package'
-AND EXTRACT(YEAR FROM ptst.created_at AT TIME ZONE 'Asia/Singapore') = target_year
-AND EXTRACT(MONTH FROM ptst.created_at AT TIME ZONE 'Asia/Singapore') = target_month
+    TO_CHAR(DATE_TRUNC('day', sub.created_at AT TIME ZONE 'Asia/Singapore'), 'YYYY-MM-DD') AS refund_date_gmt8,
+    SUM(ABS(sub.amount))::NUMERIC(10,2) AS total_refund_amount
+FROM (
+    SELECT ptst.id, ptst.created_at, ptst.amount
+    FROM payment_to_sale_transactions ptst
+    JOIN sale_transaction_items sti
+      ON sti.sale_transaction_id = ptst.sale_transaction_id
+    WHERE ptst.payment_method_id = (
+        SELECT id
+        FROM payment_methods
+        WHERE payment_method_name = 'Refund'
+    )
+    AND sti.item_type = 'member care package'
+    AND EXTRACT(YEAR FROM ptst.created_at AT TIME ZONE 'Asia/Singapore') = target_year
+    AND EXTRACT(MONTH FROM ptst.created_at AT TIME ZONE 'Asia/Singapore') = target_month
+    GROUP BY ptst.id, ptst.created_at, ptst.amount
+) sub
 GROUP BY refund_date_gmt8
 ORDER BY refund_date_gmt8;
 $$;

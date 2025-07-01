@@ -17,6 +17,7 @@ const isAuthenticated = (req: Request, res: Response, next: NextFunction): void 
         req.session.start_date_utc = getCurrentSimStatus().isActive ? start_date_utc : null;
         req.session.end_date_utc = getCurrentSimStatus().isActive ? end_date_utc : new Date().toUTCString();
         req.session.end_date_is_default = getCurrentSimStatus().isActive ? false : true;
+        req.session.end_date_is_default = getCurrentSimStatus().isActive ? false : true;
         req.session.user_id = decoded.user_id;
         req.session.username = decoded.username;
         req.session.email = decoded.email;

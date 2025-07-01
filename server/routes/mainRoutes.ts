@@ -26,6 +26,8 @@ import timetableRoutes from './timetableRoutes.js';
 import appointmentRoutes from './appointmentRoutes.js';
 import productRoutes from './productRoutes.js';
 import revenueRoutes from './revenueRoutes.js';
+import stRoutes from './stRoutes.js';
+import voucherRoutes from './voucherRoute.js';
 
 
 router.use(simulationMiddleware);
@@ -50,6 +52,8 @@ router.use('/em', employeeRoutes);
 router.use('/et', timetableRoutes);
 router.use('/ab', appointmentRoutes);
 router.use('/rr', revenueRoutes);
+router.use('/st', stRoutes);
+router.use('/voucher', voucherRoutes);
 // router.use('/sa', superAdminRoutes);
 router.use('/product', productRoutes);
 
