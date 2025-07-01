@@ -721,13 +721,13 @@ const fetchMCPStatusById = async (packageId: number) => {
     refund_totals AS (
       SELECT 
         mcpd.id AS detail_id,
-        COUNT(CASE WHEN mcpctl.type = 'REFUND' THEN 1 END) AS refunded
+        COALESCE(SUM(mcpctl.amount_changed), 0) / NULLIF(mcpd.price, 0) AS refunded_quantity
       FROM member_care_package_details mcpd
       LEFT JOIN member_care_package_transaction_logs mcpctl 
         ON mcpd.id = mcpctl.member_care_package_details_id
         AND mcpctl.type = 'REFUND'
       WHERE mcpd.member_care_package_id = $1
-      GROUP BY mcpd.id
+      GROUP BY mcpd.id, mcpd.price
     )
     SELECT 
       mcp.id AS package_id,
@@ -740,9 +740,9 @@ const fetchMCPStatusById = async (packageId: number) => {
       mcpd.quantity AS original_quantity,
       FLOOR(COALESCE(pt.purchased_quantity, 0)) AS purchased,
       COALESCE(ct.consumed, 0) AS consumed,
-      COALESCE(rt.refunded, 0) AS refunded,
+      FLOOR(COALESCE(rt.refunded_quantity, 0)) AS refunded,
       CASE 
-        WHEN COALESCE(rt.refunded, 0) > 0 THEN 0
+        WHEN COALESCE(rt.refunded_quantity, 0) > 0 THEN 0
         ELSE (FLOOR(COALESCE(pt.purchased_quantity, 0)) - COALESCE(ct.consumed, 0))
       END AS remaining,
       GREATEST(mcpd.quantity - FLOOR(COALESCE(pt.purchased_quantity, 0)), 0) AS unpaid
