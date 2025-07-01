@@ -41,6 +41,8 @@ const ProcessPaymentSaleTransaction = () => {
         
         // Actions
         setTransaction,
+        receiptNumber,
+        setReceiptNumber, 
         setLoading,
         setError,
         setProcessing,
@@ -215,7 +217,9 @@ const ProcessPaymentSaleTransaction = () => {
                     payment_handler_id: parseInt(paymentHandlerId)
                 })),
                 general_remarks: generalRemark || '',
+                    receipt_number: receiptNumber || '',  
                 transaction_handler_id: parseInt(transactionHandlerId), // Use the selected transaction handler
+                payment_handler_id: parseInt(paymentHandlerId), // Use the selected payment handler
                 created_at: createdAt // RESTORED: Include custom creation date
             };
 
@@ -252,72 +256,84 @@ const ProcessPaymentSaleTransaction = () => {
     // Loading state
     if (loading) {
         return (
-            <SidebarProvider>
-                <AppSidebar />
-                <SidebarInset>
+            <div className='h-screen overflow-hidden [--header-height:calc(theme(spacing.14))]'>
+                <SidebarProvider className='flex flex-col h-full'>
                     <SiteHeader />
-                    <div className="flex items-center justify-center h-64">
-                        <div className="animate-pulse flex flex-col items-center">
-                            <div className="h-8 w-8 border-4 border-blue-500 border-t-transparent rounded-full animate-spin mb-4"></div>
-                            <div className="text-gray-600">Loading transaction details...</div>
-                        </div>
+                    <div className='flex flex-1 min-h-0'>
+                        <AppSidebar />
+                        <SidebarInset className='flex-1'>
+                            <div className="flex items-center justify-center h-64">
+                                <div className="animate-pulse flex flex-col items-center">
+                                    <div className="h-8 w-8 border-4 border-blue-500 border-t-transparent rounded-full animate-spin mb-4"></div>
+                                    <div className="text-gray-600">Loading transaction details...</div>
+                                </div>
+                            </div>
+                        </SidebarInset>
                     </div>
-                </SidebarInset>
-            </SidebarProvider>
+                </SidebarProvider>
+            </div>
         );
     }
 
     // Error state
     if (error) {
         return (
-            <SidebarProvider>
-                <AppSidebar />
-                <SidebarInset>
+            <div className='h-screen overflow-hidden [--header-height:calc(theme(spacing.14))]'>
+                <SidebarProvider className='flex flex-col h-full'>
                     <SiteHeader />
-                    <div className="flex items-center justify-center h-64">
-                        <div className="text-center p-8">
-                            <AlertCircle className="h-12 w-12 text-red-500 mx-auto mb-4" />
-                            <div className="text-red-500 text-xl mb-2">Error</div>
-                            <div className="text-gray-600 mb-6">{error}</div>
-                            <Button onClick={() => window.location.reload()}>Try Again</Button>
-                        </div>
+                    <div className='flex flex-1 min-h-0'>
+                        <AppSidebar />
+                        <SidebarInset className='flex-1'>
+                            <div className="flex items-center justify-center h-64">
+                                <div className="text-center p-8">
+                                    <AlertCircle className="h-12 w-12 text-red-500 mx-auto mb-4" />
+                                    <div className="text-red-500 text-xl mb-2">Error</div>
+                                    <div className="text-gray-600 mb-6">{error}</div>
+                                    <Button onClick={() => window.location.reload()}>Try Again</Button>
+                                </div>
+                            </div>
+                        </SidebarInset>
                     </div>
-                </SidebarInset>
-            </SidebarProvider>
+                </SidebarProvider>
+            </div>
         );
     }
 
     // Transaction not found
     if (!transaction) {
         return (
-            <SidebarProvider>
-                <AppSidebar />
-                <SidebarInset>
+            <div className='h-screen overflow-hidden [--header-height:calc(theme(spacing.14))]'>
+                <SidebarProvider className='flex flex-col h-full'>
                     <SiteHeader />
-                    <div className="flex items-center justify-center h-64">
-                        <div className="text-center p-8">
-                            <Package className="h-12 w-12 text-gray-400 mx-auto mb-4" />
-                            <div className="text-gray-600 text-xl mb-2">Transaction not found</div>
-                            <div className="text-gray-500 mb-6">The requested transaction could not be found</div>
-                            <Button onClick={() => navigate('/sale-transaction/list')}>
-                                <ArrowLeft className="h-4 w-4 mr-2" />
-                                Back to Transactions
-                            </Button>
-                        </div>
+                    <div className='flex flex-1 min-h-0'>
+                        <AppSidebar />
+                        <SidebarInset className='flex-1'>
+                            <div className="flex items-center justify-center h-64">
+                                <div className="text-center p-8">
+                                    <Package className="h-12 w-12 text-gray-400 mx-auto mb-4" />
+                                    <div className="text-gray-600 text-xl mb-2">Transaction not found</div>
+                                    <div className="text-gray-500 mb-6">The requested transaction could not be found</div>
+                                    <Button onClick={() => navigate('/sale-transaction/list')}>
+                                        <ArrowLeft className="h-4 w-4 mr-2" />
+                                        Back to Transactions
+                                    </Button>
+                                </div>
+                            </div>
+                        </SidebarInset>
                     </div>
-                </SidebarInset>
-            </SidebarProvider>
+                </SidebarProvider>
+            </div>
         );
     }
 
     return (
-        <SidebarProvider>
-            <AppSidebar />
-            <SidebarInset>
+        <div className='h-screen overflow-hidden [--header-height:calc(theme(spacing.14))]'>
+            <SidebarProvider className='flex flex-col h-full'>
                 <SiteHeader />
-                <div className="flex-1 space-y-4 p-4 md:p-8 pt-6">
-                    
-
+                <div className='flex flex-1 min-h-0'>
+                    <AppSidebar />
+                    <SidebarInset className='flex-1'>
+                        <div className="flex-1 space-y-4 p-4 md:p-8 pt-6 overflow-y-auto">
                     {/* Header */}
                     <div className="flex items-center justify-between">
                         <div className="flex items-center space-x-4">
@@ -341,84 +357,102 @@ const ProcessPaymentSaleTransaction = () => {
                         </Badge>
                     </div>
 
-                    <div className="grid gap-6 md:grid-cols-2">
-                        {/* Transaction Details */}
-                        <Card>
-                            <CardHeader>
-                                <CardTitle className="flex items-center">
-                                    <Package className="h-5 w-5 mr-2" />
-                                    Transaction Details
-                                </CardTitle>
-                            </CardHeader>
-                            <CardContent className="space-y-4">
-                                <div className="grid grid-cols-2 gap-4">
-                                    <div>
-                                        <Label className="text-sm text-gray-500">Receipt No</Label>
-                                        <p className="font-medium">{transaction.receipt_no}</p>
-                                    </div>
-                                    <div>
-                                        <Label className="text-sm text-gray-500">Date</Label>
-                                        <p className="font-medium">
-                                            {new Date(transaction.transaction_created_at).toLocaleDateString()}
-                                        </p>
-                                    </div>
-                                    <div>
-                                        <Label className="text-sm text-gray-500">Customer Type</Label>
-                                        <p className="font-medium">{transaction.customer_type}</p>
-                                    </div>
-                                    <div>
-                                        <Label className="text-sm text-gray-500">Member</Label>
-                                        <p className="font-medium">
-                                            {transaction.member?.name || 'Walk-in Customer'}
-                                        </p>
-                                    </div>
-                                    <div>
-                                        <Label className="text-sm text-gray-500">Original Handler</Label>
-                                        <p className="font-medium">
-                                            {transaction.handler?.name || 'Not specified'}
-                                        </p>
-                                    </div>
-                                </div>
-                                
-                                {/* Payment Summary */}
-                                <div className="border-t pt-4">
-                                    <h4 className="font-medium mb-3">Payment Summary</h4>
-                                    <div className="space-y-2">
-                                        <div className="flex justify-between">
-                                            <span className="text-gray-600">Total Amount:</span>
-                                            <span className="font-medium">
-                                                {formatCurrency(transaction.total_transaction_amount)}
-                                            </span>
-                                        </div>
-                                        <div className="flex justify-between">
-                                            <span className="text-gray-600">Already Paid:</span>
-                                            <span className="font-medium text-green-600">
-                                                {formatCurrency(transaction.total_paid_amount)}
-                                            </span>
-                                        </div>
-                                        <div className="flex justify-between border-t pt-2">
-                                            <span className="text-gray-600 font-medium">Outstanding:</span>
-                                            <span className="font-bold text-red-600">
-                                                {formatCurrency(getOutstandingAmount())}
-                                            </span>
-                                        </div>
-                                    </div>
-                                </div>
-                            </CardContent>
-                        </Card>
-
-                        {/* Payment Processing */}
-                        <Card>
-                            <CardHeader>
-                                <CardTitle className="flex items-center">
-                                    <CreditCard className="h-5 w-5 mr-2" />
-                                    Add New Payments
-                                </CardTitle>
-                            </CardHeader>
-                            <CardContent className="space-y-4">
-                                {/* NEW: Transaction Handler Selection */}
+                    {/* Transaction Details - Full Width */}
+                    <Card>
+                        <CardHeader>
+                            <CardTitle className="flex items-center">
+                                <Package className="h-5 w-5 mr-2" />
+                                Transaction Details
+                            </CardTitle>
+                        </CardHeader>
+                        <CardContent>
+                            {/* Basic Info Grid */}
+                            <div className="grid grid-cols-1 md:grid-cols-3 lg:grid-cols-5 gap-4 mb-6">
                                 <div>
-                                    <Label>Transaction</Label>
+                                    <Label className="text-sm text-gray-500">Receipt No</Label>
+                                    <p className="font-medium">{transaction.receipt_no}</p>
+                                </div>
+                                <div>
+                                    <Label className="text-sm text-gray-500">Date</Label>
+                                    <p className="font-medium">
+                                        {new Date(transaction.transaction_created_at).toLocaleDateString()}
+                                    </p>
+                                </div>
+                                <div>
+                                    <Label className="text-sm text-gray-500">Customer Type</Label>
+                                    <p className="font-medium">{transaction.customer_type}</p>
+                                </div>
+                                <div>
+                                    <Label className="text-sm text-gray-500">Member</Label>
+                                    <p className="font-medium">
+                                        {transaction.member?.name || 'Walk-in Customer'}
+                                    </p>
+                                </div>
+                                <div>
+                                    <Label className="text-sm text-gray-500">Original Handler</Label>
+                                    <p className="font-medium">
+                                        {transaction.handler?.name || 'Not specified'}
+                                    </p>
+                                </div>
+                            </div>
+                            
+                            {/* Payment Summary */}
+                            <div className="border-t pt-4">
+                                <h4 className="font-medium mb-4">Payment Summary</h4>
+                                <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+                                    <div className="flex justify-between md:flex-col md:justify-start">
+                                        <span className="text-gray-600">Total Amount:</span>
+                                        <span className="font-medium text-lg">
+                                            {formatCurrency(transaction.total_transaction_amount)}
+                                        </span>
+                                    </div>
+                                    <div className="flex justify-between md:flex-col md:justify-start">
+                                        <span className="text-gray-600">Already Paid:</span>
+                                        <span className="font-medium text-lg text-green-600">
+                                            {formatCurrency(transaction.total_paid_amount)}
+                                        </span>
+                                    </div>
+                                    <div className="flex justify-between md:flex-col md:justify-start border-t md:border-t-0 md:border-l pt-2 md:pt-0 md:pl-6">
+                                        <span className="text-gray-600 font-medium">Outstanding:</span>
+                                        <span className="font-bold text-xl text-red-600">
+                                            {formatCurrency(getOutstandingAmount())}
+                                        </span>
+                                    </div>
+                                </div>
+                            </div>
+                        </CardContent>
+                    </Card>
+
+                    {/* Payment Processing - Full Width */}
+                    <Card>
+                        <CardHeader>
+                            <CardTitle className="flex items-center">
+                                <CreditCard className="h-5 w-5 mr-2" />
+                                Add New Payments
+                            </CardTitle>
+                        </CardHeader>
+                        <CardContent className="space-y-6">
+                            
+                                {/* Receipt Number */}
+                                <div>
+                                    <Label htmlFor="receipt_number">Receipt Number</Label>
+                                    <Input
+                                        type="text"
+                                        id="receipt_number"
+                                        placeholder="Enter custom receipt number..."
+                                        value={receiptNumber}
+                                        onChange={(e) => setReceiptNumber(e.target.value)}
+                                        className="rounded-md"
+                                    />
+                                    <p className="text-xs text-gray-500 mt-1">
+                                        Custom receipt number (leave empty for original)
+                                    </p>
+                                </div>
+                            {/* Handler Selection Grid */}
+                            <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                                {/* Transaction Handler Selection */}
+                                <div>
+                                    <Label>Transaction Handler</Label>
                                     <EmployeeSelect
                                         value={transactionHandlerId}
                                         onChange={(handlerId) => {
@@ -434,7 +468,7 @@ const ProcessPaymentSaleTransaction = () => {
 
                                 {/* Payment Handler Selection */}
                                 <div>
-                                    <Label>Payment</Label>
+                                    <Label>Payment Handler</Label>
                                     <EmployeeSelect
                                         value={paymentHandlerId}
                                         onChange={(handlerId) => {
@@ -447,80 +481,83 @@ const ProcessPaymentSaleTransaction = () => {
                                         Employee who processed the payment
                                     </p>
                                 </div>
+                            </div>
 
-                                {/* Add Payment Method */}
-                                <div>
-                                    <Label>Add</Label>
-                                    <div className="flex gap-2">
-                                        <div className="flex-1">
-                                            <PaymentMethodSelect
-                                                value={selectedPaymentMethod}
-                                                onChange={(methodId) => {
-                                                    console.log('💳 PaymentMethodSelect onChange:', methodId, typeof methodId);
-                                                    setSelectedPaymentMethod(methodId);
-                                                }}
-                                                errors={{}}
-                                            />
-                                        </div>
-                                        <Button
-                                            onClick={handleAddPaymentMethod}
-                                            disabled={!selectedPaymentMethod}
-                                            size="sm"
-                                        >
-                                            <Plus className="h-4 w-4" />
-                                        </Button>
+                            {/* Add Payment Method */}
+                            <div>
+                                <Label>Add Payment Method</Label>
+                                <div className="flex gap-2">
+                                    <div className="flex-1">
+                                        <PaymentMethodSelect
+                                            value={selectedPaymentMethod}
+                                            onChange={(methodId) => {
+                                                console.log('💳 PaymentMethodSelect onChange:', methodId, typeof methodId);
+                                                setSelectedPaymentMethod(methodId);
+                                            }}
+                                            errors={{}}
+                                        />
                                     </div>
+                                    <Button
+                                        onClick={handleAddPaymentMethod}
+                                        disabled={!selectedPaymentMethod}
+                                        size="sm"
+                                    >
+                                        <Plus className="h-4 w-4" />
+                                    </Button>
                                 </div>
+                            </div>
 
-                                {/* Payment Methods List */}
-                                <div>
-                                    <Label>Added Payment Methods ({newPayments.length})</Label>
-                                    {newPayments.length === 0 ? (
-                                        <div className="text-gray-500 text-sm italic p-4 border border-dashed rounded-lg">
-                                            No payment methods added yet. Select a payment method and click Add.
-                                        </div>
-                                    ) : (
-                                        <div className="space-y-3">
-                                            {newPayments.map((payment) => (
-                                                <div key={payment.id} className="flex items-center gap-3 p-3 bg-gray-50 rounded-lg border">
-                                                    <div className="flex-shrink-0 w-24">
-                                                        <span className="text-sm font-medium">{payment.methodName}</span>
-                                                        <div className="text-xs text-gray-500">ID: {payment.methodId}</div>
-                                                    </div>
-                                                    <div className="flex-1">
-                                                        <Input
-                                                            type="number"
-                                                            min="0"
-                                                            step="0.01"
-                                                            placeholder="Amount"
-                                                            value={payment.amount || ''}
-                                                            onChange={(e) => handleUpdatePaymentAmount(payment.id, e.target.value)}
-                                                        />
-                                                    </div>
-                                                    <div className="flex-1">
-                                                        <Input
-                                                            type="text"
-                                                            placeholder="Remark"
-                                                            value={payment.remark}
-                                                            onChange={(e) => updatePaymentRemark(payment.id, e.target.value)}
-                                                        />
-                                                    </div>
-                                                    <Button
-                                                        variant="outline"
-                                                        size="sm"
-                                                        onClick={() => {
-                                                            console.log('🗑️ Removing payment:', payment.id);
-                                                            removePayment(payment.id);
-                                                        }}
-                                                    >
-                                                        <X className="h-4 w-4" />
-                                                    </Button>
+                            {/* Payment Methods List */}
+                            <div>
+                                <Label>Added Payment Methods ({newPayments.length})</Label>
+                                {newPayments.length === 0 ? (
+                                    <div className="text-gray-500 text-sm italic p-4 border border-dashed rounded-lg">
+                                        No payment methods added yet. Select a payment method and click Add.
+                                    </div>
+                                ) : (
+                                    <div className="space-y-3">
+                                        {newPayments.map((payment) => (
+                                            <div key={payment.id} className="flex items-center gap-3 p-3 bg-gray-50 rounded-lg border">
+                                                <div className="flex-shrink-0 w-24">
+                                                    <span className="text-sm font-medium">{payment.methodName}</span>
+                                                    <div className="text-xs text-gray-500">ID: {payment.methodId}</div>
                                                 </div>
-                                            ))}
-                                        </div>
-                                    )}
-                                </div>
+                                                <div className="flex-1">
+                                                    <Input
+                                                        type="number"
+                                                        min="0"
+                                                        step="0.01"
+                                                        placeholder="Amount"
+                                                        value={payment.amount || ''}
+                                                        onChange={(e) => handleUpdatePaymentAmount(payment.id, e.target.value)}
+                                                    />
+                                                </div>
+                                                <div className="flex-1">
+                                                    <Input
+                                                        type="text"
+                                                        placeholder="Remark"
+                                                        value={payment.remark}
+                                                        onChange={(e) => updatePaymentRemark(payment.id, e.target.value)}
+                                                    />
+                                                </div>
+                                                <Button
+                                                    variant="outline"
+                                                    size="sm"
+                                                    onClick={() => {
+                                                        console.log('🗑️ Removing payment:', payment.id);
+                                                        removePayment(payment.id);
+                                                    }}
+                                                >
+                                                    <X className="h-4 w-4" />
+                                                </Button>
+                                            </div>
+                                        ))}
+                                    </div>
+                                )}
+                            </div>
 
+                            {/* General Remark and Creation Date Grid */}
+                            <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                                 {/* General Remark */}
                                 <div>
                                     <Label>New Transaction Remark</Label>
@@ -532,7 +569,7 @@ const ProcessPaymentSaleTransaction = () => {
                                     />
                                 </div>
 
-                                {/* RESTORED: Creation Date & Time */}
+                                {/* Creation Date & Time */}
                                 <div className="space-y-1">
                                     <Label htmlFor="created_at" className="text-sm font-medium pb-1 text-gray-700">
                                         Creation date & time *
@@ -554,11 +591,11 @@ const ProcessPaymentSaleTransaction = () => {
                                         Date and time for the new transaction
                                     </p>
                                 </div>
-                            </CardContent>
-                        </Card>
-                    </div>
+                            </div>
+                        </CardContent>
+                    </Card>
 
-                    {/* Payment Summary & Actions */}
+                    {/* Payment Summary & Actions - Full Width */}
                     <Card>
                         <CardHeader>
                             <CardTitle className="flex items-center">
@@ -616,9 +653,11 @@ const ProcessPaymentSaleTransaction = () => {
                             </div>
                         </CardContent>
                     </Card>
+                        </div>
+                    </SidebarInset>
                 </div>
-            </SidebarInset>
-        </SidebarProvider>
+            </SidebarProvider>
+        </div>
     );
 };
 
