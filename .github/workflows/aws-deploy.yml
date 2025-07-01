@@ -7,10 +7,10 @@ on:
 
 env:
   AWS_REGION: ${{ secrets.AWS_REGION }}
-  ECR_REPOSITORY_BACKEND: fullstack-app-backend
-  ECR_REPOSITORY_FRONTEND: fullstack-app-frontend
-  ECS_CLUSTER_NAME: fullstack-app-cluster
-  ECS_SERVICE_NAME: fullstack-app-service
+  ECR_REPOSITORY_BACKEND: cleo-spa-app-backend
+  ECR_REPOSITORY_FRONTEND: cleo-spa-app-frontend
+  ECS_CLUSTER_NAME: cleo-spa-app-cluster
+  ECS_SERVICE_NAME: cleo-spa-app-service
   ECS_TASK_DEFINITION: task-definition.json
 
 jobs:
