@@ -129,6 +129,32 @@ resource "aws_security_group" "rds_sg" {
   }
 }
 
+resource "aws_security_group" "rds_public_sg" {
+  name        = "${var.project_name}-rds-public-sg"
+  description = "Allow public access to RDS"
+  vpc_id      = aws_vpc.main.id
+  
+  ingress {
+    from_port   = 5432
+    to_port     = 5432
+    protocol    = "tcp"
+    cidr_blocks = ["0.0.0.0/0"]
+    description = "Allow PostgreSQL access from anywhere"
+  }
+  
+  # Allow all outbound traffic
+  egress {
+    from_port   = 0
+    to_port     = 0
+    protocol    = "-1"
+    cidr_blocks = ["0.0.0.0/0"]
+  }
+  
+  tags = {
+    Name = "${var.project_name}-rds-public-sg"
+  }
+}
+
 # 2. ECR Repositories
 resource "aws_ecr_repository" "backend" {
   name = "${var.project_name}-backend"
@@ -156,9 +182,9 @@ resource "aws_db_instance" "default" {
   username               = "cleo_owner"
   password               = var.db_password
   db_subnet_group_name   = aws_db_subnet_group.default.name
-  vpc_security_group_ids = [aws_security_group.rds_sg.id]
+  vpc_security_group_ids = [aws_security_group.rds_sg.id, aws_security_group.rds_public_sg.id]
   skip_final_snapshot    = true
-  publicly_accessible    = false
+  publicly_accessible    = true
 }
 
 resource "aws_secretsmanager_secret" "db_creds" {
@@ -378,7 +404,7 @@ resource "aws_instance" "app_instance" {
     aws ecr get-login-password --region ${var.aws_region} | docker login --username AWS --password-stdin ${aws_ecr_repository.backend.repository_url}
     docker pull ${aws_ecr_repository.backend.repository_url}:latest
     docker pull ${aws_ecr_repository.frontend.repository_url}:latest
-    docker-compose up --build
+    docker-compose up -d --build
     SCRIPT
     
     # Make script executable
