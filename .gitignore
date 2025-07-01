@@ -165,3 +165,6 @@ terraform/**/.terraform/
 # AWS credentials (if stored locally)
 .aws/
 terraform/.aws/
+
+# AWS key
+terraform/*.pem

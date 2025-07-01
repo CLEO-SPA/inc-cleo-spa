@@ -85,3 +85,9 @@ variable "jwt_secret_name" {
   type        = string
   default     = "cleo-spa-app/jwt-secrets"
 }
+
+variable "key_name" {
+  description = "The key pair name for SSH access to the EC2 instance"
+  type        = string
+  default     = "cleo-spa-key"
+}
