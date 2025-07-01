@@ -4,6 +4,14 @@ terraform {
       source  = "hashicorp/aws"
       version = "~> 5.0"
     }
+    tls = {
+      source  = "hashicorp/tls"
+      version = "~> 4.0"
+    }
+    local = {
+      source  = "hashicorp/local"
+      version = "~> 2.4"
+    }
   }
 }
 
@@ -226,6 +234,119 @@ resource "aws_iam_policy" "secrets_manager_policy" {
 resource "aws_iam_role_policy_attachment" "secrets_manager_attachment" {
   role       = aws_iam_role.ecs_task_execution_role.name
   policy_arn = aws_iam_policy.secrets_manager_policy.arn
+}
+
+# IAM role for EC2 instances
+resource "aws_iam_role" "ecs_instance_role" {
+  name = "${var.project_name}-ecs-instance-role"
+  assume_role_policy = jsonencode({
+    Version = "2012-10-17"
+    Statement = [
+      {
+        Action = "sts:AssumeRole"
+        Effect = "Allow"
+        Principal = {
+          Service = "ec2.amazonaws.com"
+        }
+      },
+    ]
+  })
+}
+
+# Attach the EC2ContainerServiceforEC2Role policy
+resource "aws_iam_role_policy_attachment" "ecs_instance_role_attachment" {
+  role       = aws_iam_role.ecs_instance_role.name
+  policy_arn = "arn:aws:iam::aws:policy/service-role/AmazonEC2ContainerServiceforEC2Role"
+}
+
+# Create IAM instance profile
+resource "aws_iam_instance_profile" "ecs_instance_profile" {
+  name = "${var.project_name}-ecs-instance-profile"
+  role = aws_iam_role.ecs_instance_role.name
+}
+
+# Get the latest ECS-optimized AMI
+data "aws_ami" "ecs_optimized" {
+  most_recent = true
+  owners      = ["amazon"]
+
+  filter {
+    name   = "name"
+    values = ["amzn2-ami-ecs-hvm-*-x86_64-ebs"]
+  }
+
+  filter {
+    name   = "virtualization-type"
+    values = ["hvm"]
+  }
+}
+
+# Create launch template for EC2 instances
+resource "aws_launch_template" "ecs_launch_template" {
+  name_prefix            = "${var.project_name}-"
+  image_id               = data.aws_ami.ecs_optimized.id
+  instance_type          = "t3.micro"
+  vpc_security_group_ids = [aws_security_group.ecs_sg.id]
+  
+  iam_instance_profile {
+    name = aws_iam_instance_profile.ecs_instance_profile.name
+  }
+
+  user_data = base64encode(<<-EOF
+    #!/bin/bash
+    echo ECS_CLUSTER=${aws_ecs_cluster.main.name} >> /etc/ecs/ecs.config
+  EOF
+  )
+
+  block_device_mappings {
+    device_name = "/dev/xvda"
+    ebs {
+      volume_size = 30
+      volume_type = "gp2"
+    }
+  }
+}
+
+# Generate a new key pair for EC2 access
+resource "tls_private_key" "instance_key" {
+  algorithm = "RSA"
+  rsa_bits  = 4096
+}
+
+resource "aws_key_pair" "generated_key" {
+  key_name   = "${var.project_name}-key"
+  public_key = tls_private_key.instance_key.public_key_openssh
+}
+
+# Output the private key to a file (secure this appropriately)
+resource "local_file" "private_key" {
+  content  = tls_private_key.instance_key.private_key_pem
+  filename = "${path.module}/${var.project_name}-key.pem"
+  file_permission = "0600"
+}
+
+# Add a direct EC2 instance instead
+resource "aws_instance" "ecs_instance" {
+  ami                    = data.aws_ami.ecs_optimized.id
+  instance_type          = "t3.micro"
+  subnet_id              = aws_subnet.public_1.id
+  vpc_security_group_ids = [aws_security_group.ecs_sg.id]
+  iam_instance_profile   = aws_iam_instance_profile.ecs_instance_profile.name
+  key_name               = aws_key_pair.generated_key.key_name
+  
+  user_data = <<-EOF
+    #!/bin/bash
+    echo ECS_CLUSTER=${aws_ecs_cluster.main.name} >> /etc/ecs/ecs.config
+  EOF
+
+  root_block_device {
+    volume_size = 30
+    volume_type = "gp2"
+  }
+
+  tags = {
+    Name = "${var.project_name}-ecs-instance"
+  }
 }
 
 # 6. ECS Task Definition and Service
