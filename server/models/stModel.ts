@@ -11,6 +11,7 @@ import {
   Service,
   Product,
   TransactionRequestData,
+  TransactionRequestData,
   TransactionCreationResult,
   TransactionRequestItem,
   PaymentMethodRequest,
@@ -20,8 +21,7 @@ import {
   ItemPricing,
   ProcessPartialPaymentData,
   ProcessPartialPaymentDataWithHandler,
-  PartialPaymentResult
-
+  PartialPaymentResult,
 } from '../types/SaleTransactionTypes.js';
 import mcpModel from './mcpModel.js';
 
@@ -211,7 +211,7 @@ const getSalesTransactionList = async (
         .filter((payment: any) => payment.sale_transaction_id === transaction.id)
         .map((payment: any) => ({
           amount: parseFloat(payment.amount || 0),
-          payment_method: payment.payment_method_name
+          payment_method: payment.payment_method_name,
         }));
 
       const totalAmount = parseFloat(transaction.total_paid_amount || 0) +
@@ -230,13 +230,15 @@ const getSalesTransactionList = async (
         has_products: transaction.has_products,
         has_care_packages: transaction.has_care_packages,
         process_payment: transaction.process_payment,
-        member: transaction.member_table_id ? {
-          id: transaction.member_table_id.toString(),
-          name: transaction.member_name,
-          email: transaction.member_email,
-          contact: transaction.member_contact
-        } : null,
-        payments
+        member: transaction.member_table_id
+          ? {
+            id: transaction.member_table_id.toString(),
+            name: transaction.member_name,
+            email: transaction.member_email,
+            contact: transaction.member_contact,
+          }
+          : null,
+        payments,
       };
     });
 
@@ -244,9 +246,8 @@ const getSalesTransactionList = async (
       items: transformedTransactions,
       total: totalItems,
       totalPages,
-      currentPage: page
+      currentPage: page,
     };
-
   } catch (error) {
     console.error('Error in getSalesTransactionList:', error);
     throw new Error('Failed to fetch sales transaction list');
@@ -367,24 +368,30 @@ const getSalesTransactionById = async (id: string): Promise<SalesTransactionDeta
       reference_sales_transaction_id: transaction.reference_sales_transaction_id,
 
       // Member information
-      member: transaction.member_table_id ? {
-        id: transaction.member_table_id.toString(),
-        name: transaction.member_name,
-        email: transaction.member_email,
-        contact: transaction.member_contact
-      } : null,
+      member: transaction.member_table_id
+        ? {
+          id: transaction.member_table_id.toString(),
+          name: transaction.member_name,
+          email: transaction.member_email,
+          contact: transaction.member_contact,
+        }
+        : null,
 
       // Handler information
-      handler: transaction.handled_by ? {
-        code: transaction.handler_code,
-        name: transaction.handler_name
-      } : null,
+      handler: transaction.handled_by
+        ? {
+          code: transaction.handler_code,
+          name: transaction.handler_name,
+        }
+        : null,
 
       // Creator information
-      creator: transaction.created_by ? {
-        code: transaction.creator_code,
-        name: transaction.creator_name
-      } : null,
+      creator: transaction.created_by
+        ? {
+          code: transaction.creator_code,
+          name: transaction.creator_name,
+        }
+        : null,
 
       // Payment information
       payments: paymentsResult.rows.map((payment: any) => ({
@@ -396,12 +403,12 @@ const getSalesTransactionById = async (id: string): Promise<SalesTransactionDeta
         remarks: payment.payment_remarks,
         created_by: {
           code: payment.payment_creator_code,
-          name: payment.payment_creator_name
+          name: payment.payment_creator_name,
         },
         updated_by: {
           code: payment.payment_updater_code,
-          name: payment.payment_updater_name
-        }
+          name: payment.payment_updater_name,
+        },
       })),
 
       // Items information
@@ -417,8 +424,8 @@ const getSalesTransactionById = async (id: string): Promise<SalesTransactionDeta
         quantity: item.quantity,
         remarks: item.remarks,
         amount: parseFloat(item.amount || 0),
-        item_type: item.item_type
-      }))
+        item_type: item.item_type,
+      })),
     };
 
     return transformedTransaction;
@@ -427,6 +434,7 @@ const getSalesTransactionById = async (id: string): Promise<SalesTransactionDeta
     throw new Error('Failed to fetch sales transaction');
   }
 };
+
 
 const searchServices = async (
   searchQuery: string
@@ -467,7 +475,6 @@ const searchServices = async (
       params.push(`%${searchQuery.trim()}%`);
     }
 
-
     query += `
       ORDER BY 
         sc.service_category_sequence_no ASC,
@@ -492,7 +499,7 @@ const searchServices = async (
       price: parseFloat(service.service_price || 0),
       service_default_price: parseFloat(service.service_price || 0),
       is_enabled: service.service_is_enabled || false,
-      sequence_no: service.service_sequence_no || 0
+      sequence_no: service.service_sequence_no || 0,
     }));
   } catch (error: any) {
     console.error('Detailed error in searchServices:', error);
@@ -500,9 +507,7 @@ const searchServices = async (
   }
 };
 
-const searchProducts = async (
-  searchQuery: string
-): Promise<Product[]> => {
+const searchProducts = async (searchQuery: string): Promise<Product[]> => {
   try {
     let query = `
       SELECT 
@@ -555,10 +560,10 @@ const searchProducts = async (
       category: product.product_category_name || 'Uncategorized',
       product_category_name: product.product_category_name || 'Uncategorized',
       product_category_id: product.product_category_id ? product.product_category_id.toString() : null,
-      price: parseFloat(product.product_unit_sale_price || 0),       /* Updated column name */
-      cost_price: parseFloat(product.product_unit_cost_price || 0),  /* Updated column name */
+      price: parseFloat(product.product_unit_sale_price || 0) /* Updated column name */,
+      cost_price: parseFloat(product.product_unit_cost_price || 0) /* Updated column name */,
       is_enabled: product.product_is_enabled || false,
-      sequence_no: product.product_sequence_no || 0
+      sequence_no: product.product_sequence_no || 0,
     }));
   } catch (error: any) {
     console.error('Detailed error in searchProducts:', error);
@@ -585,7 +590,7 @@ const createServicesProductsTransaction = async (
       items,
       payments,
       created_at,
-      updated_at
+      updated_at,
     } = transactionData;
 
     // Validate required fields
@@ -726,7 +731,7 @@ const createServicesProductsTransaction = async (
         customPrice: 0,
         discount: 0,
         quantity: 1,
-        totalLinePrice: 0
+        totalLinePrice: 0,
       };
 
       let itemType: string;
@@ -786,9 +791,9 @@ const createServicesProductsTransaction = async (
           payment.methodId,
           payment.amount,
           payment.remark || '',
-          handled_by,
-          customCreatedAt, 
-          customUpdatedAt 
+          created_by,
+          customCreatedAt,
+          customUpdatedAt
         ];
 
         const paymentResult = await client.query(paymentQuery, paymentParams);
@@ -813,9 +818,8 @@ const createServicesProductsTransaction = async (
       created_by,
       handled_by,
       items_count: items.length,
-      payments_count: payments.filter((p: PaymentMethodRequest) => p.amount > 0).length
+      payments_count: payments.filter((p: PaymentMethodRequest) => p.amount > 0).length,
     };
-
   } catch (error) {
     await client.query('ROLLBACK');
     console.error('Error creating sale transaction:', error);
@@ -829,24 +833,15 @@ const createMcpTransaction = async (
   transactionData: SingleItemTransactionRequestData
 ): Promise<SingleItemTransactionCreationResult> => {
   const client = await pool().connect();
-    let mcpId: string | number | null | undefined = null;
+  // Define mcpId outside the try block so it's available in the catch block
+  let mcpId: string | number | null | undefined = null;
+
   try {
     await client.query('BEGIN');
 
     // Extract data from request
-    const {
-      customer_type,
-      member_id,
-      receipt_number,
-      remarks,
-      created_by,
-      handled_by,
-      item,
-      payments,
-
-      created_at,
-      updated_at
-    } = transactionData;
+    const { customer_type, member_id, receipt_number, remarks, created_by, handled_by, item, payments } =
+      transactionData;
 
     // Validate required fields
     if (!created_by) {
@@ -865,38 +860,9 @@ const createMcpTransaction = async (
       throw new Error('payments array is required and cannot be empty');
     }
 
-    let customCreatedAt = null;
-    let customUpdatedAt = null;
+    // Extract the actual MCP ID from the item data
+    mcpId = item.data?.member_care_package_id || item.data?.id;
 
-    if (created_at) {
-      try {
-        customCreatedAt = new Date(created_at);
-        if (isNaN(customCreatedAt.getTime())) {
-          customCreatedAt = new Date();
-        }
-      } catch (error) {
-        customCreatedAt = new Date();
-      }
-    } else {
-      customCreatedAt = new Date();
-    }
-
-    if (updated_at) {
-      try {
-        customUpdatedAt = new Date(updated_at);
-        if (isNaN(customUpdatedAt.getTime())) {
-          customUpdatedAt = customCreatedAt;
-        }
-      } catch (error) {
-        customUpdatedAt = customCreatedAt;
-      }
-    } else {
-      customUpdatedAt = customCreatedAt;
-    }
-
-
-   mcpId = item.data?.member_care_package_id || item.data?.id;
-    
     if (!mcpId) {
       throw new Error('member_care_package_id is required in item data');
     }
@@ -979,8 +945,6 @@ const createMcpTransaction = async (
       processPayment,
       handled_by,
       created_by,
-      customCreatedAt,
-      customUpdatedAt
     ];
 
     const transactionResult = await client.query(transactionQuery, transactionParams);
@@ -1018,8 +982,8 @@ const createMcpTransaction = async (
       item.pricing?.discount || 0,
       item.pricing?.quantity || 1,
       item.pricing?.totalLinePrice || 0,
-      'member care package', 
-      item.remarks || ''
+      'package',
+      item.remarks || '',
     ];
 
     const itemResult = await client.query(itemQuery, itemParams);
@@ -1027,28 +991,7 @@ const createMcpTransaction = async (
 
     console.log('Created MCP sale transaction item with ID:', saleTransactionItemId);
 
-    // Update MCP balance with the paid amount (only non-pending payments)
-    if (totalPaidAmount > 0) {
-      const newBalance = currentBalance + totalPaidAmount;
-
-      const updateBalanceQuery = `
-        UPDATE member_care_packages 
-        SET balance = $1, updated_at = $2
-        WHERE id = $3
-        RETURNING balance
-      `;
-
-      const updateBalanceResult = await client.query(updateBalanceQuery, [newBalance, customUpdatedAt, mcpId]);
-      const updatedBalance = updateBalanceResult.rows[0].balance;
-
-      console.log('✅ Updated MCP balance:', {
-        mcpId: mcpId,
-        previousBalance: currentBalance,
-        paidAmount: totalPaidAmount,
-        newBalance: updatedBalance
-      });
-    }
-
+    // Insert ALL payment records (both pending and non-pending)
     for (const payment of payments) {
       if (payment.amount > 0) {
         const paymentQuery: string = `
@@ -1069,9 +1012,7 @@ const createMcpTransaction = async (
           payment.methodId,
           payment.amount,
           payment.remark || '',
-          handled_by,
-          customCreatedAt, 
-          customUpdatedAt 
+          created_by,
         ];
 
         const paymentResult = await client.query(paymentQuery, paymentParams);
@@ -1095,13 +1036,14 @@ const createMcpTransaction = async (
       remarks: remarks || '',
       created_by,
       handled_by,
-      package_name: mcpRecord.package_name, 
+      package_id: mcpId as number, // Use actual MCP ID
+      package_name: mcpRecord.care_package_name, // Use actual package name from database
       items_count: 1,
       payments_count: payments.filter((p: PaymentMethodRequest) => p.amount > 0).length
     };
 
   } catch (error) {
-await client.query('ROLLBACK');
+    await client.query('ROLLBACK');
     console.error('Error creating MCP sale transaction:', error);
 
     // Only attempt to delete the MCP if we have a valid ID
@@ -1138,7 +1080,7 @@ const createMvTransaction = async (
       item,
       payments,
       created_at,
-      updated_at
+      updated_at,
     } = transactionData;
 
     // Validate required fields
@@ -1191,7 +1133,6 @@ const createMvTransaction = async (
       customUpdatedAt = customCreatedAt;
     }
 
-
     const mvId = item.data?.member_voucher_id || item.data?.id;
 
     if (!mvId) {
@@ -1213,7 +1154,7 @@ const createMvTransaction = async (
     const mvRecord = mvValidationResult.rows[0];
     console.log('✅ Validated MV exists:', {
       mvId: mvId,
-      voucherName: mvRecord.member_voucher_name
+      voucherName: mvRecord.member_voucher_name,
     });
 
     const totalTransactionAmount: number = item.pricing?.totalLinePrice || 0;
@@ -1245,7 +1186,7 @@ const createMvTransaction = async (
         totalTransactionAmount,
         totalPaidAmount,
         outstandingAmount,
-        calculatedTotal
+        calculatedTotal,
       });
     }
 
@@ -1287,7 +1228,7 @@ const createMvTransaction = async (
       handled_by,
       created_by,
       customCreatedAt, // ✅ Use custom created_at instead of NOW()
-      customUpdatedAt  // ✅ Use custom updated_at instead of NOW()
+      customUpdatedAt, // ✅ Use custom updated_at instead of NOW()
     ];
 
     const transactionResult = await client.query(transactionQuery, transactionParams);
@@ -1295,7 +1236,7 @@ const createMvTransaction = async (
 
 
 
-    // Insert voucher item with actual MV ID 
+    // Insert voucher item with actual MV ID
     const itemQuery: string = `
       INSERT INTO sale_transaction_items (
         sale_transaction_id,
@@ -1326,13 +1267,11 @@ const createMvTransaction = async (
       item.pricing?.quantity || 1,
       item.pricing?.totalLinePrice || 0,
       'member voucher',
-      item.remarks || ''
+      item.remarks || '',
     ];
-
 
     const itemResult = await client.query(itemQuery, itemParams);
     const saleTransactionItemId: number = itemResult.rows[0].id;
-
 
     for (const payment of payments) {
       if (payment.amount > 0) {
@@ -1354,11 +1293,10 @@ const createMvTransaction = async (
           payment.methodId,
           payment.amount,
           payment.remark || '',
-          handled_by,
-          customCreatedAt, 
-          customUpdatedAt 
+          created_by,
+          customCreatedAt,
+          customUpdatedAt
         ];
-
 
         const paymentResult = await client.query(paymentQuery, paymentParams);
         console.log('Created MV payment with ID:', paymentResult.rows[0].id);
@@ -1384,9 +1322,8 @@ const createMvTransaction = async (
       voucher_id: mvId,
       voucher_name: mvRecord.member_voucher_name,
       items_count: 1,
-      payments_count: payments.filter((p: PaymentMethodRequest) => p.amount > 0).length
+      payments_count: payments.filter((p: PaymentMethodRequest) => p.amount > 0).length,
     };
-
   } catch (error) {
     await client.query('ROLLBACK');
     console.error('Error creating MV sale transaction:', error);
@@ -1415,7 +1352,7 @@ const createMcpTransferTransaction = async (
       item,
       payments,
       created_at,
-      updated_at
+      updated_at,
     } = transactionData;
 
     // Validate required fields
@@ -1470,7 +1407,7 @@ const createMcpTransferTransaction = async (
 
     console.log('✅ MCP Transfer Using custom date/time:', {
       created_at: customCreatedAt.toISOString(),
-      updated_at: customUpdatedAt.toISOString()
+      updated_at: customUpdatedAt.toISOString(),
     });
 
     // Calculate totals from single transfer item
@@ -1485,12 +1422,12 @@ const createMcpTransferTransaction = async (
     const transactionStatus: 'TRANSFER' | 'FULL' = 'TRANSFER';
     const processPayment: boolean = false;
 
-    // Verification: total should match 
+    // Verification: total should match
     if (Math.abs(totalPaidAmount - totalTransactionAmount) > 0.01) {
       console.warn('MCP Transfer payment total mismatch:', {
         totalTransactionAmount,
         totalPaidAmount,
-        expected: 'Amounts should be equal for transfers'
+        expected: 'Amounts should be equal for transfers',
       });
     }
 
@@ -1564,13 +1501,14 @@ const createMcpTransferTransaction = async (
       RETURNING id
     `;
 
-    const transferDetails = item.data || {};
+    transferDetails = item.data || {};
     const sourceMcpId = transferDetails.mcp_id1 || null;
     const destinationMcpId = transferDetails.mcp_id2 || null;
     const transferAmount = transferDetails.amount || item.pricing?.totalLinePrice || 0;
 
     // Enhanced remarks with transfer metadata
-    const transferRemarks = `MCP Transfer: ${transferAmount} from MCP ${sourceMcpId} to MCP ${destinationMcpId}${transferDetails.isNew ? ' (New Package)' : ''}${item.remarks ? ` - ${item.remarks}` : ''}`;
+    const transferRemarks = `MCP Transfer: ${transferAmount} from MCP ${sourceMcpId} to MCP ${destinationMcpId}${transferDetails.isNew ? ' (New Package)' : ''
+      }${item.remarks ? ` - ${item.remarks}` : ''}`;
 
     const itemParams: (string | number | null)[] = [
       saleTransactionId,
@@ -1583,8 +1521,8 @@ const createMcpTransferTransaction = async (
       item.pricing?.discount || 0,
       item.pricing?.quantity || 1,
       item.pricing?.totalLinePrice || 0,
-      'member care package', 
-      transferRemarks
+      'member care package',
+      transferRemarks,
     ];
 
     console.log('MCP Transfer Item Query:', itemQuery);
@@ -1623,9 +1561,9 @@ const createMcpTransferTransaction = async (
           paymentMethodId,
           payment.amount,
           payment.remark || '',
-          handled_by,
-          customCreatedAt, 
-          customUpdatedAt  
+          created_by,
+          customCreatedAt,
+          customUpdatedAt
         ];
 
         console.log('MCP Transfer Payment Query:', paymentQuery);
@@ -1657,12 +1595,26 @@ const createMcpTransferTransaction = async (
       transfer_amount: transferAmount,
       transfer_description: transferDetails.description || transferRemarks,
       items_count: 1,
-      payments_count: payments.filter((p: PaymentMethodRequest) => p.amount > 0).length
+      payments_count: payments.filter((p: PaymentMethodRequest) => p.amount > 0).length,
     };
-
   } catch (error) {
     await client.query('ROLLBACK');
     console.error('Error creating MCP Transfer sale transaction:', error);
+
+    if (transferDetails) {
+      try {
+        await mcpModel.revertMemberCarePackageTransfer(
+          transferDetails.mcp_id1,
+          transferDetails.mcp_id2,
+          transferDetails.isNew,
+          transferDetails.amount!
+        );
+        console.log(`Successfully reverted MCP transfer`);
+      } catch (transferErr) {
+        console.error(`Failed to reverted MCP transfer after transaction failure:`, transferErr);
+      }
+    }
+
     throw error;
   } finally {
     client.release();
@@ -1689,7 +1641,7 @@ const createMvTransferTransaction = async (
       payments,
       // payment_method
       created_at,
-      updated_at
+      updated_at,
     } = transactionData;
 
     // Validate required fields
@@ -1744,7 +1696,7 @@ const createMvTransferTransaction = async (
 
     console.log('✅ MV Transfer Using custom date/time:', {
       created_at: customCreatedAt.toISOString(),
-      updated_at: customUpdatedAt.toISOString()
+      updated_at: customUpdatedAt.toISOString(),
     });
 
     // Calculate totals from single transfer item
@@ -1762,7 +1714,7 @@ const createMvTransferTransaction = async (
       console.warn('MV Transfer payment total mismatch:', {
         totalTransactionAmount,
         totalPaidAmount,
-        expected: 'Amounts should be equal for transfers'
+        expected: 'Amounts should be equal for transfers',
       });
     }
 
@@ -1848,7 +1800,7 @@ const createMvTransferTransaction = async (
       item.pricing?.quantity || 1,
       item.pricing?.totalLinePrice || 0,
       'member voucher',
-      item.remarks || item.data?.description || ''
+      item.remarks || item.data?.description || '',
     ];
 
     console.log('MV Transfer Item Query:', itemQuery);
@@ -1887,9 +1839,9 @@ const createMvTransferTransaction = async (
           paymentMethodId,
           payment.amount,
           payment.remark || '',
-          handled_by,
-          customCreatedAt, 
-          customUpdatedAt  
+          created_by,
+          customCreatedAt,
+          customUpdatedAt
         ];
 
         console.log('MV Transfer Payment Query:', paymentQuery);
@@ -1919,9 +1871,8 @@ const createMvTransferTransaction = async (
       transfer_amount: item.data?.amount || totalTransactionAmount,
       transfer_description: item.data?.description || '',
       items_count: 1,
-      payments_count: payments.filter((p: PaymentMethodRequest) => p.amount > 0).length
+      payments_count: payments.filter((p: PaymentMethodRequest) => p.amount > 0).length,
     };
-
   } catch (error) {
     await client.query('ROLLBACK');
     console.error('Error creating MV Transfer sale transaction:', error);
@@ -2005,7 +1956,9 @@ const processPartialPayment = async (
 
     // Validate payment amount doesn't exceed outstanding
     if (totalNewPaymentAmount > originalTransaction.outstanding_total_payment_amount) {
-      throw new Error(`Payment amount (${totalNewPaymentAmount}) exceeds outstanding amount (${originalTransaction.outstanding_total_payment_amount})`);
+      throw new Error(
+        `Payment amount (${totalNewPaymentAmount}) exceeds outstanding amount (${originalTransaction.outstanding_total_payment_amount})`
+      );
     }
 
     // Get original transaction items to copy
@@ -2033,7 +1986,7 @@ const processPartialPayment = async (
       newTotalPaidAmount,
       newOutstandingAmount,
       newTransactionStatus,
-      newProcessPayment
+      newProcessPayment,
     });
 
     // Create new transaction with required transaction handler and custom date
@@ -2070,7 +2023,14 @@ const processPartialPayment = async (
     const packageItems = originalItems.filter((item: any) => item.member_care_package_id);
     const voucherItems = originalItems.filter((item: any) => item.member_voucher_id);
 
-    console.log('Created new transaction with ID:', newTransactionId, 'handled by:', transaction_handler_id, 'created at:', customCreatedAt || 'current time');
+    console.log(
+      'Created new transaction with ID:',
+      newTransactionId,
+      'handled by:',
+      transaction_handler_id,
+      'created at:',
+      customCreatedAt || 'current time'
+    );
 
     // Copy all items from original transaction
     for (const item of originalItems) {
@@ -2082,11 +2042,11 @@ const processPartialPayment = async (
         ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12)
       `;
 
-          if (packageItems.length > 0) {
-    item.item_type = 'member care package';
-    }else if( voucherItems.length > 0) {
-      item.item_type = 'member voucher';
-    }
+      if (packageItems.length > 0) {
+        item.item_type = 'member care package';
+      } else if (voucherItems.length > 0) {
+        item.item_type = 'member voucher';
+      }
 
       const itemParams = [
         newTransactionId, item.service_name, item.product_name,
@@ -2107,36 +2067,33 @@ const processPartialPayment = async (
       `;
 
       const paymentParams = [
-        newTransactionId, payment.payment_method_id, payment.amount,
-        payment.remarks || '', payment.payment_handler_id, currentTime, currentTime
+        newTransactionId,
+        payment.payment_method_id,
+        payment.amount,
+        payment.remarks || '',
+        payment.payment_handler_id,
+        currentTime,
+        currentTime,
       ];
 
       await client.query(insertPaymentQuery, paymentParams);
     }
 
-
-    await client.query(
-      'UPDATE sale_transactions SET process_payment = false WHERE id = $1',
-      [originalTransaction.id]
-    );
-
-
-
+    await client.query('UPDATE sale_transactions SET process_payment = false WHERE id = $1', [originalTransaction.id]);
 
     if (packageItems.length > 0) {
       for (const packageItem of packageItems) {
-        await client.query(
-          'UPDATE member_care_packages SET balance = COALESCE(balance, 0) + $1 WHERE id = $2',
-          [totalActualPaymentAmount, packageItem.member_care_package_id]
-        );
+        await client.query('UPDATE member_care_packages SET balance = COALESCE(balance, 0) + $1 WHERE id = $2', [
+          totalActualPaymentAmount,
+          packageItem.member_care_package_id,
+        ]);
       }
     }
-
 
     if (voucherItems.length > 0 && newTransactionStatus === 'FULL') {
       for (const voucherItem of voucherItems) {
         const voucherResult = await client.query(
-          'SELECT free_of_charge, current_balance FROM member_vouchers WHERE id = $1',
+          'SELECT free_of_charge FROM member_vouchers WHERE id = $1',
           [voucherItem.member_voucher_id]
         );
 
@@ -2144,7 +2101,7 @@ const processPartialPayment = async (
           const voucher = voucherResult.rows[0];
           const freeOfCharge = parseFloat(voucher.free_of_charge) || 0;
           const currentBalance = parseFloat(voucher.current_balance) || 0;
-          
+
           if (freeOfCharge > 0) {
             // Update the voucher balance
             await client.query(
@@ -2185,7 +2142,7 @@ const processPartialPayment = async (
             ];
 
             await client.query(insertVoucherLogQuery, voucherLogParams);
-            
+
             console.log(`Inserted voucher transaction log for voucher ID ${voucherItem.member_voucher_id}, balance change: +${freeOfCharge}`);
           }
         }
@@ -2203,17 +2160,16 @@ const processPartialPayment = async (
         total_paid_amount: newTotalPaidAmount,
         outstanding_amount: newOutstandingAmount,
         transaction_status: newTransactionStatus,
-        process_payment: newProcessPayment
+        process_payment: newProcessPayment,
       },
       original_transaction: {
         id: originalTransaction.id,
         receipt_no: originalTransaction.receipt_no,
-        process_payment: false
+        process_payment: false,
       },
       payments_processed: payments.length,
-      total_payment_amount: totalNewPaymentAmount
+      total_payment_amount: totalNewPaymentAmount,
     };
-
   } catch (error) {
     await client.query('ROLLBACK');
     console.error('Error processing partial payment:', error);
@@ -2233,5 +2189,5 @@ export default {
   createMvTransaction,
   createMcpTransferTransaction,
   createMvTransferTransaction,
-  processPartialPayment
+  processPartialPayment,
 };

@@ -1,9 +1,50 @@
 import { create } from 'zustand';
 import { devtools } from 'zustand/middleware';
+import { format, parseISO } from 'date-fns';
 import api from '@/services/api';
 
 const calculateOverallPackagePrice = (services) =>
   services.reduce((total, service) => total + (service.finalPrice || 0) * (service.quantity || 0), 0);
+
+// Date utility functions
+const toLocalDateTimeString = (dateValue) => {
+  try {
+    if (!dateValue) {
+      dateValue = new Date();
+    }
+
+    const date = dateValue instanceof Date ? dateValue : new Date(dateValue);
+
+    if (isNaN(date.getTime())) {
+      return format(new Date(), "yyyy-MM-dd'T'HH:mm");
+    }
+
+    // Simple format for datetime-local input (YYYY-MM-DDTHH:MM)
+    return format(date, "yyyy-MM-dd'T'HH:mm");
+  } catch (error) {
+    console.error('Error formatting date:', error);
+    return format(new Date(), "yyyy-MM-dd'T'HH:mm");
+  }
+};
+
+const fromLocalDateTimeString = (localDateTimeString) => {
+  try {
+    if (!localDateTimeString) {
+      return new Date().toISOString();
+    }
+
+    const localDate = parseISO(localDateTimeString);
+
+    if (isNaN(localDate.getTime())) {
+      return new Date().toISOString();
+    }
+
+    return localDate.toISOString();
+  } catch (error) {
+    console.error('Error parsing date:', error);
+    return new Date().toISOString();
+  }
+};
 
 export const useMcpFormStore = create(
   devtools((set, get) => ({
@@ -35,9 +76,20 @@ export const useMcpFormStore = create(
     mcpCreationQueue: [],
     mcpTransferQueue: [],
 
+    toLocalDateTimeString,
+    fromLocalDateTimeString,
+
     setBypassMode: (isBypass) => set({ isByPass: isBypass, isCustomizable: true }, false, 'setBypassMode'),
 
-    updateMainField: (field, value) =>
+    updateMainField: (field, value) => {
+      // Handle date fields specially
+      if (field === 'created_at' || field === 'updated_at') {
+        // If it's a datetime-local string, convert it to ISO
+        if (typeof value === 'string' && value.includes('T')) {
+          value = fromLocalDateTimeString(value);
+        }
+      }
+
       set(
         (state) => ({
           mainFormData: {
@@ -47,7 +99,35 @@ export const useMcpFormStore = create(
         }),
         false,
         `updateMainField/${field}`
-      ),
+      );
+    },
+
+    // Helper method to get formatted date for datetime-local inputs
+    getFormattedDate: (field) => {
+      const dateValue = get().mainFormData[field];
+      return toLocalDateTimeString(dateValue);
+    },
+
+    // Helper method to update date fields from datetime-local inputs
+    updateDateField: (field, localDateTimeString) => {
+      try {
+        const isoString = fromLocalDateTimeString(localDateTimeString);
+        set(
+          (state) => ({
+            mainFormData: {
+              ...state.mainFormData,
+              [field]: isoString,
+              // Auto-update updated_at when created_at changes
+              ...(field === 'created_at' && { updated_at: isoString }),
+            },
+          }),
+          false,
+          `updateDateField/${field}`
+        );
+      } catch (error) {
+        console.error('Error updating date field:', error);
+      }
+    },
 
     resetMainForm: () =>
       set(
@@ -57,8 +137,8 @@ export const useMcpFormStore = create(
             package_remarks: '',
             package_price: 0,
             services: [],
-            created_at: new Date(),
-            updated_at: new Date(),
+            created_at: new Date().toISOString(),
+            updated_at: new Date().toISOString(),
           },
           isCustomizable: true, // Reset to default customizable state
           isByPass: false,
@@ -102,7 +182,7 @@ export const useMcpFormStore = create(
     updateServiceFormField: (field, value) => {
       if (
         !get().isCustomizable &&
-        !get().isByPass &&
+        !get().isByPass && // Fixed: changed from isBypass to isByPass
         (field === 'price' || field === 'discount' || field === 'quantity')
       ) {
         console.warn('Package is not customizable. Cannot update service form field:', field);
@@ -129,7 +209,7 @@ export const useMcpFormStore = create(
     },
 
     selectService: async (service) => {
-      if (!get().isCustomizable && !get().isBypass && get().mainFormData.package_name !== '') {
+      if (!get().isCustomizable && !get().isByPass && get().mainFormData.package_name !== '') {
         console.warn('Package is not customizable. Cannot select a new service.');
         return;
       }
@@ -164,16 +244,24 @@ export const useMcpFormStore = create(
     },
 
     addServiceToPackage: () => {
-      if (!get().isCustomizable) {
+      if (!get().isCustomizable && !get().isByPass) {
         console.warn('Package is not customizable. Cannot add service.');
         return;
       }
       const currentServiceForm = get().serviceForm;
+      const isBypass = get().isByPass; // Fixed: changed from isBypass to isByPass
 
-      if (!currentServiceForm.id || !currentServiceForm.name) {
-        console.warn('Cannot add an empty or incomplete service. Please select a service and specify details.');
+      if (!currentServiceForm.name) {
+        console.warn('Cannot add an empty or incomplete service. Please specify service name.');
         return;
       }
+
+      // In bypass mode, we don't need a service ID, but in normal mode we do
+      if (!isBypass && !currentServiceForm.id) {
+        console.warn('Cannot add service without selecting from existing services.');
+        return;
+      }
+
       if (currentServiceForm.quantity <= 0) {
         console.warn('Service quantity must be greater than 0.');
         return;
@@ -181,7 +269,12 @@ export const useMcpFormStore = create(
 
       set(
         (state) => {
-          const newServices = [...state.mainFormData.services, { ...currentServiceForm }];
+          const serviceToAdd = {
+            ...currentServiceForm,
+            id: state.isByPass ? null : currentServiceForm.id,
+          };
+
+          const newServices = [...state.mainFormData.services, serviceToAdd];
           const newPackagePrice = calculateOverallPackagePrice(newServices);
           return {
             mainFormData: {

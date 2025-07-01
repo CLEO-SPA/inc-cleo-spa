@@ -19,6 +19,9 @@ const MemberCarePackageConsumptionCreateForm = () => {
     updateDetailFormField,
     updateMainField,
     confirmConsumption,
+    // Add the date utility functions
+    getFormattedDate,
+    updateDateField,
   } = useConsumptionStore();
 
   const consumableServices = currentPackageInfo?.details?.filter((d) => d.remaining_quantity > 0) || [];
@@ -123,11 +126,8 @@ const MemberCarePackageConsumptionCreateForm = () => {
                 <Input
                   id='consumptionDate'
                   type='datetime-local'
-                  value={detailForm.mcpd_date}
-                  onChange={(e) => {
-                    const newValue = e.target.value || new Date().toISOString().slice(0, 16);
-                    updateDetailFormField('mcpd_date', newValue);
-                  }}
+                  value={getFormattedDate('mcpd_date')}
+                  onChange={(e) => updateDateField('mcpd_date', e.target.value)}
                   disabled={isLoading || isSubmitting}
                   step='1'
                   className='rounded-md'

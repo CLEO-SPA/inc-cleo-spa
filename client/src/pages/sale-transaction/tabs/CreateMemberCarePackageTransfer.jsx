@@ -41,6 +41,8 @@ const CreateMemberCarePackageTransfer = () => {
     memberCarePackageOptions,
     mcpTransferQueue,
     setBypassMode,
+    getFormattedDate,
+    updateDateField,
   } = useMcpFormStore();
 
   const [sourceMcpId, setSourceMcpId] = useState('');
@@ -341,7 +343,6 @@ const CreateMemberCarePackageTransfer = () => {
                     </div>
                   )}
 
-                  {/* Adding the datetime input with the same style */}
                   <div className='space-y-1'>
                     <Label htmlFor='created_at' className='text-sm font-medium pb-1 text-gray-700'>
                       Creation date & time *
@@ -350,16 +351,8 @@ const CreateMemberCarePackageTransfer = () => {
                     <Input
                       type='datetime-local'
                       id='created_at'
-                      value={
-                        mainFormData.created_at
-                          ? new Date(mainFormData.created_at).toISOString().slice(0, 16)
-                          : new Date().toISOString().slice(0, 16)
-                      }
-                      onChange={(e) => {
-                        const newValue = e.target.value || new Date().toISOString().slice(0, 16);
-                        updateMainField('created_at', newValue);
-                        updateMainField('updated_at', newValue);
-                      }}
+                      value={getFormattedDate('created_at')}
+                      onChange={(e) => updateDateField('created_at', e.target.value)}
                       step='1'
                       className='rounded-md'
                     />
@@ -454,7 +447,6 @@ const ServicesSection = ({
   resetServiceForm,
 }) => {
   const canModifyServices = bypassPackage || isCustomizable;
-  console.log('isCustomizable', canModifyServices);
 
   return (
     <div className='space-y-4'>
@@ -465,18 +457,29 @@ const ServicesSection = ({
       {canModifyServices && (
         <Card className='border-gray-200 rounded-lg'>
           <CardContent className='p-4 space-y-4'>
-            <div className='grid grid-cols-1 sm:grid-cols-2 md:grid-cols-4 gap-4'>
+            <div className='grid grid-cols-1 md:grid-cols-4 gap-4'>
               <div className='space-y-1'>
                 <Label className='text-sm font-medium text-gray-700'>Service</Label>
-                <ServiceSelect
-                  name='service_select'
-                  label=''
-                  value={serviceForm.id}
-                  onChange={() => {}}
-                  onSelectFullDetails={selectService}
-                  options={serviceOptions}
-                  disabled={isLoading}
-                />
+                {bypassPackage ? (
+                  <div className='pt-2'>
+                    <Input
+                      placeholder='Enter custom service name'
+                      value={serviceForm.name}
+                      onChange={(e) => updateServiceFormField('name', e.target.value)}
+                      className='h-9 rounded-md'
+                    />
+                  </div>
+                ) : (
+                  <ServiceSelect
+                    name='service_select'
+                    label=''
+                    value={serviceForm.id}
+                    onChange={() => {}}
+                    onSelectFullDetails={selectService}
+                    options={serviceOptions}
+                    disabled={isLoading}
+                  />
+                )}
               </div>
               <div className='space-y-3'>
                 <Label className='text-sm font-medium text-gray-700'>Quantity</Label>
@@ -490,7 +493,6 @@ const ServicesSection = ({
                       updateServiceFormField('quantity', '');
                     } else {
                       const numValue = parseInt(value) || 0;
-                      // Ensure quantity is at least 1
                       const validValue = Math.max(1, numValue);
                       updateServiceFormField('quantity', validValue);
                     }
@@ -511,7 +513,6 @@ const ServicesSection = ({
                       updateServiceFormField('price', '');
                     } else {
                       const numValue = parseFloat(value) || 0;
-                      // Ensure price is non-negative
                       const validValue = Math.max(0, numValue);
                       updateServiceFormField('price', validValue);
                     }
@@ -533,9 +534,8 @@ const ServicesSection = ({
                       updateServiceFormField('discount', '');
                     } else {
                       const numValue = parseFloat(value) || 0;
-                      // Ensure discount is between 0 and 1
-                      const validValue = Math.min(1, Math.max(0, numValue));
-                      updateServiceFormField('discount', validValue);
+                      const cappedValue = Math.min(1, numValue);
+                      updateServiceFormField('discount', cappedValue);
                     }
                   }}
                   className='h-9 rounded-md'
@@ -543,13 +543,13 @@ const ServicesSection = ({
               </div>
             </div>
 
-            <div className='flex flex-col sm:flex-row justify-between items-center pt-2 gap-2'>
+            <div className='flex justify-between items-center'>
               <div className='text-sm text-gray-600'>Final Price: ${(serviceForm.finalPrice || 0).toFixed(2)}</div>
               <div className='flex space-x-2'>
                 <Button
                   type='button'
                   onClick={addServiceToPackage}
-                  disabled={!serviceForm.id || !serviceForm.name}
+                  disabled={!serviceForm.name || (bypassPackage ? false : !serviceForm.id)}
                   size='sm'
                   className='rounded-md'
                 >
@@ -632,7 +632,6 @@ const ServiceRow = ({ service, index, canModify, onUpdate, onRemove }) => {
                   setEditData({ ...editData, quantity: '' });
                 } else {
                   const numValue = parseInt(value) || 0;
-                  // Ensure quantity is at least 1
                   const validValue = Math.max(1, numValue);
                   setEditData({ ...editData, quantity: validValue });
                 }
@@ -658,7 +657,6 @@ const ServiceRow = ({ service, index, canModify, onUpdate, onRemove }) => {
                   setEditData({ ...editData, price: '' });
                 } else {
                   const numValue = parseFloat(value) || 0;
-                  // Ensure price is non-negative
                   const validValue = Math.max(0, numValue);
                   setEditData({ ...editData, price: validValue });
                 }

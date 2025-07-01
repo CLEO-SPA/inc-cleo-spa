@@ -10,6 +10,7 @@ export function EmployeeSelect({
   name = 'employee_id',
   label = 'Assigned Employee *',
   disabled: customDisabled = false,
+  customOptions = [], // Prop for custom options
   className = '',
   // Optional props for standalone usage
   control: controlProp,
@@ -32,7 +33,9 @@ export function EmployeeSelect({
   const [searchTerm, setSearchTerm] = useState('');
   const [isOpen, setIsOpen] = useState(false);
 
-  const filteredEmployees = employees.filter((emp) =>
+  // Combine employees with custom options
+  const allOptions = [...customOptions, ...employees];
+  const filteredEmployees = allOptions.filter((emp) =>
     emp.employee_name.toLowerCase().includes(searchTerm.toLowerCase())
   );
 

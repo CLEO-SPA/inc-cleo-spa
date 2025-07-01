@@ -34,7 +34,7 @@ const loginEmployee = async (req: Request, res: Response, next: NextFunction) =>
       req.session.email = res.locals.email;
       req.session.role = res.locals.role;
 
-      //       console.log('My Date: ', req.session.end_date_utc);
+      // console.log('My Date: ', req.session.end_date_utc);
 
       const userPayload = {
         user_id: res.locals.user_id,
@@ -116,37 +116,32 @@ const getAuthUser = async (req: Request, res: Response, next: NextFunction): Pro
   }
 };
 
-const createAndInviteEmployee = async (
-  req: Request,
-  res: Response,
-  next: NextFunction
-): Promise<void> => {
+const createAndInviteEmployee = async (req: Request, res: Response, next: NextFunction): Promise<void> => {
   try {
     /* -------------------------------------------------------------------- *
      * 1.  Trim inputs so "   " → ""  (prevents sneaky whitespace values)   *
      * -------------------------------------------------------------------- */
     const {
-      employee_email   = '',
-      employee_name    = '',
+      employee_email = '',
+      employee_name = '',
       employee_contact = '',
-      employee_code    = '',
-      role_name        = '',
+      employee_code = '',
+      role_name = '',
       position_ids,
       created_at,
       updated_at,
     } = req.body;
 
-    const email        = employee_email.trim();
-    const name         = employee_name.trim();
-    const contact      = employee_contact.trim();
-    const code         = String(employee_code).trim(); // cope with numeric codes
-    const role         = role_name.trim();
+    const email = employee_email.trim();
+    const name = employee_name.trim();
+    const contact = employee_contact.trim();
+    const code = String(employee_code).trim(); // cope with numeric codes
+    const role = role_name.trim();
 
     /* -------------------------------------------------------------------- *
      * 2.  Required-field & format checks                                   *
      * -------------------------------------------------------------------- */
-    const missing =
-      !email || !name || !contact || !code || !role;
+    const missing = !email || !name || !contact || !code || !role;
 
     if (missing) {
       res.status(400).json({ message: 'All required fields must be non-blank.' });
@@ -191,13 +186,13 @@ const createAndInviteEmployee = async (
      * 4.  Create user + employee                                           *
      * -------------------------------------------------------------------- */
     const defaultPassword = crypto.randomBytes(8).toString('hex');
-    const password_hash   = await bcrypt.hash(defaultPassword, 10);
+    const password_hash = await bcrypt.hash(defaultPassword, 10);
 
     const results = await model.createAuthAndEmployee({
       email,
       password_hash,
-      phone:        contact,
-      role_name:    role,
+      phone: contact,
+      role_name: role,
       employee_code: code,
       employee_name: name,
       employee_is_active: false,
@@ -297,9 +292,9 @@ const updateEmployeePassword = async (req: Request, res: Response, next: NextFun
   }
 };
 
-const getAllEmployees = async (req: Request, res: Response, next: NextFunction) => {
-  const page  = parseInt(req.query.page  as string || '1',  10);
-  const limit = parseInt(req.query.limit as string || '10', 10);
+const getAllEmployees = async (req: Request, res: Response, next: NextFunction): Promise<void> => {
+  const page = parseInt(req.query.page as string) || 1;
+  const limit = parseInt(req.query.limit as string) || 10;
   const offset = (page - 1) * limit;
 
   // session keys are snake_case in the rest of the code
@@ -308,13 +303,13 @@ const getAllEmployees = async (req: Request, res: Response, next: NextFunction) 
     end_date_utc?: string;
   };
 
-  // Defaults: open-ended range
-  const startUTC = start_date_utc ?? '0001-01-01';
-  const endUTC   = end_date_utc   ?? '9999-12-31';
-
   try {
-    const { employees, totalPages, totalCount } =
-      await model.getAllEmployees(offset, limit, startUTC, endUTC);
+    const { employees, totalPages, totalCount } = await model.getAllEmployees(
+      offset,
+      limit,
+      start_date_utc ?? '0001-01-01',
+      end_date_utc ?? '9999-12-31'
+    );
 
     res.status(200).json({
       currentPage: page,
@@ -325,10 +320,9 @@ const getAllEmployees = async (req: Request, res: Response, next: NextFunction) 
     });
   } catch (err) {
     console.error('Error getting employees:', err);
-    next(err);           // let central error-handler format the 500
+    next(err); // let central error-handler format the 500
   }
 };
-
 
 const regenerateInvitationLink = async (req: Request, res: Response, next: NextFunction): Promise<void> => {
   const { email } = req.body;
@@ -383,19 +377,19 @@ const getBasicEmployeeDetails = async (req: Request, res: Response) => {
     console.log(`Found ${employees.length} active employees`);
     res.status(200).json({
       success: true,
-      data: employees, 
+      data: employees,
       total: employees.length,
     });
   } catch (error) {
     console.error('Controller error in getBasicEmployeeDetails:', error);
-    res.status(500).json({ 
-      success: false, 
+    res.status(500).json({
+      success: false,
       error: {
         code: 'INTERNAL_SERVER_ERROR',
         message: 'Failed to fetch basic employee details for search',
-      }
+      },
     });
-  } 
+  }
 };
 
 /**
@@ -403,14 +397,14 @@ const getBasicEmployeeDetails = async (req: Request, res: Response) => {
  * This endpoint retrieves basic employee details by ID for search functionality.
  */
 const getEmployeeById = async (req: Request, res: Response) => {
-  try{
+  try {
     const employeeId = req.params.employeeId;
 
     // Validate employeeId
     if (!employeeId || isNaN(parseInt(employeeId, 10))) {
-      res.status(400).json({ 
-        success: false, 
-        error: { code: 'INVALID_ID', message: 'Invalid employee ID provided' } 
+      res.status(400).json({
+        success: false,
+        error: { code: 'INVALID_ID', message: 'Invalid employee ID provided' },
       });
       return;
     }
@@ -421,54 +415,54 @@ const getEmployeeById = async (req: Request, res: Response) => {
     const employee = await model.getEmployeeById(employeeIdNum);
     if (!employee) {
       console.log(`Employee with ID ${employeeId} not found`);
-      res.status(404).json({ 
-        success: false, 
-        error: { code: 'NOT_FOUND', message: 'No active employee found with the given ID' } 
+      res.status(404).json({
+        success: false,
+        error: { code: 'NOT_FOUND', message: 'No active employee found with the given ID' },
       });
       return;
     }
     console.log(`Found employee: ${employee.employee_name}`);
     res.status(200).json({
       success: true,
-      data: employee
+      data: employee,
     });
   } catch (error) {
     console.error('Controller error in getEmployeeById:', error);
-    res.status(500).json({ 
-      success: false, 
+    res.status(500).json({
+      success: false,
       error: {
         code: 'INTERNAL_SERVER_ERROR',
         message: 'Failed to fetch employee details by given ID',
-      }
+      },
     });
   }
-}
+};
 
 /**
  * Get /api/em/positions
  * This endpoint retrieves all employee positions for dropdown selection.
  */
 const getAllActivePositions = async (req: Request, res: Response) => {
-  try{
+  try {
     console.log('Fetching all employee positions for dropdown');
     const positions = await model.getAllActivePositions();
     console.log(`Found ${positions.length} active positions`);
     res.status(200).json({
       success: true,
       data: positions,
-      total: positions.length
+      total: positions.length,
     });
   } catch (error) {
     console.error('Controller error in getAllActivePositions:', error);
-    res.status(500).json({ 
-      success: false, 
+    res.status(500).json({
+      success: false,
       error: {
         code: 'INTERNAL_SERVER_ERROR',
         message: 'Failed to fetch employee positions for dropdown',
-      }
+      },
     });
   }
-}
+};
 
 /**
  * Get /api/em/employeeName/:employeeId
@@ -479,12 +473,12 @@ const getEmployeeNameByEmployeeId = async (req: Request, res: Response) => {
     const { employeeId } = req.params;
 
     if (!employeeId || isNaN(parseInt(employeeId, 10))) {
-      res.status(400).json({ 
-        success: false, 
-        error: { 
-          code: 'INVALID_ID', 
-          message: 'Invalid employee ID provided' 
-        } 
+      res.status(400).json({
+        success: false,
+        error: {
+          code: 'INVALID_ID',
+          message: 'Invalid employee ID provided',
+        },
       });
       return;
     }
@@ -496,12 +490,12 @@ const getEmployeeNameByEmployeeId = async (req: Request, res: Response) => {
 
     if (!employee) {
       console.log(`Employee with ID ${employeeId} not found`);
-      res.status(404).json({ 
-        success: false, 
-        error: { 
-          code: 'NOT_FOUND', 
-          message: 'No active employee found with the given ID' 
-        } 
+      res.status(404).json({
+        success: false,
+        error: {
+          code: 'NOT_FOUND',
+          message: 'No active employee found with the given ID',
+        },
       });
       return;
     }
@@ -509,16 +503,16 @@ const getEmployeeNameByEmployeeId = async (req: Request, res: Response) => {
     console.log(`Found employee: ${employee.employee_name}`);
     res.status(200).json({
       success: true,
-      data: employee
+      data: employee,
     });
   } catch (error) {
     console.error('Controller error in getEmployeeNameByEmployeeId:', error);
-    res.status(500).json({ 
-      success: false, 
+    res.status(500).json({
+      success: false,
       error: {
         code: 'INTERNAL_SERVER_ERROR',
         message: 'Failed to fetch employee details by given ID',
-      }
+      },
     });
   }
 };
@@ -546,16 +540,13 @@ const getAllRolesForDropdown = async (req: Request, res: Response, next: NextFun
  * PUT /employees/:id
  * Robust update (auth, employee row, positions)
  * ------------------------------------------------------------------------ */
-export const updateEmployee = async (
-  req: Request,
-  res: Response,
-  next: NextFunction,
-): Promise<void> => {
+export const updateEmployee = async (req: Request, res: Response, next: NextFunction): Promise<void> => {
   try {
     /* ------------------------------------------------- 0. URL param */
     const employee_id = Number(req.params.id);
     if (!employee_id || Number.isNaN(employee_id)) {
-      return res.status(400).json({ message: 'Invalid employee ID.' });
+      res.status(400).json({ message: 'Invalid employee ID.' });
+      return;
     }
 
     /* ------------------------------------------------- 1. Body sanitise */
@@ -566,7 +557,7 @@ export const updateEmployee = async (
       employee_code,
       employee_is_active,
       position_ids,
-      updated_at,               // ← optional ISO string from client
+      updated_at, // ← optional ISO string from client
     } = req.body as {
       employee_email?: string;
       employee_name?: string;
@@ -586,13 +577,11 @@ export const updateEmployee = async (
 
     const payload = {
       employee_id,
-      email:             employee_email?.trim(),
-      phone:             employee_contact?.trim(),
-      employee_contact:  employee_contact?.trim(),
-      employee_name:     employee_name?.trim(),
-      employee_code:     employee_code !== undefined
-        ? String(employee_code).trim()
-        : undefined,
+      email: employee_email?.trim(),
+      phone: employee_contact?.trim(),
+      employee_contact: employee_contact?.trim(),
+      employee_name: employee_name?.trim(),
+      employee_code: employee_code !== undefined ? String(employee_code).trim() : undefined,
       employee_is_active,
       position_ids,
       updated_at: sanitizedTs ?? new Date().toISOString(), // fallback
@@ -600,10 +589,12 @@ export const updateEmployee = async (
 
     /* ------------------------------------------------- 2. Quick format checks */
     if (payload.email && !validator.isEmail(payload.email)) {
-      return res.status(400).json({ message: 'Invalid email format.' });
+      res.status(400).json({ message: 'Invalid email format.' });
+      return;
     }
     if (payload.phone && !validator.isMobilePhone(payload.phone, 'any')) {
-      return res.status(400).json({ message: 'Invalid contact number format.' });
+      res.status(400).json({ message: 'Invalid contact number format.' });
+      return;
     }
 
     /* ------------------------------------------------- 3. Update via model */
@@ -615,11 +606,7 @@ export const updateEmployee = async (
       // update touched-at timestamp so “recently updated” filters pick it up
       await model.touchEmployee(payload.email);
 
-      const token = jwt.sign(
-        { email: payload.email },
-        process.env.INV_JWT_SECRET as string,
-        { expiresIn: '3d' },
-      );
+      const token = jwt.sign({ email: payload.email }, process.env.INV_JWT_SECRET as string, { expiresIn: '3d' });
 
       newInviteUrl = `${process.env.LOCAL_FRONTEND_URL}/reset-password?token=${token}`;
     }
@@ -638,27 +625,25 @@ export const updateEmployee = async (
   }
 };
 
+// const getOnlyEmployeeById = async (req: Request, res: Response, next: NextFunction) => {
+//   const employeeId = Number(req.params.id);
+//   if (!employeeId || Number.isNaN(employeeId)) {
+//     res.status(400).json({ message: 'Invalid employee ID.' });
+//     return;
+//   }
 
-const getEmployeeById = async (req: Request, res: Response, next: NextFunction) => {
-  const employeeId = Number(req.params.id);
-  if (!employeeId || Number.isNaN(employeeId)) {
-    res.status(400).json({ message: 'Invalid employee ID.' });
-    return;
-  }
-
-  try {
-    const employee = await model.getEmployeeById(employeeId);
-    if (!employee) {
-      res.status(404).json({ message: 'Employee not found.' });
-      return;
-    }
-    res.status(200).json(employee);
-  } catch (error) {
-    console.error('Error fetching employee by ID:', error);
-    next(error);
-  }
-};
-
+//   try {
+//     const employee = await model.getOnlyEmployeeById(employeeId);
+//     if (!employee) {
+//       res.status(404).json({ message: 'Employee not found.' });
+//       return;
+//     }
+//     res.status(200).json(employee);
+//   } catch (error) {
+//     console.error('Error fetching employee by ID:', error);
+//     next(error);
+//   }
+// };
 
 export default {
   defaultPassword,
@@ -677,5 +662,6 @@ export default {
   updateEmployee,
   getEmployeeById,
   getAllActivePositions,
-  getEmployeeNameByEmployeeId
+  getEmployeeNameByEmployeeId,
+  // getOnlyEmployeeById
 };

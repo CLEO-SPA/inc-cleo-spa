@@ -1,6 +1,7 @@
 import { BrowserRouter as Router, Routes, Route } from 'react-router-dom';
 import { AuthProvider } from '@/context/AuthContext';
 import { DateRangeProvider } from '@/context/DateRangeContext';
+import { TranslationProvider } from '@/context/TranslationContext'; // from feature/chineseTranslation
 import ProtectedRoute from '@/components/ProtectedRoute';
 
 // Components
@@ -48,16 +49,20 @@ import ViewCarePackageDetailsPage from '@/pages/CarePackages/ViewCarePackageDeta
 import CreateCarePackageFormPage from '@/pages/CarePackages/CreateCarePackageFormPage';
 import EditCarePackagePage from '@/pages/CarePackages/EditCarePackagePage';
 // Member Care Package Management
-import ManageMemberCarePackagesPage from './pages/MemberCarePackages/ManageMemberCarePackagesPage';
+import ManageMemberCarePackagesPage from '@/pages/MemberCarePackages/ManageMemberCarePackagesPage';
 import ViewMemberCarePackageDetailsPage from '@/pages/MemberCarePackages/ViewMemberCarePackageDetailsPage';
 import CreateMcpConsumptionPage from '@/pages/MemberCarePackages/CreateMcpConsumptionPage';
 // import CreateMemberCarePackageFormPage from '@/pages/CarePackages/CreateMemberCarePackageFormPage';
 // Data Export
-import DataExportPage from './pages/miscellaneous/DateExportPage';
-import ManagePaymentMethodsPage from './pages/payment-method/ManagePaymentMethodsPage';
-import CreatePaymentMethodPage from './pages/payment-method/CreatePaymentMethodPage';
-import EditPaymentMethodPage from './pages/payment-method/EditPaymentMethodPage';
-import TestPMComponent from './pages/sale-transaction/AddPMMComponentTest';
+import DataExportPage from '@/pages/miscellaneous/DateExportPage';
+// Translations
+import ViewTranslations from '@/pages/translation/viewTranslation';
+import TranslationPage from '@/pages/translation/TranslationPage';
+
+import ManagePaymentMethodsPage from '@/pages/payment-method/ManagePaymentMethodsPage';
+import CreatePaymentMethodPage from '@/pages/payment-method/CreatePaymentMethodPage';
+import EditPaymentMethodPage from '@/pages/payment-method/EditPaymentMethodPage';
+import TestPMComponent from '@/pages/sale-transaction/AddPMMComponentTest';
 
 // Employee Management
 import ManagePositions from '@/pages/em/ManagePositionsPage';
@@ -66,19 +71,19 @@ import EditPositionPage from '@/pages/em/UpdatePositionPage';
 import ManageEmployeesPage from '@/pages/em/ManageEmployeesPage';
 import CreateEmployeePage from '@/pages/em/CreateEmployeePage';
 import EditEmployeePage from '@/pages/em/UpdateEmployeePage';
-import RevenueReportPage from './pages/revenue/RevenueReportPage';
-import DeferredRevenuePage from './pages/revenue/DeferredRevenuePage';
+import RevenueReportPage from '@/pages/revenue/RevenueReportPage';
+import DeferredRevenuePage from '@/pages/revenue/DeferredRevenuePage';
 // Employees
-import EmployeeTimetablePage from './pages/EmployeeTimetable/EmployeeTimetable';
+import EmployeeTimetablePage from '@/pages/EmployeeTimetable/EmployeeTimetable';
 
 // Employee Timetable Pages
-import CreateEmployeeTimetablePage from '@/pages/EmployeeTimetable/CreateEmployeeTimetablePage'
-import UpdateEmployeeTimetablePage from '@/pages/EmployeeTimetable/UpdateEmployeeTimetablePage'
+import CreateEmployeeTimetablePage from '@/pages/EmployeeTimetable/CreateEmployeeTimetablePage';
+import UpdateEmployeeTimetablePage from '@/pages/EmployeeTimetable/UpdateEmployeeTimetablePage';
 
 // Appointments Management
 import ManageAppointmentsPage from '@/pages/ab/ManageAppointmentsPage';
-import CreateAppointmentPage from './pages/ab/CreateAppointmentPage';
-import EditAppointmentPage from './pages/ab/EditAppointmentPage.jsx';
+import CreateAppointmentPage from '@/pages/ab/CreateAppointmentPage';
+import EditAppointmentPage from '@/pages/ab/EditAppointmentPage.jsx';
 import ViewAppointmentDetailsPage from '@/pages/ab/ViewAppointmentDetailsPage.jsx';
 
 // Product Management
@@ -89,133 +94,173 @@ import CreateProductPage from '@/pages/product/CreateProductPage';
 import UpdateProductPage from '@/pages/product/UpdateProductPage';
 import ViewProductSalesHistoryPage from '@/pages/product/ViewProductSalesHistoryPage';
 
-// Add this line with the other page imports (around line 20)
-import RefundPage from '@/pages/Refund/refund'; // Add this line
+// Refund
+import RefundPage from '@/pages/Refund/Refund';
 import MCPDetail from '@/pages/Refund/MCPDetail';
 import MemberPackagesList from '@/components/refund/MemberPackagesList';
+import RefundServicesPage from '@/pages/Refund/RefundServicesPage';
+import RefundServiceForm from '@/pages/Refund/RefundServiceForm';
+import RefundVouchersPage from '@/pages/Refund/RefundVouchersPage';
+import RefundVoucherForm from '@/pages/Refund/RefundVoucherForm';
+import CreditNotesPage from '@/pages/Refund/CreditNotesPage';
+import CreditNoteDetailsPage from '@/pages/Refund/CreditNoteDetailsPage';
 
 function App() {
   return (
     <AuthProvider>
       <ReloadTimerPopup />
       <DateRangeProvider>
-        <Router>
-          <Routes>
-            <Route path='/' element={<ProtectedRoute />}>
-              {/* Home page */}
-              <Route index element={<HomePage />} />
+        <TranslationProvider>
+          <Router>
+            <Routes>
+              <Route path='/' element={<ProtectedRoute />}>
+                {/* Home page */}
+                <Route index element={<HomePage />} />
 
-              {/* appointments */}
-              <Route path='/appointments' element={<ManageAppointmentsPage />} />
+                {/* appointments */}
+                <Route path='/appointments' element={<ManageAppointmentsPage />} />
 
-              <Route path='/appointments/create' element={<CreateAppointmentPage />} />
-              <Route path='/appointments/edit/:id' element={<EditAppointmentPage />} />
-              <Route path='/appointments/:id' element={<ViewAppointmentDetailsPage />} />
+                <Route path='/appointments/create' element={<CreateAppointmentPage />} />
+                <Route path='/appointments/edit/:id' element={<EditAppointmentPage />} />
+                <Route path='/appointments/:id' element={<ViewAppointmentDetailsPage />} />
 
-              {/* Refund */}
-              <Route path='/refunds' element={<RefundPage />} />
-              <Route path='/refunds/member/:memberId' element={<MemberPackagesList />} />
-              <Route path='/refunds/mcp/:packageId' element={<MCPDetail />} />
-              {/* Member Management */}
-              <Route path='/member' element={<ManageMembersPage />} />
-              <Route path='/member/create' element={<CreateMemberPage />} />
-              <Route path='/member/edit/:id' element={<EditMemberPage />} />
+                {/* Refund */}
+                <Route path='/refunds' element={<RefundPage />} />
+                <Route path='/refunds/member/:memberId' element={<MemberPackagesList />} />
+                <Route path='/refunds/mcp/:packageId' element={<MCPDetail />} />
+                {/* Member Management */}
+                <Route path='/member' element={<ManageMembersPage />} />
+                <Route path='/member/create' element={<CreateMemberPage />} />
+                <Route path='/member/edit/:id' element={<EditMemberPage />} />
 
-              {/* Care Packages Management */}
-              <Route path='/cp' element={<ManageCarePackagesPage />} />
-              <Route path='/cp/:id' element={<ViewCarePackageDetailsPage />} />
-              <Route path='/cp/c' element={<CreateCarePackageFormPage />} />
-              <Route path='/cp/:memberId/edit' element={<EditCarePackagePage />} />
+                {/* Care Packages Management */}
+                <Route path='/cp' element={<ManageCarePackagesPage />} />
+                <Route path='/cp/:id' element={<ViewCarePackageDetailsPage />} />
+                <Route path='/cp/c' element={<CreateCarePackageFormPage />} />
+                <Route path='/cp/:id/edit' element={<EditCarePackagePage />} />
 
-              {/* Member Care Package Management */}
-              <Route path='/mcp/:id/consume' element={<CreateMcpConsumptionPage />} />
-              <Route path='/mcp' element={<ManageMemberCarePackagesPage />} />
-              <Route path='/mcp/:id' element={<ViewMemberCarePackageDetailsPage />} />
-              {/* <Route path='/mcp/c' element={<CreateMemberCarePackageFormPage />} /> */}
+                {/* Member Care Package Management */}
+                <Route path='/mcp/:id/consume' element={<CreateMcpConsumptionPage />} />
+                <Route path='/mcp' element={<ManageMemberCarePackagesPage />} />
+                <Route path='/mcp/:id' element={<ViewMemberCarePackageDetailsPage />} />
+                {/* <Route path='/mcp/c' element={<CreateMemberCarePackageFormPage />} /> */}
 
-              {/* Statistics Management */}
-              <Route path='/dbcr' element={<DatabaseReportPage />} />
+                {/* Refund */}
+                <Route path='/refunds' element={<RefundPage />} />
+                <Route path='/refunds/member/:memberId' element={<MemberPackagesList />} />
+                <Route path='/refunds/mcp/:packageId' element={<MCPDetail />} />
+                <Route path='/refunds/services/member/:id' element={<RefundServicesPage />} />
+                <Route path='/refunds/services/receipt/:no' element={<RefundServicesPage />} />
+                <Route path='/refunds/service/:saleTransactionItemId' element={<RefundServiceForm />} />
+                <Route path='/refunds/vouchers/member/:id' element={<RefundVouchersPage />} />
+                <Route path='/refunds/voucher/:voucherId' element={<RefundVoucherForm />} />
+                <Route path='/credit-notes' element={<CreditNotesPage />} />
+                <Route path='/credit-notes/:id' element={<CreditNoteDetailsPage />} />
 
-              {/* Employees Routes */}
-              <Route path='/positions' element={<ManagePositions />} />
-              <Route path='/positions/create' element={<CreatePositionPage />} />
-              <Route path='/positions/update/:id' element={<EditPositionPage />} />
-              <Route path='/employees' element={<ManageEmployeesPage />} />
-              <Route path='/employees/create' element={<CreateEmployeePage />} />
-              <Route path='/employees/edit/:id' element={<EditEmployeePage />} />
+                {/* Statistics Management */}
+                <Route path='/dbcr' element={<DatabaseReportPage />} />
 
-              {/* Voucher Template */}
-              <Route path='/voucher-template/create' element={<CreateVoucherTemplatesPage />} />
-              <Route path='/voucher-template' element={<ManageVoucherTemplatesPage />} />
-              <Route path='/voucher-template/edit/:id' element={<EditVoucherTemplatePage />} />
-              <Route path='/voucher-template/:id' element={<ViewVoucherTemplatePage />} />
+                {/* Employees Routes */}
+                <Route path='/positions' element={<ManagePositions />} />
+                <Route path='/positions/create' element={<CreatePositionPage />} />
+                <Route path='/positions/update/:id' element={<EditPositionPage />} />
+                <Route path='/employees' element={<ManageEmployeesPage />} />
+                <Route path='/employees/create' element={<CreateEmployeePage />} />
+                <Route path='/employees/edit/:id' element={<EditEmployeePage />} />
 
-              {/* Sales Transactions */}
-              <Route path='/sale-transaction' element={<SalesTransactionPage />} />
-              <Route path='/sale-transaction/list' element={<SaleTransactionList />} />
-              <Route path='/sale-transaction/:id' element={<SaleTransactionDetail />} />
-              <Route path='/sale-transaction/summary' element={<SaleTransactionSummary />} />
-              <Route path='/sale-transaction/process-payment/:id' element={<ProcessPaymentSaleTransaction />} />
+                {/* Voucher Template */}
+                <Route path='/voucher-template/create' element={<CreateVoucherTemplatesPage />} />
+                <Route path='/voucher-template' element={<ManageVoucherTemplatesPage />} />
+                <Route path='/voucher-template/edit/:id' element={<EditVoucherTemplatePage />} />
+                <Route path='/voucher-template/:id' element={<ViewVoucherTemplatePage />} />
 
-              <Route path='/mcp/:packageId/consume' element={<CreateMcpConsumptionPage />} />
+                {/* Sales Transactions */}
+                <Route path='/sale-transaction' element={<SalesTransactionPage />} />
+                <Route path='/sale-transaction/list' element={<SaleTransactionList />} />
+                <Route path='/sale-transaction/:id' element={<SaleTransactionDetail />} />
+                <Route path='/sale-transaction/summary' element={<SaleTransactionSummary />} />
+                <Route path='/sale-transaction/process-payment/:id' element={<ProcessPaymentSaleTransaction />} />
 
-              {/* member vouchers */}
-              <Route path='/mv' element={<ManageVouchersPage />} />
-              <Route path='/mv/:memberId/consume' element={<CreateMemberVoucherConsumptionPage />} />
+                <Route path='/mcp/:packageId/consume' element={<CreateMcpConsumptionPage />} />
 
-              {/* membership-type */}
-              <Route path='/membership-type' element={<ManageMembershipTypePage />} />
+                {/* member vouchers */}
+                <Route path='/mv' element={<ManageVouchersPage />} />
+                <Route path='/mv/:memberId/consume' element={<CreateMemberVoucherConsumptionPage />} />
 
-              {/* data-export */}
-              <Route path='/data-export' element={<DataExportPage />} />
+                {/* membership-type */}
+                <Route path='/membership-type' element={<ManageMembershipTypePage />} />
 
-              {/* statistics */}
-              <Route path='/dbcr' element={<DatabaseReportPage />} />
+                {/* data-export */}
+                <Route path='/data-export' element={<DataExportPage />} />
 
-              {/* Service Management */}
-              <Route path='/manage-service' element={<ManageServicePage />} />
-              <Route path='/create-service' element={<CreateServicePage />} />
-              <Route path='/update-service/:service_id' element={<UpdateServicePage />} />
-              <Route path='/reorder-service' element={<ReorderServicePage />} />
-              <Route path='/view-sales-history/:service_id' element={<ViewSalesHistoryPage />} />
-              <Route path='/manage-service-category' element={<ManageServiceCategoryPage />} />
+                {/* statistics */}
+                <Route path='/dbcr' element={<DatabaseReportPage />} />
 
-              {/* Payment Methods Management */}
-              <Route path='/payment-method' element={<ManagePaymentMethodsPage />} />
-              <Route path='/payment-method/create' element={<CreatePaymentMethodPage />} />
-              <Route path='/payment-method/edit/:id' element={<EditPaymentMethodPage />} />
-              <Route path='/payment-method/test' element={<TestPMComponent />} />
+                {/* appointments */}
+                <Route path='/appointments' element={<ManageAppointmentsPage />} />
+                <Route path='/appointments/create' element={<CreateAppointmentPage />} />
+                <Route path='/appointments/edit/:id' element={<EditAppointmentPage />} />
+                <Route path='/appointments/:id' element={<ViewAppointmentDetailsPage />} />
 
-              {/* employee timetable */}
-              <Route path='/et/create-employee-timetable' element={<CreateEmployeeTimetablePage />} />
-              <Route path='/et/update-employee-timetable/:timetableId' element={<UpdateEmployeeTimetablePage />} />
-              <Route path='/et' element={<EmployeeTimetablePage />} />
+                {/* Refund */}
+                <Route path='/refunds' element={<RefundPage />} />
+                <Route path='/refunds/member/:memberId' element={<MemberPackagesList />} />
+                <Route path='/refunds/mcp/:packageId' element={<MCPDetail />} />
 
-              {/* Product Management */}
-              <Route path='/manage-product' element={<ManageProductPage />} />
-              <Route path='/create-product' element={<CreateProductPage />} />
-              <Route path='/update-product/:product_id' element={<UpdateProductPage />} />
-              <Route path='/reorder-product' element={<ReorderProductPage />} />
-              <Route path='/manage-product-category' element={<ManageProductCategoryPage />} />
-              <Route path='/view-product-sales-history/:product_id' element={<ViewProductSalesHistoryPage />} />
+                {/* Service Management */}
+                <Route path='/manage-service' element={<ManageServicePage />} />
+                <Route path='/create-service' element={<CreateServicePage />} />
+                <Route path='/update-service/:service_id' element={<UpdateServicePage />} />
+                <Route path='/reorder-service' element={<ReorderServicePage />} />
+                <Route path='/view-sales-history/:service_id' element={<ViewSalesHistoryPage />} />
+                <Route path='/manage-service-category' element={<ManageServiceCategoryPage />} />
 
-              {/* Revenue Report Page */}
-              <Route path='/rr' element={<RevenueReportPage />} />
-              {/* Deferred Revenue Page */}
-              <Route path='/dr' element={<DeferredRevenuePage />} />
+                {/* Payment Methods Management */}
+                <Route path='/payment-method' element={<ManagePaymentMethodsPage />} />
+                <Route path='/payment-method/create' element={<CreatePaymentMethodPage />} />
+                <Route path='/payment-method/edit/:id' element={<EditPaymentMethodPage />} />
+                <Route path='/payment-method/test' element={<TestPMComponent />} />
 
-            </Route>
-            <Route path='/login' element={<LoginPage />} />
+                {/* Employee Management */}
+                <Route path='/positions' element={<ManagePositions />} />
+                <Route path='/positions/create' element={<CreatePositionPage />} />
+                <Route path='/positions/update/:id' element={<EditPositionPage />} />
+                <Route path='/employees' element={<ManageEmployeesPage />} />
+                <Route path='/employees/create' element={<CreateEmployeePage />} />
+                <Route path='/employees/edit/:id' element={<EditEmployeePage />} />
 
-            {/* Invitation & Reset Password */}
-            <Route path='/invites' element={<ResetPasswordPage />} />
-            <Route path='/reset-password' element={<ResetPasswordPage />} />
+                {/* Employee Timetable */}
+                <Route path='/et' element={<EmployeeTimetablePage />} />
+                <Route path='/et/create-employee-timetable' element={<CreateEmployeeTimetablePage />} />
+                <Route path='/et/update-employee-timetable/:timetableId' element={<UpdateEmployeeTimetablePage />} />
 
-            {/* 404 Page */}
-            <Route path='*' element={<NotFoundPage />} />
+                {/* Product Management */}
+                <Route path='/manage-product' element={<ManageProductPage />} />
+                <Route path='/create-product' element={<CreateProductPage />} />
+                <Route path='/update-product/:product_id' element={<UpdateProductPage />} />
+                <Route path='/reorder-product' element={<ReorderProductPage />} />
+                <Route path='/manage-product-category' element={<ManageProductCategoryPage />} />
+                <Route path='/view-product-sales-history/:product_id' element={<ViewProductSalesHistoryPage />} />
 
-          </Routes>
-        </Router>
+                {/* Revenue Report */}
+                <Route path='/rr' element={<RevenueReportPage />} />
+                <Route path='/dr' element={<DeferredRevenuePage />} />
+
+                {/* Translations */}
+                <Route path='/translations' element={<ViewTranslations />} />
+                <Route path='/create-translation' element={<TranslationPage />} />
+              </Route>
+
+              {/* Public routes */}
+              <Route path='/login' element={<LoginPage />} />
+              <Route path='/invites' element={<ResetPasswordPage />} />
+              <Route path='/reset-password' element={<ResetPasswordPage />} />
+
+              {/* 404 Page */}
+              <Route path='*' element={<NotFoundPage />} />
+            </Routes>
+          </Router>
+        </TranslationProvider>
       </DateRangeProvider>
     </AuthProvider>
   );

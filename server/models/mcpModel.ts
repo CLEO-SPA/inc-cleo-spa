@@ -473,7 +473,7 @@ const createMemberCarePackage = async (
         service.discount,
         service.price,
         memberCarePackageId,
-        service.id,
+        service.id || null,
         'ENABLED',
         service.quantity,
       ]);
@@ -491,7 +491,7 @@ const createMemberCarePackage = async (
         service.finalPrice * service.quantity,
         memberCarePackageDetailId,
         employee_id,
-        service.id,
+        service.id || null,
         created_at,
       ]);
     });
@@ -963,6 +963,77 @@ const transferMemberCarePackage = async (mcp_id1: string, mcp_id2: string, amoun
   }
 };
 
+const revertMemberCarePackageTransfer = async (mcp_id1: string, mcp_id2: string, isNew: boolean, amount: number) => {
+  const client = await pool().connect();
+
+  try {
+    await client.query('BEGIN');
+
+    const mcpQuery = 'SELECT updated_at FROM member_care_packages WHERE id = $1';
+    const { rows: sourceMcp, rowCount } = await client.query<MemberCarePackages>(mcpQuery, [mcp_id1]);
+
+    if (rowCount === 0) {
+      throw new Error(`Source package with ID ${mcp_id1} not found for revert operation.`);
+    }
+
+    const revertBalanceQuery = `
+      UPDATE member_care_packages 
+      SET balance = balance + $1, updated_at = $2 
+      WHERE id = $3
+      RETURNING balance
+    `;
+
+    const { rows: updatedMcp } = await client.query<{ balance: number }>(revertBalanceQuery, [
+      amount,
+      sourceMcp[0].updated_at,
+      mcp_id1,
+    ]);
+
+    if (isNew) {
+      await deleteMemberCarePackage(mcp_id2);
+    } else {
+      const { rows: distMcp } = await client.query<MemberCarePackages>(mcpQuery, [mcp_id2]);
+
+      const revertDestinationQuery = `
+        UPDATE member_care_packages 
+        SET balance = balance - $1, updated_at = $2
+        WHERE id = $3
+      `;
+      await client.query(revertDestinationQuery, [amount, distMcp[0].updated_at, mcp_id2]);
+
+      const checkBalanceQuery = 'SELECT balance FROM member_care_packages WHERE id = $1';
+      const { rows: destMcp } = await client.query<{ balance: number }>(checkBalanceQuery, [mcp_id2]);
+
+      if (destMcp[0]?.balance <= 0) {
+        const disableServicesQuery = `
+          UPDATE member_care_package_details 
+          SET status = 'DISABLED' 
+          WHERE member_care_package_id = $1
+        `;
+        await client.query(disableServicesQuery, [mcp_id2]);
+      }
+    }
+
+    await client.query('COMMIT');
+
+    return {
+      success: true,
+      message: 'Transfer reverted successfully',
+      sourceBalance: updatedMcp[0]?.balance || 0,
+    };
+  } catch (error) {
+    await client.query('ROLLBACK');
+    console.error('Error reverting member care package transfer:', error);
+
+    if (error instanceof Error) {
+      throw error;
+    }
+    throw new Error('An unexpected error occurred while reverting the member care package transfer.');
+  } finally {
+    client.release();
+  }
+};
+
 interface emulatePayload {
   id?: string;
   package_name: string;
@@ -1274,5 +1345,6 @@ export default {
   updateMemberCarePackageStatus,
   checkMcpUpdatable,
   transferMemberCarePackage,
+  revertMemberCarePackageTransfer,
   emulateMemberCarePackage,
 };

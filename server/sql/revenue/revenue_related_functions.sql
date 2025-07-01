@@ -277,21 +277,27 @@ RETURNS TABLE (
 LANGUAGE SQL
 AS $$
 SELECT 
-    TO_CHAR(DATE_TRUNC('day', ptst.created_at AT TIME ZONE 'Asia/Singapore'), 'YYYY-MM-DD') AS payment_date_gmt8,
-
-    SUM(CASE WHEN ptst.payment_method_id = 1 THEN ABS(ptst.amount) ELSE 0 END)::NUMERIC(10,2) AS total_payment_1,
-    SUM(CASE WHEN ptst.payment_method_id = 2 THEN ABS(ptst.amount) ELSE 0 END)::NUMERIC(10,2) AS total_payment_2,
-    SUM(CASE WHEN ptst.payment_method_id = 3 THEN ABS(ptst.amount) ELSE 0 END)::NUMERIC(10,2) AS total_payment_3,
-    SUM(CASE WHEN ptst.payment_method_id = 4 THEN ABS(ptst.amount) ELSE 0 END)::NUMERIC(10,2) AS total_payment_4
-
-FROM payment_to_sale_transactions ptst
-JOIN sale_transaction_items sti
-  ON sti.sale_transaction_id = ptst.sale_transaction_id
-WHERE ptst.payment_method_id IN (1,2,3,4)
-  AND sti.item_type IN ('service', 'product')
-  AND EXTRACT(YEAR FROM ptst.created_at AT TIME ZONE 'Asia/Singapore') = target_year
-  AND EXTRACT(MONTH FROM ptst.created_at AT TIME ZONE 'Asia/Singapore') = target_month
-
+    TO_CHAR(DATE_TRUNC('day', payment_date), 'YYYY-MM-DD') AS payment_date_gmt8,
+    SUM(cash) AS cash,
+    SUM(nets) AS nets,
+    SUM(paynow) AS paynow,
+    SUM(visa_mastercard) AS visa_mastercard
+FROM (
+    SELECT 
+        ptst.created_at AT TIME ZONE 'Asia/Singapore' AS payment_date,
+        CASE WHEN ptst.payment_method_id = 1 THEN ABS(ptst.amount) ELSE 0 END::NUMERIC(10,2) AS cash,
+        CASE WHEN ptst.payment_method_id = 2 THEN ABS(ptst.amount) ELSE 0 END::NUMERIC(10,2) AS nets,
+        CASE WHEN ptst.payment_method_id = 3 THEN ABS(ptst.amount) ELSE 0 END::NUMERIC(10,2) AS paynow,
+        CASE WHEN ptst.payment_method_id = 4 THEN ABS(ptst.amount) ELSE 0 END::NUMERIC(10,2) AS visa_mastercard
+    FROM payment_to_sale_transactions ptst
+    JOIN sale_transaction_items sti
+      ON sti.sale_transaction_id = ptst.sale_transaction_id
+    WHERE ptst.payment_method_id IN (1,2,3,4)
+      AND sti.item_type IN ('service', 'product')
+      AND EXTRACT(YEAR FROM ptst.created_at AT TIME ZONE 'Asia/Singapore') = target_year
+      AND EXTRACT(MONTH FROM ptst.created_at AT TIME ZONE 'Asia/Singapore') = target_month
+    GROUP BY ptst.id, ptst.created_at, ptst.payment_method_id, ptst.amount
+) AS daily_payments
 GROUP BY payment_date_gmt8
 ORDER BY payment_date_gmt8;
 $$;

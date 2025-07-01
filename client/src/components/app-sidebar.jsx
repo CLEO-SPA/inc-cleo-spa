@@ -13,6 +13,7 @@ import {
   ChartColumnStacked,
   CreditCard,
   DollarSign,
+  Receipt,
 } from 'lucide-react';
 import { NavMain } from '@/components/nav-main';
 import { NavUser } from '@/components/nav-user';
@@ -235,6 +236,20 @@ const data = {
         },
       ],
     },
+    {
+      title: 'Refunds',
+      icon: Receipt,
+      items: [
+        {
+          title: 'Refund Management',
+          url: '/refunds',
+        },
+        {
+          title: 'Credit Notes',
+          url: '/credit-notes',
+        },
+      ],
+    },
     // {
     //   title: 'Statistics',
     //   url: '#',
@@ -251,17 +266,6 @@ const data = {
     //   ],
     // },
     {
-      title: 'Others',
-      url: '#',
-      icon: ChartColumnStacked,
-      items: [
-        {
-          title: 'Data Export',
-          url: '/data-export',
-        },
-      ],
-    },
-    {
       title: 'Timetables',
       url: '#',
       icon: CalendarDays,
@@ -274,6 +278,21 @@ const data = {
           title: 'Manage Timetable',
           url: '/et',
         },
+      ],
+    },
+    {
+      title: 'Others',
+      url: '#',
+      icon: ChartColumnStacked,
+      items: [
+        {
+          title: 'Data Export',
+          url: '/data-export',
+        },
+        {
+          title: 'Translations',
+          url: '/translations',
+        }
       ],
     },
   ],
