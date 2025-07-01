@@ -441,15 +441,16 @@ const processRefundService = async (body: {
     // 4. Insert refund payment
     await client.query(
       `INSERT INTO payment_to_sale_transactions (
-                payment_method_id, sale_transaction_id, amount,
-                remarks, created_by, created_at, updated_by, updated_at
-            ) VALUES ($1, $2, $3, $4, $5, now(), $5, now())`,
+      payment_method_id, sale_transaction_id, amount,
+      remarks, created_by, created_at, updated_by, updated_at
+      ) VALUES ($1, $2, $3, $4, $5, $6, $5, $6)`,
       [
-        8, // Payment Method ID 8 = Refund
+        8, // Refund
         refundTxId,
         -1 * totalRefundAmount,
         'Refund',
         body.refundedBy,
+        refundDate,
       ]
     );
 
@@ -1454,7 +1455,7 @@ const getRefundRecordDetails = async (refundId: number) => {
         AND st.sale_transaction_status IN ('FULL', 'PARTIAL') -- include all valid payment statuses
       GROUP BY sti.member_voucher_id
       `;
-      
+
       const { rows: voucherPayments } = await client.query(voucherPaymentQuery, [voucherIds]);
 
       // Map: { voucher_id: total_paid_amount }
