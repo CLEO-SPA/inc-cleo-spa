@@ -9,9 +9,6 @@ env:
   AWS_REGION: ${{ secrets.AWS_REGION }}
   ECR_REPOSITORY_BACKEND: cleo-spa-app-backend
   ECR_REPOSITORY_FRONTEND: cleo-spa-app-frontend
-  ECS_CLUSTER_NAME: cleo-spa-app-cluster
-  ECS_SERVICE_NAME: cleo-spa-app-service
-  ECS_TASK_DEFINITION: task-definition.json
 
 jobs:
   deploy:
@@ -52,26 +49,18 @@ jobs:
           docker push $ECR_REGISTRY/$ECR_REPOSITORY_FRONTEND:$IMAGE_TAG
           echo "frontend_image=$ECR_REGISTRY/$ECR_REPOSITORY_FRONTEND:$IMAGE_TAG" >> $GITHUB_OUTPUT
 
-      - name: Render backend container in task definition
-        id: render-backend
-        uses: aws-actions/amazon-ecs-render-task-definition@v1
+      - name: Setup Terraform
+        uses: hashicorp/setup-terraform@v3
         with:
-          task-definition: ${{ env.ECS_TASK_DEFINITION }}
-          container-name: backend
-          image: ${{ steps.build-backend.outputs.backend_image }}
+          terraform_version: "1.5.0"
 
-      - name: Render frontend container in task definition
-        id: render-frontend
-        uses: aws-actions/amazon-ecs-render-task-definition@v1
-        with:
-          task-definition: ${{ steps.render-backend.outputs.task-definition }}
-          container-name: frontend
-          image: ${{ steps.build-frontend.outputs.frontend_image }}
-
-      - name: Deploy to Amazon ECS
-        uses: aws-actions/amazon-ecs-deploy-task-definition@v1
-        with:
-          task-definition: ${{ steps.render-frontend.outputs.task-definition }}
-          service: ${{ env.ECS_SERVICE_NAME }}
-          cluster: ${{ env.ECS_CLUSTER_NAME }}
-          wait-for-service-stability: true
+      - name: Deploy with Terraform
+        env:
+          ECR_REGISTRY: ${{ steps.login-ecr.outputs.registry }}
+          IMAGE_TAG: ${{ github.sha }}
+        run: |
+          cd terraform
+          terraform init
+          terraform apply -auto-approve \
+            -var="backend_image_uri=$ECR_REGISTRY/$ECR_REPOSITORY_BACKEND:$IMAGE_TAG" \
+            -var="frontend_image_uri=$ECR_REGISTRY/$ECR_REPOSITORY_FRONTEND:$IMAGE_TAG"
