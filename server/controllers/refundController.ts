@@ -235,17 +235,16 @@ const fetchMCPStatus = async (req: Request, res: Response, next: NextFunction) =
       return res.status(404).json({ error: 'Package not found' });
     }
 
-    const { package_id, package_name } = results[0];
+    const { package_id, package_name, balance } = results[0];  // Destructure balance here
 
-    const services = results.map((s) => {
+    // First pass: process all services and determine their individual status
+    let services = results.map((s) => {
       const purchased = parseInt(s.purchased) || 0;
       const consumed = parseInt(s.consumed) || 0;
       const refunded = parseInt(s.refunded) || 0;
       const unpaid = parseInt(s.unpaid) || 0;
       const price = parseFloat(s.price) || 0;
       const discount = parseFloat(s.discount) || 0;
-
-      // Remaining is already set to 0 if refunded > 0 by the SQL query
       const remaining = parseInt(s.remaining) || 0;
 
       let refundStatus;
@@ -265,16 +264,31 @@ const fetchMCPStatus = async (req: Request, res: Response, next: NextFunction) =
           purchased,
           consumed,
           refunded,
-          remaining, // Will be 0 if refunded > 0
+          discount,
+          remaining,
           unpaid
         },
         is_eligible_for_refund: refundStatus
       };
     });
 
+    // Second pass: determine if we need to override statuses
+    const hasRefundedService = services.some(s => s.is_eligible_for_refund === 'refunded');
+    const hasIneligibleService = services.some(s => s.is_eligible_for_refund === 'ineligible');
+
+    // Apply override rules
+    if (hasRefundedService || hasIneligibleService) {
+      const overrideStatus = hasRefundedService ? 'refunded' : 'ineligible';
+      services = services.map(s => ({
+        ...s,
+        is_eligible_for_refund: overrideStatus
+      }));
+    }
+
     res.status(200).json({ 
       package_id, 
-      package_name, 
+      package_name,
+      balance,  // Include the balance in the response
       services 
     });
   } catch (error) {
