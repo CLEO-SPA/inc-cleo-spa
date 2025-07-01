@@ -547,23 +547,17 @@ const processFullRefundTransaction = async (params: {
     const serviceCount = distinctServiceIds.length;
     const dividedBalance = packageBalance / serviceCount;
 
-    // Create refund transaction
-    const { rows: saleTransactionIdRows } = await client.query(
-      `SELECT COALESCE(MAX(id), 0) + 1 AS next_id FROM sale_transactions`
-    );
-    const saleTransactionNextId = saleTransactionIdRows[0].next_id;
-
+    // Create refund transaction (let the database handle the ID)
     const { rows: txRows } = await client.query(
       `INSERT INTO sale_transactions (
-        id, customer_type, member_id, total_paid_amount, 
+        customer_type, member_id, total_paid_amount, 
         outstanding_total_payment_amount, sale_transaction_status,
         remarks, receipt_no, handled_by, created_by, created_at, updated_at
       ) VALUES (
-        $1, 'MEMBER', $2, $3, 0, 'REFUND',
-        $4, $5, $6, $7, $8, $8
+        'MEMBER', $1, $2, 0, 'REFUND',
+        $3, $4, $5, $6, $7, $7
       ) RETURNING id`,
       [
-        saleTransactionNextId,
         params.memberId,
         (-packageBalance).toFixed(2),
         params.refundRemarks,
@@ -576,50 +570,36 @@ const processFullRefundTransaction = async (params: {
     const refundTxId = txRows[0].id;
 
     // Create sale transaction items for each service type
-    const { rows: itemIdRows } = await client.query(
-      `SELECT COALESCE(MAX(id), 0) + 1 AS next_id FROM sale_transaction_items`
-    );
-    let itemNextId = itemIdRows[0].next_id;
-
     for (const serviceId of distinctServiceIds) {
       const service = params.remainingServices.find(s => s.service_id === serviceId);
       if (!service) continue;
 
       await client.query(
         `INSERT INTO sale_transaction_items (
-          id, sale_transaction_id, service_name, member_care_package_id,
+          sale_transaction_id, service_name, member_care_package_id,
           original_unit_price, custom_unit_price, discount_percentage, 
           quantity, amount, item_type, remarks
-        ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, 'member care package', $10)`,
+        ) VALUES ($1, $2, $3, $4, $4, $5, $6, $7, 'member care package', $8)`,
         [
-          itemNextId,
           refundTxId,
           service.service_name,
           params.mcpId,
-          dividedBalance,
-          dividedBalance,
-          0,
-          1,
-          -dividedBalance,
+          service.price, // Using the actual service price from mcpd
+          0, // discount_percentage
+          service.quantity,
+          -dividedBalance, // amount is still divided balance
           `Package refund for service ${service.service_name} - ${params.refundRemarks || 'No remarks provided'}`
         ]
       );
-      itemNextId++;
     }
 
     // Create refund payment
-    const { rows: paymentIdRows } = await client.query(
-      `SELECT COALESCE(MAX(id), 0) + 1 AS next_id FROM payment_to_sale_transactions`
-    );
-    const paymentNextId = paymentIdRows[0].next_id;
-
     await client.query(
       `INSERT INTO payment_to_sale_transactions (
-        id, payment_method_id, sale_transaction_id, amount,
+        payment_method_id, sale_transaction_id, amount,
         remarks, created_by, updated_by, created_at, updated_at
-      ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $8)`,
+      ) VALUES ($1, $2, $3, $4, $5, $6, $7, $7)`,
       [
-        paymentNextId,
         refundPaymentMethodId,
         refundTxId,
         -packageBalance,
@@ -631,11 +611,6 @@ const processFullRefundTransaction = async (params: {
     );
 
     // Create transaction logs for each service type
-    const { rows: logIdRows } = await client.query(
-      `SELECT COALESCE(MAX(id), 0) + 1 AS next_id FROM member_care_package_transaction_logs`
-    );
-    let logNextId = logIdRows[0].next_id;
-
     for (const serviceId of distinctServiceIds) {
       const serviceDetails = params.remainingServices.filter(s => s.service_id === serviceId);
       if (serviceDetails.length === 0) continue;
@@ -649,15 +624,14 @@ const processFullRefundTransaction = async (params: {
 
       await client.query(
         `INSERT INTO member_care_package_transaction_logs (
-          id, type, description, transaction_date,
+          type, description, transaction_date,
           transaction_amount, amount_changed,
           member_care_package_details_id, employee_id,
           service_id, created_at
         ) VALUES (
-          $1, 'REFUND', $2, $3, $4, $5, $6, $7, $8, $9
+          'REFUND', $1, $2, $3, $4, $5, $6, $7, $8
         )`,
         [
-          logNextId,
           description,
           formattedRefundDate,
           -dividedBalance,
@@ -668,7 +642,6 @@ const processFullRefundTransaction = async (params: {
           formattedRefundDate
         ]
       );
-      logNextId++;
     }
 
     // Update MCP status and set balance to 0
