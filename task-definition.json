@@ -7,8 +7,7 @@
       "name": "frontend",
       "image": "${frontend_image_uri}",
       "cpu": 128,
-      "memory": 256,
-      "memoryReservation": 128,
+      "memory": 128,
       "portMappings": [{ "containerPort": 80, "hostPort": 80 }],
       "essential": true,
       "secrets": [
@@ -23,7 +22,6 @@
       "image": "${backend_image_uri}",
       "cpu": 128,
       "memory": 256,
-      "memoryReservation": 128,
       "portMappings": [{ "containerPort": 3000, "hostPort": 3000 }],
       "essential": true,
       "secrets": [
