@@ -140,10 +140,10 @@ const removeFOCFromVoucher = async (
     memberId: number,
     member_voucher_name: string,
     created_by: number,
-    last_updated_by: number
+    created_at: string // ✅ passed in timestamp
 ): Promise<{ member_voucher_name: string; newBalance: number }> => {
     try {
-        // Fetch the voucher record
+        // Step 1: Fetch the voucher record
         const fetchQuery = `
       SELECT id, current_balance, free_of_charge
       FROM member_vouchers
@@ -161,23 +161,20 @@ const removeFOCFromVoucher = async (
         const currentBalanceNum = parseFloat(current_balance);
         const focNum = parseFloat(free_of_charge);
 
-        // Calculate new balance, ensure not below zero
+        // Step 2: Calculate new balance
         const newBalance = Math.max(0, currentBalanceNum - focNum);
 
-        // Update member voucher balance and updated_by if column exists
+        // Step 3: Update voucher record
         const updateQuery = `
-  UPDATE member_vouchers
-  SET current_balance = $1,
-      last_updated_by = $2,
-      updated_at = NOW()
-  WHERE member_voucher_name = $3 AND member_id = $4
-`;
-
-        const updateValues = [newBalance, last_updated_by, member_voucher_name, memberId];
-
+      UPDATE member_vouchers
+      SET current_balance = $1,
+          updated_at = $2
+      WHERE member_voucher_name = $3 AND member_id = $4
+    `;
+        const updateValues = [newBalance, created_at, member_voucher_name, memberId];
         await pool().query(updateQuery, updateValues);
 
-        // Insert transaction log with correct created_by and last_updated_by
+        // Step 4: Log the FOC removal
         const insertLogQuery = `
       INSERT INTO member_voucher_transaction_logs (
         member_voucher_id,
@@ -188,19 +185,21 @@ const removeFOCFromVoucher = async (
         serviced_by,
         type,
         created_by,
-        last_updated_by,
         created_at,
         updated_at
       ) VALUES (
-        $1, 'Remove Free Of Charge', NOW(),
-        $2, $3, $4, 'Remove OF FOC',
-        $5, $6, NOW(), NOW()
+        $1, 'Remove Free Of Charge', $2,
+        $3, $4, $5, 'Remove OF FOC',
+        $5, $2, $2
       )
     `;
-
-        // Assuming serviced_by = created_by, adjust if needed
-        const insertValues = [memberVoucherId, newBalance, -focNum, created_by, created_by, last_updated_by];
-
+        const insertValues = [
+            memberVoucherId, // $1
+            created_at,      // $2 (service_date, created_at, updated_at)
+            newBalance,      // $3
+            -focNum,         // $4
+            created_by       // $5 (serviced_by, created_by)
+        ];
         await pool().query(insertLogQuery, insertValues);
 
         return { member_voucher_name, newBalance };
@@ -210,10 +209,12 @@ const removeFOCFromVoucher = async (
     }
 };
 
+
 const setMemberVoucherBalanceAfterTransfer = async (
     memberId: number,
     member_voucher_name: string,
-    transferredBalance: number
+    transferredBalance: number,
+    createdAt: string // ✅ NEW
 ): Promise<{ member_voucher_name: string; newBalance: number }> => {
     try {
         const selectQuery = `
@@ -230,12 +231,15 @@ const setMemberVoucherBalanceAfterTransfer = async (
 
         const currentBalance = result.rows[0].current_balance;
         const newBalance = 0;
+
         const updateQuery = `
       UPDATE member_vouchers
-      SET current_balance = $1, updated_at = NOW(), status = 'disabled'
+      SET current_balance = $1,
+          updated_at = $4,
+          status = 'disabled'
       WHERE member_voucher_name = $2 AND member_id = $3
     `;
-        const updateValues = [newBalance, member_voucher_name, memberId];
+        const updateValues = [newBalance, member_voucher_name, memberId, createdAt];
         await pool().query(updateQuery, updateValues);
 
         return {
@@ -247,6 +251,7 @@ const setMemberVoucherBalanceAfterTransfer = async (
         throw new Error("Failed to update member voucher balance.");
     }
 };
+
 
 
 export default {

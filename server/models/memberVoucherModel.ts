@@ -1314,11 +1314,9 @@ const createMemberVoucherForTransfer = async (
   price: number,
   foc: number,
   remarks: string,
-  createdBy: number,    // new optional params
-  handledBy: number,
-  lastUpdatedBy: number,
-  isBypass: boolean
-
+  createdBy: number,
+  createdAt: string,
+  isBypass?: boolean // still accepted, but not used now
 ): Promise<MemberVouchers> => {
   try {
     const insertVoucherQuery = `
@@ -1337,27 +1335,74 @@ const createMemberVoucherForTransfer = async (
         last_updated_by,
         created_at,
         updated_at
-      ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, NOW(), NOW())
+      ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $10, $10, $11, $11)
       RETURNING *;
     `;
+
+    const totalBalance = price + foc;
 
     const voucherValues = [
       memberId,
       voucherTemplateName,
       voucherTemplateId,
-      price + foc,
-      price + foc,
+      totalBalance,
+      totalBalance,
       foc,
       price,
       "is_enabled",
       remarks,
       createdBy || null,
-      handledBy || null,
-      lastUpdatedBy || null,
+      createdAt
     ];
 
     const result = await pool().query(insertVoucherQuery, voucherValues);
     const newVoucher: MemberVouchers = result.rows[0];
+
+    // 🔁 Always insert member_voucher_details based on template
+    const templateDetailsQuery = `
+      SELECT * FROM voucher_template_details
+      WHERE voucher_template_id = $1
+    `;
+    const templateDetailsResult = await pool().query(templateDetailsQuery, [voucherTemplateId]);
+    const templateDetails = templateDetailsResult.rows;
+
+    console.log("Template Details: ", templateDetails);
+
+    for (const detail of templateDetails) {
+      const insertDetailQuery = `
+        INSERT INTO member_voucher_details (
+          member_voucher_id,
+          service_id,
+          service_name,
+          original_price,
+          custom_price,
+          discount,
+          final_price,
+          duration,
+          created_at,
+          updated_at,
+          service_category_id
+        ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $9, $10)
+      `;
+
+
+      const insertDetailValues = [
+        newVoucher.id,                   // $1 member_voucher_id
+        detail.service_id,              // $2
+        detail.service_name,            // $3
+        detail.original_price,          // $4
+        detail.custom_price,            // $5
+        detail.discount,                // $6
+        detail.final_price,             // $7
+        detail.duration,                // $8
+        createdAt,                      // $9 (created_at and updated_at)
+        detail.service_category_id      // $10
+      ];
+
+
+      console.log("Insert Detail Values: ", insertDetailValues);
+      await pool().query(insertDetailQuery, insertDetailValues);
+    }
 
     return newVoucher;
   } catch (error) {
@@ -1365,6 +1410,7 @@ const createMemberVoucherForTransfer = async (
     throw new Error("Failed to add member voucher");
   }
 };
+
 
 
 

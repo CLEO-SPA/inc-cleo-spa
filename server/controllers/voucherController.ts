@@ -56,11 +56,18 @@ const getMemberVoucherDetailsHandler = async (
   next: NextFunction
 ): Promise<void> => {
   try {
-    const { name } = req.query;
+    const rawName = req.query.name;
 
-    const sanitized = sanitizeInput(name);
+    console.log("Received member name:", rawName);
+    // Validate presence but preserve original formatting
+    if (typeof rawName !== 'string') {
+      res.status(400).json({ error: 'Member name must be a string.' });
+      return;
+    }
 
-    const templatesDetails = await voucherModel.getMemberVoucherWithDetails(sanitized || null);
+    const name = rawName; // No trimming applied
+
+    const templatesDetails = await voucherModel.getMemberVoucherWithDetails(name);
     res.status(200).json({ data: templatesDetails });
   } catch (error) {
     console.error("Error fetching member voucher details:", error);
@@ -87,9 +94,9 @@ const transferVoucherDetailsHandler = async (
       old_voucher_names,
       old_voucher_details,
       is_bypass,
-      created_by,  // NEW
-      updated_by,  // NEW
-      remarks,     // NEW added here
+      created_by,
+      created_at,  // ✅ NEW
+      remarks,
     }: {
       member_name: string;
       voucher_template_name: string;
@@ -103,13 +110,13 @@ const transferVoucherDetailsHandler = async (
       }[];
       is_bypass?: boolean;
       created_by: number;
-      updated_by: number;
-      remarks: string;   // added optional remarks
+      created_at: string;   // ✅ NEW
+      remarks: string;
     } = req.body;
 
+    console.log("member_name:", member_name);
 
-
-    // Validate required fields more strictly if needed
+    // Validate required fields
     if (
       !member_name ||
       !voucher_template_name ||
@@ -122,7 +129,7 @@ const transferVoucherDetailsHandler = async (
       return;
     }
 
-    // Search member
+    // Search for member
     const members = await memberModel.searchMemberByNameOrPhone(member_name);
     if (!members || members.members.length === 0) {
       res.status(404).json({ success: false, message: "Member not found" });
@@ -141,45 +148,41 @@ const transferVoucherDetailsHandler = async (
       voucherTemplateId = voucherTemplates[0].id;
     }
 
-    // Create the new member voucher for the transfer, now passing remarks as well
+    // Create new member voucher for the transfer
     const createdVoucher = await memberVoucherModel.createMemberVoucherForTransfer(
       memberId,
       voucher_template_name,
       voucherTemplateId,
       price,
       foc,
-      remarks?.trim() === '' ? 'NA' : remarks,
+      remarks || "",
       created_by,
-      updated_by,
-      updated_by,
-      is_bypass || false  // fallback to false if undefined
+      created_at // ✅ passed to model
     );
-
 
     const newVoucherId = createdVoucher.id;
 
-    // Process each old voucher detail
+    // Process old vouchers
     for (const { member_voucher_name, balance_to_transfer } of old_voucher_details) {
-      // Check if FOC is used, and remove FOC flag if not used
       const isFOCUsed = await voucherModel.checkIfFreeOfChargeIsUsed(memberId, member_voucher_name);
       if (!isFOCUsed) {
-        await voucherModel.removeFOCFromVoucher(memberId, member_voucher_name, created_by, updated_by);
+        await voucherModel.removeFOCFromVoucher(memberId, member_voucher_name, created_by, created_at);
       }
 
-      // Log the transfer transaction — consider adding created_by and updated_by here too if your model supports it
       await memberVoucherTransactionLogsModel.addTransferMemberVoucherTransactionLog(
         memberId,
         voucher_template_name,
-        created_by,
-        created_by,
-        updated_by
+        created_by,     // ✅ serviced_by
+        created_by,     // ✅ created_by
+        created_at      // ✅ created_at
       );
 
-      // Adjust member voucher balance after transfer
+
       await voucherModel.setMemberVoucherBalanceAfterTransfer(
         memberId,
         member_voucher_name,
-        balance_to_transfer
+        balance_to_transfer,
+        created_at
       );
     }
 

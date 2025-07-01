@@ -267,7 +267,7 @@ const TransferVoucherForm = () => {
 
         {/* Old Vouchers */}
         <div className='mb-6'>
-          <label className='block font-medium mb-1'>Old Voucher(s)</label>
+          <label className='block font-medium mb-1'>Old Voucher(s) [INCLUDE FOC]</label>
           {oldVouchers.map((voucherName, index) => (
             <div key={index} className='mb-2 flex items-center gap-2'>
               <select

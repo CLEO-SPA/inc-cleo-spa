@@ -519,24 +519,33 @@ const useSaleTransactionStore = create(
               }));
 
               try {
+                const response = await transferStore.submitTransfer(transferFormData);
 
-                const mvTransferMemberVoucherTransactionLogs = await transferStore.submitTransfer(transferFormData);
+                if (response.success && response.newVoucherId) {
+                  const newVoucherId = response.newVoucherId;
 
-                const mvTransferTransaction = await get().createMvTransferTransaction(mvTransferData);
+                  const mvTransferDataWithId = {
+                    ...mvTransferData,
+                    newVoucherId, // ✅ Attach new voucher ID at top-level
+                  };
 
-                createdTransactions.push({
-                  type: 'mv-transfer',
-                  transaction: mvTransferTransaction,
-                  item: mvTransferData.item
-                });
+                  const mvTransferTransaction = await get().createMvTransferTransaction(mvTransferDataWithId);
 
-                set(state => ({
-                  progress: {
-                    ...state.progress,
-                    completed: state.progress.completed + 1
-                  }
-                }));
+                  createdTransactions.push({
+                    type: 'mv-transfer',
+                    transaction: mvTransferTransaction,
+                    item: mvTransferData.item
+                  });
 
+                  set(state => ({
+                    progress: {
+                      ...state.progress,
+                      completed: state.progress.completed + 1
+                    }
+                  }));
+                } else {
+                  throw new Error(response.message || "Unknown error during voucher transfer");
+                }
               } catch (error) {
                 console.error('❌ MV Transfer transaction failed:', error);
                 failedTransactions.push({
@@ -550,11 +559,15 @@ const useSaleTransactionStore = create(
                     ...state.progress,
                     failed: state.progress.failed + 1
                   },
-                  errors: [...state.errors, `MV Transfer (${mvTransferData.item.data?.description || 'Transfer'}): ${error.message}`]
+                  errors: [
+                    ...state.errors,
+                    `MV Transfer (${mvTransferData.item.data?.description || 'Transfer'}): ${error.message}`
+                  ]
                 }));
               }
             }
           }
+
 
           // Determine final state
           const hasFailures = failedTransactions.length > 0;
@@ -858,7 +871,9 @@ const useSaleTransactionStore = create(
             assignedEmployee: mvTransferData.item.assignedEmployee || mvTransferData.item.employee_id,
             remarks: mvTransferData.item.remarks || ''
           },
-          payments: mvTransferData.payments || []
+          payments: mvTransferData.payments || [],
+          newVoucherId: mvTransferData.newVoucherId // ✅ Include in payload
+
         };
 
         console.log('📤 MV Transfer payload with creation date:', payload);
