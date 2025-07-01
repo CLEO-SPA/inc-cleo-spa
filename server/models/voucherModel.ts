@@ -123,13 +123,19 @@ const checkIfFreeOfChargeIsUsed = async (
     `;
         const values = [memberId, voucher_template_name];
         const result = await pool().query(query, values);
+        console.log("Checking FOC usage for member:", memberId, "voucher:", voucher_template_name);
 
         if (result.rows.length === 0) {
             throw new Error('No member_voucher found');
         }
 
         const { current_balance, free_of_charge } = result.rows[0];
-        return current_balance < free_of_charge;
+
+        const currentBalanceNum = Number(current_balance);
+        const freeOfChargeNum = Number(free_of_charge);
+
+        return currentBalanceNum > freeOfChargeNum;
+
     } catch (error) {
         console.error("Error checking free of charge usage:", error);
         throw new Error("Failed to check free of charge usage");
@@ -142,6 +148,8 @@ const removeFOCFromVoucher = async (
     created_by: number,
     created_at: string // ✅ passed in timestamp
 ): Promise<{ member_voucher_name: string; newBalance: number }> => {
+
+    console.log("Removing FOC from voucher for member:", memberId, "voucher:", member_voucher_name);
     try {
         // Step 1: Fetch the voucher record
         const fetchQuery = `

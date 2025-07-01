@@ -19,7 +19,7 @@ const addTransferMemberVoucherTransactionLog = async (
     const createdAtISO = createdDateObj.toISOString();
     // Get old voucher details
     const getVoucherQuery = `
-      SELECT id, current_balance
+      SELECT id, current_balance, free_of_charge
       FROM member_vouchers
       WHERE member_id = $1 AND member_voucher_name = $2
       LIMIT 1
