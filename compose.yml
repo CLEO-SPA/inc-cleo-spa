@@ -1,85 +1,15 @@
+version: '3.8'
 services:
-  # client:
-  #   build:
-  #     context: ./client
-  #     dockerfile: Dockerfile
-  #   environment:
-  #     NODE_ENV: production
-  #   volumes:
-  #     - dist:/usr/src/app/client/dist
-  #   profiles: ["build"] # Only build this service
-  #   networks:
-  #     - cleo-network
-
-  nginx:
-    image: nginx:alpine
-    volumes:
-      - ./conf/nginx.conf:/etc/nginx/nginx.conf:ro
-      - ./client/dist:/usr/share/nginx/html:ro
+  backend:
+    build: ./server
     ports:
-      - '80:80'
-      - '443:443'
-    deploy:
-      resources:
-        limits:
-          cpus: '0.15'
-          memory: 150M
-        reservations:
-          cpus: '0.05'
-          memory: 50M
-    depends_on:
-      - api
-    healthcheck:
-      test: ['CMD', 'test', '-f', '/usr/share/nginx/html/index.html']
-      interval: 10s
-      timeout: 5s
-      retries: 3
-      start_period: 10s
-    restart: unless-stopped
-    command: >
-      /bin/sh -c "
-      until [ -f /usr/share/nginx/html/index.html ]; do
-        echo 'Waiting for index.html...'
-        sleep 2
-      done &&
-      apk add --no-cache openssl &&
-      mkdir -p /etc/nginx/conf.d &&
-      openssl req -x509 -nodes -days 365 -newkey rsa:2048 
-      -keyout /etc/nginx/conf.d/dummy.key 
-      -out /etc/nginx/conf.d/dummy.crt 
-      -subj '/C=US/ST=State/L=City/O=Organization/CN=localhost' &&
-      nginx -g 'daemon off;'"
-    networks:
-      - cleo-network
-
-  api:
-    build:
-      context: ./server
-      dockerfile: Dockerfile
-    # ports:
-    #   - '5000:5000'
-    volumes:
-      - ./server/.env:/usr/src/app/server/.env:ro
-    restart: unless-stopped
-    deploy:
-      resources:
-        limits:
-          cpus: '0.35'
-          memory: 350M
-        reservations:
-          cpus: '0.10'
-          memory: 100M
-      replicas: 2
-      update_config:
-        parallelism: 1
-        delay: 10s
-        order: start-first
-      restart_policy:
-        condition: on-failure
-        max_attempts: 3
-    networks:
-      - cleo-network
-
-networks:
-  cleo-network:
-    driver: bridge
+      - '3000:3000'
+    environment:
+      DB_HOST: localhost
+      DB_USER: user
+      DB_PASSWORD: password
+      DB_NAME: my_db
+  frontend:
+    build: ./client
+    ports:
+      - '8080:80'

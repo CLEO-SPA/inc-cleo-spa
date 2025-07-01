@@ -23,9 +23,9 @@ const TransferVoucherForm = () => {
     setPrice,
     setFoc,
     setOldVouchers,
-    getTopUpBalance,
     setSelectedMember,
     setTransferFormData,
+    setTopUpBalance,
   } = useTransferVoucherStore();
 
   const { addCartItem } = useTransactionCartStore();
@@ -110,7 +110,7 @@ const TransferVoucherForm = () => {
       .map((v) => ({
         voucher_id: v.id,
         member_voucher_name: v.member_voucher_name,
-        balance_to_transfer: Number(v.current_balance) - (Number(v.foc_balance) || 0),
+        balance_to_transfer: Number(v.current_balance) - (Number(v.free_of_charge) || 0),
       }));
 
     const payload = {
@@ -123,8 +123,11 @@ const TransferVoucherForm = () => {
       is_bypass: bypassTemplate,
       created_by: createdBy,
       created_at: createdAt,
-      remarks: remarks.trim() === '' ? 'NA' : remarks, // <-- this ensures "NA" only if it's empty or whitespace
+      remarks: remarks.trim() === '' ? 'NA' : remarks,
+      top_up_balance: topUpBalance, // ✅ Add this line
     };
+
+
 
     setTransferFormData(payload);
   }, [

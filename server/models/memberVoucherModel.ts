@@ -1358,6 +1358,7 @@ const createMemberVoucherForTransfer = async (
     const result = await pool().query(insertVoucherQuery, voucherValues);
     const newVoucher: MemberVouchers = result.rows[0];
 
+
     // 🔁 Always insert member_voucher_details based on template
     const templateDetailsQuery = `
       SELECT * FROM voucher_template_details
@@ -1366,7 +1367,6 @@ const createMemberVoucherForTransfer = async (
     const templateDetailsResult = await pool().query(templateDetailsQuery, [voucherTemplateId]);
     const templateDetails = templateDetailsResult.rows;
 
-    console.log("Template Details: ", templateDetails);
 
     for (const detail of templateDetails) {
       const insertDetailQuery = `
