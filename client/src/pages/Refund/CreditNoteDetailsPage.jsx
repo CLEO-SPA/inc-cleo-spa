@@ -158,12 +158,22 @@ const CreditNoteDetailsPage = () => {
                                                                 : "N/A"}
                                                         </p>
                                                     </div>
+                                                    {note.items[0]?.item_type === "member voucher" && note.voucherLogs && (
+                                                        <div className="space-y-1">
+                                                            <p className="text-sm font-medium text-gray-600">Total Paid Amount</p>
+                                                            <p className="text-2xl font-bold text-blue-600">
+                                                                ${parseFloat(note.items[0].total_paid_amount || 0).toFixed(2)}
+                                                            </p>
+                                                        </div>
+                                                    )}
+
                                                     <div className="space-y-1">
                                                         <p className="text-sm font-medium text-gray-600">Refunded Amount</p>
                                                         <p className="text-2xl font-bold text-red-600">
                                                             ${Math.abs(Number(note.total_paid_amount)).toFixed(2)}
                                                         </p>
                                                     </div>
+
                                                     {note.remarks && (
                                                         <div className="md:col-span-2 lg:col-span-3 space-y-1">
                                                             <p className="text-sm font-medium text-gray-600">Remarks</p>
@@ -196,7 +206,8 @@ const CreditNoteDetailsPage = () => {
                                                                                 ? item.service_name || "Service"
                                                                                 : item.item_type === "MEMBER_CARE_PACKAGE"
                                                                                     ? item.service_name || "Care Package"
-                                                                                    : "Member Voucher"}
+                                                                                    : item.member_voucher_name || "Member Voucher"}
+
                                                                         </h3>
                                                                         <span className="inline-flex items-center px-3 py-1 rounded-full text-xs font-medium bg-blue-100 text-blue-800">
                                                                             {item.item_type.replace("_", " ")}
