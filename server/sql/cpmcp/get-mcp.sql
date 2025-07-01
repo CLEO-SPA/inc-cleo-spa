@@ -16,6 +16,7 @@ BEGIN
                 'total_price', mcp.total_price,
                 'balance', mcp.balance,
                 'created_at', mcp.created_at,
+                'created_by_name', e.employee_name,
                 'updated_at', mcp.updated_at,
                 'package_remarks', mcp.package_remarks
             ),
@@ -84,11 +85,14 @@ BEGIN
         "member_care_package_details" mcpd ON mcp.id = mcpd.member_care_package_id
     LEFT JOIN
         "members" m ON m.id = mcp.member_id
+    LEFT JOIN
+        "employees" e ON e.id = mcp.employee_id
     WHERE
         mcp.id = p_package_id
     GROUP BY
         mcp.id,
-        m.id;
+        m.id,
+        e.id;
         -- m.name, m.email, m.contact, m.dob, m.sex, m.remarks, m.address, m.nric, m.membership_type_id, m.created_at, m.updated_at, m.created_by, m.user_auth_id;
 
     RETURN result_json;

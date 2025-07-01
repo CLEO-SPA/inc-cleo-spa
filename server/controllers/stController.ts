@@ -3,8 +3,9 @@ import model from '../models/stModel.js';
 // import { decodeCursor } from '../utils/cursorUtils.js';
 // import { PaginatedOptions, CursorPayload } from '../types/common.types.js';
 // import { create } from 'domain';
-import { 
-  ProcessPartialPaymentDataWithHandler} from '../types/SaleTransactionTypes.js';
+import {
+  ProcessPartialPaymentDataWithHandler
+} from '../types/SaleTransactionTypes.js';
 
 const getSalesTransactionList = async (req: Request, res: Response): Promise<void> => {
   try {
@@ -86,7 +87,7 @@ const getSalesTransactionById = async (req: Request, res: Response): Promise<voi
 const searchServices = async (req: Request, res: Response): Promise<void> => {
   try {
     const query = req.query.query as string;
-    
+
     const searchResults = await model.searchServices(query || '');
 
     res.status(200).json({
@@ -107,7 +108,7 @@ const searchServices = async (req: Request, res: Response): Promise<void> => {
 const searchProducts = async (req: Request, res: Response): Promise<void> => {
   try {
     const query = req.query.query as string;
-    
+
     const searchResults = await model.searchProducts(query || '');
 
     res.status(200).json({
@@ -142,7 +143,7 @@ const createServicesProductsTransaction = async (req: Request, res: Response): P
 
   } catch (error: any) {
     console.error('Error creating services/products transaction:', error);
-    
+
     res.status(500).json({
       success: false,
       error: 'Failed to create services/products transaction',
@@ -167,7 +168,7 @@ const createMcpTransaction = async (req: Request, res: Response): Promise<void> 
 
   } catch (error: any) {
     console.error('Error creating MCP transaction:', error);
-    
+
     res.status(500).json({
       success: false,
       error: 'Failed to create MCP transaction',
@@ -194,7 +195,7 @@ const createMvTransaction = async (req: Request, res: Response): Promise<void> =
 
   } catch (error: any) {
     console.error('Error creating MV transaction:', error);
-    
+
     res.status(500).json({
       success: false,
       error: 'Failed to create MV transaction',
@@ -219,7 +220,7 @@ const createMcpTransferTransaction = async (req: Request, res: Response): Promis
 
   } catch (error: any) {
     console.error('Error creating MCP Transfer transaction:', error);
-    
+
     res.status(500).json({
       success: false,
       error: 'Failed to create MCP Transfer transaction',
@@ -231,6 +232,7 @@ const createMcpTransferTransaction = async (req: Request, res: Response): Promis
 const createMvTransferTransaction = async (req: Request, res: Response): Promise<void> => {
   try {
     console.log('Creating MV Transfer transaction:', req.body);
+
 
     const result = await model.createMvTransferTransaction(req.body);
 
@@ -244,7 +246,7 @@ const createMvTransferTransaction = async (req: Request, res: Response): Promise
 
   } catch (error: any) {
     console.error('Error creating MV Transfer transaction:', error);
-    
+
     res.status(500).json({
       success: false,
       error: 'Failed to create MV Transfer transaction',
@@ -297,7 +299,7 @@ const processPartialPayment = async (req: Request, res: Response): Promise<void>
     });
   } catch (error: any) {
     console.error('Error processing partial payment:', error);
-    
+
     res.status(500).json({
       success: false,
       error: 'Failed to process partial payment',

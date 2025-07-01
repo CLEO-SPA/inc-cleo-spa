@@ -153,7 +153,7 @@ const data = {
         },
       ],
     },
-        {
+    {
       title: 'Sale Transactions',
       url: '#',
       icon: CreditCard,
@@ -165,7 +165,7 @@ const data = {
         {
           title: 'View Sale Transactions',
           url: '/sale-transaction/list',
-        }
+        },
       ],
     },
     {
@@ -292,7 +292,7 @@ const data = {
         {
           title: 'Translations',
           url: '/translations',
-        }
+        },
       ],
     },
   ],

@@ -56,8 +56,8 @@ const SaleTransactionDetail = () => {
                     <td className="px-6 py-4 whitespace-nowrap">
                         <span className={`inline-flex items-center px-2.5 py-1 rounded-full text-xs font-medium
                             ${item.item_type === 'service' ? 'bg-blue-100 text-blue-800' :
-                            item.item_type === 'product' ? 'bg-green-100 text-green-800' :
-                            'bg-gray-100 text-gray-800'}`}>
+                                item.item_type === 'product' ? 'bg-green-100 text-green-800' :
+                                    'bg-gray-100 text-gray-800'}`}>
                             {item.item_type}
                         </span>
                     </td>
@@ -97,8 +97,8 @@ const SaleTransactionDetail = () => {
                         <td className="px-6 py-4 whitespace-nowrap">
                             <span className={`inline-flex items-center px-2.5 py-1 rounded-full text-xs font-medium
                                 ${item.item_type === 'service' ? 'bg-blue-100 text-blue-800' :
-                                item.item_type === 'product' ? 'bg-green-100 text-green-800' :
-                                'bg-gray-100 text-gray-800'}`}>
+                                    item.item_type === 'product' ? 'bg-green-100 text-green-800' :
+                                        'bg-gray-100 text-gray-800'}`}>
                                 {item.item_type}
                             </span>
                         </td>
@@ -178,11 +178,11 @@ const SaleTransactionDetail = () => {
                                     Receipt #{transaction.receipt_no}
                                     <span className={`ml-3 px-2.5 py-0.5 rounded-full text-xs font-medium
                                         ${transaction.transaction_status === 'FULL' ? 'bg-green-100 text-green-800' :
-                                        transaction.transaction_status === 'PARTIAL' ? 'bg-yellow-100 text-yellow-800' :
-                                        'bg-red-100 text-red-800'}`}>
+                                            transaction.transaction_status === 'PARTIAL' ? 'bg-yellow-100 text-yellow-800' :
+                                                'bg-red-100 text-red-800'}`}>
                                         {transaction.transaction_status === 'FULL' ? 'Fully Paid' :
-                                        transaction.transaction_status === 'PARTIAL' ? 'Partially Paid' :
-                                        transaction.transaction_status}
+                                            transaction.transaction_status === 'PARTIAL' ? 'Partially Paid' :
+                                                transaction.transaction_status}
                                     </span>
                                 </h2>
                             </div>
@@ -202,8 +202,8 @@ const SaleTransactionDetail = () => {
                             </div>
                         </div>
                         <div className="flex gap-2 mt-4 md:mt-0">
-                            <Button 
-                                variant="outline" 
+                            <Button
+                                variant="outline"
                                 size="sm"
                                 className="flex items-center gap-1"
                                 onClick={fetchTransaction}
@@ -213,8 +213,8 @@ const SaleTransactionDetail = () => {
                             </Button>
                             {/* Check if transaction has a reference_sales_transaction_id */}
                             {transaction.reference_sales_transaction_id && transaction.reference_sales_transaction_id !== '0' && (
-                                <Button 
-                                    variant="outline" 
+                                <Button
+                                    variant="outline"
                                     size="sm"
                                     className="flex items-center gap-1 bg-blue-50 hover:bg-blue-100 text-blue-700 border-blue-300"
                                     onClick={() => navigate(`/sale-transaction/${transaction.reference_sales_transaction_id}`)}
@@ -224,8 +224,8 @@ const SaleTransactionDetail = () => {
                                 </Button>
                             )}
                             {transaction.process_payment && (
-                                <Button 
-                                    variant="default" 
+                                <Button
+                                    variant="default"
                                     size="sm"
                                     className="flex items-center gap-1 bg-green-600 hover:bg-green-700"
                                     onClick={() => navigate(`/sale-transaction/process-payment/${id}`)}
@@ -234,8 +234,8 @@ const SaleTransactionDetail = () => {
                                     <span>Process Payment</span>
                                 </Button>
                             )}
-                            <Button 
-                                variant="outline" 
+                            <Button
+                                variant="outline"
                                 size="sm"
                                 className="flex items-center gap-1"
                                 onClick={() => navigate('/sale-transaction/list')}
@@ -374,8 +374,8 @@ const SaleTransactionDetail = () => {
                                             <td className="px-6 py-4 whitespace-nowrap">{payment.id}</td>
                                             <td className="px-6 py-4 whitespace-nowrap">
                                                 <div className="flex items-center">
-                                                    {payment.payment_method?.toLowerCase() === 'cash' ? 
-                                                        <DollarSign className="h-4 w-4 mr-2" /> : 
+                                                    {payment.payment_method?.toLowerCase() === 'cash' ?
+                                                        <DollarSign className="h-4 w-4 mr-2" /> :
                                                         <CreditCard className="h-4 w-4 mr-2" />}
                                                     {payment.payment_method}
                                                 </div>
@@ -423,7 +423,7 @@ const SaleTransactionDetail = () => {
                             )}
                             <div className="pt-2 border-t border-gray-200">
                                 <div className="flex justify-between">
-                                    <span className="text-sm font-medium text-gray-700">Balance</span>
+                                    <span className="text-sm font-medium text-gray-700">Outstanding Amount: </span>
                                     <span className={`text-sm font-bold ${transaction.transaction_status === 'FULL' ? 'text-green-600' : 'text-red-600'}`}>
                                         ${Number(transaction.outstanding_total_payment_amount).toFixed(2)}
                                     </span>
