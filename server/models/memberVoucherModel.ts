@@ -832,7 +832,7 @@ const createMemberVoucher = async (
     // ✅ NEW: Parse and validate custom creation date/time for sale transactions
     let customCreatedAt = null;
     let customUpdatedAt = null;
-    
+
     if (created_at) {
       try {
         customCreatedAt = new Date(created_at);
@@ -847,7 +847,7 @@ const createMemberVoucher = async (
     } else {
       customCreatedAt = new Date();
     }
-    
+
     if (updated_at) {
       try {
         customUpdatedAt = new Date(updated_at);
@@ -955,12 +955,12 @@ const createMemberVoucher = async (
 
     // FIXED: Payment calculations using correct logic
     const PENDING_PAYMENT_METHOD_ID = 7;
-    
-    const pendingPayments = payments.filter((payment: PaymentMethodRequest) => 
+
+    const pendingPayments = payments.filter((payment: PaymentMethodRequest) =>
       payment.methodId === PENDING_PAYMENT_METHOD_ID
     );
-    
-    const nonPendingPayments = payments.filter((payment: PaymentMethodRequest) => 
+
+    const nonPendingPayments = payments.filter((payment: PaymentMethodRequest) =>
       payment.methodId !== PENDING_PAYMENT_METHOD_ID
     );
 
@@ -1082,7 +1082,7 @@ const createMemberVoucher = async (
       employee_id,
       employee_id,
       createdAt,      // Voucher creation date
-      updatedAt      
+      updatedAt
     ]);
 
     // FIXED: Calculate transaction totals using correct logic
@@ -1141,16 +1141,16 @@ const createMemberVoucher = async (
     const transactionParams: (string | number | boolean | null | Date)[] = [
       customer_type?.toUpperCase() || 'MEMBER',
       member_id || null,
-      totalPaidAmount,        
-      outstandingAmount,      
+      totalPaidAmount,
+      outstandingAmount,
       transactionStatus,
       finalReceiptNo,
       remarks || '',
-      processPayment,         
+      processPayment,
       handled_by,
       created_by,
-      createdAt,      
-      updatedAt       
+      createdAt,
+      updatedAt
     ];
 
     const transactionResult = await client.query(transactionQuery, transactionParams);
@@ -1219,8 +1219,8 @@ const createMemberVoucher = async (
           payment.amount,
           payment.remark || '',
           created_by,
-          createdAt,  
-          updatedAt      
+          createdAt,
+          updatedAt
         ];
 
         console.log('MV Payment Query:', paymentQuery);
@@ -1239,7 +1239,7 @@ const createMemberVoucher = async (
       id: saleTransactionId,
       receipt_no: finalReceiptNo,
       customer_type: customer_type?.toUpperCase() || 'MEMBER',
-      member_id: member_id ? member_id.toString() : null, 
+      member_id: member_id ? member_id.toString() : null,
       total_transaction_amount: totalTransactionAmount,
       total_paid_amount: totalPaidAmount,
       outstanding_total_payment_amount: outstandingAmount,
@@ -1247,7 +1247,7 @@ const createMemberVoucher = async (
       remarks: remarks || '',
       created_by,
       handled_by,
-      voucher_id: memberVoucherId, 
+      voucher_id: memberVoucherId,
       voucher_name: member_voucher_name,
       items_count: 1,
       payments_count: payments.filter((p: PaymentMethodRequest) => p.amount > 0).length
@@ -1307,6 +1307,112 @@ const removeMemberVoucher = async (id: string) => {
   }
 };
 
+const createMemberVoucherForTransfer = async (
+  memberId: number,
+  voucherTemplateName: string,
+  voucherTemplateId: number,
+  price: number,
+  foc: number,
+  remarks: string,
+  createdBy: number,
+  createdAt: string,
+  isBypass?: boolean // still accepted, but not used now
+): Promise<MemberVouchers> => {
+  try {
+    const insertVoucherQuery = `
+      INSERT INTO member_vouchers (
+        member_id,
+        member_voucher_name,
+        voucher_template_id,
+        current_balance,
+        starting_balance,
+        free_of_charge,
+        default_total_price,
+        status,
+        remarks,
+        created_by,
+        handled_by,
+        last_updated_by,
+        created_at,
+        updated_at
+      ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $10, $10, $11, $11)
+      RETURNING *;
+    `;
+
+    const totalBalance = price + foc;
+
+    const voucherValues = [
+      memberId,
+      voucherTemplateName,
+      voucherTemplateId,
+      totalBalance,
+      totalBalance,
+      foc,
+      price,
+      "is_enabled",
+      remarks,
+      createdBy || null,
+      createdAt
+    ];
+
+    const result = await pool().query(insertVoucherQuery, voucherValues);
+    const newVoucher: MemberVouchers = result.rows[0];
+
+
+    // 🔁 Always insert member_voucher_details based on template
+    const templateDetailsQuery = `
+      SELECT * FROM voucher_template_details
+      WHERE voucher_template_id = $1
+    `;
+    const templateDetailsResult = await pool().query(templateDetailsQuery, [voucherTemplateId]);
+    const templateDetails = templateDetailsResult.rows;
+
+
+    for (const detail of templateDetails) {
+      const insertDetailQuery = `
+        INSERT INTO member_voucher_details (
+          member_voucher_id,
+          service_id,
+          service_name,
+          original_price,
+          custom_price,
+          discount,
+          final_price,
+          duration,
+          created_at,
+          updated_at,
+          service_category_id
+        ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $9, $10)
+      `;
+
+
+      const insertDetailValues = [
+        newVoucher.id,                   // $1 member_voucher_id
+        detail.service_id,              // $2
+        detail.service_name,            // $3
+        detail.original_price,          // $4
+        detail.custom_price,            // $5
+        detail.discount,                // $6
+        detail.final_price,             // $7
+        detail.duration,                // $8
+        createdAt,                      // $9 (created_at and updated_at)
+        detail.service_category_id      // $10
+      ];
+
+
+      console.log("Insert Detail Values: ", insertDetailValues);
+      await pool().query(insertDetailQuery, insertDetailValues);
+    }
+
+    return newVoucher;
+  } catch (error) {
+    console.error("Error adding member voucher ", error);
+    throw new Error("Failed to add member voucher");
+  }
+};
+
+
+
 
 
 export default {
@@ -1321,4 +1427,5 @@ export default {
   deleteTransactionLogsAndCurrentBalanceByLogId,
   createMemberVoucher,
   removeMemberVoucher,
+  createMemberVoucherForTransfer,
 }

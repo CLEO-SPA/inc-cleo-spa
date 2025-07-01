@@ -108,8 +108,8 @@ export interface Product {
   category: string;
   product_category_name: string;
   product_category_id: string | null;
-  price: number;          
-  cost_price: number;      
+  price: number;
+  cost_price: number;
   is_enabled: boolean;
   sequence_no: number;
 }
@@ -153,7 +153,7 @@ export interface TransactionRequestData {
   handled_by: number;
   items: TransactionRequestItem[];
   payments: PaymentMethodRequest[];
-  created_at?: string; 
+  created_at?: string;
   updated_at?: string;
 }
 
@@ -216,10 +216,12 @@ export interface SingleItemTransactionRequestData {
   remarks?: string;
   created_by: number;
   handled_by: number;
-  item: SingleTransactionRequestItem; 
+  item: SingleTransactionRequestItem;
   payments: PaymentMethodRequest[];
-  created_at?: string; 
+  created_at?: string;
   updated_at?: string;
+  newVoucherId?: number; // ✅ add this
+
 }
 
 export interface SingleItemTransactionCreationResult {

@@ -134,3 +134,37 @@ dist
 .yarn/build-state.yml
 .yarn/install-state.gz
 .pnp.*
+
+# terraform
+terraform/terraform.tfvars
+terraform/terraform.tfstate
+terraform/terraform.tfstate.backup
+terraform/.terraform/
+terraform/.terraform.lock.hcl
+terraform/crash.log
+terraform/crash.*.log
+terraform/*.tfplan
+terraform/*.tfstate
+terraform/override.tf
+terraform/override.tf.json
+terraform/*_override.tf
+terraform/*_override.tf.json
+terraform/.terraformrc
+terraform/terraform.rc
+
+# Terraform variable files
+terraform/*.auto.tfvars
+terraform/*.auto.tfvars.json
+terraform/terraform.tfvars.json
+
+# Sensitive auto-generated files
+terraform/**/secrets.tf
+terraform/**/*.backup
+terraform/**/.terraform/
+
+# AWS credentials (if stored locally)
+.aws/
+terraform/.aws/
+
+# AWS key
+terraform/*.pem

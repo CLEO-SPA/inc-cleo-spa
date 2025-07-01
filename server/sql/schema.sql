@@ -369,7 +369,7 @@ CREATE TABLE "appointments" (
 
 -- CreateTable
 CREATE TABLE "member_voucher_details" (
-    "id" BIGINT NOT NULL,
+    "id" BIGSERIAL NOT NULL,
     "member_voucher_id" BIGINT NOT NULL,
     "service_id" INTEGER NOT NULL,
     "service_name" VARCHAR(100),

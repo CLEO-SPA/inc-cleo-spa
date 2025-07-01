@@ -1,23 +1,20 @@
-FROM node:20-alpine
-
-
-WORKDIR /usr/src/app/server
-
-ENV NODE_ENV=production
-
-# Install dependencies (including dev dependencies for build)
+# Stage 1: Build the TypeScript code
+FROM node:20-alpine AS builder
+WORKDIR /app
 COPY package*.json ./
-RUN npm ci --include=dev
-
-# Copy the rest of the source files into the image
+RUN npm install
 COPY . .
-
-# Build the application
 RUN npm run build
 
-# Remove dev dependencies after build
-RUN npm prune --omit=dev
+# Stage 2: Create the production image
+FROM node:20-alpine
+WORKDIR /usr/src/app
+COPY package*.json ./
+RUN npm install --only=production
+COPY --from=builder /app/dist ./dist
 
-EXPOSE 5000
+# Expose the port the app runs on
+EXPOSE 3000
 
-CMD ["npm", "start"]
+# Run the app
+CMD [ "node", "dist/index.js" ]

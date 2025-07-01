@@ -19,6 +19,7 @@ const useTransferVoucherStore = create((set, get) => ({
     created_by: "",
     updated_by: "",
     remarks: "",
+    topUpBalance: 0,  // <-- new state field
 
     // Fetch voucher templates
     fetchVoucherTemplates: async () => {
@@ -100,6 +101,8 @@ const useTransferVoucherStore = create((set, get) => ({
     setCreatedBy: (id) => set({ created_by: id }),
     setUpdatedBy: (id) => set({ updated_by: id }),
     setRemarks: (text) => set({ remarks: text }),
+    setTopUpBalance: (value) => set({ topUpBalance: value }),
+
 
     // Derived values
     getTotalOldBalance: () => {
@@ -110,15 +113,9 @@ const useTransferVoucherStore = create((set, get) => ({
         }, 0);
     },
 
-    getTopUpBalance: () => {
-        const total = get().getTotalOldBalance();
-        const priceNum = Number(get().price) || 0;
-        return Math.max(0, priceNum - total);
-    },
 
     // Final transfer submission
     submitTransfer: async (formData) => {
-
         if (!formData) {
             throw new Error("No form data provided for voucher transfer.");
         }
@@ -133,7 +130,9 @@ const useTransferVoucherStore = create((set, get) => ({
             is_bypass,
             created_by,
             updated_by,
-            remarks, // <-- added here
+            remarks,
+            top_up_balance
+
         } = formData;
 
         if (
@@ -145,6 +144,7 @@ const useTransferVoucherStore = create((set, get) => ({
         ) {
             throw new Error("Missing required fields for voucher transfer.");
         }
+
 
         const payload = {
             member_name,
@@ -158,11 +158,11 @@ const useTransferVoucherStore = create((set, get) => ({
                 member_voucher_name: v.member_voucher_name,
                 balance_to_transfer: Number(v.balance_to_transfer),
             })),
-            created_by: created_by,
-            updated_by: updated_by,
-            remarks: remarks, // <-- add remarks here
+            created_by,
+            updated_by,
+            remarks,
+            top_up_balance, // ✅ Include top_up_balance in the payload
         };
-
 
         const res = await api.post("/voucher/transfer", payload);
         return res.data;
