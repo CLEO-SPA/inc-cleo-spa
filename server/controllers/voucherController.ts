@@ -2,7 +2,7 @@ import { Request, Response, NextFunction } from "express";
 import voucherModel from "../models/voucherModel.js";
 import memberVoucherTransactionLogsModel from "../models/memberVoucherTransactionLogsModel.js";
 import memberModel from "../models/memberModel.js";
-import memberVoucherModel from "../models/memberVoucher.js";
+import memberVoucherModel from "../models/memberVoucherModel.js";
 
 // Simple sanitization helper
 const sanitizeInput = (input: unknown): string => {
@@ -148,11 +148,13 @@ const transferVoucherDetailsHandler = async (
       voucherTemplateId,
       price,
       foc,
-      remarks || "",
+      remarks?.trim() === '' ? 'NA' : remarks,
       created_by,
       updated_by,
-      updated_by
+      updated_by,
+      is_bypass || false  // fallback to false if undefined
     );
+
 
     const newVoucherId = createdVoucher.id;
 
