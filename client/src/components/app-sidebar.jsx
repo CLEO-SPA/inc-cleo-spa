@@ -153,7 +153,7 @@ const data = {
         },
       ],
     },
-        {
+    {
       title: 'Sale Transactions',
       url: '#',
       icon: CreditCard,
@@ -203,25 +203,6 @@ const data = {
         {
           title: 'Add New Appointment',
           url: '/appointments/create',
-        },
-      ],
-    },
-    {
-      title: 'Vouchers',
-      url: '#',
-      icon: Tickets,
-      items: [
-        {
-          title: 'Create Voucher Template',
-          url: '/voucher-template/create',
-        },
-        {
-          title: 'Manage Voucher Templates',
-          url: '/voucher-template',
-        },
-        {
-          title: 'Transfer Voucher',
-          url: '/strans',
         },
       ],
     },
