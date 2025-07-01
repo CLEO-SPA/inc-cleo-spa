@@ -64,11 +64,6 @@ variable "local_backend_url" {
   default     = "http://localhost:3000"
 }
 
-variable "aws_frontend_url" {
-  description = "AWS frontend URL for CORS"
-  type        = string
-}
-
 variable "aws_account_id" {
   description = "The AWS account ID"
   type        = string
