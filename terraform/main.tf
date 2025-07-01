@@ -237,6 +237,10 @@ data "template_file" "task_definition" {
     frontend_image_uri    = var.frontend_image_uri
     secret_arn_prefix     = aws_secretsmanager_secret.db_creds.arn
     jwt_secret_arn_prefix = aws_secretsmanager_secret.jwt_secrets.arn
+    AWS_ACCOUNT_ID        = var.aws_account_id
+    AWS_REGION            = var.aws_region
+    SECRET_NAME           = var.secret_name
+    JWT_SECRET_NAME       = var.jwt_secret_name
   }
 }
 

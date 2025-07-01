@@ -1,6 +1,7 @@
 {
   "family": "fullstack-app-task",
   "networkMode": "bridge",
+  "executionRoleArn": "arn:aws:iam::${AWS_ACCOUNT_ID}:role/cleo-spa-app-ecs-task-execution-role",
   "containerDefinitions": [
     {
       "name": "frontend",

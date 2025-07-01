@@ -68,3 +68,20 @@ variable "aws_frontend_url" {
   description = "AWS frontend URL for CORS"
   type        = string
 }
+
+variable "aws_account_id" {
+  description = "The AWS account ID"
+  type        = string
+}
+
+variable "secret_name" {
+  description = "The name of the secret containing the database credentials"
+  type        = string
+  default     = "cleo-spa-app/db-credentials"
+}
+
+variable "jwt_secret_name" {
+  description = "The name of the secret containing JWT secrets"
+  type        = string
+  default     = "cleo-spa-app/jwt-secrets"
+}
