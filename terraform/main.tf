@@ -339,14 +339,14 @@ resource "aws_instance" "app_instance" {
       backend:
         image: ${aws_ecr_repository.backend.repository_url}:latest
         restart: always
-        ports:
-          - '5000:5000'
+        ports: 
+          - '3000:3000'
         environment:
           DB_HOST: ${aws_db_instance.default.address}
           DB_USER: ${aws_db_instance.default.username}
           DB_PASSWORD: ${var.db_password}
           DB_NAME: ${aws_db_instance.default.db_name}
-          PORT: 5000
+          PORT: 3000
           NODE_ENV: production
           AUTH_JWT_SECRET: ${var.auth_jwt_secret}
           INV_JWT_SECRET: ${var.inv_jwt_secret}
@@ -355,42 +355,16 @@ resource "aws_instance" "app_instance" {
           LOCAL_FRONTEND_URL: http://localhost
           LOCAL_BACKEND_URL: http://localhost:3000
           AWS_FRONTEND_URL: http://INSTANCE_DNS_PLACEHOLDER
-        deploy:
-          replicas: 2 
-          resources:
-            limits:
-              cpus: '0.35'
-              memory: '350M'
-            reservations:
-              cpus: '0.10'
-              memory: '100M'
-          update_config:
-            parallelism: 1
-            delay: 10s
-            order: start-first
-          restart_policy:
-            condition: on-failure
-            max_attempts: 3
       frontend:
         image: ${aws_ecr_repository.frontend.repository_url}:latest
         depends_on:
           - backend
-        deploy:
-          resources:
-            limits:
-              cpus: '0.5'
-              memory: '150M'
-            reservations:
-              cpus: '0.05'
-              memory: '50M'
         environment:
           VITE_API_URL: http://INSTANCE_DNS_PLACEHOLDER:3000
         ports:
           - '80:80'
           - '443:443'
     COMPOSE
-
-    docker swarm init
 
     # Create update script
     cat > /home/ec2-user/app/update.sh << 'SCRIPT'
@@ -401,8 +375,8 @@ resource "aws_instance" "app_instance" {
     docker pull ${aws_ecr_repository.backend.repository_url}:latest
     docker pull ${aws_ecr_repository.frontend.repository_url}:latest
 
-    docker system prune -f --filter "label=com.docker.stack.namespace=cleo-stack" || true
-    docker stack deploy -c docker-compose.yml cleo-stack
+    docker-compose down
+    docker-compose up -d --build
     SCRIPT
     
     # Make script executable
