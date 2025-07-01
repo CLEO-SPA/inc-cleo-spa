@@ -2,7 +2,11 @@ import { pool } from '../config/database.js';
 import { PaginatedOptions, PaginatedReturn } from '../types/common.types.js';
 import { MemberVouchers, MemberVoucherServices, MemberVoucherTransactionLogs, MemberVoucherTransactionLogCreateData, MemberName, MemberVoucherTransactionLogUpdateData, Employees } from '../types/model.types.js';
 import { encodeCursor } from '../utils/cursorUtils.js';
-
+import {
+  PaymentMethodRequest,
+  SingleItemTransactionCreationResult,
+  SingleItemTransactionRequestData
+} from '../types/SaleTransactionTypes.js';
 
 const getPaginatedVouchers = async (
   limit: number,
@@ -782,299 +786,482 @@ const deleteTransactionLogsAndCurrentBalanceByLogId = async (transaction_log_id:
   }
 };
 
-
-
-interface ServicePayload {
-  id: string;
-  name: string;
-  original_price: number;
-  custom_price: number;
-  discount: number;
-  final_price: number;
-  duration: number;
-}
-
-interface PaymentPayload {
-  id: string;
-  amount: number;
-}
-
 const createMemberVoucher = async (
-  member_voucher_name: string,
-  voucher_template_id: string,
-  member_id: string,
-  employee_id: string,
-  default_total_price: number,
-  free_of_charge: number,
-  remarks: string,
-  services: ServicePayload[],
-  payments: PaymentPayload[],
-  created_at: string,
-  updated_at: string,
-  is_bypass: boolean = false,
-) => {
+  transactionData: SingleItemTransactionRequestData
+): Promise<SingleItemTransactionCreationResult> => {
   const client = await pool().connect();
 
   try {
     await client.query('BEGIN');
 
-    // Validation queries
-    const v_member_sql = 'SELECT id FROM members WHERE id = $1';
-    const v_employee_sql = 'SELECT id FROM employees WHERE id = $1';
-    const v_status_sql = 'SELECT get_or_create_status($1) as id';
+    // VALIDATION MOVED TO TOP - Validate required fields first
+    const {
+      created_by,
+      customer_type,
+      handled_by,
+      item,
+      member_id,
+      payments,
+      receipt_number,
+      remarks,
+      created_at,        // ✅ NEW: Add custom date support
+      updated_at         // ✅ NEW: Add custom date support
+    } = transactionData;
 
+    // Early validation
+    if (!created_by) {
+      throw new Error('created_by is required');
+    }
+
+    if (!handled_by) {
+      throw new Error('handled_by is required');
+    }
+
+    if (!item || item.type !== 'member-voucher') {
+      throw new Error('item is required and must be of type "member-voucher"');
+    }
+
+    if (!payments || !Array.isArray(payments) || payments.length === 0) {
+      throw new Error('payments array is required and cannot be empty');
+    }
+
+    if (!member_id) {
+      throw new Error('member_id is required for member voucher transactions');
+    }
+
+    // ✅ NEW: Parse and validate custom creation date/time for sale transactions
+    let customCreatedAt = null;
+    let customUpdatedAt = null;
+    
+    if (created_at) {
+      try {
+        customCreatedAt = new Date(created_at);
+        if (isNaN(customCreatedAt.getTime())) {
+          console.warn('Invalid created_at format, using current time:', created_at);
+          customCreatedAt = new Date();
+        }
+      } catch (error) {
+        console.warn('Error parsing created_at, using current time:', error);
+        customCreatedAt = new Date();
+      }
+    } else {
+      customCreatedAt = new Date();
+    }
+    
+    if (updated_at) {
+      try {
+        customUpdatedAt = new Date(updated_at);
+        if (isNaN(customUpdatedAt.getTime())) {
+          console.warn('Invalid updated_at format, using created_at time:', updated_at);
+          customUpdatedAt = customCreatedAt;
+        }
+      } catch (error) {
+        console.warn('Error parsing updated_at, using created_at time:', error);
+        customUpdatedAt = customCreatedAt;
+      }
+    } else {
+      customUpdatedAt = customCreatedAt;
+    }
+
+    console.log('✅ MV Sale Transaction Using custom date/time:', {
+      created_at: customCreatedAt.toISOString(),
+      updated_at: customUpdatedAt.toISOString()
+    });
+
+    // Extract item data
+    const {
+      assignedEmployee,
+      data,
+      pricing,
+      remarks: itemRemarks,
+      type
+    } = item;
+
+    if (!data) {
+      throw new Error('item.data is required for member voucher');
+    }
+
+    const {
+      bypass_template,
+      created_at: voucher_created_at,
+      created_by: item_created_by,
+      creation_datetime,
+      free_of_charge = 0, // Default to 0
+      member_voucher_details = [], // Default to empty array
+      member_voucher_name,
+      remarks: voucherRemarks,
+      selected_template,
+      starting_balance,
+      status = 'active', // Default status
+      total_price,
+      voucher_template_id
+    } = data;
+
+    // Validate required voucher data
+    if (!member_voucher_name) {
+      throw new Error('member_voucher_name is required');
+    }
+
+    if (!creation_datetime) {
+      throw new Error('creation_datetime is required');
+    }
+
+    // FIXED: Better default calculation
+    const default_total_price = selected_template?.default_total_price
+      ? Number(selected_template.default_total_price)
+      : (total_price ? Number(total_price) : 0);
+
+    const is_bypass = bypass_template === true;
+    const createdAt = new Date(creation_datetime);  // Keep voucher creation date separate
+    const updatedAt = createdAt;                    // Keep voucher update date separate
+
+    // FIXED: Proper employee ID handling
+    const employee_id = assignedEmployee ? Number(assignedEmployee) : Number(created_by);
+
+    // Database validations
     let validationPromises = [
-      client.query(v_member_sql, [member_id]),
-      client.query<Employees>(v_employee_sql, [employee_id]),
-      client.query<{ id: string }>(v_status_sql, ['is_enabled']),
+      client.query('SELECT id FROM members WHERE id = $1', [member_id]),
+      client.query('SELECT id FROM employees WHERE id = $1', [employee_id]),
+      client.query<{ id: string }>('SELECT get_or_create_status($1) as id', ['is_enabled']),
     ];
 
-    // Only validate voucher_template_id if not bypass (voucher_template_id !== '0')
-    let voucherTemplateResult;
-    if (!is_bypass && voucher_template_id !== '0') {
-      const v_voucher_template_sql = 'SELECT id FROM voucher_templates WHERE id = $1';
-      voucherTemplateResult = client.query(v_voucher_template_sql, [voucher_template_id]);
-      validationPromises.push(voucherTemplateResult);
+    // FIXED: Only validate voucher template if not bypassing AND template ID exists
+    if (!is_bypass && voucher_template_id && voucher_template_id !== '0') {
+      validationPromises.push(
+        client.query('SELECT id FROM voucher_templates WHERE id = $1', [voucher_template_id])
+      );
     }
 
     const results = await Promise.all(validationPromises);
     const [memberResult, employeeResult, statusResult] = results;
-    if (voucherTemplateResult) {
-      voucherTemplateResult = results[3];
+
+    // FIXED: Proper validation checking
+    if (memberResult.rows.length === 0) {
+      throw new Error(`Member with ID ${member_id} not found`);
     }
 
-    // Validation checks
-    if (memberResult.rowCount === 0) {
-      throw new Error(`Invalid member_id: ${member_id} does not exist.`);
-    }
-    if (employeeResult.rowCount === 0) {
-      throw new Error(`Invalid employee_id: ${employee_id} does not exist.`);
-    }
-    if (voucherTemplateResult && voucherTemplateResult.rowCount === 0) {
-      throw new Error(`Invalid voucher_template_id: ${voucher_template_id} does not exist.`);
-    }
-    if (!statusResult.rows || statusResult.rows.length === 0 || !statusResult.rows[0].id) {
-      throw new Error('Failed to get or create status ID.');
+    if (employeeResult.rows.length === 0) {
+      throw new Error(`Employee with ID ${employee_id} not found`);
     }
 
-    // === UPDATED BALANCE CALCULATION LOGIC ===
+    if (statusResult.rows.length === 0) {
+      throw new Error('Could not create or find status');
+    }
+
+    // FIXED: Check voucher template validation if applicable
+    if (!is_bypass && voucher_template_id && voucher_template_id !== '0' && results[3]?.rows.length === 0) {
+      throw new Error(`Voucher template with ID ${voucher_template_id} not found`);
+    }
+
+    // FIXED: Payment calculations using correct logic
+    const PENDING_PAYMENT_METHOD_ID = 7;
     
-    // Check if there's outstanding amount (pending payment)
-    const pendingPayment = payments.find(p => String(p.id) === '7'); // Assuming '7' is the ID for pending payment
-    const outstanding_amount = pendingPayment ? pendingPayment.amount : 0;
+    const pendingPayments = payments.filter((payment: PaymentMethodRequest) => 
+      payment.methodId === PENDING_PAYMENT_METHOD_ID
+    );
+    
+    const nonPendingPayments = payments.filter((payment: PaymentMethodRequest) => 
+      payment.methodId !== PENDING_PAYMENT_METHOD_ID
+    );
+
+    const outstanding_amount = pendingPayments.reduce((total: number, payment: PaymentMethodRequest) => {
+      return total + (payment.amount || 0);
+    }, 0);
+
     const is_fully_paid = outstanding_amount === 0;
-    
-    // Calculate balances based on payment status
-    // FOC is only included in balances when fully paid
-    let starting_balance: number;
-    let current_balance: number;
-    
-    if (is_fully_paid) {
-      // Fully paid: include FOC in both balances
-      starting_balance = default_total_price + free_of_charge;
-      current_balance = starting_balance;
-    } else {
-      // Partial payment: exclude FOC from balances
-      starting_balance = default_total_price + free_of_charge;
-      current_balance = default_total_price;
 
+    // FIXED: Cleaner balance calculation
+    const base_balance = default_total_price + free_of_charge;
+    const final_starting_balance = base_balance;
+    const final_current_balance = is_fully_paid ? base_balance : default_total_price;
 
-    }
-
-    console.log('Payment Status:', is_fully_paid ? 'FULL' : 'PARTIAL');
-    console.log('Starting Balance:', starting_balance);
-    console.log('Current Balance:', current_balance);
-    console.log('Outstanding Amount:', outstanding_amount);
-
-    // Insert member voucher
+    // Insert member voucher (UNCHANGED - uses voucher creation dates)
     const i_mv_sql = `
       INSERT INTO member_vouchers
       (member_voucher_name, voucher_template_id, member_id, current_balance, starting_balance, 
        free_of_charge, default_total_price, status, remarks, created_by, handled_by, 
        last_updated_by, created_at, updated_at)
-      VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14) RETURNING id
+      VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14)
+      RETURNING id
     `;
 
     const { rows: mvRows } = await client.query<{ id: string }>(i_mv_sql, [
       member_voucher_name,
-      is_bypass ? 0 : voucher_template_id, // Use 0 for bypass cases
+      is_bypass ? 0 : (voucher_template_id || 0),
       member_id,
-      current_balance,
-      starting_balance,
+      final_current_balance,
+      final_starting_balance,
       free_of_charge,
       default_total_price,
-      'is_enabled',
-      remarks,
+      status,
+      voucherRemarks || itemRemarks || '',
       employee_id,
       employee_id,
       employee_id,
-      created_at,
-      updated_at,
+      createdAt,      // Voucher creation date
+      updatedAt       // Voucher update date
     ]);
 
-    if (!mvRows || mvRows.length === 0 || !mvRows[0].id) {
-      throw new Error('Failed to insert member voucher or retrieve its ID.');
+    const memberVoucherId = Number(mvRows[0].id);
+
+    // FIXED: Better service mapping with validation
+    const services = member_voucher_details.map((detail: {
+      service_id?: number;
+      name?: string;
+      price?: number;
+      custom_price?: number;
+      duration?: number;
+    }) => {
+      if (!detail.service_id && !is_bypass) {
+        throw new Error('service_id is required for each voucher detail when not bypassing template');
+      }
+
+      return {
+        id: detail.service_id || 0,
+        name: detail.name || 'Unknown Service',
+        original_price: Number(detail.price || 0),
+        custom_price: Number(detail.custom_price ?? detail.price ?? 0),
+        discount: Number(detail.price ?? 0) - Number(detail.custom_price ?? detail.price ?? 0),
+        final_price: Number(detail.custom_price ?? detail.price ?? 0),
+        duration: Number(detail.duration || 0)
+      };
+    });
+
+    // Insert voucher details (UNCHANGED - uses voucher creation dates)
+    if (services.length > 0) {
+      const i_mvd_sql = `
+        INSERT INTO member_voucher_details
+        (member_voucher_id, service_id, service_name, original_price, custom_price, 
+         discount, final_price, duration, created_at, updated_at)
+        VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10) RETURNING id
+      `;
+
+      await Promise.all(
+        services.map((service: {
+          id: number;
+          name: string;
+          original_price: number;
+          custom_price: number;
+          discount: number;
+          final_price: number;
+          duration: number;
+        }) =>
+          client.query(i_mvd_sql, [
+            memberVoucherId,
+            is_bypass ? 0 : service.id,
+            service.name,
+            service.original_price,
+            service.custom_price,
+            service.discount,
+            service.final_price,
+            service.duration,
+            createdAt,    // Voucher creation date
+            updatedAt     // Voucher update date
+          ])
+        )
+      );
     }
-    const memberVoucherId = mvRows[0].id;
 
-    // Insert member voucher details
-    const i_mvd_sql = `
-      INSERT INTO member_voucher_details
-      (member_voucher_id, service_id, service_name, original_price, custom_price, 
-       discount, final_price, duration, created_at, updated_at)
-      VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10) RETURNING id
-    `;
-
-    // Insert member voucher transaction log (initial purchase)
+    // Insert transaction log (UNCHANGED - uses voucher creation dates)
     const i_mvtl_sql = `
       INSERT INTO member_voucher_transaction_logs
       (member_voucher_id, service_description, service_date, current_balance, 
        amount_change, serviced_by, type, created_by, last_updated_by, created_at, updated_at)
-      VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11) RETURNING id
+      VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11)
+      RETURNING id
     `;
 
-    // Process services
-    const serviceProcessingPromises = services.map(async (service) => {
-      const { rows: mvdRows } = await client.query<{ id: string }>(i_mvd_sql, [
-        memberVoucherId,
-        is_bypass ? 0 : service.id, // Use 0 for service_id in bypass cases
-        service.name,
-        service.original_price,
-        service.custom_price,
-        service.discount,
-        service.final_price,
-        service.duration,
-        created_at,
-        updated_at,
-      ]);
-
-      if (!mvdRows || mvdRows.length === 0 || !mvdRows[0].id) {
-        throw new Error(`Failed to insert detail for service ${service.name} or retrieve its ID.`);
-      }
-    });
-
-    await Promise.all(serviceProcessingPromises);
-
-    // === UPDATED TRANSACTION LOG LOGIC ===
-    
-    // Insert initial transaction log (purchase)
-    // Use the calculated starting_balance which already includes FOC logic
-    await client.query<{ id: string }>(i_mvtl_sql, [
+    await client.query(i_mvtl_sql, [
       memberVoucherId,
       'N.A',
-      created_at,
-      current_balance, // Use starting_balance (includes FOC only if fully paid)
-      current_balance, // amount_change same as current_balance
+      createdAt,      // Voucher creation date
+      final_current_balance,
+      final_current_balance,
       employee_id,
       'PURCHASE',
       employee_id,
       employee_id,
-      created_at,
-      updated_at,
+      createdAt,      // Voucher creation date
+      updatedAt      
     ]);
 
-    // === PAYMENT PROCESSING LOGIC ===
-    
-    // Determine customer type and sale transaction status
-    const customer_type = member_id !== '0' ? 'member' : 'walk in customer';
-    const sale_transaction_status = outstanding_amount === 0 ? 'FULL' : 'PARTIAL';
+    // FIXED: Calculate transaction totals using correct logic
+    const totalTransactionAmount: number = pricing?.totalLinePrice || 0;
 
-    // Insert into sale_transactions
-    const i_st_sql = `
-      INSERT INTO sale_transactions
-      (customer_type, member_id, total_paid_amount, outstanding_total_payment_amount, 
-       sale_transaction_status, remarks, handled_by, created_by, created_at, updated_at, process_payment)
-      VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11) RETURNING id
-    `;
+    const totalPaidAmount: number = nonPendingPayments.reduce((total: number, payment: PaymentMethodRequest) => {
+      return total + (payment.amount || 0);
+    }, 0);
 
-    const { rows: stRows } = await client.query<{ id: string }>(i_st_sql, [
-      customer_type,
-      member_id !== '0' ? member_id : null,
-      default_total_price,
-      outstanding_amount,
-      sale_transaction_status,
-      remarks,
-      employee_id,
-      employee_id,
-      created_at,
-      updated_at,
-      false
-    ]);
+    const outstandingAmount: number = pendingPayments.reduce((total: number, payment: PaymentMethodRequest) => {
+      return total + (payment.amount || 0);
+    }, 0);
 
-    if (!stRows || stRows.length === 0 || !stRows[0].id) {
-      throw new Error('Failed to insert sale transaction or retrieve its ID.');
+    const transactionStatus: 'FULL' | 'PARTIAL' = outstandingAmount <= 0 ? 'FULL' : 'PARTIAL';
+    const processPayment: boolean = outstandingAmount > 0;
+
+    // Verification: total should match
+    const calculatedTotal = totalPaidAmount + outstandingAmount;
+    if (Math.abs(calculatedTotal - totalTransactionAmount) > 0.01) {
+      console.warn('Payment total mismatch:', {
+        totalTransactionAmount,
+        totalPaidAmount,
+        outstandingAmount,
+        calculatedTotal
+      });
     }
-    const saleTransactionId = stRows[0].id;
 
-    // Insert into sale_transaction_items
-    const i_sti_sql = `
-      INSERT INTO sale_transaction_items
-      (sale_transaction_id, member_voucher_id, quantity, item_type, amount)
-      VALUES ($1, $2, $3, $4, $5) RETURNING id
+    // Generate receipt number
+    let finalReceiptNo: string = receipt_number || '';
+    if (!finalReceiptNo) {
+      const receiptResult = await client.query(
+        'SELECT COALESCE(MAX(CAST(SUBSTRING(receipt_no FROM 3) AS INTEGER)), 0) + 1 as next_number FROM sale_transactions WHERE receipt_no LIKE $1',
+        [`ST%`]
+      );
+      finalReceiptNo = `ST${receiptResult.rows[0].next_number.toString().padStart(6, '0')}`;
+    }
+
+    const transactionQuery: string = `
+      INSERT INTO sale_transactions (
+        customer_type,
+        member_id,
+        total_paid_amount,
+        outstanding_total_payment_amount,
+        sale_transaction_status,
+        receipt_no,
+        remarks,
+        process_payment,
+        handled_by,
+        created_by,
+        created_at,
+        updated_at
+      ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12)
+      RETURNING id
     `;
 
-    await client.query<{ id: string }>(i_sti_sql, [
+    const transactionParams: (string | number | boolean | null | Date)[] = [
+      customer_type?.toUpperCase() || 'MEMBER',
+      member_id || null,
+      totalPaidAmount,        
+      outstandingAmount,      
+      transactionStatus,
+      finalReceiptNo,
+      remarks || '',
+      processPayment,         
+      handled_by,
+      created_by,
+      createdAt,      
+      updatedAt       
+    ];
+
+    const transactionResult = await client.query(transactionQuery, transactionParams);
+    const saleTransactionId: number = transactionResult.rows[0].id;
+
+    const itemQuery: string = `
+      INSERT INTO sale_transaction_items (
+        sale_transaction_id,
+        service_name,
+        product_name,
+        member_care_package_id,
+        member_voucher_id,
+        original_unit_price,
+        custom_unit_price,
+        discount_percentage,
+        quantity,
+        amount,
+        item_type,
+        remarks
+      ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12)
+      RETURNING id
+    `;
+
+    const itemParams: (string | number | null)[] = [
       saleTransactionId,
-      memberVoucherId,
-      1,
+      null, // service_name
+      null, // product_name
+      null, // member_care_package_id
+      memberVoucherId, // Use actual voucher ID
+      pricing?.originalPrice || 0,
+      pricing?.customPrice || 0,
+      pricing?.discount || 0,
+      pricing?.quantity || 1,
+      pricing?.totalLinePrice || 0,
       'member voucher',
-      default_total_price
-    ]);
+      item.remarks || '',
+    ];
 
-    // Insert into payment_to_sale_transactions for each payment
-    const i_ptst_sql = `
-      INSERT INTO payment_to_sale_transactions
-      (payment_method_id, sale_transaction_id, amount, created_by, created_at, updated_by, updated_at)
-      VALUES ($1, $2, $3, $4, $5, $6, $7) RETURNING id
-    `;
+    console.log('MV Item Query:', itemQuery);
+    console.log('MV Item Params:', itemParams);
 
-    // Process regular payments
-    const paymentProcessingPromises = payments.map(async (payment) => {
-      await client.query<{ id: string }>(i_ptst_sql, [
-        payment.id,
-        saleTransactionId,
-        payment.amount,
-        employee_id,
-        created_at,
-        employee_id,
-        updated_at
-      ]);
-    });
+    const itemResult = await client.query(itemQuery, itemParams);
+    const saleTransactionItemId: number = itemResult.rows[0].id;
 
-    await Promise.all(paymentProcessingPromises);
+    console.log('Created MV sale transaction item with ID:', saleTransactionItemId);
 
-    // Add FOC as a payment if it's a full payment and FOC amount > 0
-    if (is_fully_paid && free_of_charge > 0) {
-      await client.query<{ id: string }>(i_ptst_sql, [
-        '6', // Payment method ID for "Free"
-        saleTransactionId,
-        free_of_charge,
-        employee_id,
-        created_at,
-        employee_id,
-        updated_at
-      ]);
-      
-      console.log('Added FOC payment:', free_of_charge);
+
+    for (const payment of payments) {
+      if (payment.amount > 0) {
+        const paymentQuery: string = `
+          INSERT INTO payment_to_sale_transactions (
+            sale_transaction_id,
+            payment_method_id,
+            amount,
+            remarks,
+            created_by,
+            created_at,
+            updated_at
+          ) VALUES ($1, $2, $3, $4, $5, $6, $7)
+          RETURNING id
+        `;
+
+        const paymentParams: (number | string | Date)[] = [
+          saleTransactionId,
+          payment.methodId,
+          payment.amount,
+          payment.remark || '',
+          created_by,
+          createdAt,  
+          updatedAt      
+        ];
+
+        console.log('MV Payment Query:', paymentQuery);
+        console.log('MV Payment Params:', paymentParams);
+
+        const paymentResult = await client.query(paymentQuery, paymentParams);
+        console.log('Created MV payment with ID:', paymentResult.rows[0].id);
+      }
     }
 
     await client.query('COMMIT');
+    console.log('MV Transaction committed successfully');
 
+    // Return actual voucher data
     return {
-      memberVoucherId: memberVoucherId,
-      saleTransactionId: saleTransactionId
+      id: saleTransactionId,
+      receipt_no: finalReceiptNo,
+      customer_type: customer_type?.toUpperCase() || 'MEMBER',
+      member_id: member_id ? member_id.toString() : null, 
+      total_transaction_amount: totalTransactionAmount,
+      total_paid_amount: totalPaidAmount,
+      outstanding_total_payment_amount: outstandingAmount,
+      transaction_status: transactionStatus,
+      remarks: remarks || '',
+      created_by,
+      handled_by,
+      voucher_id: memberVoucherId, 
+      voucher_name: member_voucher_name,
+      items_count: 1,
+      payments_count: payments.filter((p: PaymentMethodRequest) => p.amount > 0).length
     };
+
   } catch (error) {
-    console.error('Error creating member voucher:', error);
     await client.query('ROLLBACK');
-    if (error instanceof Error) {
-      throw error;
-    }
-    throw new Error('An unexpected error occurred while creating the member voucher.');
+    console.error('Error creating MV sale transaction:', error);
+    throw error;
   } finally {
     client.release();
   }
 };
+
 
 /**
  * Soft Delete (status changed to DISABLED)

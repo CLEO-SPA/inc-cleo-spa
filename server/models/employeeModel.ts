@@ -2,7 +2,6 @@ import { pool, getProdPool as prodPool } from '../config/database.js';
 import { Employees, Positions } from '../types/model.types.js';
 import validator from 'validator';
 
-
 export interface Employee {
   id: number;
   employee_code: number;
@@ -21,7 +20,7 @@ export interface DetailedEmployee {
   employee_name: string;
   employee_code: number;
   employee_is_active: boolean;
-  employee_contact?: string; 
+  employee_contact?: string;
   employee_email?: string; // optional, can be undefined
   position_ids: number[];
   position_names: string[];
@@ -413,7 +412,6 @@ const getUserCount = async () => {
   }
 };
 
-
 export const getEmployeeIdByUserAuthId = async (id: string) => {
   const employee_sql = 'SELECT id FROM employees WHERE user_auth_id = $1';
   const params = [id];
@@ -426,12 +424,12 @@ export const getEmployeeIdByUserAuthId = async (id: string) => {
  */
 // const getBasicEmployeeDetails = async (): Promise<Employee[]> => {
 //   const query = `
-//     SELECT 
-//       id, 
-//       employee_name, 
-//       position_id 
-//     FROM employees e 
-//     WHERE employee_is_active = true 
+//     SELECT
+//       id,
+//       employee_name,
+//       position_id
+//     FROM employees e
+//     WHERE employee_is_active = true
 //     ORDER BY employee_name ASC`;
 //   try {
 //     const result = await pool().query(query);
@@ -458,7 +456,7 @@ const getBasicEmployeeDetails = async (): Promise<Employee[]> => {
     WHERE e.employee_is_active = true 
     GROUP BY e.id, e.employee_name
     ORDER BY e.employee_name ASC`;
-  
+
   try {
     const result = await pool().query(query);
 
@@ -466,7 +464,7 @@ const getBasicEmployeeDetails = async (): Promise<Employee[]> => {
     return result.rows.map((row: any) => ({
       id: row.id,
       employee_name: row.employee_name,
-      employee_code: row.employee_code || 0, 
+      employee_code: row.employee_code || 0,
       position_ids: row.position_ids || [],
       positions: row.positions || [],
     }));
@@ -474,7 +472,7 @@ const getBasicEmployeeDetails = async (): Promise<Employee[]> => {
     console.error('Database error in getBasicEmployeeDetails: ', error);
     throw new Error('Failed to fetch basic employee details from database');
   }
-}
+};
 
 /**
  * Get all active positions
@@ -498,7 +496,7 @@ const getAllActivePositions = async (): Promise<EmployeePosition[]> => {
     console.error('Database error in getAllActivePositions: ', error);
     throw new Error('Failed to fetch active positions from database');
   }
-}
+};
 
 /**
  * Get detailed employee information
@@ -528,7 +526,6 @@ const getAllActivePositions = async (): Promise<EmployeePosition[]> => {
 //   }
 // }
 
-
 const getEmployeeById = async (employeeId: number): Promise<DetailedEmployee | null> => {
   const query = `
     SELECT
@@ -548,11 +545,11 @@ const getEmployeeById = async (employeeId: number): Promise<DetailedEmployee | n
     WHERE e.id = $1 AND e.employee_is_active = true
     GROUP BY e.id, e.employee_name, e.employee_code, e.employee_is_active, e.created_at, e.updated_at
   `;
-  
+
   try {
     const result = await pool().query(query, [employeeId]);
     if (result.rows.length === 0) return null;
-    
+
     const row = result.rows[0];
     return {
       id: row.id,
@@ -564,13 +561,13 @@ const getEmployeeById = async (employeeId: number): Promise<DetailedEmployee | n
       position_ids: row.position_ids || [],
       position_names: row.position_names || [],
       created_at: row.created_at,
-      updated_at: row.updated_at
+      updated_at: row.updated_at,
     };
   } catch (error) {
     console.error('Database error in getEmployeeById: ', error);
     throw new Error('Failed to fetch employee details from database');
   }
-}
+};
 
 /**
  * Check if an employee exists and is active by ID
@@ -589,7 +586,7 @@ const employeeExists = async (employeeId: number): Promise<boolean> => {
     console.error('Database error in employeeExists: ', error);
     throw new Error('Failed to check employee existence in database');
   }
-}
+};
 
 /**
  * Get /api/em/employeeName/:employeeId
@@ -612,15 +609,13 @@ const getEmployeeNameByEmployeeById = async (employeeId: number): Promise<Detail
   }
 };
 
-
-
 // const getBasicEmployeeDetails = async (): Promise<Employee[]> => {
 //   const query = `
-//     SELECT 
-//       id, 
-//       employee_name 
-//     FROM employees e 
-//     WHERE employee_is_active = true 
+//     SELECT
+//       id,
+//       employee_name
+//     FROM employees e
+//     WHERE employee_is_active = true
 //     ORDER BY employee_name ASC`;
 //   try {
 //     const result = await pool().query(query);
@@ -742,8 +737,7 @@ export interface UpdateEmployeeData {
 /* --------------------------------------------------------------------------
  * Helper: validate timestamp (ISO-8601)
  * ------------------------------------------------------------------------ */
-const validateTimestamp = (ts?: string) =>
-  ts && validator.isISO8601(ts, { strict: true, strictSeparator: true });
+const validateTimestamp = (ts?: string) => ts && validator.isISO8601(ts, { strict: true, strictSeparator: true });
 
 /* --------------------------------------------------------------------------
  * Main updater
@@ -785,10 +779,10 @@ const updateEmployee = async (data: UpdateEmployeeData) => {
       if (rowCount) throw new Error('Contact number already in use');
     }
     if (data.employee_code && data.employee_code !== cur.employee_code) {
-      const { rowCount } = await client.query(
-        `SELECT 1 FROM employees WHERE employee_code = $1 AND id <> $2`,
-        [data.employee_code, data.employee_id],
-      );
+      const { rowCount } = await client.query(`SELECT 1 FROM employees WHERE employee_code = $1 AND id <> $2`, [
+        data.employee_code,
+        data.employee_id,
+      ]);
       if (rowCount) throw new Error('Employee code already in use');
     }
 
@@ -830,7 +824,7 @@ const updateEmployee = async (data: UpdateEmployeeData) => {
                 employee_is_active = false,
                 updated_at = ${customTs ? ' $2::timestamptz ' : ' NOW() '}
           WHERE id = $1`,
-        customTs ? [data.employee_id, customTs] : [data.employee_id],
+        customTs ? [data.employee_id, customTs] : [data.employee_id]
       );
     }
 
@@ -888,9 +882,7 @@ const updateEmployee = async (data: UpdateEmployeeData) => {
                   ${customTs ? '$2::timestamptz' : 'NOW()'},
                   ${customTs ? '$2::timestamptz' : 'NOW()'}
              FROM unnest($${customTs ? 3 : 2}::bigint[]) pid`,
-          customTs
-            ? [data.employee_id, customTs, data.position_ids]
-            : [data.employee_id, data.position_ids],
+          customTs ? [data.employee_id, customTs, data.position_ids] : [data.employee_id, data.position_ids]
         );
       }
     }
@@ -927,5 +919,5 @@ export default {
   // getOnlyEmployeeById,
   getAllActivePositions,
   employeeExists,
-  getEmployeeNameByEmployeeById
+  getEmployeeNameByEmployeeById,
 };
