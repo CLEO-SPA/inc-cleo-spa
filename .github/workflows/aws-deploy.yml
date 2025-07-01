@@ -9,6 +9,9 @@ env:
   AWS_REGION: ${{ secrets.AWS_REGION }}
   ECR_REPOSITORY_BACKEND: cleo-spa-app-backend
   ECR_REPOSITORY_FRONTEND: cleo-spa-app-frontend
+  ECS_TASK_DEFINITION: task-definition.json
+  ECS_SERVICE_NAME: cleo-spa-app-service
+  ECS_CLUSTER_NAME: cleo-spa-app-cluster
 
 jobs:
   deploy:
@@ -52,9 +55,9 @@ jobs:
       - name: Debug task definition file
         run: |
           echo "Checking if task definition file exists..."
-          ls -la task-definition.json
+          ls -la ${{ env.ECS_TASK_DEFINITION }}
           echo "Task definition content:"
-          cat task-definition.json
+          cat ${{ env.ECS_TASK_DEFINITION }}
 
       - name: Render backend container in task definition
         id: render-backend
