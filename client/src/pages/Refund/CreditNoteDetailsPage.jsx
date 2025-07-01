@@ -196,195 +196,199 @@ const CreditNoteDetailsPage = () => {
                                             </div>
                                             <div className="p-6">
                                                 <div className="space-y-6">
-                                                    {note.items.map((item, index) => (
-                                                        <div key={item.id} className={`${index > 0 ? "border-t border-gray-200 pt-6" : ""}`}>
-                                                            <div className="bg-gray-50 rounded-lg p-5 border border-gray-200">
-                                                                <div className="flex items-start justify-between mb-4">
-                                                                    <div className="flex-1">
-                                                                        <h3 className="text-lg font-semibold text-gray-900 mb-1">
-                                                                            {item.item_type === "service"
-                                                                                ? item.service_name || "Service"
-                                                                                : (item.item_type === "MEMBER_CARE_PACKAGE" || item.item_type === "member care package")
-                                                                                    ? item.service_name || "Care Package"
-                                                                                    : (item.item_type === "member voucher" || item.item_type === "Member Voucher")
-                                                                                        ? item.member_voucher_name || "Member Voucher"
-                                                                                        : "Unknown Item"
-                                                                            }
-
-                                                                        </h3>
-                                                                        <span className="inline-flex items-center px-3 py-1 rounded-full text-xs font-medium bg-blue-100 text-blue-800">
-                                                                            {item.item_type.replace("_", " ")}
-                                                                        </span>
-                                                                    </div>
-                                                                </div>
-
-                                                                {item.item_type === "service" && (
-                                                                    <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4 text-sm">
-                                                                        <div className="space-y-1">
-                                                                            <p className="font-medium text-gray-700">Original Unit Price</p>
-                                                                            <p className="text-gray-900">
-                                                                                ${Number(item.original_unit_price || 0).toFixed(2)}
-                                                                            </p>
-                                                                        </div>
-                                                                        <div className="space-y-1">
-                                                                            <p className="font-medium text-gray-700">Custom Unit Price</p>
-                                                                            <p className="text-gray-900">
-                                                                                {item.custom_unit_price != null
-                                                                                    ? `$${Number(item.custom_unit_price).toFixed(2)}`
-                                                                                    : "-"}
-                                                                            </p>
-                                                                        </div>
-                                                                        <div className="space-y-1">
-                                                                            <p className="font-medium text-gray-700">Discount</p>
-                                                                            <p className="text-gray-900">{item.discount_percentage ?? "-"}</p>
-                                                                        </div>
-                                                                        <div className="space-y-1">
-                                                                            <p className="font-medium text-gray-700">Quantity</p>
-                                                                            <p className="text-gray-900">{Math.abs(Number(item.quantity))}</p>
-                                                                        </div>
-                                                                        <div className="space-y-1">
-                                                                            <p className="font-medium text-gray-700">Refunded Amount</p>
-                                                                            <p className="text-red-600 font-semibold text-lg">
-                                                                                ${Math.abs(Number(item.amount)).toFixed(2)}
-                                                                            </p>
+                                                    {note.items
+                                                        .filter((item, index, self) =>
+                                                            item.item_type === "member care package" || item.item_type === "MEMBER_CARE_PACKAGE"
+                                                                ? self.findIndex(i => i.member_care_package_id === item.member_care_package_id) === index
+                                                                : true
+                                                        )
+                                                        .map((item, index) => (
+                                                            <div key={item.id} className={`${index > 0 ? "border-t border-gray-200 pt-6" : ""}`}>
+                                                                <div className="bg-gray-50 rounded-lg p-5 border border-gray-200">
+                                                                    <div className="flex items-start justify-between mb-4">
+                                                                        <div className="flex-1">
+                                                                            <h3 className="text-lg font-semibold text-gray-900 mb-1">
+                                                                                {item.item_type === "service"
+                                                                                    ? item.service_name || "Service"
+                                                                                    : (item.item_type === "MEMBER_CARE_PACKAGE" || item.item_type === "member care package")
+                                                                                        ? note.memberCarePackageDetails.find(d => d.member_care_package_id === item.member_care_package_id)?.package_name || "Care Package"
+                                                                                        : (item.item_type === "member voucher" || item.item_type === "Member Voucher")
+                                                                                            ? item.member_voucher_name || "Member Voucher"
+                                                                                            : "Unknown Item"}
+                                                                            </h3>
+                                                                            <span className="inline-flex items-center px-3 py-1 rounded-full text-xs font-medium bg-blue-100 text-blue-800">
+                                                                                {item.item_type.replace("_", " ")}
+                                                                            </span>
                                                                         </div>
                                                                     </div>
-                                                                )}
 
-                                                                {/* Voucher Logs */}
-                                                                {item.item_type === "member voucher" && note.voucherLogs && (
-                                                                    <div className="mt-6 border-t border-gray-200 pt-6">
-                                                                        <h4 className="text-base font-semibold mb-4 text-gray-900">
-                                                                            Voucher Transaction History
-                                                                        </h4>
-                                                                        <div className="bg-white rounded-lg border border-gray-200 overflow-hidden">
-                                                                            <div className="overflow-x-auto">
-                                                                                <table className="w-full text-sm">
-                                                                                    <thead className="bg-gray-50 border-b border-gray-200">
-                                                                                        <tr>
-                                                                                            <th className="px-4 py-3 text-left font-medium text-gray-700">Date</th>
-                                                                                            <th className="px-4 py-3 text-left font-medium text-gray-700">
-                                                                                                Description
-                                                                                            </th>
-                                                                                            <th className="px-4 py-3 text-right font-medium text-gray-700">
-                                                                                                Amount Change
-                                                                                            </th>
-                                                                                            <th className="px-4 py-3 text-right font-medium text-gray-700">
-                                                                                                Balance
-                                                                                            </th>
-                                                                                            <th className="px-4 py-3 text-left font-medium text-gray-700">Type</th>
-                                                                                        </tr>
-                                                                                    </thead>
-                                                                                    <tbody className="divide-y divide-gray-200">
-                                                                                        {note.voucherLogs
-                                                                                            .filter((log) => log.member_voucher_id === Number(item.member_voucher_id))
-                                                                                            .sort((a, b) => a.id - b.id)
-                                                                                            .map((log) => (
-                                                                                                <tr key={log.id} className="hover:bg-gray-50">
-                                                                                                    <td className="px-4 py-3 text-gray-900">
-                                                                                                        {new Date(log.service_date).toLocaleDateString()}
-                                                                                                    </td>
-                                                                                                    <td className="px-4 py-3 text-gray-900">{log.service_description}</td>
-                                                                                                    <td className="px-4 py-3 text-right font-medium text-red-600">
-                                                                                                        {Number(log.amount_change) > 0 ? "+" : ""}
-                                                                                                        {log.amount_change}
-                                                                                                    </td>
-                                                                                                    <td className="px-4 py-3 text-right font-medium text-gray-900">
-                                                                                                        {log.current_balance}
-                                                                                                    </td>
-                                                                                                    <td className="px-4 py-3">
-                                                                                                        <span className="inline-flex items-center px-2 py-1 rounded-full text-xs font-medium bg-gray-100 text-gray-800">
-                                                                                                            {log.type}
-                                                                                                        </span>
-                                                                                                    </td>
-                                                                                                </tr>
-                                                                                            ))}
-                                                                                    </tbody>
-                                                                                </table>
+                                                                    {item.item_type === "service" && (
+                                                                        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4 text-sm">
+                                                                            <div className="space-y-1">
+                                                                                <p className="font-medium text-gray-700">Original Unit Price</p>
+                                                                                <p className="text-gray-900">
+                                                                                    ${Number(item.original_unit_price || 0).toFixed(2)}
+                                                                                </p>
+                                                                            </div>
+                                                                            <div className="space-y-1">
+                                                                                <p className="font-medium text-gray-700">Custom Unit Price</p>
+                                                                                <p className="text-gray-900">
+                                                                                    {item.custom_unit_price != null
+                                                                                        ? `$${Number(item.custom_unit_price).toFixed(2)}`
+                                                                                        : "-"}
+                                                                                </p>
+                                                                            </div>
+                                                                            <div className="space-y-1">
+                                                                                <p className="font-medium text-gray-700">Discount</p>
+                                                                                <p className="text-gray-900">{item.discount_percentage ?? "-"}</p>
+                                                                            </div>
+                                                                            <div className="space-y-1">
+                                                                                <p className="font-medium text-gray-700">Quantity</p>
+                                                                                <p className="text-gray-900">{Math.abs(Number(item.quantity))}</p>
+                                                                            </div>
+                                                                            <div className="space-y-1">
+                                                                                <p className="font-medium text-gray-700">Refunded Amount</p>
+                                                                                <p className="text-red-600 font-semibold text-lg">
+                                                                                    ${Math.abs(Number(item.amount)).toFixed(2)}
+                                                                                </p>
                                                                             </div>
                                                                         </div>
-                                                                    </div>
-                                                                )}
+                                                                    )}
 
-
-                                                                {(item.item_type === "member care package" || item.item_type === "MEMBER_CARE_PACKAGE") && (
-                                                                    <div className="mt-6 space-y-6">
-                                                                        {/* Care Package Details */}
-                                                                        {note.memberCarePackageDetails
-                                                                            .filter(detail => detail.member_care_package_id === item.member_care_package_id)
-                                                                            .map(detail => (
-                                                                                <div key={detail.detail_id} className="bg-white rounded-lg p-4 border border-gray-200">
-                                                                                    <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
-                                                                                        <div className="md:col-span-2 lg:col-span-4 space-y-1">
-                                                                                            <p className="text-sm font-medium text-gray-600">Service Name</p>
-                                                                                            <p className="text-base font-semibold text-gray-900">{detail.service_name}</p>
-                                                                                        </div>
-                                                                                        <div className="space-y-1">
-                                                                                            <p className="text-sm font-medium text-gray-600">Price</p>
-                                                                                            <p className="text-lg font-semibold text-gray-900">${Number(detail.price).toFixed(2)}</p>
-                                                                                        </div>
-                                                                                        <div className="space-y-1">
-                                                                                            <p className="text-sm font-medium text-gray-600">Discount</p>
-                                                                                            <p className="text-lg font-semibold text-gray-900">
-                                                                                                <p className="text-lg font-semibold text-gray-900">
-                                                                                                    {detail.discount != null
-                                                                                                        ? `${Number(detail.discount).toFixed(2)} (${((1 - Number(detail.discount)) * 100).toFixed(0)}%)`
-                                                                                                        : "-"}
-                                                                                                </p>
-                                                                                            </p>
-                                                                                        </div>
-                                                                                        <div className="space-y-1">
-                                                                                            <p className="text-sm font-medium text-gray-600">Original Quantity</p>
-                                                                                            <p className="text-lg font-semibold text-gray-900">{detail.quantity}</p>
-                                                                                        </div>
-                                                                                    </div>
-
-                                                                                    {/* Transaction Logs for this Detail */}
-                                                                                    {note.memberCarePackageLogs
-                                                                                        .filter(log => log.member_care_package_details_id === detail.detail_id)
-                                                                                        .sort((a, b) => new Date(a.transaction_date) - new Date(b.transaction_date))
-                                                                                        .length > 0 && (
-                                                                                            <div className="mt-4">
-                                                                                                <h4 className="text-sm font-semibold text-gray-800 mb-2">Transaction History</h4>
-                                                                                                <table className="w-full text-sm border border-gray-200 rounded-md overflow-hidden">
-                                                                                                    <thead className="bg-gray-50 border-b">
-                                                                                                        <tr>
-                                                                                                            <th className="px-4 py-2 text-left text-gray-700">Date</th>
-                                                                                                            <th className="px-4 py-2 text-left text-gray-700">Type</th>
-                                                                                                            <th className="px-4 py-2 text-left text-gray-700">Description</th>
-                                                                                                            <th className="px-4 py-2 text-right text-gray-700">Amount Changed</th>
-                                                                                                            <th className="px-4 py-2 text-right text-gray-700">Transaction Amount</th>
-                                                                                                        </tr>
-                                                                                                    </thead>
-                                                                                                    <tbody className="divide-y divide-gray-100">
-                                                                                                        {note.memberCarePackageLogs
-                                                                                                            .filter(log => log.member_care_package_details_id === detail.detail_id)
-                                                                                                            .sort((a, b) => new Date(a.transaction_date) - new Date(b.transaction_date))
-                                                                                                            .map(log => (
-                                                                                                                <tr key={log.id}>
-                                                                                                                    <td className="px-4 py-2 text-gray-900">{new Date(log.transaction_date).toLocaleString()}</td>
-                                                                                                                    <td className="px-4 py-2">
-                                                                                                                        <span className="inline-flex items-center px-2 py-1 rounded-full text-xs font-medium bg-blue-100 text-blue-800">
-                                                                                                                            {log.type}
-                                                                                                                        </span>
-                                                                                                                    </td>
-                                                                                                                    <td className="px-4 py-2 text-gray-900">{log.description}</td>
-                                                                                                                    <td className="px-4 py-2 text-right text-red-600 font-medium">{log.amount_changed}</td>
-                                                                                                                    <td className="px-4 py-2 text-right text-gray-900 font-medium">{log.transaction_amount}</td>
-                                                                                                                </tr>
-                                                                                                            ))}
-                                                                                                    </tbody>
-                                                                                                </table>
-                                                                                            </div>
-                                                                                        )}
+                                                                    {/* Voucher Logs */}
+                                                                    {item.item_type === "member voucher" && note.voucherLogs && (
+                                                                        <div className="mt-6 border-t border-gray-200 pt-6">
+                                                                            <h4 className="text-base font-semibold mb-4 text-gray-900">
+                                                                                Voucher Transaction History
+                                                                            </h4>
+                                                                            <div className="bg-white rounded-lg border border-gray-200 overflow-hidden">
+                                                                                <div className="overflow-x-auto">
+                                                                                    <table className="w-full text-sm">
+                                                                                        <thead className="bg-gray-50 border-b border-gray-200">
+                                                                                            <tr>
+                                                                                                <th className="px-4 py-3 text-left font-medium text-gray-700">Date</th>
+                                                                                                <th className="px-4 py-3 text-left font-medium text-gray-700">
+                                                                                                    Description
+                                                                                                </th>
+                                                                                                <th className="px-4 py-3 text-right font-medium text-gray-700">
+                                                                                                    Amount Change
+                                                                                                </th>
+                                                                                                <th className="px-4 py-3 text-right font-medium text-gray-700">
+                                                                                                    Balance
+                                                                                                </th>
+                                                                                                <th className="px-4 py-3 text-left font-medium text-gray-700">Type</th>
+                                                                                            </tr>
+                                                                                        </thead>
+                                                                                        <tbody className="divide-y divide-gray-200">
+                                                                                            {note.voucherLogs
+                                                                                                .filter((log) => log.member_voucher_id === Number(item.member_voucher_id))
+                                                                                                .sort((a, b) => a.id - b.id)
+                                                                                                .map((log) => (
+                                                                                                    <tr key={log.id} className="hover:bg-gray-50">
+                                                                                                        <td className="px-4 py-3 text-gray-900">
+                                                                                                            {new Date(log.service_date).toLocaleDateString()}
+                                                                                                        </td>
+                                                                                                        <td className="px-4 py-3 text-gray-900">{log.service_description}</td>
+                                                                                                        <td className="px-4 py-3 text-right font-medium text-red-600">
+                                                                                                            {Number(log.amount_change) > 0 ? "+" : ""}
+                                                                                                            {log.amount_change}
+                                                                                                        </td>
+                                                                                                        <td className="px-4 py-3 text-right font-medium text-gray-900">
+                                                                                                            {log.current_balance}
+                                                                                                        </td>
+                                                                                                        <td className="px-4 py-3">
+                                                                                                            <span className="inline-flex items-center px-2 py-1 rounded-full text-xs font-medium bg-gray-100 text-gray-800">
+                                                                                                                {log.type}
+                                                                                                            </span>
+                                                                                                        </td>
+                                                                                                    </tr>
+                                                                                                ))}
+                                                                                        </tbody>
+                                                                                    </table>
                                                                                 </div>
-                                                                            ))}
-                                                                    </div>
-                                                                )}
+                                                                            </div>
+                                                                        </div>
+                                                                    )}
 
+
+                                                                    {(item.item_type === "member care package" || item.item_type === "MEMBER_CARE_PACKAGE") && (
+                                                                        <div className="mt-6 space-y-6">
+                                                                            {/* Care Package Details */}
+                                                                            {note.memberCarePackageDetails
+                                                                                .filter(detail => detail.member_care_package_id === item.member_care_package_id)
+                                                                                .map(detail => (
+                                                                                    <div key={detail.detail_id} className="bg-white rounded-lg p-4 border border-gray-200">
+                                                                                        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
+                                                                                            <div className="md:col-span-2 lg:col-span-4 space-y-1">
+                                                                                                <p className="text-sm font-medium text-gray-600">Service Name</p>
+                                                                                                <p className="text-base font-semibold text-gray-900">{detail.service_name}</p>
+                                                                                            </div>
+                                                                                            <div className="space-y-1">
+                                                                                                <p className="text-sm font-medium text-gray-600">Price</p>
+                                                                                                <p className="text-lg font-semibold text-gray-900">${Number(detail.price).toFixed(2)}</p>
+                                                                                            </div>
+                                                                                            <div className="space-y-1">
+                                                                                                <p className="text-sm font-medium text-gray-600">Discount</p>
+                                                                                                <p className="text-lg font-semibold text-gray-900">
+                                                                                                    <p className="text-lg font-semibold text-gray-900">
+                                                                                                        {detail.discount != null
+                                                                                                            ? `${Number(detail.discount).toFixed(2)} (${((1 - Number(detail.discount)) * 100).toFixed(0)}%)`
+                                                                                                            : "-"}
+                                                                                                    </p>
+                                                                                                </p>
+                                                                                            </div>
+                                                                                            <div className="space-y-1">
+                                                                                                <p className="text-sm font-medium text-gray-600">Original Quantity</p>
+                                                                                                <p className="text-lg font-semibold text-gray-900">{detail.quantity}</p>
+                                                                                            </div>
+                                                                                        </div>
+
+                                                                                        {/* Transaction Logs for this Detail */}
+                                                                                        {note.memberCarePackageLogs
+                                                                                            .filter(log => log.member_care_package_details_id === detail.detail_id)
+                                                                                            .sort((a, b) => new Date(a.transaction_date) - new Date(b.transaction_date))
+                                                                                            .length > 0 && (
+                                                                                                <div className="mt-4">
+                                                                                                    <h4 className="text-sm font-semibold text-gray-800 mb-2">Transaction History</h4>
+                                                                                                    <table className="w-full text-sm border border-gray-200 rounded-md overflow-hidden">
+                                                                                                        <thead className="bg-gray-50 border-b">
+                                                                                                            <tr>
+                                                                                                                <th className="px-4 py-2 text-left text-gray-700">Date</th>
+                                                                                                                <th className="px-4 py-2 text-left text-gray-700">Type</th>
+                                                                                                                <th className="px-4 py-2 text-left text-gray-700">Description</th>
+                                                                                                                <th className="px-4 py-2 text-right text-gray-700">Amount Changed</th>
+                                                                                                                <th className="px-4 py-2 text-right text-gray-700">Transaction Amount</th>
+                                                                                                            </tr>
+                                                                                                        </thead>
+                                                                                                        <tbody className="divide-y divide-gray-100">
+                                                                                                            {note.memberCarePackageLogs
+                                                                                                                .filter(log => log.member_care_package_details_id === detail.detail_id)
+                                                                                                                .sort((a, b) => new Date(a.transaction_date) - new Date(b.transaction_date))
+                                                                                                                .map(log => (
+                                                                                                                    <tr key={log.id}>
+                                                                                                                        <td className="px-4 py-2 text-gray-900">{new Date(log.transaction_date).toLocaleString()}</td>
+                                                                                                                        <td className="px-4 py-2">
+                                                                                                                            <span className="inline-flex items-center px-2 py-1 rounded-full text-xs font-medium bg-blue-100 text-blue-800">
+                                                                                                                                {log.type}
+                                                                                                                            </span>
+                                                                                                                        </td>
+                                                                                                                        <td className="px-4 py-2 text-gray-900">{log.description}</td>
+                                                                                                                        <td className="px-4 py-2 text-right text-red-600 font-medium">{log.amount_changed}</td>
+                                                                                                                        <td className="px-4 py-2 text-right text-gray-900 font-medium">{log.transaction_amount}</td>
+                                                                                                                    </tr>
+                                                                                                                ))}
+                                                                                                        </tbody>
+                                                                                                    </table>
+                                                                                                </div>
+                                                                                            )}
+                                                                                    </div>
+                                                                                ))}
+                                                                        </div>
+                                                                    )}
+
+                                                                </div>
                                                             </div>
-                                                        </div>
-                                                    ))}
+                                                        ))}
                                                 </div>
                                             </div>
                                         </div>
