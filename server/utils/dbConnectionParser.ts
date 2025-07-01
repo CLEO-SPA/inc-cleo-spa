@@ -33,7 +33,7 @@ export const parseConnectionString = (connectionString: string): DbConfig => {
     const ssl = sslMode === 'require' || sslMode === 'true' ? { rejectUnauthorized: false } : false;
 
     // Extract max connections if provided
-    const maxConnections = url.searchParams.get('max') ? parseInt(url.searchParams.get('max') || '10') : null;
+    const maxConnections = url.searchParams.get('max') ? parseInt(url.searchParams.get('max') || '10') : undefined;
 
     return {
       user,
@@ -85,7 +85,11 @@ export const buildSimDbConfig = (): DbConfig => {
     user: process.env.SIM_DB_USER || process.env.DB_USER,
     password: process.env.SIM_DB_PASSWORD || process.env.DB_PASSWORD,
     host: process.env.SIM_DB_HOST || process.env.DB_HOST,
-    port: process.env.SIM_DB_PORT ? parseInt(process.env.SIM_DB_PORT) : (process.env.DB_PORT ? parseInt(process.env.DB_PORT) : 5432),
+    port: process.env.SIM_DB_PORT
+      ? parseInt(process.env.SIM_DB_PORT)
+      : process.env.DB_PORT
+      ? parseInt(process.env.DB_PORT)
+      : 5432,
     database: process.env.SIM_DB_NAME || process.env.DB_NAME,
     ssl: process.env.SIM_DB_SSL === 'true' ? { rejectUnauthorized: false } : false,
     maxConnections: process.env.SIM_DB_MAX_CONNECTIONS ? parseInt(process.env.SIM_DB_MAX_CONNECTIONS) : 10,
