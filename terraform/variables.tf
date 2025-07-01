@@ -25,3 +25,46 @@ variable "frontend_image_uri" {
   description = "The URI of the frontend Docker image in ECR."
   type        = string
 }
+
+# JWT secret variables
+variable "auth_jwt_secret" {
+  description = "JWT secret for authentication"
+  type        = string
+  sensitive   = true
+}
+
+variable "inv_jwt_secret" {
+  description = "JWT secret for inventory"
+  type        = string
+  sensitive   = true
+}
+
+variable "remember_token" {
+  description = "Remember token secret"
+  type        = string
+  sensitive   = true
+}
+
+variable "session_secret" {
+  description = "Session secret"
+  type        = string
+  sensitive   = true
+}
+
+# CORS and URL variables
+variable "local_frontend_url" {
+  description = "Local frontend URL for CORS"
+  type        = string
+  default     = "http://localhost:5173"
+}
+
+variable "local_backend_url" {
+  description = "Local backend URL for CORS"
+  type        = string
+  default     = "http://localhost:3000"
+}
+
+variable "aws_frontend_url" {
+  description = "AWS frontend URL for CORS"
+  type        = string
+}
