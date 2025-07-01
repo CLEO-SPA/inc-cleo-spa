@@ -1031,7 +1031,7 @@ const processRefundMemberVoucher = async (body: {
         receipt_no, reference_sales_transaction_id,
         handled_by, created_by, created_at, updated_at
       )
-      VALUES ('member', $1, $2, 0, 'REFUND', $3, $4, $5, $6, $7, $8, $8)
+      VALUES ('MEMBER', $1, $2, 0, 'REFUND', $3, $4, $5, $6, $7, $8, $8)
       RETURNING id`,
       [
         voucher.member_id,
@@ -1477,45 +1477,49 @@ const getRefundRecordDetails = async (refundId: number) => {
     let memberCarePackageLogs = [];
 
     if (hasCarePackage) {
-      const mcpDetailIds = items.map(i => i.member_care_package_id).filter(Boolean);
+      const memberCarePackageIds = items.map(i => i.member_care_package_id).filter(Boolean);
 
-      // a. MCP Details with Package Name
+      // a. Fetch ALL MCP Details for the given MCPs
       const mcpDetailsQuery = `
-        SELECT 
-          d.id AS detail_id,
-          d.member_care_package_id,
-          mcp.package_name,
-          d.service_id,
-          d.service_name,
-          d.price,
-          d.status,
-          d.discount,
-          d.quantity
-        FROM member_care_package_details d
-        JOIN member_care_packages mcp ON mcp.id = d.member_care_package_id
-        WHERE d.id = ANY($1::int[])
+      SELECT 
+        d.id AS detail_id,
+        d.member_care_package_id,
+        mcp.package_name,
+        d.service_id,
+        d.service_name,
+        d.price,
+        d.status,
+        d.discount,
+        d.quantity
+      FROM member_care_package_details d
+      JOIN member_care_packages mcp ON mcp.id = d.member_care_package_id
+      WHERE d.member_care_package_id = ANY($1::int[])
       `;
-      const { rows: details } = await client.query(mcpDetailsQuery, [mcpDetailIds]);
+      
+      const { rows: details } = await client.query(mcpDetailsQuery, [memberCarePackageIds]);
       memberCarePackageDetails = details;
 
-      // b. MCP Logs
+      // b. Now extract all detail_ids for fetching logs
+      const detailIds = details.map(d => d.detail_id);
+
       const mcpLogsQuery = `
-        SELECT
-          l.id,
-          l.type,
-          l.description,
-          l.transaction_date,
-          l.transaction_amount,
-          l.amount_changed,
-          l.member_care_package_details_id,
-          l.employee_id,
-          l.service_id,
-          l.created_at
-        FROM member_care_package_transaction_logs l
-        WHERE l.member_care_package_details_id = ANY($1::int[])
-        ORDER BY transaction_date ASC
+      SELECT
+        l.id,
+        l.type,
+        l.description,
+        l.transaction_date,
+        l.transaction_amount,
+        l.amount_changed,
+        l.member_care_package_details_id,
+        l.employee_id,
+        l.service_id,
+        l.created_at
+      FROM member_care_package_transaction_logs l
+      WHERE l.member_care_package_details_id = ANY($1::int[])
+      ORDER BY transaction_date ASC
       `;
-      const { rows: logs } = await client.query(mcpLogsQuery, [mcpDetailIds]);
+      
+      const { rows: logs } = await client.query(mcpLogsQuery, [detailIds]);
       memberCarePackageLogs = logs;
     }
 
