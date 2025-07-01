@@ -418,7 +418,7 @@ const ProcessPaymentSaleTransaction = () => {
                             <CardContent className="space-y-4">
                                 {/* NEW: Transaction Handler Selection */}
                                 <div>
-                                    <Label>Transaction Handler *</Label>
+                                    <Label>Transaction</Label>
                                     <EmployeeSelect
                                         value={transactionHandlerId}
                                         onChange={(handlerId) => {
@@ -434,7 +434,7 @@ const ProcessPaymentSaleTransaction = () => {
 
                                 {/* Payment Handler Selection */}
                                 <div>
-                                    <Label>Payment Handler *</Label>
+                                    <Label>Payment</Label>
                                     <EmployeeSelect
                                         value={paymentHandlerId}
                                         onChange={(handlerId) => {
@@ -450,7 +450,7 @@ const ProcessPaymentSaleTransaction = () => {
 
                                 {/* Add Payment Method */}
                                 <div>
-                                    <Label>Add Payment Method</Label>
+                                    <Label>Add</Label>
                                     <div className="flex gap-2">
                                         <div className="flex-1">
                                             <PaymentMethodSelect

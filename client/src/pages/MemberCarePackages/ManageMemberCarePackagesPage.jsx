@@ -177,6 +177,8 @@ function ManageMemberCarePackageForm() {
         return { label: 'ENABLED', color: 'bg-slate-100 text-slate-700' };
       case 'DISABLED':
         return { label: 'Disabled', color: 'bg-gray-200 text-gray-600' };
+      case 'REFUNDED':
+        return { label: 'Refunded', color: 'bg-gray-200 text-gray-600' };
       default:
         return { label: pkg.status_name || 'Unknown', color: 'bg-gray-100 text-gray-700' };
     }
