@@ -162,7 +162,7 @@ resource "aws_db_instance" "default" {
 }
 
 resource "aws_secretsmanager_secret" "db_creds" {
-  name = "${var.project_name}/db-credentials"
+  name = "${var.project_name}/db"
 }
 
 resource "aws_secretsmanager_secret_version" "db_creds_version" {
@@ -177,7 +177,7 @@ resource "aws_secretsmanager_secret_version" "db_creds_version" {
 }
 
 resource "aws_secretsmanager_secret" "jwt_secrets" {
-  name = "${var.project_name}/jwt-secrets"
+  name = "${var.project_name}/jwt"
 }
 
 resource "aws_secretsmanager_secret_version" "jwt_secrets_version" {
