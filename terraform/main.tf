@@ -386,5 +386,21 @@ resource "aws_ecs_service" "main" {
   desired_count   = 1
   launch_type     = "EC2"
 
+  # Add deployment configuration to force old task removal first
+  deployment_controller {
+    type = "ECS"
+  }
+  
+  deployment_maximum_percent         = 100
+  deployment_minimum_healthy_percent = 0
+  
+  deployment_circuit_breaker {
+    enable   = true
+    rollback = true
+  }
+
+  # Optional: Force new deployment when applying changes
+  force_new_deployment = true
+
   depends_on = [aws_internet_gateway.gw]
 }
