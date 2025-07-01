@@ -50,8 +50,9 @@ const loginEmployee = async (req: Request, res: Response, next: NextFunction) =>
         res.cookie(process.env.REMEMBER_TOKEN as string, token, {
           maxAge: 1000 * 60 * 60 * 24 * 30, // 30 days
           httpOnly: true,
-          secure: process.env.NODE_ENV === 'production', // Set to true if using HTTPS
+          secure: process.env.NODE_ENV === 'production',
           sameSite: 'lax',
+          path: '/', // Ensure cookie is available for the entire domain
         });
       }
 
