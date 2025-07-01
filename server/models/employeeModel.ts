@@ -29,7 +29,7 @@ export interface DetailedEmployee {
   updated_at: Date;
 }
 
-const checkEmployeeCodeExists = async (employee_code: number) => {
+const checkEmployeeCodeExists = async (employee_code: string) => {
   try {
     const query = `SELECT * FROM employees WHERE employee_code = $1`;
     const values = [employee_code];
@@ -69,6 +69,9 @@ const checkEmployeePhoneExists = async (employee_contact: string) => {
     const values = [employee_contact.trim()];
 
     const result = await pool().query(query, values);
+    if (result.rowCount === null) {
+      throw new Error('Unexpected result format from database');
+    }
     return result.rowCount > 0; // ❯ true if at least one match
   } catch (error) {
     console.error('Error checking employee phone existence:', error);

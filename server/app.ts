@@ -9,7 +9,13 @@ import { globalErrorHandler, NotFoundError } from './types/errors.js';
 const app = express();
 
 const corsOptions = {
-  origin: [process.env.LOCAL_FRONTEND_URL, process.env.LOCAL_BACKEND_URL] as string[],
+  origin: [
+    process.env.LOCAL_FRONTEND_URL,
+    process.env.LOCAL_BACKEND_URL,
+    process.env.AWS_FRONTEND_URL,
+    process.env.DOCKER_BACKEND_URL,
+    process.env.DOCKER_FRONTEND_URL,
+  ] as string[],
   methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS'],
   allowedHeaders: [
     'Content-Type',

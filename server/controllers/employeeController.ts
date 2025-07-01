@@ -555,7 +555,8 @@ export const updateEmployee = async (
     /* ------------------------------------------------- 0. URL param */
     const employee_id = Number(req.params.id);
     if (!employee_id || Number.isNaN(employee_id)) {
-      return res.status(400).json({ message: 'Invalid employee ID.' });
+      res.status(400).json({ message: 'Invalid employee ID.' });
+      return;
     }
 
     /* ------------------------------------------------- 1. Body sanitise */
