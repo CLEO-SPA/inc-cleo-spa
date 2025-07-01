@@ -18,7 +18,6 @@
       "portMappings": [{ "containerPort": 3000, "hostPort": 3000 }],
       "essential": true,
       "secrets": [
-        { "name": "PROD_DB_URL", "valueFrom": "${secret_arn_prefix}:connection_string::" },
         { "name": "DB_HOST", "valueFrom": "${secret_arn_prefix}:host::" },
         { "name": "DB_USER", "valueFrom": "${secret_arn_prefix}:username::" },
         { "name": "DB_PASSWORD", "valueFrom": "${secret_arn_prefix}:password::" },

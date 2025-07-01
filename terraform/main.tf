@@ -158,7 +158,6 @@ resource "aws_secretsmanager_secret_version" "db_creds_version" {
     password = aws_db_instance.default.password
     dbname   = aws_db_instance.default.db_name
     port     = "5432"
-    connection_string = "postgresql://${aws_db_instance.default.username}:${var.db_password}@${aws_db_instance.default.address}:5432/${aws_db_instance.default.db_name}"
   })
 }
 
