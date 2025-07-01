@@ -251,17 +251,6 @@ const data = {
     //   ],
     // },
     {
-      title: 'Others',
-      url: '#',
-      icon: ChartColumnStacked,
-      items: [
-        {
-          title: 'Data Export',
-          url: '/data-export',
-        },
-      ],
-    },
-    {
       title: 'Timetables',
       url: '#',
       icon: CalendarDays,
@@ -274,6 +263,21 @@ const data = {
           title: 'Manage Timetable',
           url: '/et',
         },
+      ],
+    },
+    {
+      title: 'Others',
+      url: '#',
+      icon: ChartColumnStacked,
+      items: [
+        {
+          title: 'Data Export',
+          url: '/data-export',
+        },
+        {
+          title: 'Translations',
+          url: '/translations',
+        }
       ],
     },
   ],
