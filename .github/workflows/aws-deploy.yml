@@ -1,27 +1,24 @@
-name: Deploy to AWS EC2 via ECR
+name: Deploy Full-Stack App to ECS
 
 on:
   push:
-    branches: [main, feature/aws-hosting, bugfix/master]
+    branches: [main, bugfix/master]
   workflow_dispatch:
 
 env:
   AWS_REGION: ${{ secrets.AWS_REGION }}
-  ECR_REGISTRY: ${{ secrets.AWS_ACCOUNT_ID }}.dkr.ecr.${{ secrets.AWS_REGION }}.amazonaws.com
-  ECR_REPOSITORY_API: cleo-dev
-  PROJECT_NAME: cleo-spa
-
-permissions:
-  contents: read
-  id-token: write
+  ECR_REPOSITORY_BACKEND: fullstack-app-backend
+  ECR_REPOSITORY_FRONTEND: fullstack-app-frontend
+  ECS_CLUSTER_NAME: fullstack-app-cluster
+  ECS_SERVICE_NAME: fullstack-app-service
+  ECS_TASK_DEFINITION: task-definition.json
 
 jobs:
-  build-and-push:
+  deploy:
+    name: Build and Deploy
     runs-on: ubuntu-latest
-    outputs:
-      api-image: ${{ steps.build-api.outputs.image }}
     steps:
-      - name: Checkout code
+      - name: Checkout
         uses: actions/checkout@v4
 
       - name: Configure AWS credentials
@@ -35,253 +32,38 @@ jobs:
         id: login-ecr
         uses: aws-actions/amazon-ecr-login@v2
 
-      - name: Build and push API image
-        id: build-api
+      - name: Build, tag, and push backend image
+        id: build-backend
         env:
+          ECR_REGISTRY: ${{ steps.login-ecr.outputs.registry }}
           IMAGE_TAG: ${{ github.sha }}
         run: |
-          IMAGE_URI="$ECR_REGISTRY/$ECR_REPOSITORY_API:$IMAGE_TAG"
+          docker build -t $ECR_REGISTRY/$ECR_REPOSITORY_BACKEND:$IMAGE_TAG ./server
+          docker push $ECR_REGISTRY/$ECR_REPOSITORY_BACKEND:$IMAGE_TAG
+          echo "backend_image=$ECR_REGISTRY/$ECR_REPOSITORY_BACKEND:$IMAGE_TAG" >> $GITHUB_ENV
 
-          echo "Building image: $IMAGE_URI"
-          docker build -t "$IMAGE_URI" ./server
-          docker push "$IMAGE_URI"
-
-          # Set output for other steps
-          echo "image=$IMAGE_URI" >> $GITHUB_OUTPUT
-
-          # Debug: Verify the output was set
-          echo "Image built and pushed: $IMAGE_URI"
-          echo "GITHUB_OUTPUT contents:"
-          cat $GITHUB_OUTPUT
-
-  deploy:
-    needs: build-and-push
-    runs-on: ubuntu-latest
-    steps:
-      - name: Checkout code
-        uses: actions/checkout@v4
-
-      - name: Debug job outputs
+      - name: Build, tag, and push frontend image
+        id: build-frontend
+        env:
+          ECR_REGISTRY: ${{ steps.login-ecr.outputs.registry }}
+          IMAGE_TAG: ${{ github.sha }}
         run: |
-          echo "All outputs from build-and-push job:"
-          echo "api-image: '${{ needs.build-and-push.outputs.api-image }}'"
+          docker build -t $ECR_REGISTRY/$ECR_REPOSITORY_FRONTEND:$IMAGE_TAG ./client
+          docker push $ECR_REGISTRY/$ECR_REPOSITORY_FRONTEND:$IMAGE_TAG
+          echo "frontend_image=$ECR_REGISTRY/$ECR_REPOSITORY_FRONTEND:$IMAGE_TAG" >> $GITHUB_ENV
 
-          # Alternative way to construct image name if output is missing
-          IMAGE_TAG="${{ github.sha }}"
-          FALLBACK_IMAGE="${{ env.ECR_REGISTRY }}/${{ env.ECR_REPOSITORY_API }}:$IMAGE_TAG"
-          echo "Fallback image would be: $FALLBACK_IMAGE"
-
-      - name: Install rsync
-        run: sudo apt-get update && sudo apt-get install -y rsync
-
-      - name: Setup SSH key
-        run: |
-          mkdir -p ~/.ssh
-          echo "${{ secrets.EC2_SSH_KEY }}" > ~/.ssh/deploy_key
-          chmod 400 ~/.ssh/deploy_key
-          echo "Host ec2
-            HostName ${{ secrets.EC2_HOST }}
-            User ${{ secrets.EC2_USER }}
-            IdentityFile ~/.ssh/deploy_key
-            StrictHostKeyChecking no" > ~/.ssh/config
-
-      - name: Setup Node.js
-        uses: actions/setup-node@v4
+      - name: Render Amazon ECS task definition
+        id: render-task-def
+        uses: aws-actions/amazon-ecs-render-task-definition@v1
         with:
-          node-version: '20'
-          cache: 'npm'
-          cache-dependency-path: './client/package-lock.json'
+          task-definition: ${{ env.ECS_TASK_DEFINITION }}
+          container-name: backend,frontend
+          image: ${{ env.backend_image }},${{ env.frontend_image }}
 
-      - name: Build frontend
-        working-directory: ./client
-        run: |
-          npm ci
-          npm run build
-
-          # Debug: Check if build files exist
-          echo "Frontend build completed. Checking dist folder:"
-          ls -la dist/
-
-          # Ensure index.html exists
-          if [ ! -f "dist/index.html" ]; then
-            echo "ERROR: dist/index.html not found!"
-            exit 1
-          fi
-
-      - name: Create deployment files
-        run: |
-          # Debug: Show the image name we received
-          echo "Received image: '${{ needs.build-and-push.outputs.api-image }}'"
-
-          # Use fallback image construction if output is empty
-          if [ -z "${{ needs.build-and-push.outputs.api-image }}" ]; then
-            echo "Image output is empty, constructing image name manually..."
-            IMAGE_TAG="${{ github.sha }}"
-            IMAGE_NAME="${{ env.ECR_REGISTRY }}/${{ env.ECR_REPOSITORY_API }}:$IMAGE_TAG"
-            echo "Using constructed image: $IMAGE_NAME"
-          else
-            IMAGE_NAME="${{ needs.build-and-push.outputs.api-image }}"
-            echo "Using received image: $IMAGE_NAME"
-          fi
-
-          # Create client .env file
-          # cat > client/.env << 'CLIENT_ENV_EOF'
-          # ${{ secrets.CLIENT_ENV_FILE }}
-          # CLIENT_ENV_EOF
-
-          # Save image name for next step
-          echo "DEPLOY_IMAGE=$IMAGE_NAME" >> $GITHUB_ENV
-
-          # Debug: Show the created files
-          # echo "Created client/.env:"
-          # echo "CLIENT_ENV_FILE exists: $(test -f client/.env && echo 'yes' || echo 'no')"
-          echo "Using image: $IMAGE_NAME"
-
-      - name: Sync project files
-        run: |
-          # First sync everything except dist
-          rsync -avz --delete \
-            --exclude '.git/' \
-            --exclude 'node_modules/' \
-            --exclude '.github/' \
-            --exclude 'client/dist/' \
-            ./ ec2:/home/ubuntu/${{ env.PROJECT_NAME }}/
-            
-          # Then sync the built frontend files specifically
-          rsync -avz \
-            ./client/dist/ ec2:/home/ubuntu/${{ env.PROJECT_NAME }}/client/dist/
-            
-          # Debug: Verify files were transferred
-          ssh ec2 "ls -la /home/ubuntu/${{ env.PROJECT_NAME }}/client/dist/"
-
-      - name: Setup EC2 Dependencies and Deploy
-        uses: appleboy/ssh-action@master
+      - name: Deploy to Amazon ECS
+        uses: aws-actions/amazon-ecs-deploy-task-definition@v1
         with:
-          host: ${{ secrets.EC2_HOST }}
-          username: ${{ secrets.EC2_USER }}
-          key: ${{ secrets.EC2_SSH_KEY }}
-          script: |
-            cd /home/ubuntu/${{ env.PROJECT_NAME }}
-
-            # Create server .env file
-            echo "${{ secrets.SERVER_ENV_FILE }}" > ./server/.env
-
-            # Create client .env file  
-            # echo "${{ secrets.CLIENT_ENV_FILE }}" > ./client/.env
-
-            # Debug: Check env files exist
-            echo "Environment files check:"
-            echo "Server .env exists: $(test -f ./server/.env && echo 'yes' || echo 'no')"
-            # echo "Client .env exists: $(test -f ./client/.env && echo 'yes' || echo 'no')"
-
-            # Install Docker if not already installed
-            if ! command -v docker &> /dev/null; then
-              echo "Installing Docker..."
-              sudo apt update
-              sudo apt install -y apt-transport-https ca-certificates curl software-properties-common
-              
-              # Add Docker's official GPG key and repository
-              curl -fsSL https://download.docker.com/linux/ubuntu/gpg | sudo gpg --dearmor -o /usr/share/keyrings/docker-archive-keyring.gpg
-              echo "deb [arch=$(dpkg --print-architecture) signed-by=/usr/share/keyrings/docker-archive-keyring.gpg] https://download.docker.com/linux/ubuntu $(lsb_release -cs) stable" | sudo tee /etc/apt/sources.list.d/docker.list > /dev/null
-              
-              sudo apt update
-              sudo apt install -y docker-ce docker-ce-cli containerd.io docker-buildx-plugin docker-compose-plugin
-              sudo systemctl start docker
-              sudo systemctl enable docker
-              sudo usermod -aG docker ubuntu
-              
-              echo "Docker installed successfully"
-            fi
-
-            # Install ECR credential helper if not already installed
-            if ! command -v docker-credential-ecr-login &> /dev/null; then
-              echo "Installing ECR credential helper..."
-              sudo apt update
-              sudo apt install -y amazon-ecr-credential-helper
-              
-              # Configure Docker to use ECR credential helper
-              mkdir -p ~/.docker
-              cat > ~/.docker/config.json << 'DOCKER_CONFIG_EOF'
-            {
-                "credHelpers": {
-                    "${{ env.ECR_REGISTRY }}": "ecr-login"
-                }
-            }
-            DOCKER_CONFIG_EOF
-              
-              echo "ECR credential helper configured successfully"
-            fi
-
-            # Ensure we can use docker without sudo (apply group membership)
-            if ! groups | grep -q docker; then
-              echo "Applying docker group membership..."
-              newgrp docker << 'DOCKER_COMMANDS_EOF'
-              # Test docker access
-              docker --version
-              docker compose version
-            DOCKER_COMMANDS_EOF
-            fi
-
-            # Debug: Check what's in the synced files
-            echo "Checking synced frontend files:"
-            ls -la client/
-            echo "Checking dist folder:"
-            ls -la client/dist/ || echo "dist folder is empty or missing"
-
-            # If dist is empty, this is the problem!
-            if [ ! -f "client/dist/index.html" ]; then
-              echo "ERROR: Frontend dist files are missing!"
-              echo "The frontend build may have failed or files weren't synced properly."
-              exit 1
-            fi
-
-            # Get image name from environment (set in previous step)
-            IMAGE_TO_PULL="${{ env.DEPLOY_IMAGE }}"
-
-            # Debug: Show the image name we're trying to pull
-            echo "Image to pull: '$IMAGE_TO_PULL'"
-
-            # Validate image name is not empty
-            if [ -z "$IMAGE_TO_PULL" ]; then
-              echo "Error: Image name is empty! Cannot proceed with deployment."
-              exit 1
-            fi
-
-            # Pull the latest API image (ECR credential helper handles authentication automatically)
-            echo "Pulling Docker image: $IMAGE_TO_PULL"
-
-            # Pull the latest API image
-            docker pull "$IMAGE_TO_PULL"
-
-            # Tag the pulled image to match compose.yml expectations
-            docker tag "$IMAGE_TO_PULL" "${{ env.PROJECT_NAME }}-api:latest"
-
-            # Update services with zero downtime
-            docker compose up -d --build
-
-            # Health check
-            echo "Waiting for services to start..."
-            attempt=1
-            max_attempts=30
-            while [ $attempt -le $max_attempts ]; do
-              if ! docker compose ps | grep -q "starting" && \
-                 ! docker compose ps | grep -q "unhealthy"; then
-                break
-              fi
-              echo "Attempt $attempt: Services still starting or unhealthy..."
-              sleep 10
-              ((attempt++))
-            done
-
-            # Final status check
-            if docker compose ps | grep -q "Exit" || \
-               docker compose ps | grep -q "unhealthy"; then
-              echo "Deployment failed - some containers exited or are unhealthy"
-              docker compose logs
-              exit 1
-            else
-              echo "Deployment successful!"
-              docker compose ps
-              echo "Recent logs:"
-              docker compose logs --tail=50
-            fi
+          task-definition: ${{ steps.render-task-def.outputs.task-definition }}
+          service: ${{ env.ECS_SERVICE_NAME }}
+          cluster: ${{ env.ECS_CLUSTER_NAME }}
+          wait-for-service-stability: true
