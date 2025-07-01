@@ -181,7 +181,7 @@ resource "aws_db_instance" "default" {
 }
 
 resource "aws_secretsmanager_secret" "db_creds" {
-  name = "${var.project_name}/db"
+  name = "${var.project_name}/db1"
 }
 
 resource "aws_secretsmanager_secret_version" "db_creds_version" {
@@ -196,7 +196,7 @@ resource "aws_secretsmanager_secret_version" "db_creds_version" {
 }
 
 resource "aws_secretsmanager_secret" "jwt_secrets" {
-  name = "${var.project_name}/jwt"
+  name = "${var.project_name}/jwt1"
 }
 
 resource "aws_secretsmanager_secret_version" "jwt_secrets_version" {
@@ -208,7 +208,6 @@ resource "aws_secretsmanager_secret_version" "jwt_secrets_version" {
     session_secret      = var.session_secret
     local_frontend_url  = var.local_frontend_url
     local_backend_url   = var.local_backend_url
-    aws_frontend_url    = var.aws_frontend_url
   })
 }
 
