@@ -397,8 +397,8 @@ const MCPDetail = () => {
                                 <div className="p-6">
                                   <div className="grid grid-cols-2 md:grid-cols-5 gap-6 mb-6">
                                     <div className="text-center">
-                                      <div className="text-2xl font-bold text-blue-600">{service.totals.purchased}</div>
-                                      <div className="text-sm text-gray-600">Purchased</div>
+                                      <div className="text-2xl font-bold text-blue-600">{service.totals.total}</div>
+                                      <div className="text-sm text-gray-600">Total</div>
                                     </div>
                                     <div className="text-center">
                                       <div className="text-2xl font-bold text-green-600">{service.totals.consumed}</div>

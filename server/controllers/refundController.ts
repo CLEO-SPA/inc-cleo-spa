@@ -256,6 +256,7 @@ const fetchMCPStatus = async (req: Request, res: Response, next: NextFunction) =
       const price = parseFloat(s.price) || 0;
       const discount = parseFloat(s.discount) || 0;
       const remaining = parseInt(s.remaining) || 0;
+      const total = parseInt(s.total_quantity) || 0;  // Add this line
 
       // Determine initial status
       let refundStatus;
@@ -271,6 +272,7 @@ const fetchMCPStatus = async (req: Request, res: Response, next: NextFunction) =
         service_id: s.service_id,
         service_name: s.service_name,
         totals: {
+          total,  // Add this to the totals object
           price,
           purchased,
           consumed,
