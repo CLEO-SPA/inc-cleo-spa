@@ -576,7 +576,7 @@ const CarePackageCreateForm = () => {
                         <div>
                           <label className='block text-sm font-medium text-gray-600 mb-2'>PRICE OVERRIDE</label>
                           <div className='text-gray-700 px-3 py-2 bg-yellow-50 border border-yellow-200 rounded text-sm'>
-                            Override: ${mainFormData.package_price.toFixed(2)}
+                            Override: ${(parseFloat(mainFormData.package_price) || 0).toFixed(2)}
                           </div>
                         </div>
                       )}
