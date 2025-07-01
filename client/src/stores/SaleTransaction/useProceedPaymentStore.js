@@ -6,6 +6,7 @@ const useProceedPaymentStore = create(
     (set, get) => ({
       // State
       transaction: null,
+      receiptNumber: '',
       loading: false,
       error: null,
       processing: false,
@@ -31,6 +32,21 @@ const useProceedPaymentStore = create(
           transactionHandlerId: transactionHandler // Auto-populate from transaction
         });
       },
+      setReceiptNumber: (receiptNumber) => {
+  console.log('Store: Setting receipt number:', receiptNumber);
+  set({ receiptNumber: receiptNumber });
+},
+
+// Update setTransaction to auto-populate receipt number:
+setTransaction: (transaction) => {
+  console.log('Store: Setting transaction:', transaction);
+  const transactionHandler = transaction?.handler?.code || '';
+  set({ 
+    transaction,
+    transactionHandlerId: transactionHandler,
+    receiptNumber: transaction?.receipt_no || '' // NEW: Auto-populate receipt number
+  });
+},
       
       setLoading: (loading) => set({ loading }),
       
@@ -167,21 +183,22 @@ const useProceedPaymentStore = create(
       },
       
       // Reset store
-      reset: () => {
-        console.log('Store: Resetting payment store');
-        set({
-          transaction: null,
-          loading: false,
-          error: null,
-          processing: false,
-          newPayments: [],
-          selectedPaymentMethod: '',
-          paymentHandlerId: '',
-          transactionHandlerId: '',
-          generalRemark: '',
-          createdAt: new Date().toISOString().slice(0, 16) // Default to current datetime
-        });
-      },
+reset: () => {
+  console.log('Store: Resetting payment store');
+  set({
+    transaction: null,
+    loading: false,
+    error: null,
+    processing: false,
+    newPayments: [],
+    selectedPaymentMethod: '',
+    paymentHandlerId: '',
+    transactionHandlerId: '',
+    generalRemark: '',
+    receiptNumber: '', // NEW: Reset receipt number
+    createdAt: new Date().toISOString().slice(0, 16)
+  });
+},
       
       // Clear payments only
       clearPayments: () => {
