@@ -230,15 +230,25 @@ const fetchMCPStatus = async (req: Request, res: Response, next: NextFunction) =
       return res.status(400).json({ error: 'Invalid ID' });
     }
 
+    // Get basic package status
     const results = await model.fetchMCPStatusById(id);
     if (!results?.length) {
       return res.status(404).json({ error: 'Package not found' });
     }
 
-    const { package_id, package_name, balance } = results[0];  // Destructure balance here
+    const { package_id, package_name, balance } = results[0];
 
-    // First pass: process all services and determine their individual status
-    let services = results.map((s) => {
+    // Check if any service was refunded
+    const hasRefundedService = results.some(s => parseInt(s.refunded) > 0);
+    let refundDetails = null;
+    
+    // Get refund details only if any service was refunded
+    if (hasRefundedService) {
+      refundDetails = await model.getRefundDetailsForPackage(id);
+    }
+
+    // Process all services
+    const services = results.map((s) => {
       const purchased = parseInt(s.purchased) || 0;
       const consumed = parseInt(s.consumed) || 0;
       const refunded = parseInt(s.refunded) || 0;
@@ -247,6 +257,7 @@ const fetchMCPStatus = async (req: Request, res: Response, next: NextFunction) =
       const discount = parseFloat(s.discount) || 0;
       const remaining = parseInt(s.remaining) || 0;
 
+      // Determine initial status
       let refundStatus;
       if (refunded > 0) {
         refundStatus = 'refunded';
@@ -268,28 +279,19 @@ const fetchMCPStatus = async (req: Request, res: Response, next: NextFunction) =
           remaining,
           unpaid
         },
-        is_eligible_for_refund: refundStatus
+        is_eligible_for_refund: hasRefundedService ? 'refunded' : refundStatus,
+        ...(hasRefundedService && refundDetails && {
+          refund_amount: refundDetails.refund_amount,
+          refund_date: refundDetails.refund_date
+        })
       };
     });
-
-    // Second pass: determine if we need to override statuses
-    const hasRefundedService = services.some(s => s.is_eligible_for_refund === 'refunded');
-    const hasIneligibleService = services.some(s => s.is_eligible_for_refund === 'ineligible');
-
-    // Apply override rules
-    if (hasRefundedService || hasIneligibleService) {
-      const overrideStatus = hasRefundedService ? 'refunded' : 'ineligible';
-      services = services.map(s => ({
-        ...s,
-        is_eligible_for_refund: overrideStatus
-      }));
-    }
 
     res.status(200).json({ 
       package_id, 
       package_name,
-      balance,  // Include the balance in the response
-      services 
+      balance,
+      services
     });
   } catch (error) {
     next(error);
