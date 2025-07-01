@@ -319,7 +319,6 @@ resource "aws_instance" "app_instance" {
     services:
       backend:
         image: ${aws_ecr_repository.backend.repository_url}:latest
-        container_name: backend
         restart: always
         ports:
           - '3000:3000'
@@ -337,12 +336,39 @@ resource "aws_instance" "app_instance" {
           LOCAL_FRONTEND_URL: http://localhost
           LOCAL_BACKEND_URL: http://localhost:3000
           AWS_FRONTEND_URL: http://INSTANCE_DNS_PLACEHOLDER
+        deploy:
+          replicas: 2 
+          resources:
+            limits:
+              cpus: '0.35'
+              memory: '350M'
+            reservations:
+              cpus: '0.10'
+              memory: '100M'
+          update_config:
+            parallelism: 1
+            delay: 10s
+            order: start-first
+          restart_policy:
+            condition: on-failure
+            max_attempts: 3
       frontend:
         image: ${aws_ecr_repository.frontend.repository_url}:latest
-        container_name: frontend
-        restart: always
+        depends_on:
+          - backend
+        deploy:
+          resources:
+            limits:
+              cpus: '0.5'
+              memory: '150M'
+            reservations:
+              cpus: '0.05'
+              memory: '50M'
+        environment:
+          VITE_API_URL: http://INSTANCE_DNS_PLACEHOLDER:3000
         ports:
           - '80:80'
+          - '443:443'
     COMPOSE
     
     # Create update script
