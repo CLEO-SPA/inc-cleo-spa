@@ -242,23 +242,19 @@ const fetchMCPStatus = async (req: Request, res: Response, next: NextFunction) =
     const hasRefundedService = results.some(s => parseInt(s.refunded) > 0);
     let refundDetails = null;
     
-    // Get refund details only if any service was refunded
     if (hasRefundedService) {
       refundDetails = await model.getRefundDetailsForPackage(id);
     }
 
-    // Process all services
     const services = results.map((s) => {
       const purchased = parseInt(s.purchased) || 0;
       const consumed = parseInt(s.consumed) || 0;
       const refunded = parseInt(s.refunded) || 0;
       const unpaid = parseInt(s.unpaid) || 0;
-      const price = parseFloat(s.price) || 0;
-      const discount = parseFloat(s.discount) || 0;
+      const price = parseFloat(s.discounted_price) || 0; // Use discounted_price here
       const remaining = parseInt(s.remaining) || 0;
-      const total = parseInt(s.total_quantity) || 0;  // Add this line
+      const total = parseInt(s.total_quantity) || 0;
 
-      // Determine initial status
       let refundStatus;
       if (refunded > 0) {
         refundStatus = 'refunded';
@@ -272,12 +268,11 @@ const fetchMCPStatus = async (req: Request, res: Response, next: NextFunction) =
         service_id: s.service_id,
         service_name: s.service_name,
         totals: {
-          total,  // Add this to the totals object
-          price,
+          total,
+          price, // This now contains the discounted price
           purchased,
           consumed,
           refunded,
-          discount,
           remaining,
           unpaid
         },
