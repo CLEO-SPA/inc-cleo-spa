@@ -82,10 +82,17 @@ resource "aws_route_table_association" "public_2" {
   route_table_id = aws_route_table.public.id
 }
 
-resource "aws_security_group" "ecs_sg" {
-  name        = "${var.project_name}-ecs-sg"
+resource "aws_security_group" "app_sg" {
+  name        = "${var.project_name}-app-sg"
   description = "Allow HTTP inbound traffic"
   vpc_id      = aws_vpc.main.id
+
+  ingress {
+    from_port   = 22
+    to_port     = 22
+    protocol    = "tcp"
+    cidr_blocks = ["0.0.0.0/0"]  # Consider restricting this in production
+  }
 
   ingress {
     from_port   = 80
@@ -111,14 +118,40 @@ resource "aws_security_group" "ecs_sg" {
 
 resource "aws_security_group" "rds_sg" {
   name        = "${var.project_name}-rds-sg"
-  description = "Allow traffic from ECS instances"
+  description = "Allow traffic from app instances"
   vpc_id      = aws_vpc.main.id
 
   ingress {
     from_port       = 5432 # PostgreSQL port
     to_port         = 5432
     protocol        = "tcp"
-    security_groups = [aws_security_group.ecs_sg.id]
+    security_groups = [aws_security_group.app_sg.id]
+  }
+}
+
+resource "aws_security_group" "rds_public_sg" {
+  name        = "${var.project_name}-rds-public-sg"
+  description = "Allow public access to RDS"
+  vpc_id      = aws_vpc.main.id
+  
+  ingress {
+    from_port   = 5432
+    to_port     = 5432
+    protocol    = "tcp"
+    cidr_blocks = ["0.0.0.0/0"]
+    description = "Allow PostgreSQL access from anywhere"
+  }
+  
+  # Allow all outbound traffic
+  egress {
+    from_port   = 0
+    to_port     = 0
+    protocol    = "-1"
+    cidr_blocks = ["0.0.0.0/0"]
+  }
+  
+  tags = {
+    Name = "${var.project_name}-rds-public-sg"
   }
 }
 
@@ -141,6 +174,16 @@ resource "aws_db_subnet_group" "default" {
   }
 }
 
+resource "aws_db_parameter_group" "postgres_params" {
+  name   = "${var.project_name}-postgres-params"
+  family = "postgres14"  # Use the appropriate version for your DB
+
+  parameter {
+    name  = "rds.force_ssl"
+    value = "0"  # Disable force SSL
+  }
+}
+
 resource "aws_db_instance" "default" {
   allocated_storage      = 10
   engine                 = "postgres"
@@ -149,13 +192,17 @@ resource "aws_db_instance" "default" {
   username               = "cleo_owner"
   password               = var.db_password
   db_subnet_group_name   = aws_db_subnet_group.default.name
-  vpc_security_group_ids = [aws_security_group.rds_sg.id]
+  vpc_security_group_ids = [aws_security_group.rds_sg.id, aws_security_group.rds_public_sg.id]
   skip_final_snapshot    = true
-  publicly_accessible    = false
+  publicly_accessible    = true
+  parameter_group_name   = aws_db_parameter_group.postgres_params.name
+  
+  # Ensure the DB accepts connections with SSL but doesn't require it
+  iam_database_authentication_enabled = false
 }
 
 resource "aws_secretsmanager_secret" "db_creds" {
-  name = "${var.project_name}/db-credentials"
+  name = "${var.project_name}/db1"
 }
 
 resource "aws_secretsmanager_secret_version" "db_creds_version" {
@@ -170,7 +217,7 @@ resource "aws_secretsmanager_secret_version" "db_creds_version" {
 }
 
 resource "aws_secretsmanager_secret" "jwt_secrets" {
-  name = "${var.project_name}/jwt-secrets"
+  name = "${var.project_name}/jwt1"
 }
 
 resource "aws_secretsmanager_secret_version" "jwt_secrets_version" {
@@ -182,63 +229,12 @@ resource "aws_secretsmanager_secret_version" "jwt_secrets_version" {
     session_secret      = var.session_secret
     local_frontend_url  = var.local_frontend_url
     local_backend_url   = var.local_backend_url
-    aws_frontend_url    = var.aws_frontend_url
   })
 }
 
-# 4. ECS Cluster
-resource "aws_ecs_cluster" "main" {
-  name = "${var.project_name}-cluster"
-}
-
-# 5. IAM Role for ECS Task Execution
-resource "aws_iam_role" "ecs_task_execution_role" {
-  name = "${var.project_name}-ecs-task-execution-role"
-  assume_role_policy = jsonencode({
-    Version = "2012-10-17"
-    Statement = [
-      {
-        Action = "sts:AssumeRole"
-        Effect = "Allow"
-        Principal = {
-          Service = "ecs-tasks.amazonaws.com"
-        }
-      },
-    ]
-  })
-}
-
-resource "aws_iam_role_policy_attachment" "ecs_task_execution_role_policy" {
-  role       = aws_iam_role.ecs_task_execution_role.name
-  policy_arn = "arn:aws:iam::aws:policy/service-role/AmazonECSTaskExecutionRolePolicy"
-}
-
-resource "aws_iam_policy" "secrets_manager_policy" {
-  name        = "${var.project_name}-secrets-manager-policy"
-  description = "Allows ECS tasks to access secrets"
-  policy = jsonencode({
-    Version = "2012-10-17"
-    Statement = [
-      {
-        Action   = "secretsmanager:GetSecretValue"
-        Effect   = "Allow"
-        Resource = [
-          aws_secretsmanager_secret.db_creds.arn,
-          aws_secretsmanager_secret.jwt_secrets.arn
-        ]
-      },
-    ]
-  })
-}
-
-resource "aws_iam_role_policy_attachment" "secrets_manager_attachment" {
-  role       = aws_iam_role.ecs_task_execution_role.name
-  policy_arn = aws_iam_policy.secrets_manager_policy.arn
-}
-
-# IAM role for EC2 instances
-resource "aws_iam_role" "ecs_instance_role" {
-  name = "${var.project_name}-ecs-instance-role"
+# IAM role for EC2 to access ECR
+resource "aws_iam_role" "ec2_ecr_access_role" {
+  name = "${var.project_name}-ec2-ecr-access-role"
   assume_role_policy = jsonencode({
     Version = "2012-10-17"
     Statement = [
@@ -253,58 +249,39 @@ resource "aws_iam_role" "ecs_instance_role" {
   })
 }
 
-# Attach the EC2ContainerServiceforEC2Role policy
-resource "aws_iam_role_policy_attachment" "ecs_instance_role_attachment" {
-  role       = aws_iam_role.ecs_instance_role.name
-  policy_arn = "arn:aws:iam::aws:policy/service-role/AmazonEC2ContainerServiceforEC2Role"
+resource "aws_iam_role_policy" "ecr_access_policy" {
+  name = "${var.project_name}-ecr-access-policy"
+  role = aws_iam_role.ec2_ecr_access_role.id
+  policy = jsonencode({
+    Version = "2012-10-17"
+    Statement = [
+      {
+        Effect = "Allow"
+        Action = [
+          "ecr:GetDownloadUrlForLayer",
+          "ecr:BatchGetImage",
+          "ecr:BatchCheckLayerAvailability",
+          "ecr:GetAuthorizationToken"
+        ]
+        Resource = "*"
+      },
+      {
+        Effect = "Allow"
+        Action = [
+          "secretsmanager:GetSecretValue"
+        ]
+        Resource = [
+          aws_secretsmanager_secret.db_creds.arn,
+          aws_secretsmanager_secret.jwt_secrets.arn
+        ]
+      }
+    ]
+  })
 }
 
-# Create IAM instance profile
-resource "aws_iam_instance_profile" "ecs_instance_profile" {
-  name = "${var.project_name}-ecs-instance-profile"
-  role = aws_iam_role.ecs_instance_role.name
-}
-
-# Get the latest ECS-optimized AMI
-data "aws_ami" "ecs_optimized" {
-  most_recent = true
-  owners      = ["amazon"]
-
-  filter {
-    name   = "name"
-    values = ["amzn2-ami-ecs-hvm-*-x86_64-ebs"]
-  }
-
-  filter {
-    name   = "virtualization-type"
-    values = ["hvm"]
-  }
-}
-
-# Create launch template for EC2 instances
-resource "aws_launch_template" "ecs_launch_template" {
-  name_prefix            = "${var.project_name}-"
-  image_id               = data.aws_ami.ecs_optimized.id
-  instance_type          = "t3.micro"
-  vpc_security_group_ids = [aws_security_group.ecs_sg.id]
-  
-  iam_instance_profile {
-    name = aws_iam_instance_profile.ecs_instance_profile.name
-  }
-
-  user_data = base64encode(<<-EOF
-    #!/bin/bash
-    echo ECS_CLUSTER=${aws_ecs_cluster.main.name} >> /etc/ecs/ecs.config
-  EOF
-  )
-
-  block_device_mappings {
-    device_name = "/dev/xvda"
-    ebs {
-      volume_size = 30
-      volume_type = "gp2"
-    }
-  }
+resource "aws_iam_instance_profile" "ec2_ecr_access_profile" {
+  name = "${var.project_name}-ec2-ecr-access-profile"
+  role = aws_iam_role.ec2_ecr_access_role.name
 }
 
 # Generate a new key pair for EC2 access
@@ -325,18 +302,125 @@ resource "local_file" "private_key" {
   file_permission = "0600"
 }
 
-# Add a direct EC2 instance instead
-resource "aws_instance" "ecs_instance" {
-  ami                    = data.aws_ami.ecs_optimized.id
+# Get an appropriate AMI for the EC2 instance
+data "aws_ami" "amazon_linux" {
+  most_recent = true
+  owners      = ["amazon"]
+
+  filter {
+    name   = "name"
+    values = ["amzn2-ami-hvm-*-x86_64-gp2"]
+  }
+
+  filter {
+    name   = "virtualization-type"
+    values = ["hvm"]
+  }
+}
+
+# EC2 instance with Docker (first step - no self-reference)
+resource "aws_instance" "app_instance" {
+  ami                    = data.aws_ami.amazon_linux.id
   instance_type          = "t3.micro"
   subnet_id              = aws_subnet.public_1.id
-  vpc_security_group_ids = [aws_security_group.ecs_sg.id]
-  iam_instance_profile   = aws_iam_instance_profile.ecs_instance_profile.name
+  vpc_security_group_ids = [aws_security_group.app_sg.id]
+  iam_instance_profile   = aws_iam_instance_profile.ec2_ecr_access_profile.name
   key_name               = aws_key_pair.generated_key.key_name
   
   user_data = <<-EOF
     #!/bin/bash
-    echo ECS_CLUSTER=${aws_ecs_cluster.main.name} >> /etc/ecs/ecs.config
+    
+    # Update packages
+    yum update -y
+    
+    # Install Docker
+    amazon-linux-extras install docker -y
+    systemctl enable docker
+    systemctl start docker
+    usermod -a -G docker ec2-user
+    
+    # Install AWS CLI
+    curl "https://awscli.amazonaws.com/awscli-exe-linux-x86_64.zip" -o "awscliv2.zip"
+    unzip awscliv2.zip
+    ./aws/install
+    
+    # Install Docker Compose
+    curl -L "https://github.com/docker/compose/releases/download/v2.20.0/docker-compose-$(uname -s)-$(uname -m)" -o /usr/local/bin/docker-compose
+    chmod +x /usr/local/bin/docker-compose
+    ln -s /usr/local/bin/docker-compose /usr/bin/docker-compose
+    
+    # Create app directory
+    mkdir -p /home/ec2-user/app
+    
+    # Create docker-compose.yml file (with placeholder)
+    cat > /home/ec2-user/app/docker-compose.yml << 'COMPOSE'
+    version: '3.8'
+    services:
+      backend:
+        image: ${aws_ecr_repository.backend.repository_url}:latest
+        restart: always
+        ports: 
+          - '3000:3000'
+        environment:
+          DB_HOST: ${aws_db_instance.default.address}
+          DB_USER: ${aws_db_instance.default.username}
+          DB_PASSWORD: ${var.db_password}
+          DB_NAME: ${aws_db_instance.default.db_name}
+          PORT: 3000
+          NODE_ENV: production
+          AUTH_JWT_SECRET: ${var.auth_jwt_secret}
+          INV_JWT_SECRET: ${var.inv_jwt_secret}
+          REMEMBER_TOKEN: ${var.remember_token}
+          SESSION_SECRET: ${var.session_secret}
+          LOCAL_FRONTEND_URL: http://localhost
+          LOCAL_BACKEND_URL: http://localhost:3000
+          AWS_FRONTEND_URL: http://INSTANCE_DNS_PLACEHOLDER
+      frontend:
+        image: ${aws_ecr_repository.frontend.repository_url}:latest
+        depends_on:
+          - backend
+        environment:
+          VITE_API_URL: http://INSTANCE_DNS_PLACEHOLDER:3000
+        ports:
+          - '80:80'
+          - '443:443'
+    COMPOSE
+
+    # Create update script
+    cat > /home/ec2-user/app/update.sh << 'SCRIPT'
+    #!/bin/bash
+    cd /home/ec2-user/app
+    
+    aws ecr get-login-password --region ${var.aws_region} | docker login --username AWS --password-stdin ${aws_ecr_repository.backend.repository_url}
+    docker pull ${aws_ecr_repository.backend.repository_url}:latest
+    docker pull ${aws_ecr_repository.frontend.repository_url}:latest
+
+    docker-compose down
+    docker-compose up -d --build
+    SCRIPT
+    
+    # Make script executable
+    chmod +x /home/ec2-user/app/update.sh
+    
+    # Set permissions
+    chown -R ec2-user:ec2-user /home/ec2-user/app
+    
+    # Create placeholder for DNS update script
+    cat > /home/ec2-user/app/update_dns.sh << 'SCRIPT'
+    #!/bin/bash
+    PUBLIC_DNS=$(curl -s http://169.254.169.254/latest/meta-data/public-hostname)
+    sed -i "s|INSTANCE_DNS_PLACEHOLDER|$PUBLIC_DNS|g" /home/ec2-user/app/docker-compose.yml
+    SCRIPT
+    
+    # Make DNS update script executable
+    chmod +x /home/ec2-user/app/update_dns.sh
+    
+    # Create crontab entry to check for updates every 10 minutes
+    echo "*/10 * * * * ec2-user /home/ec2-user/app/update.sh >> /home/ec2-user/app/update.log 2>&1" > /etc/cron.d/app-updates
+    chmod 0644 /etc/cron.d/app-updates
+    
+    # Update DNS and run initial deployment
+    runuser -l ec2-user -c '/home/ec2-user/app/update_dns.sh && /home/ec2-user/app/update.sh'
   EOF
 
   root_block_device {
@@ -345,49 +429,9 @@ resource "aws_instance" "ecs_instance" {
   }
 
   tags = {
-    Name = "${var.project_name}-ecs-instance"
+    Name = "${var.project_name}-app-instance"
   }
-}
 
-# 6. ECS Task Definition and Service
-data "template_file" "task_definition" {
-  template = file("../task-definition.json")
-
-  vars = {
-    backend_image_uri     = var.backend_image_uri
-    frontend_image_uri    = var.frontend_image_uri
-    secret_arn_prefix     = aws_secretsmanager_secret.db_creds.arn
-    jwt_secret_arn_prefix = aws_secretsmanager_secret.jwt_secrets.arn
-    AWS_ACCOUNT_ID        = var.aws_account_id
-    AWS_REGION            = var.aws_region
-    SECRET_NAME           = var.secret_name
-    JWT_SECRET_NAME       = var.jwt_secret_name
-  }
-}
-
-locals {
-  task_def_json = jsondecode(data.template_file.task_definition.rendered)
-}
-
-resource "aws_ecs_task_definition" "app" {
-  family                   = "${var.project_name}-task"
-  network_mode             = "bridge"
-  requires_compatibilities = ["EC2"]
-  cpu                      = "256"
-  memory                   = "512"
-  execution_role_arn       = aws_iam_role.ecs_task_execution_role.arn
-  container_definitions    = jsonencode(local.task_def_json.containerDefinitions)
-}
-
-resource "aws_ecs_service" "main" {
-  name            = "${var.project_name}-service"
-  cluster         = aws_ecs_cluster.main.id
-  task_definition = aws_ecs_task_definition.app.arn
-  desired_count   = 1
-  launch_type     = "EC2"
-
-  deployment_maximum_percent         = 100
-  deployment_minimum_healthy_percent = 0
-
+  # Wait for the instance to be created before outputting the DNS name
   depends_on = [aws_internet_gateway.gw]
 }

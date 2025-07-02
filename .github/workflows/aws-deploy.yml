@@ -1,20 +1,15 @@
-name: Deploy Full-Stack App to ECS
+name: Deploy Full-Stack App to EC2
 
 on:
   push:
-    branches: [main, bugfix/master]
+    branches: ['master']
   workflow_dispatch:
 
 env:
   AWS_REGION: ${{ secrets.AWS_REGION }}
-  AWS_ACCOUNT_ID: ${{ secrets.AWS_ACCOUNT_ID }}
-  SECRET_NAME: cleo-spa-app/db-credentials
-  JWT_SECRET_NAME: cleo-spa-app/jwt-secrets
+  EC2_HOST: ${{ secrets.EC2_HOST }}
   ECR_REPOSITORY_BACKEND: cleo-spa-app-backend
   ECR_REPOSITORY_FRONTEND: cleo-spa-app-frontend
-  ECS_TASK_DEFINITION: task-definition.json
-  ECS_SERVICE_NAME: cleo-spa-app-service
-  ECS_CLUSTER_NAME: cleo-spa-app-cluster
 
 jobs:
   deploy:
@@ -30,71 +25,41 @@ jobs:
           aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID }}
           aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
           aws-region: ${{ env.AWS_REGION }}
-      
-      # Add step to get AWS account ID if not provided in secrets
-      - name: Get AWS account ID
-        if: env.AWS_ACCOUNT_ID == ''
-        run: echo "AWS_ACCOUNT_ID=$(aws sts get-caller-identity --query Account --output text)" >> $GITHUB_ENV
 
       - name: Login to Amazon ECR
         id: login-ecr
         uses: aws-actions/amazon-ecr-login@v2
 
       - name: Build, tag, and push backend image
-        id: build-backend
         env:
           ECR_REGISTRY: ${{ steps.login-ecr.outputs.registry }}
           IMAGE_TAG: ${{ github.sha }}
         run: |
-          docker build -t $ECR_REGISTRY/$ECR_REPOSITORY_BACKEND:$IMAGE_TAG ./server
+          docker build -t $ECR_REGISTRY/$ECR_REPOSITORY_BACKEND:$IMAGE_TAG -t $ECR_REGISTRY/$ECR_REPOSITORY_BACKEND:latest ./server
           docker push $ECR_REGISTRY/$ECR_REPOSITORY_BACKEND:$IMAGE_TAG
-          echo "backend_image=$ECR_REGISTRY/$ECR_REPOSITORY_BACKEND:$IMAGE_TAG" >> $GITHUB_OUTPUT
+          docker push $ECR_REGISTRY/$ECR_REPOSITORY_BACKEND:latest
 
       - name: Build, tag, and push frontend image
-        id: build-frontend
         env:
           ECR_REGISTRY: ${{ steps.login-ecr.outputs.registry }}
           IMAGE_TAG: ${{ github.sha }}
+          PUBLIC_API_URL: http://${{ env.EC2_HOST }}:3000
         run: |
-          docker build -t $ECR_REGISTRY/$ECR_REPOSITORY_FRONTEND:$IMAGE_TAG ./client
+          docker build -t $ECR_REGISTRY/$ECR_REPOSITORY_FRONTEND:$IMAGE_TAG \
+            --build-arg VITE_API_URL=$PUBLIC_API_URL \
+            -t $ECR_REGISTRY/$ECR_REPOSITORY_FRONTEND:latest ./client
           docker push $ECR_REGISTRY/$ECR_REPOSITORY_FRONTEND:$IMAGE_TAG
-          echo "frontend_image=$ECR_REGISTRY/$ECR_REPOSITORY_FRONTEND:$IMAGE_TAG" >> $GITHUB_OUTPUT
+          docker push $ECR_REGISTRY/$ECR_REPOSITORY_FRONTEND:latest
 
-      # Prepare the task definition by replacing variables
-      - name: Process task definition
+      - name: Set up SSH
         run: |
-          sed -i -e "s|\${AWS_REGION}|$AWS_REGION|g" \
-                 -e "s|\${AWS_ACCOUNT_ID}|$AWS_ACCOUNT_ID|g" \
-                 -e "s|\${SECRET_NAME}|$SECRET_NAME|g" \
-                 -e "s|\${JWT_SECRET_NAME}|$JWT_SECRET_NAME|g" \
-                 ${{ env.ECS_TASK_DEFINITION }}
-          cat ${{ env.ECS_TASK_DEFINITION }}
+          mkdir -p ~/.ssh
+          echo "${{ secrets.EC2_SSH_KEY }}" > ~/.ssh/id_rsa
+          chmod 600 ~/.ssh/id_rsa
+          ssh-keyscan -H ${{ env.EC2_HOST }} >> ~/.ssh/known_hosts
+          # Add debug output (will only show connection attempt, not the key)
+          ssh -v -o StrictHostKeyChecking=no ec2-user@${{ env.EC2_HOST }} 'echo SSH connection successful'
 
-      - name: Debug task definition file
+      - name: Deploy to EC2
         run: |
-          echo "Task definition content after processing:"
-          cat ${{ env.ECS_TASK_DEFINITION }}
-
-      - name: Render backend container in task definition
-        id: render-backend
-        uses: aws-actions/amazon-ecs-render-task-definition@v1
-        with:
-          task-definition: ${{ env.ECS_TASK_DEFINITION }}
-          container-name: backend
-          image: ${{ steps.build-backend.outputs.backend_image }}
-
-      - name: Render frontend container in task definition
-        id: render-frontend
-        uses: aws-actions/amazon-ecs-render-task-definition@v1
-        with:
-          task-definition: ${{ steps.render-backend.outputs.task-definition }}
-          container-name: frontend
-          image: ${{ steps.build-frontend.outputs.frontend_image }}
-
-      - name: Deploy to Amazon ECS
-        uses: aws-actions/amazon-ecs-deploy-task-definition@v1
-        with:
-          task-definition: ${{ steps.render-frontend.outputs.task-definition }}
-          service: ${{ env.ECS_SERVICE_NAME }}
-          cluster: ${{ env.ECS_CLUSTER_NAME }}
-          wait-for-service-stability: true
+          ssh -o StrictHostKeyChecking=no ec2-user@${{ env.EC2_HOST }} '/home/ec2-user/app/update.sh'

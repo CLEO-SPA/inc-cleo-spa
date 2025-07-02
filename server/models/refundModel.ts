@@ -441,15 +441,16 @@ const processRefundService = async (body: {
     // 4. Insert refund payment
     await client.query(
       `INSERT INTO payment_to_sale_transactions (
-                payment_method_id, sale_transaction_id, amount,
-                remarks, created_by, created_at, updated_by, updated_at
-            ) VALUES ($1, $2, $3, $4, $5, now(), $5, now())`,
+      payment_method_id, sale_transaction_id, amount,
+      remarks, created_by, created_at, updated_by, updated_at
+      ) VALUES ($1, $2, $3, $4, $5, $6, $5, $6)`,
       [
-        8, // Payment Method ID 8 = Refund
+        8, // Refund
         refundTxId,
         -1 * totalRefundAmount,
         'Refund',
         body.refundedBy,
+        refundDate,
       ]
     );
 
@@ -675,19 +676,18 @@ const processFullRefundTransaction = async (params: {
   }
 };
 
-// Update the model's fetchMCPStatusById to include price and discount
 const fetchMCPStatusById = async (packageId: number) => {
   const query = `
     WITH purchase_totals AS (
       SELECT 
         mcpd.id AS detail_id,
-        COALESCE(SUM(mcpctl.transaction_amount), 0) / NULLIF(mcpd.price, 0) AS purchased_quantity
+        COALESCE(SUM(mcpctl.transaction_amount), 0) / NULLIF(mcpd.price * mcpd.discount, 0) AS purchased_quantity
       FROM member_care_package_details mcpd
       LEFT JOIN member_care_package_transaction_logs mcpctl 
         ON mcpd.id = mcpctl.member_care_package_details_id
         AND mcpctl.type = 'PURCHASE'
       WHERE mcpd.member_care_package_id = $1
-      GROUP BY mcpd.id, mcpd.price
+      GROUP BY mcpd.id, mcpd.price, mcpd.discount
     ),
     consumption_totals AS (
       SELECT 
@@ -703,13 +703,13 @@ const fetchMCPStatusById = async (packageId: number) => {
     refund_totals AS (
       SELECT 
         mcpd.id AS detail_id,
-        COALESCE(SUM(mcpctl.amount_changed), 0) / NULLIF(mcpd.price, 0) AS refunded_quantity
+        COALESCE(SUM(mcpctl.amount_changed), 0) / NULLIF(mcpd.price * mcpd.discount, 0) AS refunded_quantity
       FROM member_care_package_details mcpd
       LEFT JOIN member_care_package_transaction_logs mcpctl 
         ON mcpd.id = mcpctl.member_care_package_details_id
         AND mcpctl.type = 'REFUND'
       WHERE mcpd.member_care_package_id = $1
-      GROUP BY mcpd.id, mcpd.price
+      GROUP BY mcpd.id, mcpd.price, mcpd.discount
     )
     SELECT 
       mcp.id AS package_id,
@@ -720,6 +720,7 @@ const fetchMCPStatusById = async (packageId: number) => {
       mcpd.service_name,
       mcpd.price,
       mcpd.discount,
+      mcpd.price * mcpd.discount AS discounted_price,
       mcpd.quantity AS total_quantity,
       mcpd.quantity AS original_quantity,  
       FLOOR(COALESCE(pt.purchased_quantity, 0)) AS purchased,
@@ -931,6 +932,8 @@ const processRefundMemberVoucher = async (body: {
     const voucher = voucherRows[0];
     if (voucher.status === 'disabled') throw new Error('Voucher already disabled');
 
+    // fetch current balance from sale_transactions (total paid amount)
+
     // 2. Get latest transaction log for current balance
     const { rows: logRows } = await client.query(
       `SELECT current_balance FROM member_voucher_transaction_logs
@@ -1030,7 +1033,7 @@ const processRefundMemberVoucher = async (body: {
         receipt_no, reference_sales_transaction_id,
         handled_by, created_by, created_at, updated_at
       )
-      VALUES ('member', $1, $2, 0, 'REFUND', $3, $4, $5, $6, $7, $8, $8)
+      VALUES ('MEMBER', $1, $2, 0, 'REFUND', $3, $4, $5, $6, $7, $8, $8)
       RETURNING id`,
       [
         voucher.member_id,
@@ -1111,40 +1114,31 @@ const getEligibleMemberVoucherForRefund = async (memberId: number) => {
 
     const eligibleVouchers = await Promise.all(
       vouchers.map(async (voucher) => {
-        // Step 2: Get sale transaction info (latest)
-        const balanceQuery = `
-                    SELECT st.outstanding_total_payment_amount
-                    FROM sale_transactions st
-                    JOIN sale_transaction_items sti ON st.id = sti.sale_transaction_id
-                    WHERE sti.member_voucher_id = $1
-                    ORDER BY sti.sale_transaction_id DESC
-                    LIMIT 1;
-                `;
+        // Get total_paid_amount from latest transaction involving this voucher
+        const paidQuery = `
+          SELECT st.total_paid_amount
+          FROM sale_transactions st
+          JOIN sale_transaction_items sti ON st.id = sti.sale_transaction_id
+          WHERE sti.member_voucher_id = $1
+          ORDER BY sti.sale_transaction_id DESC
+          LIMIT 1;
+        `;
 
-        const { rows: balanceRows } = await client.query(balanceQuery, [voucher.id]);
+        const { rows: paidRows } = await client.query(paidQuery, [voucher.id]);
 
-        if (balanceRows.length === 0) {
-          return null; // No transaction info, skip
-        }
+        if (paidRows.length === 0) return null; // No payment info
 
-        const outstanding = parseFloat(balanceRows[0].outstanding_total_payment_amount || '0');
-        const isFullyPaid = outstanding === 0;
+        const totalPaid = parseFloat(paidRows[0].total_paid_amount || '0');
 
-        // Step 3: Calculate paid amount
-        const paidAmount = isFullyPaid
-          ? parseFloat(voucher.default_total_price)
-          : parseFloat(voucher.default_total_price) - outstanding;
-
-        // Step 4: Get consumption logs
+        // Get consumption logs
         const logsQuery = `
-                    SELECT type, amount_change
-                    FROM member_voucher_transaction_logs
-                    WHERE member_voucher_id = $1
-                `;
+          SELECT type, amount_change
+          FROM member_voucher_transaction_logs
+          WHERE member_voucher_id = $1
+        `;
         const { rows: logs } = await client.query(logsQuery, [voucher.id]);
 
         let totalConsumed = 0;
-
         for (const log of logs) {
           const amount = parseFloat(log.amount_change);
           if (log.type === 'CONSUMPTION') {
@@ -1152,23 +1146,19 @@ const getEligibleMemberVoucherForRefund = async (memberId: number) => {
           }
         }
 
-        // Step 5: Check eligibility
-        if (totalConsumed >= paidAmount) {
-          return null; // They have consumed more than or equal to what they paid
-        }
-
+        // Skip if consumed >= paid
+        if (totalConsumed >= totalPaid) return null;
 
         return {
           ...voucher,
-          refundable_amount: Math.min(paidAmount - totalConsumed, parseFloat(voucher.current_balance)),
-          //can_remove_foc: isFullyPaid
+          refundable_amount: Math.min(totalPaid - totalConsumed, parseFloat(voucher.current_balance)),
         };
       })
     );
 
     return {
       member,
-      vouchers: eligibleVouchers.filter(Boolean)  // Remove nulls
+      vouchers: eligibleVouchers.filter(Boolean) // Remove nulls
     };
   } finally {
     client.release();
@@ -1196,8 +1186,8 @@ const getMemberVoucherById = async (voucherId: number) => {
     const member = memberRows[0] || null;
 
     // Step 1: Get latest sale transaction outstanding amount for this voucher
-    const balanceQuery = `
-      SELECT st.outstanding_total_payment_amount
+    const paidQuery = `
+      SELECT st.total_paid_amount
       FROM sale_transactions st
       JOIN sale_transaction_items sti ON st.id = sti.sale_transaction_id
       WHERE sti.member_voucher_id = $1
@@ -1205,25 +1195,21 @@ const getMemberVoucherById = async (voucherId: number) => {
       LIMIT 1;
     `;
 
-    const { rows: balanceRows } = await client.query(balanceQuery, [voucher.id]);
+    const { rows: paidRows } = await client.query(paidQuery, [voucher.id]);
 
-    if (balanceRows.length === 0) {
-      // No transaction info, so refundable_amount is 0 or voucher current balance
+    if (paidRows.length === 0) {
       return {
-        ...voucher,
-        refundable_amount: 0,
+        voucher: {
+          ...voucher,
+          refundable_amount: 0,
+        },
+        member,
       };
     }
 
-    const outstanding = parseFloat(balanceRows[0].outstanding_total_payment_amount || '0');
-    const isFullyPaid = outstanding === 0;
+    const paidAmount = parseFloat(paidRows[0].total_paid_amount || '0');
 
-    // Step 2: Calculate paid amount
-    const paidAmount = isFullyPaid
-      ? parseFloat(voucher.default_total_price)
-      : parseFloat(voucher.starting_balance) - outstanding;
-
-    // Step 3: Get consumption logs
+    // Step 2: Get consumption logs
     const logsQuery = `
       SELECT type, amount_change
       FROM member_voucher_transaction_logs
@@ -1232,7 +1218,6 @@ const getMemberVoucherById = async (voucherId: number) => {
     const { rows: logs } = await client.query(logsQuery, [voucher.id]);
 
     let totalConsumed = 0;
-
     for (const log of logs) {
       const amount = parseFloat(log.amount_change);
       if (log.type === 'CONSUMPTION') {
@@ -1240,7 +1225,7 @@ const getMemberVoucherById = async (voucherId: number) => {
       }
     }
 
-    // Step 4: Calculate refundable_amount
+    // Step 3: Calculate refundable_amount
     const refundable_amount = Math.min(
       paidAmount - totalConsumed,
       parseFloat(voucher.current_balance)
@@ -1418,6 +1403,7 @@ const getRefundRecordDetails = async (refundId: number) => {
         sti.product_name,
         sti.member_care_package_id,
         sti.member_voucher_id,
+        mv.member_voucher_name,
         sti.original_unit_price,
         sti.custom_unit_price,
         sti.discount_percentage,
@@ -1426,6 +1412,7 @@ const getRefundRecordDetails = async (refundId: number) => {
         sti.amount,
         sti.item_type
       FROM sale_transaction_items sti
+      LEFT JOIN member_vouchers mv ON mv.id = sti.member_voucher_id
       WHERE sti.sale_transaction_id = $1
     `;
     const { rows: items } = await client.query(itemsQuery, [refundId]);
@@ -1433,6 +1420,7 @@ const getRefundRecordDetails = async (refundId: number) => {
     // If any of the items are member vouchers, fetch voucher logs
     const hasVoucher = items.some(item => item.member_voucher_id);
     let voucherLogs = [];
+
     if (hasVoucher) {
       const voucherIds = items
         .map(i => i.member_voucher_id)
@@ -1457,6 +1445,32 @@ const getRefundRecordDetails = async (refundId: number) => {
 
       const { rows: logs } = await client.query(voucherLogQuery, [voucherIds]);
       voucherLogs = logs;
+
+      // 🔍 Fetch total paid amount across all related transactions
+      const voucherPaymentQuery = `
+      SELECT 
+        sti.member_voucher_id,
+        SUM(st.total_paid_amount) AS total_paid_amount
+      FROM sale_transaction_items sti
+      JOIN sale_transactions st ON st.id = sti.sale_transaction_id
+      WHERE sti.member_voucher_id = ANY($1::int[])
+        AND st.sale_transaction_status IN ('FULL', 'PARTIAL') -- include all valid payment statuses
+      GROUP BY sti.member_voucher_id
+      `;
+
+      const { rows: voucherPayments } = await client.query(voucherPaymentQuery, [voucherIds]);
+
+      // Map: { voucher_id: total_paid_amount }
+      const paidAmountMap = Object.fromEntries(
+        voucherPayments.map(row => [row.member_voucher_id, parseFloat(row.total_paid_amount)])
+      );
+
+      // Attach to items
+      for (const item of items) {
+        if (item.member_voucher_id) {
+          item.total_paid_amount = paidAmountMap[item.member_voucher_id] || 0;
+        }
+      }
     }
 
     // get MCP details & logs if any mcp refund exists
@@ -1465,45 +1479,49 @@ const getRefundRecordDetails = async (refundId: number) => {
     let memberCarePackageLogs = [];
 
     if (hasCarePackage) {
-      const mcpDetailIds = items.map(i => i.member_care_package_id).filter(Boolean);
+      const memberCarePackageIds = items.map(i => i.member_care_package_id).filter(Boolean);
 
-      // a. MCP Details with Package Name
+      // a. Fetch ALL MCP Details for the given MCPs
       const mcpDetailsQuery = `
-        SELECT 
-          d.id AS detail_id,
-          d.member_care_package_id,
-          mcp.package_name,
-          d.service_id,
-          d.service_name,
-          d.price,
-          d.status,
-          d.discount,
-          d.quantity
-        FROM member_care_package_details d
-        JOIN member_care_packages mcp ON mcp.id = d.member_care_package_id
-        WHERE d.id = ANY($1::int[])
+      SELECT 
+        d.id AS detail_id,
+        d.member_care_package_id,
+        mcp.package_name,
+        d.service_id,
+        d.service_name,
+        d.price,
+        d.status,
+        d.discount,
+        d.quantity
+      FROM member_care_package_details d
+      JOIN member_care_packages mcp ON mcp.id = d.member_care_package_id
+      WHERE d.member_care_package_id = ANY($1::int[])
       `;
-      const { rows: details } = await client.query(mcpDetailsQuery, [mcpDetailIds]);
+      
+      const { rows: details } = await client.query(mcpDetailsQuery, [memberCarePackageIds]);
       memberCarePackageDetails = details;
 
-      // b. MCP Logs
+      // b. Now extract all detail_ids for fetching logs
+      const detailIds = details.map(d => d.detail_id);
+
       const mcpLogsQuery = `
-        SELECT
-          l.id,
-          l.type,
-          l.description,
-          l.transaction_date,
-          l.transaction_amount,
-          l.amount_changed,
-          l.member_care_package_details_id,
-          l.employee_id,
-          l.service_id,
-          l.created_at
-        FROM member_care_package_transaction_logs l
-        WHERE l.member_care_package_details_id = ANY($1::int[])
-        ORDER BY transaction_date ASC
+      SELECT
+        l.id,
+        l.type,
+        l.description,
+        l.transaction_date,
+        l.transaction_amount,
+        l.amount_changed,
+        l.member_care_package_details_id,
+        l.employee_id,
+        l.service_id,
+        l.created_at
+      FROM member_care_package_transaction_logs l
+      WHERE l.member_care_package_details_id = ANY($1::int[])
+      ORDER BY transaction_date ASC
       `;
-      const { rows: logs } = await client.query(mcpLogsQuery, [mcpDetailIds]);
+      
+      const { rows: logs } = await client.query(mcpLogsQuery, [detailIds]);
       memberCarePackageLogs = logs;
     }
 

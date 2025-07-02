@@ -606,7 +606,7 @@ const ServiceRow = ({ service, index, canModify, onUpdate, onRemove }) => {
         </div>
 
         <div className='space-y-1'>
-          <Label className='text-sm font-medium text-gray-700'>Final Price</Label>
+          <Label className='text-sm font-medium text-gray-700'>Price</Label>
           <div className='text-sm font-medium'>${(service.price || 0).toFixed(2)}</div>
         </div>
 

@@ -64,10 +64,6 @@
         {
           "name": "LOCAL_BACKEND_URL",
           "valueFrom": "arn:aws:secretsmanager:${AWS_REGION}:${AWS_ACCOUNT_ID}:secret:${JWT_SECRET_NAME}:local_backend_url::"
-        },
-        {
-          "name": "AWS_FRONTEND_URL",
-          "valueFrom": "arn:aws:secretsmanager:${AWS_REGION}:${AWS_ACCOUNT_ID}:secret:${JWT_SECRET_NAME}:aws_frontend_url::"
         }
       ],
       "environment": [
