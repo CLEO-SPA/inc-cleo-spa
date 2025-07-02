@@ -124,10 +124,6 @@ function App() {
                 <Route path='/appointments/edit/:id' element={<EditAppointmentPage />} />
                 <Route path='/appointments/:id' element={<ViewAppointmentDetailsPage />} />
 
-                {/* Refund */}
-                <Route path='/refunds' element={<RefundPage />} />
-                <Route path='/refunds/member/:memberId' element={<MemberPackagesList />} />
-                <Route path='/refunds/mcp/:packageId' element={<MCPDetail />} />
                 {/* Member Management */}
                 <Route path='/member' element={<ManageMembersPage />} />
                 <Route path='/member/create' element={<CreateMemberPage />} />
