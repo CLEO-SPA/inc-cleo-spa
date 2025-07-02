@@ -174,6 +174,16 @@ resource "aws_db_subnet_group" "default" {
   }
 }
 
+resource "aws_db_parameter_group" "postgres_params" {
+  name   = "${var.project_name}-postgres-params"
+  family = "postgres14"  # Use the appropriate version for your DB
+
+  parameter {
+    name  = "rds.force_ssl"
+    value = "0"  # Disable force SSL
+  }
+}
+
 resource "aws_db_instance" "default" {
   allocated_storage      = 10
   engine                 = "postgres"
@@ -185,6 +195,10 @@ resource "aws_db_instance" "default" {
   vpc_security_group_ids = [aws_security_group.rds_sg.id, aws_security_group.rds_public_sg.id]
   skip_final_snapshot    = true
   publicly_accessible    = true
+  parameter_group_name   = aws_db_parameter_group.postgres_params.name
+  
+  # Ensure the DB accepts connections with SSL but doesn't require it
+  iam_database_authentication_enabled = false
 }
 
 resource "aws_secretsmanager_secret" "db_creds" {
