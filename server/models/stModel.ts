@@ -23,12 +23,12 @@ import {
   PartialPaymentResult,
   MemberVoucherTransactionLog,
   MemberCarePackageTransactionLog,
-  
-  VoucherGroup,                 
-  CarePackageGroup,            
-  SalesTransactionResponse,   
-  MemberVoucher,            
-  APIResponse                  
+
+  VoucherGroup,
+  CarePackageGroup,
+  SalesTransactionResponse,
+  MemberVoucher,
+  APIResponse
 } from '../types/SaleTransactionTypes.js';
 import mcpModel from './mcpModel.js';
 
@@ -239,11 +239,11 @@ const getSalesTransactionList = async (
         process_payment: transaction.process_payment,
         member: transaction.member_table_id
           ? {
-              id: transaction.member_table_id.toString(),
-              name: transaction.member_name,
-              email: transaction.member_email,
-              contact: transaction.member_contact,
-            }
+            id: transaction.member_table_id.toString(),
+            name: transaction.member_name,
+            email: transaction.member_email,
+            contact: transaction.member_contact,
+          }
           : null,
         payments,
       };
@@ -387,27 +387,27 @@ const getSalesTransactionById = async (id: string): Promise<SalesTransactionDeta
       // Member information
       member: transaction.member_table_id
         ? {
-            id: transaction.member_table_id.toString(),
-            name: transaction.member_name,
-            email: transaction.member_email,
-            contact: transaction.member_contact,
-          }
+          id: transaction.member_table_id.toString(),
+          name: transaction.member_name,
+          email: transaction.member_email,
+          contact: transaction.member_contact,
+        }
         : null,
 
       // Handler information
       handler: transaction.handled_by
         ? {
-            code: transaction.handler_code,
-            name: transaction.handler_name,
-          }
+          code: transaction.handler_code,
+          name: transaction.handler_name,
+        }
         : null,
 
       // Creator information
       creator: transaction.created_by
         ? {
-            code: transaction.creator_code,
-            name: transaction.creator_name,
-          }
+          code: transaction.creator_code,
+          name: transaction.creator_name,
+        }
         : null,
 
       // Payment information
@@ -819,8 +819,8 @@ const createServicesProductsTransaction = async (
           payment.amount,
           payment.remark || '',
           handled_by,
-          customCreatedAt, 
-          customUpdatedAt 
+          customCreatedAt,
+          customUpdatedAt
         ];
 
         const paymentResult = await client.query(paymentQuery, paymentParams);
@@ -860,7 +860,7 @@ const createMcpTransaction = async (
   transactionData: SingleItemTransactionRequestData
 ): Promise<SingleItemTransactionCreationResult> => {
   const client = await pool().connect();
-    let mcpId: string | number | null | undefined = null;
+  let mcpId: string | number | null | undefined = null;
   try {
     await client.query('BEGIN');
 
@@ -926,8 +926,8 @@ const createMcpTransaction = async (
     }
 
 
-   mcpId = item.data?.member_care_package_id || item.data?.id;
-    
+    mcpId = item.data?.member_care_package_id || item.data?.id;
+
     if (!mcpId) {
       throw new Error('member_care_package_id is required in item data');
     }
@@ -1049,7 +1049,7 @@ const createMcpTransaction = async (
       item.pricing?.discount || 0,
       item.pricing?.quantity || 1,
       item.pricing?.totalLinePrice || 0,
-      'member care package', 
+      'member care package',
       item.remarks || ''
     ];
 
@@ -1101,8 +1101,8 @@ const createMcpTransaction = async (
           payment.amount,
           payment.remark || '',
           handled_by,
-          customCreatedAt, 
-          customUpdatedAt 
+          customCreatedAt,
+          customUpdatedAt
         ];
 
         const paymentResult = await client.query(paymentQuery, paymentParams);
@@ -1126,13 +1126,13 @@ const createMcpTransaction = async (
       remarks: remarks || '',
       created_by,
       handled_by,
-      package_name: mcpRecord.package_name, 
+      package_name: mcpRecord.package_name,
       items_count: 1,
       payments_count: payments.filter((p: PaymentMethodRequest) => p.amount > 0).length
     };
 
   } catch (error) {
-await client.query('ROLLBACK');
+    await client.query('ROLLBACK');
     console.error('Error creating MCP sale transaction:', error);
 
     // Only attempt to delete the MCP if we have a valid ID
@@ -1383,8 +1383,8 @@ const createMvTransaction = async (
           payment.amount,
           payment.remark || '',
           handled_by,
-          customCreatedAt, 
-          customUpdatedAt 
+          customCreatedAt,
+          customUpdatedAt
         ];
 
         const paymentResult = await client.query(paymentQuery, paymentParams);
@@ -1598,9 +1598,8 @@ const createMcpTransferTransaction = async (
     const transferAmount = transferDetails.amount || item.pricing?.totalLinePrice || 0;
 
     // Enhanced remarks with transfer metadata
-    const transferRemarks = `MCP Transfer: ${transferAmount} from MCP ${sourceMcpId} to MCP ${destinationMcpId}${
-      transferDetails.isNew ? ' (New Package)' : ''
-    }${item.remarks ? ` - ${item.remarks}` : ''}`;
+    const transferRemarks = `MCP Transfer: ${transferAmount} from MCP ${sourceMcpId} to MCP ${destinationMcpId}${transferDetails.isNew ? ' (New Package)' : ''
+      }${item.remarks ? ` - ${item.remarks}` : ''}`;
 
     const itemParams: (string | number | null)[] = [
       saleTransactionId,
@@ -1885,7 +1884,7 @@ const createMvTransferTransaction = async (
       null,
       null,
       null,
-      item.data?.queueItem?.mv_id1 || null,
+      transactionData.newVoucherId || null,
       item.pricing?.originalPrice || 0,
       item.pricing?.customPrice || 0,
       item.pricing?.discount || 0,
@@ -1983,13 +1982,13 @@ const processPartialPayment = async (
   try {
     await client.query('BEGIN');
 
-    const { 
-      payments, 
-      general_remarks, 
-      transaction_handler_id, 
+    const {
+      payments,
+      general_remarks,
+      transaction_handler_id,
       payment_handler_id,    // NEW: Extract payment handler from frontend
       receipt_number,        // NEW: Extract receipt number from frontend
-      created_at 
+      created_at
     } = paymentData;
 
     console.log('Processing partial payment for transaction:', transactionId);
@@ -2217,7 +2216,7 @@ const processPartialPayment = async (
           const voucher = voucherResult.rows[0];
           const freeOfCharge = parseFloat(voucher.free_of_charge) || 0;
           const currentBalance = parseFloat(voucher.current_balance) || 0;
-          
+
           if (freeOfCharge > 0) {
             // Update the voucher balance
             await client.query(
@@ -2258,7 +2257,7 @@ const processPartialPayment = async (
             ];
 
             await client.query(insertVoucherLogQuery, voucherLogParams);
-            
+
             console.log(`Inserted voucher transaction log for voucher ID ${voucherItem.member_voucher_id}, balance change: +${freeOfCharge}`);
           }
         }

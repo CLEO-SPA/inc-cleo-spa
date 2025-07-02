@@ -22,10 +22,37 @@ const MemberPackagesList = () => {
             try {
                 const data = await api.getMemberPackages(memberId);
                 console.log('Fetched packages:', data);
-                setPackages(data);
-                setFilteredPackages(data);
-                if (data.length > 0) {
-                    setMemberName(data[0].member_name);
+                
+                // Group packages by package ID
+                const groupedPackages = data.reduce((acc, pkg) => {
+                    if (!acc[pkg.id]) {
+                        acc[pkg.id] = {
+                            ...pkg,
+                            services: [],
+                            total_price: 0,
+                            quantity: 0
+                        };
+                    }
+                    
+                    acc[pkg.id].services.push({
+                        service_name: pkg.service_name,
+                        price: pkg.price,
+                        discount: pkg.discount,
+                        quantity: pkg.quantity
+                    });
+                    
+                    acc[pkg.id].total_price += parseFloat(pkg.total_price);
+                    acc[pkg.id].quantity += parseInt(pkg.quantity);
+                    
+                    return acc;
+                }, {});
+                
+                const mergedPackages = Object.values(groupedPackages);
+                setPackages(mergedPackages);
+                setFilteredPackages(mergedPackages);
+                
+                if (mergedPackages.length > 0) {
+                    setMemberName(mergedPackages[0].member_name);
                 }
             } finally {
                 setLoading(false);
@@ -146,10 +173,23 @@ const MemberPackagesList = () => {
                 >
                     Ineligible
                 </button>
-
-
             );
         }
+    };
+
+    const renderServicesList = (services) => {
+        return (
+            <div className="space-y-1">
+                {services.map((service, index) => (
+                    <div key={index} className="text-sm">
+                        <span className="font-medium">{service.service_name}</span>
+                        <span className="text-gray-500 ml-2">
+                            ({formatCurrency(service.price)} • {formatDiscount(service.discount)} • Qty: {service.quantity})
+                        </span>
+                    </div>
+                ))}
+            </div>
+        );
     };
 
     if (loading) {
@@ -267,11 +307,10 @@ const MemberPackagesList = () => {
                                         <div className="bg-gray-50 rounded-lg p-4">
                                             <div className="grid grid-cols-13 gap-4 text-xs font-medium text-gray-500 uppercase tracking-wider">
                                                 <div className="col-span-3">Package Details</div>
-                                                <div className="col-span-2">Service Information</div>
+                                                <div className="col-span-3">Services</div>
                                                 <div className="col-span-2">Financial Details</div>
                                                 <div className="col-span-2">Dates</div>
                                                 <div className="col-span-2">Staff</div>
-                                                <div className="col-span-1">Quantity</div>
                                                 <div className="col-span-1">Status</div>
                                             </div>
                                         </div>
@@ -301,18 +340,9 @@ const MemberPackagesList = () => {
                                                                 )}
                                                             </div>
 
-                                                            {/* Service Information */}
-                                                            <div className="col-span-2">
-                                                                <div className="space-y-2">
-                                                                    <div>
-                                                                        <p className="text-xs text-gray-500">Service</p>
-                                                                        <p className="text-sm font-medium text-gray-900">{pkg.service_name}</p>
-                                                                    </div>
-                                                                    <div>
-                                                                        <p className="text-xs text-gray-500">Unit Price</p>
-                                                                        <p className="text-sm text-gray-700">{formatCurrency(pkg.price)}</p>
-                                                                    </div>
-                                                                </div>
+                                                            {/* Services List */}
+                                                            <div className="col-span-3">
+                                                                {renderServicesList(pkg.services)}
                                                             </div>
 
                                                             {/* Financial Details */}
@@ -323,10 +353,8 @@ const MemberPackagesList = () => {
                                                                         <p className="text-lg font-bold text-gray-900">{formatCurrency(pkg.total_price)}</p>
                                                                     </div>
                                                                     <div>
-                                                                        <p className="text-xs text-gray-500">Discount</p>
-                                                                        <p className="text-sm text-gray-700">
-                                                                            {formatDiscount(pkg.discount)}
-                                                                        </p>
+                                                                        <p className="text-xs text-gray-500">Total Quantity</p>
+                                                                        <p className="text-sm text-gray-700">{pkg.quantity}</p>
                                                                     </div>
                                                                 </div>
                                                             </div>
@@ -350,14 +378,6 @@ const MemberPackagesList = () => {
                                                                 <div>
                                                                     <p className="text-xs text-gray-500">Handled By</p>
                                                                     <p className="text-sm font-medium text-gray-900">{pkg.employee_name}</p>
-                                                                </div>
-                                                            </div>
-
-                                                            {/* Quantity */}
-                                                            <div className="col-span-1">
-                                                                <div className="text-center">
-                                                                    <p className="text-xs text-gray-500 mb-1">No. of Services</p>
-                                                                    <p className="text-2xl font-bold text-gray-900">{pkg.quantity}</p>
                                                                 </div>
                                                             </div>
 

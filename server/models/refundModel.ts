@@ -676,19 +676,18 @@ const processFullRefundTransaction = async (params: {
   }
 };
 
-// Update the model's fetchMCPStatusById to include price and discount
 const fetchMCPStatusById = async (packageId: number) => {
   const query = `
     WITH purchase_totals AS (
       SELECT 
         mcpd.id AS detail_id,
-        COALESCE(SUM(mcpctl.transaction_amount), 0) / NULLIF(mcpd.price, 0) AS purchased_quantity
+        COALESCE(SUM(mcpctl.transaction_amount), 0) / NULLIF(mcpd.price * mcpd.discount, 0) AS purchased_quantity
       FROM member_care_package_details mcpd
       LEFT JOIN member_care_package_transaction_logs mcpctl 
         ON mcpd.id = mcpctl.member_care_package_details_id
         AND mcpctl.type = 'PURCHASE'
       WHERE mcpd.member_care_package_id = $1
-      GROUP BY mcpd.id, mcpd.price
+      GROUP BY mcpd.id, mcpd.price, mcpd.discount
     ),
     consumption_totals AS (
       SELECT 
@@ -704,13 +703,13 @@ const fetchMCPStatusById = async (packageId: number) => {
     refund_totals AS (
       SELECT 
         mcpd.id AS detail_id,
-        COALESCE(SUM(mcpctl.amount_changed), 0) / NULLIF(mcpd.price, 0) AS refunded_quantity
+        COALESCE(SUM(mcpctl.amount_changed), 0) / NULLIF(mcpd.price * mcpd.discount, 0) AS refunded_quantity
       FROM member_care_package_details mcpd
       LEFT JOIN member_care_package_transaction_logs mcpctl 
         ON mcpd.id = mcpctl.member_care_package_details_id
         AND mcpctl.type = 'REFUND'
       WHERE mcpd.member_care_package_id = $1
-      GROUP BY mcpd.id, mcpd.price
+      GROUP BY mcpd.id, mcpd.price, mcpd.discount
     )
     SELECT 
       mcp.id AS package_id,
@@ -721,6 +720,7 @@ const fetchMCPStatusById = async (packageId: number) => {
       mcpd.service_name,
       mcpd.price,
       mcpd.discount,
+      mcpd.price * mcpd.discount AS discounted_price,
       mcpd.quantity AS total_quantity,
       mcpd.quantity AS original_quantity,  
       FLOOR(COALESCE(pt.purchased_quantity, 0)) AS purchased,
