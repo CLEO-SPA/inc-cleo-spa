@@ -22,35 +22,36 @@ const MemberPackagesList = () => {
             try {
                 const data = await api.getMemberPackages(memberId);
                 console.log('Fetched packages:', data);
-                
+
                 // Group packages by package ID
                 const groupedPackages = data.reduce((acc, pkg) => {
                     if (!acc[pkg.id]) {
                         acc[pkg.id] = {
                             ...pkg,
                             services: [],
-                            total_price: 0,
+                            // Keep the original total_price as-is
+                            total_price: parseFloat(pkg.total_price),
                             quantity: 0
                         };
                     }
-                    
+
                     acc[pkg.id].services.push({
                         service_name: pkg.service_name,
                         price: pkg.price,
                         discount: pkg.discount,
                         quantity: pkg.quantity
                     });
-                    
-                    acc[pkg.id].total_price += parseFloat(pkg.total_price);
+
                     acc[pkg.id].quantity += parseInt(pkg.quantity);
-                    
+
                     return acc;
                 }, {});
-                
+
+
                 const mergedPackages = Object.values(groupedPackages);
                 setPackages(mergedPackages);
                 setFilteredPackages(mergedPackages);
-                
+
                 if (mergedPackages.length > 0) {
                     setMemberName(mergedPackages[0].member_name);
                 }
