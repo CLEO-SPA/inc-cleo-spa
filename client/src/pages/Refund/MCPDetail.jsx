@@ -64,10 +64,10 @@ const MCPDetail = () => {
         const data = await api.getPackageDetails(packageId);
         console.log('Fetched package data:', data);
         setPackageData(data);
-        
+
         const refundedServices = data.services?.filter(s => s.totals.refunded > 0) || [];
         const dates = {};
-        
+
         for (const service of refundedServices) {
           try {
             const { refund_date } = await api.getRefundDate(packageId);
@@ -76,7 +76,7 @@ const MCPDetail = () => {
             console.error(`Failed to get refund date for service ${service.service_id}:`, err);
           }
         }
-        
+
         setRefundDates(dates);
       } catch (error) {
         console.error('Error fetching package details:', error);
@@ -100,7 +100,7 @@ const MCPDetail = () => {
 
     try {
       await api.processRefund(
-        packageId, 
+        packageId,
         remarks,
         useCustomDate ? refundDate : null
       );
@@ -110,7 +110,7 @@ const MCPDetail = () => {
       setRefundDate(null);
       setUseCustomDate(false);
       setSuccessMessage('Refund has been processed successfully');
-      
+
       setTimeout(() => {
         setSuccessMessage('');
       }, 2000);
@@ -128,11 +128,11 @@ const MCPDetail = () => {
 
   const getStatusBadge = (service) => {
     console.log('Service status data:', {
-    refunded: service.totals.refunded,
-    remaining: service.totals.remaining,
-    is_eligible_for_refund: service.is_eligible_for_refund,
-    service_name: service.service_name
-  });
+      refunded: service.totals.refunded,
+      remaining: service.totals.remaining,
+      is_eligible_for_refund: service.is_eligible_for_refund,
+      service_name: service.service_name
+    });
     if (service.is_eligible_for_refund === 'refunded') {
       return (
         <span className="inline-flex flex-col items-start px-2.5 py-0.5 rounded-full text-xs font-medium bg-purple-100 text-purple-800">
@@ -222,7 +222,7 @@ const MCPDetail = () => {
   }
 
   const hasMultipleServices = packageData.services?.length > 1;
-  const hasEligibleService = packageData.services?.some(s => 
+  const hasEligibleService = packageData.services?.some(s =>
     s.is_eligible_for_refund === 'eligible' && s.totals.refunded === 0
   );
   const isFullyRefunded = packageData.services?.every(s => s.is_eligible_for_refund === 'refunded');
@@ -339,11 +339,10 @@ const MCPDetail = () => {
                           <button
                             onClick={handleProcessRefund}
                             disabled={isProcessing || !remarks.trim() || isFullyRefunded}
-                            className={`w-full flex items-center justify-center px-6 py-3 rounded-lg font-medium transition-all duration-200 ${
-                              isProcessing || !remarks.trim() || isFullyRefunded
-                                ? 'bg-gray-300 text-gray-500 cursor-not-allowed' 
-                                : 'bg-red-600 text-white hover:bg-red-700 hover:shadow-lg transform hover:-translate-y-0.5'
-                            }`}
+                            className={`w-full flex items-center justify-center px-6 py-3 rounded-lg font-medium transition-all duration-200 ${isProcessing || !remarks.trim() || isFullyRefunded
+                              ? 'bg-gray-300 text-gray-500 cursor-not-allowed'
+                              : 'bg-red-600 text-white hover:bg-red-700 hover:shadow-lg transform hover:-translate-y-0.5'
+                              }`}
                           >
                             {isProcessing ? (
                               <>
@@ -388,7 +387,9 @@ const MCPDetail = () => {
                                   <div className="flex items-center justify-between">
                                     <div>
                                       <h3 className="text-lg font-semibold text-gray-900">{service.service_name}</h3>
-                                      <p className="text-sm text-gray-600">Service ID: {service.service_id}</p>
+                                      {service.service_id && (
+                                        <p className="text-sm text-gray-600">Service ID: {service.service_id}</p>
+                                      )}
                                     </div>
                                     {getStatusBadge(service)}
                                   </div>
@@ -404,14 +405,23 @@ const MCPDetail = () => {
                                       <div className="text-2xl font-bold text-green-600">{service.totals.consumed}</div>
                                       <div className="text-sm text-gray-600">Consumed</div>
                                     </div>
-                                    <div className="text-center">
-                                      <div className="text-2xl font-bold text-red-600">{service.totals.refunded}</div>
-                                      <div className="text-sm text-gray-600">Refunded</div>
-                                    </div>
-                                    <div className="text-center">
-                                      <div className="text-2xl font-bold text-orange-600">{service.totals.remaining}</div>
-                                      <div className="text-sm text-gray-600">Remaining</div>
-                                    </div>
+
+                                    {/* Only show Refunded section for single-service packages */}
+                                    {!hasMultipleServices && (
+                                      <div className="text-center">
+                                        <div className="text-2xl font-bold text-red-600">{service.totals.refunded}</div>
+                                        <div className="text-sm text-gray-600">Refunded</div>
+                                      </div>
+                                    )}
+
+                                    {/* Only show Remaining section for single-service packages */}
+                                    {!hasMultipleServices && (
+                                      <div className="text-center">
+                                        <div className="text-2xl font-bold text-orange-600">{service.totals.remaining}</div>
+                                        <div className="text-sm text-gray-600">Remaining</div>
+                                      </div>
+                                    )}
+
                                     <div className="text-center">
                                       <div className="text-2xl font-bold text-600">${(service.totals.price).toFixed(2)}</div>
                                       <div className="text-sm text-gray-600">Unit Price</div>
