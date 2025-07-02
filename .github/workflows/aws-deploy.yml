@@ -2,7 +2,7 @@ name: Deploy Full-Stack App to EC2
 
 on:
   push:
-    branches: [main, 'bugfix/master']
+    branches: ['master']
   workflow_dispatch:
 
 env:
@@ -43,7 +43,7 @@ jobs:
         env:
           ECR_REGISTRY: ${{ steps.login-ecr.outputs.registry }}
           IMAGE_TAG: ${{ github.sha }}
-          PUBLIC_API_URL: http://${{ env.EC2_HOST }}:5000
+          PUBLIC_API_URL: http://${{ env.EC2_HOST }}:3000
         run: |
           docker build -t $ECR_REGISTRY/$ECR_REPOSITORY_FRONTEND:$IMAGE_TAG \
             --build-arg VITE_API_URL=$PUBLIC_API_URL \
