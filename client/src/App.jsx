@@ -124,10 +124,6 @@ function App() {
                 <Route path='/appointments/edit/:id' element={<EditAppointmentPage />} />
                 <Route path='/appointments/:id' element={<ViewAppointmentDetailsPage />} />
 
-                {/* Refund */}
-                <Route path='/refunds' element={<RefundPage />} />
-                <Route path='/refunds/member/:memberId' element={<MemberPackagesList />} />
-                <Route path='/refunds/mcp/:packageId' element={<MCPDetail />} />
                 {/* Member Management */}
                 <Route path='/member' element={<ManageMembersPage />} />
                 <Route path='/member/create' element={<CreateMemberPage />} />
@@ -206,6 +202,13 @@ function App() {
                 <Route path='/refunds' element={<RefundPage />} />
                 <Route path='/refunds/member/:memberId' element={<MemberPackagesList />} />
                 <Route path='/refunds/mcp/:packageId' element={<MCPDetail />} />
+                <Route path="/refunds/services/member/:id" element={<RefundServicesPage />} />
+                <Route path="/refunds/services/receipt/:no" element={<RefundServicesPage />} />
+                <Route path="/refunds/service/:saleTransactionItemId" element={<RefundServiceForm />} />
+                <Route path="/refunds/vouchers/member/:id" element={<RefundVouchersPage />} />
+                <Route path="/refunds/voucher/:voucherId" element={<RefundVoucherForm />} />
+                <Route path="/credit-notes" element={<CreditNotesPage />} />
+                <Route path="/credit-notes/:id" element={<CreditNoteDetailsPage />} />
 
                 {/* Service Management */}
                 <Route path='/manage-service' element={<ManageServicePage />} />
