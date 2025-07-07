@@ -1,29 +1,25 @@
 import { Controller, useFormContext } from 'react-hook-form';
-import { useEffect, useState } from 'react';
+import { useEffect, useState, useRef, useCallback } from 'react';
 import { Select, SelectTrigger, SelectValue, SelectContent, SelectItem } from '@/components/ui/select';
 import { Label } from '@/components/ui/label';
 import { Input } from '@/components/ui/input';
 import useEmployeeStore from '@/stores/useEmployeeStore';
 import { cn } from '@/lib/utils';
+import { debounce } from 'lodash';
 
 export function EmployeeSelect({
   name = 'employee_id',
   label = 'Assigned Employee *',
   disabled: customDisabled = false,
-  customOptions = [], // Prop for custom options
+  customOptions = [],
   className = '',
-  // allows custom styling prop 
   customHeight = false,
-  // Optional props for standalone usage
   control: controlProp,
   onChange: onChangeProp,
   value: valueProp,
   errors: errorsProp,
 }) {
-  // Try to get form context, but handle gracefully if not available
   const formContext = useFormContext();
-
-  // Use passed props or fall back to form context
   const control = controlProp || formContext?.control;
   const errors = errorsProp || formContext?.formState?.errors || {};
 
@@ -33,7 +29,19 @@ export function EmployeeSelect({
   const fetchDropdownEmployees = useEmployeeStore((state) => state.fetchDropdownEmployees);
 
   const [searchTerm, setSearchTerm] = useState('');
+  const [inputValue, setInputValue] = useState(''); // Separate state for input value
   const [isOpen, setIsOpen] = useState(false);
+  
+  // added ref for the search input
+  const searchInputRef = useRef(null);
+  
+  // debounced search function
+  const debouncedSearch = useCallback(
+    debounce((value) => {
+      setSearchTerm(value);
+    }, 300), // 300ms delay
+    []
+  );
 
   // Combine employees with custom options
   const allOptions = [...customOptions, ...employees];
@@ -47,7 +55,16 @@ export function EmployeeSelect({
     }
   }, [employees.length, loading, fetchDropdownEmployees]);
 
-  // custom styles for height matching
+  // focus the search input when dropdown opens
+  useEffect(() => {
+    if (isOpen && searchInputRef.current) {
+      // use setTimeout to ensure the input is rendered
+      setTimeout(() => {
+        searchInputRef.current?.focus();
+      }, 0);
+    }
+  }, [isOpen]);
+
   const customTriggerStyle = customHeight ? {
     height: '42px',
     minHeight: '42px',
@@ -56,7 +73,34 @@ export function EmployeeSelect({
     lineHeight: '1.5'
   } : {};
 
-  // If no control available from either prop or context, show error
+  // handle search input change with debouncing
+  const handleSearchChange = (e) => {
+    e.preventDefault();
+    e.stopPropagation();
+    const value = e.target.value;
+    setInputValue(value); 
+    debouncedSearch(value); 
+  };
+
+  // handle search input key events
+  const handleSearchKeyDown = (e) => {
+    // prevent the select from closing when typing
+    e.stopPropagation();
+    
+    if (e.key === 'Escape') {
+      setIsOpen(false);
+      setSearchTerm('');
+      setInputValue('');
+    }
+  };
+  
+  // cleanup debounced function on unmount
+  useEffect(() => {
+    return () => {
+      debouncedSearch.cancel();
+    };
+  }, [debouncedSearch]);
+
   if (!control && !onChangeProp) {
     return (
       <div className={cn('space-y-2', className)}>
@@ -90,6 +134,7 @@ export function EmployeeSelect({
                   field.onChange(val);
                   setIsOpen(false);
                   setSearchTerm('');
+                  setInputValue('');
                 }}
                 open={isOpen}
                 onOpenChange={setIsOpen}
@@ -110,12 +155,16 @@ export function EmployeeSelect({
                 </SelectTrigger>
 
                 <SelectContent>
-                  <div className='p-2 border-b'>
+                  <div className='p-2 border-b' onClick={(e) => e.stopPropagation()}>
                     <Input
+                      ref={searchInputRef}
                       placeholder='Search employees...'
-                      value={searchTerm}
-                      onChange={(e) => setSearchTerm(e.target.value)}
+                      value={inputValue}
+                      onChange={handleSearchChange}
+                      onKeyDown={handleSearchKeyDown}
                       className='h-8'
+                      autoComplete='off'
+                      autoFocus
                     />
                   </div>
 
@@ -159,6 +208,7 @@ export function EmployeeSelect({
             onChangeProp?.(Number(val));
             setIsOpen(false);
             setSearchTerm('');
+            setInputValue('');
           }}
           open={isOpen}
           onOpenChange={setIsOpen}
@@ -177,12 +227,16 @@ export function EmployeeSelect({
           </SelectTrigger>
 
           <SelectContent>
-            <div className='p-2 border-b'>
+            <div className='p-2 border-b' onClick={(e) => e.stopPropagation()}>
               <Input
+                ref={searchInputRef}
                 placeholder='Search employees...'
-                value={searchTerm}
-                onChange={(e) => setSearchTerm(e.target.value)}
+                value={inputValue}
+                onChange={handleSearchChange}
+                onKeyDown={handleSearchKeyDown}
                 className='h-8'
+                autoComplete='off'
+                autoFocus
               />
             </div>
 
