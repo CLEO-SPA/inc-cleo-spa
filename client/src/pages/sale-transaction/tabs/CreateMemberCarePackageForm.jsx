@@ -547,13 +547,13 @@ const ServiceRow = ({ service, index, canModify, onUpdate, onRemove }) => {
 
   return (
     <div className='p-3 border rounded-lg bg-white space-y-3'>
-      <div className='grid grid-cols-1 md:grid-cols-5 gap-4 items-center'>
-        <div className='space-y-1'>
+      <div className='grid grid-cols-1 md:grid-cols-12 gap-4 items-center'>
+        <div className='space-y-1 md:col-span-3'>
           <Label className='text-sm font-medium text-gray-700'>Service</Label>
           <div className='text-sm'>{service.name}</div>
         </div>
 
-        <div className='space-y-1'>
+        <div className='space-y-1 md:col-span-2'>
           <Label className='text-sm font-medium text-gray-700'>Quantity</Label>
           {isEditing && canModify ? (
             <Input
@@ -578,7 +578,7 @@ const ServiceRow = ({ service, index, canModify, onUpdate, onRemove }) => {
           )}
         </div>
 
-        <div className='space-y-1'>
+        <div className='space-y-1 md:col-span-2'>
           <Label className='text-sm font-medium text-gray-700'>Discount</Label>
           {isEditing && canModify ? (
             <Input
@@ -605,12 +605,12 @@ const ServiceRow = ({ service, index, canModify, onUpdate, onRemove }) => {
           )}
         </div>
 
-        <div className='space-y-1'>
+        <div className='space-y-1 md:col-span-2'>
           <Label className='text-sm font-medium text-gray-700'>Price</Label>
           <div className='text-sm font-medium'>${(service.price || 0).toFixed(2)}</div>
         </div>
 
-        <div className='flex space-x-2'>
+        <div className='flex space-x-2 md:col-span-3 justify-end'>
           {canModify && (
             <>
               {isEditing ? (
