@@ -297,7 +297,7 @@ const CarePackageCreateForm = () => {
         package_name: mainFormData.package_name.trim(),
         package_remarks: mainFormData.package_remarks || '',
         package_price: finalPackagePrice,
-        is_customizable: Boolean(mainFormData.customizable),
+        is_customizable: Boolean(mainFormData.is_customizable),
         employee_id: mainFormData.employee_id.toString(),
         created_at: mainFormData.created_at,
         updated_at: mainFormData.created_at,
@@ -549,8 +549,8 @@ const CarePackageCreateForm = () => {
                   <div>
                     <label className='block text-sm font-medium text-gray-600 mb-2'>CUSTOMIZABLE</label>
                     <select
-                      value={mainFormData.customizable ? 'yes' : 'no'}
-                      onChange={(e) => updateMainField('customizable', e.target.value === 'yes')}
+                      value={mainFormData.is_customizable ? 'yes' : 'no'}
+                      onChange={(e) => updateMainField('is_customizable', e.target.value === 'yes')}
                       className='w-full px-3 py-2 border border-gray-200 rounded text-sm focus:outline-none focus:ring-2 focus:ring-gray-500 focus:border-transparent'
                     >
                       <option value='no'>No</option>
