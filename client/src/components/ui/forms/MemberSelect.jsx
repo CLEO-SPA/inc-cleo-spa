@@ -1,5 +1,5 @@
 import { Controller, useFormContext } from "react-hook-form";
-import { useEffect, useState } from "react";
+import { useEffect, useState, useCallback } from "react";
 import {
   Select,
   SelectTrigger,
@@ -32,21 +32,67 @@ export function MemberSelect({
   const loading = useMemberStore((state) => state.loading);
   const error = useMemberStore((state) => state.error);
   const fetchDropdownMembers = useMemberStore((state) => state.fetchDropdownMembers);
+  
   const [searchTerm, setSearchTerm] = useState("");
+  const [debouncedSearchTerm, setDebouncedSearchTerm] = useState("");
   const [isOpen, setIsOpen] = useState(false);
+  const [isSearching, setIsSearching] = useState(false);
 
-  // Combine members with custom options
+  // debounce search term
+  useEffect(() => {
+    setIsSearching(true);
+    const timer = setTimeout(() => {
+      setDebouncedSearchTerm(searchTerm);
+      setIsSearching(false);
+    }, 300);
+
+    return () => clearTimeout(timer);
+  }, [searchTerm]);
+
+  // combine members with custom options
   const allOptions = [...customOptions, ...members];
-  const filteredMembers = allOptions.filter((member) =>
-    member.name?.toLowerCase().includes(searchTerm.toLowerCase()) ||
-    member.member_name?.toLowerCase().includes(searchTerm.toLowerCase())
-  );
+
+  // enhanced filtering function that searches across multiple fields
+  const filteredMembers = allOptions.filter((member) => {
+    if (!debouncedSearchTerm) return true;
+    
+    const searchLower = debouncedSearchTerm.toLowerCase();
+    
+    // search by name
+    const memberName = (member.name || '').toLowerCase();
+    if (memberName.includes(searchLower)) return true;
+    
+    // search by mobile
+    const phoneNumber = (member.contact || '').toString().toLowerCase();
+    if (phoneNumber.includes(searchLower)) return true;
+    
+    // search by card number - to edit when column is added
+    const memberCard = (member.member_card || member.card_number || '').toString().toLowerCase();
+    if (memberCard.includes(searchLower)) return true;
+    
+    return false;
+  });
 
   // Helper function to format member display text
   const formatMemberDisplay = (member) => {
     const memberName = toProperCase(member.name || member.member_name);
     const contact = member.contact || member.phone;
-    return contact ? `${memberName} - ${contact}` : memberName;
+    const memberCard = member.member_card || member.card_number;
+    
+    let displayText = memberName;
+    
+    // add contact if available
+    if (contact) {
+      displayText += ` - ${contact}`;
+    }
+    
+    // add member card if available
+    // to edit display if its too messy
+    if (memberCard) {
+      displayText += ` (Card: ${memberCard})`;
+    }
+    
+    return displayText;
   };
 
   useEffect(() => {
@@ -59,6 +105,30 @@ export function MemberSelect({
     control,
     formState: { errors },
   } = formContext;
+
+  // clear search when dropdown closes
+  const handleOpenChange = useCallback((open) => {
+    setIsOpen(open);
+    if (!open) {
+      setSearchTerm("");
+      setDebouncedSearchTerm("");
+    }
+  }, []);
+
+  // handle search input changes without losing focus
+  const handleSearchChange = useCallback((e) => {
+    e.stopPropagation(); 
+    setSearchTerm(e.target.value);
+  }, []);
+
+  // handle search input events to maintain focus
+  const handleSearchKeyDown = useCallback((e) => {
+    e.stopPropagation(); 
+  }, []);
+
+  const handleSearchClick = useCallback((e) => {
+    e.stopPropagation(); 
+  }, []);
 
   return (
     <div className="space-y-2">
@@ -77,9 +147,10 @@ export function MemberSelect({
                 field.onChange(Number(val));
                 setIsOpen(false);
                 setSearchTerm("");
+                setDebouncedSearchTerm("");
               }}
               open={isOpen}
-              onOpenChange={setIsOpen}
+              onOpenChange={handleOpenChange}
             >
               <SelectTrigger className={errors[name] ? "border-red-500" : ""}>
                 <SelectValue
@@ -94,23 +165,46 @@ export function MemberSelect({
               </SelectTrigger>
               <SelectContent>
                 <div className="p-2 border-b">
-                  <Input
-                    placeholder="Search members..."
-                    value={searchTerm}
-                    onChange={(e) => setSearchTerm(e.target.value)}
-                    className="h-8"
-                  />
+                  <div className="relative">
+                    <Input
+                      placeholder="Search by name, phone, or card..."
+                      value={searchTerm}
+                      onChange={handleSearchChange}
+                      onKeyDown={handleSearchKeyDown}
+                      onClick={handleSearchClick}
+                      onFocus={handleSearchClick}
+                      className="h-8"
+                      autoComplete="off"
+                    />
+                    {isSearching && (
+                      <div className="absolute right-2 top-1/2 transform -translate-y-1/2">
+                        <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-blue-500"></div>
+                      </div>
+                    )}
+                  </div>
+                  {debouncedSearchTerm && (
+                    <div className="text-xs text-gray-500 mt-1">
+                      Found {filteredMembers.length} member{filteredMembers.length !== 1 ? 's' : ''}
+                    </div>
+                  )}
                 </div>
                 <div className="max-h-48 overflow-y-auto">
                   {filteredMembers.length > 0 ? (
-                    filteredMembers.map((member) => (
-                      <SelectItem key={member.id} value={member.id.toString()}>
-                        {formatMemberDisplay(member)}
-                      </SelectItem>
-                    ))
+                    filteredMembers.map((member) => {
+                      return (
+                        <SelectItem key={member.id} value={member.id.toString()}>
+                          <div className="flex flex-col">
+                            <span>{formatMemberDisplay(member)}</span>
+                          </div>
+                        </SelectItem>
+                      );
+                    })
                   ) : (
                     <div className="p-2 text-sm text-gray-500">
-                      No members found
+                      {debouncedSearchTerm 
+                        ? `No members found matching "${debouncedSearchTerm}"`
+                        : "No members found"
+                      }
                     </div>
                   )}
                 </div>
