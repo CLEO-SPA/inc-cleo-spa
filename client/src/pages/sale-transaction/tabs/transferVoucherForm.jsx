@@ -166,6 +166,9 @@ const TransferVoucherForm = () => {
     const voucherNameToUse = bypassTemplate ? customVoucherName : selectedVoucherName;
     if (!voucherNameToUse || !price) return;
 
+    const transferAmount = totalOldBalance;
+
+
     const cartPayload = {
       id: `transfer-${Date.now()}`,
       type: 'transferMV',
@@ -173,6 +176,7 @@ const TransferVoucherForm = () => {
         name: voucherNameToUse,
         amount: Number(price),
         description: `Transferred from: ${oldVouchers.join(', ')}`,
+        transferAmount: transferAmount,
       },
     };
 
