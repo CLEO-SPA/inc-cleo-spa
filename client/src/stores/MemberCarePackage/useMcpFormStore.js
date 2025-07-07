@@ -639,8 +639,6 @@ export const useMcpFormStore = create(
 
         const transferResponse = await api.post('/mcp/transfer', {
           packages: transferPayload,
-          created_at: created_at,
-          updated_at: created_at,
         });
 
         set({ isLoading: false, mcpTransferQueue: [] }, false, 'processMcpTransferQueue/fulfilled');
