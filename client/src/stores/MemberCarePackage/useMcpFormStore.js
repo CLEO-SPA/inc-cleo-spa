@@ -75,11 +75,25 @@ export const useMcpFormStore = create(
     error: null,
     mcpCreationQueue: [],
     mcpTransferQueue: [],
+    originalTemplateCustomizable: true, // New property for storing the original template's customizable setting
 
     // toLocalDateTimeString,
     // fromLocalDateTimeString,
 
-    setBypassMode: (isBypass) => set({ isByPass: isBypass, isCustomizable: true }, false, 'setBypassMode'),
+    setBypassMode: (isBypass) =>
+      set(
+        (state) => {
+          // When entering bypass mode, set isCustomizable to true
+          // When exiting bypass mode, restore the original template's customizable setting
+          // If no template is selected (mainFormData.template_package_id is empty), default to true
+          return {
+            isByPass: isBypass,
+            isCustomizable: isBypass || state.originalTemplateCustomizable,
+          };
+        },
+        false,
+        'setBypassMode'
+      ),
 
     updateMainField: (field, value) => {
       // Handle date fields specially
@@ -421,6 +435,8 @@ export const useMcpFormStore = create(
 
         const packagePrice = calculateOverallPackagePrice(newServices);
 
+        const isTemplateCustomizable = data.package?.care_package_customizable ?? true;
+
         set(
           {
             mainFormData: {
@@ -430,7 +446,8 @@ export const useMcpFormStore = create(
               services: newServices,
               package_price: packagePrice,
             },
-            isCustomizable: data.package?.care_package_customizable ?? true,
+            isCustomizable: get().isByPass ? true : isTemplateCustomizable,
+            originalTemplateCustomizable: isTemplateCustomizable,
             serviceForm: {
               id: '',
               name: '',

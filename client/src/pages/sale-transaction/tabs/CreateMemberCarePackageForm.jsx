@@ -123,7 +123,11 @@ const CreateMemberCarePackageForm = () => {
         }
       }
     } else {
-      if (!mainFormData.package_name) {
+      // When turning off bypass mode, if we have a selected package
+      // we should re-select it to restore its original settings
+      if (selectedPackageId && mainFormData.package_name) {
+        selectCarePackage({ id: selectedPackageId });
+      } else if (!mainFormData.package_name) {
         resetMainForm();
         setSelectedPackageId(null);
       }
