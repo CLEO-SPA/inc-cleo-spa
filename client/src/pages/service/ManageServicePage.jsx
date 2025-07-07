@@ -2,7 +2,7 @@ import React, { useState, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
 import { useForm, FormProvider } from 'react-hook-form';
 import api from '@/services/api';
-import { Button } from '@/components/ui/button';
+import { Button } from '@/components/ui/Button';
 import { Switch } from '@/components/ui/switch';
 import { ChevronDownCircle, ChevronUpCircle, FilePenLine, ChevronLeft, ChevronsLeft, ChevronRight, ChevronsRight } from 'lucide-react';
 import DatePicker from "@/components/date-picker";
@@ -14,6 +14,7 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
+import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow, TableCaption } from '@/components/ui/table';
 import { SiteHeader } from '@/components/site-header';
 import { SidebarInset, SidebarProvider } from '@/components/ui/sidebar';
 import EmployeeSelect from '@/components/ui/forms/EmployeeSelect';
@@ -340,9 +341,9 @@ export default function ManageService() {
             <div className='flex flex-1 flex-col gap-4 p-4'>
               {/* Buttons for other Functionalities */}
               <div className="flex space-x-4 p-4 bg-muted/50 rounded-lg">
-                <Button onClick={() => navigate("/create-service")} className="rounded-xl" disabled={!isAdmin}>Create Service</Button>
-                <Button onClick={() => navigate("/reorder-service")} className="rounded-xl" disabled={!isAdmin}>Reorder Service</Button>
-                <Button onClick={() => navigate("/manage-service-category")} className="rounded-xl">Manage Categories</Button>
+                <Button onClick={() => navigate("/create-service")} disabled={!isAdmin}>Create Service</Button>
+                <Button onClick={() => navigate("/reorder-service")} disabled={!isAdmin}>Reorder Service</Button>
+                <Button onClick={() => navigate("/manage-service-category")}>Manage Categories</Button>
               </div>
 
               {/* Filter */}
@@ -357,7 +358,7 @@ export default function ManageService() {
                   className="w-[300px] p-2 border rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
                 />
                 {/* Search Button */}
-                {/* <Button onClick={() => getServices()} className="rounded-xl">Search</Button> */}
+                {/* <Button onClick={() => getServices()} >Search</Button> */}
 
                 {/* Select Category */}
                 <Select value={selectedCategory} onValueChange={setSelectedCategory}>
@@ -387,58 +388,58 @@ export default function ManageService() {
                   </SelectContent>
                 </Select>
                 {/* Reset Button */}
-                <Button onClick={() => handleReset()} className="rounded-xl">Clear</Button>
+                <Button onClick={() => handleReset()} >Clear</Button>
                 {/* View all details */}
-                <Button onClick={handleViewAllDetails} className="rounded-xl">{expandedRows.length === services.length ? 'Hide' : 'View'} All Details</Button>
+                <Button onClick={handleViewAllDetails} >{expandedRows.length === services.length ? 'Hide' : 'View'} All Details</Button>
               </div>
               <div className="p-4 h-[60vh] flex flex-col rounded-xl bg-muted/50">
                 <div className="overflow-y-auto flex-1">
                   {/* Table */}
-                  <table className="table-auto w-full text-black border-collapse border border-gray-200 border-rounded-lg">
+                  <Table>
                     {/* Table Header */}
-                    <thead className="bg-black text-white sticky top-0 z-10 shadow">
-                      <tr>
-                        <th className="w-1/12 px-2 py-2 text-left border border-gray-200">ID</th>
-                        <th className="w-3/12 px-2 py-2 text-left border border-gray-200">Name</th>
-                        <th className="w-2/12 px-2 py-2 text-left border border-gray-200">Unit Price (SGD)</th>
-                        <th className="w-2/12 px-2 py-2 text-left border border-gray-200">Date of Creation</th>
-                        <th className="w-2/12 px-2 py-2 text-left border border-gray-200">Category</th>
-                        <th className="w-1/12 px-2 py-2 text-left border border-gray-200">Status</th>
-                        <th className="w-1/12 px-4 py-2 text-left border border-gray-200">Actions</th>
-                      </tr>
-                    </thead>
+                    <TableHeader>
+                      <TableRow>
+                        <TableHead className="w-1/12 px-2 py-2 text-left border border-gray-200">ID</TableHead>
+                        <TableHead className="w-3/12 px-2 py-2 text-left border border-gray-200">Name</TableHead>
+                        <TableHead className="w-2/12 px-2 py-2 text-left border border-gray-200">Unit Price (SGD)</TableHead>
+                        <TableHead className="w-2/12 px-2 py-2 text-left border border-gray-200">Date of Creation</TableHead>
+                        <TableHead className="w-2/12 px-2 py-2 text-left border border-gray-200">Category</TableHead>
+                        <TableHead className="w-1/12 px-2 py-2 text-left border border-gray-200">Status</TableHead>
+                        <TableHead className="w-1/12 px-4 py-2 text-left border border-gray-200">Actions</TableHead>
+                      </TableRow>
+                    </TableHeader>
                     {/* Table body */}
-                    <tbody>
+                    <TableBody>
                       {serviceLoading ? (
-                        <tr>
-                          <td colSpan="13" className="px-4 py-2 text-center text-gray-500 border border-gray-200">
+                        <TableRow>
+                          <TableCell colSpan="13" className="px-4 py-2 text-center text-gray-500 border border-gray-200">
                             Loading...
-                          </td>
-                        </tr>
+                          </TableCell>
+                        </TableRow>
                       ) : (
                         <>
                           {services.length > 0 ? (
                             services.map((service, index) => (
                               <>
-                                <tr key={`${service.id}-basic`}>
-                                  <td className="px-2 py-2 border border-gray-200">{service.id}</td>
-                                  <td className="px-2 py-2 border border-gray-200 break-words">{service.service_name}</td>
-                                  <td className="px-2 py-2 border border-gray-200">{service.service_price}</td>
-                                  <td className="px-2 py-2 border border-gray-200">
+                                <TableRow key={`${service.id}-basic`}>
+                                  <TableCell className="px-2 py-2 border border-gray-200">{service.id}</TableCell>
+                                  <TableCell className="px-2 py-2 border border-gray-200 break-words">{service.service_name}</TableCell>
+                                  <TableCell className="px-2 py-2 border border-gray-200">{service.service_price}</TableCell>
+                                  <TableCell className="px-2 py-2 border border-gray-200">
                                     {new Date(service.created_at).toLocaleDateString()}
-                                  </td>
-                                  <td className="px-2 py-2 border border-gray-200">{service.service_category_name}</td>
+                                  </TableCell>
+                                  <TableCell className="px-2 py-2 border border-gray-200">{service.service_category_name}</TableCell>
                                   {/* Enabled Row */}
-                                  <td className="px-2 py-2 border border-gray-200">
+                                  <TableCell className="px-2 py-2 border border-gray-200">
                                     <Switch
                                       checked={service.service_is_enabled}
                                       onCheckedChange={() => handleSwitchChange(service)
                                       }
                                       disabled={!isAdmin}
                                     />
-                                  </td>
+                                  </TableCell>
                                   {/* Action Row */}
-                                  <td className="px-4 py-2 border border-gray-200">
+                                  <TableCell className="px-4 py-2 border border-gray-200">
                                     <div className="flex space-x-2 space-y-1">
                                       {isAdmin && (
                                         <Button className="p-1 bg-green-600 text-white text-sm font-medium rounded-xl hover:bg-green-700" onClick={() => navigate(`/update-service/${service.id}`)}>
@@ -452,12 +453,12 @@ export default function ManageService() {
                                         {expandedRows.includes(index) ? <ChevronUpCircle /> : <ChevronDownCircle />}
                                       </Button>
                                     </div>
-                                  </td>
-                                </tr>
+                                  </TableCell>
+                                </TableRow>
 
                                 {expandedRows.includes(index) && (
-                                  <tr key={`${service.id}-details`} className="bg-gray-100">
-                                    <td colSpan="100%" className="px-4 py-2 border border-gray-200">
+                                  <TableRow key={`${service.id}-details`} className="bg-gray-100">
+                                    <TableCell colSpan="100%" className="px-4 py-2 border border-gray-200">
                                       <div className="grid grid-cols-2 gap-4">
                                         {/* More Details */}
                                         <div>
@@ -490,22 +491,22 @@ export default function ManageService() {
                                           </div>
                                         </div>
                                       </div>
-                                    </td>
-                                  </tr>
+                                    </TableCell>
+                                  </TableRow>
                                 )}
                               </>
                             ))
                           ) : (
-                            <tr>
-                              <td colSpan="13" className="px-4 py-2 text-center text-gray-500 border border-gray-200">
+                            <TableRow>
+                              <TableCell colSpan="13" className="px-4 py-2 text-center text-gray-500 border border-gray-200">
                                 No services found.
-                              </td>
-                            </tr>
+                              </TableCell>
+                            </TableRow>
                           )}
                         </>
                       )}
-                    </tbody>
-                  </table>
+                    </TableBody>
+                  </Table>
                 </div>
                 {/* Pagination */}
                 <div className="flex justify-between items-center mt-2 space-x-4 flex-shrink-0">
