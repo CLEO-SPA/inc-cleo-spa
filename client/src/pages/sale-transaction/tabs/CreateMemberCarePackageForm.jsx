@@ -605,20 +605,24 @@ const ServiceRow = ({ service, index, canModify, onUpdate, onRemove }) => {
           )}
         </div>
 
-        <div className='space-y-1 md:col-span-2'>
+        <div className='space-y-1 md:col-span-2 xl:col-span-2'>
           <Label className='text-sm font-medium text-gray-700'>Price</Label>
           <div className='text-sm font-medium'>${(service.price || 0).toFixed(2)}</div>
         </div>
 
-        <div className='flex space-x-2 md:col-span-3 justify-end'>
+        <div
+          className={`flex md:col-span-3 xl:col-span-3 ${
+            isEditing ? 'flex-col space-y-2 ml-4' : 'space-x-2'
+          } justify-end`}
+        >
           {canModify && (
             <>
               {isEditing ? (
                 <>
-                  <Button size='sm' variant='outline' onClick={handleSave}>
+                  <Button size='sm' variant='outline' onClick={handleSave} className='w-full md:w-auto'>
                     Save
                   </Button>
-                  <Button size='sm' variant='outline' onClick={handleCancel}>
+                  <Button size='sm' variant='outline' onClick={handleCancel} className='w-full md:w-auto'>
                     Cancel
                   </Button>
                 </>
@@ -631,7 +635,7 @@ const ServiceRow = ({ service, index, canModify, onUpdate, onRemove }) => {
                 size='sm'
                 variant='outline'
                 onClick={() => onRemove(index)}
-                className='text-red-600 hover:text-red-700'
+                className={`text-red-600 hover:text-red-700 ${isEditing ? 'w-full md:w-auto' : ''}`}
               >
                 <Trash2 className='h-4 w-4' />
               </Button>
