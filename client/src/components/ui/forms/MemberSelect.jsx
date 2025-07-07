@@ -67,7 +67,7 @@ export function MemberSelect({
     if (phoneNumber.includes(searchLower)) return true;
     
     // search by card number - to edit when column is added
-    const memberCard = (member.member_card || member.card_number || '').toString().toLowerCase();
+    const memberCard = (member.card_number || '').toString().toLowerCase();
     if (memberCard.includes(searchLower)) return true;
     
     return false;
