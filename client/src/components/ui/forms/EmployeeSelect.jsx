@@ -12,6 +12,8 @@ export function EmployeeSelect({
   disabled: customDisabled = false,
   customOptions = [], // Prop for custom options
   className = '',
+  // allows custom styling prop 
+  customHeight = false,
   // Optional props for standalone usage
   control: controlProp,
   onChange: onChangeProp,
@@ -45,6 +47,15 @@ export function EmployeeSelect({
     }
   }, [employees.length, loading, fetchDropdownEmployees]);
 
+  // custom styles for height matching
+  const customTriggerStyle = customHeight ? {
+    height: '42px',
+    minHeight: '42px',
+    padding: '8px 12px',
+    fontSize: '14px',
+    lineHeight: '1.5'
+  } : {};
+
   // If no control available from either prop or context, show error
   if (!control && !onChangeProp) {
     return (
@@ -59,10 +70,12 @@ export function EmployeeSelect({
   // Render with Controller if we have control (form context usage)
   if (control) {
     return (
-      <div className={cn('space-y-2', className)}>
-        <Label htmlFor={name} className='text-sm font-medium text-gray-700'>
-          {label}
-        </Label>
+      <div className={cn(customHeight ? 'space-y-1' : 'space-y-2', className)}>
+        {label && (
+          <Label htmlFor={name} className='text-sm font-medium text-gray-700'>
+            {label}
+          </Label>
+        )}
 
         <Controller
           name={name}
@@ -81,7 +94,14 @@ export function EmployeeSelect({
                 open={isOpen}
                 onOpenChange={setIsOpen}
               >
-                <SelectTrigger className={cn('w-full', errors[name] ? 'border-red-500' : '')}>
+                <SelectTrigger 
+                  className={cn(
+                    'w-full',
+                    errors[name] ? 'border-red-500' : '',
+                    customHeight ? 'h-[42px]' : ''
+                  )}
+                  style={customTriggerStyle}
+                >
                   <SelectValue
                     placeholder={
                       loading ? 'Loading employees...' : error ? 'Error loading employees' : 'Select employee'
@@ -116,18 +136,20 @@ export function EmployeeSelect({
           )}
         />
 
-        {errors[name] && <p className='text-red-500 text-xs'>{errors[name].message}</p>}
-        {error && <p className='text-red-500 text-xs'>Failed to load employees: {error}</p>}
+        {!customHeight && errors[name] && <p className='text-red-500 text-xs'>{errors[name].message}</p>}
+        {!customHeight && error && <p className='text-red-500 text-xs'>Failed to load employees: {error}</p>}
       </div>
     );
   }
 
   // Render standalone version if onChange prop is provided
   return (
-    <div className={cn('space-y-2', className)}>
-      <Label htmlFor={name} className='text-sm font-medium text-gray-700'>
-        {label}
-      </Label>
+    <div className={cn(customHeight ? 'space-y-1' : 'space-y-2', className)}>
+      {label && (
+        <Label htmlFor={name} className='text-sm font-medium text-gray-700'>
+          {label}
+        </Label>
+      )}
 
       <div className='relative'>
         <Select
@@ -141,7 +163,14 @@ export function EmployeeSelect({
           open={isOpen}
           onOpenChange={setIsOpen}
         >
-          <SelectTrigger className={cn('w-full', errors[name] ? 'border-red-500' : '')}>
+          <SelectTrigger 
+            className={cn(
+              'w-full',
+              errors[name] ? 'border-red-500' : '',
+              customHeight ? 'h-[42px]' : ''
+            )}
+            style={customTriggerStyle}
+          >
             <SelectValue
               placeholder={loading ? 'Loading employees...' : error ? 'Error loading employees' : 'Select employee'}
             />
@@ -172,8 +201,8 @@ export function EmployeeSelect({
         </Select>
       </div>
 
-      {errors[name] && <p className='text-red-500 text-xs'>{errors[name].message}</p>}
-      {error && <p className='text-red-500 text-xs'>Failed to load employees: {error}</p>}
+      {!customHeight && errors[name] && <p className='text-red-500 text-xs'>{errors[name].message}</p>}
+      {!customHeight && error && <p className='text-red-500 text-xs'>Failed to load employees: {error}</p>}
     </div>
   );
 }

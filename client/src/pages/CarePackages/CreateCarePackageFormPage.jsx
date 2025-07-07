@@ -434,6 +434,7 @@ const CarePackageCreateForm = () => {
               </CardHeader>
               <CardContent className='p-6'>
                 <div className='grid grid-cols-1 md:grid-cols-2 gap-6'>
+                  {/* date time selector */}
                   <div>
                     <label className='block text-sm font-medium text-gray-600 mb-2 flex items-center'>
                       <Calendar className='w-4 h-4 mr-2' />
@@ -443,19 +444,33 @@ const CarePackageCreateForm = () => {
                       type='datetime-local'
                       value={mainFormData.created_at || ''}
                       onChange={(e) => updateMainField('created_at', e.target.value)}
-                      className='w-full px-3 py-2 border border-gray-200 rounded text-sm focus:outline-none focus:ring-2 focus:ring-gray-500 focus:border-transparent'
+                      className='w-full border border-gray-200 rounded text-sm focus:outline-none focus:ring-2 focus:ring-gray-500 focus:border-transparent cursor-text'
+                      style={{
+                        height: '42px',
+                        padding: '8px 12px',
+                        lineHeight: '1.5',
+                        fontSize: '14px',
+                        backgroundColor: 'white'
+                      }}
                       required
+                      onFocus={(e) => {
+                      }}
                     />
                   </div>
 
+                  {/* employee select */}
                   <div>
                     <label className='block text-sm font-medium text-gray-600 mb-2 flex items-center'>
                       <User className='w-4 h-4 mr-2' />
-                      ASSIGNED EMPLOYEE *
+                      CREATED BY *
                     </label>
                     <FormProvider {...methods}>
-                      <div className={employeeError ? 'border border-red-300 rounded bg-red-50' : ''}>
-                        <EmployeeSelect name='employee_id' label='' />
+                      <div className={employeeError ? 'ring-2 ring-red-300 rounded bg-red-50 p-1' : ''}>
+                        <EmployeeSelect 
+                          name='employee_id' 
+                          label='' 
+                          customHeight={true}
+                        />
                       </div>
                     </FormProvider>
                     {employeeError && <p className='text-red-600 text-xs mt-1'>{employeeError}</p>}
@@ -478,9 +493,6 @@ const CarePackageCreateForm = () => {
                   <div>
                     <label className='block text-sm font-medium text-gray-600 mb-2'>
                       PACKAGE PRICE
-                      <span className='text-xs text-gray-400 ml-1'>
-                        (leave empty for auto-calculated: ${calculateTotalPrice().toFixed(2)})
-                      </span>
                     </label>
                     <div className='relative'>
                       <DollarSign className='h-4 w-4 text-gray-400 absolute left-3 top-1/2 transform -translate-y-1/2' />
@@ -566,7 +578,6 @@ const CarePackageCreateForm = () => {
                       <div>
                         <label className='block text-sm font-medium text-gray-600 mb-2'>
                           CALCULATED TOTAL
-                          <span className='text-xs text-gray-400 ml-1'>(frontend calculation)</span>
                         </label>
                         <div className='text-gray-900 font-semibold px-3 py-2 bg-green-50 border border-green-200 rounded text-sm'>
                           ${calculateTotalPrice().toFixed(2)}
