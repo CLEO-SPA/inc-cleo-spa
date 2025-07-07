@@ -18,8 +18,7 @@ import { Label } from '@/components/ui/label';
 
 const ViewMemberCarePackageDetailsPage = () => {
   const { id } = useParams();
-  const { currentPackage, isLoading, error, fetchPackageById, clearCurrentPackage, clearError } =
-    useMcpSpecificStore();
+  const { currentPackage, isLoading, error, fetchPackageById, clearCurrentPackage, clearError } = useMcpSpecificStore();
   const { getEnabledServiceById } = useCpFormStore();
   const { updateMemberCarePackageStatus } = useMcpFormStore();
   const { user } = useAuth();
@@ -138,11 +137,13 @@ const ViewMemberCarePackageDetailsPage = () => {
     return packageDetails.map((detail, index) => {
       const serviceInfo = serviceData[detail.service_id] || {};
 
+      console.log(packageDetails);
+
       return {
         mcpd_id: detail.id,
         status: detail.status,
-        id: detail.service_id,
-        name: serviceNames[detail.service_id] || `Service ${detail.service_id}`,
+        id: detail.service_id || 0,
+        name: detail.service_name || `Service ${detail.service_id}`,
         quantity: parseInt(detail.quantity) || 1,
         price: parseFloat(detail.price) || 0,
         originalPrice: parseFloat(serviceInfo.service_price) || parseFloat(detail.price) || 0,
@@ -279,7 +280,7 @@ const ViewMemberCarePackageDetailsPage = () => {
                     <label className='block text-xs font-medium text-gray-600 mb-1'>CREATED BY</label>
                     <div className='text-gray-900 px-2 py-1 bg-green-50 border border-green-200 rounded text-sm flex items-center font-semibold'>
                       <User className='w-3 h-3 mr-1 text-green-600' />
-                      {currentPackage.employee?.employee_name || 'N/A'}
+                      {currentPackage.package?.created_by_name || 'N/A'}
                     </div>
                   </div>
                 </div>

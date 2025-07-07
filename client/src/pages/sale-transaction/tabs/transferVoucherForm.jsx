@@ -23,22 +23,26 @@ const TransferVoucherForm = () => {
     setPrice,
     setFoc,
     setOldVouchers,
-    getTotalOldBalance,
-    getTopUpBalance,
     setSelectedMember,
     setTransferFormData,
+    setTopUpBalance,
   } = useTransferVoucherStore();
 
-  const { addCartItem, clearCart } = useTransactionCartStore();
+  const { addCartItem } = useTransactionCartStore();
   const { employees, fetchDropdownEmployees } = useEmployeeStore();
 
   const [customVoucherName, setCustomVoucherName] = useState('');
   const [hasCustomPrice, setHasCustomPrice] = useState(false);
   const [hasCustomFoc, setHasCustomFoc] = useState(false);
   const [createdBy, setCreatedBy] = useState('');
-  const [updatedBy, setUpdatedBy] = useState('');
+  const [createdAt, setCreatedAt] = useState(() => {
+    const now = new Date();
+    now.setSeconds(0, 0); // truncate seconds/ms for input compatibility
+    return now.toISOString().slice(0, 16); // for datetime-local input
+  });
 
   const [remarks, setRemarks] = useState('');
+  const isFocGreaterThanPrice = parseFloat(foc || '0') > parseFloat(price || '0');
 
   useEffect(() => {
     fetchVoucherTemplates?.();
@@ -65,33 +69,29 @@ const TransferVoucherForm = () => {
   useEffect(() => {
     if (!createdBy && employees?.length > 0) {
       setCreatedBy(employees[0].id);
-      setUpdatedBy(employees[0].id);
     }
   }, [employees]);
 
   useEffect(() => {
     setHasCustomPrice(false);
     setHasCustomFoc(false);
-    clearCart();
+    // clearCart(); // ❌ DO NOT clear cart anymore
   }, [bypassTemplate]);
 
-  useEffect(() => {
-    const voucherNameToUse = bypassTemplate ? customVoucherName : selectedVoucherName;
-    if (!voucherNameToUse || !price) return;
+  // Calculate total old voucher balance excluding FOC amounts
+  const totalOldBalance = oldVouchers.reduce((acc, voucherName) => {
+    const voucher = memberVouchers.find(
+      (v) => v.member_voucher_name.trim().toLowerCase() === voucherName.trim().toLowerCase()
+    );
+    if (!voucher) return acc;
+    // Assumes voucher.current_balance includes total balance
+    // and voucher.foc_balance contains FOC portion, change if property names differ
+    const nonFocBalance = Number(voucher.current_balance) - (Number(voucher.free_of_charge) || 0);
+    return acc + (nonFocBalance > 0 ? nonFocBalance : 0);
+  }, 0);
 
-    const cartPayload = {
-      id: 'transfer-auto',
-      type: 'transfer',
-      data: {
-        name: voucherNameToUse,
-        amount: Number(price),
-        description: `Transferred from: ${oldVouchers.join(', ')}`,
-      },
-    };
-
-    clearCart();
-    addCartItem(cartPayload);
-  }, [customVoucherName, selectedVoucherName, price, bypassTemplate, oldVouchers]);
+  // Calculate top-up balance based on price and totalOldBalance
+  const topUpBalance = Math.max(0, Number(price) - totalOldBalance);
 
   useEffect(() => {
     const memberName = currentMember?.name;
@@ -110,7 +110,7 @@ const TransferVoucherForm = () => {
       .map((v) => ({
         voucher_id: v.id,
         member_voucher_name: v.member_voucher_name,
-        balance_to_transfer: Number(v.current_balance),
+        balance_to_transfer: Number(v.current_balance) - (Number(v.free_of_charge) || 0),
       }));
 
     const payload = {
@@ -122,9 +122,12 @@ const TransferVoucherForm = () => {
       old_voucher_details: oldVoucherDetails,
       is_bypass: bypassTemplate,
       created_by: createdBy,
-      updated_by: updatedBy,
-      remarks: remarks, // <-- add remarks here
+      created_at: createdAt,
+      remarks: remarks.trim() === '' ? 'NA' : remarks,
+      top_up_balance: topUpBalance, // ✅ Add this line
     };
+
+
 
     setTransferFormData(payload);
   }, [
@@ -137,27 +140,55 @@ const TransferVoucherForm = () => {
     bypassTemplate,
     customVoucherName,
     createdBy,
-    updatedBy,
-    remarks, // add remarks here as dependency
+    createdAt,
+    remarks,
   ]);
 
-  const handleDecimalInput = (e, setter, setCustomFlag) => {
+  const handleDecimalInput = (e, setter, setCustomFlag, isFoc = false) => {
     const value = e.target.value;
     if (/^\d*(\.\d{0,2})?$/.test(value)) {
+      const numericValue = parseFloat(value || '0');
+      const currentPrice = parseFloat(price || '0');
+
+      if (isFoc && numericValue > currentPrice) {
+        alert('FOC cannot be greater than the price.');
+        return;
+      }
+
       setCustomFlag(true);
       setter(value);
     }
   };
 
-  const totalOldBalance = getTotalOldBalance();
   const isBalanceGreater = totalOldBalance > Number(price);
-  const topUpBalance = getTopUpBalance();
+
+  const handleAddToCart = () => {
+    const voucherNameToUse = bypassTemplate ? customVoucherName : selectedVoucherName;
+    if (!voucherNameToUse || !price) return;
+
+    const transferAmount = totalOldBalance;
+
+
+    const cartPayload = {
+      id: `transfer-${Date.now()}`,
+      type: 'transferMV',
+      data: {
+        name: voucherNameToUse,
+        amount: Number(price),
+        description: `Transferred from: ${oldVouchers.join(', ')}`,
+        transferAmount: transferAmount,
+      },
+    };
+
+    addCartItem(cartPayload);
+  };
 
   return (
     <div className='p-0'>
       <div className='p-3 bg-white shadow rounded-lg h-[700px] overflow-y-auto'>
         <h2 className='text-xl font-semibold mb-4'>Transfer Voucher</h2>
 
+        {/* New Voucher Name */}
         <div className='mb-6'>
           <label className='block font-medium mb-1'>New Voucher Name</label>
           {bypassTemplate ? (
@@ -184,6 +215,7 @@ const TransferVoucherForm = () => {
           )}
         </div>
 
+        {/* Price and Bypass */}
         <div className='mb-6 flex flex-col md:flex-row md:items-end gap-4'>
           <div className='flex-1'>
             <label className='block font-medium mb-1'>Price of New Voucher</label>
@@ -211,16 +243,24 @@ const TransferVoucherForm = () => {
           </div>
         </div>
 
+        {/* FOC */}
         <div className='mb-6'>
           <label className='block font-medium mb-1'>FOC</label>
           <input
             type='text'
             className='w-full border px-3 py-2 rounded'
             value={foc}
-            onChange={(e) => handleDecimalInput(e, setFoc, setHasCustomFoc)}
+            onChange={(e) => handleDecimalInput(e, setFoc, setHasCustomFoc, true)}
             placeholder={bypassTemplate ? 'Enter FOC' : 'Auto-filled unless changed'}
           />
         </div>
+        {parseFloat(foc || '0') > parseFloat(price || '0') && (
+          <div className='mb-4 p-2 bg-red-100 text-red-700 rounded'>
+            ⚠️ FOC cannot be more than price.
+          </div>
+        )}
+
+        {/* Remarks */}
         <div className='mb-6'>
           <label className='block font-medium mb-1'>Remarks</label>
           <input
@@ -231,8 +271,10 @@ const TransferVoucherForm = () => {
             onChange={(e) => setRemarks(e.target.value)}
           />
         </div>
+
+        {/* Old Vouchers */}
         <div className='mb-6'>
-          <label className='block font-medium mb-1'>Old Voucher(s)</label>
+          <label className='block font-medium mb-1'>Old Voucher(s) [INCLUDE FOC]</label>
           {oldVouchers.map((voucherName, index) => (
             <div key={index} className='mb-2 flex items-center gap-2'>
               <select
@@ -280,8 +322,9 @@ const TransferVoucherForm = () => {
           </button>
         </div>
 
+        {/* Totals */}
         <div className='mb-4'>
-          <label className='block font-medium mb-1'>Balance of Old Vouchers</label>
+          <label className='block font-medium mb-1'>Balance of Old Vouchers (Excluding FOC)</label>
           <input type='text' className='w-full border px-3 py-2 rounded' value={totalOldBalance} readOnly />
         </div>
 
@@ -296,6 +339,7 @@ const TransferVoucherForm = () => {
           <input type='text' className='w-full border px-3 py-2 rounded' value={topUpBalance} readOnly />
         </div>
 
+        {/* Created By */}
         <div className='mb-6'>
           <label className='block font-medium mb-1'>Created By</label>
           <select
@@ -312,20 +356,29 @@ const TransferVoucherForm = () => {
           </select>
         </div>
 
+        {/* Created At */}
         <div className='mb-6'>
-          <label className='block font-medium mb-1'>Updated By</label>
-          <select
+          <label className='block font-medium mb-1'>Created At</label>
+          <input
+            type='datetime-local'
             className='w-full border px-3 py-2 rounded'
-            value={updatedBy}
-            onChange={(e) => setUpdatedBy(Number(e.target.value))}
+            value={createdAt}
+            onChange={(e) => setCreatedAt(e.target.value)}
+          />
+        </div>
+
+        {/* Add to Cart Button */}
+        <div className='mt-4 flex justify-end'>
+          <button
+            onClick={handleAddToCart}
+            disabled={isFocGreaterThanPrice}
+            className={`px-6 py-2 rounded transition ${isFocGreaterThanPrice
+              ? 'bg-gray-400 cursor-not-allowed'
+              : 'bg-green-600 hover:bg-green-700 text-white'
+              }`}
           >
-            <option value=''>Select employee</option>
-            {employees?.map((emp) => (
-              <option key={emp.id} value={emp.id}>
-                {emp.employee_name}
-              </option>
-            ))}
-          </select>
+            Add to Cart
+          </button>
         </div>
       </div>
     </div>

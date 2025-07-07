@@ -62,11 +62,12 @@ const MCPDetail = () => {
       try {
         setIsLoading(true);
         const data = await api.getPackageDetails(packageId);
+        console.log('Fetched package data:', data);
         setPackageData(data);
-        
+
         const refundedServices = data.services?.filter(s => s.totals.refunded > 0) || [];
         const dates = {};
-        
+
         for (const service of refundedServices) {
           try {
             const { refund_date } = await api.getRefundDate(packageId);
@@ -75,7 +76,7 @@ const MCPDetail = () => {
             console.error(`Failed to get refund date for service ${service.service_id}:`, err);
           }
         }
-        
+
         setRefundDates(dates);
       } catch (error) {
         console.error('Error fetching package details:', error);
@@ -87,7 +88,7 @@ const MCPDetail = () => {
     fetchPackageDetails();
   }, [packageId]);
 
-  const handleProcessRefund = async (serviceId) => {
+  const handleProcessRefund = async () => {
     if (!remarks.trim()) {
       setError('Remarks are required to process the refund');
       return;
@@ -99,7 +100,7 @@ const MCPDetail = () => {
 
     try {
       await api.processRefund(
-        packageId, 
+        packageId,
         remarks,
         useCustomDate ? refundDate : null
       );
@@ -109,13 +110,7 @@ const MCPDetail = () => {
       setRefundDate(null);
       setUseCustomDate(false);
       setSuccessMessage('Refund has been processed successfully');
-      
-      const { refund_date } = await api.getRefundDate(packageId);
-      setRefundDates(prev => ({
-        ...prev,
-        [serviceId]: refund_date
-      }));
-      
+
       setTimeout(() => {
         setSuccessMessage('');
       }, 2000);
@@ -132,7 +127,13 @@ const MCPDetail = () => {
   };
 
   const getStatusBadge = (service) => {
-    if (service.totals.refunded > 0) {
+    console.log('Service status data:', {
+      refunded: service.totals.refunded,
+      remaining: service.totals.remaining,
+      is_eligible_for_refund: service.is_eligible_for_refund,
+      service_name: service.service_name
+    });
+    if (service.is_eligible_for_refund === 'refunded') {
       return (
         <span className="inline-flex flex-col items-start px-2.5 py-0.5 rounded-full text-xs font-medium bg-purple-100 text-purple-800">
           <div className="flex items-center">
@@ -150,7 +151,7 @@ const MCPDetail = () => {
         </span>
       );
     }
-    if (service.is_eligible_for_refund) {
+    if (service.is_eligible_for_refund == 'eligible') {
       return (
         <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-green-100 text-green-800">
           <CheckCircle className="w-3 h-3 mr-1" />
@@ -219,6 +220,12 @@ const MCPDetail = () => {
       </div>
     );
   }
+
+  const hasMultipleServices = packageData.services?.length > 1;
+  const hasEligibleService = packageData.services?.some(s =>
+    s.is_eligible_for_refund === 'eligible' && s.totals.refunded === 0
+  );
+  const isFullyRefunded = packageData.services?.every(s => s.is_eligible_for_refund === 'refunded');
 
   return (
     <div className='[--header-height:calc(theme(spacing.14))]'>
@@ -327,6 +334,34 @@ const MCPDetail = () => {
                             </div>
                           )}
                         </div>
+
+                        <div className="pt-4">
+                          <button
+                            onClick={handleProcessRefund}
+                            disabled={isProcessing || !remarks.trim() || isFullyRefunded}
+                            className={`w-full flex items-center justify-center px-6 py-3 rounded-lg font-medium transition-all duration-200 ${isProcessing || !remarks.trim() || isFullyRefunded
+                              ? 'bg-gray-300 text-gray-500 cursor-not-allowed'
+                              : 'bg-red-600 text-white hover:bg-red-700 hover:shadow-lg transform hover:-translate-y-0.5'
+                              }`}
+                          >
+                            {isProcessing ? (
+                              <>
+                                <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-white mr-2"></div>
+                                Processing Refund...
+                              </>
+                            ) : isFullyRefunded ? (
+                              <>
+                                <CheckCircle className="w-4 h-4 mr-2" />
+                                Refunded
+                              </>
+                            ) : (
+                              <>
+                                <DollarSign className="w-4 h-4 mr-2" />
+                                Process Full Refund (${packageData.balance})
+                              </>
+                            )}
+                          </button>
+                        </div>
                       </div>
                     </div>
                   </div>
@@ -343,8 +378,6 @@ const MCPDetail = () => {
                       <div className="p-6">
                         <div className="space-y-6">
                           {packageData.services?.map((service) => {
-                            const unitPrice = (service.price - (service.discount || 0)).toFixed(2);
-                            const refundAmount = calculateRefundAmount(service);
                             const isRefunded = service.totals.refunded > 0;
                             const isEligible = service.is_eligible_for_refund && !isRefunded;
 
@@ -354,7 +387,9 @@ const MCPDetail = () => {
                                   <div className="flex items-center justify-between">
                                     <div>
                                       <h3 className="text-lg font-semibold text-gray-900">{service.service_name}</h3>
-                                      <p className="text-sm text-gray-600">Service ID: {service.service_id}</p>
+                                      {service.service_id && (
+                                        <p className="text-sm text-gray-600">Service ID: {service.service_id}</p>
+                                      )}
                                     </div>
                                     {getStatusBadge(service)}
                                   </div>
@@ -363,21 +398,30 @@ const MCPDetail = () => {
                                 <div className="p-6">
                                   <div className="grid grid-cols-2 md:grid-cols-5 gap-6 mb-6">
                                     <div className="text-center">
-                                      <div className="text-2xl font-bold text-blue-600">{service.totals.purchased}</div>
-                                      <div className="text-sm text-gray-600">Purchased</div>
+                                      <div className="text-2xl font-bold text-blue-600">{service.totals.total}</div>
+                                      <div className="text-sm text-gray-600">Total</div>
                                     </div>
                                     <div className="text-center">
                                       <div className="text-2xl font-bold text-green-600">{service.totals.consumed}</div>
                                       <div className="text-sm text-gray-600">Consumed</div>
                                     </div>
-                                    <div className="text-center">
-                                      <div className="text-2xl font-bold text-red-600">{service.totals.refunded}</div>
-                                      <div className="text-sm text-gray-600">Refunded</div>
-                                    </div>
-                                    <div className="text-center">
-                                      <div className="text-2xl font-bold text-orange-600">{service.totals.remaining}</div>
-                                      <div className="text-sm text-gray-600">Remaining</div>
-                                    </div>
+
+                                    {/* Only show Refunded section for single-service packages */}
+                                    {!hasMultipleServices && (
+                                      <div className="text-center">
+                                        <div className="text-2xl font-bold text-red-600">{service.totals.refunded}</div>
+                                        <div className="text-sm text-gray-600">Refunded</div>
+                                      </div>
+                                    )}
+
+                                    {/* Only show Remaining section for single-service packages */}
+                                    {!hasMultipleServices && (
+                                      <div className="text-center">
+                                        <div className="text-2xl font-bold text-orange-600">{service.totals.remaining}</div>
+                                        <div className="text-sm text-gray-600">Remaining</div>
+                                      </div>
+                                    )}
+
                                     <div className="text-center">
                                       <div className="text-2xl font-bold text-600">${(service.totals.price).toFixed(2)}</div>
                                       <div className="text-sm text-gray-600">Unit Price</div>
@@ -400,66 +444,25 @@ const MCPDetail = () => {
                                           <div className="flex items-center text-purple-800">
                                             <DollarSign className="w-4 h-4 mr-2" />
                                             <span className="font-medium">Refund Amount:</span>
-                                            <span className="ml-2">${refundAmount}</span>
+                                            <span className="ml-2">${(service.refund_amount)}</span>
                                           </div>
                                         </div>
                                       </div>
                                     </div>
                                   )}
 
-                                  {isEligible && (
+                                  {!hasMultipleServices && isEligible && (
                                     <div className="mb-4 p-3 bg-blue-50 border border-blue-200 rounded-lg">
                                       <div className="flex items-center text-blue-800">
                                         <DollarSign className="w-4 h-4 mr-2" />
                                         <span className="font-medium">Refund Amount:</span>
-                                        <span className="ml-2">${refundAmount}</span>
+                                        <span className="ml-2">${calculateRefundAmount(service)}</span>
                                         <span className="text-sm text-blue-600 ml-2">
                                           ({service.totals.remaining} × ${(service.totals.price).toFixed(2)})
                                         </span>
                                       </div>
                                     </div>
                                   )}
-
-                                  <div className="flex justify-end">
-                                    {isRefunded ? (
-                                      <div className="text-right">
-                                        <div className="inline-flex items-center px-4 py-2 rounded-lg bg-gray-100 text-gray-700">
-                                          <CheckCircle className="w-4 h-4 mr-2 text-green-500" />
-                                          <span>Refunded</span>
-                                        </div>
-                                      </div>
-                                    ) : service.is_eligible_for_refund === "ineligible" ? (
-                                      <button
-                                        disabled
-                                        className="inline-flex items-center px-6 py-3 rounded-lg font-medium bg-gray-300 text-gray-500 cursor-not-allowed"
-                                      >
-                                        <AlertCircle className="w-4 h-4 mr-2" />
-                                        Ineligible for Refund
-                                      </button>
-                                    ) : isEligible ? (
-                                      <button
-                                        onClick={() => handleProcessRefund(service.service_id)}
-                                        disabled={isProcessing || !remarks.trim()}
-                                        className={`inline-flex items-center px-6 py-3 rounded-lg font-medium transition-all duration-200 ${
-                                          isProcessing || !remarks.trim()
-                                            ? 'bg-gray-300 text-gray-500 cursor-not-allowed' 
-                                            : 'bg-red-600 text-white hover:bg-red-700 hover:shadow-lg transform hover:-translate-y-0.5'
-                                        }`}
-                                      >
-                                        {isProcessing ? (
-                                          <>
-                                            <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-white mr-2"></div>
-                                            Processing Refund...
-                                          </>
-                                        ) : (
-                                          <>
-                                            <DollarSign className="w-4 h-4 mr-2" />
-                                            Process Refund (${refundAmount})
-                                          </>
-                                        )}
-                                      </button>
-                                    ) : null}
-                                  </div>
                                 </div>
                               </div>
                             );

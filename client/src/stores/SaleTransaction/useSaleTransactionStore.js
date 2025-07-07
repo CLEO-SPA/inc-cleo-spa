@@ -2,14 +2,15 @@ import { create } from 'zustand';
 import { devtools } from 'zustand/middleware';
 import api from '@/services/api';
 import { useMcpFormStore } from '@/stores/MemberCarePackage/useMcpFormStore';
+import useTransferVoucherStore from '@/stores/useTransferVoucherStore';
 
 const getInitialState = () => ({
   // Transaction creation state
   isCreating: false,
-  currentStep: 'idle', 
+  currentStep: 'idle',
   createdTransactions: [],
   failedTransactions: [],
-  
+
   // Transaction creation progress
   progress: {
     total: 0,
@@ -22,8 +23,8 @@ const getInitialState = () => ({
   transactionDetails: {
     receiptNumber: '',
     transactionRemark: '',
-    createdBy: null, 
-    handledBy: null, 
+    createdBy: null,
+    handledBy: null,
     memberId: null,
     customerType: 'MEMBER',
     // ✅ NEW: Add creation date/time fields
@@ -64,7 +65,7 @@ const useSaleTransactionStore = create(
         if (outstandingAmount > 0) {
           if (existingPendingPayment) {
             // Update existing pending payment amount
-            updatedPayments = updatedPayments.map(payment => 
+            updatedPayments = updatedPayments.map(payment =>
               payment.methodId === get().PENDING_PAYMENT_METHOD_ID
                 ? { ...payment, amount: outstandingAmount }
                 : payment
@@ -72,7 +73,7 @@ const useSaleTransactionStore = create(
           } else {
             // Add new pending payment
             updatedPayments.push({
-              id: crypto.randomUUID(), 
+              id: crypto.randomUUID(),
               methodId: get().PENDING_PAYMENT_METHOD_ID,
               methodName: 'Pending',
               amount: outstandingAmount,
@@ -174,8 +175,8 @@ const useSaleTransactionStore = create(
 
       // Main orchestration function
       createSaleTransactions: async (transactionData) => {
-        set({ 
-          isCreating: true, 
+        set({
+          isCreating: true,
           currentStep: 'preparing',
           createdTransactions: [],
           failedTransactions: [],
@@ -220,11 +221,11 @@ const useSaleTransactionStore = create(
             transactionDetails
           });
 
-          set({ 
+          set({
             currentStep: 'creating',
-            progress: { 
-              total: totalTransactions, 
-              completed: 0, 
+            progress: {
+              total: totalTransactions,
+              completed: 0,
               failed: 0,
               currentOperation: 'Starting transaction creation...'
             }
@@ -236,9 +237,9 @@ const useSaleTransactionStore = create(
           // 1. Create Services + Products transaction (if exists)
           if (processedTransactionData.servicesProducts?.items?.length > 0) {
             set(state => ({
-              progress: { 
-                ...state.progress, 
-                currentOperation: 'Creating Services & Products transaction...' 
+              progress: {
+                ...state.progress,
+                currentOperation: 'Creating Services & Products transaction...'
               }
             }));
 
@@ -246,7 +247,7 @@ const useSaleTransactionStore = create(
               const servicesTransaction = await get().createServicesProductsTransaction(
                 processedTransactionData.servicesProducts
               );
-              
+
               createdTransactions.push({
                 type: 'services-products',
                 transaction: servicesTransaction,
@@ -254,9 +255,9 @@ const useSaleTransactionStore = create(
               });
 
               set(state => ({
-                progress: { 
-                  ...state.progress, 
-                  completed: state.progress.completed + 1 
+                progress: {
+                  ...state.progress,
+                  completed: state.progress.completed + 1
                 }
               }));
 
@@ -267,11 +268,11 @@ const useSaleTransactionStore = create(
                 error: error.message,
                 data: processedTransactionData.servicesProducts
               });
-              
+
               set(state => ({
-                progress: { 
-                  ...state.progress, 
-                  failed: state.progress.failed + 1 
+                progress: {
+                  ...state.progress,
+                  failed: state.progress.failed + 1
                 },
                 errors: [...state.errors, `Services/Products: ${error.message}`]
               }));
@@ -281,10 +282,10 @@ const useSaleTransactionStore = create(
           // 2. Create individual MCP transactions
           if (processedTransactionData.mcpTransactions?.length > 0) {
             let mcpCreationResult = null;
-            
+
             try {
               const mcpFormStore = useMcpFormStore.getState();
-              mcpCreationResult = await mcpFormStore.processMcpCreationQueue(); 
+              mcpCreationResult = await mcpFormStore.processMcpCreationQueue();
               console.log('✅ MCP creation queue processed successfully:', mcpCreationResult);
             } catch (error) {
               console.error('❌ MCP creation queue processing failed:', error);
@@ -295,14 +296,14 @@ const useSaleTransactionStore = create(
 
             // Extract created packages from the result
             const createdPackages = mcpCreationResult?.results?.createdPackages || [];
-            
+
             for (let i = 0; i < processedTransactionData.mcpTransactions.length; i++) {
               const mcpData = processedTransactionData.mcpTransactions[i];
-              
+
               set(state => ({
-                progress: { 
-                  ...state.progress, 
-                  currentOperation: `Creating MCP transaction ${i + 1}/${processedTransactionData.mcpTransactions.length}...` 
+                progress: {
+                  ...state.progress,
+                  currentOperation: `Creating MCP transaction ${i + 1}/${processedTransactionData.mcpTransactions.length}...`
                 }
               }));
 
@@ -310,11 +311,11 @@ const useSaleTransactionStore = create(
                 // Get the corresponding MCP ID from creation results
                 const correspondingPackage = createdPackages[i];
                 const actualMcpId = correspondingPackage?.memberCarePackageId;
-                
+
                 if (!actualMcpId) {
                   throw new Error(`No MCP ID found for transaction item at index ${i}`);
                 }
-                
+
                 // Update the mcpData with the actual MCP ID
                 const updatedMcpData = {
                   ...mcpData,
@@ -329,9 +330,9 @@ const useSaleTransactionStore = create(
                 };
 
                 console.log(`📦 Creating MCP transaction with ID ${actualMcpId} for package: ${mcpData.item.data?.package_name || mcpData.item.data?.name}`);
-                
+
                 const mcpTransaction = await get().createMcpTransaction(updatedMcpData);
-                
+
                 createdTransactions.push({
                   type: 'mcp',
                   transaction: mcpTransaction,
@@ -339,9 +340,9 @@ const useSaleTransactionStore = create(
                 });
 
                 set(state => ({
-                  progress: { 
-                    ...state.progress, 
-                    completed: state.progress.completed + 1 
+                  progress: {
+                    ...state.progress,
+                    completed: state.progress.completed + 1
                   }
                 }));
 
@@ -352,11 +353,11 @@ const useSaleTransactionStore = create(
                   error: error.message,
                   data: mcpData
                 });
-                
+
                 set(state => ({
-                  progress: { 
-                    ...state.progress, 
-                    failed: state.progress.failed + 1 
+                  progress: {
+                    ...state.progress,
+                    failed: state.progress.failed + 1
                   },
                   errors: [...state.errors, `MCP (${mcpData.item.data?.name}): ${error.message}`]
                 }));
@@ -368,17 +369,17 @@ const useSaleTransactionStore = create(
           if (processedTransactionData.mvTransactions?.length > 0) {
             for (let i = 0; i < processedTransactionData.mvTransactions.length; i++) {
               const mvData = processedTransactionData.mvTransactions[i];
-              
+
               set(state => ({
-                progress: { 
-                  ...state.progress, 
-                  currentOperation: `Creating MV transaction ${i + 1}/${processedTransactionData.mvTransactions.length}...` 
+                progress: {
+                  ...state.progress,
+                  currentOperation: `Creating MV transaction ${i + 1}/${processedTransactionData.mvTransactions.length}...`
                 }
               }));
 
               try {
                 const mvTransaction = await get().createMvTransaction(mvData);
-                
+
                 createdTransactions.push({
                   type: 'mv',
                   transaction: mvTransaction,
@@ -386,9 +387,9 @@ const useSaleTransactionStore = create(
                 });
 
                 set(state => ({
-                  progress: { 
-                    ...state.progress, 
-                    completed: state.progress.completed + 1 
+                  progress: {
+                    ...state.progress,
+                    completed: state.progress.completed + 1
                   }
                 }));
 
@@ -399,11 +400,11 @@ const useSaleTransactionStore = create(
                   error: error.message,
                   data: mvData
                 });
-                
+
                 set(state => ({
-                  progress: { 
-                    ...state.progress, 
-                    failed: state.progress.failed + 1 
+                  progress: {
+                    ...state.progress,
+                    failed: state.progress.failed + 1
                   },
                   errors: [...state.errors, `MV (${mvData.item.data?.member_voucher_name}): ${error.message}`]
                 }));
@@ -414,10 +415,10 @@ const useSaleTransactionStore = create(
           // 4. Create individual MCP Transfer transactions
           if (processedTransactionData.mcpTransferTransactions?.length > 0) {
             let mcpTransferResult = null;
-            
+
             try {
               const mcpFormStore = useMcpFormStore.getState();
-              mcpTransferResult = await mcpFormStore.processMcpTransferQueue(); 
+              mcpTransferResult = await mcpFormStore.processMcpTransferQueue();
               console.log('✅ MCP transfer queue processed successfully:', mcpTransferResult);
             } catch (error) {
               console.error('❌ MCP transfer queue processing failed:', error);
@@ -428,25 +429,25 @@ const useSaleTransactionStore = create(
 
             // Extract transferred packages from the result
             const transferredPackages = mcpTransferResult?.packages || [];
-            
+
             for (let i = 0; i < processedTransactionData.mcpTransferTransactions.length; i++) {
               const mcpTransferData = processedTransactionData.mcpTransferTransactions[i];
-              
+
               set(state => ({
-                progress: { 
-                  ...state.progress, 
-                  currentOperation: `Creating MCP Transfer transaction ${i + 1}/${processedTransactionData.mcpTransferTransactions.length}...` 
+                progress: {
+                  ...state.progress,
+                  currentOperation: `Creating MCP Transfer transaction ${i + 1}/${processedTransactionData.mcpTransferTransactions.length}...`
                 }
               }));
 
               try {
                 // Get the corresponding transfer result from the queue processing
                 const correspondingTransfer = transferredPackages[i];
-                
+
                 if (!correspondingTransfer) {
                   throw new Error(`No transfer result found for transaction item at index ${i}`);
                 }
-                
+
                 // Update the mcpTransferData with the actual transfer details
                 const updatedMcpTransferData = {
                   ...mcpTransferData,
@@ -463,9 +464,9 @@ const useSaleTransactionStore = create(
                 };
 
                 console.log(`🔄 Creating MCP Transfer transaction from ${correspondingTransfer.mcp_id1} to ${correspondingTransfer.mcp_id2} (Amount: $${correspondingTransfer.amount})`);
-                
+
                 const mcpTransferTransaction = await get().createMcpTransferTransaction(updatedMcpTransferData);
-                
+
                 createdTransactions.push({
                   type: 'mcp-transfer',
                   transaction: mcpTransferTransaction,
@@ -473,9 +474,9 @@ const useSaleTransactionStore = create(
                 });
 
                 set(state => ({
-                  progress: { 
-                    ...state.progress, 
-                    completed: state.progress.completed + 1 
+                  progress: {
+                    ...state.progress,
+                    completed: state.progress.completed + 1
                   }
                 }));
 
@@ -486,11 +487,11 @@ const useSaleTransactionStore = create(
                   error: error.message,
                   data: mcpTransferData
                 });
-                
+
                 set(state => ({
-                  progress: { 
-                    ...state.progress, 
-                    failed: state.progress.failed + 1 
+                  progress: {
+                    ...state.progress,
+                    failed: state.progress.failed + 1
                   },
                   errors: [...state.errors, `MCP Transfer (${mcpTransferData.item.data?.description || 'Transfer'}): ${error.message}`]
                 }));
@@ -500,32 +501,51 @@ const useSaleTransactionStore = create(
 
           // 5. Create individual MV Transfer transactions
           if (processedTransactionData.mvTransferTransactions?.length > 0) {
+            const transferStore = useTransferVoucherStore.getState();
+            const transferFormData = transferStore.transferFormData;
+
+            if (!transferFormData) {
+              throw new Error('No transfer data available in TransferVoucherStore');
+            }
+
             for (let i = 0; i < processedTransactionData.mvTransferTransactions.length; i++) {
               const mvTransferData = processedTransactionData.mvTransferTransactions[i];
-              
+
               set(state => ({
-                progress: { 
-                  ...state.progress, 
-                  currentOperation: `Creating MV Transfer transaction ${i + 1}/${processedTransactionData.mvTransferTransactions.length}...` 
+                progress: {
+                  ...state.progress,
+                  currentOperation: `Creating MV Transfer transaction ${i + 1}/${processedTransactionData.mvTransferTransactions.length}...`
                 }
               }));
 
               try {
-                const mvTransferTransaction = await get().createMvTransferTransaction(mvTransferData);
-                
-                createdTransactions.push({
-                  type: 'mv-transfer',
-                  transaction: mvTransferTransaction,
-                  item: mvTransferData.item
-                });
+                const response = await transferStore.submitTransfer(transferFormData);
 
-                set(state => ({
-                  progress: { 
-                    ...state.progress, 
-                    completed: state.progress.completed + 1 
-                  }
-                }));
+                if (response.success && response.newVoucherId) {
+                  const newVoucherId = response.newVoucherId;
 
+                  const mvTransferDataWithId = {
+                    ...mvTransferData,
+                    newVoucherId, // ✅ Attach new voucher ID at top-level
+                  };
+
+                  const mvTransferTransaction = await get().createMvTransferTransaction(mvTransferDataWithId);
+
+                  createdTransactions.push({
+                    type: 'mv-transfer',
+                    transaction: mvTransferTransaction,
+                    item: mvTransferData.item
+                  });
+
+                  set(state => ({
+                    progress: {
+                      ...state.progress,
+                      completed: state.progress.completed + 1
+                    }
+                  }));
+                } else {
+                  throw new Error(response.message || "Unknown error during voucher transfer");
+                }
               } catch (error) {
                 console.error('❌ MV Transfer transaction failed:', error);
                 failedTransactions.push({
@@ -533,17 +553,21 @@ const useSaleTransactionStore = create(
                   error: error.message,
                   data: mvTransferData
                 });
-                
+
                 set(state => ({
-                  progress: { 
-                    ...state.progress, 
-                    failed: state.progress.failed + 1 
+                  progress: {
+                    ...state.progress,
+                    failed: state.progress.failed + 1
                   },
-                  errors: [...state.errors, `MV Transfer (${mvTransferData.item.data?.description || 'Transfer'}): ${error.message}`]
+                  errors: [
+                    ...state.errors,
+                    `MV Transfer (${mvTransferData.item.data?.description || 'Transfer'}): ${error.message}`
+                  ]
                 }));
               }
             }
           }
+
 
           // Determine final state
           const hasFailures = failedTransactions.length > 0;
@@ -600,10 +624,10 @@ const useSaleTransactionStore = create(
           processedData.mcpTransactions = processedData.mcpTransactions.map(mcpData => {
             const totalAmount = mcpData.item.pricing?.totalLinePrice || 0;
             const existingPayments = mcpData.payments || [];
-            
+
             // Add auto-pending payment
             const updatedPayments = get().addAutoPendingPayment(totalAmount, existingPayments);
-            
+
             console.log('📦 MCP Auto-Pending:', {
               itemName: mcpData.item.data?.name || mcpData.item.data?.package_name,
               totalAmount,
@@ -624,10 +648,10 @@ const useSaleTransactionStore = create(
           processedData.mvTransactions = processedData.mvTransactions.map(mvData => {
             const totalAmount = mvData.item.pricing?.totalLinePrice || 0;
             const existingPayments = mvData.payments || [];
-            
+
             // Add auto-pending payment
             const updatedPayments = get().addAutoPendingPayment(totalAmount, existingPayments);
-            
+
             console.log('🎟️ MV Auto-Pending:', {
               itemName: mvData.item.data?.member_voucher_name,
               totalAmount,
@@ -677,9 +701,9 @@ const useSaleTransactionStore = create(
       // ✅ UPDATED: Create Services + Products transaction with creation date/time
       createServicesProductsTransaction: async (servicesProductsData) => {
         console.log('🛍️ Creating Services + Products transaction...');
-        
+
         const { transactionDetails } = get();
-        
+
         const payload = {
           customer_type: transactionDetails.customerType,
           member_id: transactionDetails.memberId,
@@ -703,7 +727,7 @@ const useSaleTransactionStore = create(
         console.log('📤 Services/Products payload with creation date:', payload);
 
         const response = await api.post('/st/services-products', payload);
-        
+
         if (!response.data?.success) {
           throw new Error(response.data?.message || 'Failed to create services/products transaction');
         }
@@ -714,9 +738,9 @@ const useSaleTransactionStore = create(
       // ✅ UPDATED: Create individual MCP transaction with creation date/time
       createMcpTransaction: async (mcpData) => {
         console.log('📦 Creating MCP transaction...');
-        
+
         const { transactionDetails } = get();
-        
+
         const payload = {
           customer_type: transactionDetails.customerType,
           member_id: transactionDetails.memberId,
@@ -740,7 +764,7 @@ const useSaleTransactionStore = create(
         console.log('📤 MCP payload with creation date:', payload);
 
         const response = await api.post('/st/mcp', payload);
-        
+
         if (!response.data?.success) {
           throw new Error(response.data?.message || 'Failed to create MCP transaction');
         }
@@ -751,9 +775,9 @@ const useSaleTransactionStore = create(
       // ✅ UPDATED: Create individual MV transaction with creation date/time
       createMvTransaction: async (mvData) => {
         console.log('🎟️ Creating MV transaction...');
-        
+
         const { transactionDetails } = get();
-        
+
         const payload = {
           customer_type: transactionDetails.customerType,
           member_id: transactionDetails.memberId,
@@ -779,7 +803,7 @@ const useSaleTransactionStore = create(
         const response = await api.post('/mv/create', payload);
         const mvId = response.data.data.voucher_id;
         console.log(mvId);
-        
+
         if (!response.data?.success) {
           throw new Error(response.data?.message || 'Failed to create MV transaction');
         }
@@ -790,9 +814,9 @@ const useSaleTransactionStore = create(
       // ✅ UPDATED: Create individual MCP Transfer transaction with creation date/time
       createMcpTransferTransaction: async (mcpTransferData) => {
         console.log('🔄 Creating MCP Transfer transaction...');
-        
+
         const { transactionDetails } = get();
-        
+
         const payload = {
           customer_type: transactionDetails.customerType,
           member_id: transactionDetails.memberId,
@@ -816,7 +840,7 @@ const useSaleTransactionStore = create(
         console.log('📤 MCP Transfer payload with creation date:', payload);
 
         const response = await api.post('/st/mcp-transfer', payload);
-        
+
         if (!response.data?.success) {
           throw new Error(response.data?.message || 'Failed to create MCP Transfer transaction');
         }
@@ -827,9 +851,9 @@ const useSaleTransactionStore = create(
       // ✅ UPDATED: Create individual MV Transfer transaction with creation date/time
       createMvTransferTransaction: async (mvTransferData) => {
         console.log('🔄 Creating MV Transfer transaction...');
-        
+
         const { transactionDetails } = get();
-        
+
         const payload = {
           customer_type: transactionDetails.customerType,
           member_id: transactionDetails.memberId,
@@ -847,13 +871,15 @@ const useSaleTransactionStore = create(
             assignedEmployee: mvTransferData.item.assignedEmployee || mvTransferData.item.employee_id,
             remarks: mvTransferData.item.remarks || ''
           },
-          payments: mvTransferData.payments || []
+          payments: mvTransferData.payments || [],
+          newVoucherId: mvTransferData.newVoucherId // ✅ Include in payload
+
         };
 
         console.log('📤 MV Transfer payload with creation date:', payload);
 
         const response = await api.post('/st/mv-transfer', payload);
-        
+
         if (!response.data?.success) {
           throw new Error(response.data?.message || 'Failed to create MV Transfer transaction');
         }
@@ -864,7 +890,7 @@ const useSaleTransactionStore = create(
       // Retry failed transactions
       retryFailedTransactions: async () => {
         const { failedTransactions } = get();
-        
+
         if (failedTransactions.length === 0) {
           return { success: true, message: 'No failed transactions to retry' };
         }
@@ -872,7 +898,7 @@ const useSaleTransactionStore = create(
         console.log('🔄 Retrying failed transactions...');
         // Implementation for retry logic
         // This would recreate the failed transactions
-        
+
         return { success: false, message: 'Retry functionality not implemented yet' };
       },
 

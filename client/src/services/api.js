@@ -1,12 +1,8 @@
 import axios from 'axios';
 import { getBrowserTimezone, transformRequestDates, transformResponseDates } from '@/utils/timezoneUtils';
 
-const url = process.env.NODE_ENV === 'production' ? '' : import.meta.env.VITE_API_URL + '/api';
-
-console.log(url);
-
 export const apiClient = axios.create({
-  baseURL: url,
+  baseURL: import.meta.env.VITE_API_URL + '/api',
   withCredentials: true,
   // headers: {
   //   'Content-Type': 'application/json',

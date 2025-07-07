@@ -1,6 +1,6 @@
 import pg, { Pool } from 'pg';
 import 'dotenv/config';
-import { parseConnectionString } from '../utils/dbConnectionParser.js';
+import { buildDbConfig, buildSimDbConfig } from '../utils/dbConnectionParser.js';
 
 function LoggingProxy(actualPool: Pool, poolName: string, filter: string[] = []): Pool {
   return new Proxy(actualPool, {
@@ -56,13 +56,18 @@ function LoggingProxy(actualPool: Pool, poolName: string, filter: string[] = [])
 
 let isSimulationMode: boolean = false;
 
-function createNamedPool(EnvConfig: string, poolName: string, filter: string[] = []): pg.Pool {
-  const connectionString = EnvConfig;
-  const dbConfig = parseConnectionString(connectionString);
+function createNamedPool(dbConfig: any, poolName: string, filter: string[] = []): pg.Pool {
+  console.log(`Creating ${poolName} pool with config:`, {
+    host: dbConfig.host,
+    database: dbConfig.database,
+    user: dbConfig.user,
+    port: dbConfig.port,
+    ssl: dbConfig.ssl ? 'enabled' : 'disabled',
+  });
 
   const pool = new pg.Pool({
     ...dbConfig,
-    max: dbConfig.maxConnections || parseInt(process.env.DB_MAX_CONNECTIONS || '10', 10) || 10,
+    max: dbConfig.maxConnections || 10,
   });
 
   pool.on('error', (err: Error) => {
@@ -76,8 +81,13 @@ function createNamedPool(EnvConfig: string, poolName: string, filter: string[] =
 
 const tablesToExcludeFromLogging: string[] = ['sessions', 'system_parameters'];
 
-const prodPool: pg.Pool = createNamedPool(process.env.PROD_DB_URL as string, 'PRODUCTION', tablesToExcludeFromLogging);
-const simPool: pg.Pool = createNamedPool(process.env.SIM_DB_URL as string, 'SIMULATION', tablesToExcludeFromLogging);
+// Build configurations
+const prodDbConfig = buildDbConfig();
+const simDbConfig = buildSimDbConfig();
+
+// Create pools with the configurations
+const prodPool: pg.Pool = createNamedPool(prodDbConfig, 'PRODUCTION', tablesToExcludeFromLogging);
+const simPool: pg.Pool = createNamedPool(simDbConfig, 'SIMULATION', tablesToExcludeFromLogging);
 
 export function setSimulation(simulationEnabled: boolean) {
   isSimulationMode = !!simulationEnabled;

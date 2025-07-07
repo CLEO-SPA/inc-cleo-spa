@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
-import { ArrowLeft, Package, FileText, DollarSign, Receipt, Calendar, User, CreditCard, Info, RefreshCcw, Eye } from 'lucide-react';
+import { ArrowLeft, Package, FileText, DollarSign, Receipt, Calendar, User, CreditCard, Info, RefreshCcw, Eye, Ticket, Gift } from 'lucide-react';
 import api from '@/services/api';
 import { AppSidebar } from '@/components/app-sidebar';
 import { SiteHeader } from '@/components/site-header';
@@ -35,20 +35,34 @@ const SaleTransactionDetail = () => {
 
     const renderItems = (items) => {
         const packageGroups = new Map();
+        const voucherGroups = new Map();
         const regularItems = [];
 
         items?.forEach(item => {
             if (item.member_care_package_id) {
                 if (!packageGroups.has(item.member_care_package_id)) {
-                    packageGroups.set(item.member_care_package_id, []);
+                    packageGroups.set(item.member_care_package_id, {
+                        name: item.care_package_name,
+                        items: []
+                    });
                 }
-                packageGroups.get(item.member_care_package_id).push(item);
+                packageGroups.get(item.member_care_package_id).items.push(item);
+            } else if (item.member_voucher_id) {
+                if (!voucherGroups.has(item.member_voucher_id)) {
+                    voucherGroups.set(item.member_voucher_id, {
+                        name: item.member_voucher_name,
+                        items: []
+                    });
+                }
+                voucherGroups.get(item.member_voucher_id).items.push(item);
             } else {
                 regularItems.push(item);
             }
         });
+
         const rows = [];
 
+        // Render regular items first
         regularItems.forEach(item => {
             rows.push(
                 <tr key={item.id} className="text-sm text-gray-900 hover:bg-gray-50">
@@ -56,8 +70,8 @@ const SaleTransactionDetail = () => {
                     <td className="px-6 py-4 whitespace-nowrap">
                         <span className={`inline-flex items-center px-2.5 py-1 rounded-full text-xs font-medium
                             ${item.item_type === 'service' ? 'bg-blue-100 text-blue-800' :
-                            item.item_type === 'product' ? 'bg-green-100 text-green-800' :
-                            'bg-gray-100 text-gray-800'}`}>
+                                item.item_type === 'product' ? 'bg-green-100 text-green-800' :
+                                    'bg-gray-100 text-gray-800'}`}>
                             {item.item_type}
                         </span>
                     </td>
@@ -79,26 +93,70 @@ const SaleTransactionDetail = () => {
             );
         });
 
-        packageGroups.forEach((packageItems, packageId) => {
+        // Render care package groups
+        packageGroups.forEach((packageGroup, packageId) => {
             rows.push(
                 <tr key={`package-header-${packageId}`} className="bg-blue-50">
                     <td colSpan="8" className="px-6 py-3">
                         <div className="font-medium text-blue-700 flex items-center">
                             <Package className="h-4 w-4 mr-2" />
-                            Care Package (ID: {packageId})
+                            <span>Care Package (ID: {packageId}): {packageGroup.name || 'Unknown Package'}</span>
                         </div>
                     </td>
                 </tr>
             );
-            packageItems.forEach(item => {
+            packageGroup.items.forEach(item => {
                 rows.push(
                     <tr key={item.id} className="text-sm text-gray-900 bg-blue-50/50 hover:bg-blue-100/50">
-                        <td className="px-6 py-4 whitespace-nowrap">{item.service_name || item.product_name}</td>
+                        <td className="px-6 py-4 whitespace-nowrap pl-12">{item.service_name || item.product_name}</td>
                         <td className="px-6 py-4 whitespace-nowrap">
                             <span className={`inline-flex items-center px-2.5 py-1 rounded-full text-xs font-medium
                                 ${item.item_type === 'service' ? 'bg-blue-100 text-blue-800' :
-                                item.item_type === 'product' ? 'bg-green-100 text-green-800' :
-                                'bg-gray-100 text-gray-800'}`}>
+                                    item.item_type === 'product' ? 'bg-green-100 text-green-800' :
+                                        'bg-gray-100 text-gray-800'}`}>
+                                {item.item_type}
+                            </span>
+                        </td>
+                        <td className="px-6 py-4 text-center">{item.quantity}</td>
+                        <td className="px-6 py-4 text-right">${Number(item.original_unit_price).toFixed(2)}</td>
+                        <td className="px-6 py-4 text-right">${Number(item.custom_unit_price).toFixed(2)}</td>
+                        <td className="px-6 py-4 text-center">
+                            {Number(item.discount_percentage) > 0 ? (
+                                <span className="inline-flex items-center px-2.5 py-1 rounded-full text-xs font-medium bg-red-100 text-red-800">
+                                    {Number(item.discount_percentage).toFixed(2)}%
+                                </span>
+                            ) : (
+                                '0%'
+                            )}
+                        </td>
+                        <td className="px-6 py-4 text-right font-medium">${Number(item.amount).toFixed(2)}</td>
+                        <td className="px-6 py-4 max-w-xs truncate" title={item.remarks}>{item.remarks || '-'}</td>
+                    </tr>
+                );
+            });
+        });
+
+        // Render voucher groups
+        voucherGroups.forEach((voucherGroup, voucherId) => {
+            rows.push(
+                <tr key={`voucher-header-${voucherId}`} className="bg-purple-50">
+                    <td colSpan="8" className="px-6 py-3">
+                        <div className="font-medium text-purple-700 flex items-center">
+                            <Ticket className="h-4 w-4 mr-2" />
+                            <span>Member Voucher (ID: {voucherId}): {voucherGroup.name || 'Unknown Voucher'}</span>
+                        </div>
+                    </td>
+                </tr>
+            );
+            voucherGroup.items.forEach(item => {
+                rows.push(
+                    <tr key={item.id} className="text-sm text-gray-900 bg-purple-50/50 hover:bg-purple-100/50">
+                        <td className="px-6 py-4 whitespace-nowrap pl-12">{item.service_name || item.product_name}</td>
+                        <td className="px-6 py-4 whitespace-nowrap">
+                            <span className={`inline-flex items-center px-2.5 py-1 rounded-full text-xs font-medium
+                                ${item.item_type === 'service' ? 'bg-blue-100 text-blue-800' :
+                                    item.item_type === 'product' ? 'bg-green-100 text-green-800' :
+                                        'bg-gray-100 text-gray-800'}`}>
                                 {item.item_type}
                             </span>
                         </td>
@@ -178,11 +236,11 @@ const SaleTransactionDetail = () => {
                                     Receipt #{transaction.receipt_no}
                                     <span className={`ml-3 px-2.5 py-0.5 rounded-full text-xs font-medium
                                         ${transaction.transaction_status === 'FULL' ? 'bg-green-100 text-green-800' :
-                                        transaction.transaction_status === 'PARTIAL' ? 'bg-yellow-100 text-yellow-800' :
-                                        'bg-red-100 text-red-800'}`}>
+                                            transaction.transaction_status === 'PARTIAL' ? 'bg-yellow-100 text-yellow-800' :
+                                                'bg-red-100 text-red-800'}`}>
                                         {transaction.transaction_status === 'FULL' ? 'Fully Paid' :
-                                        transaction.transaction_status === 'PARTIAL' ? 'Partially Paid' :
-                                        transaction.transaction_status}
+                                            transaction.transaction_status === 'PARTIAL' ? 'Partially Paid' :
+                                                transaction.transaction_status}
                                     </span>
                                 </h2>
                             </div>
@@ -202,8 +260,8 @@ const SaleTransactionDetail = () => {
                             </div>
                         </div>
                         <div className="flex gap-2 mt-4 md:mt-0">
-                            <Button 
-                                variant="outline" 
+                            <Button
+                                variant="outline"
                                 size="sm"
                                 className="flex items-center gap-1"
                                 onClick={fetchTransaction}
@@ -213,8 +271,8 @@ const SaleTransactionDetail = () => {
                             </Button>
                             {/* Check if transaction has a reference_sales_transaction_id */}
                             {transaction.reference_sales_transaction_id && transaction.reference_sales_transaction_id !== '0' && (
-                                <Button 
-                                    variant="outline" 
+                                <Button
+                                    variant="outline"
                                     size="sm"
                                     className="flex items-center gap-1 bg-blue-50 hover:bg-blue-100 text-blue-700 border-blue-300"
                                     onClick={() => navigate(`/sale-transaction/${transaction.reference_sales_transaction_id}`)}
@@ -224,8 +282,8 @@ const SaleTransactionDetail = () => {
                                 </Button>
                             )}
                             {transaction.process_payment && (
-                                <Button 
-                                    variant="default" 
+                                <Button
+                                    variant="default"
                                     size="sm"
                                     className="flex items-center gap-1 bg-green-600 hover:bg-green-700"
                                     onClick={() => navigate(`/sale-transaction/process-payment/${id}`)}
@@ -234,8 +292,8 @@ const SaleTransactionDetail = () => {
                                     <span>Process Payment</span>
                                 </Button>
                             )}
-                            <Button 
-                                variant="outline" 
+                            <Button
+                                variant="outline"
                                 size="sm"
                                 className="flex items-center gap-1"
                                 onClick={() => navigate('/sale-transaction/list')}
@@ -374,8 +432,8 @@ const SaleTransactionDetail = () => {
                                             <td className="px-6 py-4 whitespace-nowrap">{payment.id}</td>
                                             <td className="px-6 py-4 whitespace-nowrap">
                                                 <div className="flex items-center">
-                                                    {payment.payment_method?.toLowerCase() === 'cash' ? 
-                                                        <DollarSign className="h-4 w-4 mr-2" /> : 
+                                                    {payment.payment_method?.toLowerCase() === 'cash' ?
+                                                        <DollarSign className="h-4 w-4 mr-2" /> :
                                                         <CreditCard className="h-4 w-4 mr-2" />}
                                                     {payment.payment_method}
                                                 </div>
@@ -423,7 +481,7 @@ const SaleTransactionDetail = () => {
                             )}
                             <div className="pt-2 border-t border-gray-200">
                                 <div className="flex justify-between">
-                                    <span className="text-sm font-medium text-gray-700">Balance</span>
+                                    <span className="text-sm font-medium text-gray-700">Outstanding Amount: </span>
                                     <span className={`text-sm font-bold ${transaction.transaction_status === 'FULL' ? 'text-green-600' : 'text-red-600'}`}>
                                         ${Number(transaction.outstanding_total_payment_amount).toFixed(2)}
                                     </span>

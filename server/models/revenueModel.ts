@@ -232,21 +232,22 @@ mcp_income AS (
 ),
 mcp_refund AS (
     SELECT 
-        TO_CHAR((ptst.created_at AT TIME ZONE 'Asia/Singapore'), 'YYYY-MM') AS transaction_month,
-        ABS(SUM(ptst.amount))::NUMERIC(10,2) AS refund
-    FROM 
-        payment_to_sale_transactions ptst
-    JOIN 
-        sale_transaction_items sti ON sti.sale_transaction_id = ptst.sale_transaction_id
-    WHERE 
-        ptst.payment_method_id = (
-            SELECT id
-            FROM payment_methods
-            WHERE payment_method_name = 'Refund'
-        )
-        AND sti.item_type = 'member care package'
-    GROUP BY 
-        TO_CHAR((ptst.created_at AT TIME ZONE 'Asia/Singapore'), 'YYYY-MM')
+        TO_CHAR(DATE_TRUNC('month', sub.created_at AT TIME ZONE 'Asia/Singapore'), 'YYYY-MM') AS transaction_month,
+        SUM(ABS(sub.amount))::NUMERIC(10,2) AS refund
+    FROM (
+        SELECT ptst.id, ptst.created_at, ptst.amount
+        FROM payment_to_sale_transactions ptst
+        JOIN sale_transaction_items sti ON sti.sale_transaction_id = ptst.sale_transaction_id
+        WHERE 
+            ptst.payment_method_id = (
+                SELECT id
+                FROM payment_methods
+                WHERE payment_method_name = 'Refund'
+            )
+            AND sti.item_type = 'member care package'
+        GROUP BY ptst.id, ptst.created_at, ptst.amount
+    ) sub
+    GROUP BY TO_CHAR(DATE_TRUNC('month', sub.created_at AT TIME ZONE 'Asia/Singapore'), 'YYYY-MM')
 )
 
 SELECT 

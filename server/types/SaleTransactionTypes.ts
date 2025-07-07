@@ -29,7 +29,7 @@ export interface Employee {
   name: string;
 }
 
-// Transaction interfaces
+// Enhanced Transaction Item interface with voucher and care package support
 export interface TransactionItem {
   id: string;
   service_name: string | null;
@@ -43,6 +43,16 @@ export interface TransactionItem {
   remarks: string;
   amount: number;
   item_type: string;
+  
+  // Enhanced voucher information
+  member_voucher_name?: string;
+  voucher_balance?: number;
+  voucher_status?: 'is_enabled' | 'is_disabled' | 'expired';
+  
+  // Enhanced care package information
+  care_package_name?: string;
+  care_package_balance?: number;
+  care_package_status?: 'is_enabled' | 'is_disabled' | 'completed';
 }
 
 export interface SalesTransaction {
@@ -108,8 +118,8 @@ export interface Product {
   category: string;
   product_category_name: string;
   product_category_id: string | null;
-  price: number;          
-  cost_price: number;      
+  price: number;
+  cost_price: number;
   is_enabled: boolean;
   sequence_no: number;
 }
@@ -153,7 +163,7 @@ export interface TransactionRequestData {
   handled_by: number;
   items: TransactionRequestItem[];
   payments: PaymentMethodRequest[];
-  created_at?: string; 
+  created_at?: string;
   updated_at?: string;
 }
 
@@ -216,10 +226,11 @@ export interface SingleItemTransactionRequestData {
   remarks?: string;
   created_by: number;
   handled_by: number;
-  item: SingleTransactionRequestItem; 
+  item: SingleTransactionRequestItem;
   payments: PaymentMethodRequest[];
-  created_at?: string; 
+  created_at?: string;
   updated_at?: string;
+  newVoucherId?: number;
 }
 
 export interface SingleItemTransactionCreationResult {
@@ -276,7 +287,240 @@ export interface PartialPaymentResult {
   payments_processed: number;
   total_payment_amount: number;
 }
+
 export interface ProcessPartialPaymentDataWithHandler extends ProcessPartialPaymentData {
   transaction_handler_id: number;
+  payment_handler_id: number,
+  receipt_number?: string
   created_at?: string;
+}
+
+// =====================================
+// ENHANCED INTERFACES FOR VOUCHERS & CARE PACKAGES
+// =====================================
+
+// Member Voucher interfaces
+export interface MemberVoucher {
+  id: string;
+  member_voucher_name: string;
+  voucher_template_id: string;
+  member_id: string;
+  current_balance: number;
+  starting_balance: number;
+  free_of_charge: number;
+  default_total_price: number;
+  status: 'is_enabled' | 'is_disabled' | 'expired';
+  remarks?: string;
+  created_by: string;
+  handled_by: string;
+  last_updated_by: string;
+  created_at: string;
+  updated_at: string;
+}
+
+export interface VoucherTemplate {
+  id: string;
+  voucher_template_name: string;
+  default_starting_balance: number;
+  default_free_of_charge: number;
+  default_total_price: number;
+  remarks?: string;
+  status: 'active' | 'inactive';
+  created_by: string;
+  last_updated_by: string;
+  created_at: string;
+  updated_at: string;
+}
+
+// Member Care Package interfaces
+export interface MemberCarePackage {
+  id: string;
+  member_id: string;
+  employee_id: string;
+  package_name: string;
+  status: 'is_enabled' | 'is_disabled' | 'completed';
+  total_price: number;
+  balance: number;
+  created_at: string;
+  updated_at: string;
+  package_remarks?: string;
+}
+
+export interface CarePackageTemplate {
+  id: string;
+  package_name: string;
+  description?: string;
+  total_price: number;
+  status: 'active' | 'inactive';
+  created_by: string;
+  created_at: string;
+  updated_at: string;
+}
+
+// Group structures for rendering in UI
+export interface VoucherGroup {
+  id: string;
+  name?: string;
+  balance?: number;
+  status?: string;
+  items: TransactionItem[];
+}
+
+export interface CarePackageGroup {
+  id: string;
+  name?: string;
+  balance?: number;
+  status?: string;
+  items: TransactionItem[];
+}
+
+// Transaction Log interfaces
+export interface MemberVoucherTransactionLog {
+  id: string;
+  member_voucher_id: string;
+  service_description: string;
+  service_date: string;
+  current_balance: number;
+  amount_change: number;
+  serviced_by: string;
+  type: 'PURCHASE' | 'CONSUMPTION' | 'FOC' | 'REFUND';
+  created_by: string;
+  last_updated_by: string;
+  created_at: string;
+  updated_at: string;
+}
+
+export interface MemberCarePackageTransactionLog {
+  id: string;
+  type: string;
+  description: string;
+  transaction_date: string;
+  transaction_amount: number;
+  amount_changed: number;
+  created_at: string;
+  member_care_package_details_id: string;
+  employee_id: string;
+  service_id?: string;
+}
+
+// API Response structures
+export interface SalesTransactionResponse {
+  success: boolean;
+  message: string;
+  data: SalesTransactionDetail;
+}
+
+export interface MemberVoucherResponse {
+  success: boolean;
+  message: string;
+  data: MemberVoucher[];
+}
+
+export interface MemberCarePackageResponse {
+  success: boolean;
+  message: string;
+  data: MemberCarePackage[];
+}
+
+// Form data structures for creating vouchers and care packages
+export interface CreateMemberVoucherData {
+  member_id: number;
+  voucher_template_id: number;
+  member_voucher_name: string;
+  starting_balance: number;
+  free_of_charge: number;
+  default_total_price: number;
+  remarks?: string;
+  created_by: number;
+  handled_by: number;
+}
+
+export interface CreateMemberCarePackageData {
+  member_id: number;
+  employee_id: number;
+  package_name: string;
+  total_price: number;
+  balance: number;
+  package_remarks?: string;
+  services: Array<{
+    service_id: number;
+    service_name: string;
+    price: number;
+    quantity: number;
+  }>;
+}
+
+// Enhanced item selection for transactions
+export interface VoucherSelectionItem {
+  id: string;
+  name: string;
+  balance: number;
+  status: string;
+  member_id: string;
+  voucher_template_id: string;
+}
+
+export interface CarePackageSelectionItem {
+  id: string;
+  name: string;
+  balance: number;
+  status: string;
+  member_id: string;
+  total_price: number;
+}
+
+// Search and filter interfaces
+export interface VoucherSearchFilters {
+  member_id?: string;
+  status?: 'is_enabled' | 'is_disabled' | 'expired';
+  voucher_template_id?: string;
+  date_from?: string;
+  date_to?: string;
+}
+
+export interface CarePackageSearchFilters {
+  member_id?: string;
+  status?: 'is_enabled' | 'is_disabled' | 'completed';
+  employee_id?: string;
+  date_from?: string;
+  date_to?: string;
+}
+
+// Dashboard/Summary interfaces
+export interface VoucherSummary {
+  total_vouchers: number;
+  active_vouchers: number;
+  total_balance: number;
+  average_balance: number;
+}
+
+export interface CarePackageSummary {
+  total_packages: number;
+  active_packages: number;
+  total_balance: number;
+  average_balance: number;
+}
+
+// Error handling
+export interface APIError {
+  success: false;
+  message: string;
+  errors?: Record<string, string[]>;
+  code?: string;
+}
+
+// Generic API response wrapper
+export interface APIResponse<T> {
+  success: boolean;
+  message: string;
+  data?: T;
+  errors?: Record<string, string[]>;
+  meta?: {
+    pagination?: {
+      current_page: number;
+      total_pages: number;
+      total_items: number;
+      per_page: number;
+    };
+  };
 }

@@ -74,7 +74,7 @@ export function EmployeeSelect({
                 disabled={loading || error || customDisabled}
                 value={field.value?.toString() || ''}
                 onValueChange={(val) => {
-                  field.onChange(Number(val));
+                  field.onChange(val);
                   setIsOpen(false);
                   setSearchTerm('');
                 }}
