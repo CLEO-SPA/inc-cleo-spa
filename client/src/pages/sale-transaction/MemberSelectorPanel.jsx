@@ -1,6 +1,7 @@
 import { useEffect, useState, useCallback } from 'react';
 import useSelectedMemberStore from '@/stores/useSelectedMemberStore';
 import useTransactionCartStore from '@/stores/useTransactionCartStore';
+import useMemberStore from '@/stores/useMemberStore';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { Button } from '@/components/ui/button';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
@@ -16,6 +17,8 @@ import {
   ChevronsLeft,
   ChevronsRight,
   Search,
+  ChevronDown,
+  Phone,
 } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
 import { useLocation } from 'react-router-dom';
@@ -37,10 +40,28 @@ import {
   DialogDescription,
 } from '@/components/ui/dialog';
 
+// helper function to convert text to proper case
+const toProperCase = (text) => {
+  if (!text) return text;
+  return text
+    .toLowerCase()
+    .split(' ')
+    .map((word) => word.charAt(0).toUpperCase() + word.slice(1))
+    .join(' ');
+};
+
 export default function MemberSelectorPanel() {
   const navigate = useNavigate();
   const location = useLocation();
+
+  // member search dropdown states
   const [searchInput, setSearchInput] = useState('');
+  const [debouncedSearchTerm, setDebouncedSearchTerm] = useState('');
+  const [isDropdownOpen, setIsDropdownOpen] = useState(false);
+  const [isSearching, setIsSearching] = useState(false);
+  const [selectedMemberFromDropdown, setSelectedMemberFromDropdown] = useState(null);
+
+  // other states
   const [notFound, setNotFound] = useState(false);
   const [selectedTab, setSelectedTab] = useState('info');
   const [showOwedDialog, setShowOwedDialog] = useState(false);
@@ -50,6 +71,132 @@ export default function MemberSelectorPanel() {
     item: null,
     isLoading: false,
   });
+
+  // member dropdown store
+  const {
+    members: dropdownMembers,
+    loading: dropdownLoading,
+    error: dropdownError,
+    fetchDropdownMembers,
+  } = useMemberStore();
+
+  // debounce search term
+  useEffect(() => {
+    setIsSearching(true);
+    const timer = setTimeout(() => {
+      setDebouncedSearchTerm(searchInput);
+      setIsSearching(false);
+    }, 300);
+
+    return () => clearTimeout(timer);
+  }, [searchInput]);
+
+  // enhanced filtering function that searches across multiple fields
+  const filteredMembers = dropdownMembers.filter((member) => {
+    if (!debouncedSearchTerm) return true;
+
+    const searchLower = debouncedSearchTerm.toLowerCase();
+
+    // search by name
+    const memberName = (member.name || '').toLowerCase();
+    if (memberName.includes(searchLower)) return true;
+
+    // search by mobile/contact
+    const phoneNumber = (member.contact || '').toString().toLowerCase();
+    if (phoneNumber.includes(searchLower)) return true;
+
+    // search by card number
+    const memberCard = (member.card_number || '').toString().toLowerCase();
+    if (memberCard.includes(searchLower)) return true;
+
+    return false;
+  });
+
+  // helper function to format member display text
+  const formatMemberDisplay = (member) => {
+    const memberName = toProperCase(member.name || member.member_name);
+    const contact = member.contact || member.phone;
+    const memberCard = member.member_card || member.card_number;
+
+    let displayText = memberName;
+
+    // add contact if available
+    if (contact) {
+      displayText += ` - ${contact}`;
+    }
+
+    // add member card if available
+    if (memberCard) {
+      displayText += ` (Card: ${memberCard})`;
+    }
+
+    return displayText;
+  };
+
+  // load dropdown members on component mount
+  useEffect(() => {
+    if (dropdownMembers.length === 0 && !dropdownLoading) {
+      fetchDropdownMembers();
+    }
+  }, [dropdownMembers.length, dropdownLoading, fetchDropdownMembers]);
+
+  // handle search input changes without losing focus
+  const handleSearchChange = useCallback(
+    (e) => {
+      e.stopPropagation();
+      setSearchInput(e.target.value);
+      if (!isDropdownOpen) {
+        setIsDropdownOpen(true);
+      }
+    },
+    [isDropdownOpen]
+  );
+
+  // handle search input events to maintain focus
+  const handleSearchKeyDown = useCallback((e) => {
+    e.stopPropagation();
+    if (e.key === 'Escape') {
+      setIsDropdownOpen(false);
+      setSearchInput('');
+      setDebouncedSearchTerm('');
+    }
+  }, []);
+
+  const handleSearchClick = useCallback(
+    (e) => {
+      e.stopPropagation();
+      if (!isDropdownOpen && searchInput) {
+        setIsDropdownOpen(true);
+      }
+    },
+    [isDropdownOpen, searchInput]
+  );
+
+  // handle member selection from dropdown
+  const handleMemberSelect = async (member) => {
+    try {
+      setSelectedMemberFromDropdown(member);
+      setSearchInput(formatMemberDisplay(member));
+      setIsDropdownOpen(false);
+      setNotFound(false);
+      setSelectedTab('info');
+
+      // Pass the member's name or contact as search term, not the object
+      const searchTerm = member.name || member.contact || member.card_number;
+      const foundMember = await searchMember(searchTerm); // ✅ Pass string, not object
+
+      if (foundMember) {
+        setSelectedMember(foundMember);
+
+        if (foundMember.total_amount_owed > 0) {
+          setTimeout(() => setShowOwedDialog(true), 200);
+        }
+      }
+    } catch (error) {
+      setNotFound(true);
+      console.error('Member selection failed:', error);
+    }
+  };
 
   // Updated handlers that show confirmation dialog
   const handleVoucherCancel = (voucher) => {
@@ -61,15 +208,6 @@ export default function MemberSelectorPanel() {
     });
   };
 
-  const handlePackageCancel = (mcp) => {
-    setCancelDialog({
-      isOpen: true,
-      type: 'package',
-      item: mcp,
-      isLoading: false,
-    });
-  };
-
   const handleConfirmCancel = async () => {
     if (!cancelDialog.item) return;
 
@@ -77,26 +215,18 @@ export default function MemberSelectorPanel() {
 
     try {
       if (cancelDialog.type === 'package') {
-        // Call Zustand store method
         await cancelMemberPackage(cancelDialog.item.id);
       } else if (cancelDialog.type === 'voucher') {
-        // Call Zustand store method
         await cancelMemberVoucher(cancelDialog.item.id);
       }
 
-      // Close dialog on success
       setCancelDialog({ isOpen: false, type: null, item: null, isLoading: false });
-
-      // Optional: Show success message
-      // toast.success('Cancellation successful');
     } catch (error) {
       console.error('Cancellation failed:', error);
       setCancelDialog((prev) => ({ ...prev, isLoading: false }));
-
-      // Optional: Show error message
-      // toast.error('Cancellation failed');
     }
   };
+
   // Store state and actions - Updated to match new store structure
   const {
     currentMember,
@@ -109,9 +239,8 @@ export default function MemberSelectorPanel() {
     errorMessage,
     searchMember,
     refreshCurrentMemberData,
-    // Add this new method
 
-    // Pagination states - Updated property names
+    // Pagination states
     packagesCurrentPage,
     packagesTotalPages,
     packagesTotalCount,
@@ -124,7 +253,7 @@ export default function MemberSelectorPanel() {
     vouchersCurrentLimit,
     vouchersSearchTerm,
 
-    // Pagination actions - Updated method names
+    // Pagination actions
     goToPackagesPage,
     setPackagesLimit,
     setPackagesSearchTerm,
@@ -132,7 +261,7 @@ export default function MemberSelectorPanel() {
     setVouchersLimit,
     setVouchersSearchTerm,
 
-    //Cancellation
+    // Cancellation
     cancelMemberPackage,
     cancelMemberVoucher,
   } = useSelectedMemberStore();
@@ -143,11 +272,11 @@ export default function MemberSelectorPanel() {
   useEffect(() => {
     if (currentMember) {
       console.log('Location changed — forcing refresh of member data...');
-      refreshCurrentMemberData(); // 🔁 Always fetch fresh data
+      refreshCurrentMemberData();
     }
   }, [location.pathname]);
 
-
+  // Legacy search handler (kept for backward compatibility)
   const handleSearch = async () => {
     if (!searchInput.trim()) return;
 
@@ -157,12 +286,10 @@ export default function MemberSelectorPanel() {
       if (member) {
         setNotFound(false);
         setSelectedTab('info');
-
         setSelectedMember(member);
 
-        // Check if member has owed amount and show dialog
         if (member.total_amount_owed > 0) {
-          setTimeout(() => setShowOwedDialog(true), 200); // Small delay for better UX
+          setTimeout(() => setShowOwedDialog(true), 200);
         }
       } else {
         setNotFound(true);
@@ -173,8 +300,7 @@ export default function MemberSelectorPanel() {
     }
   };
 
-
-  // Debounced search handlers - Updated to use new method names
+  // debounced search handlers
   const handlePackagesSearch = useCallback(
     (searchTerm) => {
       setPackagesSearchTerm(searchTerm);
@@ -223,36 +349,19 @@ export default function MemberSelectorPanel() {
   };
 
   const handleMcpRefund = (mcpId) => {
-    console.log('Refunds');
+    navigate(`/refunds/mcp/${mcpId}`)
   };
 
   const handleMcpConsume = (mcpId) => {
     navigate(`/mcp/${mcpId}/consume`);
   };
 
-  // Placeholder handlers for voucher actions
-  const handleViewDetails = (voucher) => {
-    console.log('View details for voucher:', voucher);
-  };
-
-  const handleVoucherRefund = (voucher) => {
-    console.log('Refund voucher:', voucher);
+  const handleVoucherRefund = (voucherId) => {
+    navigate(`/refunds/voucher/${voucherId}`)
   };
 
   const handleVoucherConsume = (voucherId) => {
     navigate(`/mv/${voucherId}/consume`);
-  };
-
-  // const handlePackageCancel = (mcpId) =>{
-
-  // }
-
-  const handlePackageRefund = (mcp) => {
-    console.log('Refund voucher:', mcp);
-  };
-
-  const handlePackageConsume = (mcp) => {
-    navigate(`/mcp/${mcp.id}/consume`);
   };
 
   const PaginationControls = ({
@@ -296,7 +405,6 @@ export default function MemberSelectorPanel() {
 
     return (
       <div className='space-y-3 text-xs'>
-        {/* Search Bar */}
         {!hideSearch && (
           <form onSubmit={handleSearchSubmit} className='flex gap-2 items-center max-w-sm'>
             <div className='relative flex-1 max-w-md'>
@@ -315,7 +423,6 @@ export default function MemberSelectorPanel() {
           </form>
         )}
 
-        {/* Pagination Controls */}
         {!hidePaginationControls && (
           <div className='flex flex-col sm:flex-row items-center justify-between gap-3 border-t pt-2 text-xs'>
             <div className='flex items-center gap-3'>
@@ -325,7 +432,7 @@ export default function MemberSelectorPanel() {
               <div className='flex items-center gap-2'>
                 <span className='text-xs'>Items per page:</span>
                 <Select value={(itemsPerPage ?? 10).toString()} onValueChange={onLimitChange}>
-                  <SelectTrigger className='w-[70px] h-20 text-xs'>
+                  <SelectTrigger className='w-[70px] h-7 text-xs'>
                     <SelectValue />
                   </SelectTrigger>
                   <SelectContent>
@@ -351,16 +458,16 @@ export default function MemberSelectorPanel() {
                 onClick={() => onPageChange(1)}
                 disabled={!hasPreviousPage}
               >
-                <ChevronLeft className='h-3.5 w-3.5' />
+                <ChevronsLeft className='h-3.5 w-3.5' />
               </Button>
               <Button
                 variant='outline'
                 size='sm'
                 className='h-7 w-7 p-0'
-                onClick={() => onPageChange(1)}
+                onClick={() => onPageChange(currentPage - 1)}
                 disabled={currentPage === 1}
               >
-                <ChevronsLeft className='h-3.5 w-3.5' />
+                <ChevronLeft className='h-3.5 w-3.5' />
               </Button>
 
               {pageNumbers.map((page) => (
@@ -416,19 +523,89 @@ export default function MemberSelectorPanel() {
   };
 
   return (
-    <div className='space y-4 '>
-      {/* Member Search Bar */}
+    <div className='space-y-4'>
       <div className='flex gap-2 m-1 w-full max-w-sm items-center'>
         <div className='relative flex-1 max-w-md'>
-          <Search className='absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400 h-4 w-4' />
-          <Input
-            type='text'
-            className='pl-9 h-7 text-xs'
-            placeholder='Search name or phone'
-            value={searchInput}
-            onChange={(e) => setSearchInput(e.target.value)}
-            disabled={memberSearchLoading}
-          />
+          <Search className='absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400 h-4 w-4 z-10' />
+          <div className='relative'>
+            <Input
+              type='text'
+              className='pl-9 pr-8 h-7 text-xs'
+              placeholder='Search by name, phone, or card...'
+              value={searchInput}
+              onChange={handleSearchChange}
+              onKeyDown={handleSearchKeyDown}
+              onClick={handleSearchClick}
+              onFocus={handleSearchClick}
+              disabled={memberSearchLoading || dropdownLoading}
+              autoComplete='off'
+            />
+            <ChevronDown
+              className={`absolute right-2 top-1/2 transform -translate-y-1/2 text-gray-400 h-3.5 w-3.5 transition-transform cursor-pointer ${
+                isDropdownOpen ? 'rotate-180' : ''
+              }`}
+              onClick={() => setIsDropdownOpen(!isDropdownOpen)}
+            />
+
+            {/* Dropdown Results */}
+            {isDropdownOpen && (
+              <div className='absolute top-full left-0 right-0 mt-1 bg-white border border-gray-200 rounded-md shadow-lg z-50 max-h-60 overflow-y-auto'>
+                {dropdownLoading ? (
+                  <div className='p-3 text-center text-sm text-gray-500'>Loading members...</div>
+                ) : dropdownError ? (
+                  <div className='p-3 text-center text-sm text-red-500'>Error loading members</div>
+                ) : (
+                  <>
+                    {isSearching && (
+                      <div className='p-2 text-center text-xs text-gray-500'>
+                        <div className='inline-flex items-center gap-2'>
+                          <div className='animate-spin rounded-full h-3 w-3 border-b-2 border-blue-500'></div>
+                          Searching...
+                        </div>
+                      </div>
+                    )}
+
+                    {debouncedSearchTerm && !isSearching && (
+                      <div className='px-3 py-1 bg-gray-50 text-xs text-gray-500 border-b'>
+                        Found {filteredMembers.length} member{filteredMembers.length !== 1 ? 's' : ''}
+                      </div>
+                    )}
+
+                    <div className='max-h-48 overflow-y-auto'>
+                      {filteredMembers.length > 0 ? (
+                        filteredMembers.map((member) => (
+                          <div
+                            key={member.id}
+                            className='px-3 py-2 hover:bg-gray-50 cursor-pointer border-b border-gray-100 last:border-b-0'
+                            onClick={() => handleMemberSelect(member)}
+                          >
+                            <div className='text-sm font-medium text-gray-900'>{toProperCase(member.name)}</div>
+                            <div className='text-xs text-gray-500 flex gap-3'>
+                              {member.contact && (
+                                <span className='flex items-center gap-1'>
+                                  <Phone className='h-3 w-3' />
+                                  {member.contact}
+                                </span>
+                              )}
+                              {member.card_number && (
+                                <span className='flex items-center gap-1'>💳 {member.card_number}</span>
+                              )}
+                            </div>
+                          </div>
+                        ))
+                      ) : debouncedSearchTerm ? (
+                        <div className='p-3 text-center text-sm text-gray-500'>
+                          No members found matching "{debouncedSearchTerm}"
+                        </div>
+                      ) : (
+                        <div className='p-3 text-center text-sm text-gray-500'>Start typing to search members...</div>
+                      )}
+                    </div>
+                  </>
+                )}
+              </div>
+            )}
+          </div>
         </div>
 
         <Button
@@ -441,11 +618,12 @@ export default function MemberSelectorPanel() {
           {memberSearchLoading ? 'Searching...' : 'Search'}
         </Button>
       </div>
-      {/* Error Message - Updated to use new error structure */}
+
+      {/* Error Message */}
       {error && <p className='text-sm text-red-500'>Error: {errorMessage || 'An error occurred'}</p>}
 
       {/* Member Info Panel */}
-      <div className='bg-gray-50 rounded shadow '>
+      <div className='bg-gray-50 rounded shadow'>
         {/* Tabs */}
         <div className='flex gap-1'>
           {['info', 'packages', 'vouchers'].map((tab) => {
@@ -704,7 +882,7 @@ export default function MemberSelectorPanel() {
                               <TableCell className='text-xs truncate' title={voucher.remarks}>
                                 {voucher.remarks}
                               </TableCell>
-                              <TableCell className="px-1 py-1">
+                              <TableCell className='px-1 py-1'>
                                 <DropdownMenu>
                                   <DropdownMenuTrigger asChild>
                                     <Button variant='ghost' className='h-8 w-8 p-0'>
