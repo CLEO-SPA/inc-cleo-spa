@@ -149,17 +149,17 @@ const CreateMemberCarePackageForm = () => {
       {/* member selection */}
       {!selectedMember && (
         <Card className='border-orange-200 bg-orange-50'>
-          <CardContent className='pt-4'>
-            <p className='text-orange-800 text-sm'>Please select a member first before creating a care package.</p>
+          <CardContent className='py-2'>
+            <p className='text-orange-800 text-sm'>Please select a member first before adding care packages.</p>
           </CardContent>
         </Card>
       )}
 
       {selectedMember && (
         <Card className='border-green-200 bg-green-50'>
-          <CardContent className='pt-4'>
+          <CardContent className='py-2'>
             <p className='text-green-800 text-sm'>
-              Creating care package for: <strong>{selectedMember.name}</strong>
+              Adding care packages for: <strong>{selectedMember.name}</strong>
             </p>
           </CardContent>
         </Card>
