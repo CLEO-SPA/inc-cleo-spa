@@ -48,7 +48,7 @@ const CreatePaymentMethodPage = () => {
     defaultValues: {
       payment_method_name: '',
       is_enabled: true,
-      is_revenue: false,
+      is_income: false,
       show_on_payment_page: true,
       created_at: getCurrentDateTime()
     }
@@ -56,7 +56,7 @@ const CreatePaymentMethodPage = () => {
 
   // Watch switch values for controlled components
   const isEnabled = watch('is_enabled');
-  const isRevenue = watch('is_revenue');
+  const isIncome = watch('is_income');
   const showOnPaymentPage = watch('show_on_payment_page');
 
   const onSubmit = async (data) => {
@@ -78,7 +78,7 @@ const CreatePaymentMethodPage = () => {
       reset({
         payment_method_name: '',
         is_enabled: true,
-        is_revenue: false,
+        is_income: false,
         show_on_payment_page: true,
         created_at: getCurrentDateTime()
       });
@@ -194,20 +194,20 @@ const CreatePaymentMethodPage = () => {
                         />
                       </div>
 
-                      {/* Is Revenue Switch */}
+                      {/* Is Income Switch */}
                       <div className="flex items-center justify-between space-x-2 p-4 border rounded-lg">
                         <div className="space-y-1">
-                          <Label htmlFor="is_revenue" className="text-sm font-medium text-gray-700">
-                            Revenue Generating
+                          <Label htmlFor="is_income" className="text-sm font-medium text-gray-700">
+                            Income Generating
                           </Label>
                           <p className="text-xs text-gray-500">
-                            This payment method generates revenue
+                            This payment method generates income
                           </p>
                         </div>
                         <Switch
-                          id="is_revenue"
-                          checked={isRevenue}
-                          onCheckedChange={(checked) => setValue('is_revenue', checked)}
+                          id="is_income"
+                          checked={isIncome}
+                          onCheckedChange={(checked) => setValue('is_income', checked)}
                         />
                       </div>
 
@@ -240,9 +240,9 @@ const CreatePaymentMethodPage = () => {
                           </span>
                         </div>
                         <div className="flex items-center gap-2">
-                          <div className={`w-2 h-2 rounded-full ${isRevenue ? 'bg-blue-500' : 'bg-gray-400'}`}></div>
-                          <span className={isRevenue ? 'text-blue-700' : 'text-gray-600'}>
-                            {isRevenue ? 'Revenue Source' : 'Non-Revenue'}
+                          <div className={`w-2 h-2 rounded-full ${isIncome ? 'bg-blue-500' : 'bg-gray-400'}`}></div>
+                          <span className={isIncome ? 'text-blue-700' : 'text-gray-600'}>
+                            {isIncome ? 'Income Source' : 'Non-Income'}
                           </span>
                         </div>
                         <div className="flex items-center gap-2">
@@ -306,9 +306,9 @@ const CreatePaymentMethodPage = () => {
                   </span>
                 </div>
                 <div className="flex justify-between text-sm">
-                  <span className="text-gray-600">Revenue Generating:</span>
-                  <span className={`font-medium ${createdPaymentMethod?.is_revenue ? 'text-blue-600' : 'text-gray-600'}`}>
-                    {createdPaymentMethod?.is_revenue ? 'Yes' : 'No'}
+                  <span className="text-gray-600">Income Generating:</span>
+                  <span className={`font-medium ${createdPaymentMethod?.is_income ? 'text-blue-600' : 'text-gray-600'}`}>
+                    {createdPaymentMethod?.is_income ? 'Yes' : 'No'}
                   </span>
                 </div>
                 <div className="flex justify-between text-sm">

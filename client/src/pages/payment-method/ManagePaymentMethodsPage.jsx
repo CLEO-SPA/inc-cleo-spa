@@ -7,6 +7,7 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { AlertTriangle, X, Shield } from 'lucide-react';
 import { Alert, AlertDescription } from '@/components/ui/alert';
+import { SidebarInset, SidebarProvider } from '@/components/ui/sidebar';
 
 import {
   DropdownMenu,
@@ -30,7 +31,6 @@ import { Card, CardContent, CardHeader, CardTitle, CardFooter } from '@/componen
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { AppSidebar } from '@/components/app-sidebar';
 import { SiteHeader } from '@/components/site-header';
-import { SidebarInset, SidebarProvider } from '@/components/ui/sidebar';
 import {
   Dialog,
   DialogContent,
@@ -38,7 +38,6 @@ import {
   DialogTitle,
   DialogFooter,
 } from '@/components/ui/dialog';
-
 
 function ManagePaymentMethodsPage() {
   const { user } = useAuth();
@@ -64,6 +63,7 @@ function ManagePaymentMethodsPage() {
     setLimit,
     setSearchTerm,
   } = usePaymentMethodStore();
+
   
   const [showDeleteDialog, setShowDeleteDialog] = useState(false);
   const [deleteId, setDeleteId] = useState(null);
@@ -207,9 +207,10 @@ function ManagePaymentMethodsPage() {
     { key: 'id', label: 'ID' },
     { key: 'payment_method_name', label: 'Payment Method' },
     { key: 'is_enabled', label: 'Active' },
-    { key: 'is_revenue', label: 'Revenue' },
+    { key: 'is_income', label: 'Income' },
     { key: 'is_protected', label: 'Protected' },
     { key: 'show_on_payment_page', label: 'Show on payment page' },
+    { key: 'percentage_rate', label: 'Percentage Rate' },
     { key: 'created_at', label: 'Created' },
     { key: 'updated_at', label: 'Updated' },
     { key: 'actions', label: 'Actions' },
@@ -366,7 +367,7 @@ function ManagePaymentMethodsPage() {
                               {tableHeaders.map((header) => {
                                 if (header.key === 'actions') {
                                   const isProtected = paymentMethod.is_protected === true;
-                                  const hasEditAccess = canEdit && !isProtected;
+                                  const hasEditAccess = canEdit;
                                   const hasDeleteAccess = canDelete && !isProtected;
                                   
                                   // If no actions are available, show a disabled state
@@ -451,7 +452,7 @@ function ManagePaymentMethodsPage() {
                                   );
                                 }
 
-                                if (header.key === 'is_enabled' || header.key === 'is_revenue' || header.key === 'is_protected' || header.key === 'show_on_payment_page') {
+                                if (header.key === 'is_enabled' || header.key === 'is_income' || header.key === 'is_protected' || header.key === 'show_on_payment_page') {
                                   const status = paymentMethod[header.key];
                                   const displayText = status === true ? 'Yes' : status === false ? 'No' : status || 'N/A';
                                   
