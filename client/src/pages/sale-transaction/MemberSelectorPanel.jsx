@@ -865,7 +865,6 @@ export default function MemberSelectorPanel() {
                             <TableHead className='w-[110px] text-xs'>Starting Balance</TableHead>
                             <TableHead className='w-[110px] text-xs'>Free of Charge</TableHead>
                             <TableHead className='w-[110px] text-xs'>Default Price</TableHead>
-                            <TableHead className='w-[110px] text-xs'>Current Paid Balance</TableHead>
                             <TableHead className='w-[150px] text-xs'>Remarks</TableHead>
                             <TableHead className='w-[120px] text-xs'>Actions</TableHead>
                           </TableRow>
@@ -878,7 +877,6 @@ export default function MemberSelectorPanel() {
                               <TableCell className='text-xs'>${voucher.starting_balance}</TableCell>
                               <TableCell className='text-xs'>${voucher.free_of_charge}</TableCell>
                               <TableCell className='text-xs'>${voucher.default_total_price}</TableCell>
-                              <TableCell className='text-xs'>${voucher.current_paid_balance}</TableCell>
                               <TableCell className='text-xs truncate' title={voucher.remarks}>
                                 {voucher.remarks}
                               </TableCell>
