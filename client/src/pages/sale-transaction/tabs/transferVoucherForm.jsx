@@ -1,5 +1,6 @@
 import React, { useEffect, useState } from 'react';
 import { IoAddOutline } from 'react-icons/io5';
+import { Card, CardContent } from '@/components/ui/card';
 import useTransferVoucherStore from '@/stores/useTransferVoucherStore';
 import useTransactionCartStore from '@/stores/useTransactionCartStore';
 import useSelectedMemberStore from '@/stores/useSelectedMemberStore';
@@ -7,6 +8,7 @@ import useEmployeeStore from '@/stores/useEmployeeStore';
 
 const TransferVoucherForm = () => {
   const currentMember = useSelectedMemberStore((state) => state.currentMember);
+  const { selectedMember } = useTransactionCartStore();
 
   const {
     voucherTemplates,
@@ -127,8 +129,6 @@ const TransferVoucherForm = () => {
       top_up_balance: topUpBalance, // ✅ Add this line
     };
 
-
-
     setTransferFormData(payload);
   }, [
     currentMember,
@@ -168,7 +168,6 @@ const TransferVoucherForm = () => {
 
     const transferAmount = totalOldBalance;
 
-
     const cartPayload = {
       id: `transfer-${Date.now()}`,
       type: 'transferMV',
@@ -185,6 +184,26 @@ const TransferVoucherForm = () => {
 
   return (
     <div className='p-0'>
+      {!selectedMember && (
+        <Card className='border-orange-200 bg-orange-50'>
+          <CardContent className='py-2'>
+            <p className='text-orange-800 text-sm'>
+              Please select a member first before transferring member voucher balances.
+            </p>
+          </CardContent>
+        </Card>
+      )}
+
+      {selectedMember && (
+        <Card className='border-green-200 bg-green-50'>
+          <CardContent className='py-2'>
+            <p className='text-green-800 text-sm'>
+              Transferring member voucher balance for: <strong>{selectedMember.name}</strong>
+            </p>
+          </CardContent>
+        </Card>
+      )}
+
       <div className='p-3 bg-white shadow rounded-lg h-[700px] overflow-y-auto'>
         <h2 className='text-xl font-semibold mb-4'>Transfer Voucher</h2>
 
@@ -255,9 +274,7 @@ const TransferVoucherForm = () => {
           />
         </div>
         {parseFloat(foc || '0') > parseFloat(price || '0') && (
-          <div className='mb-4 p-2 bg-red-100 text-red-700 rounded'>
-            ⚠️ FOC cannot be more than price.
-          </div>
+          <div className='mb-4 p-2 bg-red-100 text-red-700 rounded'>⚠️ FOC cannot be more than price.</div>
         )}
 
         {/* Remarks */}
@@ -372,10 +389,9 @@ const TransferVoucherForm = () => {
           <button
             onClick={handleAddToCart}
             disabled={isFocGreaterThanPrice}
-            className={`px-6 py-2 rounded transition ${isFocGreaterThanPrice
-              ? 'bg-gray-400 cursor-not-allowed'
-              : 'bg-green-600 hover:bg-green-700 text-white'
-              }`}
+            className={`px-6 py-2 rounded transition ${
+              isFocGreaterThanPrice ? 'bg-gray-400 cursor-not-allowed' : 'bg-green-600 hover:bg-green-700 text-white'
+            }`}
           >
             Add to Cart
           </button>
