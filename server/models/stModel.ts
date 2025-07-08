@@ -2203,7 +2203,59 @@ const processPartialPayment = async (
         ]);
       }
     }
+    if (voucherItems.length > 0) {
+      for (const voucherItem of voucherItems) {
+        // Get current balance before update for logging
+        const currentVoucherResult = await client.query(
+          'SELECT current_balance FROM member_vouchers WHERE id = $1',
+          [voucherItem.member_voucher_id]
+        );
 
+        const currentBalance = parseFloat(currentVoucherResult.rows[0]?.current_balance) || 0;
+
+        // Update voucher balance
+        await client.query('UPDATE member_vouchers SET current_balance = COALESCE(current_balance, 0) + $1 WHERE id = $2', [
+          totalActualPaymentAmount,
+          voucherItem.member_voucher_id,
+        ]);
+
+        // Log the partial payment transaction
+        const insertPartialPaymentLogQuery = `
+      INSERT INTO member_voucher_transaction_logs (
+        member_voucher_id,
+        service_description,
+        service_date,
+        current_balance,
+        amount_change,
+        serviced_by,
+        type,
+        created_by,
+        last_updated_by,
+        created_at,
+        updated_at
+      ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11)
+    `;
+
+        const newBalance = currentBalance + totalActualPaymentAmount;
+        const partialPaymentLogParams = [
+          voucherItem.member_voucher_id,
+          `Payment received for receipt ${finalReceiptNumber}${newTransactionStatus === 'PARTIAL' ? ' (Partial Payment)' : ''}`,
+          currentTime,
+          newBalance,
+          totalActualPaymentAmount,
+          transaction_handler_id,
+          newTransactionStatus === 'PARTIAL' ? 'ADD PARTIAL' : 'ADD PAYMENT',
+          payment_handler_id,
+          payment_handler_id,
+          currentTime,
+          currentTime
+        ];
+
+        await client.query(insertPartialPaymentLogQuery, partialPaymentLogParams);
+
+        console.log(`Inserted voucher transaction log for voucher ID ${voucherItem.member_voucher_id}, balance change: +${totalActualPaymentAmount} (${newTransactionStatus === 'PARTIAL' ? 'Partial Payment' : 'Payment'})`);
+      }
+    }
     // Handle voucher free-of-charge additions if transaction is fully paid
     if (voucherItems.length > 0 && newTransactionStatus === 'FULL') {
       for (const voucherItem of voucherItems) {
