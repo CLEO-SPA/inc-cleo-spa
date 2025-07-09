@@ -30,7 +30,7 @@ const getUserCount = async () => {
  * @param email
  * @returns
  */
-const getAuthUser = async (email: string) => {
+const getAuthUser = async (identity: string) => {
   try {
     const query = `
       SELECT 
@@ -42,10 +42,10 @@ const getAuthUser = async (email: string) => {
       FROM user_auth ua
       INNER JOIN user_to_role utr ON ua.id = utr.user_auth_id
       INNER JOIN roles r ON utr.role_id = r.id
-      LEFT JOIN users u ON ua.id = u.user_auth_id
-      WHERE ua.email = $1
+      INNER JOIN users u ON ua.id = u.user_auth_id
+      WHERE ua.email = $1 OR u.username = $1
       `;
-    const values = [email];
+    const values = [identity];
     const result = await prodPool().query(query, values);
 
     if (result.rows.length === 0) {
@@ -58,12 +58,12 @@ const getAuthUser = async (email: string) => {
 
     return result.rows[0];
   } catch (error) {
-    console.error('Error fetching employee data', error);
-    throw new Error('Error fetching employee data');
+    console.error('Error fetching user data', error);
+    throw new Error('Error fetching user data');
   }
 };
 
-const getUserData = async (email: string) => {
+const getUserData = async (identity: string) => {
   try {
     const query = `
       SELECT 
@@ -75,10 +75,10 @@ const getUserData = async (email: string) => {
       FROM user_auth ua
       INNER JOIN user_to_role utr ON ua.id = utr.user_auth_id
       INNER JOIN roles r ON utr.role_id = r.id
-      LEFT JOIN users u ON ua.id = u.user_auth_id
-      WHERE ua.email = $1
+      INNER JOIN users u ON ua.id = u.user_auth_id
+      WHERE ua.email = $1 OR u.username = $1
       `;
-    const values = [email];
+    const values = [identity];
     const result = await pool().query(query, values);
 
     if (result.rows.length === 0) {
@@ -91,8 +91,8 @@ const getUserData = async (email: string) => {
 
     return result.rows[0];
   } catch (error) {
-    console.error('Error fetching employee data', error);
-    throw new Error('Error fetching employee data');
+    console.error('Error fetching user data', error);
+    throw new Error('Error fetching user data');
   }
 };
 
@@ -100,8 +100,8 @@ const updateUserTimestamp = async (email: string) => {
   try {
     await pool().query(`UPDATE users SET updated_at = NOW() WHERE email = $1`, [email]);
   } catch (error) {
-    console.error('Error touching employee:', error);
-    throw new Error('Error touching employee');
+    console.error('Error updating user timestamp:', error);
+    throw new Error('Error updating user timestamp');
   }
 };
 
@@ -133,9 +133,9 @@ const updateUserPassword = async (email: string, password_hash: string, isInvite
     await client.query('COMMIT');
     return updatedAuth;
   } catch (error) {
-    console.error('Error updating employee password:', error);
+    console.error('Error updating user password:', error);
     await client.query('ROLLBACK');
-    throw new Error('Error updating employee password');
+    throw new Error('Error updating user password');
   } finally {
     client.release();
   }

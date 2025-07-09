@@ -192,7 +192,7 @@ interface NewEmployeeData {
   updated_at?: string;
 }
 
-const createAuthAndEmployee = async (data: NewEmployeeData) => {
+const createEmployeeModel = async (data: NewEmployeeData) => {
   const client = await pool().connect();
   try {
     await client.query('BEGIN');
@@ -728,14 +728,12 @@ export default {
   checkEmployeeCodeExists,
   checkEmployeePhoneExists,
   checkEmployeeEmailExists,
-  updateEmployeePassword,
   getAllEmployees,
   getAllEmployeesForDropdown,
   getEmployeeIdByUserAuthId,
   getBasicEmployeeDetails,
-  createAuthAndEmployee,
+  createEmployeeModel,
   getAllRolesForDropdown,
-  touchEmployee,
   getEmployeeById,
   updateEmployee,
   // getOnlyEmployeeById,

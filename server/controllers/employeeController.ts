@@ -78,7 +78,7 @@ const createEmployee = async (req: Request, res: Response, next: NextFunction): 
     const defaultPassword = crypto.randomBytes(8).toString('hex');
     const password_hash = await bcrypt.hash(defaultPassword, 10);
 
-    const results = await model.createAuthAndEmployee({
+    const results = await model.createEmployeeModel({
       email,
       password_hash,
       phone: contact,
@@ -392,7 +392,6 @@ export const updateEmployee = async (req: Request, res: Response, next: NextFunc
     let newInviteUrl: string | undefined;
     if (emailChanged && payload.email) {
       // update touched-at timestamp so “recently updated” filters pick it up
-      await model.touchEmployee(payload.email);
 
       const token = jwt.sign({ email: payload.email }, process.env.INV_JWT_SECRET as string, { expiresIn: '3d' });
 
