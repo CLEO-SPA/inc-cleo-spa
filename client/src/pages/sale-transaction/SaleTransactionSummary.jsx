@@ -462,7 +462,7 @@ const SaleTransactionSummary = () => {
         <div className='flex flex-1'>
           <AppSidebar />
           <SidebarInset>
-            <div className="max-w-[1600px] mx-auto p-4 space-y-6">
+            <div className="w-full p-4 space-y-6">
 
               {/* Header */}
               <Card>
