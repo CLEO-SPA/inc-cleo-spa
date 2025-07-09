@@ -1,4 +1,4 @@
-import { pool, getProdPool as prodPool } from '../config/database.js';
+import { pool } from '../config/database.js';
 import { Employees, Positions } from '../types/model.types.js';
 import validator from 'validator';
 
@@ -179,96 +179,6 @@ const getAllEmployees = async (offset: number, limit: number, startDate_utc: str
   }
 };
 
-const createSuperUser = async (email: string, password_hash: string) => {
-  try {
-    const query = `CALL create_temp_su($1, $2)`;
-    const values = [email, password_hash];
-    await pool().query(query, values);
-    return { success: true, message: 'Super user created successfully' };
-  } catch (error) {
-    console.error('Error creating super user:', error);
-    throw new Error('Error creating super user');
-  }
-};
-
-/**
- * !! USE THIS FUNCTION ONLY FOR AUTHENTICATION !!
- * This func uses productive DB to fetch login data
- * @param {"email || phone_no"} identity
- * @returns
- */
-const getAuthUser = async (identity: string | number) => {
-  try {
-    const query = `
-      SELECT 
-        ua.id, 
-        ua.email,
-        ua.phone,
-        ua.password,
-        r.role_name,
-        e.employee_name,
-        m.name AS member_name
-      FROM user_auth ua
-      INNER JOIN user_to_role utr ON ua.id = utr.user_auth_id
-      INNER JOIN roles r ON utr.role_id = r.id
-      LEFT JOIN employees e ON ua.id = e.user_auth_id
-      LEFT JOIN members m ON ua.id = m.user_auth_id
-      WHERE ua.phone = $1 OR ua.email = $1
-      `;
-    const values = [identity];
-    const result = await prodPool().query(query, values);
-
-    if (result.rows.length === 0) {
-      return null;
-    }
-
-    result.rows.forEach((row) => {
-      row.role_name = row.role_name.toLowerCase().replace(' ', '_');
-    });
-
-    return result.rows[0];
-  } catch (error) {
-    console.error('Error fetching employee data', error);
-    throw new Error('Error fetching employee data');
-  }
-};
-
-const getUserData = async (identity: string | number) => {
-  try {
-    const query = `
-      SELECT 
-        ua.id, 
-        ua.email,
-        ua.phone,
-        ua.password,
-        r.role_name,
-        e.employee_name,
-        m.name AS member_name
-      FROM user_auth ua
-      INNER JOIN user_to_role utr ON ua.id = utr.user_auth_id
-      INNER JOIN roles r ON utr.role_id = r.id
-      LEFT JOIN employees e ON ua.id = e.user_auth_id
-      LEFT JOIN members m ON ua.id = m.user_auth_id
-      WHERE ua.phone = $1 OR ua.email = $1
-      `;
-    const values = [identity];
-    const result = await pool().query(query, values);
-
-    if (result.rows.length === 0) {
-      return null;
-    }
-
-    result.rows.forEach((row) => {
-      row.role_name = row.role_name.toLowerCase().replace(' ', '_');
-    });
-
-    return result.rows[0];
-  } catch (error) {
-    console.error('Error fetching employee data', error);
-    throw new Error('Error fetching employee data');
-  }
-};
-
 interface NewEmployeeData {
   email: string;
   password_hash: string;
@@ -287,42 +197,15 @@ const createAuthAndEmployee = async (data: NewEmployeeData) => {
   try {
     await client.query('BEGIN');
 
-    const roleResult = await client.query('SELECT get_or_create_roles($1) as id;', [data.role_name]);
-    if (roleResult.rows.length === 0) {
-      throw new Error(`Role '${data.role_name}' not found.`);
-    }
-    const roleId = roleResult.rows[0].id;
-
-    const userAuthQuery = `
-      INSERT INTO user_auth (email, password, phone, created_at, updated_at)
-      VALUES ($1, $2, $3, $4, $5)
-      RETURNING id
-    `;
-    const userAuthResult = await client.query(userAuthQuery, [
-      data.email,
-      data.password_hash,
-      data.phone,
-      data.created_at,
-      data.updated_at,
-    ]);
-    const userAuthId = userAuthResult.rows[0].id;
-
-    const userToRoleQuery = `
-      INSERT INTO user_to_role (user_auth_id, role_id, created_at, updated_at)
-      VALUES ($1, $2, $3, $4)
-    `;
-    await client.query(userToRoleQuery, [userAuthId, roleId, data.created_at, data.updated_at]);
-
     const employeeQuery = `
       INSERT INTO employees (
-        user_auth_id, employee_code, employee_name, employee_email, 
+        employee_code, employee_name, employee_email, 
         employee_contact, employee_is_active, created_at, updated_at, verified_status_id
       )
       VALUES ($1, $2, $3, $4, $5, $6, $7, $8, (SELECT get_or_create_status('UnVerified')))
       RETURNING id
     `;
     const employeeResult = await client.query(employeeQuery, [
-      userAuthId,
       data.employee_code,
       data.employee_name,
       data.email,
@@ -345,70 +228,13 @@ const createAuthAndEmployee = async (data: NewEmployeeData) => {
     }
 
     await client.query('COMMIT');
-    return { employeeId, userAuthId };
+    return { employeeId };
   } catch (error) {
     await client.query('ROLLBACK');
     console.error('Error creating employee with auth:', error);
     throw new Error('Failed to create employee with auth');
   } finally {
     client.release();
-  }
-};
-
-const touchEmployee = async (email: string) => {
-  try {
-    await pool().query(`UPDATE employees SET updated_at = NOW() WHERE employee_email = $1`, [email]);
-  } catch (error) {
-    console.error('Error touching employee:', error);
-    throw new Error('Error touching employee');
-  }
-};
-
-const updateEmployeePassword = async (email: string, password_hash: string, isInvite: boolean = false) => {
-  const client = await pool().connect();
-
-  try {
-    await client.query('BEGIN');
-    const query = `
-      UPDATE user_auth
-      SET password = $1
-      WHERE email = $2
-      RETURNING *;
-    `;
-    const values = [password_hash, email];
-    const result = await client.query(query, values);
-    const updatedAuth = result.rows[0];
-
-    if (isInvite) {
-      const query = `
-        UPDATE employees
-        SET verified_status_id = (SELECT get_or_create_status('Verified')), employee_is_active = true
-        WHERE employee_email = $1;
-      `;
-      const values = [email];
-      await client.query(query, values);
-    }
-
-    await client.query('COMMIT');
-    return updatedAuth;
-  } catch (error) {
-    console.error('Error updating employee password:', error);
-    await client.query('ROLLBACK');
-    throw new Error('Error updating employee password');
-  } finally {
-    client.release();
-  }
-};
-
-const getUserCount = async () => {
-  try {
-    const query = `SELECT COUNT(*) FROM user_auth`;
-    const result = await pool().query(query);
-    const count = parseInt(result.rows[0].count, 10);
-    return count;
-  } catch (error) {
-    console.error('Error getting user count:', error);
-    throw new Error('Error getting user count');
   }
 };
 
@@ -902,13 +728,9 @@ export default {
   checkEmployeeCodeExists,
   checkEmployeePhoneExists,
   checkEmployeeEmailExists,
-  getAuthUser,
   updateEmployeePassword,
   getAllEmployees,
   getAllEmployeesForDropdown,
-  createSuperUser,
-  getUserCount,
-  getUserData,
   getEmployeeIdByUserAuthId,
   getBasicEmployeeDetails,
   createAuthAndEmployee,

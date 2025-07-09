@@ -84,7 +84,6 @@ CREATE TABLE "employees" (
     "employee_contact" VARCHAR(20) NOT NULL,
     "employee_email" VARCHAR(255) NOT NULL,
     "employee_is_active" BOOLEAN NOT NULL,
-    "verified_status_id" BIGINT NOT NULL,
     "employee_name" VARCHAR(100) NOT NULL,
     "created_at" TIMESTAMPTZ(6) NOT NULL,
     "updated_at" TIMESTAMPTZ(6) NOT NULL,
@@ -536,8 +535,10 @@ CREATE TABLE "system_parameters" (
 CREATE TABLE "users" (
     "id" BIGSERIAL NOT NULL,
     "username" VARCHAR(50) NOT NULL,
+    "email" VARCHAR(100) NOT NULL,
     "created_at" TIMESTAMPTZ(6) NOT NULL,
     "updated_at" TIMESTAMPTZ(6) NOT NULL,
+    "verified_status_id" BIGINT NOT NULL,
     "user_auth_id" BIGINT NOT NULL,
 
     CONSTRAINT "users_pkey" PRIMARY KEY ("id")
@@ -562,11 +563,9 @@ ALTER TABLE "care_packages" ADD CONSTRAINT "care_packages_last_updated_by_fkey" 
 ALTER TABLE "care_package_item_details" ADD CONSTRAINT "care_package_item_details_care_package_id_fkey" FOREIGN KEY ("care_package_id") REFERENCES "care_packages"("id") ON DELETE CASCADE ON UPDATE CASCADE;
 ALTER TABLE "care_package_item_details" ADD CONSTRAINT "care_package_item_details_service_id_fkey" FOREIGN KEY ("service_id") REFERENCES "services"("id") ON DELETE RESTRICT ON UPDATE CASCADE;
 
--- Foreign Keys for table "employees"
-ALTER TABLE "employees" ADD CONSTRAINT "verified_status_id_fkey" FOREIGN KEY ("verified_status_id") REFERENCES "statuses"("id") ON UPDATE CASCADE;
-
 -- Foreign Keys for table "users"
 ALTER TABLE "users" ADD CONSTRAINT "users_user_auth_id_fkey" FOREIGN KEY ("user_auth_id") REFERENCES "user_auth"("id") ON DELETE CASCADE ON UPDATE CASCADE;
+ALTER TABLE "users" ADD CONSTRAINT "users_verified_status_id_fkey" FOREIGN KEY ("verified_status_id") REFERENCES "statuses"("id") ON DELETE RESTRICT ON UPDATE CASCADE;
 
 --  Foreign Keys for table "employee_to_position"
 ALTER TABLE "employee_to_position" ADD CONSTRAINT "employee_to_position_employee_id_fkey" FOREIGN KEY ("employee_id") REFERENCES "employees"("id") ON DELETE CASCADE ON UPDATE CASCADE;
