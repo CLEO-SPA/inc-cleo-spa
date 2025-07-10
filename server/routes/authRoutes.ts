@@ -26,6 +26,8 @@ router.post('/invites', authController.acceptInvitation, hashPassword, authContr
 // =========================
 router.use(isAuthenticated);
 
+router.get('/users', isAuthenticated, authController.getUsers);
+
 router.post(
   '/regenerate-uri',
   roleMiddleware.hasRole(['super_admin', 'data_admin']),

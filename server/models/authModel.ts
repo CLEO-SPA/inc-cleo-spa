@@ -1,5 +1,7 @@
 import { pool, getProdPool as prodPool } from '../config/database.js';
 import { UserAuth } from '../types/model.types.js';
+import { PoolClient } from 'pg';
+import { PaginatedOptions, PaginatedReturn } from '../types/common.types.js';
 
 const createSuperUser = async (email: string, password_hash: string) => {
   try {
@@ -462,6 +464,177 @@ const getUserById = async (userId: string) => {
   }
 };
 
+interface UserWithRole {
+  id: string;
+  username: string;
+  email: string;
+  role_name: string;
+  created_at: string;
+  updated_at: string;
+}
+
+const getPaginatedUsers = async (
+  limit: number,
+  options: PaginatedOptions = {}
+): Promise<PaginatedReturn<UserWithRole>> => {
+  const { searchTerm, page } = options;
+
+  try {
+    const client = await pool().connect();
+    try {
+      // Build filter conditions for search
+      const { filterWhereClause, filterParams, paramCounter } = buildUserFilterConditions(searchTerm);
+
+      // Get total count of users that match the filter
+      const totalCount = await getUserTotalCount(client, filterWhereClause, filterParams);
+
+      // Prepare pagination parameters
+      const { finalWhereClause, cursorParams, orderBy, effectiveLimit } = prepareUserPaginationParams(
+        filterWhereClause,
+        filterParams,
+        paramCounter,
+        limit,
+        page
+      );
+
+      // Build and execute the query
+      const dataQuery = buildUserDataQuery(finalWhereClause, orderBy, page, limit, effectiveLimit);
+      const { rows: rawResults } = await client.query(dataQuery, cursorParams);
+      const actualFetchedCount = rawResults.length;
+
+      // Process the results for pagination
+      const { users, hasNextPage, hasPreviousPage } = processUserPaginationResults(
+        rawResults,
+        page,
+        limit,
+        totalCount,
+        actualFetchedCount
+      );
+
+      return {
+        users,
+        page: page || 1,
+        totalPages: Math.ceil(totalCount / limit),
+        totalCount,
+        hasNextPage,
+        hasPreviousPage,
+      };
+    } finally {
+      client.release();
+    }
+  } catch (error) {
+    console.error('Error in authModel.getPaginatedUsers:', error);
+    throw new Error('Could not retrieve paginated users.');
+  }
+};
+
+// Helper function to build filter conditions
+function buildUserFilterConditions(searchTerm?: string): {
+  filterWhereClause: string;
+  filterParams: any[];
+  paramCounter: number;
+} {
+  let filterWhereClause = '';
+  const filterParams: any[] = [];
+  let paramCounter = 1;
+
+  if (searchTerm && searchTerm.trim() !== '') {
+    filterWhereClause = 'WHERE (u.username ILIKE $1 OR ua.email ILIKE $1)';
+    filterParams.push(`%${searchTerm}%`);
+    paramCounter++;
+  }
+
+  return { filterWhereClause, filterParams, paramCounter };
+}
+
+// Helper function to get the total count of users
+async function getUserTotalCount(client: PoolClient, filterWhereClause: string, filterParams: any[]): Promise<number> {
+  const countQuery = `
+    SELECT COUNT(DISTINCT u.id) as total 
+    FROM users u
+    INNER JOIN user_auth ua ON u.user_auth_id = ua.id
+    INNER JOIN user_to_role utr ON ua.id = utr.user_auth_id
+    INNER JOIN roles r ON utr.role_id = r.id
+    ${filterWhereClause}
+  `;
+
+  const { rows } = await client.query(countQuery, filterParams);
+  return parseInt(rows[0].total, 10);
+}
+
+// Helper function to prepare pagination parameters
+function prepareUserPaginationParams(
+  filterWhereClause: string,
+  filterParams: any[],
+  paramCounter: number,
+  limit: number,
+  page?: number
+): {
+  finalWhereClause: string;
+  cursorParams: any[];
+  orderBy: string;
+  effectiveLimit: number;
+} {
+  const finalWhereClause = filterWhereClause;
+  const orderBy = 'ORDER BY u.created_at DESC, u.id ASC';
+  const cursorParams = [...filterParams];
+  const effectiveLimit = limit;
+
+  return { finalWhereClause, cursorParams, orderBy, effectiveLimit };
+}
+
+// Helper function to build the data query
+function buildUserDataQuery(
+  finalWhereClause: string,
+  orderBy: string,
+  page?: number,
+  limit?: number,
+  effectiveLimit?: number
+): string {
+  return `
+    SELECT 
+      u.id,
+      u.username,
+      ua.email,
+      r.role_name,
+      u.created_at,
+      u.updated_at
+    FROM users u
+    INNER JOIN user_auth ua ON u.user_auth_id = ua.id
+    INNER JOIN user_to_role utr ON ua.id = utr.user_auth_id
+    INNER JOIN roles r ON utr.role_id = r.id
+    ${finalWhereClause}
+    ${orderBy}
+    ${page && page > 0 ? `OFFSET ${(page - 1) * (limit || 10)}` : ''}
+    LIMIT ${effectiveLimit}
+  `;
+}
+
+// Helper function to process pagination results
+function processUserPaginationResults(
+  rawResults: any[],
+  page?: number,
+  limit?: number,
+  totalCount?: number,
+  actualFetchedCount?: number
+): {
+  users: any[];
+  hasNextPage: boolean;
+  hasPreviousPage: boolean;
+} {
+  const users = rawResults;
+
+  let hasNextPage = false;
+  let hasPreviousPage = false;
+
+  if (page && page > 0 && limit && totalCount) {
+    hasNextPage = page * limit < totalCount;
+    hasPreviousPage = page > 1;
+  }
+
+  return { users, hasNextPage, hasPreviousPage };
+}
+
 export default {
   createSuperUser,
   getUserCount,
@@ -474,4 +647,5 @@ export default {
   updateUserModel,
   deleteUserModel,
   getUserById,
+  getPaginatedUsers,
 };

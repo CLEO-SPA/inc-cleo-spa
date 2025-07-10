@@ -513,6 +513,35 @@ const deleteUser = async (req: Request, res: Response, next: NextFunction) => {
   }
 };
 
+const getUsers = async (req: Request, res: Response, next: NextFunction): Promise<void> => {
+  try {
+    const limit: number = parseInt((req.query.limit as string) || '10');
+    const page = parseInt(req.query.page as string);
+    const search = req.query.search as string;
+
+    if (limit <= 0) {
+      res.status(400).json({ error: 'Limit must be a positive integer.' });
+      return;
+    }
+
+    if (page && (isNaN(page) || page <= 0)) {
+      res.status(400).json({ error: 'Page must be a positive integer.' });
+      return;
+    }
+
+    const options: PaginatedOptions = {
+      page,
+      searchTerm: search,
+    };
+
+    const results = await model.getPaginatedUsers(limit, options);
+    res.status(200).json(results);
+  } catch (error) {
+    console.error('Error in authController.getUsers:', error);
+    next(error);
+  }
+};
+
 export default {
   isAuthenticated,
   setUpSuperUser,
@@ -527,4 +556,5 @@ export default {
   createAndInviteUser,
   updateUser,
   deleteUser,
+  getUsers,
 };
