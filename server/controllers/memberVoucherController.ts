@@ -282,6 +282,8 @@ const checkCurrentBalance = async (req: Request, res: Response, next: NextFuncti
 
     const results = await model.getMemberVoucherCurrentBalance(intId, numericConsumptionValue);
     if (results.success) {
+      req.body.current_balance = results.data;
+      console.log(req.body.current_balance);
       next();
     } else {
       res.status(400).json({ message: results.message });
@@ -294,20 +296,11 @@ const checkCurrentBalance = async (req: Request, res: Response, next: NextFuncti
   }
 };
 
-const checkPaidCurrentBalance = async (req: Request, res: Response, next: NextFunction): Promise<void> => {
+const getMemberVoucherPurchaseDate = async (req: Request, res: Response, next: NextFunction): Promise<void> => {
   const { id } = req.params;
-  const { consumptionValue } = req.body;
 
   try {
-
-    const numValue = Number(consumptionValue);
-    if ((consumptionValue === '' || consumptionValue == null) || isNaN(numValue)) {
-      res.status(400).json({ message: "Error 400: Consumption value is invalid or missing" });
-      return;
-    }
-
     const intId = parseInt(id, 10);
-    const numericConsumptionValue = parseFloat(consumptionValue);
 
     if (Number.isNaN(intId)) {
       res.status(400).json({
@@ -316,21 +309,56 @@ const checkPaidCurrentBalance = async (req: Request, res: Response, next: NextFu
       return;
     };
 
-    const results = await model.getMemberVoucherPaidCurrentBalance(intId, numericConsumptionValue);
+    const results = await model.getPurchaseDateOfMemberVoucherById(intId);
     if (results.success) {
-      req.body.current_balance = results.data;
-      console.log(req.body.current_balance);
-      next();
+      res.status(200).json({ message: "Get Purchase Date of Member Voucher By Id was successful.", data: results.data });
     } else {
       res.status(400).json({ message: results.message });
       return;
-    };
+    }
   } catch (error) {
-    console.error("Error getting paid current balance by Member Voucher Id:", error);
-    res.status(500).json({ message: "Internal server error" });
-    return;
-  };
-};
+    console.error("Error getting Purchase Date of Member Voucher:", error);
+    next(error);
+  }
+}
+
+// const checkPaidCurrentBalance = async (req: Request, res: Response, next: NextFunction): Promise<void> => {
+//   const { id } = req.params;
+//   const { consumptionValue } = req.body;
+
+//   try {
+
+//     const numValue = Number(consumptionValue);
+//     if ((consumptionValue === '' || consumptionValue == null) || isNaN(numValue)) {
+//       res.status(400).json({ message: "Error 400: Consumption value is invalid or missing" });
+//       return;
+//     }
+
+//     const intId = parseInt(id, 10);
+//     const numericConsumptionValue = parseFloat(consumptionValue);
+
+//     if (Number.isNaN(intId)) {
+//       res.status(400).json({
+//         message: "Error 400: Invalid ID: must be a valid number"
+//       });
+//       return;
+//     };
+
+//     const results = await model.getMemberVoucherPaidCurrentBalance(intId, numericConsumptionValue);
+//     if (results.success) {
+// req.body.current_balance = results.data;
+// console.log(req.body.current_balance);
+// next();
+//     } else {
+//       res.status(400).json({ message: results.message });
+//       return;
+//     };
+//   } catch (error) {
+//     console.error("Error getting paid current balance by Member Voucher Id:", error);
+//     res.status(500).json({ message: "Internal server error" });
+//     return;
+//   };
+// };
 
 const getMemberNameByMemberVoucherId = async (req: Request, res: Response, next: NextFunction): Promise<void> => {
   const { id } = req.params;
@@ -512,7 +540,7 @@ const createMemberVoucher = async (req: Request, res: Response): Promise<void> =
 
   } catch (error: any) {
     console.error('Error creating MV transaction:', error);
-    
+
     res.status(500).json({
       success: false,
       error: 'Failed to create MV transaction',
@@ -565,7 +593,8 @@ export default {
   getAllTransactionLogsOfMemberVoucherById,
   createTransactionLogsByMemberVoucherId,
   checkCurrentBalance,
-  checkPaidCurrentBalance,
+  // checkPaidCurrentBalance,
+  getMemberVoucherPurchaseDate,
   getMemberNameByMemberVoucherId,
   updateTransactionLogsAndCurrentBalanceByLogId,
   deleteTransactionLogsByLogId

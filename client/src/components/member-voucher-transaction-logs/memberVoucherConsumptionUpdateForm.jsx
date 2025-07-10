@@ -10,10 +10,12 @@ import {
 } from '@/components/ui/select';
 import useMemberVoucherTransactionStore from '@/stores/MemberVoucher/useMemberVoucherTransactionStore';
 import ErrorAlert from '@/components/ui/errorAlert';
+import EmployeeSelect from '@/components/ui/forms/EmployeeSelect';
 
 const TransactionLogUpdateForm = () => {
     const {
         updateFormFieldData,
+        loading,
         isUpdating,
         selectedTransactionLogId,
         error,
@@ -140,32 +142,29 @@ const TransactionLogUpdateForm = () => {
                     </div>
 
                     <div>
-                        <Label htmlFor="createdBy" className="block mb-2">Created By</Label>
-                        <Input
-                            id="createdBy"
+                        <EmployeeSelect
+                            label='Created By'
                             value={updateFormFieldData.createdBy}
-                            onChange={(e) => handleInputChange('createdBy', e.target.value)}
-                            placeholder="Enter creator name"
+                            onChange={(value) => handleInputChange('createdBy', value)}
+                            disabled={loading}
                         />
                     </div>
 
                     <div>
-                        <Label htmlFor="handledBy" className="block mb-2">Handled By</Label>
-                        <Input
-                            id="handledBy"
+                        <EmployeeSelect
+                            label='Handled By'
                             value={updateFormFieldData.handledBy}
-                            onChange={(e) => handleInputChange('handledBy', e.target.value)}
-                            placeholder="Enter handler name"
+                            onChange={(value) => handleInputChange('handledBy', value)}
+                            disabled={loading}
                         />
                     </div>
 
                     <div>
-                        <Label htmlFor="lastUpdatedBy" className="block mb-2">Last Updated By</Label>
-                        <Input
-                            id="lastUpdatedBy"
+                        <EmployeeSelect
+                            label='Last Updated By'
                             value={updateFormFieldData.lastUpdatedBy}
-                            onChange={(e) => handleInputChange('lastUpdatedBy', e.target.value)}
-                            placeholder="Enter updator name"
+                            onChange={(value) => handleInputChange('lastUpdatedBy', value)}
+                            disabled={loading}
                         />
                     </div>
 
