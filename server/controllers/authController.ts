@@ -6,12 +6,7 @@ import jwt from 'jsonwebtoken';
 import 'dotenv/config';
 import crypto from 'crypto';
 import validator from 'validator';
-
-const defaultPassword = async (req: Request, res: Response, next: NextFunction) => {
-  const randomPassword = crypto.randomBytes(8).toString('hex');
-  req.body.password = randomPassword;
-  next();
-};
+import bcrypt from 'bcryptjs';
 
 const login = async (req: Request, res: Response, next: NextFunction) => {
   if (res.locals.result) {
@@ -315,6 +310,209 @@ const updateUserPassword = async (req: Request, res: Response, next: NextFunctio
   }
 };
 
+interface NewUserData {
+  email: string;
+  username: string;
+  password_hash: string;
+  role_name: string;
+  created_at?: string;
+  updated_at?: string;
+}
+
+const createAndInviteUser = async (req: Request, res: Response, next: NextFunction) => {
+  try {
+    const { username = '', email = '', role_name = '', created_at = '', updated_at = '' } = req.body;
+
+    const user_email = email.trim();
+    const user_name = username.trim();
+    const role = role_name.trim();
+
+    const missing = !user_email || !user_name || !role;
+
+    if (missing) {
+      res.status(400).json({ message: 'All required fields must be non-blank.' });
+      return;
+    }
+
+    if (!validator.isEmail(email)) {
+      res.status(400).json({ message: 'Invalid email format.' });
+      return;
+    }
+
+    if (await model.checkUserEmailExists(email)) {
+      res.status(409).json({ message: 'User email already in use.' });
+      return;
+    }
+
+    const randomPassword = crypto.randomBytes(8).toString('hex');
+
+    const results = model.createUserModel({
+      username,
+      email,
+      password_hash: randomPassword,
+      role_name,
+      created_at,
+      updated_at,
+    });
+
+    const token = jwt.sign({ email }, process.env.INV_JWT_SECRET as string, { expiresIn: '3d' });
+    const resetUrl = `${process.env.LOCAL_FRONTEND_URL}/reset-password?token=${token}`;
+
+    res.status(201).json({
+      message: 'User created successfully. Send the link below so they can set a password.',
+      resetUrl,
+      results,
+    });
+  } catch (error) {
+    console.error('Error in authController.createAndInviteUser', error);
+    next(error);
+  }
+};
+
+const updateUser = async (req: Request, res: Response, next: NextFunction) => {
+  try {
+    const { id } = req.params;
+    const { username, email, role_name, password } = req.body;
+
+    // Validate required fields
+    if (!id) {
+      res.status(400).json({ message: 'User ID is required' });
+      return;
+    }
+
+    // Check if user exists
+    const existingUser = await model.getUserById(id);
+    if (!existingUser) {
+      res.status(404).json({ message: 'User not found' });
+      return;
+    }
+
+    // Only allow users to update their own account or super_admins to update any account
+    if (id !== req.session.user_id && req.session.role !== 'super_admin') {
+      res.status(403).json({ message: 'You can only update your own account' });
+      return;
+    }
+
+    // Prepare update data
+    const updateData: Partial<NewUserData> = {};
+
+    if (username) updateData.username = username;
+    if (email) {
+      if (!validator.isEmail(email)) {
+        res.status(400).json({ message: 'Invalid email format' });
+        return;
+      }
+      updateData.email = email;
+    }
+
+    // Only super_admin can change roles
+    if (role_name && req.session.role === 'super_admin') {
+      updateData.role_name = role_name;
+    }
+
+    // Handle password update if provided
+    if (password) {
+      // Hash the password before updating
+      const salt = await bcrypt.genSalt(10);
+      updateData.password_hash = await bcrypt.hash(password, salt);
+    }
+
+    const result = await model.updateUserModel(id, updateData);
+
+    interface UpdateResponse {
+      message: string;
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      result: any;
+      inviteUrl?: string;
+    }
+
+    let response: UpdateResponse = {
+      message: 'User updated successfully',
+      result,
+    };
+
+    // Generate invite URL if email changed
+    if (result.emailChanged) {
+      const token = jwt.sign({ email: result.newEmail }, process.env.INV_JWT_SECRET as string, {
+        expiresIn: '3d',
+      });
+      const inviteUrl = `${process.env.LOCAL_FRONTEND_URL}/reset-password?token=${token}`;
+
+      response = {
+        ...response,
+        message: 'User updated successfully. Email address has changed - verification required.',
+        inviteUrl,
+      };
+
+      // If the user updated their own email, log them out to force re-verification
+      if (id === req.session.user_id) {
+        req.session.destroy((err) => {
+          if (err) {
+            console.error('Error destroying session:', err);
+          }
+          res.clearCookie('connect.sid', { path: '/' });
+          res.clearCookie(process.env.REMEMBER_TOKEN as string, { path: '/' });
+        });
+      }
+    }
+
+    res.status(200).json(response);
+  } catch (error) {
+    console.error('Error updating user:', error);
+    next(error);
+  }
+};
+
+const deleteUser = async (req: Request, res: Response, next: NextFunction) => {
+  try {
+    const { id } = req.params;
+
+    if (!id) {
+      res.status(400).json({ message: 'User ID is required' });
+      return;
+    }
+
+    // Check if user exists
+    const existingUser = await model.getUserById(id);
+    if (!existingUser) {
+      res.status(404).json({ message: 'User not found' });
+      return;
+    }
+
+    // Only allow users to delete their own account or super_admins to delete any account
+    if (id !== req.session.user_id && req.session.role !== 'super_admin') {
+      res.status(403).json({ message: 'You can only delete your own account' });
+      return;
+    }
+
+    try {
+      await model.deleteUserModel(id);
+
+      // If the user deleted their own account, log them out
+      if (id === req.session.user_id) {
+        req.session.destroy((err) => {
+          if (err) {
+            console.error('Error destroying session:', err);
+          }
+          res.clearCookie('connect.sid', { path: '/' });
+          res.clearCookie(process.env.REMEMBER_TOKEN as string, { path: '/' });
+        });
+      }
+
+      res.status(200).json({ message: 'User deleted successfully' });
+    } catch (error) {
+      if (error instanceof Error && error.message === 'Cannot delete the only user in the system') {
+        res.status(400).json({ message: error.message });
+        return;
+      }
+      throw error;
+    }
+  } catch (error) {
+    console.error('Error deleting user:', error);
+    next(error);
+  }
+};
+
 export default {
   isAuthenticated,
   setUpSuperUser,
@@ -322,9 +520,11 @@ export default {
   getAuthUser,
   login,
   logout,
-  defaultPassword,
   verifyInviteURL,
   acceptInvitation,
   regenerateInvitationLink,
   updateUserPassword,
+  createAndInviteUser,
+  updateUser,
+  deleteUser,
 };

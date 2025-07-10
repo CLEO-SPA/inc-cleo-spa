@@ -32,6 +32,10 @@ router.post(
   authController.regenerateInvitationLink
 );
 
+router.post('/create', roleMiddleware.hasRole('super_admin'), authController.createAndInviteUser);
+router.put('/users/:id', authController.updateUser);
+router.delete('/users/:id', authController.deleteUser);
+
 router.get('/roles', employeeController.getAllRolesForDropdown);
 
 export default router;

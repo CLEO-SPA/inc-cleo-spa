@@ -1,4 +1,5 @@
 import { pool, getProdPool as prodPool } from '../config/database.js';
+import { UserAuth } from '../types/model.types.js';
 
 const createSuperUser = async (email: string, password_hash: string) => {
   try {
@@ -141,6 +142,326 @@ const updateUserPassword = async (email: string, password_hash: string, isInvite
   }
 };
 
+const checkUserEmailExists = async (email: string) => {
+  try {
+    const query = `
+      SELECT id FROM users WHERE email = $1;
+    `;
+
+    const { rowCount } = await pool().query(query, [email]);
+    return rowCount == null;
+  } catch (error) {
+    throw error;
+  }
+};
+
+interface NewUserData {
+  email: string;
+  username: string;
+  password_hash: string;
+  role_name: string;
+  created_at?: string;
+  updated_at?: string;
+}
+
+const createUserModel = async (data: NewUserData) => {
+  const client = await pool().connect();
+  try {
+    await client.query('BEGIN');
+
+    const ua_query = `
+      INSERT INTO user_auth (
+        email, password, created_at, updated_at
+      )
+      VALUES ($1, $2, $3, $4)
+      RETURNING id
+    `;
+
+    const { rows: ua_result } = await client.query<UserAuth>(ua_query, [
+      data.email,
+      data.password_hash,
+      data.created_at,
+      data.updated_at,
+    ]);
+
+    const ua_to_role_query = `
+      INSERT INTO user_to_role (user_auth_id, role_id)
+      VALUES ($1, (SELECT get_or_create_roles($2)))
+    `;
+
+    await client.query(ua_to_role_query, [ua_result[0].id, data.role_name]);
+
+    const u_query = `
+      INSERT INTO users (
+        username, email, user_auth_id, created_at, updated_at, verified_status_id
+      )
+      VALUES ($1, $2, $3, $4, $5, (SELECT get_or_create_status('UNVERIFIED')))
+      RETURNING id
+    `;
+    const userResult = await client.query<{ id: string }>(u_query, [
+      data.username,
+      data.email,
+      data.created_at,
+      data.updated_at,
+    ]);
+    const userId = userResult.rows[0].id;
+
+    await client.query('COMMIT');
+    return { userId };
+  } catch (error) {
+    await client.query('ROLLBACK');
+    console.error('Error creating employee with auth:', error);
+    throw new Error('Failed to create employee with auth');
+  } finally {
+    client.release();
+  }
+};
+
+const updateUserModel = async (userId: string, data: Partial<NewUserData>) => {
+  const client = await pool().connect();
+  let emailChanged = false;
+  let newEmail = '';
+
+  try {
+    await client.query('BEGIN');
+
+    // Get user_auth_id and current email for this user
+    const userQuery = `
+      SELECT u.user_auth_id, ua.email 
+      FROM users u
+      JOIN user_auth ua ON u.user_auth_id = ua.id
+      WHERE u.id = $1
+    `;
+    const userResult = await client.query(userQuery, [userId]);
+
+    if (userResult.rows.length === 0) {
+      throw new Error('User not found');
+    }
+
+    const userAuthId = userResult.rows[0].user_auth_id;
+    const currentEmail = userResult.rows[0].email;
+
+    // Check if email is changing
+    if (data.email && data.email !== currentEmail) {
+      emailChanged = true;
+      newEmail = data.email;
+    }
+
+    // Update user_auth table if email or password is changing
+    if (data.email || data.password_hash) {
+      const updateFields = [];
+      const values = [];
+      let paramCount = 1;
+
+      if (data.email) {
+        updateFields.push(`email = $${paramCount}`);
+        values.push(data.email);
+        paramCount++;
+      }
+
+      if (data.password_hash) {
+        updateFields.push(`password = $${paramCount}`);
+        values.push(data.password_hash);
+        paramCount++;
+      }
+
+      updateFields.push(`updated_at = CURRENT_TIMESTAMP`);
+
+      if (updateFields.length > 0) {
+        const uaQuery = `
+          UPDATE user_auth 
+          SET ${updateFields.join(', ')}
+          WHERE id = $${paramCount}
+        `;
+        values.push(userAuthId);
+        await client.query(uaQuery, values);
+      }
+    }
+
+    // Update users table
+    if (data.username || data.email) {
+      const updateFields = [];
+      const values = [];
+      let paramCount = 1;
+
+      if (data.username) {
+        updateFields.push(`username = $${paramCount}`);
+        values.push(data.username);
+        paramCount++;
+      }
+
+      if (data.email) {
+        updateFields.push(`email = $${paramCount}`);
+        values.push(data.email);
+        paramCount++;
+      }
+
+      updateFields.push(`updated_at = CURRENT_TIMESTAMP`);
+
+      // If email changed, reset verification status
+      if (emailChanged) {
+        updateFields.push(`verified_status_id = (SELECT get_or_create_status('UNVERIFIED'))`);
+      }
+
+      if (updateFields.length > 0) {
+        const uQuery = `
+          UPDATE users 
+          SET ${updateFields.join(', ')}
+          WHERE id = $${paramCount}
+        `;
+        values.push(userId);
+        await client.query(uQuery, values);
+      }
+    }
+
+    // Update role if specified
+    if (data.role_name) {
+      // Delete existing role
+      await client.query(`DELETE FROM user_to_role WHERE user_auth_id = $1`, [userAuthId]);
+
+      // Insert new role
+      const roleQuery = `
+        INSERT INTO user_to_role (user_auth_id, role_id, created_at, updated_at)
+        VALUES ($1, (SELECT get_or_create_roles($2)), CURRENT_TIMESTAMP, CURRENT_TIMESTAMP)
+      `;
+      await client.query(roleQuery, [userAuthId, data.role_name]);
+    }
+
+    await client.query('COMMIT');
+
+    return {
+      success: true,
+      emailChanged,
+      newEmail,
+    };
+  } catch (error) {
+    await client.query('ROLLBACK');
+    console.error('Error updating user:', error);
+    throw new Error('Failed to update user');
+  } finally {
+    client.release();
+  }
+};
+
+const deleteUserModel = async (userId: string) => {
+  const client = await pool().connect();
+  try {
+    await client.query('BEGIN');
+
+    // Get user_auth_id and role for this user
+    const userQuery = `
+      SELECT u.user_auth_id, r.role_name 
+      FROM users u
+      JOIN user_to_role utr ON u.user_auth_id = utr.user_auth_id
+      JOIN roles r ON utr.role_id = r.id
+      WHERE u.id = $1
+    `;
+    const userResult = await client.query(userQuery, [userId]);
+
+    if (userResult.rows.length === 0) {
+      throw new Error('User not found');
+    }
+
+    const userAuthId = userResult.rows[0].user_auth_id;
+    const roleName = userResult.rows[0].role_name;
+
+    // Check if this is the only user in the system
+    const userCountQuery = `SELECT COUNT(*) FROM user_auth`;
+    const { rows: countResult } = await client.query(userCountQuery);
+    const userCount = parseInt(countResult[0].count, 10);
+
+    if (userCount <= 1) {
+      throw new Error('Cannot delete the only user in the system');
+    }
+
+    // Check if this is a super admin deletion
+    if (roleName.toLowerCase() === 'super admin') {
+      // Count super admins to make sure we're not deleting the last one
+      const superAdminCountQuery = `
+        SELECT COUNT(*) FROM user_to_role utr
+        JOIN roles r ON utr.role_id = r.id
+        WHERE r.role_name = 'Super Admin'
+      `;
+      const { rows: adminCountResult } = await client.query(superAdminCountQuery);
+      const superAdminCount = parseInt(adminCountResult[0].count, 10);
+
+      if (superAdminCount <= 1) {
+        // Find the next eligible user to promote (most recently created, non-super admin)
+        const nextUserQuery = `
+          SELECT u.user_auth_id
+          FROM users u
+          JOIN user_to_role utr ON u.user_auth_id = utr.user_auth_id
+          JOIN roles r ON utr.role_id = r.id
+          WHERE r.role_name != 'Super Admin' AND u.id != $1
+          ORDER BY u.created_at DESC
+          LIMIT 1
+        `;
+
+        const { rows: nextUserResult } = await client.query(nextUserQuery, [userId]);
+
+        if (nextUserResult.length === 0) {
+          throw new Error('Cannot delete the only user in the system');
+        }
+
+        const nextUserAuthId = nextUserResult[0].user_auth_id;
+
+        // Promote this user to super admin
+        await client.query(`DELETE FROM user_to_role WHERE user_auth_id = $1`, [nextUserAuthId]);
+
+        await client.query(
+          `
+          INSERT INTO user_to_role (user_auth_id, role_id, created_at, updated_at)
+          VALUES ($1, (SELECT id FROM roles WHERE role_name = 'Super Admin'), CURRENT_TIMESTAMP, CURRENT_TIMESTAMP)
+        `,
+          [nextUserAuthId]
+        );
+
+        console.log(`Promoted user with auth ID ${nextUserAuthId} to Super Admin role`);
+      }
+    }
+
+    // Delete the user (cascade will handle related records)
+    await client.query(`DELETE FROM user_auth WHERE id = $1`, [userAuthId]);
+
+    await client.query('COMMIT');
+    return { success: true };
+  } catch (error) {
+    await client.query('ROLLBACK');
+    console.error('Error deleting user:', error);
+    throw new Error(error instanceof Error ? error.message : 'Failed to delete user');
+  } finally {
+    client.release();
+  }
+};
+
+const getUserById = async (userId: string) => {
+  try {
+    const query = `
+      SELECT 
+        u.id,
+        u.username, 
+        ua.email,
+        r.role_name
+      FROM users u
+      INNER JOIN user_auth ua ON u.user_auth_id = ua.id
+      INNER JOIN user_to_role utr ON ua.id = utr.user_auth_id
+      INNER JOIN roles r ON utr.role_id = r.id
+      WHERE u.id = $1
+    `;
+
+    const result = await pool().query(query, [userId]);
+
+    if (result.rows.length === 0) {
+      return null;
+    }
+
+    return result.rows[0];
+  } catch (error) {
+    console.error('Error fetching user by ID:', error);
+    throw new Error('Error fetching user by ID');
+  }
+};
+
 export default {
   createSuperUser,
   getUserCount,
@@ -148,4 +469,9 @@ export default {
   getUserData,
   updateUserTimestamp,
   updateUserPassword,
+  checkUserEmailExists,
+  createUserModel,
+  updateUserModel,
+  deleteUserModel,
+  getUserById,
 };

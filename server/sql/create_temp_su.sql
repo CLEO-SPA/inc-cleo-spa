@@ -21,7 +21,7 @@ BEGIN
 
     v_role_id := get_or_create_roles(v_role_name);
 
-    -- Add the employee to user_auth
+    -- Add the user to user_auth
     INSERT INTO user_auth (
         email,
         password,
@@ -48,6 +48,23 @@ BEGIN
         CURRENT_TIMESTAMP
     )
     RETURNING id INTO v_user_to_role_id;
+
+    -- Add the user to the user table
+    INSERT INTO users (
+        user_auth_id,
+        verified_status_id,
+        username,
+        email,
+        created_at,
+        updated_at
+    ) VALUES (
+        v_user_auth_id,
+        (SELECT get_or_create_status('VERIFIED') AS id),
+        SUBSTRING(REPLACE(p_email, '@', '_'), 1, 20),
+        p_email,
+        CURRENT_TIMESTAMP,
+        CURRENT_TIMESTAMP
+    );
 
     -- Check if the user_to_role was created successfully
     IF v_user_to_role_id IS NOT NULL THEN

@@ -325,3 +325,11 @@ export interface VoucherTemplateDetail {
   final_price: number;
   duration: number;
 }
+
+export interface UserAuth {
+  id: string;
+  email: string;
+  password: string;
+  created_at: string;
+  updated_at: string;
+}
