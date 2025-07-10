@@ -7,6 +7,7 @@ import 'dotenv/config';
 import crypto from 'crypto';
 import validator from 'validator';
 import bcrypt from 'bcryptjs';
+import { PaginatedOptions } from '../types/common.types.js';
 
 const login = async (req: Request, res: Response, next: NextFunction) => {
   if (res.locals.result) {

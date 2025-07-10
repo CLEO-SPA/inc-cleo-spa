@@ -43,7 +43,7 @@ const data = {
       items: [
         {
           title: 'View Users',
-          url: '#',
+          url: '/users',
         },
         {
           title: 'Starred',
@@ -283,6 +283,33 @@ const data = {
 export function AppSidebar({ ...props }) {
   const { user } = useAuth();
 
+  const dataForUser = React.useMemo(() => {
+    const navData = {
+      navMain: data.navMain.map((item) => ({
+        ...item,
+        items: item.items ? item.items.map((subItem) => ({ ...subItem })) : undefined,
+      })),
+    };
+    if (user && user.role === 'super_admin') {
+      const userSection = navData.navMain.find((item) => item.title === 'Users');
+      if (userSection) {
+        userSection.items.push({
+          title: 'Create User',
+          url: '/users/c',
+        });
+      }
+
+      const othersSection = navData.navMain.find((item) => item.title === 'Others');
+      if (othersSection) {
+        othersSection.items.push({
+          title: 'Data Seeding',
+          url: '/seed',
+        });
+      }
+    }
+    return navData;
+  }, [user]);
+
   return (
     <Sidebar className='top-(--header-height) h-[calc(100svh-var(--header-height))]!' {...props}>
       <SidebarHeader>
@@ -303,7 +330,7 @@ export function AppSidebar({ ...props }) {
         </SidebarMenu>
       </SidebarHeader>
       <SidebarContent>
-        <NavMain items={data.navMain} />
+        <NavMain items={dataForUser.navMain} />
       </SidebarContent>
       <SidebarFooter>
         <NavUser user={user} />

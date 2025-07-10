@@ -105,6 +105,10 @@ import RefundVoucherForm from '@/pages/Refund/RefundVoucherForm';
 import CreditNotesPage from '@/pages/Refund/CreditNotesPage';
 import CreditNoteDetailsPage from '@/pages/Refund/CreditNoteDetailsPage';
 
+// Users
+import ManageUsersPage from '@/pages/users/ManageUsersPage';
+import CreateUserPage from '@/pages/users/CreateUserPage';
+
 function App() {
   return (
     <AuthProvider>
@@ -202,13 +206,13 @@ function App() {
                 <Route path='/refunds' element={<RefundPage />} />
                 <Route path='/refunds/member/:memberId' element={<MemberPackagesList />} />
                 <Route path='/refunds/mcp/:packageId' element={<MCPDetail />} />
-                <Route path="/refunds/services/member/:id" element={<RefundServicesPage />} />
-                <Route path="/refunds/services/receipt/:no" element={<RefundServicesPage />} />
-                <Route path="/refunds/service/:saleTransactionItemId" element={<RefundServiceForm />} />
-                <Route path="/refunds/vouchers/member/:id" element={<RefundVouchersPage />} />
-                <Route path="/refunds/voucher/:voucherId" element={<RefundVoucherForm />} />
-                <Route path="/credit-notes" element={<CreditNotesPage />} />
-                <Route path="/credit-notes/:id" element={<CreditNoteDetailsPage />} />
+                <Route path='/refunds/services/member/:id' element={<RefundServicesPage />} />
+                <Route path='/refunds/services/receipt/:no' element={<RefundServicesPage />} />
+                <Route path='/refunds/service/:saleTransactionItemId' element={<RefundServiceForm />} />
+                <Route path='/refunds/vouchers/member/:id' element={<RefundVouchersPage />} />
+                <Route path='/refunds/voucher/:voucherId' element={<RefundVoucherForm />} />
+                <Route path='/credit-notes' element={<CreditNotesPage />} />
+                <Route path='/credit-notes/:id' element={<CreditNoteDetailsPage />} />
 
                 {/* Service Management */}
                 <Route path='/manage-service' element={<ManageServicePage />} />
@@ -252,6 +256,10 @@ function App() {
                 {/* Translations */}
                 <Route path='/translations' element={<ViewTranslations />} />
                 <Route path='/create-translation' element={<TranslationPage />} />
+
+                {/* Users */}
+                <Route path='/users' element={<ManageUsersPage />} />
+                <Route path='/users/c' element={<CreateUserPage />} />
               </Route>
 
               {/* Public routes */}
