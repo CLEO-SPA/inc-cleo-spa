@@ -1,7 +1,9 @@
+/* eslint-disable @typescript-eslint/no-explicit-any */
 import { pool, getProdPool as prodPool } from '../config/database.js';
 import { UserAuth } from '../types/model.types.js';
 import { PoolClient } from 'pg';
-import { PaginatedOptions, PaginatedReturn } from '../types/common.types.js';
+import { CursorPayload, PaginatedOptions, PaginatedReturn } from '../types/common.types.js';
+import { encodeCursor } from '../utils/cursorUtils.js';
 
 const createSuperUser = async (email: string, password_hash: string) => {
   try {
@@ -477,13 +479,16 @@ const getPaginatedUsers = async (
   limit: number,
   options: PaginatedOptions = {}
 ): Promise<PaginatedReturn<UserWithRole>> => {
-  const { searchTerm, page } = options;
+  const { searchTerm } = options;
+  const after = options.after || null;
+  const before = options.before || null;
+  const page = options.page;
 
   try {
     const client = await pool().connect();
     try {
       // Build filter conditions for search
-      const { filterWhereClause, filterParams, paramCounter } = buildUserFilterConditions(searchTerm);
+      const { filterWhereClause, filterParams, paramCounter } = buildUserFilterConditions(searchTerm!);
 
       // Get total count of users that match the filter
       const totalCount = await getUserTotalCount(client, filterWhereClause, filterParams);
@@ -494,30 +499,41 @@ const getPaginatedUsers = async (
         filterParams,
         paramCounter,
         limit,
-        page
+        page!,
+        after,
+        before
       );
 
       // Build and execute the query
-      const dataQuery = buildUserDataQuery(finalWhereClause, orderBy, page, limit, effectiveLimit);
+      const dataQuery = buildUserDataQuery(finalWhereClause, orderBy, page!, limit, effectiveLimit);
       const { rows: rawResults } = await client.query(dataQuery, cursorParams);
       const actualFetchedCount = rawResults.length;
 
       // Process the results for pagination
       const { users, hasNextPage, hasPreviousPage } = processUserPaginationResults(
         rawResults,
-        page,
+        before,
+        after,
+        page!,
         limit,
         totalCount,
         actualFetchedCount
       );
 
+      // Generate cursors for the result set
+      const { startCursor, endCursor } = generateUserCursors(users);
+
+      // Return results in the format expected by PaginatedReturn
+
       return {
-        users,
-        page: page || 1,
-        totalPages: Math.ceil(totalCount / limit),
-        totalCount,
-        hasNextPage,
-        hasPreviousPage,
+        data: users,
+        pageInfo: {
+          startCursor,
+          endCursor,
+          hasNextPage,
+          hasPreviousPage,
+          totalCount,
+        },
       };
     } finally {
       client.release();
@@ -568,17 +584,41 @@ function prepareUserPaginationParams(
   filterParams: any[],
   paramCounter: number,
   limit: number,
-  page?: number
+  page?: number,
+  after?: CursorPayload | null,
+  before?: CursorPayload | null
 ): {
   finalWhereClause: string;
   cursorParams: any[];
   orderBy: string;
   effectiveLimit: number;
 } {
-  const finalWhereClause = filterWhereClause;
-  const orderBy = 'ORDER BY u.created_at DESC, u.id ASC';
-  const cursorParams = [...filterParams];
-  const effectiveLimit = limit;
+  let finalWhereClause = filterWhereClause;
+  let orderBy = 'ORDER BY u.created_at DESC, u.id ASC';
+  let cursorParams = [...filterParams];
+  let effectiveLimit = page && page > 0 ? limit : limit + 1;
+
+  // Add cursor-based pagination conditions
+  if (!page && (after || before)) {
+    if (finalWhereClause) {
+      finalWhereClause += ' AND ';
+    } else {
+      finalWhereClause = 'WHERE ';
+    }
+
+    if (after) {
+      finalWhereClause += `(u.created_at < $${paramCounter} OR (u.created_at = $${paramCounter} AND u.id < $${
+        paramCounter + 1
+      }))`;
+      cursorParams.push(after.createdAt, after.id);
+    } else if (before) {
+      finalWhereClause += `(u.created_at > $${paramCounter} OR (u.created_at = $${paramCounter} AND u.id > $${
+        paramCounter + 1
+      }))`;
+      cursorParams.push(before.createdAt, before.id);
+      orderBy = 'ORDER BY u.created_at ASC, u.id DESC';
+    }
+  }
 
   return { finalWhereClause, cursorParams, orderBy, effectiveLimit };
 }
@@ -613,26 +653,61 @@ function buildUserDataQuery(
 // Helper function to process pagination results
 function processUserPaginationResults(
   rawResults: any[],
-  page?: number,
-  limit?: number,
-  totalCount?: number,
-  actualFetchedCount?: number
+  before: CursorPayload | null,
+  after: CursorPayload | null,
+  page: number,
+  limit: number,
+  totalCount: number,
+  actualFetchedCount: number
 ): {
   users: any[];
   hasNextPage: boolean;
   hasPreviousPage: boolean;
 } {
-  const users = rawResults;
+  // Process results based on pagination type
+  let users = before && !page ? [...rawResults].reverse().slice(0, limit) : rawResults.slice(0, limit);
 
   let hasNextPage = false;
   let hasPreviousPage = false;
 
   if (page && page > 0 && limit && totalCount) {
+    // Offset-based pagination
     hasNextPage = page * limit < totalCount;
     hasPreviousPage = page > 1;
+  } else if (before) {
+    // "Before" cursor pagination
+    hasNextPage = users.length > 0;
+    hasPreviousPage = actualFetchedCount > limit;
+  } else if (after) {
+    // "After" cursor pagination
+    hasNextPage = actualFetchedCount > limit;
+    hasPreviousPage = true;
+  } else {
+    // Initial load (no cursor)
+    hasNextPage = actualFetchedCount > limit;
+    hasPreviousPage = false;
   }
 
   return { users, hasNextPage, hasPreviousPage };
+}
+
+// Add function to generate cursors
+function generateUserCursors(users: any[]): {
+  startCursor: string | null;
+  endCursor: string | null;
+} {
+  let startCursor = null;
+  let endCursor = null;
+
+  if (users.length > 0) {
+    const firstItem = users[0];
+    const lastItem = users[users.length - 1];
+
+    startCursor = encodeCursor(new Date(firstItem.created_at), String(firstItem.id));
+    endCursor = encodeCursor(new Date(lastItem.created_at), String(lastItem.id));
+  }
+
+  return { startCursor, endCursor };
 }
 
 export default {
