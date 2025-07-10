@@ -55,6 +55,7 @@ export default function MemberSelectorPanel() {
   const location = useLocation();
 
   // member search dropdown states
+  const [actualSearchTerm, setActualSearchTerm] = useState('');
   const [searchInput, setSearchInput] = useState('');
   const [debouncedSearchTerm, setDebouncedSearchTerm] = useState('');
   const [isDropdownOpen, setIsDropdownOpen] = useState(false);
@@ -145,6 +146,7 @@ export default function MemberSelectorPanel() {
     (e) => {
       e.stopPropagation();
       setSearchInput(e.target.value);
+      setActualSearchTerm(''); // Clear stored search term when user types manually
       if (!isDropdownOpen) {
         setIsDropdownOpen(true);
       }
@@ -176,14 +178,20 @@ export default function MemberSelectorPanel() {
   const handleMemberSelect = async (member) => {
     try {
       setSelectedMemberFromDropdown(member);
-      setSearchInput(formatMemberDisplay(member));
+
+      // Format display text for the input field
+      const displayText = formatMemberDisplay(member);
+      setSearchInput(displayText); // Show formatted text in input
+
+      // Store the actual search term for future searches
+      const searchTerm = member.name || member.contact || member.card_number;
+      setActualSearchTerm(searchTerm); // Store the original search term
+
       setIsDropdownOpen(false);
       setNotFound(false);
       setSelectedTab('info');
 
-      // Pass the member's name or contact as search term, not the object
-      const searchTerm = member.name || member.contact || member.card_number;
-      const foundMember = await searchMember(searchTerm); // ✅ Pass string, not object
+      const foundMember = await searchMember(searchTerm);
 
       if (foundMember) {
         setSelectedMember(foundMember);
@@ -197,6 +205,7 @@ export default function MemberSelectorPanel() {
       console.error('Member selection failed:', error);
     }
   };
+
 
   // Updated handlers that show confirmation dialog
   const handleVoucherCancel = (voucher) => {
@@ -277,28 +286,29 @@ export default function MemberSelectorPanel() {
   }, [location.pathname]);
 
   // Legacy search handler (kept for backward compatibility)
-  const handleSearch = async () => {
-    if (!searchInput.trim()) return;
+const handleSearch = async () => {
+  // Use actualSearchTerm if available (from dropdown selection), otherwise use searchInput
+  const searchTerm = actualSearchTerm || searchInput;
+  
+  if (!searchTerm.trim()) return;
 
-    try {
-      const member = await searchMember(searchInput.trim());
-
-      if (member) {
-        setNotFound(false);
-        setSelectedTab('info');
-        setSelectedMember(member);
-
-        if (member.total_amount_owed > 0) {
-          setTimeout(() => setShowOwedDialog(true), 200);
-        }
-      } else {
-        setNotFound(true);
+  try {
+    const foundMember = await searchMember(searchTerm);
+    
+    if (foundMember) {
+      setSelectedMember(foundMember);
+      setNotFound(false);
+      if (foundMember.total_amount_owed > 0) {
+        setTimeout(() => setShowOwedDialog(true), 200);
       }
-    } catch (error) {
+    } else {
       setNotFound(true);
-      console.error('Search failed:', error);
     }
-  };
+  } catch (error) {
+    console.error('Search failed:', error);
+    setNotFound(true);
+  }
+};
 
   // debounced search handlers
   const handlePackagesSearch = useCallback(
@@ -396,9 +406,29 @@ export default function MemberSelectorPanel() {
       }
     };
 
-    const handleSearchSubmit = (e) => {
+    const handleSearchSubmit = async (e) => {
       e.preventDefault();
-      onSearch(localSearch);
+
+      // Use actualSearchTerm if available (from dropdown selection), otherwise use localSearch
+      const searchTerm = actualSearchTerm || localSearch;
+
+      if (!searchTerm.trim()) return;
+
+      try {
+        const foundMember = await searchMember(searchTerm);
+        if (foundMember) {
+          setSelectedMember(foundMember);
+          setNotFound(false);
+          if (foundMember.total_amount_owed > 0) {
+            setTimeout(() => setShowOwedDialog(true), 200);
+          }
+        } else {
+          setNotFound(true);
+        }
+      } catch (error) {
+        console.error('Search failed:', error);
+        setNotFound(true);
+      }
     };
 
     if (disabled) return null;
@@ -541,9 +571,8 @@ export default function MemberSelectorPanel() {
               autoComplete='off'
             />
             <ChevronDown
-              className={`absolute right-2 top-1/2 transform -translate-y-1/2 text-gray-400 h-3.5 w-3.5 transition-transform cursor-pointer ${
-                isDropdownOpen ? 'rotate-180' : ''
-              }`}
+              className={`absolute right-2 top-1/2 transform -translate-y-1/2 text-gray-400 h-3.5 w-3.5 transition-transform cursor-pointer ${isDropdownOpen ? 'rotate-180' : ''
+                }`}
               onClick={() => setIsDropdownOpen(!isDropdownOpen)}
             />
 
@@ -640,9 +669,8 @@ export default function MemberSelectorPanel() {
                       <span>Packages</span>
                       {packageCount > 0 && (
                         <div
-                          className={`rounded-full w-4 h-4 flex items-center justify-center text-xs font-medium ${
-                            isActive ? 'bg-white text-gray-800' : 'bg-gray-800 text-white'
-                          }`}
+                          className={`rounded-full w-4 h-4 flex items-center justify-center text-xs font-medium ${isActive ? 'bg-white text-gray-800' : 'bg-gray-800 text-white'
+                            }`}
                         >
                           {packageCount}
                         </div>
@@ -656,9 +684,8 @@ export default function MemberSelectorPanel() {
                       <span>Vouchers</span>
                       {voucherCount > 0 && (
                         <div
-                          className={`rounded-full w-4 h-4 flex items-center justify-center text-xs font-medium ${
-                            isActive ? 'bg-white text-gray-800' : 'bg-gray-800 text-white'
-                          }`}
+                          className={`rounded-full w-4 h-4 flex items-center justify-center text-xs font-medium ${isActive ? 'bg-white text-gray-800' : 'bg-gray-800 text-white'
+                            }`}
                         >
                           {voucherCount}
                         </div>
@@ -692,8 +719,8 @@ export default function MemberSelectorPanel() {
             {memberSearchLoading
               ? 'Searching for member...'
               : notFound
-              ? 'No matching member found.'
-              : 'Please search and select a member first.'}
+                ? 'No matching member found.'
+                : 'Please search and select a member first.'}
           </div>
         ) : (
           <>
