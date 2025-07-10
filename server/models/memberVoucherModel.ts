@@ -973,7 +973,7 @@ const createMemberVoucher = async (
     // FIXED: Cleaner balance calculation
     const base_balance = default_total_price + free_of_charge;
     const final_starting_balance = base_balance;
-    const final_current_balance = is_fully_paid ? base_balance : default_total_price;
+    const final_current_balance = is_fully_paid ? default_total_price : default_total_price - outstanding_amount;
 
     // Insert member voucher (UNCHANGED - uses voucher creation dates)
     const i_mv_sql = `
@@ -1085,6 +1085,8 @@ const createMemberVoucher = async (
       updatedAt
     ]);
 
+
+
     // FIXED: Calculate transaction totals using correct logic
     const totalTransactionAmount: number = pricing?.totalLinePrice || 0;
 
@@ -1110,6 +1112,45 @@ const createMemberVoucher = async (
       });
     }
 
+    if (transactionStatus === 'FULL' && free_of_charge > 0) {
+      // Calculate new balance after adding FOC
+      const newCurrentBalance = final_current_balance + free_of_charge;
+      
+      // Update the member voucher with new balance
+      const updateVoucherSql = `
+        UPDATE member_vouchers
+        SET current_balance = $1, updated_at = $2
+        WHERE id = $3
+      `;
+
+      await client.query(updateVoucherSql, [
+        newCurrentBalance,
+        customUpdatedAt,
+        memberVoucherId
+      ]);
+
+      // Insert FOC transaction log
+      await client.query(i_mvtl_sql, [
+        memberVoucherId,
+        'Free of Charge Addition',
+        customCreatedAt,      // Use custom date for FOC transaction
+        newCurrentBalance,    // Updated balance after FOC
+        free_of_charge,       // FOC amount as amount_change
+        employee_id,
+        'ADD FOC',
+        employee_id,
+        employee_id,
+        customCreatedAt,      // Use custom date for FOC transaction
+        customUpdatedAt       // Use custom date for FOC transaction
+      ]);
+      
+      console.log('FOC transaction added:', {
+        memberVoucherId,
+        focAmount: free_of_charge,
+        newCurrentBalance,
+        transactionType: 'ADD FOC'
+      });
+    }
     // Generate receipt number
     let finalReceiptNo: string = receipt_number || '';
     if (!finalReceiptNo) {
