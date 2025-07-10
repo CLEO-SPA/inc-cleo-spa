@@ -138,19 +138,10 @@ const SaleTransactionSummary = () => {
     }));
   };
 
-  // Handle employee changes from CartItemsWithPayment
-  const handleEmployeeChange = (itemId, employeeId) => {
+  const handleEmployeeChange = (itemId, employeeAssignments) => {
     setItemEmployees(prev => ({
       ...prev,
-      [itemId]: employeeId
-    }));
-  };
-
-  // Handle item remarks changes from CartItemsWithPayment
-  const handleRemarksChange = (itemId, remarks) => {
-    setItemRemarks(prev => ({
-      ...prev,
-      [itemId]: remarks
+      [itemId]: employeeAssignments
     }));
   };
 
@@ -204,6 +195,7 @@ const SaleTransactionSummary = () => {
     if (cartItems.length === 0) {
       errors.push('Add items to your cart');
     }
+    console.log('Cart items:', cartItems);
 
     // Check required transaction details
     if (!transactionDetails.receiptNumber || transactionDetails.receiptNumber.trim() === '') {
@@ -242,13 +234,15 @@ const SaleTransactionSummary = () => {
     //   return item.type !== 'transferMV' && !itemEmployees[item.id];
     // });
 
-
     const itemsNeedingEmployees = cartItems.filter(item =>
-      !itemEmployees[item.id]
+      !(itemEmployees[item.id] && itemEmployees[item.id].length > 0)
     );
 
     if (itemsNeedingEmployees.length > 0) {
-      errors.push(`Assign employees to all items (${itemsNeedingEmployees.length} items missing employee assignment)`);
+      const itemNames = itemsNeedingEmployees.map(it => it.name || `${it.data.name}`);
+      errors.push(
+        `Please assign employees to the following ${itemsNeedingEmployees.length} item(s): ${itemNames.join(', ')}.`
+      );
     }
 
 
@@ -680,13 +674,12 @@ const SaleTransactionSummary = () => {
                         <p className="text-red-500 text-xs mt-1">Transaction creator is required</p>
                       )}
                     </div>
-                    
-                    <div className={`${
-                      !transactionDetails.handledBy || transactionDetails.handledBy === ''
-                        ? 'ring-2 ring-red-200 rounded-md p-2' 
-                        : ''
-                    }`}>
-                      <EmployeeSelect 
+
+                    <div className={`${!transactionDetails.handledBy || transactionDetails.handledBy === ''
+                      ? 'ring-2 ring-red-200 rounded-md p-2'
+                      : ''
+                      }`}>
+                      <EmployeeSelect
                         label="Payment Handler *"
                         value={transactionDetails.handledBy || ""}
                         onChange={setHandledBy}
@@ -751,7 +744,7 @@ const SaleTransactionSummary = () => {
                   cartItems={cartItems}
                   onPricingChange={handlePricingChange}
                   onEmployeeChange={handleEmployeeChange}
-                  onRemarksChange={handleRemarksChange}
+
                   onPaymentChange={handlePaymentChange}
                   onSelectedPaymentMethodChange={handleSelectedPaymentMethodChange}
                   itemEmployees={itemEmployees}

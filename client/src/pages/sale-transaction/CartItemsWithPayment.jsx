@@ -5,20 +5,21 @@ import { Button } from '@/components/ui/button';
 import EmployeeSelect from '@/components/ui/forms/EmployeeSelect';
 import PaymentMethodSelect from '@/components/ui/forms/PaymentMethodSelect';
 import usePaymentMethodStore from '@/stores/usePaymentMethodStore';
+import useEmployeeStore from '@/stores/useEmployeeStore';
 
-const CartItemsWithPayment = ({ 
-  cartItems, 
-  onPricingChange, 
+const CartItemsWithPayment = ({
+  cartItems,
+  onPricingChange,
   onEmployeeChange,
-  onRemarksChange, 
   onPaymentChange,
   itemEmployees = {},
   itemPricing = {},
-  itemRemarks = {}, 
   sectionPayments = {},
   selectedPaymentMethods = {},
   onSelectedPaymentMethodChange
 }) => {
+  // State for temporary employee selection before adding
+  const [tempEmployeeSelections, setTempEmployeeSelections] = useState({});
   // Get payment methods from store
   const dropdownPaymentMethods = usePaymentMethodStore((state) => state.dropdownPaymentMethods);
   const loading = usePaymentMethodStore((state) => state.loading);
@@ -26,6 +27,17 @@ const CartItemsWithPayment = ({
 
   // Track which transfer sections have been processed to prevent duplicates
   const processedTransferSections = useRef(new Set());
+
+  const employees = useEmployeeStore((state) => state.employees);
+  const fetchDropdownEmployees = useEmployeeStore((state) => state.fetchDropdownEmployees);
+
+  // Effect to ensure employees are loaded
+  useEffect(() => {
+    if (employees.length === 0 && !loading) {
+      fetchDropdownEmployees();
+    }
+  }, [employees.length, loading, fetchDropdownEmployees]);
+
 
   // Effect to ensure payment methods are loaded
   useEffect(() => {
@@ -55,7 +67,7 @@ const CartItemsWithPayment = ({
   // Create payment sections based on cart items
   const getPaymentSections = () => {
     const sections = [];
-    
+
     // Services + Products combined section (mandatory)
     const servicesAndProducts = [...groupedItems.Services, ...groupedItems.Products];
     if (servicesAndProducts.length > 0) {
@@ -63,7 +75,7 @@ const CartItemsWithPayment = ({
         const pricing = getItemPricing(item.id);
         return total + pricing.totalLinePrice;
       }, 0);
-      
+
       sections.push({
         id: 'services-products',
         title: 'Services & Products (Required)',
@@ -145,9 +157,9 @@ const CartItemsWithPayment = ({
       newPricing.finalUnitPrice = numValue;
     } else if (field === 'discount') {
       // Discount logic: 0 = free, 1 = full pay, 0.7 = 70% of original, 0.5 = 50% of original
-      const discountValue = Math.max(0, Math.min(1, numValue)); 
+      const discountValue = Math.max(0, Math.min(1, numValue));
       newPricing.discount = discountValue;
-      newPricing.customPrice = 0; 
+      newPricing.customPrice = 0;
       newPricing.finalUnitPrice = newPricing.originalPrice * discountValue;
     }
 
@@ -169,32 +181,99 @@ const CartItemsWithPayment = ({
     };
   };
 
-  // Handle assigning employee to a cart item
-  const handleAssignEmployee = (itemId, employeeId) => {
-    onEmployeeChange(itemId, employeeId);
+  // Handle adding employee assignment to an item
+  const handleAddEmployeeAssignment = (itemId) => {
+    const employeeId = tempEmployeeSelections[itemId];
+    if (!employeeId) return;
+
+    // Find the selected employee to get their name
+    const selectedEmployee = employees.find(emp => emp.id === String(employeeId));
+
+    const pricing = getItemPricing(itemId);
+    const defaultPerfRate = 100;
+    const defaultCommRate = 6; // TODO: Fetch from database
+    const perfAmt = (pricing.totalLinePrice * defaultPerfRate) / 100;
+    const commAmt = (perfAmt * defaultCommRate) / 100;
+    const newAssignment = {
+      id: crypto.randomUUID(),
+      employeeId,
+      employeeName: selectedEmployee?.employee_name || '',
+      performanceRate: defaultPerfRate,
+      performanceAmount: perfAmt,
+      commissionRate: defaultCommRate,
+      commissionAmount: commAmt,
+      remarks: ''
+    };
+
+    const currentAssignments = itemEmployees[itemId] || [];
+    onEmployeeChange(itemId, [...currentAssignments, newAssignment]);
+
+    // Clear temp selection
+    setTempEmployeeSelections(prev => ({
+      ...prev,
+      [itemId]: ''
+    }));
   };
 
-  // Handle updating remarks for a cart item
-  const handleRemarksChange = (itemId, remarks) => {
-    onRemarksChange(itemId, remarks);
+  // Handle removing employee assignment
+  const handleRemoveEmployeeAssignment = (itemId, assignmentId) => {
+    const currentAssignments = itemEmployees[itemId] || [];
+    const updatedAssignments = currentAssignments.filter(assignment => assignment.id !== assignmentId);
+    onEmployeeChange(itemId, updatedAssignments);
   };
+  // Handle updating employee assignment field
+  const handleUpdateEmployeeAssignment = (itemId, assignmentId, field, value) => {
+    const currentAssignments = itemEmployees[itemId] || [];
+    const updatedAssignments = currentAssignments.map(assignment => {
+      if (assignment.id === assignmentId) {
+        const updatedAssignment = { ...assignment, [field]: value };
+
+        // Auto-calculate performance amount when rate changes
+        if (field === 'performanceRate') {
+          const pricing = getItemPricing(itemId);
+          // Clamp rate between 0 and 100
+          let rate = parseFloat(value) || 0;
+          rate = Math.min(100, Math.max(0, rate));
+          updatedAssignment.performanceRate = rate;
+          const perfAmt = (pricing.totalLinePrice * rate) / 100;
+          updatedAssignment.performanceAmount = perfAmt;
+
+          // Also calculate commission amount if commissionRate exists
+          const commRate = parseFloat(assignment.commissionRate) || 0;
+          updatedAssignment.commissionAmount = (perfAmt * commRate) / 100;
+        }
+
+        // Auto-calculate commission amount when commission rate changes
+        if (field === 'commissionRate') {
+          const perfAmt = parseFloat(assignment.performanceAmount) || 0;
+          const commRate = parseFloat(value) || 0;
+          updatedAssignment.commissionAmount = (perfAmt * commRate) / 100;
+        }
+
+        return updatedAssignment;
+      }
+      return assignment;
+    });
+    onEmployeeChange(itemId, updatedAssignments);
+  };
+
 
   // Add payment method to section
   const addPaymentMethod = (sectionId, methodId) => {
     if (!methodId) return;
-    
+
     console.log('Adding payment method:', { methodId, dropdownPaymentMethods });
-    
+
     // Find the payment method name from the store
     const method = dropdownPaymentMethods.find(m => {
       console.log('Comparing:', m.id, 'with', methodId, typeof m.id, typeof methodId);
-      return m.id == methodId; 
+      return m.id == methodId;
     });
-    
+
     console.log('Found method:', method);
-    
+
     const methodName = method ? method.payment_method_name : `Payment Method ${methodId}`;
-    
+
     console.log('Method name:', methodName);
 
     const newPayment = {
@@ -206,7 +285,7 @@ const CartItemsWithPayment = ({
     };
 
     onPaymentChange('add', sectionId, newPayment);
-    
+
     // Reset the selection for this section
     onSelectedPaymentMethodChange(sectionId, '');
   };
@@ -221,23 +300,23 @@ const CartItemsWithPayment = ({
     const numAmount = parseFloat(amount) || 0;
     const section = paymentSections.find(s => s.id === sectionId);
     const currentPayments = sectionPayments[sectionId] || [];
-    
+
     // Calculate total of other payments in this section
     const otherPaymentsTotal = currentPayments
       .filter(p => p.id !== paymentId)
       .reduce((sum, p) => sum + p.amount, 0);
-    
+
     // Calculate maximum allowed for this payment
     const maxAllowed = section ? section.amount - otherPaymentsTotal : numAmount;
-    
+
     // Clamp the amount to not exceed the maximum allowed
     const clampedAmount = Math.min(numAmount, Math.max(0, maxAllowed));
-    
+
     // Show warning if amount was adjusted
     if (numAmount > maxAllowed && maxAllowed >= 0) {
       console.warn(`Payment amount adjusted from ${numAmount} to ${clampedAmount} for section ${sectionId}`);
     }
-    
+
     onPaymentChange('updateAmount', sectionId, { paymentId, amount: clampedAmount });
   };
 
@@ -251,7 +330,7 @@ const CartItemsWithPayment = ({
     const payments = sectionPayments[sectionId] || [];
     return payments.reduce((total, payment) => total + payment.amount, 0);
   };
-  
+
   // Format currency
   const formatCurrency = (amount) => {
     return (amount || 0).toLocaleString('en-SG', {
@@ -272,7 +351,7 @@ const CartItemsWithPayment = ({
 
     // Check if this section already has any payments
     const existingPayments = sectionPayments[sectionId] || [];
-    
+
     // Only auto-add if there are no existing payments at all
     if (existingPayments.length === 0) {
       const transferPayment = {
@@ -282,12 +361,12 @@ const CartItemsWithPayment = ({
         amount: amount, // This should auto-fill the full amount
         remark: 'Auto-generated transfer payment'
       };
-      
+
       onPaymentChange('add', sectionId, transferPayment);
-      
+
       // Mark this section as processed
       processedTransferSections.current.add(sectionId);
-      
+
       console.log(`Auto-added transfer payment for ${sectionId} with amount: ${amount}`);
     }
   };
@@ -296,31 +375,31 @@ const CartItemsWithPayment = ({
   // Removed sectionPayments from dependency array to prevent infinite loop
   useEffect(() => {
     const paymentSections = getPaymentSections();
-    
+
     paymentSections.forEach(section => {
       // Check if this is a transfer section
       if (section.id.startsWith('transfer-mcp-') || section.id.startsWith('transfer-mv-')) {
         autoAddTransferPayment(section.id, section.amount);
       }
     });
-  }, [cartItems, itemPricing]); 
+  }, [cartItems, itemPricing]);
 
   // Separate effect to ensure transfer payments have the correct amount
   useEffect(() => {
     const paymentSections = getPaymentSections();
-    
+
     paymentSections.forEach(section => {
       if (section.id.startsWith('transfer-mcp-') || section.id.startsWith('transfer-mv-')) {
         const existingPayments = sectionPayments[section.id] || [];
-        
+
         // Find transfer payments with 0 amount and update them
         existingPayments.forEach(payment => {
-          if ((payment.methodName === 'Transfer' || payment.methodId === 9) && 
-              payment.amount === 0) {
+          if ((payment.methodName === 'Transfer' || payment.methodId === 9) &&
+            payment.amount === 0) {
             console.log(`Updating transfer payment amount for ${section.id} to ${section.amount}`);
-            onPaymentChange('updateAmount', section.id, { 
-              paymentId: payment.id, 
-              amount: section.amount 
+            onPaymentChange('updateAmount', section.id, {
+              paymentId: payment.id,
+              amount: section.amount
             });
           }
         });
@@ -333,7 +412,7 @@ const CartItemsWithPayment = ({
     const currentTransferSectionIds = paymentSections
       .filter(section => section.id.startsWith('transfer-mcp-') || section.id.startsWith('transfer-mv-'))
       .map(section => section.id);
-    
+
     // Clear processed sections that no longer exist
     const processedIds = Array.from(processedTransferSections.current);
     processedIds.forEach(id => {
@@ -377,109 +456,211 @@ const CartItemsWithPayment = ({
                     <th className="px-4 py-3 text-right text-xs font-medium text-gray-500 uppercase tracking-wider">Payment Ratio</th>
                     <th className="px-4 py-3 text-right text-xs font-medium text-gray-500 uppercase tracking-wider">Final Unit Price</th>
                     <th className="px-4 py-3 text-right text-xs font-medium text-gray-500 uppercase tracking-wider">Total Line Price</th>
-                    <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Assigned Employee</th>
-                    <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Remarks</th>
+                    <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Employee Assignments</th>
                   </tr>
                 </thead>
                 <tbody>
                   {section.items.map((item) => {
                     const pricing = getItemPricing(item.id);
-                    
+                    const employeeAssignments = itemEmployees[item.id] || [];
+
                     return (
-                      <tr key={item.id} className="border-t border-gray-200 hover:bg-gray-50">
-                        <td className="px-4 py-3">
-                          <div className="font-medium text-gray-900">{item.data?.name || item.data?.member_voucher_name || 'Unnamed Item'}</div>
-                          <div className="text-xs text-gray-500 capitalize">{item.type === 'member-voucher' ? 'Voucher' : item.type}</div>
-                          {item.data?.description && (
-                            <div className="text-xs text-gray-500 truncate max-w-xs">{item.data.description}</div>
-                          )}
-                          {item.type === 'member-voucher' && (
-                            <div className="text-xs text-blue-500 mt-1">
-                              {item.data?.starting_balance ? `Balance: ${formatCurrency(item.data.starting_balance)}` : ''}
-                              {item.data?.free_of_charge > 0 ? ` (FOC: ${formatCurrency(item.data.free_of_charge)})` : ''}
-                            </div>
-                          )}
-                        </td>
-                        <td className="px-4 py-3 text-center">
-                          {item.type === 'member-voucher' ? (
-                            <span className="text-gray-500">-</span>
-                          ) : (
-                            <input
-                              type="number"
-                              min="1"
-                              value={pricing.quantity}
-                              onChange={(e) => updateItemPricing(item.id, 'quantity', e.target.value)}
-                              className="w-16 p-1 border border-gray-300 rounded text-center text-sm"
-                            />
-                          )}
-                        </td>
-                        <td className="px-4 py-3 text-right text-gray-900">
-                          {formatCurrency(pricing.originalPrice)}
-                        </td>
-                        <td className="px-4 py-3 text-right">
-                          {item.type === 'member-voucher' ? (
-                            <span className="text-gray-500">-</span>
-                          ) : (
-                            <input
-                              type="number"
-                              min="0"
-                              step="0.01"
-                              value={pricing.customPrice || ''}
-                              onChange={(e) => updateItemPricing(item.id, 'customPrice', e.target.value)}
-                              placeholder="0.00"
-                              className="w-20 p-1 border border-gray-300 rounded text-right text-sm"
-                            />
-                          )}
-                        </td>
-                        <td className="px-4 py-3 text-right">
-                          {item.type === 'member-voucher' ? (
-                            <span className="text-gray-500">-</span>
-                          ) : (
-                            <div className="flex items-center justify-end gap-1">
+                      <>
+                        <tr key={item.id} className="border-t border-gray-200 hover:bg-gray-50">
+                          <td className="px-4 py-3">
+                            <div className="font-medium text-gray-900">{item.data?.name || item.data?.member_voucher_name || 'Unnamed Item'}</div>
+                            <div className="text-xs text-gray-500 capitalize">{item.type === 'member-voucher' ? 'Voucher' : item.type}</div>
+                            {item.data?.description && (
+                              <div className="text-xs text-gray-500 truncate max-w-xs">{item.data.description}</div>
+                            )}
+                            {item.type === 'member-voucher' && (
+                              <div className="text-xs text-blue-500 mt-1">
+                                {item.data?.starting_balance ? `Balance: ${formatCurrency(item.data.starting_balance)}` : ''}
+                                {item.data?.free_of_charge > 0 ? ` (FOC: ${formatCurrency(item.data.free_of_charge)})` : ''}
+                              </div>
+                            )}
+                          </td>
+                          <td className="px-4 py-3 text-center">
+                            {item.type === 'member-voucher' ? (
+                              <span className="text-gray-500">-</span>
+                            ) : (
+                              <input
+                                type="number"
+                                min="1"
+                                value={pricing.quantity}
+                                onChange={(e) => updateItemPricing(item.id, 'quantity', e.target.value)}
+                                className="w-16 p-1 border border-gray-300 rounded text-center text-sm"
+                              />
+                            )}
+                          </td>
+                          <td className="px-4 py-3 text-right text-gray-900">
+                            {formatCurrency(pricing.originalPrice)}
+                          </td>
+                          <td className="px-4 py-3 text-right">
+                            {item.type === 'member-voucher' ? (
+                              <span className="text-gray-500">-</span>
+                            ) : (
                               <input
                                 type="number"
                                 min="0"
-                                max="1"
                                 step="0.01"
-                                value={pricing.discount || ''}
-                                onChange={(e) => updateItemPricing(item.id, 'discount', e.target.value)}
-                                placeholder="1.00"
-                                className="w-16 p-1 border border-gray-300 rounded text-right text-sm"
+                                value={pricing.customPrice || ''}
+                                onChange={(e) => updateItemPricing(item.id, 'customPrice', e.target.value)}
+                                placeholder="0.00"
+                                className="w-20 p-1 border border-gray-300 rounded text-right text-sm"
                               />
-                              <span className="text-xs text-gray-500">
-                                ({((pricing.discount || 0) * 100).toFixed(0)}% of original)
-                              </span>
+                            )}
+                          </td>
+                          <td className="px-4 py-3 text-right">
+                            {item.type === 'member-voucher' ? (
+                              <span className="text-gray-500">-</span>
+                            ) : (
+                              <div className="flex items-center justify-end gap-1">
+                                <input
+                                  type="number"
+                                  min="0"
+                                  max="1"
+                                  step="0.01"
+                                  value={pricing.discount || ''}
+                                  onChange={(e) => updateItemPricing(item.id, 'discount', e.target.value)}
+                                  placeholder="1.00"
+                                  className="w-16 p-1 border border-gray-300 rounded text-right text-sm"
+                                />
+                                <span className="text-xs text-gray-500">
+                                  ({((pricing.discount || 0) * 100).toFixed(0)}% of original)
+                                </span>
+                              </div>
+                            )}
+                          </td>
+                          <td className="px-4 py-3 text-right font-medium text-gray-900">
+                            {formatCurrency(pricing.finalUnitPrice)}
+                          </td>
+                          <td className="px-4 py-3 text-right font-bold text-gray-900">
+                            {formatCurrency(pricing.totalLinePrice)}
+                          </td>
+                          <td className="px-4 py-3">
+
+                            {/* Add Employee Section */}
+                            <div className="flex items-center gap-2">
+                              <div className="flex-1">
+                                <EmployeeSelect
+                                  label=""
+                                  value={tempEmployeeSelections[item.id] || ''}
+                                  onChange={(id) => setTempEmployeeSelections(prev => ({
+                                    ...prev,
+                                    [item.id]: id
+                                  }))}
+                                  errors={{}}
+                                />
+                              </div>
+                              <Button
+                                onClick={() => handleAddEmployeeAssignment(item.id)}
+                                disabled={!tempEmployeeSelections[item.id]}
+                                size="sm"
+                                className="px-3"
+                              >
+                                <Plus className="h-4 w-4 mr-1" />
+                                Add
+                              </Button>
                             </div>
-                          )}
-                        </td>
-                        <td className="px-4 py-3 text-right font-medium text-gray-900">
-                          {formatCurrency(pricing.finalUnitPrice)}
-                        </td>
-                        <td className="px-4 py-3 text-right font-bold text-gray-900">
-                          {formatCurrency(pricing.totalLinePrice)}
-                        </td>
-                        <td className="px-4 py-3">
-                          <EmployeeSelect 
-                            label=""
-                            value={
-                              item.type === 'member-voucher' && item.data?.created_by 
-                                ? item.data.created_by.toString()
-                                : itemEmployees[item.id] || ""
-                            }
-                            onChange={(id) => handleAssignEmployee(item.id, id)}
-                            errors={{}}
-                          />
-                        </td>
-                        <td className="px-4 py-3">
-                          <input
-                            type="text"
-                            placeholder="Enter remarks..."
-                            value={itemRemarks[item.id] || ''}
-                            onChange={(e) => handleRemarksChange(item.id, e.target.value)}
-                            className="w-full p-2 border border-gray-300 rounded text-sm"
-                          />
-                        </td>
-                      </tr>
+
+
+                          </td>
+                        </tr>
+                        {/* Employee Assignment Rows */}
+                        {employeeAssignments.map((assignment, idx) => (
+                          <tr key={assignment.id}>
+                            <td colSpan={8} className="px-4 py-3">
+                              <div className="border rounded-md p-3 bg-white">
+                                <div className="flex items-center justify-between mb-3">
+                                  <span className="font-medium text-sm text-blue-700">
+                                    Employee #{idx + 1}: {assignment.employeeName}
+                                  </span>
+                                  <button
+                                    onClick={() => handleRemoveEmployeeAssignment(item.id, assignment.id)}
+                                    className="p-1 text-red-600 hover:bg-red-100 rounded"
+                                  >
+                                    <X className="h-4 w-4" />
+                                  </button>
+                                </div>
+
+                                <div className="grid grid-cols-4 gap-4 text-sm">
+                                  <div>
+                                    <label className="block text-xs font-medium text-gray-700 mb-1">
+                                      Performance Rate (0-100%)
+                                    </label>
+                                    <input
+                                      type="number"
+                                      min="0"
+                                      max="100"
+                                      step="1"
+                                      value={assignment.performanceRate}
+                                      onChange={(e) => handleUpdateEmployeeAssignment(
+                                        item.id,
+                                        assignment.id,
+                                        'performanceRate',
+                                        e.target.value
+                                      )}
+                                      className="w-full p-2 border border-gray-300 rounded text-sm"
+                                    />
+                                  </div>
+
+                                  <div>
+                                    <label className="block text-xs font-medium text-gray-700 mb-1">
+                                      Performance Amount
+                                    </label>
+                                    <div className="w-full p-2 bg-gray-100 border border-gray-300 rounded text-sm">
+                                      {formatCurrency(assignment.performanceAmount)}
+                                    </div>
+                                  </div>
+
+                                  <div>
+                                    <label className="block text-xs font-medium text-gray-700 mb-1">
+                                      Commission Rate (%)
+                                    </label>
+                                    <input
+                                      value={assignment.commissionRate}
+                                      disabled
+                                      readOnly
+                                      className="w-full p-2 border border-gray-300 rounded text-sm bg-gray-100"
+                                    />
+                                  </div>
+
+                                  <div>
+                                    <label className="block text-xs font-medium text-gray-700 mb-1">
+                                      Commission Amount
+                                    </label>
+                                    <div
+                                      className="w-full p-2 bg-gray-100 border border-gray-300 rounded text-sm"
+                                      title="Automatically calculated"
+                                    >
+                                      {formatCurrency(assignment.commissionAmount)}
+                                    </div>
+                                  </div>
+                                </div>
+
+                                <div className="mt-3">
+                                  <label className="block text-xs font-medium text-gray-700 mb-1">
+                                    Remarks (optional)
+                                  </label>
+                                  <input
+                                    type="text"
+                                    placeholder="Enter remarks..."
+                                    value={assignment.remarks}
+                                    onChange={(e) => handleUpdateEmployeeAssignment(
+                                      item.id,
+                                      assignment.id,
+                                      'remarks',
+                                      e.target.value
+                                    )}
+                                    className="w-full p-2 border border-gray-300 rounded text-sm"
+                                  />
+                                </div>
+                              </div>
+                            </td>
+                          </tr>
+                        ))}
+                      </>
                     );
                   })}
                 </tbody>
@@ -532,7 +713,7 @@ const CartItemsWithPayment = ({
                       .filter(p => p.id !== payment.id)
                       .reduce((sum, p) => sum + p.amount, 0);
                     const maxAllowed = section.amount - otherPaymentsTotal;
-                    
+
                     return (
                       <div key={payment.id} className="flex items-center gap-3 p-3 bg-gray-50 rounded-md">
                         <div className="flex-shrink-0 w-32">
@@ -587,11 +768,10 @@ const CartItemsWithPayment = ({
                 {section.required && (
                   <div className="flex justify-between items-center mt-1">
                     <span className="text-sm text-gray-500">Remaining:</span>
-                    <span className={`text-sm font-medium ${
-                      section.amount - getSectionPaymentTotal(section.id) === 0 
-                        ? 'text-green-600' 
-                        : 'text-red-600'
-                    }`}>
+                    <span className={`text-sm font-medium ${section.amount - getSectionPaymentTotal(section.id) === 0
+                      ? 'text-green-600'
+                      : 'text-red-600'
+                      }`}>
                       {formatCurrency(section.amount - getSectionPaymentTotal(section.id))}
                     </span>
                   </div>
