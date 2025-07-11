@@ -69,7 +69,6 @@ function ManageUsersPage() {
     goToPage,
     setSearchTerm,
     setLimit,
-    fetchUsers,
     deleteUser,
     openInviteDialog,
     closeInviteDialog,
@@ -188,6 +187,7 @@ function ManageUsersPage() {
     { key: 'id', label: 'ID' },
     { key: 'username', label: 'Username' },
     { key: 'email', label: 'Email' },
+    { key: 'status_name', label: 'status' },
     { key: 'role_name', label: 'Role' },
     { key: 'actions', label: 'Actions' },
   ];
@@ -329,6 +329,7 @@ function ManageUsersPage() {
                                 <TableCell>{user.id}</TableCell>
                                 <TableCell>{user.username || 'N/A'}</TableCell>
                                 <TableCell>{user.email || 'N/A'}</TableCell>
+                                <TableCell>{user.status_name || 'N/A'}</TableCell>
                                 <TableCell>{user.role_name || 'N/A'}</TableCell>
                                 <TableCell className='text-right'>
                                   <DropdownMenu>
@@ -349,10 +350,12 @@ function ManageUsersPage() {
                                           Edit
                                         </DropdownMenuItem>
                                       )}
-                                      <DropdownMenuItem onClick={() => handleRegenerateInvite(user)}>
-                                        <RefreshCw className='mr-2 h-4 w-4' />
-                                        Regenerate Invite
-                                      </DropdownMenuItem>
+                                      {user.status_name !== 'VERIFIED' && (
+                                        <DropdownMenuItem onClick={() => handleRegenerateInvite(user)}>
+                                          <RefreshCw className='mr-2 h-4 w-4' />
+                                          Regenerate Invite
+                                        </DropdownMenuItem>
+                                      )}
                                       {canDelete && (
                                         <>
                                           <DropdownMenuSeparator />

@@ -571,6 +571,7 @@ async function getUserTotalCount(client: PoolClient, filterWhereClause: string, 
     INNER JOIN user_auth ua ON u.user_auth_id = ua.id
     INNER JOIN user_to_role utr ON ua.id = utr.user_auth_id
     INNER JOIN roles r ON utr.role_id = r.id
+    INNER JOIN statuses s ON u.verified_status_id = s.id
     ${filterWhereClause}
   `;
 
@@ -637,12 +638,14 @@ function buildUserDataQuery(
       u.username,
       ua.email,
       r.role_name,
+      s.status_name,
       u.created_at,
       u.updated_at
     FROM users u
     INNER JOIN user_auth ua ON u.user_auth_id = ua.id
     INNER JOIN user_to_role utr ON ua.id = utr.user_auth_id
     INNER JOIN roles r ON utr.role_id = r.id
+    INNER JOIN statuses s ON u.verified_status_id = s.id
     ${finalWhereClause}
     ${orderBy}
     ${page && page > 0 ? `OFFSET ${(page - 1) * (limit || 10)}` : ''}

@@ -4,7 +4,7 @@ import api from '@/services/api';
 
 const useUsersStore = create(
   devtools((set, get) => ({
-    // State
+    // Pagination
     users: [],
     currentPage: 1,
     totalPages: 0,
@@ -13,14 +13,16 @@ const useUsersStore = create(
     hasNextPage: false,
     hasPreviousPage: false,
     searchTerm: '',
-    isLoading: false,
-    error: null,
+
     actioningUsers: new Set(),
     inviteDialogOpen: false,
     selectedUser: null,
     invitationLink: '',
     isGeneratingLink: false,
     lastAction: null,
+
+    isLoading: false,
+    error: null,
 
     // Set pagination data
     setPaginationData: (data, pageInfo, searchTerm) =>
@@ -50,6 +52,8 @@ const useUsersStore = create(
         const response = await api.get('/auth/users', {
           params: { page: 1, limit, search },
         });
+
+        console.log(response);
 
         // Extract users and page info from response
         const users = response.data.data || [];
