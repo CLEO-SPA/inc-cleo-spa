@@ -193,7 +193,7 @@ function ManageUsersPage() {
   ];
 
   // Loading state
-  if (isLoading && !users.length) {
+  if (isLoading && (!users || !Array.isArray(users) || users.length === 0)) {
     return (
       <div className='[--header-height:calc(theme(spacing.14))]'>
         <SidebarProvider className='flex flex-col'>
@@ -215,7 +215,7 @@ function ManageUsersPage() {
   }
 
   // Error state
-  if (error && !users.length) {
+  if (error && (!users || !Array.isArray(users) || users.length === 0)) {
     return (
       <div className='[--header-height:calc(theme(spacing.14))]'>
         <SidebarProvider className='flex flex-col'>
@@ -305,14 +305,14 @@ function ManageUsersPage() {
                         </TableRow>
                       </TableHeader>
                       <TableBody>
-                        {isLoading && users.length > 0 && (
+                        {isLoading && Array.isArray(users) && users.length > 0 && (
                           <TableRow>
                             <TableCell colSpan={tableHeaders.length} className='h-24 text-center'>
                               Updating data...
                             </TableCell>
                           </TableRow>
                         )}
-                        {!isLoading && users.length === 0 && (
+                        {!isLoading && (!Array.isArray(users) || users.length === 0) && (
                           <TableRow>
                             <TableCell colSpan={tableHeaders.length} className='h-24 text-center'>
                               No users found.
@@ -320,6 +320,7 @@ function ManageUsersPage() {
                           </TableRow>
                         )}
                         {!isLoading &&
+                          Array.isArray(users) &&
                           users.map((user) => {
                             const isActioning = actioningUsers.has(user.id);
 

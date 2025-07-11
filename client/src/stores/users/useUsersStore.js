@@ -20,28 +20,51 @@ const useUsersStore = create(
     selectedUser: null,
     invitationLink: '',
     isGeneratingLink: false,
+    lastAction: null,
+
+    // Set pagination data
+    setPaginationData: (data, pageInfo, searchTerm) =>
+      set((state) => ({
+        users: data,
+        currentPage: pageInfo.page || state.currentPage,
+        totalPages: pageInfo.totalPages || 0,
+        totalCount: pageInfo.totalCount || 0,
+        hasNextPage: pageInfo.hasNextPage || false,
+        hasPreviousPage: pageInfo.hasPreviousPage || false,
+        searchTerm: searchTerm !== undefined ? searchTerm : state.searchTerm,
+        isLoading: false,
+        error: null,
+      })),
 
     // Initialize pagination
     initializePagination: async (limit = 10, search = '') => {
-      set({ isLoading: true, currentLimit: limit, searchTerm: search });
+      set({
+        isLoading: true,
+        currentLimit: limit,
+        searchTerm: search,
+        currentPage: 1,
+        lastAction: 'initialize',
+      });
+
       try {
         const response = await api.get('/auth/users', {
           params: { page: 1, limit, search },
         });
 
-        set({
-          users: response.data.users,
-          currentPage: response.data.page,
-          totalPages: response.data.totalPages,
-          totalCount: response.data.totalCount,
-          hasNextPage: response.data.hasNextPage,
-          hasPreviousPage: response.data.hasPreviousPage,
-          error: null,
-        });
+        // Extract users and page info from response
+        const users = response.data.data || [];
+        const pageInfo = {
+          page: 1,
+          totalPages: Math.ceil((response.data.pageInfo?.totalCount || 0) / limit),
+          totalCount: response.data.pageInfo?.totalCount || 0,
+          hasNextPage: response.data.pageInfo?.hasNextPage || false,
+          hasPreviousPage: response.data.pageInfo?.hasPreviousPage || false,
+        };
+
+        // Use the standardized method to set pagination data
+        get().setPaginationData(users, pageInfo, search);
       } catch (error) {
-        set({ error: error.response?.data?.message || 'Failed to fetch users' });
-      } finally {
-        set({ isLoading: false });
+        set({ error: error.response?.data?.message || 'Failed to fetch users', isLoading: false });
       }
     },
 
@@ -55,50 +78,52 @@ const useUsersStore = create(
           params: { page: currentPage, limit: currentLimit, search: searchTerm },
         });
 
-        set({
-          users: response.data.users,
-          totalPages: response.data.totalPages,
-          totalCount: response.data.totalCount,
-          hasNextPage: response.data.hasNextPage,
-          hasPreviousPage: response.data.hasPreviousPage,
-          error: null,
-        });
+        // Extract users and page info from response
+        const users = response.data.data || [];
+        const pageInfo = {
+          page: currentPage,
+          totalPages: Math.ceil((response.data.pageInfo?.totalCount || 0) / currentLimit),
+          totalCount: response.data.pageInfo?.totalCount || 0,
+          hasNextPage: response.data.pageInfo?.hasNextPage || false,
+          hasPreviousPage: response.data.pageInfo?.hasPreviousPage || false,
+        };
+
+        // Use the standardized method to set pagination data
+        get().setPaginationData(users, pageInfo, searchTerm);
       } catch (error) {
-        set({ error: error.response?.data?.message || 'Failed to fetch users' });
-      } finally {
-        set({ isLoading: false });
+        set({ error: error.response?.data?.message || 'Failed to fetch users', isLoading: false });
       }
     },
 
     // Pagination controls
     goToNextPage: () => {
-      const { currentPage, hasNextPage, fetchUsers } = get();
+      const { currentPage, hasNextPage } = get();
       if (hasNextPage) {
-        set({ currentPage: currentPage + 1 });
-        fetchUsers();
+        set({ currentPage: currentPage + 1, lastAction: 'next' });
+        get().fetchUsers();
       }
     },
 
     goToPreviousPage: () => {
-      const { currentPage, hasPreviousPage, fetchUsers } = get();
+      const { currentPage, hasPreviousPage } = get();
       if (hasPreviousPage) {
-        set({ currentPage: currentPage - 1 });
-        fetchUsers();
+        set({ currentPage: currentPage - 1, lastAction: 'prev' });
+        get().fetchUsers();
       }
     },
 
     goToPage: (page) => {
-      set({ currentPage: page });
+      set({ currentPage: page, lastAction: 'jump' });
       get().fetchUsers();
     },
 
     setLimit: (limit) => {
-      set({ currentLimit: limit, currentPage: 1 });
+      set({ currentLimit: limit, currentPage: 1, lastAction: 'limit' });
       get().fetchUsers();
     },
 
     setSearchTerm: (term) => {
-      set({ searchTerm: term, currentPage: 1 });
+      set({ searchTerm: term, currentPage: 1, lastAction: 'search' });
       get().fetchUsers();
     },
 

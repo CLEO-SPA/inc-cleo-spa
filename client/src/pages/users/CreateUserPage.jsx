@@ -19,7 +19,7 @@ import api from '@/services/api';
 // Form validation schema
 const userSchema = z.object({
   username: z.string().min(3, 'Username must be at least 3 characters'),
-  email: z.string().email('Invalid email address'),
+  email: z.email('Invalid email address'),
   role_name: z.string().min(1, 'Role is required'),
 });
 
