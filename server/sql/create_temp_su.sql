@@ -60,7 +60,7 @@ BEGIN
     ) VALUES (
         v_user_auth_id,
         (SELECT get_or_create_status('VERIFIED')),
-        SUBSTRING(REPLACE(p_email, '@', '_'), 1, 20),
+        SUBSTRING(SPLIT_PART(p_email, '@', 1), 1, 20),
         p_email,
         CURRENT_TIMESTAMP,
         CURRENT_TIMESTAMP
