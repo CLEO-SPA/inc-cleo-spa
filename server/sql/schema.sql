@@ -677,7 +677,6 @@ CREATE INDEX "fki_cs_service_service_category_id_fkey" ON "services"("service_ca
 CREATE INDEX "idx_care_packages_created_by" ON "care_packages"("created_by");
 CREATE INDEX "idx_care_package_item_details_care_package_id" ON "care_package_item_details"("care_package_id");
 CREATE INDEX "idx_care_package_item_details_service_id" ON "care_package_item_details"("service_id");
-CREATE INDEX "idx_employees_verified_status_id" ON "employees"("verified_status_id");
 CREATE INDEX "idx_member_care_packages_member_id" ON "member_care_packages"("member_id");
 CREATE INDEX "idx_member_care_packages_employee_id" ON "member_care_packages"("employee_id");
 CREATE INDEX "idx_member_care_package_details_mcp_id" ON "member_care_package_details"("member_care_package_id");
