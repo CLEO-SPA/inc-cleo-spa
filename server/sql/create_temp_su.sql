@@ -59,7 +59,7 @@ BEGIN
         updated_at
     ) VALUES (
         v_user_auth_id,
-        (SELECT get_or_create_status('VERIFIED') AS id),
+        (SELECT get_or_create_status('VERIFIED')),
         SUBSTRING(REPLACE(p_email, '@', '_'), 1, 20),
         p_email,
         CURRENT_TIMESTAMP,
