@@ -31,12 +31,23 @@ const CartItemsWithPayment = ({
   const employees = useEmployeeStore((state) => state.employees);
   const fetchDropdownEmployees = useEmployeeStore((state) => state.fetchDropdownEmployees);
 
+  const commissionSettings = useEmployeeStore((state) => state.commissionSettings);
+  const fetchCommissionSettings = useEmployeeStore((state) => state.fetchCommissionSettings);
+
   // Effect to ensure employees are loaded
   useEffect(() => {
     if (employees.length === 0 && !loading) {
       fetchDropdownEmployees();
     }
   }, [employees.length, loading, fetchDropdownEmployees]);
+
+  // Effect to ensure commission settings are loaded
+  useEffect(() => {
+    if (!commissionSettings || Object.keys(commissionSettings).length === 0 && !loading) {
+      fetchCommissionSettings();
+    }
+  }, [commissionSettings, loading, fetchCommissionSettings]);
+
 
 
   // Effect to ensure payment methods are loaded
@@ -189,9 +200,27 @@ const CartItemsWithPayment = ({
     // Find the selected employee to get their name
     const selectedEmployee = employees.find(emp => emp.id === String(employeeId));
 
+    // Find the item to get its type
+    const item = cartItems.find(cartItem => cartItem.id === itemId);
+    if (!item) return;
+
     const pricing = getItemPricing(itemId);
     const defaultPerfRate = 100;
-    const defaultCommRate = 6; // TODO: Fetch from database
+
+    console.log('commissionSettings:', commissionSettings);
+    console.log('item type:', item.type);
+
+    // Get the commission rate based on item type
+    let rawRate = '6.00'; // fallback default
+
+    if (commissionSettings && item.type) {
+      // Map item types to commission setting keys
+      const commissionKey = item.type === 'member-voucher' ? 'member-voucher' : item.type;
+      rawRate = commissionSettings[commissionKey] || commissionSettings['service'] || '6.00';
+    }
+
+    const defaultCommRate = parseFloat(rawRate);
+    console.log('Selected commission rate:', defaultCommRate, 'for item type:', item.type);
     const perfAmt = (pricing.totalLinePrice * defaultPerfRate) / 100;
     const commAmt = (perfAmt * defaultCommRate) / 100;
     const newAssignment = {
@@ -217,10 +246,19 @@ const CartItemsWithPayment = ({
 
   // Handle removing employee assignment
   const handleRemoveEmployeeAssignment = (itemId, assignmentId) => {
-    const currentAssignments = itemEmployees[itemId] || [];
-    const updatedAssignments = currentAssignments.filter(assignment => assignment.id !== assignmentId);
+    const current = itemEmployees[itemId];
+    let updatedAssignments = [];
+    if (Array.isArray(current)) {
+      updatedAssignments = current.filter(entry => {
+        // if entry is object, match by id; if primitive, match its string form
+        if (typeof entry === 'object') return entry.id !== assignmentId;
+        return entry.toString() !== assignmentId;
+      });
+    }
+    // if it was a single primitive value, removing yields empty array
     onEmployeeChange(itemId, updatedAssignments);
   };
+
   // Handle updating employee assignment field
   const handleUpdateEmployeeAssignment = (itemId, assignmentId, field, value) => {
     const currentAssignments = itemEmployees[itemId] || [];
@@ -255,6 +293,51 @@ const CartItemsWithPayment = ({
       return assignment;
     });
     onEmployeeChange(itemId, updatedAssignments);
+  };
+
+  // Normalize stored assignments into full objects (only once)
+  const normalizeAssignments = (itemId) => {
+    const raw = itemEmployees[itemId] || [];
+
+    // Check if we need to normalize (if any entry is primitive)
+    const needsNormalization = raw.some(entry => typeof entry === 'string' || typeof entry === 'number');
+
+    if (!needsNormalization) {
+      return raw; // Already normalized
+    }
+
+    // Normalize and update the store
+    const normalized = raw.map(entry => {
+      if (typeof entry === 'string' || typeof entry === 'number') {
+        const empId = entry.toString();
+        const emp = employees.find(e => e.id === empId);
+        const pricing = getItemPricing(itemId);
+        const perfRate = 100;
+        const perfAmt = (pricing.totalLinePrice * perfRate) / 100;
+        const commRateRaw = commissionSettings?.[cartItems.find(i => i.id === itemId)?.type === 'member-voucher'
+          ? 'member-voucher' : cartItems.find(i => i.id === itemId)?.type]
+          || commissionSettings?.service
+          || 6;
+        const commRate = parseFloat(commRateRaw);
+        const commAmt = (perfAmt * commRate) / 100;
+        return {
+          id: crypto.randomUUID(), // Generate unique assignment ID
+          employeeId: empId,
+          employeeName: emp?.employee_name || '',
+          performanceRate: perfRate,
+          performanceAmount: perfAmt,
+          commissionRate: commRate,
+          commissionAmount: commAmt,
+          remarks: ''
+        };
+      }
+      return entry;
+    });
+
+    // Update the store with normalized data
+    onEmployeeChange(itemId, normalized);
+
+    return normalized;
   };
 
 
@@ -462,7 +545,9 @@ const CartItemsWithPayment = ({
                 <tbody>
                   {section.items.map((item) => {
                     const pricing = getItemPricing(item.id);
-                    const employeeAssignments = itemEmployees[item.id] || [];
+                    // console.log('employeeAssignments for item:', item.id, itemEmployees);
+                    // normalize assignments: convert simple IDs into full assignment objects
+                    const employeeAssignments = normalizeAssignments(item.id);
 
                     return (
                       <>
@@ -568,6 +653,7 @@ const CartItemsWithPayment = ({
                           </td>
                         </tr>
                         {/* Employee Assignment Rows */}
+                        {/* {console.log('Employee assignments for item:', employeeAssignments)} */}
                         {employeeAssignments.map((assignment, idx) => (
                           <tr key={assignment.id}>
                             <td colSpan={8} className="px-4 py-3">
@@ -641,11 +727,11 @@ const CartItemsWithPayment = ({
 
                                 <div className="mt-3">
                                   <label className="block text-xs font-medium text-gray-700 mb-1">
-                                    Remarks (optional)
+                                    Employee Remarks
                                   </label>
                                   <input
                                     type="text"
-                                    placeholder="Enter remarks..."
+                                    placeholder="Enter employee remarks (optional)"
                                     value={assignment.remarks}
                                     onChange={(e) => handleUpdateEmployeeAssignment(
                                       item.id,

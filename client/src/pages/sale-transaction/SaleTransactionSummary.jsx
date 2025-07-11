@@ -86,9 +86,10 @@ const SaleTransactionSummary = () => {
     cartItems.forEach(item => {
       // Auto-assign employee for vouchers with created_by
       if (item.type === 'member-voucher' && item.data?.created_by) {
-        initialAssignments[item.id] = item.data.created_by.toString();
+        initialAssignments[item.id] = [item.data.created_by.toString()];
       } else if (item.data?.employee_id) {
-        initialAssignments[item.id] = item.data.employee_id;
+        // wrap single employee_id in an array
+        initialAssignments[item.id] = [String(item.data.employee_id)];
       }
 
       // Initialize pricing data for each item

@@ -20,6 +20,9 @@ const getInitialState = () => ({
   /* ------------ dropdown and name-only fetch --------------------------- */
   dropdownEmployees: [],
   isFetchingDropdown: false,
+  /* ------------ commission settings fetch --------------------------- */
+  commissionSettings: [],
+  isFetchingCommissionSettings: false,
   isFetchingName: false,
   employeeName: null,
 
@@ -136,7 +139,7 @@ const useEmployeeStore = create((set, get) => ({
     }
   },
 
-    /* ------------------------------------------------- create */
+  /* ------------------------------------------------- create */
   createAndInviteEmployee: async (payload) => {
     set({ isCreating: true, error: null, success: null, inviteLink: null });
     try {
@@ -244,6 +247,7 @@ const useEmployeeStore = create((set, get) => ({
       );
     }
   },
+
   fetchDropdownEmployees: async () => {
     set({ isFetching: true, error: false, errorMessage: null });
 
@@ -261,6 +265,27 @@ const useEmployeeStore = create((set, get) => ({
         isFetching: false,
         error: true,
         errorMessage: error.response?.data?.message || error.message || 'Failed to fetch employees',
+      });
+    }
+  },
+
+  fetchCommissionSettings: async () => {
+    set({ isFetching: true, error: false, errorMessage: null });
+
+    try {
+      const response = await api.get('/em/commissionSettings');
+      set({
+        commissionSettings: response.data,
+        isFetchingCommissionSettings: false,
+        error: false,
+        errorMessage: null,
+      });
+    } catch (error) {
+      set({
+        commissionSettings: [],
+        isFetchingCommissionSettings: false,
+        error: true,
+        errorMessage: error.response?.data?.message || error.message || 'Failed to fetch commission settings',
       });
     }
   },
