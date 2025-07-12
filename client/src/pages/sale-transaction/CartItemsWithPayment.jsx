@@ -152,7 +152,22 @@ const CartItemsWithPayment = ({
     const currentPricing = getItemPricing(itemId);
     const newPricing = calculatePricing(currentPricing, field, value);
     onPricingChange(itemId, newPricing);
+
+    // Update employee assignments when total line price changes
+    const currentAssignments = itemEmployees[itemId] || [];
+    if (currentAssignments.length > 0) {
+      const updatedAssignments = currentAssignments.map(assignment => {
+        const updatedAssignment = { ...assignment };
+        const perfAmt = (newPricing.totalLinePrice * assignment.performanceRate) / 100;
+        updatedAssignment.performanceAmount = perfAmt;
+        const commRate = parseFloat(assignment.commissionRate) || 0;
+        updatedAssignment.commissionAmount = (perfAmt * commRate) / 100;
+        return updatedAssignment;
+      });
+      onEmployeeChange(itemId, updatedAssignments);
+    }
   };
+
 
   // Calculate pricing based on field changes
   const calculatePricing = (currentPricing, field, value) => {
