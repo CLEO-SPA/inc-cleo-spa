@@ -224,9 +224,11 @@ const CreateMemberCarePackageTransfer = () => {
 
   if (!selectedMember) {
     return (
-      <Card className='border-orange-200 bg-orange-50 rounded-lg'>
-        <CardContent className='pt-4'>
-          <p className='text-orange-800 text-sm'>Please select a member first to manage MCP transfers.</p>
+      <Card className='border-orange-200 bg-orange-50'>
+        <CardContent className='py-2'>
+          <p className='text-orange-800 text-sm'>
+            Please select a member first before transferring member care package balances.
+          </p>
         </CardContent>
       </Card>
     );
@@ -234,6 +236,16 @@ const CreateMemberCarePackageTransfer = () => {
 
   return (
     <div className='space-y-6'>
+      {selectedMember && (
+        <Card className='border-green-200 bg-green-50'>
+          <CardContent className='py-2'>
+            <p className='text-green-800 text-sm'>
+              Transferring member care package balance for: <strong>{selectedMember.name}</strong>
+            </p>
+          </CardContent>
+        </Card>
+      )}
+
       <Card className='rounded-lg'>
         <CardHeader>
           <CardTitle>Transfer MCP Balance</CardTitle>

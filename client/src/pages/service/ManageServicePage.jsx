@@ -16,6 +16,7 @@ import {
 } from "@/components/ui/select";
 import { SiteHeader } from '@/components/site-header';
 import { SidebarInset, SidebarProvider } from '@/components/ui/sidebar';
+import { Card, CardContent, CardHeader, CardTitle, CardFooter } from '@/components/ui/card';
 import EmployeeSelect from '@/components/ui/forms/EmployeeSelect';
 import { useSimulationStore } from "@/stores/useSimulationStore";
 import { useAuth } from "@/context/AuthContext";
@@ -56,7 +57,6 @@ export default function ManageService() {
   const [changeService, setChangeService] = useState(null);
   const [changeStatus, setChangeStatus] = useState(false);
   const [updateForm, setUpdateForm] = useState({
-    enabled: false,
     updated_at: "",
     updated_by: "",
     service_remarks: ""
@@ -339,234 +339,243 @@ export default function ManageService() {
 
             <div className='flex flex-1 flex-col gap-4 p-4'>
               {/* Buttons for other Functionalities */}
-              <div className="flex space-x-4 p-4 bg-muted/50 rounded-lg">
-                <Button onClick={() => navigate("/create-service")} className="rounded-xl" disabled={!isAdmin}>Create Service</Button>
-                <Button onClick={() => navigate("/reorder-service")} className="rounded-xl" disabled={!isAdmin}>Reorder Service</Button>
-                <Button onClick={() => navigate("/manage-service-category")} className="rounded-xl">Manage Categories</Button>
-              </div>
+              <Card className={"w-full flex"}>
+                <CardHeader>
+                  <CardTitle>Manage Services</CardTitle>
+                </CardHeader>
+                <CardContent className="flex space-x-4">
+                  <Button onClick={() => navigate("/create-service")} disabled={!isAdmin}>Add Service</Button>
+                  <Button onClick={() => navigate("/reorder-service")} disabled={!isAdmin}>Reorder Service</Button>
+                  <Button onClick={() => navigate("/manage-service-category")} >Manage Categories</Button>
+                </CardContent>
+              </Card>
 
               {/* Filter */}
-              <div className="flex space-x-4 p-4 bg-muted/50 rounded-lg">
-                {/* Search bar */}
-                <input
-                  type="text"
-                  name="search"
-                  placeholder="Search by name..."
-                  value={searchQuery}
-                  onChange={(e) => setSearchQuery(e.target.value)}
-                  className="w-[300px] p-2 border rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
-                />
-                {/* Search Button */}
-                {/* <Button onClick={() => getServices()} className="rounded-xl">Search</Button> */}
+              <Card className={"w-full"}>
+                <CardContent className=" space-y-4">
+                  <div className="flex space-x-4">
+                    {/* Search bar */}
+                    <input
+                      type="text"
+                      name="search"
+                      placeholder="Search by name..."
+                      value={searchQuery}
+                      onChange={(e) => setSearchQuery(e.target.value)}
+                      className="w-[300px] p-2 border rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+                    />
+                    {/* Search Button */}
+                    {/* <Button onClick={() => getServices()} >Search</Button> */}
 
-                {/* Select Category */}
-                <Select value={selectedCategory} onValueChange={setSelectedCategory}>
-                  <SelectTrigger className="w-[200px]">
-                    <SelectValue placeholder="Select Category" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    <div className="max-h-60 overflow-y-auto">
-                      <SelectItem value="0">All Categories</SelectItem>
-                      {categories.map((category) => (
-                        <SelectItem key={category.id} value={category.id}>
-                          {category.service_category_name}
-                        </SelectItem>
-                      ))}
-                    </div>
-                  </SelectContent>
-                </Select>
-                {/* Select Status */}
-                <Select value={selectedStatus} onValueChange={setSelectedStatus}>
-                  <SelectTrigger className="w-[200px]">
-                    <SelectValue placeholder="Select Status" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="0">All</SelectItem>
-                    <SelectItem value="true">Enabled</SelectItem>
-                    <SelectItem value="false">Disabled</SelectItem>
-                  </SelectContent>
-                </Select>
-                {/* Reset Button */}
-                <Button onClick={() => handleReset()} className="rounded-xl">Clear</Button>
-                {/* View all details */}
-                <Button onClick={handleViewAllDetails} className="rounded-xl">{expandedRows.length === services.length ? 'Hide' : 'View'} All Details</Button>
-              </div>
-              <div className="p-4 h-[60vh] flex flex-col rounded-xl bg-muted/50">
-                <div className="overflow-y-auto flex-1">
-                  {/* Table */}
-                  <table className="table-auto w-full text-black border-collapse border border-gray-200 border-rounded-lg">
-                    {/* Table Header */}
-                    <thead className="bg-black text-white sticky top-0 z-10 shadow">
-                      <tr>
-                        <th className="w-1/12 px-2 py-2 text-left border border-gray-200">ID</th>
-                        <th className="w-3/12 px-2 py-2 text-left border border-gray-200">Name</th>
-                        <th className="w-2/12 px-2 py-2 text-left border border-gray-200">Unit Price (SGD)</th>
-                        <th className="w-2/12 px-2 py-2 text-left border border-gray-200">Date of Creation</th>
-                        <th className="w-2/12 px-2 py-2 text-left border border-gray-200">Category</th>
-                        <th className="w-1/12 px-2 py-2 text-left border border-gray-200">Status</th>
-                        <th className="w-1/12 px-4 py-2 text-left border border-gray-200">Actions</th>
-                      </tr>
-                    </thead>
-                    {/* Table body */}
-                    <tbody>
-                      {serviceLoading ? (
-                        <tr>
-                          <td colSpan="13" className="px-4 py-2 text-center text-gray-500 border border-gray-200">
-                            Loading...
-                          </td>
-                        </tr>
-                      ) : (
-                        <>
-                          {services.length > 0 ? (
-                            services.map((service, index) => (
-                              <>
-                                <tr key={`${service.id}-basic`}>
-                                  <td className="px-2 py-2 border border-gray-200">{service.id}</td>
-                                  <td className="px-2 py-2 border border-gray-200 break-words">{service.service_name}</td>
-                                  <td className="px-2 py-2 border border-gray-200">{service.service_price}</td>
-                                  <td className="px-2 py-2 border border-gray-200">
-                                    {new Date(service.created_at).toLocaleDateString()}
-                                  </td>
-                                  <td className="px-2 py-2 border border-gray-200">{service.service_category_name}</td>
-                                  {/* Enabled Row */}
-                                  <td className="px-2 py-2 border border-gray-200">
-                                    <Switch
-                                      checked={service.service_is_enabled}
-                                      onCheckedChange={() => handleSwitchChange(service)
-                                      }
-                                      disabled={!isAdmin}
-                                    />
-                                  </td>
-                                  {/* Action Row */}
-                                  <td className="px-4 py-2 border border-gray-200">
-                                    <div className="flex space-x-2 space-y-1">
-                                      {isAdmin && (
-                                        <Button className="p-1 bg-green-600 text-white text-sm font-medium rounded-xl hover:bg-green-700" onClick={() => navigate(`/update-service/${service.id}`)}>
-                                          <FilePenLine className="inline-block mr-1" />
-                                        </Button>
-                                      )}
-                                      <Button className="px-2 py-1 bg-gray-600 text-white text-sm font-medium rounded-xl hover:bg-blue-700" onClick={() => navigate(`/view-sales-history/${service.id}`)}>
-                                        View Sales History
-                                      </Button>
-                                      <Button className="p-1 text-3xl text-black bg-transparent rounded-xl hover:bg-transparent hover:text-blue-700" onClick={() => toggleRow(index)}>
-                                        {expandedRows.includes(index) ? <ChevronUpCircle /> : <ChevronDownCircle />}
-                                      </Button>
-                                    </div>
-                                  </td>
-                                </tr>
-
-                                {expandedRows.includes(index) && (
-                                  <tr key={`${service.id}-details`} className="bg-gray-100">
-                                    <td colSpan="100%" className="px-4 py-2 border border-gray-200">
-                                      <div className="grid grid-cols-2 gap-4">
-                                        {/* More Details */}
-                                        <div>
-                                          <div>
-                                            <strong>Duration:</strong> {service.service_duration} mins
-                                          </div>
-                                          <div>
-                                            <strong>Description:</strong> {service.service_description ? service.service_description : 'No description available.'}
-                                          </div>
-                                          <div>
-                                            <strong>Number of Care Packages with Service:</strong> {service.total_care_packages}
-                                          </div>
-                                          <div>
-                                            <strong>Number of Sales Transactions:</strong> {service.total_sale_transactions}
-                                          </div>
-                                        </div>
-                                        {/* Created and Updated details */}
-                                        <div>
-                                          <div>
-                                            <strong>Created By:</strong> {service.created_by}
-                                          </div>
-                                          <div>
-                                            <strong>Remarks:</strong> {service.service_remarks ? service.service_remarks : 'No remarks available.'}
-                                          </div>
-                                          <div>
-                                            <strong>Last Updated At:</strong> {new Date(service.updated_at).toLocaleDateString()}
-                                          </div>
-                                          <div>
-                                            <strong>Last Updated By:</strong> {service.updated_by}
-                                          </div>
-                                        </div>
-                                      </div>
-                                    </td>
-                                  </tr>
-                                )}
-                              </>
-                            ))
-                          ) : (
+                    {/* Select Category */}
+                    <Select value={selectedCategory} onValueChange={setSelectedCategory}>
+                      <SelectTrigger className="w-[200px]">
+                        <SelectValue placeholder="Select Category" />
+                      </SelectTrigger>
+                      <SelectContent>
+                        <div className="max-h-60 overflow-y-auto">
+                          <SelectItem value="0">All Categories</SelectItem>
+                          {categories.map((category) => (
+                            <SelectItem key={category.id} value={category.id}>
+                              {category.service_category_name}
+                            </SelectItem>
+                          ))}
+                        </div>
+                      </SelectContent>
+                    </Select>
+                    {/* Select Status */}
+                    <Select value={selectedStatus} onValueChange={setSelectedStatus}>
+                      <SelectTrigger className="w-[200px]">
+                        <SelectValue placeholder="Select Status" />
+                      </SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="0">All</SelectItem>
+                        <SelectItem value="true">Enabled</SelectItem>
+                        <SelectItem value="false">Disabled</SelectItem>
+                      </SelectContent>
+                    </Select>
+                    {/* Reset Button */}
+                    <Button onClick={() => handleReset()} >Clear</Button>
+                    {/* View all details */}
+                    <Button onClick={handleViewAllDetails} >{expandedRows.length === services.length ? 'Hide' : 'View'} All Details</Button>
+                  </div>
+                  <div className="h-[60vh] flex flex-col">
+                    <div className="overflow-y-auto flex-1 border rounded-md">
+                      {/* Table */}
+                      <table className="table-auto w-full text-black">
+                        {/* Table Header */}
+                        <thead className="bg-white sticky top-0 z-10">
+                          <tr>
+                            <td className="w-1/12 px-2 py-2 text-left">ID</td>
+                            <td className="w-3/12 px-2 py-2 text-left">Name</td>
+                            <td className="w-2/12 px-2 py-2 text-left">Unit Price (SGD)</td>
+                            <td className="w-2/12 px-2 py-2 text-left">Date of Creation</td>
+                            <td className="w-2/12 px-2 py-2 text-left">Category</td>
+                            <td className="w-1/12 px-2 py-2 text-left">Status</td>
+                            <td className="w-1/12 px-4 py-2 text-left">Actions</td>
+                          </tr>
+                        </thead>
+                        {/* Table body */}
+                        <tbody>
+                          {serviceLoading ? (
                             <tr>
-                              <td colSpan="13" className="px-4 py-2 text-center text-gray-500 border border-gray-200">
-                                No services found.
+                              <td colSpan="13" className="px-4 py-2 text-center text-gray-500">
+                                Loading...
                               </td>
                             </tr>
+                          ) : (
+                            <>
+                              {services.length > 0 ? (
+                                services.map((service, index) => (
+                                  <>
+                                    <tr key={`${service.id}-basic`}>
+                                      <td className="px-2 py-2">{service.id}</td>
+                                      <td className="px-2 py-2 break-words">{service.service_name}</td>
+                                      <td className="px-2 py-2">{service.service_price}</td>
+                                      <td className="px-2 py-2">
+                                        {new Date(service.created_at).toLocaleDateString()}
+                                      </td>
+                                      <td className="px-2 py-2">{service.service_category_name}</td>
+                                      {/* Enabled Row */}
+                                      <td className="px-2 py-2">
+                                        <Switch
+                                          checked={service.service_is_enabled}
+                                          onCheckedChange={() => handleSwitchChange(service)
+                                          }
+                                          disabled={!isAdmin}
+                                        />
+                                      </td>
+                                      {/* Action Row */}
+                                      <td className="px-4 py-2">
+                                        <div className="flex space-x-2 space-y-1">
+                                          {isAdmin && (
+                                            <Button className="p-1 bg-green-600 text-white text-sm font-medium rounded-xl hover:bg-green-700" onClick={() => navigate(`/update-service/${service.id}`)}>
+                                              <FilePenLine className="inline-block mr-1" />
+                                            </Button>
+                                          )}
+                                          <Button className="px-2 py-1 bg-gray-600 text-white text-sm font-medium rounded-xl hover:bg-blue-700" onClick={() => navigate(`/view-sales-history/${service.id}`)}>
+                                            View Sales History
+                                          </Button>
+                                          <Button className="p-1 text-3xl text-black bg-transparent rounded-xl hover:bg-transparent hover:text-blue-700" onClick={() => toggleRow(index)}>
+                                            {expandedRows.includes(index) ? <ChevronUpCircle /> : <ChevronDownCircle />}
+                                          </Button>
+                                        </div>
+                                      </td>
+                                    </tr>
+
+                                    {expandedRows.includes(index) && (
+                                      <tr key={`${service.id}-details`} className="bg-gray-100">
+                                        <td colSpan="100%" className="px-4 py-2">
+                                          <div className="grid grid-cols-2 gap-4">
+                                            {/* More Details */}
+                                            <div>
+                                              <div>
+                                                <strong>Duration:</strong> {service.service_duration} mins
+                                              </div>
+                                              <div>
+                                                <strong>Description:</strong> {service.service_description ? service.service_description : 'No description available.'}
+                                              </div>
+                                              <div>
+                                                <strong>Number of Care Packages with Service:</strong> {service.total_care_packages}
+                                              </div>
+                                              <div>
+                                                <strong>Number of Sales Transactions:</strong> {service.total_sale_transactions}
+                                              </div>
+                                            </div>
+                                            {/* Created and Updated details */}
+                                            <div>
+                                              <div>
+                                                <strong>Created By:</strong> {service.created_by}
+                                              </div>
+                                              <div>
+                                                <strong>Remarks:</strong> {service.service_remarks ? service.service_remarks : 'No remarks available.'}
+                                              </div>
+                                              <div>
+                                                <strong>Last Updated At:</strong> {new Date(service.updated_at).toLocaleDateString()}
+                                              </div>
+                                              <div>
+                                                <strong>Last Updated By:</strong> {service.updated_by}
+                                              </div>
+                                            </div>
+                                          </div>
+                                        </td>
+                                      </tr>
+                                    )}
+                                  </>
+                                ))
+                              ) : (
+                                <tr>
+                                  <td colSpan="13" className="px-4 py-2 text-center text-gray-500">
+                                    No services found.
+                                  </td>
+                                </tr>
+                              )}
+                            </>
                           )}
-                        </>
-                      )}
-                    </tbody>
-                  </table>
-                </div>
-                {/* Pagination */}
-                <div className="flex justify-between items-center mt-2 space-x-4 flex-shrink-0">
-                  <div className="flex items-center space-x-2">
-                    <label htmlFor="itemsPerPage" className="text-sm">Items per page:</label>
-                    <select
-                      id="itemsPerPage"
-                      value={itemsPerPage}
-                      onChange={(e) => {
-                        setItemsPerPage(Number(e.target.value));
-                        setCurrentPage(1);
-                      }
-                      }
-                      className="border rounded p-1"
-                    >
-                      {[5, 10, 20, 50, 100].map((num) => (
-                        <option key={num} value={num}>{num}</option>
-                      ))}
-                    </select>
-                  </div>
-                  {totalPages > 1 && (
-
-                    <div className="flex items-center space-x-2">
-                      <Button
-                        variant="outline"
-                        size="icon"
-                        disabled={currentPage === 1}
-                        onClick={() => setCurrentPage(1)}
-                      >
-                        <ChevronsLeft />
-                      </Button>
-                      <Button
-                        variant="outline"
-                        size="icon"
-                        disabled={currentPage === 1}
-                        onClick={() => setCurrentPage(currentPage - 1)}
-                      >
-                        <ChevronLeft />
-                      </Button>
-                      <span>Page {currentPage} of {totalPages}</span>
-                      <Button
-                        variant="outline"
-                        size="icon"
-                        disabled={currentPage === totalPages}
-                        onClick={() => setCurrentPage(currentPage + 1)}
-                      >
-                        <ChevronRight />
-                      </Button>
-                      <Button
-                        variant="outline"
-                        size="icon"
-                        disabled={currentPage === totalPages}
-                        onClick={() => setCurrentPage(totalPages)}
-                      >
-                        <ChevronsRight />
-                      </Button>
+                        </tbody>
+                      </table>
                     </div>
+                    {/* Pagination */}
+                    <div className="flex justify-between items-center mt-2 space-x-4 flex-shrink-0">
+                      <div className="flex items-center space-x-2">
+                        <label htmlFor="itemsPerPage" className="text-sm">Items per page:</label>
+                        <select
+                          id="itemsPerPage"
+                          value={itemsPerPage}
+                          onChange={(e) => {
+                            setItemsPerPage(Number(e.target.value));
+                            setCurrentPage(1);
+                          }
+                          }
+                          className="border rounded p-1"
+                        >
+                          {[5, 10, 20, 50, 100].map((num) => (
+                            <option key={num} value={num}>{num}</option>
+                          ))}
+                        </select>
+                      </div>
+                      {totalPages > 1 && (
 
-                  )}
-                </div>
-              </div>
+                        <div className="flex items-center space-x-2">
+                          <Button
+                            variant="outline"
+                            size="icon"
+                            disabled={currentPage === 1}
+                            onClick={() => setCurrentPage(1)}
+                          >
+                            <ChevronsLeft />
+                          </Button>
+                          <Button
+                            variant="outline"
+                            size="icon"
+                            disabled={currentPage === 1}
+                            onClick={() => setCurrentPage(currentPage - 1)}
+                          >
+                            <ChevronLeft />
+                          </Button>
+                          <span>Page {currentPage} of {totalPages}</span>
+                          <Button
+                            variant="outline"
+                            size="icon"
+                            disabled={currentPage === totalPages}
+                            onClick={() => setCurrentPage(currentPage + 1)}
+                          >
+                            <ChevronRight />
+                          </Button>
+                          <Button
+                            variant="outline"
+                            size="icon"
+                            disabled={currentPage === totalPages}
+                            onClick={() => setCurrentPage(totalPages)}
+                          >
+                            <ChevronsRight />
+                          </Button>
+                        </div>
+
+                      )}
+                    </div>
+                  </div>
+                </CardContent>
+              </Card>
             </div>
           </SidebarInset>
         </div>

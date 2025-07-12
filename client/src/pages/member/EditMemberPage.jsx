@@ -50,6 +50,7 @@ const EditMembersPage = () => {
       sex: '',
       address: '',
       membership_type_id: '',
+      card_number: '',
       created_at: '',
       created_by: '',
       remarks: ''
@@ -154,6 +155,7 @@ const EditMembersPage = () => {
         sex: selectedMember.sex || '',
         address: selectedMember.address || '',
         membership_type_id: selectedMember.membership_type_id?.toString() || '',
+        card_number: selectedMember.card_number || '',
         created_at: formattedCreatedAt,
         created_by: selectedMember.created_by?.toString() || '',
         remarks: selectedMember.remarks || ''
@@ -283,7 +285,7 @@ const EditMembersPage = () => {
         <div className='flex flex-1'>
           <AppSidebar />
           <SidebarInset>
-            <div className="w-full max-w-none p-6">
+            <div className="container mx-auto p-4 space-y-6">
               {/* Header Section */}
               <div className="flex items-center gap-3 mb-6">
                 <Link to="/member">
@@ -333,7 +335,6 @@ const EditMembersPage = () => {
                             placeholder="Enter email address"
                             type="email"
                             {...register("email", {
-                              required: "Email is required",
                               pattern: {
                                 value: /^[A-Z0-9._%+-]+@[A-Z0-9.-]+\.[A-Z]{2,}$/i,
                                 message: "Invalid email address"
@@ -353,7 +354,7 @@ const EditMembersPage = () => {
                           <Input
                             id="contact"
                             placeholder="Enter contact number"
-                            {...register("contact", { required: "Contact number is required" })}
+                            {...register("contact")}
                             className={errors.contact ? "border-red-500" : ""}
                           />
                           {errors.contact && (
@@ -391,7 +392,7 @@ const EditMembersPage = () => {
                             onValueChange={(val) => setValue('sex', val)}
                             value={watch('sex')} // Use watch to get current value
                           >
-                            <SelectTrigger>
+                            <SelectTrigger className="w-full">
                               <SelectValue placeholder="Select gender" />
                             </SelectTrigger>
                             <SelectContent>
@@ -400,6 +401,18 @@ const EditMembersPage = () => {
                               <SelectItem value="other">Other</SelectItem>
                             </SelectContent>
                           </Select>
+                        </div>
+
+                         {/* Card Number */}
+                        <div className="space-y-2">
+                          <Label htmlFor="card_number" className="text-sm font-medium text-gray-700">
+                            Card Number
+                          </Label>
+                          <Input
+                            id="card_number"
+                            placeholder="Enter membership card number"
+                            {...register("card_number")}
+                          />
                         </div>
                       </div>
 
@@ -426,6 +439,11 @@ const EditMembersPage = () => {
                     </CardHeader>
                     <CardContent className="space-y-4">
                       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+                        {/* Membership Type */}
+                        <div className="space-y-2">
+                          <MembershipTypeSelect defaultValue={selectedMember?.membership_type_id?.toString()} />
+                        </div>
+
                         {/* Creation Date & Time (Read-only) */}
                         <div className="space-y-2">
                           <Label htmlFor="created_at" className="text-sm font-medium text-gray-700">
@@ -442,11 +460,6 @@ const EditMembersPage = () => {
                         {/* Created By (Read-only display) */}
                         <div className="space-y-2">
                           <EmployeeSelect name="created_by" label="Created By *" />
-                        </div>
-
-                        {/* Membership Type */}
-                        <div className="space-y-2">
-                          <MembershipTypeSelect defaultValue={selectedMember?.membership_type_id?.toString()} />
                         </div>
                       </div>
 
@@ -543,6 +556,14 @@ const EditMembersPage = () => {
                     {updatedMember?.contact}
                   </span>
                 </div>
+                {updatedMember?.card_number && (
+                  <div className="flex justify-between text-sm">
+                    <span className="text-gray-600">Card Number:</span>
+                    <span className="font-medium text-gray-900">
+                      {updatedMember?.card_number}
+                    </span>
+                  </div>
+                )}
                 {updatedMember?.sex && (
                   <div className="flex justify-between text-sm">
                     <span className="text-gray-600">Gender:</span>

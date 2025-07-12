@@ -250,6 +250,7 @@ function ManageMembersPage() {
     { key: 'membership_type_name', label: 'Membership' },
     { key: 'total_amount_owed', label: 'Owed' },
     { key: 'last_visit_date', label: 'Last Visited' },
+    { key: 'card_number', label: 'Card Number' },
     { key: 'created_at', label: 'Created' },
     { key: 'created_by_name', label: 'Created by' },
     { key: 'actions', label: 'Actions' },
@@ -389,7 +390,7 @@ function ManageMembersPage() {
                                     ${header.key === 'name' ? 'w-32' : ''}
                                     ${header.key === 'email' ? 'w-48 hidden sm:table-cell' : ''}
                                     ${header.key === 'total_amount_owed' ? 'w-24' : ''}
-                                    ${header.key === 'created_at' ? 'w-24 hidden md:table-cell' : ''}
+                                    ${header.key === 'card_number' ? 'w-24 hidden md:table-cell' : ''}
                                     ${header.key === 'updated_at' ? 'w-24 hidden lg:table-cell' : ''}
                                     truncate
                                   `}

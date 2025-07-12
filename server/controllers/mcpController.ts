@@ -106,7 +106,7 @@ const getMemberCarePackageById = async (req: Request, res: Response, next: NextF
 
 const createMemberCarePackage = async (req: Request, res: Response, next: NextFunction): Promise<void> => {
   try {
-    const { packages } = req.body;
+    const { packages, created_at, updated_at } = req.body;
 
     if (!Array.isArray(packages) || packages.length === 0) {
       res.status(400).json({ message: 'Request body must contain a non-empty "packages" array.' });
@@ -114,8 +114,7 @@ const createMemberCarePackage = async (req: Request, res: Response, next: NextFu
     }
 
     const creationPromises = packages.map((pkg) => {
-      const { package_name, member_id, employee_id, package_remarks, package_price, services, created_at, updated_at } =
-        pkg;
+      const { package_name, member_id, employee_id, package_remarks, package_price, services } = pkg;
 
       if (!package_name || !member_id || !employee_id || package_price === undefined || !Array.isArray(services)) {
         throw new Error(`Invalid data for package "${package_name || 'Unnamed'}". Missing required fields.`);

@@ -53,7 +53,7 @@ export default function FormSelectorPanel() {
       )}
 
       {/* Tabs */}
-      <div className='flex flex-wrap gap-2 pt-2 flex-shrink-0'>
+      <div className='flex flex-wrap gap-3 py-4 px-4 flex-shrink-0'>
         {tabs.map((tab) => (
           <Button
             key={tab.key}
@@ -69,7 +69,7 @@ export default function FormSelectorPanel() {
       </div>
 
       {/* Scrollable Tab Content */}
-      <div className='flex-1 min-h-0 overflow-y-auto bg-gray-50 p-4'>{renderTabContent()}</div>
+      <div className='flex-1 min-h-0 overflow-y-auto bg-gray-50 pt-0 px-4 pb-4'>{renderTabContent()}</div>
     </div>
   );
 }

@@ -16,6 +16,7 @@ import {
 } from "@/components/ui/select";
 import { SiteHeader } from '@/components/site-header';
 import { SidebarInset, SidebarProvider } from '@/components/ui/sidebar';
+import { Card, CardContent, CardHeader, CardTitle, CardFooter } from '@/components/ui/card';
 import EmployeeSelect from '@/components/ui/forms/EmployeeSelect';
 import { useSimulationStore } from "@/stores/useSimulationStore";
 import { useAuth } from "@/context/AuthContext";
@@ -334,224 +335,234 @@ export default function ManageProduct() {
 
             <div className='flex flex-1 flex-col gap-4 p-4'>
               {/* Buttons for other Functionalities */}
-              <div className="flex space-x-4 p-4 bg-muted/50 rounded-lg">
-                <Button onClick={() => navigate("/create-product")} className="rounded-xl" disabled={!isAdmin}>Create Product</Button>
-                <Button onClick={() => navigate("/reorder-product")} className="rounded-xl" disabled={!isAdmin}>Reorder Product</Button>
-                <Button onClick={() => navigate("/manage-product-category")} className="rounded-xl">Manage Categories</Button>
-              </div>
+              <Card className={"w-full flex"}>
+                <CardHeader>
+                  <CardTitle>Manage Products</CardTitle>
+                </CardHeader>
+                <CardContent className="flex space-x-4">
+                  <Button onClick={() => navigate("/create-product")} disabled={!isAdmin}>Create Product</Button>
+                  <Button onClick={() => navigate("/reorder-product")} disabled={!isAdmin}>Reorder Product</Button>
+                  <Button onClick={() => navigate("/manage-product-category")} >Manage Categories</Button>
+                </CardContent>
+              </Card>
+
               {/* Filter */}
-              <div className="flex space-x-4 p-4 bg-muted/50 rounded-lg">
-                {/* Search bar */}
-                <input
-                  type="text"
-                  name="search"
-                  placeholder="Search by name..."
-                  value={searchQuery}
-                  onChange={(e) => setSearchQuery(e.target.value)}
-                  className="w-[300px] p-2 border rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
-                />
+              <Card className={"w-full"}>
+                <CardContent className=" space-y-4">
+                  <div className="flex space-x-4">
+                    {/* Search bar */}
+                    <input
+                      type="text"
+                      name="search"
+                      placeholder="Search by name..."
+                      value={searchQuery}
+                      onChange={(e) => setSearchQuery(e.target.value)}
+                      className="w-[300px] p-2 border rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+                    />
 
-                {/* Select Category */}
-                <Select value={selectedCategory} onValueChange={setSelectedCategory}>
-                  <SelectTrigger className="w-[200px]">
-                    <SelectValue placeholder="Select Category" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    <div className="max-h-60 overflow-y-auto">
-                      <SelectItem value="0">All Categories</SelectItem>
-                      {categories.map((category) => (
-                        <SelectItem key={category.id} value={category.id}>
-                          {category.product_category_name}
-                        </SelectItem>
-                      ))}
-                    </div>
-                  </SelectContent>
-                </Select>
-                {/* Select Status */}
-                <Select value={selectedStatus} onValueChange={setSelectedStatus}>
-                  <SelectTrigger className="w-[200px]">
-                    <SelectValue placeholder="Select Status" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="0">All</SelectItem>
-                    <SelectItem value="true">Enabled</SelectItem>
-                    <SelectItem value="false">Disabled</SelectItem>
-                  </SelectContent>
-                </Select>
-                {/* Reset Button */}
-                <Button onClick={() => handleReset()} className="rounded-xl">Clear</Button>
-                {/* View all details */}
-                <Button onClick={handleViewAllDetails} className="rounded-xl">View All Details</Button>
-              </div>
-              <div className="p-4 h-[60vh] flex flex-col rounded-xl bg-muted/50">
-                <div className="overflow-y-auto flex-1">
-                  {/* Table */}
-                  <table className="table-auto w-full text-black border-collapse border border-gray-200 border-rounded-lg">
-                    {/* Table Header */}
-                    <thead className="bg-black text-white sticky top-0 z-10 shadow">
-                      <tr>
-                        <th className="w-1/12 px-2 py-2 text-left border border-gray-200">ID</th>
-                        <th className="w-3/12 px-2 py-2 text-left border border-gray-200">Name</th>
-                        <th className="w-2/12 px-2 py-2 text-left border border-gray-200">Unit Sale Price (SGD)</th>
-                        <th className="w-2/12 px-2 py-2 text-left border border-gray-200">Date of Creation</th>
-                        <th className="w-2/12 px-2 py-2 text-left border border-gray-200">Category</th>
-                        <th className="w-1/12 px-2 py-2 text-left border border-gray-200">Status</th>
-                        <th className="w-1/12 px-4 py-2 text-left border border-gray-200">Actions</th>
-                      </tr>
-                    </thead>
-                    {/* Table body */}
-                    <tbody>
-                      {dataLoading ? (
-                        <tr>
-                          <td colSpan="13" className="px-4 py-2 text-center text-gray-500 border border-gray-200">
-                            Loading...
-                          </td>
-                        </tr>
-                      ) : (
-                        <>
-                          {products.length > 0 ? (
-                            products.map((product, index) => (
-                              <>
-                                <tr key={`${product.id}-basic`}>
-                                  <td className="px-2 py-2 border border-gray-200">{product.id}</td>
-                                  <td className="px-2 py-2 border border-gray-200 break-words">{product.product_name}</td>
-                                  <td className="px-2 py-2 border border-gray-200">{product.product_unit_sale_price}</td>
-                                  <td className="px-2 py-2 border border-gray-200">
-                                    {new Date(product.created_at).toLocaleDateString()}
-                                  </td>
-                                  <td className="px-2 py-2 border border-gray-200">{product.product_category_name}</td>
-                                  {/* Enabled Row */}
-                                  <td className="px-2 py-2 border border-gray-200">
-                                    <Switch
-                                      checked={product.product_is_enabled}
-                                      onCheckedChange={() => handleSwitchChange(product)}
-                                      disabled={!isAdmin}
-                                    />
-                                  </td>
-                                  {/* Action Row */}
-                                  <td className="px-4 py-2 border border-gray-200">
-                                    <div className="flex space-x-2 space-y-1">
-                                      {isAdmin && (
-                                        <Button className="p-1 bg-green-600 text-white text-sm font-medium rounded-xl hover:bg-green-700" onClick={() => navigate(`/update-product/${product.id}`)}>
-                                          <FilePenLine className="inline-block mr-1" />
-                                        </Button>
-                                      )}
-                                      <Button className="px-2 py-1 bg-gray-600 text-white text-sm font-medium rounded-xl hover:bg-blue-700" onClick={() => navigate(`/view-product-sales-history/${product.id}`)}>
-                                        View Sales History
-                                      </Button>
-                                      <Button className="p-1 text-3xl text-black bg-transparent rounded-xl hover:bg-transparent hover:text-blue-700" onClick={() => toggleRow(index)}>
-                                        {expandedRows.includes(index) ? <ChevronUpCircle /> : <ChevronDownCircle />}
-                                      </Button>
-                                    </div>
-                                  </td>
-                                </tr>
-
-                                {expandedRows.includes(index) && (
-                                  <tr key={`${product.id}-details`} className="bg-gray-100">
-                                    <td colSpan="100%" className="px-4 py-2 border border-gray-200">
-                                      <div className="grid grid-cols-2 gap-4">
-                                        {/* More Details */}
-                                        <div>
-                                          <div>
-                                            <strong>Unit Cost Price (SGD):</strong> $ {product.product_unit_cost_price}
-                                          </div>
-                                          <div>
-                                            <strong>Description:</strong> {product.product_description ? product.product_description : 'No description available.'}
-                                          </div>
-                                        </div>
-                                        {/* Created and Updated details */}
-                                        <div>
-                                          <div>
-                                            <strong>Created By:</strong> {product.created_by}
-                                          </div>
-                                          <div>
-                                            <strong>Remarks:</strong> {product.product_remarks ? product.product_remarks : 'No remarks available.'}
-                                          </div>
-                                          <div>
-                                            <strong>Last Updated At:</strong> {new Date(product.updated_at).toLocaleDateString()}
-                                          </div>
-                                          <div>
-                                            <strong>Last Updated By:</strong> {product.updated_by}
-                                          </div>
-                                        </div>
-                                      </div>
-                                    </td>
-                                  </tr>
-                                )}
-                              </>
-                            ))
-                          ) : (
+                    {/* Select Category */}
+                    <Select value={selectedCategory} onValueChange={setSelectedCategory}>
+                      <SelectTrigger className="w-[200px]">
+                        <SelectValue placeholder="Select Category" />
+                      </SelectTrigger>
+                      <SelectContent>
+                        <div className="max-h-60 overflow-y-auto">
+                          <SelectItem value="0">All Categories</SelectItem>
+                          {categories.map((category) => (
+                            <SelectItem key={category.id} value={category.id}>
+                              {category.product_category_name}
+                            </SelectItem>
+                          ))}
+                        </div>
+                      </SelectContent>
+                    </Select>
+                    {/* Select Status */}
+                    <Select value={selectedStatus} onValueChange={setSelectedStatus}>
+                      <SelectTrigger className="w-[200px]">
+                        <SelectValue placeholder="Select Status" />
+                      </SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="0">All</SelectItem>
+                        <SelectItem value="true">Enabled</SelectItem>
+                        <SelectItem value="false">Disabled</SelectItem>
+                      </SelectContent>
+                    </Select>
+                    {/* Reset Button */}
+                    <Button onClick={() => handleReset()} >Clear</Button>
+                    {/* View all details */}
+                    <Button onClick={handleViewAllDetails} >View All Details</Button>
+                  </div>
+                  <div className="h-[60vh] flex flex-col">
+                    <div className="overflow-y-auto flex-1 border rounded-md">
+                      {/* Table */}
+                      <table className="table-auto w-full text-black">
+                        {/* Table Header */}
+                        <thead className="bg-white sticky top-0 z-10">
+                          <tr>
+                            <th className="w-1/12 px-2 py-2 text-left ">ID</th>
+                            <th className="w-3/12 px-2 py-2 text-left ">Name</th>
+                            <th className="w-2/12 px-2 py-2 text-left ">Unit Sale Price (SGD)</th>
+                            <th className="w-2/12 px-2 py-2 text-left ">Date of Creation</th>
+                            <th className="w-2/12 px-2 py-2 text-left ">Category</th>
+                            <th className="w-1/12 px-2 py-2 text-left ">Status</th>
+                            <th className="w-1/12 px-4 py-2 text-left ">Actions</th>
+                          </tr>
+                        </thead>
+                        {/* Table body */}
+                        <tbody>
+                          {dataLoading ? (
                             <tr>
                               <td colSpan="13" className="px-4 py-2 text-center text-gray-500 border border-gray-200">
-                                No products found.
+                                Loading...
                               </td>
                             </tr>
+                          ) : (
+                            <>
+                              {products.length > 0 ? (
+                                products.map((product, index) => (
+                                  <>
+                                    <tr key={`${product.id}-basic`}>
+                                      <td className="px-2 py-2 ">{product.id}</td>
+                                      <td className="px-2 py-2  break-words">{product.product_name}</td>
+                                      <td className="px-2 py-2 ">{product.product_unit_sale_price}</td>
+                                      <td className="px-2 py-2 ">
+                                        {new Date(product.created_at).toLocaleDateString()}
+                                      </td>
+                                      <td className="px-2 py-2 ">{product.product_category_name}</td>
+                                      {/* Enabled Row */}
+                                      <td className="px-2 py-2 ">
+                                        <Switch
+                                          checked={product.product_is_enabled}
+                                          onCheckedChange={() => handleSwitchChange(product)}
+                                          disabled={!isAdmin}
+                                        />
+                                      </td>
+                                      {/* Action Row */}
+                                      <td className="px-4 py-2 ">
+                                        <div className="flex space-x-2 space-y-1">
+                                          {isAdmin && (
+                                            <Button className="p-1 bg-green-600 text-white text-sm font-medium rounded-xl hover:bg-green-700" onClick={() => navigate(`/update-product/${product.id}`)}>
+                                              <FilePenLine className="inline-block mr-1" />
+                                            </Button>
+                                          )}
+                                          <Button className="px-2 py-1 bg-gray-600 text-white text-sm font-medium rounded-xl hover:bg-blue-700" onClick={() => navigate(`/view-product-sales-history/${product.id}`)}>
+                                            View Sales History
+                                          </Button>
+                                          <Button className="p-1 text-3xl text-black bg-transparent rounded-xl hover:bg-transparent hover:text-blue-700" onClick={() => toggleRow(index)}>
+                                            {expandedRows.includes(index) ? <ChevronUpCircle /> : <ChevronDownCircle />}
+                                          </Button>
+                                        </div>
+                                      </td>
+                                    </tr>
+
+                                    {expandedRows.includes(index) && (
+                                      <tr key={`${product.id}-details`} className="bg-gray-100">
+                                        <td colSpan="100%" className="px-4 py-2 ">
+                                          <div className="grid grid-cols-2 gap-4">
+                                            {/* More Details */}
+                                            <div>
+                                              <div>
+                                                <strong>Unit Cost Price (SGD):</strong> $ {product.product_unit_cost_price}
+                                              </div>
+                                              <div>
+                                                <strong>Description:</strong> {product.product_description ? product.product_description : 'No description available.'}
+                                              </div>
+                                            </div>
+                                            {/* Created and Updated details */}
+                                            <div>
+                                              <div>
+                                                <strong>Created By:</strong> {product.created_by}
+                                              </div>
+                                              <div>
+                                                <strong>Remarks:</strong> {product.product_remarks ? product.product_remarks : 'No remarks available.'}
+                                              </div>
+                                              <div>
+                                                <strong>Last Updated At:</strong> {new Date(product.updated_at).toLocaleDateString()}
+                                              </div>
+                                              <div>
+                                                <strong>Last Updated By:</strong> {product.updated_by}
+                                              </div>
+                                            </div>
+                                          </div>
+                                        </td>
+                                      </tr>
+                                    )}
+                                  </>
+                                ))
+                              ) : (
+                                <tr>
+                                  <td colSpan="13" className="px-4 py-2 text-center text-gray-500 border border-gray-200">
+                                    No products found.
+                                  </td>
+                                </tr>
+                              )}
+                            </>
                           )}
-                        </>
-                      )}
-                    </tbody>
-                  </table>
-                </div>
-                {/* Pagination */}
-                <div className="flex justify-between items-center mt-2 space-x-4 flex-shrink-0">
-                  <div className="flex items-center space-x-2">
-                    <label htmlFor="itemsPerPage" className="text-sm">Items per page:</label>
-                    <select
-                      id="itemsPerPage"
-                      value={itemsPerPage}
-                      onChange={(e) => {
-                        setItemsPerPage(Number(e.target.value));
-                        setCurrentPage(1);
-                      }
-                      }
-                      className="border rounded p-1"
-                    >
-                      {[5, 10, 20, 50, 100].map((num) => (
-                        <option key={num} value={num}>{num}</option>
-                      ))}
-                    </select>
-                  </div>
-                  {totalPages > 1 && (
-
-                    <div className="flex items-center space-x-2">
-                      <Button
-                        variant="outline"
-                        size="icon"
-                        disabled={currentPage === 1}
-                        onClick={() => setCurrentPage(1)}
-                      >
-                        <ChevronsLeft />
-                      </Button>
-                      <Button
-                        variant="outline"
-                        size="icon"
-                        disabled={currentPage === 1}
-                        onClick={() => setCurrentPage(currentPage - 1)}
-                      >
-                        <ChevronLeft />
-                      </Button>
-                      <span>Page {currentPage} of {totalPages}</span>
-                      <Button
-                        variant="outline"
-                        size="icon"
-                        disabled={currentPage === totalPages}
-                        onClick={() => setCurrentPage(currentPage + 1)}
-                      >
-                        <ChevronRight />
-                      </Button>
-                      <Button
-                        variant="outline"
-                        size="icon"
-                        disabled={currentPage === totalPages}
-                        onClick={() => setCurrentPage(totalPages)}
-                      >
-                        <ChevronsRight />
-                      </Button>
+                        </tbody>
+                      </table>
                     </div>
+                    {/* Pagination */}
+                    <div className="flex justify-between items-center mt-2 space-x-4 flex-shrink-0">
+                      <div className="flex items-center space-x-2">
+                        <label htmlFor="itemsPerPage" className="text-sm">Items per page:</label>
+                        <select
+                          id="itemsPerPage"
+                          value={itemsPerPage}
+                          onChange={(e) => {
+                            setItemsPerPage(Number(e.target.value));
+                            setCurrentPage(1);
+                          }
+                          }
+                          className="border rounded p-1"
+                        >
+                          {[5, 10, 20, 50, 100].map((num) => (
+                            <option key={num} value={num}>{num}</option>
+                          ))}
+                        </select>
+                      </div>
+                      {totalPages > 1 && (
 
-                  )}
-                </div>
-              </div>
+                        <div className="flex items-center space-x-2">
+                          <Button
+                            variant="outline"
+                            size="icon"
+                            disabled={currentPage === 1}
+                            onClick={() => setCurrentPage(1)}
+                          >
+                            <ChevronsLeft />
+                          </Button>
+                          <Button
+                            variant="outline"
+                            size="icon"
+                            disabled={currentPage === 1}
+                            onClick={() => setCurrentPage(currentPage - 1)}
+                          >
+                            <ChevronLeft />
+                          </Button>
+                          <span>Page {currentPage} of {totalPages}</span>
+                          <Button
+                            variant="outline"
+                            size="icon"
+                            disabled={currentPage === totalPages}
+                            onClick={() => setCurrentPage(currentPage + 1)}
+                          >
+                            <ChevronRight />
+                          </Button>
+                          <Button
+                            variant="outline"
+                            size="icon"
+                            disabled={currentPage === totalPages}
+                            onClick={() => setCurrentPage(totalPages)}
+                          >
+                            <ChevronsRight />
+                          </Button>
+                        </div>
+
+                      )}
+                    </div>
+                  </div>
+                </CardContent>
+              </Card>
             </div>
           </SidebarInset>
         </div>
