@@ -619,7 +619,7 @@ const processFullRefundTransaction = async (params: {
       // Use the first detail ID for this service type
       const detailId = serviceDetails[0].id;
       const serviceName = serviceDetails[0].service_name;
-      
+
       const quantity = serviceDetails.reduce((sum, s) => sum + s.quantity, 0);
       const description = `Refunded session(s) of ${serviceName}`;
 
@@ -760,7 +760,7 @@ const getRefundDetailsForPackage = async (packageId: number) => {
     ORDER BY st.created_at DESC
     LIMIT 1
   `;
-  
+
   const { rows } = await pool().query(query, [packageId]);
   return rows[0] || null;
 };
@@ -912,13 +912,15 @@ const getRefundDateByMcpId = async (mcpId: string) => {
 
 const processRefundMemberVoucher = async (body: {
   memberVoucherId: number;
-  refundedBy: number; // handled by
-  createdBy: number;  // logged-in user who created the refund
+  refundedBy: number;
+  createdBy: number;
   refundDate: string;
   remarks?: string;
   creditNoteNumber?: string;
+  refundAmount?: number; // partial or full refund amount
 }): Promise<{ refundTransactionId: number }> => {
   const client = await pool().connect();
+  console.log(body);
 
   try {
     await client.query('BEGIN');
@@ -932,61 +934,57 @@ const processRefundMemberVoucher = async (body: {
     const voucher = voucherRows[0];
     if (voucher.status === 'disabled') throw new Error('Voucher already disabled');
 
-    // fetch current balance from sale_transactions (total paid amount)
-
-    // 2. Get latest transaction log for current balance
+    // 2. Get all logs ordered by oldest first
     const { rows: logRows } = await client.query(
-      `SELECT current_balance FROM member_voucher_transaction_logs
-       WHERE member_voucher_id = $1
-       ORDER BY created_at DESC, id DESC
-       LIMIT 1`,
+      `SELECT type, amount_change, current_balance FROM member_voucher_transaction_logs
+       WHERE member_voucher_id = $1 ORDER BY id ASC`,
       [body.memberVoucherId]
     );
-    const previousBalance = parseFloat(logRows[0]?.current_balance || '0');
-    const freeOfCharge = parseFloat(voucher.free_of_charge || '0');
+    if (logRows.length === 0) throw new Error('No transaction logs found');
 
-    // 3. Get total actual payment made (exclude FOC)
-    const { rows: paymentRows } = await client.query(
-      `SELECT SUM(pts.amount)::float AS total_paid,
-              MIN(st.id) AS original_tx_id
-       FROM payment_to_sale_transactions pts
-       JOIN sale_transaction_items sti ON pts.sale_transaction_id = sti.sale_transaction_id
-       JOIN sale_transactions st ON st.id = sti.sale_transaction_id
-       WHERE sti.member_voucher_id = $1
-         AND pts.payment_method_id IN (1, 2, 3, 4)`,
-      [body.memberVoucherId]
-    );
+    // 3. Compute FOC added and whether already removed
+    let focAmount = 0;
+    for (const log of logRows) {
+      if (log.type === 'ADD FOC') {
+        focAmount += parseFloat(log.amount_change);
+      }
+    }
+    const focRemoved = logRows.some(log => log.type === 'REMOVE FOC');
 
-    const totalPaid = parseFloat(paymentRows[0]?.total_paid || '0');
-    const originalTxId = paymentRows[0].original_tx_id || null;
+    // 4. Get current balance
+    let currentBalance = parseFloat(logRows[logRows.length - 1].current_balance || '0');
+    if (currentBalance <= 0) throw new Error('Nothing refundable');
 
-    // 4. Get total consumed
-    const { rows: consumedRows } = await client.query(
-      `SELECT SUM(ABS(amount_change))::float AS total_consumed
-       FROM member_voucher_transaction_logs
-       WHERE member_voucher_id = $1 AND type = 'CONSUMPTION'`,
-      [body.memberVoucherId]
-    );
-    const totalConsumed = parseFloat(consumedRows[0]?.total_consumed || '0');
+    // 5. Calculate refundable amount
+    let refundableAmount = focRemoved ? currentBalance : currentBalance - focAmount;
+    if (refundableAmount <= 0) throw new Error('Nothing refundable after removing FOC');
 
-    // 5. Compute refundable amount
-    const paidUnconsumedAmount = totalPaid - totalConsumed;
-    if (paidUnconsumedAmount <= 0) throw new Error('Nothing refundable');
+    // 6. Use provided refund amount or default
+    const refundAmountRaw = body.refundAmount ?? refundableAmount;
+    const refundAmount = Math.round(refundAmountRaw * 100) / 100;
+    const refundableAmountRounded = Math.round(refundableAmount * 100) / 100;
 
-    const willRemoveFOC = totalPaid >= parseFloat(voucher.default_total_price);
-    const newBalanceAfterFOC = willRemoveFOC ? previousBalance - freeOfCharge : previousBalance;
-    const refundAmount = Math.min(newBalanceAfterFOC, paidUnconsumedAmount);
+    console.log("→ CurrentBalance:", currentBalance);
+    console.log("→ FOC Amount:", focAmount);
+    console.log("→ Refundable Amount:", refundableAmountRounded);
+    console.log("→ Passed Refund Amount:", refundAmount);
 
-    // 6. Update voucher
-    await client.query(
-      `UPDATE member_vouchers
-       SET current_balance = 0, status = 'disabled', last_updated_by = $1, updated_at = $3
-       WHERE id = $2`,
-      [body.createdBy, body.memberVoucherId, body.refundDate]
-    );
+    if (refundAmount <= 0) throw new Error('Refund amount must be positive');
+    if (refundAmount > refundableAmountRounded) throw new Error('Refund amount exceeds limit');
 
-    // 7. Log REMOVE FOC (optional)
-    if (willRemoveFOC && freeOfCharge > 0) {
+    // 7. Remove FOC only if not yet removed
+    if (focAmount > 0 && !focRemoved) {
+      const newBalanceAfterFOC = currentBalance - focAmount;
+
+      // Update voucher balance immediately
+      await client.query(
+        `UPDATE member_vouchers
+         SET current_balance = $1, last_updated_by = $2, updated_at = $3
+         WHERE id = $4`,
+        [newBalanceAfterFOC, body.createdBy, body.refundDate, body.memberVoucherId]
+      );
+
+      // Log FOC removal
       await client.query(
         `INSERT INTO member_voucher_transaction_logs (
           member_voucher_id, service_description, service_date,
@@ -997,34 +995,57 @@ const processRefundMemberVoucher = async (body: {
           body.memberVoucherId,
           body.refundDate,
           newBalanceAfterFOC,
-          -freeOfCharge,
-          body.refundedBy,  // handled_by = refundedBy
-          body.createdBy    // created_by = logged-in user
+          -focAmount,
+          body.refundedBy,
+          body.createdBy,
         ]
       );
+
+      currentBalance = newBalanceAfterFOC;
     }
-    // 8. Log REFUND
+
+    // 8. Recompute isFullRefund and newBalance
+    const isFullRefund = Math.abs(refundAmount - currentBalance) < 0.01;
+    const newBalance = isFullRefund ? 0 : currentBalance - refundAmount;
+
+    // 9. Update voucher balance
+    if (isFullRefund) {
+      await client.query(
+        `UPDATE member_vouchers
+         SET current_balance = 0, status = 'disabled', last_updated_by = $1, updated_at = $3
+         WHERE id = $2`,
+        [body.createdBy, body.memberVoucherId, body.refundDate]
+      );
+    } else {
+      await client.query(
+        `UPDATE member_vouchers
+         SET current_balance = $1, last_updated_by = $2, updated_at = $3
+         WHERE id = $4`,
+        [newBalance, body.createdBy, body.refundDate, body.memberVoucherId]
+      );
+    }
+
+    // 10. Log REFUND transaction
     await client.query(
       `INSERT INTO member_voucher_transaction_logs (
         member_voucher_id, service_description, service_date,
         current_balance, amount_change, serviced_by, type,
         created_by, last_updated_by, created_at, updated_at
-      ) VALUES ($1, 'REFUND', $2, 0, $3, $4, 'REFUND', $5, $5, $2, $2)`,
+      ) VALUES ($1, 'REFUND', $2, $3, $4, $5, 'REFUND', $6, $6, $2, $2)`,
       [
         body.memberVoucherId,
         body.refundDate,
+        newBalance,
         -refundAmount,
-        body.refundedBy,  // handled_by
-        body.createdBy    // created_by
+        body.refundedBy,
+        body.createdBy,
       ]
     );
 
-    const receiptNo = body.creditNoteNumber?.trim() ?? null;
+    // 11. Generate or use provided credit note number
+    const receiptNo = body.creditNoteNumber?.trim() || (await generateCreditNoteNumber(client));
 
-    //const dateStr = body.refundDate.slice(0, 10).replace(/-/g, '');
-    //const receiptNo = `R-MV-${body.memberVoucherId}-${dateStr}`;
-
-    // 9. Sale transaction (refund)
+    // 12. Insert sale transaction
     const { rows: txRows } = await client.query(
       `INSERT INTO sale_transactions (
         customer_type, member_id,
@@ -1033,22 +1054,21 @@ const processRefundMemberVoucher = async (body: {
         receipt_no, reference_sales_transaction_id,
         handled_by, created_by, created_at, updated_at
       )
-      VALUES ('MEMBER', $1, $2, 0, 'REFUND', $3, $4, $5, $6, $7, $8, $8)
+      VALUES ('MEMBER', $1, $2, 0, 'REFUND', $3, $4, NULL, $5, $6, $7, $7)
       RETURNING id`,
       [
         voucher.member_id,
         -refundAmount,
         body.remarks || `Refund for Member Voucher #${body.memberVoucherId}`,
         receiptNo,
-        originalTxId,
-        body.refundedBy, // handled_by = selected employee
-        body.createdBy,  // created_by = logged-in user
-        body.refundDate
+        body.refundedBy,
+        body.createdBy,
+        body.refundDate,
       ]
     );
     const refundTxId = txRows[0].id;
 
-    // 10. Sale transaction item
+    // 13. Insert sale transaction item
     await client.query(
       `INSERT INTO sale_transaction_items (
         sale_transaction_id, member_voucher_id,
@@ -1059,11 +1079,11 @@ const processRefundMemberVoucher = async (body: {
         refundTxId,
         body.memberVoucherId,
         body.remarks || `Refund for Member Voucher #${body.memberVoucherId}`,
-        -refundAmount
+        -refundAmount,
       ]
     );
 
-    // 11. Refund payment
+    // 14. Insert refund payment record
     await client.query(
       `INSERT INTO payment_to_sale_transactions (
         payment_method_id, sale_transaction_id, amount,
@@ -1075,13 +1095,12 @@ const processRefundMemberVoucher = async (body: {
         -refundAmount,
         body.remarks || `Refund for Member Voucher #${body.memberVoucherId}`,
         body.createdBy,
-        body.refundDate
+        body.refundDate,
       ]
     );
 
     await client.query('COMMIT');
     return { refundTransactionId: refundTxId };
-
   } catch (err) {
     await client.query('ROLLBACK');
     throw err;
@@ -1092,83 +1111,113 @@ const processRefundMemberVoucher = async (body: {
 
 
 
+
+// Generate a new credit note number based on the last one in the database
+// Format: CFS 001, CFS 002, etc.
+const generateCreditNoteNumber = async (client: any): Promise<string> => {
+  const prefix = 'CFS';
+
+  const { rows } = await client.query(`
+    SELECT receipt_no
+    FROM sale_transactions
+    WHERE receipt_no LIKE '${prefix} %'
+    ORDER BY id DESC
+    LIMIT 1
+  `);
+
+  if (rows.length === 0) return `${prefix} 001`;
+
+  const lastNumber = parseInt(rows[0].receipt_no.split(' ')[1] || '0', 10);
+  const newNumber = (lastNumber + 1).toString().padStart(3, '0');
+
+  return `${prefix} ${newNumber}`;
+};
+
+
+
+
+// Get eligible member vouchers for refund
 const getEligibleMemberVoucherForRefund = async (memberId: number) => {
   const client = await pool().connect();
 
   try {
+    // Get member info
     const memberResult = await client.query(
       `SELECT id, name, email, contact FROM members WHERE id = $1`,
       [memberId]
     );
     const member = memberResult.rows[0];
 
-    // Fetch all enabled vouchers with remaining balance
+    // Fetch all enabled vouchers (we'll check balance via logs)
     const { rows: vouchers } = await client.query(
       `SELECT * FROM member_vouchers
-            WHERE member_id = $1
-                AND status = 'is_enabled'
-                AND current_balance > 0
-            ORDER BY updated_at DESC`,
+       WHERE member_id = $1
+         AND status = 'is_enabled'
+       ORDER BY updated_at DESC`,
       [memberId]
     );
 
     const eligibleVouchers = await Promise.all(
       vouchers.map(async (voucher) => {
-        // Get total_paid_amount from latest transaction involving this voucher
-        const paidQuery = `
-          SELECT st.total_paid_amount
-          FROM sale_transactions st
-          JOIN sale_transaction_items sti ON st.id = sti.sale_transaction_id
-          WHERE sti.member_voucher_id = $1
-          ORDER BY sti.sale_transaction_id DESC
-          LIMIT 1;
-        `;
+        // Fetch all logs for this voucher
+        const { rows: logs } = await client.query(
+          `SELECT type, amount_change, current_balance, created_at
+           FROM member_voucher_transaction_logs
+           WHERE member_voucher_id = $1
+           ORDER BY id ASC`,
+          [voucher.id]
+        );
 
-        const { rows: paidRows } = await client.query(paidQuery, [voucher.id]);
+        if (logs.length === 0) return null;
 
-        if (paidRows.length === 0) return null; // No payment info
+        // Calculate total FOC added and removed
+        let totalAddFoc = 0;
+        let totalRemoveFoc = 0;
 
-        const totalPaid = parseFloat(paidRows[0].total_paid_amount || '0');
-
-        // Get consumption logs
-        const logsQuery = `
-          SELECT type, amount_change
-          FROM member_voucher_transaction_logs
-          WHERE member_voucher_id = $1
-        `;
-        const { rows: logs } = await client.query(logsQuery, [voucher.id]);
-
-        let totalConsumed = 0;
         for (const log of logs) {
-          const amount = parseFloat(log.amount_change);
-          if (log.type === 'CONSUMPTION') {
-            totalConsumed += Math.abs(amount);
+          const amt = parseFloat(log.amount_change);
+          if (log.type === 'ADD FOC') {
+            totalAddFoc += amt;
+          } else if (log.type === 'REMOVE FOC') {
+            totalRemoveFoc += Math.abs(amt); // handle negatives
           }
         }
 
-        // Skip if consumed >= paid
-        if (totalConsumed >= totalPaid) return null;
+        const focToExclude = Math.max(0, totalAddFoc - totalRemoveFoc);
+
+        // Get current balance from latest log
+        const latestLog = logs[logs.length - 1];
+        const latestBalance = parseFloat(latestLog.current_balance || '0');
+
+        if (latestBalance <= 0) return null;
+
+        const refundableAmount = Math.max(0, latestBalance - focToExclude);
+
+        if (refundableAmount <= 0) return null;
 
         return {
           ...voucher,
-          refundable_amount: Math.min(totalPaid - totalConsumed, parseFloat(voucher.current_balance)),
+          refundable_amount: refundableAmount,
         };
       })
     );
 
     return {
       member,
-      vouchers: eligibleVouchers.filter(Boolean) // Remove nulls
+      vouchers: eligibleVouchers.filter(Boolean),
     };
   } finally {
     client.release();
   }
 };
 
+
+
 const getMemberVoucherById = async (voucherId: number) => {
   const client = await pool().connect();
 
   try {
+    // Step 1: Get voucher
     const { rows: voucherRows } = await client.query(
       `SELECT * FROM member_vouchers WHERE id = $1`,
       [voucherId]
@@ -1177,27 +1226,23 @@ const getMemberVoucherById = async (voucherId: number) => {
     if (voucherRows.length === 0) return null;
     const voucher = voucherRows[0];
 
-    // Get the member info
+    // Step 2: Get member info
     const { rows: memberRows } = await client.query(
       `SELECT id, name, email, contact FROM members WHERE id = $1`,
       [voucher.member_id]
     );
-
     const member = memberRows[0] || null;
 
-    // Step 1: Get latest sale transaction outstanding amount for this voucher
-    const paidQuery = `
-      SELECT st.total_paid_amount
-      FROM sale_transactions st
-      JOIN sale_transaction_items sti ON st.id = sti.sale_transaction_id
-      WHERE sti.member_voucher_id = $1
-      ORDER BY sti.sale_transaction_id DESC
-      LIMIT 1;
-    `;
+    // Step 3: Get all transaction logs for this voucher
+    const { rows: logs } = await client.query(
+      `SELECT type, amount_change, current_balance, created_at
+       FROM member_voucher_transaction_logs
+       WHERE member_voucher_id = $1
+       ORDER BY id ASC`,
+      [voucher.id]
+    );
 
-    const { rows: paidRows } = await client.query(paidQuery, [voucher.id]);
-
-    if (paidRows.length === 0) {
+    if (logs.length === 0) {
       return {
         voucher: {
           ...voucher,
@@ -1207,29 +1252,29 @@ const getMemberVoucherById = async (voucherId: number) => {
       };
     }
 
-    const paidAmount = parseFloat(paidRows[0].total_paid_amount || '0');
+     // Step 4: Compute FOC amounts (safe method)
+    let totalAddFoc = 0;
+    let totalRemoveFoc = 0;
 
-    // Step 2: Get consumption logs
-    const logsQuery = `
-      SELECT type, amount_change
-      FROM member_voucher_transaction_logs
-      WHERE member_voucher_id = $1
-    `;
-    const { rows: logs } = await client.query(logsQuery, [voucher.id]);
-
-    let totalConsumed = 0;
     for (const log of logs) {
       const amount = parseFloat(log.amount_change);
-      if (log.type === 'CONSUMPTION') {
-        totalConsumed += Math.abs(amount);
+      if (log.type === 'ADD FOC') {
+        totalAddFoc += amount;
+      } else if (log.type === 'REMOVE FOC') {
+        totalRemoveFoc += Math.abs(amount); // handle negative removal entries
       }
     }
 
-    // Step 3: Calculate refundable_amount
-    const refundable_amount = Math.min(
-      paidAmount - totalConsumed,
-      parseFloat(voucher.current_balance)
-    );
+    const focAmountRemaining = totalAddFoc - totalRemoveFoc;
+    const focToExclude = focAmountRemaining > 0 ? focAmountRemaining : 0;
+
+    // Step 5: Get current balance
+    const latestLog = logs[logs.length - 1];
+    const currentBalance = parseFloat(latestLog.current_balance || '0');
+
+    // Step 6: Compute refundable amount
+    let refundable_amount = currentBalance - focToExclude;
+    if (refundable_amount < 0) refundable_amount = 0;
 
     return {
       voucher: {
@@ -1242,6 +1287,7 @@ const getMemberVoucherById = async (voucherId: number) => {
     client.release();
   }
 };
+
 
 interface RefundRecordsParams {
   page?: number;
@@ -1497,7 +1543,7 @@ const getRefundRecordDetails = async (refundId: number) => {
       JOIN member_care_packages mcp ON mcp.id = d.member_care_package_id
       WHERE d.member_care_package_id = ANY($1::int[])
       `;
-      
+
       const { rows: details } = await client.query(mcpDetailsQuery, [memberCarePackageIds]);
       memberCarePackageDetails = details;
 
@@ -1520,7 +1566,7 @@ const getRefundRecordDetails = async (refundId: number) => {
       WHERE l.member_care_package_details_id = ANY($1::int[])
       ORDER BY transaction_date ASC
       `;
-      
+
       const { rows: logs } = await client.query(mcpLogsQuery, [detailIds]);
       memberCarePackageLogs = logs;
     }
