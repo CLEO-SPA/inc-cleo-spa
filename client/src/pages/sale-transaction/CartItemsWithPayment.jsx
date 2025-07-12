@@ -205,7 +205,11 @@ const CartItemsWithPayment = ({
     if (!item) return;
 
     const pricing = getItemPricing(itemId);
-    const defaultPerfRate = 100;
+    const currentAssignments = itemEmployees[itemId] || [];
+
+    // Calculate performance rate based on number of employees
+    const totalEmployees = currentAssignments.length + 1; // +1 for the new employee
+    const defaultPerfRate = 100 / totalEmployees;
 
     console.log('commissionSettings:', commissionSettings);
     console.log('item type:', item.type);
@@ -234,8 +238,17 @@ const CartItemsWithPayment = ({
       remarks: ''
     };
 
-    const currentAssignments = itemEmployees[itemId] || [];
-    onEmployeeChange(itemId, [...currentAssignments, newAssignment]);
+    // Update existing assignments to have equal performance rates
+    const updatedExistingAssignments = currentAssignments.map(assignment => {
+      const updatedAssignment = { ...assignment, performanceRate: defaultPerfRate };
+      const perfAmt = (pricing.totalLinePrice * defaultPerfRate) / 100;
+      updatedAssignment.performanceAmount = perfAmt;
+      const commRate = parseFloat(assignment.commissionRate) || 0;
+      updatedAssignment.commissionAmount = (perfAmt * commRate) / 100;
+      return updatedAssignment;
+    });
+
+    onEmployeeChange(itemId, [...updatedExistingAssignments, newAssignment]);
 
     // Clear temp selection
     setTempEmployeeSelections(prev => ({
@@ -255,7 +268,22 @@ const CartItemsWithPayment = ({
         return entry.toString() !== assignmentId;
       });
     }
-    // if it was a single primitive value, removing yields empty array
+
+    // After removing, redistribute performance rates equally among remaining employees
+    if (updatedAssignments.length > 0) {
+      const pricing = getItemPricing(itemId);
+      const equalRate = 100 / updatedAssignments.length;
+
+      updatedAssignments = updatedAssignments.map(assignment => {
+        const updatedAssignment = { ...assignment, performanceRate: equalRate };
+        const perfAmt = (pricing.totalLinePrice * equalRate) / 100;
+        updatedAssignment.performanceAmount = perfAmt;
+        const commRate = parseFloat(assignment.commissionRate) || 0;
+        updatedAssignment.commissionAmount = (perfAmt * commRate) / 100;
+        return updatedAssignment;
+      });
+    }
+
     onEmployeeChange(itemId, updatedAssignments);
   };
 
@@ -292,27 +320,52 @@ const CartItemsWithPayment = ({
       }
       return assignment;
     });
+
+    // If performance rate was updated, adjust other employees' rates
+    if (field === 'performanceRate') {
+      const updatedEmployee = updatedAssignments.find(a => a.id === assignmentId);
+      const otherEmployees = updatedAssignments.filter(a => a.id !== assignmentId);
+
+      if (updatedEmployee && otherEmployees.length > 0) {
+        const remainingRate = 100 - updatedEmployee.performanceRate;
+        const ratePerOtherEmployee = remainingRate / otherEmployees.length;
+
+        // Update other employees' rates
+        const finalAssignments = updatedAssignments.map(assignment => {
+          if (assignment.id !== assignmentId) {
+            const pricing = getItemPricing(itemId);
+            const updatedAssignment = { ...assignment, performanceRate: ratePerOtherEmployee };
+            const perfAmt = (pricing.totalLinePrice * ratePerOtherEmployee) / 100;
+            updatedAssignment.performanceAmount = perfAmt;
+            const commRate = parseFloat(assignment.commissionRate) || 0;
+            updatedAssignment.commissionAmount = (perfAmt * commRate) / 100;
+            return updatedAssignment;
+          }
+          return assignment;
+        });
+
+        onEmployeeChange(itemId, finalAssignments);
+        return;
+      }
+    }
+
     onEmployeeChange(itemId, updatedAssignments);
   };
 
-  // Normalize stored assignments into full objects (only once)
   const normalizeAssignments = (itemId) => {
     const raw = itemEmployees[itemId] || [];
-
     // Check if we need to normalize (if any entry is primitive)
     const needsNormalization = raw.some(entry => typeof entry === 'string' || typeof entry === 'number');
-
     if (!needsNormalization) {
       return raw; // Already normalized
     }
-
     // Normalize and update the store
     const normalized = raw.map(entry => {
       if (typeof entry === 'string' || typeof entry === 'number') {
         const empId = entry.toString();
         const emp = employees.find(e => e.id === empId);
         const pricing = getItemPricing(itemId);
-        const perfRate = 100;
+        const perfRate = 100 / raw.length; // Distribute equally among all employees
         const perfAmt = (pricing.totalLinePrice * perfRate) / 100;
         const commRateRaw = commissionSettings?.[cartItems.find(i => i.id === itemId)?.type === 'member-voucher'
           ? 'member-voucher' : cartItems.find(i => i.id === itemId)?.type]
@@ -333,13 +386,10 @@ const CartItemsWithPayment = ({
       }
       return entry;
     });
-
     // Update the store with normalized data
     onEmployeeChange(itemId, normalized);
-
     return normalized;
   };
-
 
   // Add payment method to section
   const addPaymentMethod = (sectionId, methodId) => {
