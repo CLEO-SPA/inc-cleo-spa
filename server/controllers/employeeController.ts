@@ -1,10 +1,8 @@
 import { Request, Response, NextFunction } from 'express';
 import model from '../models/employeeModel.js';
 import validator from 'validator';
-import crypto from 'crypto';
-import jwt from 'jsonwebtoken';
 import 'dotenv/config';
-import bcrypt from 'bcryptjs';
+
 
 
 const createEmployee = async (req: Request, res: Response, next: NextFunction): Promise<void> => {
