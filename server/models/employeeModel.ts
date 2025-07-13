@@ -1,5 +1,5 @@
 import { pool } from '../config/database.js';
-import { Employees, Positions } from '../types/model.types.js';
+import { CreateEmployeeData, UpdateEmployeeData } from '../types/employee.types.js';
 import validator from 'validator';
 
 export interface Employee {
@@ -192,37 +192,30 @@ const getAllEmployees = async (
 };
 
 
-interface NewEmployeeData {
-  email: string;
-  password_hash: string;
-  phone: string;
-  role_name: string;
-  employee_code: string;
-  employee_name: string;
-  employee_is_active: boolean;
-  position_ids: string[];
-  created_at?: string;
-  updated_at?: string;
-}
 
-const createEmployeeModel = async (data: NewEmployeeData) => {
+const createEmployeeModel = async (data: CreateEmployeeData) => {
   const client = await pool().connect();
   try {
     await client.query('BEGIN');
 
     const employeeQuery = `
       INSERT INTO employees (
-        employee_code, employee_name, employee_email, 
-        employee_contact, employee_is_active, created_at, updated_at, verified_status_id
+        employee_code,
+        employee_name,
+        employee_email,
+        employee_contact,
+        employee_is_active,
+        created_at,
+        updated_at
       )
-      VALUES ($1, $2, $3, $4, $5, $6, $7, $8, (SELECT get_or_create_status('UnVerified')))
+      VALUES ($1, $2, $3, $4, $5, $6, $7)
       RETURNING id
     `;
     const employeeResult = await client.query(employeeQuery, [
       data.employee_code,
       data.employee_name,
-      data.email,
-      data.phone,
+      data.employee_email ?? null,
+      data.employee_contact ?? null,
       data.employee_is_active,
       data.created_at,
       data.updated_at,
@@ -231,12 +224,11 @@ const createEmployeeModel = async (data: NewEmployeeData) => {
 
     if (data.position_ids && data.position_ids.length > 0) {
       const positionInsertQuery = `
-      INSERT INTO employee_to_position (employee_id, position_id, created_at, updated_at)
-      SELECT $1, unnested_position_id, $2, $3
-      FROM unnest($4::bigint[]) AS unnested_position_id
-    `;
+        INSERT INTO employee_to_position (employee_id, position_id, created_at, updated_at)
+        SELECT $1, unnested_position_id, $2, $3
+        FROM unnest($4::bigint[]) AS unnested_position_id
+      `;
       const params = [employeeId, data.created_at, data.updated_at, data.position_ids];
-
       await client.query(positionInsertQuery, params);
     }
 
@@ -244,8 +236,8 @@ const createEmployeeModel = async (data: NewEmployeeData) => {
     return { employeeId };
   } catch (error) {
     await client.query('ROLLBACK');
-    console.error('Error creating employee with auth:', error);
-    throw new Error('Failed to create employee with auth');
+    console.error('Error creating employee:', error);
+    throw new Error('Failed to create employee');
   } finally {
     client.release();
   }
@@ -549,26 +541,7 @@ const getAllRolesForDropdown = async () => {
 //   return emp;
 // };
 
-export interface UpdateEmployeeData {
-  /* PK of the employees row to update */
-  employee_id: number;
 
-  /* user_auth-level */
-  email?: string; // becomes ua.email
-  phone?: string; // becomes ua.phone
-
-  /* employees-level */
-  employee_name?: string;
-  employee_code?: string;
-  employee_contact?: string; // same as phone but stored again in employees
-  employee_is_active?: boolean;
-
-  /* many-to-many */
-  position_ids?: string[]; // full replacement if supplied
-
-  /* timestamp */
-  updated_at?: string; // ISO string – supply in controller
-}
 
 /* --------------------------------------------------------------------------
  * Robust UPDATE of employee + auth + positions
@@ -586,38 +559,39 @@ const updateEmployee = async (data: UpdateEmployeeData) => {
   try {
     await client.query('BEGIN');
 
-    /* -------------------------------------------------- 0. timestamp */
-    const customTs = validateTimestamp(data.updated_at) ? data.updated_at : null;
+    const customTs = validateTimestamp(data.updated_at) ? data.updated_at : new Date().toISOString();
 
-    /* -------------------------------------------------- 1. fetch current */
-    const curSql = `
-      SELECT e.id              AS employee_id,
-             e.employee_code,
-             e.employee_contact,
-             ua.id             AS user_auth_id,
-             ua.email,
-             ua.phone
-        FROM employees   e
-        JOIN user_auth   ua ON ua.id = e.user_auth_id
-       WHERE e.id = $1
-       LIMIT 1`;
+    /* 1. Fetch current employee */
     const {
-      rows: [cur],
-    } = await client.query(curSql, [data.employee_id]);
+      rows: [existing],
+    } = await client.query(
+      `SELECT id, employee_email, employee_contact, employee_code
+         FROM employees
+        WHERE id = $1
+        LIMIT 1`,
+      [data.employee_id]
+    );
 
-    if (!cur) throw new Error(`Employee ${data.employee_id} not found`);
+    if (!existing) throw new Error(`Employee ${data.employee_id} not found`);
 
-    /* -------------------------------------------------- 2. duplicates (email / phone / code) */
-    if (data.email && data.email !== cur.email) {
-      const { rowCount } = await client.query(`SELECT 1 FROM user_auth WHERE email = $1`, [data.email]);
+    /* 2. Check for duplicates */
+    if (data.employee_email && data.employee_email !== existing.employee_email) {
+      const { rowCount } = await client.query(`SELECT 1 FROM employees WHERE employee_email = $1 AND id <> $2`, [
+        data.employee_email,
+        data.employee_id,
+      ]);
       if (rowCount) throw new Error('E-mail already in use');
     }
 
-    if (data.phone && data.phone !== cur.employee_contact) {
-      const { rowCount } = await client.query(`SELECT 1 FROM user_auth WHERE phone = $1`, [data.phone]);
+    if (data.employee_contact && data.employee_contact !== existing.employee_contact) {
+      const { rowCount } = await client.query(`SELECT 1 FROM employees WHERE employee_contact = $1 AND id <> $2`, [
+        data.employee_contact,
+        data.employee_id,
+      ]);
       if (rowCount) throw new Error('Contact number already in use');
     }
-    if (data.employee_code && data.employee_code !== cur.employee_code) {
+
+    if (data.employee_code && data.employee_code !== existing.employee_code) {
       const { rowCount } = await client.query(`SELECT 1 FROM employees WHERE employee_code = $1 AND id <> $2`, [
         data.employee_code,
         data.employee_id,
@@ -625,110 +599,63 @@ const updateEmployee = async (data: UpdateEmployeeData) => {
       if (rowCount) throw new Error('Employee code already in use');
     }
 
-    /* -------------------------------------------------- 3. user_auth update */
-    const uaSets: string[] = [];
-    const uaParams: any[] = [];
-    let p = 1;
+    /* 3. Update employees table */
+    const fields: string[] = [];
+    const values: any[] = [];
+    let i = 1;
 
-    if (data.email) {
-      uaSets.push(`email = $${p}`);
-      uaParams.push(data.email);
-      p++;
-    }
-    if (data.phone) {
-      uaSets.push(`phone = $${p}`);
-      uaParams.push(data.phone);
-      p++;
-    }
-    if (uaSets.length) {
-      // updated_at (custom or NOW)
-      if (customTs) {
-        uaSets.push(`updated_at = $${p}`);
-        uaParams.push(customTs);
-        p++;
-      } else {
-        uaSets.push(`updated_at = NOW()`);
-      }
-
-      uaParams.push(cur.user_auth_id); // last param = WHERE id
-      await client.query(`UPDATE user_auth SET ${uaSets.join(', ')} WHERE id = $${p}`, uaParams);
+    if (data.employee_email !== undefined) {
+      fields.push(`employee_email = $${i}`);
+      values.push(data.employee_email);
+      i++;
     }
 
-    /* >>> If e-mail changed: mark employee unverified + inactive */
-    const emailChanged = !!(data.email && data.email !== cur.email);
-    if (emailChanged) {
-      await client.query(
-        `UPDATE employees
-            SET verified_status_id = 18,        -- Unverified
-                employee_is_active = false,
-                updated_at = ${customTs ? ' $2::timestamptz ' : ' NOW() '}
-          WHERE id = $1`,
-        customTs ? [data.employee_id, customTs] : [data.employee_id]
-      );
-    }
-
-    /* -------------------------------------------------- 4. employees update */
-    const eSets: string[] = [];
-    const eParams: any[] = [];
-    p = 1;
-
-    if (data.email !== undefined) {
-      eSets.push(`employee_email = $${p}`);
-      eParams.push(data.email);
-      p++;
-    }
     if (data.employee_name !== undefined) {
-      eSets.push(`employee_name = $${p}`);
-      eParams.push(data.employee_name);
-      p++;
+      fields.push(`employee_name = $${i}`);
+      values.push(data.employee_name);
+      i++;
     }
-    if (data.employee_code !== undefined) {
-      eSets.push(`employee_code = $${p}`);
-      eParams.push(data.employee_code);
-      p++;
-    }
+
     if (data.employee_contact !== undefined) {
-      eSets.push(`employee_contact = $${p}`);
-      eParams.push(data.employee_contact);
-      p++;
+      fields.push(`employee_contact = $${i}`);
+      values.push(data.employee_contact);
+      i++;
     }
+
+    if (data.employee_code !== undefined) {
+      fields.push(`employee_code = $${i}`);
+      values.push(data.employee_code);
+      i++;
+    }
+
     if (data.employee_is_active !== undefined) {
-      eSets.push(`employee_is_active = $${p}`);
-      eParams.push(data.employee_is_active);
-      p++;
+      fields.push(`employee_is_active = $${i}`);
+      values.push(data.employee_is_active);
+      i++;
     }
 
-    // updated_at
-    if (customTs) {
-      eSets.push(`updated_at = $${p}`);
-      eParams.push(customTs);
-      p++;
-    } else {
-      eSets.push(`updated_at = NOW()`);
-    }
+    fields.push(`updated_at = $${i}`);
+    values.push(customTs);
+    i++;
 
-    eParams.push(data.employee_id);
-    await client.query(`UPDATE employees SET ${eSets.join(', ')} WHERE id = $${p}`, eParams);
+    values.push(data.employee_id);
+    await client.query(`UPDATE employees SET ${fields.join(', ')} WHERE id = $${i}`, values);
 
-    /* -------------------------------------------------- 5. positions (full replace) */
+    /* 4. Replace positions */
     if (Array.isArray(data.position_ids)) {
       await client.query(`DELETE FROM employee_to_position WHERE employee_id = $1`, [data.employee_id]);
 
-      if (data.position_ids.length) {
+      if (data.position_ids.length > 0) {
         await client.query(
           `INSERT INTO employee_to_position (employee_id, position_id, created_at, updated_at)
-           SELECT $1, pid,
-                  ${customTs ? '$2::timestamptz' : 'NOW()'},
-                  ${customTs ? '$2::timestamptz' : 'NOW()'}
-             FROM unnest($${customTs ? 3 : 2}::bigint[]) pid`,
-          customTs ? [data.employee_id, customTs, data.position_ids] : [data.employee_id, data.position_ids]
+           SELECT $1, pid, $2, $2 FROM unnest($3::bigint[]) pid`,
+          [data.employee_id, customTs, data.position_ids]
         );
       }
     }
 
-    /* -------------------------------------------------- 6. commit */
     await client.query('COMMIT');
-    return { success: true, emailChanged };
+    return { success: true };
   } catch (err) {
     await client.query('ROLLBACK');
     console.error('updateEmployee error:', err);
@@ -737,6 +664,7 @@ const updateEmployee = async (data: UpdateEmployeeData) => {
     client.release();
   }
 };
+
 export default {
   checkEmployeeCodeExists,
   checkEmployeePhoneExists,
@@ -749,7 +677,6 @@ export default {
   getAllRolesForDropdown,
   getEmployeeById,
   updateEmployee,
-  // getOnlyEmployeeById,
   getAllActivePositions,
   employeeExists,
   getEmployeeNameByEmployeeById,

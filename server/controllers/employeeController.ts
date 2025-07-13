@@ -6,35 +6,37 @@ import jwt from 'jsonwebtoken';
 import 'dotenv/config';
 import bcrypt from 'bcryptjs';
 
+
 const createEmployee = async (req: Request, res: Response, next: NextFunction): Promise<void> => {
   try {
-    /* -------------------------------------------------------------------- *
-     * 1.  Trim inputs so "   " → ""  (prevents sneaky whitespace values)   *
-     * -------------------------------------------------------------------- */
     const {
       employee_email = '',
       employee_name = '',
       employee_contact = '',
       employee_code = '',
-      role_name = '',
-      position_ids,
-      created_at,
-      updated_at,
+      position_ids = [],
+      employee_is_active = true,
+      created_at = '',
+      updated_at = ''
     } = req.body;
 
     const email = employee_email.trim();
     const name = employee_name.trim();
     const contact = employee_contact.trim();
-    const code = String(employee_code).trim(); // cope with numeric codes
-    const role = role_name.trim();
+    const code = String(employee_code).trim();
 
-    /* -------------------------------------------------------------------- *
-     * 2.  Required-field & format checks                                   *
-     * -------------------------------------------------------------------- */
-    const missing = !email || !name || !contact || !code || !role;
+    // Validate timestamps
+    if (
+      !validator.isISO8601(created_at, { strict: true, strictSeparator: true }) ||
+      !validator.isISO8601(updated_at, { strict: true, strictSeparator: true })
+    ) {
+      res.status(400).json({ message: 'created_at and updated_at must be valid ISO strings.' });
+      return;
+    }
 
-    if (missing) {
-      res.status(400).json({ message: 'All required fields must be non-blank.' });
+    // Required field validation
+    if (!email || !name || !code) {
+      res.status(400).json({ message: 'Required fields cannot be blank.' });
       return;
     }
 
@@ -43,70 +45,56 @@ const createEmployee = async (req: Request, res: Response, next: NextFunction): 
       return;
     }
 
-    // (Optional) strict phone test; tweak locale list as needed
     if (!validator.isMobilePhone(contact, 'any', { strictMode: false })) {
-      res.status(400).json({ message: 'Invalid contact number format.' });
+      res.status(400).json({ message: 'Invalid phone number format.' });
       return;
     }
 
-    /* -------------------------------------------------------------------- *
-     * 3.  Uniqueness checks                                                *
-     * -------------------------------------------------------------------- */
-    // if (await model.getAuthUser(email)) {
-    //   res.status(409).json({ message: 'User with this email already exists.' });
-    //   return;
-    // }
+    // Check uniqueness
+    const [emailExists, phoneExists, codeExists] = await Promise.all([
+      model.checkEmployeeEmailExists(email),
+      model.checkEmployeePhoneExists(contact),
+      model.checkEmployeeCodeExists(code),
+    ]);
 
-    if (await model.checkEmployeeEmailExists(email)) {
-      res.status(409).json({ message: 'Employee email already in use.' });
+    if (emailExists) {
+      res.status(400).json({ message: 'E-mail already in use.' });
       return;
     }
 
-    if (await model.checkEmployeeCodeExists(code)) {
-      res.status(409).json({ message: 'Employee code already in use.' });
+    if (phoneExists) {
+      res.status(400).json({ message: 'Phone number already in use.' });
       return;
     }
 
-    if (await model.checkEmployeePhoneExists(contact)) {
-      res.status(409).json({ message: 'Employee contact already in use.' });
+    if (codeExists) {
+      res.status(400).json({ message: 'Employee code already in use.' });
       return;
     }
 
-    /* -------------------------------------------------------------------- *
-     * 4.  Create user + employee                                           *
-     * -------------------------------------------------------------------- */
-    const defaultPassword = crypto.randomBytes(8).toString('hex');
-    const password_hash = await bcrypt.hash(defaultPassword, 10);
-
-    const results = await model.createEmployeeModel({
-      email,
-      password_hash,
-      phone: contact,
-      role_name: role,
+    // Create employee
+    const result = await model.createEmployeeModel({
       employee_code: code,
       employee_name: name,
-      employee_is_active: false,
+      employee_email: email,
+      employee_contact: contact,
+      employee_is_active,
       position_ids,
       created_at,
       updated_at,
     });
 
-    /* -------------------------------------------------------------------- *
-     * 5.  Send invite link                                                 *
-     * -------------------------------------------------------------------- */
-    const token = jwt.sign({ email }, process.env.INV_JWT_SECRET as string, { expiresIn: '3d' });
-    const resetUrl = `${process.env.LOCAL_FRONTEND_URL}/reset-password?token=${token}`;
-
     res.status(201).json({
-      message: 'Employee created successfully. Send the link below so they can set a password.',
-      resetUrl,
-      results,
+      message: 'Employee created successfully',
+      employeeId: result.employeeId,
     });
   } catch (error) {
-    console.error('Error in createAndInviteEmployee:', error);
+    console.error('Error creating employee:', error);
     next(error);
   }
 };
+
+
 
 const getAllEmployees = async (req: Request, res: Response, next: NextFunction): Promise<void> => {
   const page = parseInt(req.query.page as string) || 1;
@@ -330,16 +318,16 @@ const getAllRolesForDropdown = async (req: Request, res: Response, next: NextFun
  * PUT /employees/:id
  * Robust update (auth, employee row, positions)
  * ------------------------------------------------------------------------ */
-export const updateEmployee = async (req: Request, res: Response, next: NextFunction): Promise<void> => {
+const updateEmployee = async (req: Request, res: Response, next: NextFunction): Promise<void> => {
   try {
-    /* ------------------------------------------------- 0. URL param */
+    // 0. Validate and extract employee ID from URL param
     const employee_id = Number(req.params.id);
     if (!employee_id || Number.isNaN(employee_id)) {
       res.status(400).json({ message: 'Invalid employee ID.' });
       return;
     }
 
-    /* ------------------------------------------------- 1. Body sanitise */
+    // 1. Extract and trim body inputs
     const {
       employee_email,
       employee_name,
@@ -347,65 +335,52 @@ export const updateEmployee = async (req: Request, res: Response, next: NextFunc
       employee_code,
       employee_is_active,
       position_ids,
-      updated_at, // ← optional ISO string from client
+      updated_at, // ISO string from client
     } = req.body as {
       employee_email?: string;
       employee_name?: string;
       employee_contact?: string;
       employee_code?: string | number;
       employee_is_active?: boolean;
-      position_ids?: string[];
+      position_ids?: number[];
       updated_at?: string;
     };
 
-    const sanitizedTs = validator.isISO8601(updated_at ?? '', {
+    const sanitizedUpdatedAt = validator.isISO8601(updated_at ?? '', {
       strict: true,
       strictSeparator: true,
     })
       ? updated_at
-      : undefined;
+      : new Date().toISOString(); // fallback if invalid or empty
 
-    const payload = {
-      employee_id,
-      email: employee_email?.trim(),
-      phone: employee_contact?.trim(),
-      employee_contact: employee_contact?.trim(),
-      employee_name: employee_name?.trim(),
-      employee_code: employee_code !== undefined ? String(employee_code).trim() : undefined,
-      employee_is_active,
-      position_ids,
-      updated_at: sanitizedTs ?? new Date().toISOString(), // fallback
-    };
-
-    /* ------------------------------------------------- 2. Quick format checks */
-    if (payload.email && !validator.isEmail(payload.email)) {
+    // 2. Format checks
+    if (employee_email && !validator.isEmail(employee_email)) {
       res.status(400).json({ message: 'Invalid email format.' });
       return;
     }
-    if (payload.phone && !validator.isMobilePhone(payload.phone, 'any')) {
+
+    if (employee_contact && !validator.isMobilePhone(employee_contact, 'any')) {
       res.status(400).json({ message: 'Invalid contact number format.' });
       return;
     }
 
-    /* ------------------------------------------------- 3. Update via model */
-    const { emailChanged } = await model.updateEmployee(payload);
+    // 3. Build payload and send to model
+    const payload = {
+      employee_id,
+      employee_email: employee_email?.trim(),
+      employee_name: employee_name?.trim(),
+      employee_contact: employee_contact?.trim(),
+      employee_code: employee_code !== undefined ? String(employee_code).trim() : undefined,
+      employee_is_active,
+      position_ids,
+      updated_at: sanitizedUpdatedAt,
+    };
 
-    /* ------------------------------------------------- 4. Optional invite link regeneration */
-    let newInviteUrl: string | undefined;
-    if (emailChanged && payload.email) {
-      // update touched-at timestamp so “recently updated” filters pick it up
-
-      const token = jwt.sign({ email: payload.email }, process.env.INV_JWT_SECRET as string, { expiresIn: '3d' });
-
-      newInviteUrl = `${process.env.LOCAL_FRONTEND_URL}/reset-password?token=${token}`;
-    }
-
-    /* ------------------------------------------------- 5. Fetch & send response */
+    await model.updateEmployee(payload);
     const updated = await model.getEmployeeById(employee_id);
 
     res.status(200).json({
       message: 'Employee updated.',
-      ...(newInviteUrl ? { newInviteUrl } : {}),
       data: updated,
     });
   } catch (err) {
