@@ -99,7 +99,7 @@ const getAuthUser = async (req: Request, res: Response, next: NextFunction): Pro
       return;
     }
 
-    // Check if the employee exists
+    // Check if the user exists
     const user = await model.getAuthUser(username);
     if (!user) {
       res.status(404).json({ message: 'Employee not found' });
@@ -114,6 +114,123 @@ const getAuthUser = async (req: Request, res: Response, next: NextFunction): Pro
     next();
   } catch (error) {
     next(error);
+  }
+};
+
+const createAndInviteUser = async (
+  req: Request,
+  res: Response,
+  next: NextFunction
+): Promise<void> => {
+  try {
+    const {
+      email = '',
+      role_name = '',
+      created_at,
+      updated_at,
+    } = req.body;
+
+    const trimmedEmail = email.trim();
+    const role         = role_name.trim();
+
+    if (!trimmedEmail || !role) {
+      res.status(400).json({ message: 'email and role_name are required.' });
+      return;
+    }
+
+    if (!validator.isEmail(trimmedEmail)) {
+      res.status(400).json({ message: 'Invalid email format.' });
+      return;
+    }
+
+    if (await model.getAuthUser(trimmedEmail)) {
+      res.status(409).json({ message: 'User with this email already exists.' });
+      return;
+    }
+
+    const tempPassword  = crypto.randomBytes(8).toString('hex');
+    const password_hash = await bcrypt.hash(tempPassword, 10);
+
+    const { userAuthId } = await model.createUserAuth({
+      email: trimmedEmail,
+      password_hash,
+      role_name: role,
+      created_at,
+      updated_at,
+    });
+
+    const token    = jwt.sign({ email: trimmedEmail }, process.env.INV_JWT_SECRET as string, { expiresIn: '3d' });
+    const resetUrl = `${process.env.LOCAL_FRONTEND_URL}/reset-password?token=${token}`;
+
+    res.status(201).json({
+      message: 'User created. Send the link below so they can set a password.',
+      resetUrl,
+      userAuthId,
+    });
+  } catch (err) {
+    console.error('Error in createAndInviteUser:', err);
+    next(err);
+  }
+};
+
+/** POST /api/employees */
+const createEmployee = async (
+  req: Request,
+  res: Response,
+  next: NextFunction
+): Promise<void> => {
+  try {
+    const {
+      user_auth_id,
+      employee_code    = '',
+      employee_name    = '',
+      employee_email   = '',
+      employee_contact = '',
+      employee_is_active = true,
+      position_ids     = [],
+      created_at,
+      updated_at,
+    } = req.body;
+
+    /* ---------- validation ---------- */
+    if (!user_auth_id || !employee_code || !employee_name || !employee_email || !employee_contact) {
+      res.status(400).json({ message: 'user_auth_id, employee_code, employee_name, employee_email and employee_contact are required.' });
+      return;
+    }
+    if (!validator.isEmail(employee_email)) {
+      res.status(400).json({ message: 'Invalid email format.' });
+      return;
+    }
+    if (!validator.isMobilePhone(employee_contact, 'any', { strictMode: false })) {
+      res.status(400).json({ message: 'Invalid contact number format.' });
+      return;
+    }
+
+    /* ---------- uniqueness ---------- */
+    if (await model.checkEmployeeEmailExists(employee_email))   { res.status(409).json({ message: 'Employee email already in use.'   }); return; }
+    if (await model.checkEmployeeCodeExists(employee_code))     { res.status(409).json({ message: 'Employee code already in use.'    }); return; }
+    if (await model.checkEmployeePhoneExists(employee_contact)) { res.status(409).json({ message: 'Employee contact already in use.' }); return; }
+
+    /* ---------- create employee ---------- */
+    const { employeeId } = await model.createEmployee({
+      user_auth_id,
+      employee_code,
+      employee_name,
+      employee_email,
+      employee_contact,
+      employee_is_active,
+      position_ids,
+      created_at,
+      updated_at,
+    });
+
+    res.status(201).json({
+      message: 'Employee profile created.',
+      employeeId,
+    });
+  } catch (err) {
+    console.error('Error in createEmployee:', err);
+    next(err);
   }
 };
 
@@ -664,5 +781,7 @@ export default {
   getEmployeeById,
   getAllActivePositions,
   getEmployeeNameByEmployeeId,
+  createAndInviteUser,
+  createEmployee,
   // getOnlyEmployeeById
 };

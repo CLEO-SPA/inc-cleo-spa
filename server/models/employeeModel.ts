@@ -242,13 +242,9 @@ const getUserData = async (identity: string | number) => {
         ua.phone,
         ua.password,
         r.role_name,
-        e.employee_name,
-        m.name AS member_name
       FROM user_auth ua
       INNER JOIN user_to_role utr ON ua.id = utr.user_auth_id
       INNER JOIN roles r ON utr.role_id = r.id
-      LEFT JOIN employees e ON ua.id = e.user_auth_id
-      LEFT JOIN members m ON ua.id = m.user_auth_id
       WHERE ua.phone = $1 OR ua.email = $1
       `;
     const values = [identity];
@@ -269,91 +265,125 @@ const getUserData = async (identity: string | number) => {
   }
 };
 
-interface NewEmployeeData {
+/** Data needed to create a generic authenticated user */
+export interface NewUserData {
   email: string;
   password_hash: string;
-  phone: string;
   role_name: string;
-  employee_code: string;
-  employee_name: string;
-  employee_is_active: boolean;
-  position_ids: string[];
   created_at?: string;
   updated_at?: string;
 }
 
-const createAuthAndEmployee = async (data: NewEmployeeData) => {
+/** Data needed to create an employee profile for an existing user */
+export interface NewEmployeeData {
+  user_auth_id: number;        // returned by createUserAuth
+  employee_code: string;
+  employee_name: string;
+  employee_email: string;
+  employee_contact: string;
+  employee_is_active: boolean;
+  position_ids: string[];      // can be empty
+  created_at?: string;
+  updated_at?: string;
+}
+
+export const createUserAuth = async (data: NewUserData) => {
   const client = await pool().connect();
   try {
     await client.query('BEGIN');
 
-    const roleResult = await client.query('SELECT get_or_create_roles($1) as id;', [data.role_name]);
-    if (roleResult.rows.length === 0) {
-      throw new Error(`Role '${data.role_name}' not found.`);
-    }
-    const roleId = roleResult.rows[0].id;
+    // 1. Resolve or create role
+    const { rows } = await client.query(
+      'SELECT get_or_create_roles($1) AS id',
+      [data.role_name]
+    );
+    if (rows.length === 0) throw new Error(`Role '${data.role_name}' not found.`);
+    const roleId = rows[0].id;
 
-    const userAuthQuery = `
-      INSERT INTO user_auth (email, password, phone, created_at, updated_at)
-      VALUES ($1, $2, $3, $4, $5)
-      RETURNING id
-    `;
-    const userAuthResult = await client.query(userAuthQuery, [
-      data.email,
-      data.password_hash,
-      data.phone,
-      data.created_at,
-      data.updated_at,
-    ]);
+    // 2. Insert user_auth
+    const userAuthResult = await client.query(
+      `INSERT INTO user_auth (email, password, created_at, updated_at)
+       VALUES ($1,$2,$3,$4,$5)
+       RETURNING id`,
+      [
+        data.email,
+        data.password_hash,
+        data.created_at,
+        data.updated_at,
+      ]
+    );
     const userAuthId = userAuthResult.rows[0].id;
 
-    const userToRoleQuery = `
-      INSERT INTO user_to_role (user_auth_id, role_id, created_at, updated_at)
-      VALUES ($1, $2, $3, $4)
-    `;
-    await client.query(userToRoleQuery, [userAuthId, roleId, data.created_at, data.updated_at]);
-
-    const employeeQuery = `
-      INSERT INTO employees (
-        user_auth_id, employee_code, employee_name, employee_email, 
-        employee_contact, employee_is_active, created_at, updated_at, verified_status_id
-      )
-      VALUES ($1, $2, $3, $4, $5, $6, $7, $8, (SELECT get_or_create_status('UnVerified')))
-      RETURNING id
-    `;
-    const employeeResult = await client.query(employeeQuery, [
-      userAuthId,
-      data.employee_code,
-      data.employee_name,
-      data.email,
-      data.phone,
-      data.employee_is_active,
-      data.created_at,
-      data.updated_at,
-    ]);
-    const employeeId = employeeResult.rows[0].id;
-
-    if (data.position_ids && data.position_ids.length > 0) {
-      const positionInsertQuery = `
-      INSERT INTO employee_to_position (employee_id, position_id, created_at, updated_at)
-      SELECT $1, unnested_position_id, $2, $3
-      FROM unnest($4::bigint[]) AS unnested_position_id
-    `;
-      const params = [employeeId, data.created_at, data.updated_at, data.position_ids];
-
-      await client.query(positionInsertQuery, params);
-    }
+    // 3. Map user to role
+    await client.query(
+      `INSERT INTO user_to_role (user_auth_id, role_id, created_at, updated_at)
+       VALUES ($1,$2,$3,$4)`,
+      [userAuthId, roleId, data.created_at, data.updated_at]
+    );
 
     await client.query('COMMIT');
-    return { employeeId, userAuthId };
-  } catch (error) {
+    return { userAuthId };
+  } catch (err) {
     await client.query('ROLLBACK');
-    console.error('Error creating employee with auth:', error);
-    throw new Error('Failed to create employee with auth');
+    console.error('Error creating user_auth:', err);
+    throw new Error('Failed to create user');
   } finally {
     client.release();
   }
 };
+
+export const createEmployee = async (data: NewEmployeeData) => {
+  const client = await pool().connect();
+  try {
+    await client.query('BEGIN');
+
+    // 1. Insert employee record
+    const employeeResult = await client.query(
+      `INSERT INTO employees (
+         user_auth_id, employee_code, employee_name,
+         employee_email, employee_contact, employee_is_active,
+         created_at, updated_at, verified_status_id
+       )
+       VALUES (
+         $1,$2,$3,$4,$5,$6,$7,$8,(SELECT get_or_create_status('UnVerified'))
+       )
+       RETURNING id`,
+      [
+        data.user_auth_id,
+        data.employee_code,
+        data.employee_name,
+        data.employee_email,
+        data.employee_contact,
+        data.employee_is_active,
+        data.created_at,
+        data.updated_at,
+      ]
+    );
+    const employeeId = employeeResult.rows[0].id;
+
+    // 2. Position mappings (optional)
+    if (data.position_ids.length) {
+      await client.query(
+        `INSERT INTO employee_to_position (
+           employee_id, position_id, created_at, updated_at
+         )
+         SELECT $1, pid, $2, $3
+         FROM unnest($4::bigint[]) AS pid`,
+        [employeeId, data.created_at, data.updated_at, data.position_ids]
+      );
+    }
+
+    await client.query('COMMIT');
+    return { employeeId };
+  } catch (err) {
+    await client.query('ROLLBACK');
+    console.error('Error creating employee:', err);
+    throw new Error('Failed to create employee');
+  } finally {
+    client.release();
+  }
+};
+
 
 const touchEmployee = async (email: string) => {
   try {
@@ -911,7 +941,9 @@ export default {
   getUserData,
   getEmployeeIdByUserAuthId,
   getBasicEmployeeDetails,
-  createAuthAndEmployee,
+  // createAuthAndEmployee,
+  createUserAuth,
+  createEmployee, 
   getAllRolesForDropdown,
   touchEmployee,
   getEmployeeById,
