@@ -78,20 +78,32 @@ const checkEmployeePhoneExists = async (employee_contact: string) => {
   }
 };
 
-const getAllEmployees = async (offset: number, limit: number, startDate_utc: string, endDate_utc: string) => {
+const getAllEmployees = async (
+  offset: number,
+  limit: number,
+  startDate_utc: string,
+  endDate_utc: string,
+  searchQuery?: string
+) => {
   try {
-    // Step 1: Fetch paginated employee IDs based on date range
+    const search = searchQuery?.trim().toLowerCase() || '';
+
+    // Step 1: Get paginated employee IDs based on date + optional search
     const idQuery = `
       SELECT id FROM employees
       WHERE created_at BETWEEN
-        COALESCE($1, '0001-01-01'::timestamp with time zone)
-        AND $2
+        COALESCE($1, '0001-01-01'::timestamptz) AND $2
+      ${search ? `AND (
+        LOWER(employee_name) ILIKE '%' || $5 || '%' OR
+        LOWER(employee_email) ILIKE '%' || $5 || '%' OR
+        LOWER(employee_code) ILIKE '%' || $5 || '%'
+      )` : ''}
       ORDER BY id ASC
       LIMIT $3 OFFSET $4
     `;
-    const idValues = [startDate_utc, endDate_utc, limit, offset];
+    const idValues = search ? [startDate_utc, endDate_utc, limit, offset, search] : [startDate_utc, endDate_utc, limit, offset];
     const idResult = await pool().query(idQuery, idValues);
-    const employeeIds = idResult.rows.map((row) => row.id);
+    const employeeIds: number[] = idResult.rows.map((row) => row.id);
 
     if (employeeIds.length === 0) {
       return {
@@ -101,7 +113,7 @@ const getAllEmployees = async (offset: number, limit: number, startDate_utc: str
       };
     }
 
-    // Step 2: Fetch full employee + position info for selected IDs
+    // Step 2: Fetch detailed employee + position info
     const dataQuery = `
       SELECT 
         e.id AS employee_id,
@@ -113,35 +125,31 @@ const getAllEmployees = async (offset: number, limit: number, startDate_utc: str
         e.created_at,
         e.updated_at,
         p.id AS position_id,
-        p.position_name,
-        (SELECT st.status_name FROM statuses st WHERE st.id = e.verified_status_id) AS status_name
+        p.position_name
       FROM employees e
       LEFT JOIN employee_to_position ep ON e.id = ep.employee_id
       LEFT JOIN positions p ON ep.position_id = p.id
       WHERE e.id = ANY($1)
       ORDER BY e.id ASC
     `;
-    const dataResult = await pool().query<Partial<Employees & Positions & { [any: string]: string }>>(dataQuery, [
-      employeeIds,
-    ]);
+    const dataResult = await pool().query(dataQuery, [employeeIds]);
 
     // Step 3: Group employee rows
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
     const groupedMap: Record<number, any> = {};
 
-    dataResult.rows.forEach((row) => {
-      const empId: number = parseInt(row.employee_id!);
+    for (const row of dataResult.rows) {
+      const empId = Number(row.employee_id);
+
       if (!groupedMap[empId]) {
         groupedMap[empId] = {
           id: empId,
+          employee_code: row.employee_code,
           employee_name: row.employee_name,
           employee_email: row.employee_email,
-          employee_code: row.employee_code,
-          employee_is_active: row.employee_is_active,
           employee_contact: row.employee_contact,
+          employee_is_active: row.employee_is_active,
           created_at: row.created_at,
           updated_at: row.updated_at,
-          verification_status: row.status_name,
           positions: [],
         };
       }
@@ -152,20 +160,24 @@ const getAllEmployees = async (offset: number, limit: number, startDate_utc: str
           position_name: row.position_name,
         });
       }
-    });
+    }
 
     const groupedEmployees = Object.values(groupedMap);
 
-    // Step 4: Get total count for pagination
+    // Step 4: Get total count (for pagination)
     const totalQuery = `
       SELECT COUNT(*) FROM employees
       WHERE created_at BETWEEN
-        COALESCE($1, '0001-01-01'::timestamp with time zone)
-        AND $2
+        COALESCE($1, '0001-01-01'::timestamptz) AND $2
+      ${search ? `AND (
+        LOWER(employee_name) ILIKE '%' || $3 || '%' OR
+        LOWER(employee_email) ILIKE '%' || $3 || '%' OR
+        LOWER(employee_code) ILIKE '%' || $3 || '%'
+      )` : ''}
     `;
-    const totalValues = [startDate_utc, endDate_utc];
+    const totalValues = search ? [startDate_utc, endDate_utc, search] : [startDate_utc, endDate_utc];
     const totalResult = await pool().query(totalQuery, totalValues);
-    const totalCount = parseInt(totalResult.rows[0].count, 10);
+    const totalCount = Number(totalResult.rows[0].count);
     const totalPages = Math.ceil(totalCount / limit);
 
     return {
@@ -174,10 +186,11 @@ const getAllEmployees = async (offset: number, limit: number, startDate_utc: str
       totalCount,
     };
   } catch (error) {
-    console.error('Error fetching employees with positions:', error);
-    throw new Error('Error fetching employees with positions');
+    console.error('Error fetching employees:', error);
+    throw new Error('Error fetching employees');
   }
 };
+
 
 interface NewEmployeeData {
   email: string;

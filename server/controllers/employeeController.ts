@@ -113,7 +113,8 @@ const getAllEmployees = async (req: Request, res: Response, next: NextFunction):
   const limit = parseInt(req.query.limit as string) || 10;
   const offset = (page - 1) * limit;
 
-  // session keys are snake_case in the rest of the code
+  const searchQuery = (req.query.search as string) || '';
+
   const { start_date_utc, end_date_utc } = req.session as typeof req.session & {
     start_date_utc?: string;
     end_date_utc?: string;
@@ -124,7 +125,8 @@ const getAllEmployees = async (req: Request, res: Response, next: NextFunction):
       offset,
       limit,
       start_date_utc ?? '0001-01-01',
-      end_date_utc ?? '9999-12-31'
+      end_date_utc ?? '9999-12-31',
+      searchQuery
     );
 
     res.status(200).json({

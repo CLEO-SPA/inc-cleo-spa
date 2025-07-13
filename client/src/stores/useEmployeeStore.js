@@ -13,11 +13,9 @@ const getInitialState = () => ({
     updated_at: new Date(),
   },
 
-  /* ------------ single-employee detail view ---------------------------- */
   currentEmployee: null,
   isFetchingOne: false,
 
-  /* ------------ dropdown and name-only fetch --------------------------- */
   dropdownEmployees: [],
   isFetchingDropdown: false,
   isFetchingName: false,
@@ -25,18 +23,20 @@ const getInitialState = () => ({
 
   inviteLink: null,
   employees: [],
+  searchQuery: '',
   pagination: {
     currentPage: 1,
     totalPages: 1,
     totalCount: 0,
     pageSize: 10,
   },
+
   error: null,
   success: null,
   isCreating: false,
   isFetchingList: false,
-  isRegenerating: null, // id
-  isUpdating: null,     // id
+  isRegenerating: null,
+  isUpdating: null,
 });
 
 const useEmployeeStore = create((set, get) => ({
@@ -50,6 +50,8 @@ const useEmployeeStore = create((set, get) => ({
       },
     }));
   },
+
+  setSearchQuery: (value) => set({ searchQuery: value }),
 
   setPageSize: (pageSize) => {
     set((state) => ({
@@ -70,12 +72,10 @@ const useEmployeeStore = create((set, get) => ({
 
   reset: () => set(getInitialState()),
 
-  /* ------------------------------------------------- single fetch */
   getEmployeeById: async (employeeId) => {
     set({ isFetchingOne: true, error: null, currentEmployee: null });
     try {
       const res = await api.get(`/em/${employeeId}`);
-      console.log('Fetched employee:', res.data.data);
       set({ currentEmployee: res.data.data, isFetchingOne: false });
     } catch (err) {
       set({
@@ -89,13 +89,19 @@ const useEmployeeStore = create((set, get) => ({
   },
 
   fetchAllEmployees: async () => {
-    const { pagination } = get();
+    const { pagination, searchQuery } = get();
     set({ isFetchingList: true, error: null });
-    try {
-      const res = await api.get(`/em?page=${pagination.currentPage}&limit=${pagination.pageSize}`);
-      const data = res.data;
 
-      console.log(data);
+    try {
+      const res = await api.get('/em', {
+        params: {
+          page: pagination.currentPage,
+          limit: pagination.pageSize,
+          search: searchQuery,
+        },
+      });
+
+      const data = res.data;
 
       set({
         employees: data.data || [],
@@ -118,7 +124,6 @@ const useEmployeeStore = create((set, get) => ({
     }
   },
 
-  /* ------------------------------------------------- dropdown fetch */
   fetchDropdownEmployees: async () => {
     set({ isFetchingDropdown: true, error: null });
     try {
@@ -136,7 +141,6 @@ const useEmployeeStore = create((set, get) => ({
     }
   },
 
-    /* ------------------------------------------------- create */
   createAndInviteEmployee: async (payload) => {
     set({ isCreating: true, error: null, success: null, inviteLink: null });
     try {
@@ -155,24 +159,6 @@ const useEmployeeStore = create((set, get) => ({
       throw new Error(msg);
     }
   },
-  // createAndInviteEmployee: async (data) => {
-  //   set({ isCreating: true, error: null, success: null, inviteLink: null });
-
-  //   console.log(data);
-
-  //   try {
-  //     const response = await api.post('/em/create-invite', data);
-  //     set({
-  //       isCreating: false,
-  //       success: 'Employee created and invited successfully! The invite link is ready.',
-  //       inviteLink: response.data.resetUrl,
-  //     });
-  //   } catch (err) {
-  //     const apiMessage = err?.response?.data?.message || 'Failed to create employee';
-  //     set({ isCreating: false, error: apiMessage });
-  //     throw new Error(apiMessage);
-  //   }
-  // },
 
   updateEmployee: async (employeeId, updatePayload) => {
     set({ isUpdating: employeeId, error: null, success: null });
@@ -187,7 +173,7 @@ const useEmployeeStore = create((set, get) => ({
       }
 
       set({ isUpdating: null, success: successMsg });
-      get().fetchAllEmployees(); // refresh list
+      get().fetchAllEmployees();
     } catch (err) {
       set({
         isUpdating: null,
@@ -202,7 +188,9 @@ const useEmployeeStore = create((set, get) => ({
   regenerateInviteLink: async (employee) => {
     set({ isRegenerating: employee.id, error: null, success: null });
     try {
-      const res = await api.post('/em/regenerate-uri', { email: employee.employee_email });
+      const res = await api.post('/em/regenerate-uri', {
+        email: employee.employee_email,
+      });
       const { callbackUrl } = res.data;
       await navigator.clipboard.writeText(callbackUrl);
       set({
@@ -221,52 +209,28 @@ const useEmployeeStore = create((set, get) => ({
   fetchEmployeeNameById: async (employeeId) => {
     set({ isFetchingName: true, error: null });
     try {
-      const response = await api.get(`/em/employeeName/${employeeId}`);
+      const res = await api.get(`/em/employeeName/${employeeId}`);
       set({
-        employeeName: response.data,
+        employeeName: res.data,
         isFetchingName: false,
       });
-      return response.data;
-    } catch (error) {
+      return res.data;
+    } catch (err) {
       set({
         employeeName: null,
         isFetchingName: false,
         error:
-          error.response?.data?.message ||
-          error.message ||
+          err?.response?.data?.message ||
+          err.message ||
           'Failed to fetch employee',
       });
-      console.error('Error fetching employee:', error);
       throw new Error(
-        error.response?.data?.message ||
-        error.message ||
+        err?.response?.data?.message ||
+        err.message ||
         'Failed to fetch employee'
       );
     }
   },
-  fetchDropdownEmployees: async () => {
-    set({ isFetching: true, error: false, errorMessage: null });
-
-    try {
-      const response = await api.get('/em/dropdown');
-      set({
-        employees: response.data,
-        isFetching: false,
-        error: false,
-        errorMessage: null,
-      });
-    } catch (error) {
-      set({
-        employees: [],
-        isFetching: false,
-        error: true,
-        errorMessage: error.response?.data?.message || error.message || 'Failed to fetch employees',
-      });
-    }
-  },
-
-  resetMessages: () => set({ error: null, success: null, inviteLink: null }),
-  reset: () => set(getInitialState()),
 }));
 
 export default useEmployeeStore;

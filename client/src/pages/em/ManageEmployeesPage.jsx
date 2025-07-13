@@ -8,7 +8,7 @@ import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { Alert, AlertDescription } from '@/components/ui/alert';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
-import { BadgeCheckIcon } from 'lucide-react';
+import { Input } from '@/components/ui/input';
 import {
   Pagination,
   PaginationContent,
@@ -23,7 +23,7 @@ import {
   DropdownMenuItem,
   DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu';
-import { MoreHorizontal, Edit, RefreshCw, Loader2, CheckCircle, Copy } from 'lucide-react';
+import { MoreHorizontal, Edit, RefreshCw, Loader2, CheckCircle, Search } from 'lucide-react';
 import useEmployeeStore from '@/stores/useEmployeeStore';
 
 export default function ManageEmployeePage() {
@@ -40,11 +40,11 @@ export default function ManageEmployeePage() {
     setCurrentPage,
     setPageSize,
     resetMessages,
+    searchQuery,
+    setSearchQuery,
   } = useEmployeeStore();
 
   const { currentPage, totalPages, totalCount, pageSize } = pagination;
-
-  const [copied, setCopied] = useState(false);
 
   useEffect(() => {
     fetchAllEmployees();
@@ -52,8 +52,6 @@ export default function ManageEmployeePage() {
       resetMessages();
     };
   }, [fetchAllEmployees, resetMessages]);
-
-
 
   const handleRegenerate = async (employee) => {
     await regenerateInviteLink(employee);
@@ -76,6 +74,11 @@ export default function ManageEmployeePage() {
     const end = Math.min(totalPages, currentPage + 2);
     for (let i = start; i <= end; i++) pages.push(i);
     return pages;
+  };
+
+  const handleSearch = () => {
+    setCurrentPage(1);
+    fetchAllEmployees();
   };
 
   return (
@@ -107,8 +110,8 @@ export default function ManageEmployeePage() {
                 <CardHeader>
                   <CardTitle>Display Options</CardTitle>
                 </CardHeader>
-                <CardContent>
-                  <div className='flex items-center space-x-2'>
+                <CardContent className='flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between'>
+                  <div className='flex items-center gap-2'>
                     <span className='text-sm'>Show:</span>
                     <select
                       value={pageSize}
@@ -121,6 +124,20 @@ export default function ManageEmployeePage() {
                       <option value={50}>50</option>
                     </select>
                   </div>
+
+                  <div className='flex items-center gap-2 w-full sm:w-1/3'>
+                    <Input
+                      value={searchQuery}
+                      onChange={(e) => setSearchQuery(e.target.value)}
+                      onKeyDown={(e) => e.key === 'Enter' && handleSearch()}
+                      placeholder='Search by name, email, or code'
+                      className='h-9 text-sm'
+                    />
+                    <Button onClick={handleSearch} size='sm' className='h-9 px-3'>
+                      <Search className='h-4 w-4' />
+                    </Button>
+                  </div>
+
                 </CardContent>
               </Card>
 
@@ -148,7 +165,6 @@ export default function ManageEmployeePage() {
                             <TableHead>Code</TableHead>
                             <TableHead>Contact</TableHead>
                             <TableHead>Status</TableHead>
-                            <TableHead>Verification</TableHead>
                             <TableHead>Positions</TableHead>
                             <TableHead>Created</TableHead>
                             <TableHead>Updated</TableHead>
@@ -175,21 +191,6 @@ export default function ManageEmployeePage() {
                                 </Badge>
                               </TableCell>
                               <TableCell>
-                                {employee.verification_status.toLowerCase() === 'verified' ? (
-                                  <Badge
-                                    variant="secondary"
-                                    className="bg-blue-500 text-white dark:bg-blue-600 gap-1"
-                                  >
-                                    <BadgeCheckIcon className="w-4 h-4" />
-                                    Verified
-                                  </Badge>
-                                ) : (
-                                  <Badge className="bg-gray-200 text-gray-600 dark:bg-gray-700 dark:text-gray-300">
-                                    Unverified
-                                  </Badge>
-                                )}
-                              </TableCell>
-                              <TableCell>
                                 <div className='flex flex-wrap gap-1'>
                                   {employee.positions.map((pos) => (
                                     <Badge key={pos.position_id} className='bg-blue-100 text-blue-700'>
@@ -211,7 +212,6 @@ export default function ManageEmployeePage() {
                                     <DropdownMenuItem onClick={() => navigateToEdit(employee)}>
                                       <Edit className='mr-2 h-4 w-4' /> Edit
                                     </DropdownMenuItem>
-
                                     <DropdownMenuItem
                                       onClick={() => handleRegenerate(employee)}
                                       disabled={regenerateLoading === employee.id}
@@ -223,7 +223,6 @@ export default function ManageEmployeePage() {
                                       )}
                                       Regenerate Invite
                                     </DropdownMenuItem>
-
                                   </DropdownMenuContent>
                                 </DropdownMenu>
                               </TableCell>
