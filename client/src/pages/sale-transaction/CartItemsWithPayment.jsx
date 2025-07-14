@@ -305,6 +305,12 @@ const CartItemsWithPayment = ({
   // Handle updating employee assignment field
   const handleUpdateEmployeeAssignment = (itemId, assignmentId, field, value) => {
     const currentAssignments = itemEmployees[itemId] || [];
+
+    // If there's only one employee and they're trying to change performance rate, force it to 100%
+    if (field === 'performanceRate' && currentAssignments.length === 1) {
+      value = 100;
+    }
+
     const updatedAssignments = currentAssignments.map(assignment => {
       if (assignment.id === assignmentId) {
         const updatedAssignment = { ...assignment, [field]: value };
