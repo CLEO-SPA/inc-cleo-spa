@@ -7,8 +7,8 @@ const getInitialState = () => ({
     employee_email: '',
     employee_contact: '',
     employee_code: '',
-    role_name: '',
     position_ids: [],
+    employee_is_active: true,
     created_at: new Date(),
     updated_at: new Date(),
   },
@@ -21,7 +21,6 @@ const getInitialState = () => ({
   isFetchingName: false,
   employeeName: null,
 
-  inviteLink: null,
   employees: [],
   searchQuery: '',
   pagination: {
@@ -35,7 +34,6 @@ const getInitialState = () => ({
   success: null,
   isCreating: false,
   isFetchingList: false,
-  isRegenerating: null,
   isUpdating: null,
 });
 
@@ -67,8 +65,7 @@ const useEmployeeStore = create((set, get) => ({
     get().fetchAllEmployees();
   },
 
-  resetMessages: () =>
-    set({ error: null, success: null, inviteLink: null }),
+  resetMessages: () => set({ error: null, success: null }),
 
   reset: () => set(getInitialState()),
 
@@ -141,15 +138,18 @@ const useEmployeeStore = create((set, get) => ({
     }
   },
 
-  createAndInviteEmployee: async (payload) => {
-    set({ isCreating: true, error: null, success: null, inviteLink: null });
+  createEmployee: async (payload) => {
+    set({ isCreating: true, error: null, success: null });
     try {
-      const res = await api.post('/em/create-invite', payload);
+      const res = await api.post('/em/create', {
+        ...payload,
+        created_at: new Date(payload.created_at).toISOString(),
+        updated_at: new Date(payload.created_at).toISOString(),
+      });
+
       set({
         isCreating: false,
-        success:
-          'Employee created and invited successfully! The invite link is ready.',
-        inviteLink: res.data.resetUrl,
+        success: 'Employee created successfully.',
       });
       get().fetchAllEmployees();
     } catch (err) {
@@ -163,16 +163,12 @@ const useEmployeeStore = create((set, get) => ({
   updateEmployee: async (employeeId, updatePayload) => {
     set({ isUpdating: employeeId, error: null, success: null });
     try {
-      const res = await api.put(`/em/${employeeId}`, updatePayload);
-      const { newInviteUrl } = res.data;
+      await api.put(`/em/${employeeId}`, {
+        ...updatePayload,
+        updated_at: new Date(updatePayload.updated_at ?? new Date()).toISOString(),
+      });
 
-      let successMsg = 'Employee updated successfully!';
-      if (newInviteUrl) {
-        await navigator.clipboard.writeText(newInviteUrl);
-        successMsg += ' New invite link copied to clipboard.';
-      }
-
-      set({ isUpdating: null, success: successMsg });
+      set({ isUpdating: null, success: 'Employee updated successfully.' });
       get().fetchAllEmployees();
     } catch (err) {
       set({
@@ -181,27 +177,6 @@ const useEmployeeStore = create((set, get) => ({
           err?.response?.data?.message ||
           err.message ||
           'Failed to update employee',
-      });
-    }
-  },
-
-  regenerateInviteLink: async (employee) => {
-    set({ isRegenerating: employee.id, error: null, success: null });
-    try {
-      const res = await api.post('/em/regenerate-uri', {
-        email: employee.employee_email,
-      });
-      const { callbackUrl } = res.data;
-      await navigator.clipboard.writeText(callbackUrl);
-      set({
-        isRegenerating: null,
-        success: `New invite link for ${employee.employee_name} copied to clipboard!`,
-      });
-      get().fetchAllEmployees();
-    } catch (err) {
-      set({
-        isRegenerating: null,
-        error: err.response?.data?.message || 'Failed to regenerate link.',
       });
     }
   },

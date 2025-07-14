@@ -2,6 +2,8 @@ import { Request, Response, NextFunction } from 'express';
 import model from '../models/employeeModel.js';
 import validator from 'validator';
 import 'dotenv/config';
+import { boolean } from 'joi';
+import { create } from 'domain';
 
 
 
@@ -13,9 +15,9 @@ const createEmployee = async (req: Request, res: Response, next: NextFunction): 
       employee_contact = '',
       employee_code = '',
       position_ids = [],
-      employee_is_active = true,
+      employee_is_active = true, 
       created_at = '',
-      updated_at = ''
+      updated_at = '', 
     } = req.body;
 
     const email = employee_email.trim();
@@ -91,7 +93,6 @@ const createEmployee = async (req: Request, res: Response, next: NextFunction): 
     next(error);
   }
 };
-
 
 
 const getAllEmployees = async (req: Request, res: Response, next: NextFunction): Promise<void> => {
