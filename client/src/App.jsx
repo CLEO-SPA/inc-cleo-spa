@@ -107,10 +107,10 @@ import CreditNoteDetailsPage from '@/pages/Refund/CreditNoteDetailsPage';
 
 function App() {
   return (
-    <TranslationProvider>
       <AuthProvider>
         <ReloadTimerPopup />
         <DateRangeProvider>
+    <TranslationProvider>
 
           <Router>
             <Routes>
@@ -264,9 +264,10 @@ function App() {
               <Route path='*' element={<NotFoundPage />} />
             </Routes>
           </Router>
+              </TranslationProvider>
+
         </DateRangeProvider>
       </AuthProvider>
-    </TranslationProvider>
   );
 }
 
