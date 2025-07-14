@@ -1,51 +1,39 @@
-import React, { useState, useEffect, useMemo } from 'react';
+import React, { useEffect, useMemo, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
-import useAuth from '@/hooks/useAuth';
-import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
-import { Button } from '@/components/ui/button';
-import { Input } from '@/components/ui/input';
-import { Label } from '@/components/ui/label';
 import {
-  DropdownMenu,
-  DropdownMenuContent,
-  DropdownMenuItem,
-  DropdownMenuTrigger,
-  DropdownMenuSeparator,
-} from '@/components/ui/dropdown-menu';
+  Table, TableBody, TableCell, TableHead, TableHeader, TableRow,
+} from '@/components/ui/table';
 import {
-  Dialog,
-  DialogContent,
-  DialogDescription,
-  DialogFooter,
-  DialogHeader,
-  DialogTitle,
-} from '@/components/ui/dialog';
-import {
-  MoreHorizontal,
-  Eye,
-  Edit,
-  Trash2,
-  ChevronLeft,
-  ChevronRight,
-  ChevronsLeft,
-  ChevronsRight,
-  AlertCircle,
-  UserPlus,
-  RefreshCw,
-  Copy,
-  LinkIcon,
-} from 'lucide-react';
+  Pagination, PaginationContent, PaginationItem, PaginationLink,
+  PaginationNext, PaginationPrevious,
+} from '@/components/ui/pagination';
 import { AppSidebar } from '@/components/app-sidebar';
 import { SiteHeader } from '@/components/site-header';
-import { SidebarInset, SidebarProvider } from '@/components/ui/sidebar';
-import { Card, CardContent, CardHeader, CardTitle, CardFooter } from '@/components/ui/card';
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
+import { SidebarProvider, SidebarInset } from '@/components/ui/sidebar';
+import {
+  Card, CardContent, CardHeader, CardTitle,
+} from '@/components/ui/card';
+import {
+  Button
+} from '@/components/ui/button';
+import { Input } from '@/components/ui/input';
+import {
+  DropdownMenu, DropdownMenuContent, DropdownMenuItem,
+  DropdownMenuTrigger, DropdownMenuSeparator,
+} from '@/components/ui/dropdown-menu';
 import { Alert, AlertDescription } from '@/components/ui/alert';
+
+import {
+  MoreHorizontal, Eye, Edit, Trash2, RefreshCw, Copy,
+  CheckCircle, Plus, Search,
+} from 'lucide-react';
+
+import useAuth from '@/hooks/useAuth';
 import useUsersStore from '@/stores/users/useUsersStore';
 
-function ManageUsersPage() {
-  const { user } = useAuth();
+export default function ManageUsersPage() {
   const navigate = useNavigate();
+  const { user } = useAuth();
 
   const {
     users,
@@ -53,190 +41,55 @@ function ManageUsersPage() {
     currentLimit,
     hasNextPage,
     hasPreviousPage,
-    searchTerm,
     totalCount,
     totalPages,
+    searchTerm,
     isLoading,
     error,
-    actioningUsers,
-    inviteDialogOpen,
-    selectedUser,
     invitationLink,
+    selectedUser,
+    actioningUsers,
     isGeneratingLink,
+    inviteDialogOpen,
     initializePagination,
+    goToPage,
     goToNextPage,
     goToPreviousPage,
-    goToPage,
     setSearchTerm,
     setLimit,
-    deleteUser,
     openInviteDialog,
     closeInviteDialog,
     regenerateInvitationLink,
+    deleteUser,
     clearError,
   } = useUsersStore();
 
   const [inputSearchTerm, setInputSearchTerm] = useState(searchTerm);
-  const [targetPageInput, setTargetPageInput] = useState('');
-  const [deleteDialogOpen, setDeleteDialogOpen] = useState(false);
-  const [userToDelete, setUserToDelete] = useState(null);
 
-  // Check if user has appropriate role
   const canCreate = user?.role === 'super_admin';
   const canEdit = user?.role === 'super_admin';
   const canDelete = user?.role === 'super_admin';
 
-  // Initialize pagination on component mount
   useEffect(() => {
     initializePagination(currentLimit, searchTerm);
     return () => clearError();
   }, [initializePagination, currentLimit, searchTerm, clearError]);
 
-  // Handle search form submission
-  const handleSearchSubmit = (e) => {
-    e.preventDefault();
+  const handleSearch = () => {
     setSearchTerm(inputSearchTerm);
   };
 
-  // Handle limit change
-  const handleLimitChange = (value) => {
-    setLimit(parseInt(value));
-  };
-
-  // Handle going to a specific page
-  const handleGoToPage = (e) => {
-    e.preventDefault();
-    const page = parseInt(targetPageInput);
-    if (page >= 1 && page <= totalPages) {
-      goToPage(page);
-      setTargetPageInput('');
-    }
-  };
-
-  // Navigation functions
-  const handleView = (userId) => {
-    navigate(`/users/${userId}`);
-  };
-
-  const handleEdit = (userId) => {
-    navigate(`/users/${userId}/edit`);
-  };
-
-  // Delete functions
-  const handleDeleteClick = (user) => {
-    setUserToDelete(user);
-    setDeleteDialogOpen(true);
-  };
-
-  const handleDeleteConfirm = async () => {
-    if (!userToDelete) return;
-
-    try {
-      await deleteUser(userToDelete.id);
-      setDeleteDialogOpen(false);
-      setUserToDelete(null);
-    } catch (error) {
-      console.error('Failed to delete user:', error);
-    }
-  };
-
-  // Invitation link functions
-  const handleRegenerateInvite = async (user) => {
-    openInviteDialog(user);
-    try {
-      await regenerateInvitationLink(user.email);
-    } catch (error) {
-      console.error('Failed to regenerate invitation link:', error);
-    }
-  };
+  const pageNumbers = useMemo(() => {
+    const pages = [];
+    const start = Math.max(1, currentPage - 2);
+    const end = Math.min(totalPages, currentPage + 2);
+    for (let i = start; i <= end; i++) pages.push(i);
+    return pages;
+  }, [currentPage, totalPages]);
 
   const handleCopyLink = () => {
     navigator.clipboard.writeText(invitationLink);
   };
-
-  // Calculate pagination range
-  const pageNumbers = useMemo(() => {
-    const pages = [];
-    const maxPagesToShow = 5;
-    let startPage, endPage;
-
-    if (totalPages <= maxPagesToShow) {
-      startPage = 1;
-      endPage = totalPages;
-    } else {
-      if (currentPage <= Math.ceil(maxPagesToShow / 2)) {
-        startPage = 1;
-        endPage = maxPagesToShow;
-      } else if (currentPage + Math.floor(maxPagesToShow / 2) >= totalPages) {
-        startPage = totalPages - maxPagesToShow + 1;
-        endPage = totalPages;
-      } else {
-        startPage = currentPage - Math.floor(maxPagesToShow / 2);
-        endPage = currentPage + Math.floor(maxPagesToShow / 2);
-      }
-    }
-
-    for (let i = startPage; i <= endPage; i++) {
-      pages.push(i);
-    }
-    return pages;
-  }, [totalPages, currentPage]);
-
-  // Table headers
-  const tableHeaders = [
-    { key: 'id', label: 'ID' },
-    { key: 'username', label: 'Username' },
-    { key: 'email', label: 'Email' },
-    { key: 'status_name', label: 'status' },
-    { key: 'role_name', label: 'Role' },
-    { key: 'actions', label: 'Actions' },
-  ];
-
-  // Loading state
-  if (isLoading && (!users || !Array.isArray(users) || users.length === 0)) {
-    return (
-      <div className='[--header-height:calc(theme(spacing.14))]'>
-        <SidebarProvider className='flex flex-col'>
-          <SiteHeader />
-          <div className='flex flex-1'>
-            <AppSidebar />
-            <SidebarInset>
-              <div className='flex h-full items-center justify-center'>
-                <div className='flex flex-col items-center gap-2'>
-                  <div className='text-2xl font-semibold'>Loading...</div>
-                  <div className='text-muted-foreground'>Please wait while we fetch user data.</div>
-                </div>
-              </div>
-            </SidebarInset>
-          </div>
-        </SidebarProvider>
-      </div>
-    );
-  }
-
-  // Error state
-  if (error && (!users || !Array.isArray(users) || users.length === 0)) {
-    return (
-      <div className='[--header-height:calc(theme(spacing.14))]'>
-        <SidebarProvider className='flex flex-col'>
-          <SiteHeader />
-          <div className='flex flex-1'>
-            <AppSidebar />
-            <SidebarInset>
-              <div className='flex h-full items-center justify-center'>
-                <div className='flex flex-col items-center gap-2'>
-                  <AlertCircle className='h-10 w-10 text-destructive' />
-                  <div className='text-2xl font-semibold'>Error Loading Users</div>
-                  <div className='text-muted-foreground'>{error}</div>
-                  <Button onClick={() => initializePagination(currentLimit, searchTerm)}>Retry</Button>
-                </div>
-              </div>
-            </SidebarInset>
-          </div>
-        </SidebarProvider>
-      </div>
-    );
-  }
 
   return (
     <div className='[--header-height:calc(theme(spacing.14))]'>
@@ -245,268 +98,168 @@ function ManageUsersPage() {
         <div className='flex flex-1'>
           <AppSidebar />
           <SidebarInset>
-            <div className='container mx-auto p-4 space-y-6'>
+            <div className='flex flex-col gap-4 p-4'>
+              <div className='flex items-center justify-between'>
+                <h1 className='text-2xl font-bold'>Manage Users</h1>
+                {canCreate && (
+                  <Button onClick={() => navigate('/users/create')}>
+                    <Plus className='mr-2 h-4 w-4' /> Add User
+                  </Button>
+                )}
+              </div>
+
+              {invitationLink && (
+                <Alert>
+                  <CheckCircle className='h-4 w-4' />
+                  <AlertDescription className='flex items-center gap-2'>
+                    <span>{invitationLink}</span>
+                    <Button size='sm' variant='outline' onClick={handleCopyLink}>
+                      <Copy className='w-4 h-4 mr-1' /> Copy
+                    </Button>
+                  </AlertDescription>
+                </Alert>
+              )}
+              {error && (
+                <Alert variant='destructive'>
+                  <AlertDescription>{error}</AlertDescription>
+                </Alert>
+              )}
+
               <Card>
-                <CardHeader>
-                  <CardTitle>User Management</CardTitle>
-                </CardHeader>
-                <CardContent className='space-y-4'>
-                  {/* Search and Limit Controls */}
-                  <div className='flex flex-col sm:flex-row gap-4 items-end'>
-                    <form onSubmit={handleSearchSubmit} className='flex-grow sm:flex-grow-0 sm:w-1/3'>
-                      <Label htmlFor='search' className='sr-only'>
-                        Search
-                      </Label>
-                      <div className='flex gap-2'>
-                        <Input
-                          id='search'
-                          type='text'
-                          placeholder='Search users...'
-                          value={inputSearchTerm}
-                          onChange={(e) => setInputSearchTerm(e.target.value)}
-                        />
-                        <Button type='submit'>Search</Button>
-                      </div>
-                    </form>
-                    <div className='flex items-end gap-2'>
-                      <Label htmlFor='limit' className='mb-2'>
-                        Items per page:
-                      </Label>
-                      <Select value={currentLimit.toString()} onValueChange={handleLimitChange}>
-                        <SelectTrigger id='limit' className='w-[80px]'>
-                          <SelectValue placeholder={currentLimit} />
-                        </SelectTrigger>
-                        <SelectContent>
-                          <SelectItem value='5'>5</SelectItem>
-                          <SelectItem value='10'>10</SelectItem>
-                          <SelectItem value='20'>20</SelectItem>
-                          <SelectItem value='50'>50</SelectItem>
-                        </SelectContent>
-                      </Select>
-                    </div>
-                    {canCreate && (
-                      <Button onClick={() => navigate('/users/create')} className='ml-auto'>
-                        <UserPlus className='w-4 h-4 mr-2' />
-                        Create User
-                      </Button>
-                    )}
+                <CardContent className='flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between'>
+                  <div className='flex items-center gap-2'>
+                    <span className='text-sm'>Show:</span>
+                    <select
+                      value={currentLimit}
+                      onChange={(e) => setLimit(parseInt(e.target.value))}
+                      className='border rounded px-2 py-1 text-sm'
+                    >
+                      {[5, 10, 20, 50].map((n) => (
+                        <option key={n} value={n}>{n}</option>
+                      ))}
+                    </select>
                   </div>
 
-                  {/* Table */}
-                  <div className='rounded-md border'>
-                    <Table>
-                      <TableHeader>
-                        <TableRow>
-                          {tableHeaders.map((header) => (
-                            <TableHead key={header.key} className={header.key === 'actions' ? 'text-right' : ''}>
-                              {header.label}
-                            </TableHead>
-                          ))}
-                        </TableRow>
-                      </TableHeader>
-                      <TableBody>
-                        {isLoading && Array.isArray(users) && users.length > 0 && (
-                          <TableRow>
-                            <TableCell colSpan={tableHeaders.length} className='h-24 text-center'>
-                              Updating data...
-                            </TableCell>
-                          </TableRow>
-                        )}
-                        {!isLoading && (!Array.isArray(users) || users.length === 0) && (
-                          <TableRow>
-                            <TableCell colSpan={tableHeaders.length} className='h-24 text-center'>
-                              No users found.
-                            </TableCell>
-                          </TableRow>
-                        )}
-                        {!isLoading &&
-                          Array.isArray(users) &&
-                          users.map((user) => {
-                            const isActioning = actioningUsers.has(user.id);
-
-                            return (
-                              <TableRow key={user.id}>
-                                <TableCell>{user.id}</TableCell>
-                                <TableCell>{user.username || 'N/A'}</TableCell>
-                                <TableCell>{user.email || 'N/A'}</TableCell>
-                                <TableCell>{user.status_name || 'N/A'}</TableCell>
-                                <TableCell>{user.role_name || 'N/A'}</TableCell>
-                                <TableCell className='text-right'>
-                                  <DropdownMenu>
-                                    <DropdownMenuTrigger asChild>
-                                      <Button variant='ghost' className='h-8 w-8 p-0' disabled={isActioning}>
-                                        <span className='sr-only'>Open menu</span>
-                                        <MoreHorizontal className='h-4 w-4' />
-                                      </Button>
-                                    </DropdownMenuTrigger>
-                                    <DropdownMenuContent align='end'>
-                                      <DropdownMenuItem onClick={() => handleView(user.id)}>
-                                        <Eye className='mr-2 h-4 w-4' />
-                                        View
-                                      </DropdownMenuItem>
-                                      {canEdit && (
-                                        <DropdownMenuItem onClick={() => handleEdit(user.id)}>
-                                          <Edit className='mr-2 h-4 w-4' />
-                                          Edit
-                                        </DropdownMenuItem>
-                                      )}
-                                      {user.status_name !== 'VERIFIED' && (
-                                        <DropdownMenuItem onClick={() => handleRegenerateInvite(user)}>
-                                          <RefreshCw className='mr-2 h-4 w-4' />
-                                          Regenerate Invite
-                                        </DropdownMenuItem>
-                                      )}
-                                      {canDelete && (
-                                        <>
-                                          <DropdownMenuSeparator />
-                                          <DropdownMenuItem
-                                            onClick={() => handleDeleteClick(user)}
-                                            className='text-destructive focus:text-destructive focus:bg-destructive/10'
-                                          >
-                                            <Trash2 className='mr-2 h-4 w-4' />
-                                            Delete
-                                          </DropdownMenuItem>
-                                        </>
-                                      )}
-                                    </DropdownMenuContent>
-                                  </DropdownMenu>
-                                </TableCell>
-                              </TableRow>
-                            );
-                          })}
-                      </TableBody>
-                    </Table>
+                  <div className='flex items-center gap-2 w-full sm:w-1/3'>
+                    <Input
+                      value={inputSearchTerm}
+                      onChange={(e) => setInputSearchTerm(e.target.value)}
+                      onKeyDown={(e) => e.key === 'Enter' && handleSearch()}
+                      placeholder='Search by username or email'
+                      className='h-9 text-sm'
+                    />
+                    <Button onClick={handleSearch} size='sm' className='h-9 px-3'>
+                      <Search className='h-4 w-4' />
+                    </Button>
                   </div>
                 </CardContent>
-                <CardFooter>
-                  {/* Pagination Controls */}
-                  {totalPages > 0 && (
-                    <div className='flex flex-col sm:flex-row items-center justify-between w-full gap-4'>
-                      <div className='text-sm text-muted-foreground'>
-                        Page {currentPage} of {totalPages} (Total: {totalCount} items)
-                      </div>
-                      <div className='flex items-center gap-2'>
-                        <Button
-                          variant='outline'
-                          size='sm'
-                          onClick={() => goToPage(1)}
-                          disabled={!hasPreviousPage || isLoading}
-                        >
-                          <ChevronsLeft className='h-4 w-4' />
-                        </Button>
-                        <Button
-                          variant='outline'
-                          size='sm'
-                          onClick={goToPreviousPage}
-                          disabled={!hasPreviousPage || isLoading}
-                        >
-                          <ChevronLeft className='h-4 w-4' />
-                          Previous
-                        </Button>
-                        {pageNumbers.map((page) => (
-                          <Button
-                            key={page}
-                            variant={currentPage === page ? 'default' : 'outline'}
-                            size='sm'
-                            onClick={() => goToPage(page)}
-                            disabled={isLoading}
-                          >
-                            {page}
-                          </Button>
-                        ))}
-                        <Button variant='outline' size='sm' onClick={goToNextPage} disabled={!hasNextPage || isLoading}>
-                          Next
-                          <ChevronRight className='h-4 w-4' />
-                        </Button>
-                        <Button
-                          variant='outline'
-                          size='sm'
-                          onClick={() => goToPage(totalPages)}
-                          disabled={!hasNextPage || isLoading}
-                        >
-                          <ChevronsRight className='h-4 w-4' />
-                        </Button>
-                      </div>
-                      <form onSubmit={handleGoToPage} className='flex items-center gap-2'>
-                        <Input
-                          type='number'
-                          min='1'
-                          max={totalPages}
-                          placeholder='Page #'
-                          value={targetPageInput}
-                          onChange={(e) => setTargetPageInput(e.target.value)}
-                          className='w-20 h-9'
-                          disabled={isLoading}
-                        />
-                        <Button type='submit' variant='outline' size='sm' disabled={isLoading}>
-                          Go
-                        </Button>
-                      </form>
-                    </div>
-                  )}
-                </CardFooter>
               </Card>
 
-              {/* Delete confirmation dialog */}
-              <Dialog open={deleteDialogOpen} onOpenChange={setDeleteDialogOpen}>
-                <DialogContent>
-                  <DialogHeader>
-                    <DialogTitle>Confirm Deletion</DialogTitle>
-                    <DialogDescription>
-                      Are you sure you want to delete the user <strong>{userToDelete?.username}</strong>? This action
-                      cannot be undone.
-                    </DialogDescription>
-                  </DialogHeader>
-                  <DialogFooter>
-                    <Button variant='outline' onClick={() => setDeleteDialogOpen(false)}>
-                      Cancel
-                    </Button>
-                    <Button
-                      variant='destructive'
-                      onClick={handleDeleteConfirm}
-                      disabled={actioningUsers.has(userToDelete?.id)}
-                    >
-                      {actioningUsers.has(userToDelete?.id) ? 'Deleting...' : 'Delete'}
-                    </Button>
-                  </DialogFooter>
-                </DialogContent>
-              </Dialog>
+              <Card>
+                <CardContent>
+                  <div className='mb-2 text-sm text-muted-foreground'>
+                    Showing {(currentPage - 1) * currentLimit + 1}–
+                    {Math.min(currentPage * currentLimit, totalCount)} of {totalCount} users
+                  </div>
 
-              {/* Invitation link dialog */}
-              <Dialog open={inviteDialogOpen} onOpenChange={closeInviteDialog}>
-                <DialogContent>
-                  <DialogHeader>
-                    <DialogTitle>Invitation Link</DialogTitle>
-                    <DialogDescription>
-                      {isGeneratingLink ? (
-                        'Generating invitation link...'
-                      ) : (
-                        <>
-                          Invitation link for <strong>{selectedUser?.email}</strong>. Share this link with the user to
-                          complete their registration.
-                        </>
-                      )}
-                    </DialogDescription>
-                  </DialogHeader>
-                  {invitationLink && (
-                    <div className='space-y-4'>
-                      <div className='flex items-center gap-2 p-2 bg-muted rounded-md'>
-                        <LinkIcon className='h-4 w-4 text-muted-foreground' />
-                        <div className='text-sm flex-1 overflow-x-auto whitespace-nowrap'>{invitationLink}</div>
-                        <Button variant='outline' size='sm' onClick={handleCopyLink} className='flex-shrink-0'>
-                          <Copy className='h-4 w-4 mr-2' />
-                          Copy
-                        </Button>
-                      </div>
+                  {isLoading ? (
+                    <div className='flex justify-center py-8'>
+                      <span className='text-sm text-muted-foreground'>Loading...</span>
                     </div>
+                  ) : users.length === 0 ? (
+                    <div className='text-center text-sm text-muted-foreground py-6'>No users found.</div>
+                  ) : (
+                    <>
+                      <Table>
+                        <TableHeader>
+                          <TableRow>
+                            <TableHead>#</TableHead>
+                            <TableHead>Username</TableHead>
+                            <TableHead>Email</TableHead>
+                            <TableHead>Status</TableHead>
+                            <TableHead>Role</TableHead>
+                            <TableHead className='text-center'>Actions</TableHead>
+                          </TableRow>
+                        </TableHeader>
+                        <TableBody>
+                          {users.map((u, index) => (
+                            <TableRow key={u.id}>
+                              <TableCell>{(currentPage - 1) * currentLimit + index + 1}</TableCell>
+                              <TableCell>{u.username}</TableCell>
+                              <TableCell>{u.email}</TableCell>
+                              <TableCell>{u.status_name}</TableCell>
+                              <TableCell>{u.role_name}</TableCell>
+                              <TableCell className='text-right'>
+                                <DropdownMenu>
+                                  <DropdownMenuTrigger asChild>
+                                    <Button variant='ghost' size='icon' className='w-8 h-8'>
+                                      <MoreHorizontal className='h-4 w-4' />
+                                    </Button>
+                                  </DropdownMenuTrigger>
+                                  <DropdownMenuContent align='end'>
+                                    <DropdownMenuItem onClick={() => navigate(`/users/${u.id}`)}>
+                                      <Eye className='mr-2 h-4 w-4' /> View
+                                    </DropdownMenuItem>
+                                    {canEdit && (
+                                      <DropdownMenuItem onClick={() => navigate(`/users/${u.id}/edit`)}>
+                                        <Edit className='mr-2 h-4 w-4' /> Edit
+                                      </DropdownMenuItem>
+                                    )}
+                                    {u.status_name !== 'VERIFIED' && (
+                                      <DropdownMenuItem onClick={() => regenerateInvitationLink(u.email)}>
+                                        <RefreshCw className='mr-2 h-4 w-4' /> Regenerate Invite
+                                      </DropdownMenuItem>
+                                    )}
+                                    {canDelete && (
+                                      <>
+                                        <DropdownMenuSeparator />
+                                        <DropdownMenuItem
+                                          onClick={() => deleteUser(u.id)}
+                                          className='text-destructive focus:bg-red-100'
+                                        >
+                                          <Trash2 className='mr-2 h-4 w-4' /> Delete
+                                        </DropdownMenuItem>
+                                      </>
+                                    )}
+                                  </DropdownMenuContent>
+                                </DropdownMenu>
+                              </TableCell>
+                            </TableRow>
+                          ))}
+                        </TableBody>
+                      </Table>
+
+                      <Pagination className='mt-4'>
+                        <PaginationContent>
+                          {currentPage > 1 && (
+                            <PaginationItem>
+                              <PaginationPrevious onClick={() => goToPreviousPage()} />
+                            </PaginationItem>
+                          )}
+                          {pageNumbers.map((page) => (
+                            <PaginationItem key={page}>
+                              <PaginationLink
+                                isActive={page === currentPage}
+                                onClick={(e) => {
+                                  e.preventDefault();
+                                  goToPage(page);
+                                }}
+                              >
+                                {page}
+                              </PaginationLink>
+                            </PaginationItem>
+                          ))}
+                          {currentPage < totalPages && (
+                            <PaginationItem>
+                              <PaginationNext onClick={() => goToNextPage()} />
+                            </PaginationItem>
+                          )}
+                        </PaginationContent>
+                      </Pagination>
+                    </>
                   )}
-                  <DialogFooter>
-                    <Button variant='outline' onClick={closeInviteDialog}>
-                      Close
-                    </Button>
-                  </DialogFooter>
-                </DialogContent>
-              </Dialog>
+                </CardContent>
+              </Card>
             </div>
           </SidebarInset>
         </div>
@@ -514,5 +267,3 @@ function ManageUsersPage() {
     </div>
   );
 }
-
-export default ManageUsersPage;
