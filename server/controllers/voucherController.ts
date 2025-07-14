@@ -97,6 +97,7 @@ const transferVoucherDetailsHandler = async (
       created_at,
       remarks,
       top_up_balance,
+      service_details, // ✅ NEW: Extracted from body
     }: {
       member_name: string;
       voucher_template_name: string;
@@ -113,9 +114,15 @@ const transferVoucherDetailsHandler = async (
       created_at: string;
       remarks: string;
       top_up_balance: number;
+      service_details?: {
+         name: string;         // from UI, becomes service_name
+  price: number;        // from UI, becomes custom_price
+  duration?: string | number;
+
+      }[]; // ✅ Define expected structure
     } = req.body;
 
-    // Validate input
+    // Basic validation
     if (
       !member_name ||
       !voucher_template_name ||
@@ -128,6 +135,14 @@ const transferVoucherDetailsHandler = async (
       return;
     }
 
+    // If bypass, validate service_details
+    if (is_bypass) {
+      if (!Array.isArray(service_details) || service_details.length === 0) {
+        res.status(400).json({ success: false, message: "Missing service details for bypass transfer." });
+        return;
+      }
+    }
+
     // Lookup member
     const members = await memberModel.searchMemberByNameOrPhone(member_name);
     if (!members || members.members.length === 0) {
@@ -136,7 +151,7 @@ const transferVoucherDetailsHandler = async (
     }
     const memberId = members.members[0].id;
 
-    // Lookup template
+    // Lookup template (skip if bypass)
     let voucherTemplateId = 0;
     if (!is_bypass) {
       const templates = await voucherModel.getVoucherTemplatesDetails(voucher_template_name);
@@ -165,15 +180,11 @@ const transferVoucherDetailsHandler = async (
 
     for (const { member_voucher_name } of old_voucher_details) {
       const isFOCUsed = await voucherModel.checkIfFreeOfChargeIsUsed(memberId, member_voucher_name);
-      console.log(`[FOC CHECK] Checking FOC for voucher: ${member_voucher_name}`);
-      console.log(`[FOC CHECK] isFOCUsed = ${isFOCUsed}`);
       if (isFOCUsed) {
         await voucherModel.removeFOCFromVoucher(memberId, member_voucher_name, created_by, created_at);
       }
 
-
       const currentBalance = await voucherModel.getMemberVoucherCurrentBalance(memberId, member_voucher_name);
-
 
       await memberVoucherTransactionLogsModel.addTransferMemberVoucherTransactionLog(
         memberId,
@@ -182,7 +193,7 @@ const transferVoucherDetailsHandler = async (
         voucher_template_name,
         created_by,
         created_by,
-        created_at,
+        created_at
       );
 
       await voucherModel.setMemberVoucherBalanceAfterTransfer(
@@ -193,7 +204,6 @@ const transferVoucherDetailsHandler = async (
       );
 
       totalActualTransferredBalance += currentBalance;
-
     }
 
     // Add Top-Up + FOC logs
@@ -207,6 +217,21 @@ const transferVoucherDetailsHandler = async (
       top_up_balance,
       totalActualTransferredBalance
     );
+
+    // ✅ Insert service_details if bypass
+    if (is_bypass && service_details?.length > 0) {
+      for (const service of service_details) {
+        // Replace with your actual DB insertion logic
+     await voucherModel.insertCustomVoucherServiceDetail({
+      member_voucher_id: newVoucherId,
+      service_name: service.name,                    // from UI
+      custom_price: Number(service.price),           // from UI
+      duration: Number(service.duration) || 0,       // optional
+      created_at,
+});
+
+      }
+    }
 
     res.status(200).json({
       success: true,
