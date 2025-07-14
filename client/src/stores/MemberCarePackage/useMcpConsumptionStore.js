@@ -57,6 +57,11 @@ export const useConsumptionStore = create(
       mcpd_date: new Date().toISOString(), // Store as ISO string
       max_quantity: 0, // Max consumable quantity for the selected service
     },
+
+    // Employee Commission
+    selectedServiceId: null,
+    selectedServiceFinalPrice: 0,
+
     currentPackageInfo: null, // stores { package: {...}, details: [{..., remaining_quantity: X}], transactionLogs: [...] }
     isLoading: false,
     error: null,
@@ -191,11 +196,34 @@ export const useConsumptionStore = create(
           false,
           'fetchPackageData/fulfilled'
         );
+
+
+        // Get service ID and final price from the service for Employee Commission Select
+            const service = processedDetails[0];
+            set({
+                selectedServiceId: service.service_id,
+                selectedServiceFinalPrice: parseFloat(service.price * service.discount).toFixed(2)
+            });
+
       } catch (error) {
         const errorMessage = error.response?.data?.message || error.message || 'An unknown error occurred';
         set({ error: errorMessage, isLoading: false }, false, 'fetchPackageData/rejected');
         console.error('Error fetching package data:', error);
       }
+    },
+
+    setSelectedService: (serviceId, finalPrice) => {
+      set({
+        selectedServiceId: serviceId,
+        selectedServiceFinalPrice: finalPrice
+      });
+    },
+
+    clearSelectedService: () => {
+      set({
+        selectedServiceId: null,
+        selectedServiceFinalPrice: 0
+      });
     },
 
     selectServiceToConsume: (serviceDetailId) => {

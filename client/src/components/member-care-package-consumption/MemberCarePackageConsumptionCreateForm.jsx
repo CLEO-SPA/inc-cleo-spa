@@ -7,6 +7,7 @@ import { Label } from '@/components/ui/label';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Loader2 } from 'lucide-react';
 import EmployeeSelect from '@/components/ui/forms/EmployeeSelect';
+import EmployeeCommissionSelect from '@/components/ui/forms/EmployeeCommissionSelect';
 
 const MemberCarePackageConsumptionCreateForm = () => {
   const {
@@ -22,6 +23,8 @@ const MemberCarePackageConsumptionCreateForm = () => {
     // Add the date utility functions
     getFormattedDate,
     updateDateField,
+    selectedServiceId, // Used for EmployeeCommissionSelect
+    selectedServiceFinalPrice, // Used for EmployeeCommissionSelect
   } = useConsumptionStore();
 
   const consumableServices = currentPackageInfo?.details?.filter((d) => d.remaining_quantity > 0) || [];
@@ -143,6 +146,14 @@ const MemberCarePackageConsumptionCreateForm = () => {
             onChange={(value) => updateMainField('employee_id', value)}
             disabled={isLoading || isSubmitting}
           />
+
+          <EmployeeCommissionSelect
+          itemId={selectedServiceId}
+          itemType={'mvConsumption'}
+          totalPrice={selectedServiceFinalPrice}
+          formatCurrency={(value) => `$${value.toFixed(2)}`}
+          disabled={false}
+        />
 
           <Button
             type='submit'

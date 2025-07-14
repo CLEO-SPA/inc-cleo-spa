@@ -1,7 +1,10 @@
+import React, { useState } from 'react';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Button } from '@/components/ui/button';
 import useAuth from '@/hooks/useAuth';
+import EmployeeSelect from '@/components/ui/forms/EmployeeSelect';
+import EmployeeCommissionSelect from '@/components/ui/forms/EmployeeCommissionSelect';
 
 import {
   Select,
@@ -16,6 +19,9 @@ const MemberVoucherConsumptionForm = () => {
   const { user } = useAuth();
   const {
     createFormFieldData,
+    loading,
+    selectedServiceId, // Used for EmployeeCommissionSelect
+    selectedServiceFinalPrice, // Used for EmployeeCommissionSelect
 
     updateCreateFormField,
     clearCreateFormData,
@@ -42,7 +48,7 @@ const MemberVoucherConsumptionForm = () => {
   const canAdd = user?.role === 'super_admin' || user?.role === 'data_admin';
 
   return (
-    <div className="bg-gray mr-5 my-2 rounded-lg">
+    <div className="max-h-96 overflow-y-auto bg-gray mr-5 my-2 rounded-lg">
       <div className="space-y-4">
         <div>
           <Label htmlFor="consumptionValue" className="block mb-2">Consumption value</Label>
@@ -105,26 +111,32 @@ const MemberVoucherConsumptionForm = () => {
         </div>
 
         <div>
-          <Label htmlFor="createdBy" className="block mb-2">Created By</Label>
-          <Input
-            id="createdBy"
+          <EmployeeSelect
+            label='Created By'
             value={createFormFieldData.createdBy}
-            onChange={(e) => handleInputChange('createdBy', e.target.value)}
-            placeholder="Enter creator name"
+            onChange={(value) => handleInputChange('createdBy', value)}
+            disabled={loading}
           />
         </div>
 
         <div>
-          <Label htmlFor="handledBy" className="block mb-2">Handled By</Label>
-          <Input
-            id="handledBy"
+          <EmployeeSelect
+            label='Handled By'
             value={createFormFieldData.handledBy}
-            onChange={(e) => handleInputChange('handledBy', e.target.value)}
-            placeholder="Enter handler name"
+            onChange={(value) => handleInputChange('handledBy', value)}
+            disabled={loading}
           />
         </div>
 
-        <div className="flex gap-2 pt-4">
+        <EmployeeCommissionSelect
+          itemId={selectedServiceId}
+          itemType={'mvConsumption'}
+          totalPrice={selectedServiceFinalPrice}
+          formatCurrency={(value) => `$${value.toFixed(2)}`}
+          disabled={false}
+        />
+
+        <div className="flex gap-2 py-4">
           <Button variant="outline" onClick={handleClear} className="flex-1">
             Clear
           </Button>

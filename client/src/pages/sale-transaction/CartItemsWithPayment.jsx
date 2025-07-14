@@ -610,7 +610,7 @@ const CartItemsWithPayment = ({
                     <th className="px-4 py-3 text-right text-xs font-medium text-gray-500 uppercase tracking-wider">Payment Ratio</th>
                     <th className="px-4 py-3 text-right text-xs font-medium text-gray-500 uppercase tracking-wider">Final Unit Price</th>
                     <th className="px-4 py-3 text-right text-xs font-medium text-gray-500 uppercase tracking-wider">Total Line Price</th>
-                    <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Employee Assignments</th>
+                    <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Employee Commission</th>
                   </tr>
                 </thead>
                 <tbody>
@@ -776,7 +776,7 @@ const CartItemsWithPayment = ({
                                       Commission Rate (%)
                                     </label>
                                     <input
-                                      value={assignment.commissionRate}
+                                      value={assignment.commissionRate.toFixed(2)}
                                       disabled
                                       readOnly
                                       className="w-full p-2 border border-gray-300 rounded text-sm bg-gray-100"
