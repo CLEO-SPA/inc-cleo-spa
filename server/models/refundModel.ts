@@ -1052,27 +1052,55 @@ const processRefundMemberVoucher = async (body: {
     // 11. Generate or use provided credit note number
     const receiptNo = body.creditNoteNumber?.trim() || (await generateCreditNoteNumber(client));
 
+    ///////////////////////////////////////
+    // Step 11.5: Get latest outstanding balance for this member voucher
+    let previousOutstanding = 0;
+    let referenceTxId: number | null = null;
+
+    const { rows: outstandingRows } = await client.query(
+      `
+    SELECT st.id, st.outstanding_total_payment_amount
+    FROM sale_transaction_items sti
+    JOIN sale_transactions st ON sti.sale_transaction_id = st.id
+    WHERE sti.member_voucher_id = $1
+      AND st.sale_transaction_status != 'REFUND'
+    ORDER BY st.id DESC
+    LIMIT 1
+    `,
+      [body.memberVoucherId]
+    );
+
+    if (outstandingRows.length > 0) {
+      previousOutstanding = parseFloat(outstandingRows[0].outstanding_total_payment_amount || '0');
+      referenceTxId = outstandingRows[0].id;
+    }
+
+    const newOutstanding = Math.round((previousOutstanding + refundAmount) * 100) / 100;
+
     // 12. Insert sale transaction
     const { rows: txRows } = await client.query(
       `INSERT INTO sale_transactions (
-        customer_type, member_id,
-        total_paid_amount, outstanding_total_payment_amount,
-        sale_transaction_status, remarks,
-        receipt_no, reference_sales_transaction_id,
-        handled_by, created_by, created_at, updated_at
+      customer_type, member_id,
+      total_paid_amount, outstanding_total_payment_amount,
+      sale_transaction_status, remarks,
+      receipt_no, reference_sales_transaction_id,
+      handled_by, created_by, created_at, updated_at
       )
-      VALUES ('MEMBER', $1, $2, 0, 'REFUND', $3, $4, NULL, $5, $6, $7, $7)
+      VALUES ('MEMBER', $1, $2, $3, 'REFUND', $4, $5, $6, $7, $8, $9, $9)
       RETURNING id`,
       [
         voucher.member_id,
         -refundAmount,
+        newOutstanding,
         body.remarks || `Refund for Member Voucher #${body.memberVoucherId}`,
         receiptNo,
+        referenceTxId,
         body.refundedBy,
         body.createdBy,
         body.refundDate,
       ]
     );
+
     const refundTxId = txRows[0].id;
 
     // 13. Insert sale transaction item
@@ -1105,6 +1133,16 @@ const processRefundMemberVoucher = async (body: {
         body.refundDate,
       ]
     );
+
+    //Mark process_payment = true if partial refund
+    if (!isFullRefund) {
+      await client.query(
+        `UPDATE sale_transactions
+        SET process_payment = true
+        WHERE id = $1`,
+        [refundTxId]
+      );
+    }
 
     await client.query('COMMIT');
     return { refundTransactionId: refundTxId };
