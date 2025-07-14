@@ -336,12 +336,19 @@ const processRefundService = async (body: {
     const receiptNo = `R-SVC-${refundTxId}-${refundDateStr}`;
     */
 
-    const receiptNo = body.creditNoteNo?.trim() || null;
+    let receiptNo: string | null = null;
+
+    if (body.creditNoteNo?.trim()) {
+      receiptNo = body.creditNoteNo.trim();
+    } else {
+      receiptNo = await generateCreditNoteNumber(client);
+    }
 
     await client.query(
       `UPDATE sale_transactions SET receipt_no = $1 WHERE id = $2`,
       [receiptNo, refundTxId]
     );
+
 
     // 3. Insert refund items and map to employees
     for (const item of body.refundItems) {
@@ -1252,7 +1259,7 @@ const getMemberVoucherById = async (voucherId: number) => {
       };
     }
 
-     // Step 4: Compute FOC amounts (safe method)
+    // Step 4: Compute FOC amounts (safe method)
     let totalAddFoc = 0;
     let totalRemoveFoc = 0;
 
