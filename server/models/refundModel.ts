@@ -1063,7 +1063,6 @@ const processRefundMemberVoucher = async (body: {
     FROM sale_transaction_items sti
     JOIN sale_transactions st ON sti.sale_transaction_id = st.id
     WHERE sti.member_voucher_id = $1
-      AND st.sale_transaction_status != 'REFUND'
     ORDER BY st.id DESC
     LIMIT 1
     `,
@@ -1134,15 +1133,31 @@ const processRefundMemberVoucher = async (body: {
       ]
     );
 
-    //Mark process_payment = true if partial refund
+    // Handle process_payment flag updates
+    await client.query(
+    `
+      UPDATE sale_transactions
+      SET process_payment = false
+      WHERE id IN (
+      SELECT st.id
+      FROM sale_transactions st
+      JOIN sale_transaction_items sti ON sti.sale_transaction_id = st.id
+      WHERE sti.member_voucher_id = $1
+      )
+    `,
+      [body.memberVoucherId]
+    );
+
+    // If partial refund, set only the latest refund transaction to true
     if (!isFullRefund) {
       await client.query(
         `UPDATE sale_transactions
-        SET process_payment = true
+          SET process_payment = true
         WHERE id = $1`,
         [refundTxId]
       );
     }
+
 
     await client.query('COMMIT');
     return { refundTransactionId: refundTxId };
