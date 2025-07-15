@@ -21,6 +21,7 @@ const getInitialState = () => ({
   /* ------------ commission settings fetch --------------------------- */
   commissionSettings: {},
   isFetchingCommissionSettings: false,
+  commissionSettingsError: false, // Track if settings fetch failed
 
   /* ------------ commission assignments --------------------------- */
   commissionAssignments: {}, // { itemId: [assignments] }
@@ -64,22 +65,32 @@ const useEmployeeCommissionStore = create(
 
 
     /* ------------------------------------------------- commission settings */
-    fetchCommissionSettings: async () => {
+  fetchCommissionSettings: async () => {
+      const state = get();
+      
+      // Don't retry if we already tried and failed
+      if (state.commissionSettingsError) {
+        return;
+      }
+
       set({
         isFetchingCommissionSettings: true,
         error: null,
       });
 
       try {
-        const response = await api.get('/em/commissionSettings');
+        const response = await api.get('/com/commissionSettings');
         set({
           commissionSettings: response.data,
           isFetchingCommissionSettings: false,
+          commissionSettingsError: false,
         });
       } catch (error) {
+        console.warn('Failed to fetch commission settings, using fallback rates:', error.message);
         set({
-          commissionSettings: {},
+          commissionSettings: {}, // Keep empty but mark as failed
           isFetchingCommissionSettings: false,
+          commissionSettingsError: true, // Prevent further retries
           error: error.response?.data?.message || error.message || 'Failed to fetch commission settings',
         });
       }
@@ -143,10 +154,20 @@ const useEmployeeCommissionStore = create(
     },
 
     /* ------------------------------------------------- utility methods */
-    getCommissionRate: (itemType) => {
+     getCommissionRate: (itemType) => {
       const state = get();
       const commissionKey = itemType === 'member-voucher' ? 'member-voucher' : itemType;
-      return parseFloat(state.commissionSettings[commissionKey] || '6.00');
+      
+      // Use fallback rate if settings failed to load or key doesn't exist
+      const fallbackRate = 6.00;
+      const rate = state.commissionSettings[commissionKey];
+      
+      if (rate === undefined || rate === null || rate === '') {
+        console.warn(`Commission rate for ${commissionKey} not found, using fallback: ${fallbackRate}%`);
+        return fallbackRate;
+      }
+      
+      return parseFloat(rate);
     },
 
     calculatePerformanceRate: (totalEmployees) => {

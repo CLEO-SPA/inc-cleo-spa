@@ -42,7 +42,7 @@ const MemberVoucherConsumptionForm = () => {
   const canAdd = user?.role === 'super_admin' || user?.role === 'data_admin';
 
   return (
-    <div className='max-h-96 overflow-y-auto bg-gray mr-5 my-2 rounded-lg'>
+    <div className='max-h-130 overflow-y-auto bg-gray mr-5 my-2 rounded-lg'>
       <div className='space-y-4'>
         <div>
           <Label htmlFor='consumptionValue' className='block mb-2'>

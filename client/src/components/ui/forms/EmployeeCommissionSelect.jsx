@@ -28,6 +28,7 @@ const EmployeeCommissionSelect = ({
   // Store selectors
   const employees = useEmployeeCommissionStore((state) => state.employees);
   const commissionSettings = useEmployeeCommissionStore((state) => state.commissionSettings);
+  const commissionSettingsError = useEmployeeCommissionStore((state) => state.commissionSettingsError);
   const loading = useEmployeeCommissionStore((state) => state.loading);
   const error = useEmployeeCommissionStore((state) => state.error);
   const commissionAssignments = useEmployeeCommissionStore((state) => state.commissionAssignments);
@@ -43,7 +44,6 @@ const EmployeeCommissionSelect = ({
 
   // Get current assignments for this item
   const currentAssignments = commissionAssignments[itemId] || [];
-  console.log('Current Assignments:', currentAssignments);
 
   // Memoize filtered employees to prevent unnecessary re-renders
   const filteredEmployees = useMemo(() => {
@@ -59,11 +59,13 @@ const EmployeeCommissionSelect = ({
     }
   }, [employees.length, loading, fetchDropdownEmployees]);
 
+  // Fetch commission settings - only if not already failed
   useEffect(() => {
-    if (!commissionSettings || Object.keys(commissionSettings).length === 0) {
+    if (!commissionSettingsError &&
+      (!commissionSettings || Object.keys(commissionSettings).length === 0)) {
       fetchCommissionSettings();
     }
-  }, [commissionSettings, fetchCommissionSettings]);
+  }, [commissionSettings, commissionSettingsError, fetchCommissionSettings]);
 
   // Notify parent of assignment changes - use JSON.stringify to compare arrays properly
   const assignmentsString = JSON.stringify(currentAssignments);
@@ -249,26 +251,25 @@ const EmployeeCommissionSelect = ({
     }
   }, [totalPrice, itemType, currentAssignments.length]); // Removed function dependencies
 
-// Memoize summary calculations to prevent unnecessary re-renders
-const summaryData = useMemo(() => {
-  const totalPerformanceRate = currentAssignments.reduce((sum, a) => sum + a.performanceRate, 0);
-  const totalCommission = currentAssignments.reduce((sum, a) => sum + a.commissionAmount, 0);
-  const commissionRate = currentAssignments[0]?.commissionRate || 0;
-  
-  console.log('Calculating summary data:', currentAssignments)
-  // Create individual employee summaries
-  const employeeSummaries = currentAssignments.map(assignment => ({
-    employeeName: assignment.employeeName,
-    performanceRate: assignment.performanceRate.toFixed(1),
-    commissionAmount: formatCurrency(assignment.commissionAmount),
-  }));
- 
-  return {
-    totalCommission: formatCurrency(totalCommission),
-    commissionRate: commissionRate.toFixed(2),
-    employeeSummaries
-  };
-}, [currentAssignments, formatCurrency]);
+  // Memoize summary calculations to prevent unnecessary re-renders
+  const summaryData = useMemo(() => {
+    const totalPerformanceRate = currentAssignments.reduce((sum, a) => sum + a.performanceRate, 0);
+    const totalCommission = currentAssignments.reduce((sum, a) => sum + a.commissionAmount, 0);
+    const commissionRate = currentAssignments[0]?.commissionRate || 0;
+
+    // Create individual employee summaries
+    const employeeSummaries = currentAssignments.map(assignment => ({
+      employeeName: assignment.employeeName,
+      performanceRate: assignment.performanceRate.toFixed(1),
+      commissionAmount: formatCurrency(assignment.commissionAmount),
+    }));
+
+    return {
+      totalCommission: formatCurrency(totalCommission),
+      commissionRate: commissionRate.toFixed(2),
+      employeeSummaries
+    };
+  }, [currentAssignments, formatCurrency]);
 
   if (loading) {
     return (
@@ -278,7 +279,7 @@ const summaryData = useMemo(() => {
     );
   }
 
-  if (error) {
+  if (error && !commissionSettingsError) {
     return (
       <div className={cn('p-4 border rounded-md bg-red-50 border-red-200', className)}>
         <div className="text-sm text-red-600">Error: {error}</div>
@@ -288,6 +289,15 @@ const summaryData = useMemo(() => {
 
   return (
     <div className={cn('space-y-4', className)}>
+      {/* Show warning if commission settings failed to load */}
+      {commissionSettingsError && (
+        <div className="p-3 border rounded-md bg-yellow-50 border-yellow-200">
+          <div className="text-sm text-yellow-800">
+            ⚠️ Commission settings unavailable. Using fallback rate of 6.00%.
+          </div>
+        </div>
+      )}
+
       {/* Add Employee Section */}
       <div className="">
         <Label className="text-sm font-medium text-gray-700 mb-2 block">
@@ -420,39 +430,39 @@ const summaryData = useMemo(() => {
         </div>
       ))}
 
-{/* Summary */}
-{currentAssignments.length > 0 && (
-  <div className="p-3 border rounded-md bg-blue-50 border-blue-200">
-    <div className="text-sm font-medium text-blue-800 mb-2">
-      Commission Summary
-    </div>
-    
-    {/* Individual Employee Summaries */}
-    <div className="space-y-1 mb-3">
-      {summaryData.employeeSummaries.map((employee, index) => (
-        <div key={index} className="flex justify-between items-center text-xs">
-          <span className="text-blue-700 font-medium">
-            {employee.employeeName}
-          </span>
-          <div className="text-blue-600">
-            <span className="mr-2">{employee.performanceRate}%</span>
-            <span className="font-medium">{employee.commissionAmount}</span>
+      {/* Summary */}
+      {currentAssignments.length > 0 && (
+        <div className="p-3 border rounded-md bg-blue-50 border-blue-200">
+          <div className="text-sm font-medium text-blue-800 mb-2">
+            Commission Summary
+          </div>
+
+          {/* Individual Employee Summaries */}
+          <div className="space-y-1 mb-3">
+            {summaryData.employeeSummaries.map((employee, index) => (
+              <div key={index} className="flex justify-between items-center text-xs">
+                <span className="text-blue-700 font-medium">
+                  {employee.employeeName}
+                </span>
+                <div className="text-blue-600">
+                  <span className="mr-2">{employee.performanceRate}%</span>
+                  <span className="font-medium">{employee.commissionAmount}</span>
+                </div>
+              </div>
+            ))}
+          </div>
+
+          {/* Separator line */}
+          <div className="border-t border-blue-200 pt-2">
+            <div className="text-xs text-blue-600">
+              <strong>Total Commission: {summaryData.totalCommission}</strong>
+            </div>
+            <div className="text-xs text-blue-600">
+              <strong>Commission Rate: {summaryData.commissionRate}%</strong>
+            </div>
           </div>
         </div>
-      ))}
-    </div>
-    
-    {/* Separator line */}
-    <div className="border-t border-blue-200 pt-2">
-      <div className="text-xs text-blue-600">
-        <strong>Total Commission: {summaryData.totalCommission}</strong>
-      </div>
-       <div className="text-xs text-blue-600">
-        <strong>Commission Rate: {summaryData.commissionRate}%</strong>
-      </div>
-    </div>
-  </div>
-)}
+      )}
     </div>
   );
 };

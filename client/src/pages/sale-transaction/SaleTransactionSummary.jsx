@@ -242,7 +242,7 @@ const SaleTransactionSummary = () => {
     if (itemsNeedingEmployees.length > 0) {
       const itemNames = itemsNeedingEmployees.map(it => it.name || `${it.data.name}`);
       errors.push(
-        `Please assign employees to the following ${itemsNeedingEmployees.length} item(s): ${itemNames.join(', ')}.`
+        `Please assign employee(s) to the following ${itemsNeedingEmployees.length} item(s): ${itemNames.join(', ')}.`
       );
     }
 
