@@ -325,3 +325,15 @@ export interface VoucherTemplateDetail {
   final_price: number;
   duration: number;
 }
+
+export interface EmployeeCommisions {
+  id: string;
+  item_type: 'member_vouchers' | 'member_care_packages' | 'products' | 'services';
+  item_id: string;
+  employee_id: string;
+  performance_rate: number;
+  performance_amount: number;
+  commission_rate: number;
+  commission_amount: number;
+  created_at: string;
+}
