@@ -39,7 +39,7 @@ const getInitialState = () => ({
   isCreating: false,
   isFetchingList: false,
   isRegenerating: null, // id
-  isUpdating: null,     // id
+  isUpdating: null, // id
 });
 
 const useEmployeeStore = create((set, get) => ({
@@ -68,8 +68,7 @@ const useEmployeeStore = create((set, get) => ({
     get().fetchAllEmployees();
   },
 
-  resetMessages: () =>
-    set({ error: null, success: null, inviteLink: null }),
+  resetMessages: () => set({ error: null, success: null, inviteLink: null }),
 
   reset: () => set(getInitialState()),
 
@@ -83,10 +82,7 @@ const useEmployeeStore = create((set, get) => ({
     } catch (err) {
       set({
         isFetchingOne: false,
-        error:
-          err?.response?.data?.message ||
-          err.message ||
-          'Failed to fetch employee details',
+        error: err?.response?.data?.message || err.message || 'Failed to fetch employee details',
       });
     }
   },
@@ -112,10 +108,7 @@ const useEmployeeStore = create((set, get) => ({
       });
     } catch (err) {
       set({
-        error:
-          err?.response?.data?.message ||
-          err.message ||
-          'Failed to fetch employees',
+        error: err?.response?.data?.message || err.message || 'Failed to fetch employees',
         isFetchingList: false,
       });
     }
@@ -131,10 +124,7 @@ const useEmployeeStore = create((set, get) => ({
       set({
         dropdownEmployees: [],
         isFetchingDropdown: false,
-        error:
-          err?.response?.data?.message ||
-          err.message ||
-          'Failed to fetch employees',
+        error: err?.response?.data?.message || err.message || 'Failed to fetch employees',
       });
     }
   },
@@ -146,14 +136,12 @@ const useEmployeeStore = create((set, get) => ({
       const res = await api.post('/em/create-invite', payload);
       set({
         isCreating: false,
-        success:
-          'Employee created and invited successfully! The invite link is ready.',
+        success: 'Employee created and invited successfully! The invite link is ready.',
         inviteLink: res.data.resetUrl,
       });
       get().fetchAllEmployees();
     } catch (err) {
-      const msg =
-        err?.response?.data?.message || 'Failed to create employee';
+      const msg = err?.response?.data?.message || 'Failed to create employee';
       set({ isCreating: false, error: msg });
       throw new Error(msg);
     }
@@ -194,10 +182,7 @@ const useEmployeeStore = create((set, get) => ({
     } catch (err) {
       set({
         isUpdating: null,
-        error:
-          err?.response?.data?.message ||
-          err.message ||
-          'Failed to update employee',
+        error: err?.response?.data?.message || err.message || 'Failed to update employee',
       });
     }
   },
@@ -234,38 +219,10 @@ const useEmployeeStore = create((set, get) => ({
       set({
         employeeName: null,
         isFetchingName: false,
-        error:
-          error.response?.data?.message ||
-          error.message ||
-          'Failed to fetch employee',
+        error: error.response?.data?.message || error.message || 'Failed to fetch employee',
       });
       console.error('Error fetching employee:', error);
-      throw new Error(
-        error.response?.data?.message ||
-        error.message ||
-        'Failed to fetch employee'
-      );
-    }
-  },
-
-  fetchDropdownEmployees: async () => {
-    set({ isFetching: true, error: false, errorMessage: null });
-
-    try {
-      const response = await api.get('/em/dropdown');
-      set({
-        employees: response.data,
-        isFetching: false,
-        error: false,
-        errorMessage: null,
-      });
-    } catch (error) {
-      set({
-        employees: [],
-        isFetching: false,
-        error: true,
-        errorMessage: error.response?.data?.message || error.message || 'Failed to fetch employees',
-      });
+      throw new Error(error.response?.data?.message || error.message || 'Failed to fetch employee');
     }
   },
 
@@ -289,9 +246,6 @@ const useEmployeeStore = create((set, get) => ({
       });
     }
   },
-
-  resetMessages: () => set({ error: null, success: null, inviteLink: null }),
-  reset: () => set(getInitialState()),
 }));
 
 export default useEmployeeStore;

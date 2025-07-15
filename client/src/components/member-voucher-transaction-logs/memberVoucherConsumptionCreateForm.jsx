@@ -6,13 +6,7 @@ import useAuth from '@/hooks/useAuth';
 import EmployeeSelect from '@/components/ui/forms/EmployeeSelect';
 import EmployeeCommissionSelect from '@/components/ui/forms/EmployeeCommissionSelect';
 
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from '@/components/ui/select';
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import useMemberVoucherTransactionStore from '@/stores/MemberVoucher/useMemberVoucherTransactionStore';
 
 const MemberVoucherConsumptionForm = () => {
@@ -27,7 +21,7 @@ const MemberVoucherConsumptionForm = () => {
     clearCreateFormData,
     setStoreFormData,
     setIsCreating,
-    setIsConfirming
+    setIsConfirming,
   } = useMemberVoucherTransactionStore();
 
   const handleInputChange = (field, value) => {
@@ -38,7 +32,7 @@ const MemberVoucherConsumptionForm = () => {
     if (setStoreFormData(createFormFieldData)) {
       setIsCreating(true);
       setIsConfirming(true);
-    };
+    }
   };
 
   const handleClear = () => {
@@ -48,71 +42,76 @@ const MemberVoucherConsumptionForm = () => {
   const canAdd = user?.role === 'super_admin' || user?.role === 'data_admin';
 
   return (
-    <div className="max-h-96 overflow-y-auto bg-gray mr-5 my-2 rounded-lg">
-      <div className="space-y-4">
+    <div className='max-h-96 overflow-y-auto bg-gray mr-5 my-2 rounded-lg'>
+      <div className='space-y-4'>
         <div>
-          <Label htmlFor="consumptionValue" className="block mb-2">Consumption value</Label>
+          <Label htmlFor='consumptionValue' className='block mb-2'>
+            Consumption value
+          </Label>
           <Input
-            id="consumptionValue"
-            type={"number"}
+            id='consumptionValue'
+            type={'number'}
             value={createFormFieldData.consumptionValue}
             onChange={(e) => handleInputChange('consumptionValue', e.target.value)}
-            placeholder="Enter consumption value"
+            placeholder='Enter consumption value'
           />
         </div>
 
         <div>
-          <Label htmlFor="remarks" className="block mb-2">Remarks</Label>
+          <Label htmlFor='remarks' className='block mb-2'>
+            Remarks
+          </Label>
           <textarea
-            id="remarks"
-            className="flex min-h-[60px] w-full rounded-md border border-input bg-transparent px-3 py-2 text-sm shadow-xs placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-[3px] focus-visible:ring-ring/50 focus-visible:border-ring disabled:cursor-not-allowed disabled:opacity-50 resize-none"
+            id='remarks'
+            className='flex min-h-[60px] w-full rounded-md border border-input bg-transparent px-3 py-2 text-sm shadow-xs placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-[3px] focus-visible:ring-ring/50 focus-visible:border-ring disabled:cursor-not-allowed disabled:opacity-50 resize-none'
             value={createFormFieldData.remarks}
             onChange={(e) => handleInputChange('remarks', e.target.value)}
-            placeholder="Enter remarks"
+            placeholder='Enter remarks'
           />
         </div>
 
-        <div className="grid grid-cols-2 gap-2">
+        <div className='grid grid-cols-2 gap-2'>
           <div>
-            <Label htmlFor="date" className="block mb-2">Date</Label>
+            <Label htmlFor='date' className='block mb-2'>
+              Date
+            </Label>
             <Input
-              id="date"
-              type="date"
+              id='date'
+              type='date'
               value={createFormFieldData.date}
               onChange={(e) => handleInputChange('date', e.target.value)}
             />
           </div>
           <div>
-            <Label htmlFor="time" className="block mb-2">Time</Label>
+            <Label htmlFor='time' className='block mb-2'>
+              Time
+            </Label>
             <Input
-              id="time"
-              type="time"
+              id='time'
+              type='time'
               value={createFormFieldData.time}
               onChange={(e) => handleInputChange('time', e.target.value)}
-              className="w-full"
+              className='w-full'
             />
           </div>
         </div>
 
         <div>
-          <Label htmlFor="type" className="block mb-2">Type</Label>
-          <Select
-            value={createFormFieldData.type}
-            onValueChange={(value) => handleInputChange('type', value)}
-          >
+          <Label htmlFor='type' className='block mb-2'>
+            Type
+          </Label>
+          <Select value={createFormFieldData.type} onValueChange={(value) => handleInputChange('type', value)}>
             <SelectTrigger>
-              <SelectValue placeholder="Select type" />
+              <SelectValue placeholder='Select type' />
             </SelectTrigger>
             <SelectContent>
-              <SelectItem value="CONSUMPTION">Consumption</SelectItem>
-              <SelectItem value="FOC">Free Of Charge</SelectItem>
+              <SelectItem value='CONSUMPTION'>Consumption</SelectItem>
+              <SelectItem value='FOC'>Free Of Charge</SelectItem>
             </SelectContent>
           </Select>
         </div>
 
         <div>
-          <EmployeeSelect
-            label='Created By'
           <EmployeeSelect
             label='Created By'
             value={createFormFieldData.createdBy}
@@ -122,8 +121,6 @@ const MemberVoucherConsumptionForm = () => {
         </div>
 
         <div>
-          <EmployeeSelect
-            label='Handled By'
           <EmployeeSelect
             label='Handled By'
             value={createFormFieldData.handledBy}
@@ -140,18 +137,16 @@ const MemberVoucherConsumptionForm = () => {
           disabled={false}
         />
 
-        <div className="flex gap-2 py-4">
-          <Button variant="outline" onClick={handleClear} className="flex-1">
+        <div className='flex gap-2 py-4'>
+          <Button variant='outline' onClick={handleClear} className='flex-1'>
             Clear
           </Button>
-          <Button onClick={handleSubmit} className="flex-1" disabled={!canAdd}>
+          <Button onClick={handleSubmit} className='flex-1' disabled={!canAdd}>
             Submit
           </Button>
         </div>
         {!canAdd && (
-          <p className="text-sm text-muted-foreground mt-2">
-            You don't have permission to create transactions
-          </p>
+          <p className='text-sm text-muted-foreground mt-2'>You don't have permission to create transactions</p>
         )}
       </div>
     </div>
