@@ -25,7 +25,6 @@ router.post(
   employeeController.createAndInviteEmployee
 );
 
-
 // GET /api/em/basic-details - for search functionality
 router.get('/basic-details', employeeController.getBasicEmployeeDetails);
 
@@ -34,9 +33,6 @@ router.get('/positions', employeeController.getAllActivePositions);
 
 // GET /api/em/dropdown - for employee lists for dropdown option
 router.get('/dropdown', employeeController.getAllEmployeesForDropdown);
-
-// GET /api/em/commission - for commission rates for assigned employees
-router.get('/commissionSettings', employeeController.getAllCommissionSettings);
 
 // GET /api/em/employeeName/:employeeId - for employee name by employee ID
 router.get('/employeeName/:employeeId', employeeController.getEmployeeNameByEmployeeId);

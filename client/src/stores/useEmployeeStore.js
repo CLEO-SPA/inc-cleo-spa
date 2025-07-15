@@ -118,8 +118,8 @@ const useEmployeeStore = create((set, get) => ({
   fetchDropdownEmployees: async () => {
     set({ isFetchingDropdown: true, error: null });
     try {
-      const res = await api.get('/em/dropdown');
-      set({ dropdownEmployees: res.data, isFetchingDropdown: false });
+      const response = await api.get('/em/dropdown');
+      set({ employees: response.data, isFetchingDropdown: false });
     } catch (err) {
       set({
         dropdownEmployees: [],
@@ -230,7 +230,7 @@ const useEmployeeStore = create((set, get) => ({
     set({ isFetching: true, error: false, errorMessage: null });
 
     try {
-      const response = await api.get('/em/commissionSettings');
+      const response = await api.get('/com/commissionSettings');
       set({
         commissionSettings: response.data,
         isFetchingCommissionSettings: false,

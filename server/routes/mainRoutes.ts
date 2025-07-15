@@ -29,12 +29,13 @@ import revenueRoutes from './revenueRoutes.js';
 import stRoutes from './stRoutes.js';
 import voucherRoutes from './voucherRoute.js';
 
+import commisionRoutes from './commisionRoutes.js';
 
 router.use(simulationMiddleware);
 
 router.use('/auth', authRoutes);
 router.use('/session', sessionRoutes);
-router.use('/trans', translationRoutes)
+router.use('/trans', translationRoutes);
 
 router.use('/member', memberRoutes);
 router.use('/mv', memberVoucherRoutes);
@@ -56,5 +57,6 @@ router.use('/st', stRoutes);
 router.use('/voucher', voucherRoutes);
 // router.use('/sa', superAdminRoutes);
 router.use('/product', productRoutes);
+router.use('/com', commisionRoutes);
 
 export default router;
