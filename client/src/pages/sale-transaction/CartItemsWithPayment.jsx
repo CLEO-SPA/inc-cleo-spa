@@ -382,6 +382,10 @@ const CartItemsWithPayment = ({
     if (!needsNormalization) {
       return raw; // Already normalized
     }
+
+    // Find the item to get its type
+    const item = cartItems.find((cartItem) => cartItem.id === itemId);
+
     // Normalize and update the store
     const normalized = raw.map((entry) => {
       if (typeof entry === 'string' || typeof entry === 'number') {
@@ -391,11 +395,7 @@ const CartItemsWithPayment = ({
         const perfRate = 100 / raw.length; // Distribute equally among all employees
         const perfAmt = (pricing.totalLinePrice * perfRate) / 100;
         const commRateRaw =
-          commissionSettings?.[
-            cartItems.find((i) => i.id === itemId)?.type === 'member-voucher'
-              ? 'member-voucher'
-              : cartItems.find((i) => i.id === itemId)?.type
-          ] ||
+          commissionSettings?.[item?.type === 'member-voucher' ? 'member-voucher' : item?.type] ||
           commissionSettings?.service ||
           6;
         const commRate = parseFloat(commRateRaw);
@@ -409,10 +409,21 @@ const CartItemsWithPayment = ({
           commissionRate: commRate,
           commissionAmount: commAmt,
           remarks: '',
+          itemType: item?.type || 'unknown', // Add the itemType property
         };
       }
+
+      // If it's already an object but missing itemType, add it
+      if (typeof entry === 'object' && !entry.itemType && item?.type) {
+        return {
+          ...entry,
+          itemType: item.type,
+        };
+      }
+
       return entry;
     });
+
     // Update the store with normalized data
     onEmployeeChange(itemId, normalized);
     return normalized;
