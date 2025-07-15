@@ -113,6 +113,8 @@ const MemberVoucherConsumptionForm = () => {
         <div>
           <EmployeeSelect
             label='Created By'
+          <EmployeeSelect
+            label='Created By'
             value={createFormFieldData.createdBy}
             onChange={(value) => handleInputChange('createdBy', value)}
             disabled={loading}
@@ -120,6 +122,8 @@ const MemberVoucherConsumptionForm = () => {
         </div>
 
         <div>
+          <EmployeeSelect
+            label='Handled By'
           <EmployeeSelect
             label='Handled By'
             value={createFormFieldData.handledBy}

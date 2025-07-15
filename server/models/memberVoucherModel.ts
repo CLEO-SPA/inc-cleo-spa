@@ -156,7 +156,7 @@ const getServicesOfMemberVoucherById = async (id: number): Promise<{ success: bo
       return { success: false, data: [], message: "Error 400: The input Id of Member Voucher does not exist" };
     }
   } catch (error) {
-    console.error('Error retrieving paginated services of member voucher:', error);
+    console.error('Error retrieving services of member voucher:', error);
 
     console.error('Full error details:', {
       error: error instanceof Error ? error.message : 'Unknown error',
@@ -169,7 +169,50 @@ const getServicesOfMemberVoucherById = async (id: number): Promise<{ success: bo
       throw new Error('Database connection failed. Please try again later.');
     }
 
-    return { success: false, data: [], message: "Failed to retrieve paginated services of member voucher due to database error." };
+    return { success: false, data: [], message: "Failed to retrieve services of member voucher due to database error." };
+  }
+};
+
+const getPurchaseDateOfMemberVoucherById = async (id: number): Promise<{ success: boolean, data?: Date, message?: string }> => {
+  if (!Number(id)) {
+    return { success: false, message: "id must be an integer" };
+  }
+
+  const client = await pool().connect();
+  try {
+    const query = `
+    SELECT service_date
+    FROM member_voucher_transaction_logs
+    WHERE member_voucher_id = $1
+    ORDER BY id ASC
+    LIMIT 1;
+    `;
+
+    const results = await client.query(query, [id]);
+
+    console.log("Purchase Date: ");
+    console.log(results.rows[0].service_date);
+
+    if (results.rows.length > 0) {
+      return { success: true, data: results.rows[0].service_date, message: "Get Purchase Date of Member Voucher By Id was successful" };
+    } else {
+      return { success: false, message: "Error 400: The input Id of Member Voucher does not exist" };
+    }
+  } catch (error) {
+    console.error('Error retrieving Purchase Date of member voucher:', error);
+
+    console.error('Full error details:', {
+      error: error instanceof Error ? error.message : 'Unknown error',
+      stack: error instanceof Error ? error.stack : undefined
+    });
+
+    // Return user-friendly message but also throw for critical errors
+    if (error instanceof Error && error.message.includes('connection')) {
+      // Critical database errors should bubble up
+      throw new Error('Database connection failed. Please try again later.');
+    }
+
+    return { success: false, message: "Failed to retrieve Purchase Date of member voucher due to database error." };
   }
 };
 
@@ -315,7 +358,11 @@ const addTransactionLogsByMemberVoucherId = async (data: MemberVoucherTransactio
 
   console.log(current_balance);
 
-  const currentBalanceAfterDeduction = current_balance + consumptionValue;
+  const currentBalanceAfterDeduction = current_balance - consumptionValue;
+
+  const negConsumptionValue = -consumptionValue;
+
+  console.log("consumptionValue: " + negConsumptionValue);
 
   const service_date = new Date(`${date}T${time}`);
 
@@ -340,7 +387,7 @@ const addTransactionLogsByMemberVoucherId = async (data: MemberVoucherTransactio
       remarks,
       service_date,
       currentBalanceAfterDeduction,
-      consumptionValue,
+      negConsumptionValue,
       handledBy,
       type,
       createdBy,
@@ -409,7 +456,7 @@ const addTransactionLogsByMemberVoucherId = async (data: MemberVoucherTransactio
   }
 };
 
-const getMemberVoucherCurrentBalance = async (id: number, consumptionValue: number): Promise<{ success: boolean, message?: string }> => {
+const getMemberVoucherCurrentBalance = async (id: number, consumptionValue: number): Promise<{ success: boolean, data?: number, message?: string }> => {
   if (!Number(id)) {
     return { success: false, message: "Error 400: id must be an integer" };
   };
@@ -428,16 +475,18 @@ const getMemberVoucherCurrentBalance = async (id: number, consumptionValue: numb
 
     const results = await client.query(query, [id]);
 
-    if (Number.isNaN(Number(results.rows[0].current_balance))) {
+    const current_balance = results.rows[0].current_balance;
+
+    if (Number.isNaN(Number(current_balance))) {
       return { success: false, message: "Error 400: This Member Voucher does not exist" };
     }
 
-    const balanceAfterDeduction = parseFloat(results.rows[0].current_balance) + consumptionValue;
+    const balanceAfterDeduction = parseFloat(current_balance) - consumptionValue;
 
     if (balanceAfterDeduction < 0) {
       return { success: false, message: "Error 400: The Consumption Value is greater than the Current balance." };
     } else {
-      return { success: true };
+      return { success: true, data: current_balance };
     }
   } catch (error) {
     console.error('Error retrieving current balance by Member Voucher Id:', error);
@@ -457,66 +506,66 @@ const getMemberVoucherCurrentBalance = async (id: number, consumptionValue: numb
   }
 };
 
-const getMemberVoucherPaidCurrentBalance = async (id: number, consumptionValue: number): Promise<{ success: boolean, data?: number, message?: string }> => {
-  if (!Number(id)) {
-    return { success: false, message: "Error 400: id must be an integer" };
-  };
+// const getMemberVoucherPaidCurrentBalance = async (id: number, consumptionValue: number): Promise<{ success: boolean, data?: number, message?: string }> => {
+//   if (!Number(id)) {
+//     return { success: false, message: "Error 400: id must be an integer" };
+//   };
 
-  if (isNaN(Number(consumptionValue))) {
-    return { success: false, message: "Error 400: consumption value must be an integer" };
-  };
+//   if (isNaN(Number(consumptionValue))) {
+//     return { success: false, message: "Error 400: consumption value must be an integer" };
+//   };
 
-  const client = await pool().connect();
-  try {
-    const query = `
-    SELECT st.outstanding_total_payment_amount, mv.current_balance
-    FROM sale_transactions st
-    JOIN sale_transaction_items sti ON st.id = sti.sale_transaction_id
-    JOIN member_vouchers mv ON sti.member_voucher_id = mv.id
-    WHERE sti.member_voucher_id = $1
-    ORDER BY sti.sale_transaction_id DESC
-    LIMIT 1;
-    `;
+//   const client = await pool().connect();
+//   try {
+//     const query = `
+//     SELECT st.outstanding_total_payment_amount, mv.current_balance
+//     FROM sale_transactions st
+//     JOIN sale_transaction_items sti ON st.id = sti.sale_transaction_id
+//     JOIN member_vouchers mv ON sti.member_voucher_id = mv.id
+//     WHERE sti.member_voucher_id = $1
+//     ORDER BY sti.sale_transaction_id DESC
+//     LIMIT 1;
+//     `;
 
-    const results = await client.query(query, [id]);
-    console.log(results);
+//     const results = await client.query(query, [id]);
+//     console.log(results);
 
-    if (results.rowCount === 0) {
-      return { success: false, message: "Error 400: This Member Voucher does not exist" };
-    }
+//     if (results.rowCount === 0) {
+//       return { success: false, message: "Error 400: This Member Voucher does not exist" };
+//     }
 
-    const current_balance = parseFloat(results.rows[0].current_balance);
-    const outstanding_total_payment_amount = parseFloat(results.rows[0].outstanding_total_payment_amount);
-    // const free_of_charge = parseFloat(results.rows[0].free_of_charge);
+//     const current_balance = parseFloat(results.rows[0].current_balance);
+//     const outstanding_total_payment_amount = parseFloat(results.rows[0].outstanding_total_payment_amount);
+//     // const free_of_charge = parseFloat(results.rows[0].free_of_charge);
 
-    if (outstanding_total_payment_amount === 0) {
-      return { success: true, data: current_balance };
-    }
+//     if (outstanding_total_payment_amount === 0) {
+//       return { success: true, data: current_balance };
+//     }
 
-    const paidBalance = current_balance - outstanding_total_payment_amount //- free_of_charge;
+//     const paidBalance = current_balance - outstanding_total_payment_amount //- free_of_charge;
 
-    const paidbalanceAfterDeduction = paidBalance + consumptionValue;
+//     const paidbalanceAfterDeduction = paidBalance + consumptionValue;
 
-    if (paidbalanceAfterDeduction < 0) {
-      return { success: false, message: "Error 400: The Consumption Value is greater than the Paid Current balance." };
-    } else {
-      return { success: true, data: current_balance };
-    }
-  } catch (error) {
-    console.error('Error retrieving paid current balance by Member Voucher Id:', error);
+//     if (paidbalanceAfterDeduction < 0) {
+//       return { success: false, message: "Error 400: The Consumption Value is greater than the Paid Current balance." };
+//     } else {
+//       return { success: true, data: current_balance };
+//     }
+//   } catch (error) {
+//     console.error('Error retrieving paid current balance by Member Voucher Id:', error);
 
-    console.error('Full error details:', {
-      error: error instanceof Error ? error.message : 'Unknown error',
-      stack: error instanceof Error ? error.stack : undefined
-    });
+//     console.error('Full error details:', {
+//       error: error instanceof Error ? error.message : 'Unknown error',
+//       stack: error instanceof Error ? error.stack : undefined
+//     });
 
-    if (error instanceof Error && error.message.includes('connection')) {
-      throw new Error('Database connection failed. Please try again later.');
-    }
+//     if (error instanceof Error && error.message.includes('connection')) {
+//       throw new Error('Database connection failed. Please try again later.');
+//     }
 
-    return { success: false, message: "Failed to get paid current balance by Member Voucher Id due to database error." };
-  }
-};
+//     return { success: false, message: "Failed to get paid current balance by Member Voucher Id due to database error." };
+//   }
+// };
 
 const getMemberNameByMemberVoucherId = async (id: number): Promise<{ success: boolean, data: MemberName | null, message: string }> => {
   if (!Number(id)) {
@@ -1462,7 +1511,8 @@ export default {
   getPaginatedMemberVoucherTransactionLogs,
   addTransactionLogsByMemberVoucherId,
   getMemberVoucherCurrentBalance,
-  getMemberVoucherPaidCurrentBalance,
+  // getMemberVoucherPaidCurrentBalance,
+  getPurchaseDateOfMemberVoucherById,
   getMemberNameByMemberVoucherId,
   setTransactionLogsAndCurrentBalanceByLogId,
   deleteTransactionLogsAndCurrentBalanceByLogId,

@@ -1,6 +1,5 @@
 import React, { useEffect } from 'react';
 import { useParams } from 'react-router-dom';
-import { useNavigate } from 'react-router-dom';
 
 
 import ConfirmationPopUp from '@/components/confirmationPopUp';
@@ -16,7 +15,6 @@ import ErrorAlert from '@/components/ui/errorAlert';
 import TransactionLogUpdateForm from '@/components/member-voucher-transaction-logs/memberVoucherConsumptionUpdateForm';
 
 const CreateMemberVoucherConsumptionPage = () => {
-    const navigate = useNavigate();
     const { memberId } = useParams();
 
     const {
@@ -45,7 +43,9 @@ const CreateMemberVoucherConsumptionPage = () => {
 
     const confirmBody = (
         <div>
-            {Object.entries(formData).map(([key, value]) => (
+            {Object.entries(formData).filter(([key, value]) => {
+                return !['createdBy', 'handledBy', 'lastUpdatedBy'].includes(key);
+            }).map(([key, value]) => (
                 <div key={key} className="flex justify-between border-b py-1">
                     <span className="font-medium">{key.replace(/([A-Z])/g, " $1").replace(/^./, c => c.toUpperCase())}</span>
                     <span>

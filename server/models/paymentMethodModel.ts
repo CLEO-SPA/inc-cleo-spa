@@ -128,13 +128,6 @@ const updatePaymentMethod = async (input: UpdatePaymentMethodInput) => {
     if (currentMethod.is_protected) {
       // Special case: GST is protected but can have percentage_rate edited
       if (isGstMethod) {
-        // For GST methods, only allow percentage_rate updates
-        if (payment_method_name !== currentMethod.payment_method_name ||
-            is_enabled !== undefined ||
-            is_income !== undefined ||
-            show_on_payment_page !== undefined) {
-          throw new Error('GST payment method can only have its percentage rate modified');
-        }
 
         // Update only percentage_rate for GST
         const gstQuery = `

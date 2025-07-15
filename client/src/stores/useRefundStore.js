@@ -113,7 +113,7 @@ const useRefundStore = create((set) => ({
     }
   },
 
-  submitRefundMemberVoucher: async ({ memberVoucherId, refundedBy, createdBy, refundDate, remarks, creditNoteNumber }) => {
+  submitRefundMemberVoucher: async ({ memberVoucherId, refundedBy, createdBy, refundDate, remarks, creditNoteNumber, refundAmount }) => {
     try {
       const res = await api.post("/refund/member-voucher", {
         memberVoucherId,
@@ -122,6 +122,7 @@ const useRefundStore = create((set) => ({
         refundDate,
         remarks,
         creditNoteNumber,
+        refundAmount,
       });
       return res.data; // { refundTransactionId: number }
     } catch (error) {
