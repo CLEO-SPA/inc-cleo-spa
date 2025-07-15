@@ -546,6 +546,32 @@ CREATE TABLE "user_auth" (
     CONSTRAINT "user_auth_pkey" PRIMARY KEY ("id")
 );
 
+-- CreateTable
+CREATE TABLE "settings" (
+    "id" BIGSERIAL NOT NULL,
+    "type" VARCHAR(50) NOT NULL,
+    "key" VARCHAR(100) NOT NULL,
+    "value" TEXT NOT NULL,
+
+    CONSTRAINT "settings_pkey" PRIMARY KEY ("id")
+);
+
+-- CreateTable
+CREATE TABLE "employee_commissions" (
+    "id" BIGSERIAL NOT NULL,
+    "item_type" VARCHAR(100) NOT NULL,
+    "item_id" BIGINT NOT NULL,
+    "employee_id" BIGINT NOT NULL,
+    "performance_rate" DECIMAL(5,2) NOT NULL,
+    "performance_amount" DECIMAL(10,2) NOT NULL,
+    "commission_rate" DECIMAL(5,2) NOT NULL,
+    "commission_amount" DECIMAL(10,2) NOT NULL,
+    "created_at" TIMESTAMPTZ(6) NOT NULL,
+    "updated_at" TIMESTAMPTZ(6) NOT NULL,
+
+    CONSTRAINT "employee_commissions_pkey" PRIMARY KEY ("id")
+);
+
 -- Foreign Keys for table "care_packages"
 ALTER TABLE "care_packages" ADD CONSTRAINT "care_packages_created_by_fkey" FOREIGN KEY ("created_by") REFERENCES "employees"("id") ON DELETE SET NULL ON UPDATE CASCADE;
 ALTER TABLE "care_packages" ADD CONSTRAINT "care_packages_last_updated_by_fkey" FOREIGN KEY ("last_updated_by") REFERENCES "employees"("id") ON DELETE SET NULL ON UPDATE CASCADE;
@@ -654,6 +680,9 @@ ALTER TABLE "voucher_template_details" ADD CONSTRAINT "voucher_template_details_
 -- Foreign Keys for table "voucher_templates"
 ALTER TABLE "voucher_templates" ADD CONSTRAINT "voucher_templates_created_by_fkey" FOREIGN KEY ("created_by") REFERENCES "employees"("id") ON DELETE SET NULL ON UPDATE CASCADE;
 ALTER TABLE "voucher_templates" ADD CONSTRAINT "voucher_templates_last_updated_by_fkey" FOREIGN KEY ("last_updated_by") REFERENCES "employees"("id") ON DELETE SET NULL ON UPDATE CASCADE;
+
+-- Foreign Keys for table "employee_commissions"
+ALTER TABLE "employee_commissions" ADD CONSTRAINT "employee_commissions_employee_id_fkey" FOREIGN KEY ("employee_id") REFERENCES "employees"("id") ON DELETE CASCADE ON UPDATE CASCADE;
 
 -- Performance Indexes
 
