@@ -300,9 +300,8 @@ const useSaleTransactionStore = create(
               set((state) => ({
                 progress: {
                   ...state.progress,
-                  currentOperation: `Creating MCP transaction ${i + 1}/${
-                    processedTransactionData.mcpTransactions.length
-                  }...`,
+                  currentOperation: `Creating MCP transaction ${i + 1}/${processedTransactionData.mcpTransactions.length
+                    }...`,
                 },
               }));
 
@@ -329,8 +328,7 @@ const useSaleTransactionStore = create(
                 };
 
                 console.log(
-                  `📦 Creating MCP transaction with ID ${actualMcpId} for package: ${
-                    mcpData.item.data?.package_name || mcpData.item.data?.name
+                  `📦 Creating MCP transaction with ID ${actualMcpId} for package: ${mcpData.item.data?.package_name || mcpData.item.data?.name
                   }`
                 );
 
@@ -375,9 +373,8 @@ const useSaleTransactionStore = create(
               set((state) => ({
                 progress: {
                   ...state.progress,
-                  currentOperation: `Creating MV transaction ${i + 1}/${
-                    processedTransactionData.mvTransactions.length
-                  }...`,
+                  currentOperation: `Creating MV transaction ${i + 1}/${processedTransactionData.mvTransactions.length
+                    }...`,
                 },
               }));
 
@@ -439,9 +436,8 @@ const useSaleTransactionStore = create(
               set((state) => ({
                 progress: {
                   ...state.progress,
-                  currentOperation: `Creating MCP Transfer transaction ${i + 1}/${
-                    processedTransactionData.mcpTransferTransactions.length
-                  }...`,
+                  currentOperation: `Creating MCP Transfer transaction ${i + 1}/${processedTransactionData.mcpTransferTransactions.length
+                    }...`,
                 },
               }));
 
@@ -523,14 +519,18 @@ const useSaleTransactionStore = create(
               set((state) => ({
                 progress: {
                   ...state.progress,
-                  currentOperation: `Creating MV Transfer transaction ${i + 1}/${
-                    processedTransactionData.mvTransferTransactions.length
-                  }...`,
+                  currentOperation: `Creating MV Transfer transaction ${i + 1}/${processedTransactionData.mvTransferTransactions.length
+                    }...`,
                 },
               }));
 
               try {
-                const response = await transferStore.submitTransfer(transferFormData);
+                const transferFormDataWithSaleTransactionDate = {
+                  ...transferFormData,
+                  created_at: transactionDetails.createdAt,  // ✅ Pass sale transaction date
+                };
+
+                const response = await transferStore.submitTransfer(transferFormDataWithSaleTransactionDate);
 
                 if (response.success && response.newVoucherId) {
                   const newVoucherId = response.newVoucherId;

@@ -284,6 +284,52 @@ const getMemberVoucherCurrentBalance = async (
         throw new Error('Failed to get current balance');
     }
 };
+const insertCustomVoucherServiceDetail = async ({
+  member_voucher_id,
+  service_name,
+  custom_price = 0,
+  duration = 0,
+  created_at,
+}: {
+  member_voucher_id: number;
+  service_name: string;
+  custom_price: number;
+  duration?: number;
+  created_at: string;
+}): Promise<void> => {
+  try {
+    const query = `
+      INSERT INTO member_voucher_details (
+        member_voucher_id,
+        service_id,
+        service_name,
+        original_price,
+        custom_price,
+        discount,
+        final_price,
+        duration,
+        service_category_id,
+        created_at,
+        updated_at
+      )
+      VALUES ($1, 0, $2, 0, $3, 0, $3, $4, NULL, $5, $5)
+    `;
+
+    const values = [
+      member_voucher_id,   // $1
+      service_name,        // $2
+      custom_price,        // $3
+      duration || 0,       // $4
+      created_at           // $5
+    ];
+
+    await pool().query(query, values);
+  } catch (error) {
+    console.error("❌ Error inserting custom voucher service detail:", error);
+    throw new Error("Failed to insert member voucher service detail.");
+  }
+};
+
 
 
 export default {
@@ -293,5 +339,6 @@ export default {
     checkIfFreeOfChargeIsUsed,
     removeFOCFromVoucher,
     setMemberVoucherBalanceAfterTransfer,
-    getMemberVoucherCurrentBalance
+    getMemberVoucherCurrentBalance,
+    insertCustomVoucherServiceDetail
 };
