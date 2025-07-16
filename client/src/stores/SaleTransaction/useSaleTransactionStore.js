@@ -509,75 +509,82 @@ const useSaleTransactionStore = create(
           }
 
           // 5. Create individual MV Transfer transactions
-          if (processedTransactionData.mvTransferTransactions?.length > 0) {
-            const transferStore = useTransferVoucherStore.getState();
-            const transferFormData = transferStore.transferFormData;
+if (processedTransactionData.mvTransferTransactions?.length > 0) {
+  const transferStore = useTransferVoucherStore.getState();
+  const transferFormData = transferStore.transferFormData;
 
-            if (!transferFormData) {
-              throw new Error('No transfer data available in TransferVoucherStore');
-            }
+  if (!transferFormData) {
+    throw new Error('No transfer data available in TransferVoucherStore');
+  }
 
-            for (let i = 0; i < processedTransactionData.mvTransferTransactions.length; i++) {
-              const mvTransferData = processedTransactionData.mvTransferTransactions[i];
+  for (let i = 0; i < processedTransactionData.mvTransferTransactions.length; i++) {
+    const mvTransferData = processedTransactionData.mvTransferTransactions[i];
 
-              set((state) => ({
-                progress: {
-                  ...state.progress,
-                  currentOperation: `Creating MV Transfer transaction ${i + 1}/${
-                    processedTransactionData.mvTransferTransactions.length
-                  }...`,
-                },
-              }));
+    set((state) => ({
+      progress: {
+        ...state.progress,
+        currentOperation: `Creating MV Transfer transaction ${i + 1}/${
+          processedTransactionData.mvTransferTransactions.length
+        }...`,
+      },
+    }));
 
-              try {
-                const response = await transferStore.submitTransfer(transferFormData);
+    try {
+      // ✅ FIXED: Pass sale transaction creation date to the transfer
+      const transferFormDataWithSaleTransactionDate = {
+        ...transferFormData,
+        created_at: transactionDetails.createdAt,  // ✅ Pass sale transaction date
+        updated_at: transactionDetails.updatedAt   // ✅ Pass sale transaction date
+      };
 
-                if (response.success && response.newVoucherId) {
-                  const newVoucherId = response.newVoucherId;
+      const response = await transferStore.submitTransfer(transferFormDataWithSaleTransactionDate);
 
-                  const mvTransferDataWithId = {
-                    ...mvTransferData,
-                    newVoucherId, // ✅ Attach new voucher ID at top-level
-                  };
+      if (response.success && response.newVoucherId) {
+        const newVoucherId = response.newVoucherId;
 
-                  const mvTransferTransaction = await get().createMvTransferTransaction(mvTransferDataWithId);
+        const mvTransferDataWithId = {
+          ...mvTransferData,
+          newVoucherId, // ✅ Attach new voucher ID at top-level
+        };
 
-                  createdTransactions.push({
-                    type: 'mv-transfer',
-                    transaction: mvTransferTransaction,
-                    item: mvTransferData.item,
-                  });
+        const mvTransferTransaction = await get().createMvTransferTransaction(mvTransferDataWithId);
 
-                  set((state) => ({
-                    progress: {
-                      ...state.progress,
-                      completed: state.progress.completed + 1,
-                    },
-                  }));
-                } else {
-                  throw new Error(response.message || 'Unknown error during voucher transfer');
-                }
-              } catch (error) {
-                console.error('❌ MV Transfer transaction failed:', error);
-                failedTransactions.push({
-                  type: 'mv-transfer',
-                  error: error.message,
-                  data: mvTransferData,
-                });
+        createdTransactions.push({
+          type: 'mv-transfer',
+          transaction: mvTransferTransaction,
+          item: mvTransferData.item,
+        });
 
-                set((state) => ({
-                  progress: {
-                    ...state.progress,
-                    failed: state.progress.failed + 1,
-                  },
-                  errors: [
-                    ...state.errors,
-                    `MV Transfer (${mvTransferData.item.data?.description || 'Transfer'}): ${error.message}`,
-                  ],
-                }));
-              }
-            }
-          }
+        set((state) => ({
+          progress: {
+            ...state.progress,
+            completed: state.progress.completed + 1,
+          },
+        }));
+      } else {
+        throw new Error(response.message || 'Unknown error during voucher transfer');
+      }
+    } catch (error) {
+      console.error('❌ MV Transfer transaction failed:', error);
+      failedTransactions.push({
+        type: 'mv-transfer',
+        error: error.message,
+        data: mvTransferData,
+      });
+
+      set((state) => ({
+        progress: {
+          ...state.progress,
+          failed: state.progress.failed + 1,
+        },
+        errors: [
+          ...state.errors,
+          `MV Transfer (${mvTransferData.item.data?.description || 'Transfer'}): ${error.message}`,
+        ],
+      }));
+    }
+  }
+}
 
           // Determine final state
           const hasFailures = failedTransactions.length > 0;
@@ -757,7 +764,6 @@ const useSaleTransactionStore = create(
           remarks: transactionDetails.transactionRemark,
           created_by: transactionDetails.createdBy,
           handled_by: transactionDetails.handledBy,
-          // ✅ NEW: Include creation date/time in payload
           created_at: transactionDetails.createdAt,
           updated_at: transactionDetails.updatedAt,
           item: {
@@ -794,7 +800,6 @@ const useSaleTransactionStore = create(
           remarks: transactionDetails.transactionRemark,
           created_by: transactionDetails.createdBy,
           handled_by: transactionDetails.handledBy,
-          // ✅ NEW: Include creation date/time in payload
           created_at: transactionDetails.createdAt,
           updated_at: transactionDetails.updatedAt,
           item: {
@@ -833,7 +838,6 @@ const useSaleTransactionStore = create(
           remarks: transactionDetails.transactionRemark,
           created_by: transactionDetails.createdBy,
           handled_by: transactionDetails.handledBy,
-          // ✅ NEW: Include creation date/time in payload
           created_at: transactionDetails.createdAt,
           updated_at: transactionDetails.updatedAt,
           item: {

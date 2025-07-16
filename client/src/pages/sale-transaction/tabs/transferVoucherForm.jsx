@@ -37,11 +37,12 @@ const TransferVoucherForm = () => {
   const [hasCustomPrice, setHasCustomPrice] = useState(false);
   const [hasCustomFoc, setHasCustomFoc] = useState(false);
   const [createdBy, setCreatedBy] = useState('');
-  const [createdAt, setCreatedAt] = useState(() => {
-    const now = new Date();
-    now.setSeconds(0, 0); // truncate seconds/ms for input compatibility
-    return now.toISOString().slice(0, 16); // for datetime-local input
-  });
+  // ❌ REMOVED: Calendar component for creation date/time
+  // const [createdAt, setCreatedAt] = useState(() => {
+  //   const now = new Date();
+  //   now.setSeconds(0, 0); // truncate seconds/ms for input compatibility
+  //   return now.toISOString().slice(0, 16); // for datetime-local input
+  // });
 
   const [remarks, setRemarks] = useState('');
   const isFocGreaterThanPrice = parseFloat(foc || '0') > parseFloat(price || '0');
@@ -124,7 +125,8 @@ const TransferVoucherForm = () => {
       old_voucher_details: oldVoucherDetails,
       is_bypass: bypassTemplate,
       created_by: createdBy,
-      created_at: createdAt,
+      // ❌ REMOVED: No longer include created_at since it will use sale transaction date
+      // created_at: createdAt,
       remarks: remarks.trim() === '' ? 'NA' : remarks,
       top_up_balance: topUpBalance, // ✅ Add this line
     };
@@ -140,7 +142,7 @@ const TransferVoucherForm = () => {
     bypassTemplate,
     customVoucherName,
     createdBy,
-    createdAt,
+    // ❌ REMOVED: createdAt dependency
     remarks,
   ]);
 
@@ -371,17 +373,6 @@ const TransferVoucherForm = () => {
               </option>
             ))}
           </select>
-        </div>
-
-        {/* Created At */}
-        <div className='mb-6'>
-          <label className='block font-medium mb-1'>Created At</label>
-          <input
-            type='datetime-local'
-            className='w-full border px-3 py-2 rounded'
-            value={createdAt}
-            onChange={(e) => setCreatedAt(e.target.value)}
-          />
         </div>
 
         {/* Add to Cart Button */}

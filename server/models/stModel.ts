@@ -636,6 +636,7 @@ const createServicesProductsTransaction = async (
     if (!payments || !Array.isArray(payments) || payments.length === 0) {
       throw new Error('payments array is required and cannot be empty');
     }
+
     let customCreatedAt = null;
     let customUpdatedAt = null;
 
@@ -672,15 +673,41 @@ const createServicesProductsTransaction = async (
       return total + (item.pricing?.totalLinePrice || 0);
     }, 0);
 
-    // Calculate total paid amount from payments
-    const totalPaidAmount: number = payments.reduce((total: number, payment: PaymentMethodRequest) => {
+    // ✅ FIXED: Use same payment logic as MCP transaction
+    const PENDING_PAYMENT_METHOD_ID = 7;
+
+    const pendingPayments = payments.filter((payment: PaymentMethodRequest) =>
+      payment.methodId === PENDING_PAYMENT_METHOD_ID
+    );
+
+    const nonPendingPayments = payments.filter((payment: PaymentMethodRequest) =>
+      payment.methodId !== PENDING_PAYMENT_METHOD_ID
+    );
+
+    // Calculate total paid amount from NON-PENDING payments only
+    const totalPaidAmount: number = nonPendingPayments.reduce((total: number, payment: PaymentMethodRequest) => {
       return total + (payment.amount || 0);
     }, 0);
 
-    const outstandingAmount: number = totalTransactionAmount - totalPaidAmount;
+    // Outstanding amount comes from PENDING payments only
+    const outstandingAmount: number = pendingPayments.reduce((total: number, payment: PaymentMethodRequest) => {
+      return total + (payment.amount || 0);
+    }, 0);
 
     // Determine transaction status
     const transactionStatus: 'FULL' | 'PARTIAL' = outstandingAmount <= 0 ? 'FULL' : 'PARTIAL';
+    const processPayment: boolean = outstandingAmount > 0;
+
+    // Verification: total should match
+    const calculatedTotal = totalPaidAmount + outstandingAmount;
+    if (Math.abs(calculatedTotal - totalTransactionAmount) > 0.01) {
+      console.warn('Payment total mismatch:', {
+        totalTransactionAmount,
+        totalPaidAmount,
+        outstandingAmount,
+        calculatedTotal
+      });
+    }
 
     // Generate receipt number if not provided
     let finalReceiptNo: string = receipt_number || '';
@@ -718,7 +745,7 @@ const createServicesProductsTransaction = async (
       transactionStatus,
       finalReceiptNo,
       remarks || '',
-      false, // process_payment always false for services/products transactions
+      processPayment, // ✅ Now uses processPayment instead of hardcoded false
       handled_by,
       created_by,
       customCreatedAt,
@@ -798,6 +825,7 @@ const createServicesProductsTransaction = async (
       console.log('Created sale transaction item with ID:', saleTransactionItemId);
     }
 
+    // ✅ Insert payments using same logic as MCP
     for (const payment of payments) {
       if (payment.amount > 0) {
         const paymentQuery: string = `
@@ -818,7 +846,7 @@ const createServicesProductsTransaction = async (
           payment.methodId,
           payment.amount,
           payment.remark || '',
-          handled_by,
+          created_by, // ✅ Use created_by instead of handled_by for consistency
           customCreatedAt,
           customUpdatedAt
         ];
@@ -874,7 +902,6 @@ const createMcpTransaction = async (
       handled_by,
       item,
       payments,
-
       created_at,
       updated_at
     } = transactionData;
@@ -1068,6 +1095,8 @@ const createMcpTransaction = async (
         WHERE id = $3
         RETURNING balance
       `;
+      
+
 
       const updateBalanceResult = await client.query(updateBalanceQuery, [newBalance, customUpdatedAt, mcpId]);
       const updatedBalance = updateBalanceResult.rows[0].balance;
@@ -2203,59 +2232,7 @@ const processPartialPayment = async (
         ]);
       }
     }
-    if (voucherItems.length > 0) {
-      for (const voucherItem of voucherItems) {
-        // Get current balance before update for logging
-        const currentVoucherResult = await client.query(
-          'SELECT current_balance FROM member_vouchers WHERE id = $1',
-          [voucherItem.member_voucher_id]
-        );
 
-        const currentBalance = parseFloat(currentVoucherResult.rows[0]?.current_balance) || 0;
-
-        // Update voucher balance
-        await client.query('UPDATE member_vouchers SET current_balance = COALESCE(current_balance, 0) + $1 WHERE id = $2', [
-          totalActualPaymentAmount,
-          voucherItem.member_voucher_id,
-        ]);
-
-        // Log the partial payment transaction
-        const insertPartialPaymentLogQuery = `
-      INSERT INTO member_voucher_transaction_logs (
-        member_voucher_id,
-        service_description,
-        service_date,
-        current_balance,
-        amount_change,
-        serviced_by,
-        type,
-        created_by,
-        last_updated_by,
-        created_at,
-        updated_at
-      ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11)
-    `;
-
-        const newBalance = currentBalance + totalActualPaymentAmount;
-        const partialPaymentLogParams = [
-          voucherItem.member_voucher_id,
-          `Payment received for receipt ${finalReceiptNumber}${newTransactionStatus === 'PARTIAL' ? ' (Partial Payment)' : ''}`,
-          currentTime,
-          newBalance,
-          totalActualPaymentAmount,
-          transaction_handler_id,
-          newTransactionStatus === 'PARTIAL' ? 'ADD PARTIAL' : 'ADD PAYMENT',
-          payment_handler_id,
-          payment_handler_id,
-          currentTime,
-          currentTime
-        ];
-
-        await client.query(insertPartialPaymentLogQuery, partialPaymentLogParams);
-
-        console.log(`Inserted voucher transaction log for voucher ID ${voucherItem.member_voucher_id}, balance change: +${totalActualPaymentAmount} (${newTransactionStatus === 'PARTIAL' ? 'Partial Payment' : 'Payment'})`);
-      }
-    }
     // Handle voucher free-of-charge additions if transaction is fully paid
     if (voucherItems.length > 0 && newTransactionStatus === 'FULL') {
       for (const voucherItem of voucherItems) {

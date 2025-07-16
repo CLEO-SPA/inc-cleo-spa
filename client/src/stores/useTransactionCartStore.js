@@ -51,13 +51,14 @@ const useTransactionCartStore = create(
           });
         }
 
-        if (item.type === 'transferMCP' || item.type === 'transfer') {
+        if (item.type === 'transferMCP') {
           console.log('🔄 MCP Transfer Details:', {
             description: item.data?.description,
             amount: item.data?.amount,
             fromMember: item.data?.fromMember,
             toMember: item.data?.toMember,
             queueItem: item.data?.queueItem,
+            transferAmount: item.data?.amount,
           });
         }
 

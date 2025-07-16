@@ -839,7 +839,6 @@ const createMemberVoucher = async (
   try {
     await client.query('BEGIN');
 
-    // VALIDATION MOVED TO TOP - Validate required fields first
     const {
       created_by,
       customer_type,
@@ -849,8 +848,8 @@ const createMemberVoucher = async (
       payments,
       receipt_number,
       remarks,
-      created_at,        // ✅ NEW: Add custom date support
-      updated_at         // ✅ NEW: Add custom date support
+      created_at,       
+      updated_at         
     } = transactionData;
 
     // Early validation
@@ -874,7 +873,7 @@ const createMemberVoucher = async (
       throw new Error('member_id is required for member voucher transactions');
     }
 
-    // ✅ NEW: Parse and validate custom creation date/time for sale transactions
+    // ✅ Parse and validate custom creation date/time for sale transactions
     let customCreatedAt = null;
     let customUpdatedAt = null;
 
@@ -947,9 +946,10 @@ const createMemberVoucher = async (
       throw new Error('member_voucher_name is required');
     }
 
-    if (!creation_datetime) {
-      throw new Error('creation_datetime is required');
-    }
+    // ❌ REMOVED: No longer require creation_datetime from voucher since we use sale transaction dates
+    // if (!creation_datetime) {
+    //   throw new Error('creation_datetime is required');
+    // }
 
     // FIXED: Better default calculation
     const default_total_price = selected_template?.default_total_price
@@ -957,10 +957,11 @@ const createMemberVoucher = async (
       : (total_price ? Number(total_price) : 0);
 
     const is_bypass = bypass_template === true;
-    const createdAt = new Date(creation_datetime);  // Keep voucher creation date separate
-    const updatedAt = createdAt;                    // Keep voucher update date separate
 
-    // FIXED: Proper employee ID handling
+
+    const createdAt = customCreatedAt;   // Use sale transaction date
+    const updatedAt = customUpdatedAt;   // Use sale transaction date
+
     const employee_id = assignedEmployee ? Number(assignedEmployee) : Number(created_by);
 
     // Database validations
@@ -1020,7 +1021,7 @@ const createMemberVoucher = async (
     const final_starting_balance = base_balance;
     const final_current_balance = is_fully_paid ? default_total_price : default_total_price - outstanding_amount;
 
-    // Insert member voucher (UNCHANGED - uses voucher creation dates)
+    // ✅ Insert member voucher using sale transaction dates
     const i_mv_sql = `
       INSERT INTO member_vouchers
       (member_voucher_name, voucher_template_id, member_id, current_balance, starting_balance, 
@@ -1043,8 +1044,8 @@ const createMemberVoucher = async (
       employee_id,
       employee_id,
       employee_id,
-      createdAt,      // Voucher creation date
-      updatedAt       // Voucher update date
+      createdAt,     
+      updatedAt       
     ]);
 
     const memberVoucherId = Number(mvRows[0].id);
@@ -1072,7 +1073,7 @@ const createMemberVoucher = async (
       };
     });
 
-    // Insert voucher details (UNCHANGED - uses voucher creation dates)
+    // ✅ Insert voucher details using sale transaction dates
     if (services.length > 0) {
       const i_mvd_sql = `
         INSERT INTO member_voucher_details
@@ -1100,14 +1101,14 @@ const createMemberVoucher = async (
             service.discount,
             service.final_price,
             service.duration,
-            createdAt,    // Voucher creation date
-            updatedAt     // Voucher update date
+            createdAt,    
+            updatedAt    
           ])
         )
       );
     }
 
-    // Insert transaction log (UNCHANGED - uses voucher creation dates)
+    // ✅ Insert transaction log using sale transaction dates
     const i_mvtl_sql = `
       INSERT INTO member_voucher_transaction_logs
       (member_voucher_id, service_description, service_date, current_balance, 
@@ -1119,18 +1120,16 @@ const createMemberVoucher = async (
     await client.query(i_mvtl_sql, [
       memberVoucherId,
       'N.A',
-      createdAt,      // Voucher creation date
+      createdAt,      
       final_current_balance,
       final_current_balance,
       employee_id,
       'PURCHASE',
       employee_id,
       employee_id,
-      createdAt,      // Voucher creation date
-      updatedAt
+      createdAt,      
+      updatedAt      
     ]);
-
-
 
     // FIXED: Calculate transaction totals using correct logic
     const totalTransactionAmount: number = pricing?.totalLinePrice || 0;
@@ -1157,6 +1156,7 @@ const createMemberVoucher = async (
       });
     }
 
+    // ✅ FOC transaction using sale transaction dates
     if (transactionStatus === 'FULL' && free_of_charge > 0) {
       // Calculate new balance after adding FOC
       const newCurrentBalance = final_current_balance + free_of_charge;
@@ -1170,7 +1170,7 @@ const createMemberVoucher = async (
 
       await client.query(updateVoucherSql, [
         newCurrentBalance,
-        customUpdatedAt,
+        updatedAt,  // ✅ Now uses sale transaction date
         memberVoucherId
       ]);
 
@@ -1178,15 +1178,15 @@ const createMemberVoucher = async (
       await client.query(i_mvtl_sql, [
         memberVoucherId,
         'Free of Charge Addition',
-        customCreatedAt,      // Use custom date for FOC transaction
+        createdAt,     
         newCurrentBalance,    // Updated balance after FOC
         free_of_charge,       // FOC amount as amount_change
         employee_id,
         'ADD FOC',
         employee_id,
         employee_id,
-        customCreatedAt,      // Use custom date for FOC transaction
-        customUpdatedAt       // Use custom date for FOC transaction
+        createdAt,    
+        updatedAt     
       ]);
       
       console.log('FOC transaction added:', {
@@ -1196,6 +1196,7 @@ const createMemberVoucher = async (
         transactionType: 'ADD FOC'
       });
     }
+
     // Generate receipt number
     let finalReceiptNo: string = receipt_number || '';
     if (!finalReceiptNo) {
@@ -1206,6 +1207,7 @@ const createMemberVoucher = async (
       finalReceiptNo = `ST${receiptResult.rows[0].next_number.toString().padStart(6, '0')}`;
     }
 
+    // ✅ Insert sale transaction using sale transaction dates
     const transactionQuery: string = `
       INSERT INTO sale_transactions (
         customer_type,
@@ -1235,8 +1237,8 @@ const createMemberVoucher = async (
       processPayment,
       handled_by,
       created_by,
-      createdAt,
-      updatedAt
+      createdAt,  
+      updatedAt   
     ];
 
     const transactionResult = await client.query(transactionQuery, transactionParams);
@@ -1283,7 +1285,7 @@ const createMemberVoucher = async (
 
     console.log('Created MV sale transaction item with ID:', saleTransactionItemId);
 
-
+    // ✅ Insert payments using sale transaction dates
     for (const payment of payments) {
       if (payment.amount > 0) {
         const paymentQuery: string = `
@@ -1305,8 +1307,8 @@ const createMemberVoucher = async (
           payment.amount,
           payment.remark || '',
           created_by,
-          createdAt,
-          updatedAt
+          createdAt,  // ✅ Now uses sale transaction date
+          updatedAt   // ✅ Now uses sale transaction date
         ];
 
         console.log('MV Payment Query:', paymentQuery);
@@ -1401,10 +1403,14 @@ const createMemberVoucherForTransfer = async (
   foc: number,
   remarks: string,
   createdBy: number,
-  createdAt: string,
+  saleTransactionCreatedAt: string, // ✅ RENAMED: Now expects sale transaction's creation date
   isBypass?: boolean // still accepted, but not used now
 ): Promise<MemberVouchers> => {
   try {
+    // ✅ FIXED: Use sale transaction's creation date for all operations
+    const createdAt = saleTransactionCreatedAt;
+    const updatedAt = saleTransactionCreatedAt;
+
     const insertVoucherQuery = `
       INSERT INTO member_vouchers (
         member_id,
@@ -1421,7 +1427,7 @@ const createMemberVoucherForTransfer = async (
         last_updated_by,
         created_at,
         updated_at
-      ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $10, $10, $11, $11)
+      ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $10, $10, $11, $12)
       RETURNING *;
     `;
 
@@ -1438,12 +1444,12 @@ const createMemberVoucherForTransfer = async (
       "is_enabled",
       remarks,
       createdBy || null,
-      createdAt
+      createdAt,    // ✅ Uses sale transaction date
+      updatedAt     // ✅ Uses sale transaction date
     ];
 
     const result = await pool().query(insertVoucherQuery, voucherValues);
     const newVoucher: MemberVouchers = result.rows[0];
-
 
     // 🔁 Always insert member_voucher_details based on template
     const templateDetailsQuery = `
@@ -1452,7 +1458,6 @@ const createMemberVoucherForTransfer = async (
     `;
     const templateDetailsResult = await pool().query(templateDetailsQuery, [voucherTemplateId]);
     const templateDetails = templateDetailsResult.rows;
-
 
     for (const detail of templateDetails) {
       const insertDetailQuery = `
@@ -1468,9 +1473,8 @@ const createMemberVoucherForTransfer = async (
           created_at,
           updated_at,
           service_category_id
-        ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $9, $10)
+        ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11)
       `;
-
 
       const insertDetailValues = [
         newVoucher.id,                   // $1 member_voucher_id
@@ -1481,10 +1485,10 @@ const createMemberVoucherForTransfer = async (
         detail.discount,                // $6
         detail.final_price,             // $7
         detail.duration,                // $8
-        createdAt,                      // $9 (created_at and updated_at)
-        detail.service_category_id      // $10
+        createdAt,                      // $9 ✅ Uses sale transaction date
+        updatedAt,                      // $10 ✅ Uses sale transaction date
+        detail.service_category_id      // $11
       ];
-
 
       console.log("Insert Detail Values: ", insertDetailValues);
       await pool().query(insertDetailQuery, insertDetailValues);
