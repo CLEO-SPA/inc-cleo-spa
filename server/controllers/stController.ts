@@ -157,7 +157,11 @@ const createMcpTransaction = async (req: Request, res: Response, next: NextFunct
 
     console.log('MCP transaction created successfully:', result);
 
-    res.locals.data = result;
+    res.locals.data = {
+      success: true,
+      message: 'MCP transaction created successfully',
+      data: result,
+    };
 
     next();
 

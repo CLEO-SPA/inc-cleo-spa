@@ -2,7 +2,7 @@ import express from 'express';
 const router = express.Router();
 
 import isAuthenticated from '../middlewares/authMiddleware.js';
-// import commisionMiddleware from '../middlewares/commisionMiddleware.js';
+import commisionMiddleware from '../middlewares/commisionMiddleware.js';
 
 import controller from '../controllers/stController.js';
 
@@ -21,7 +21,7 @@ router.get('/services', controller.searchServices);
 router.get('/products', controller.searchProducts);
 // router.all('/e', roleMiddleware.hasRole(['data_admin', 'super_admin']), controller.emulateCarePackage);
 router.post('/services-products', controller.createServicesProductsTransaction);
-router.post('/mcp', controller.createMcpTransaction);
+router.post('/mcp', controller.createMcpTransaction, commisionMiddleware.applyMcpCommision);
 router.post('/mv', controller.createMvTransaction);
 router.post('/mcp-transfer', controller.createMcpTransferTransaction);
 router.post('/mv-transfer', controller.createMvTransferTransaction);
