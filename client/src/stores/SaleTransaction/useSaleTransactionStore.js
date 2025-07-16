@@ -530,11 +530,11 @@ if (processedTransactionData.mvTransferTransactions?.length > 0) {
     }));
 
     try {
-      // ✅ FIXED: Pass sale transaction creation date to the transfer
+    
       const transferFormDataWithSaleTransactionDate = {
         ...transferFormData,
-        created_at: transactionDetails.createdAt,  // ✅ Pass sale transaction date
-        updated_at: transactionDetails.updatedAt   // ✅ Pass sale transaction date
+        created_at: transactionDetails.createdAt,  
+        updated_at: transactionDetails.updatedAt   
       };
 
       const response = await transferStore.submitTransfer(transferFormDataWithSaleTransactionDate);
@@ -544,7 +544,7 @@ if (processedTransactionData.mvTransferTransactions?.length > 0) {
 
         const mvTransferDataWithId = {
           ...mvTransferData,
-          newVoucherId, // ✅ Attach new voucher ID at top-level
+          newVoucherId, 
         };
 
         const mvTransferTransaction = await get().createMvTransferTransaction(mvTransferDataWithId);
