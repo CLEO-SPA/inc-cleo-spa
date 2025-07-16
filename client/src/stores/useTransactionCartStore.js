@@ -58,6 +58,7 @@ const useTransactionCartStore = create(
             fromMember: item.data?.fromMember,
             toMember: item.data?.toMember,
             queueItem: item.data?.queueItem,
+            transferAmount: item.data?.amount,
           });
         }
 

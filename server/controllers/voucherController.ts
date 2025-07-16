@@ -115,9 +115,9 @@ const transferVoucherDetailsHandler = async (
       remarks: string;
       top_up_balance: number;
       service_details?: {
-         name: string;         // from UI, becomes service_name
-  price: number;        // from UI, becomes custom_price
-  duration?: string | number;
+        name: string;         // from UI, becomes service_name
+        price: number;        // from UI, becomes custom_price
+        duration?: string | number;
 
       }[]; // ✅ Define expected structure
     } = req.body;
@@ -219,16 +219,16 @@ const transferVoucherDetailsHandler = async (
     );
 
     // ✅ Insert service_details if bypass
-    if (is_bypass && service_details?.length > 0) {
+    if (is_bypass && Array.isArray(service_details) && service_details.length > 0) {
       for (const service of service_details) {
         // Replace with your actual DB insertion logic
-     await voucherModel.insertCustomVoucherServiceDetail({
-      member_voucher_id: newVoucherId,
-      service_name: service.name,                    // from UI
-      custom_price: Number(service.price),           // from UI
-      duration: Number(service.duration) || 0,       // optional
-      created_at,
-});
+        await voucherModel.insertCustomVoucherServiceDetail({
+          member_voucher_id: newVoucherId,
+          service_name: service.name,                    // from UI
+          custom_price: Number(service.price),           // from UI
+          duration: Number(service.duration) || 0,       // optional
+          created_at,
+        });
 
       }
     }
