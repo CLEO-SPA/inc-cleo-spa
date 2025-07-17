@@ -360,7 +360,7 @@ export const useConsumptionStore = create(
         mcp_details: formData.mcp_details,
         assignedEmployee: assignedEmployee.map((assignment) => ({
           ...assignment,
-          itemType: 'package', // Ensure itemType is set for middleware
+          itemType: 'con-package', // Ensure itemType is set for middleware
         })),
       };
 

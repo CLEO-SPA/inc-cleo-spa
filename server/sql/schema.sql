@@ -566,8 +566,8 @@ CREATE TABLE "employee_commissions" (
     "performance_amount" DECIMAL(10,2) NOT NULL,
     "commission_rate" DECIMAL(5,2) NOT NULL,
     "commission_amount" DECIMAL(10,2) NOT NULL,
+    "remarks" TEXT,
     "created_at" TIMESTAMPTZ(6) NOT NULL,
-    "updated_at" TIMESTAMPTZ(6),
 
     CONSTRAINT "employee_commissions_pkey" PRIMARY KEY ("id")
 );

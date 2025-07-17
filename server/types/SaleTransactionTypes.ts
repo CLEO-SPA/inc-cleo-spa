@@ -43,12 +43,12 @@ export interface TransactionItem {
   remarks: string;
   amount: number;
   item_type: string;
-  
+
   // Enhanced voucher information
   member_voucher_name?: string;
   voucher_balance?: number;
   voucher_status?: 'is_enabled' | 'is_disabled' | 'expired';
-  
+
   // Enhanced care package information
   care_package_name?: string;
   care_package_balance?: number;
@@ -256,6 +256,7 @@ export interface SingleItemTransactionCreationResult {
   transfer_description?: string;
   items_count: number;
   payments_count: number;
+  mcpId?: string | number | null;
 }
 
 export interface PartialPaymentRequest {
@@ -290,8 +291,8 @@ export interface PartialPaymentResult {
 
 export interface ProcessPartialPaymentDataWithHandler extends ProcessPartialPaymentData {
   transaction_handler_id: number;
-  payment_handler_id: number,
-  receipt_number?: string
+  payment_handler_id: number;
+  receipt_number?: string;
   created_at?: string;
 }
 

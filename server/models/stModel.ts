@@ -4,7 +4,7 @@ import {
   Payment,
   Employee,
   PaymentDetail,
-  TransactionItem,              // ✅ Already enhanced with voucher/package fields
+  TransactionItem, // ✅ Already enhanced with voucher/package fields
   SalesTransaction,
   SalesTransactionDetail,
   PaginatedResult,
@@ -23,12 +23,11 @@ import {
   PartialPaymentResult,
   MemberVoucherTransactionLog,
   MemberCarePackageTransactionLog,
-
   VoucherGroup,
   CarePackageGroup,
   SalesTransactionResponse,
   MemberVoucher,
-  APIResponse
+  APIResponse,
 } from '../types/SaleTransactionTypes.js';
 import mcpModel from './mcpModel.js';
 
@@ -221,8 +220,8 @@ const getSalesTransactionList = async (
           payment_method: payment.payment_method_name,
         }));
 
-      const totalAmount = parseFloat(transaction.total_paid_amount || 0) +
-        parseFloat(transaction.outstanding_total_payment_amount || 0);
+      const totalAmount =
+        parseFloat(transaction.total_paid_amount || 0) + parseFloat(transaction.outstanding_total_payment_amount || 0);
 
       return {
         transaction_id: transaction.id.toString(),
@@ -239,11 +238,11 @@ const getSalesTransactionList = async (
         process_payment: transaction.process_payment,
         member: transaction.member_table_id
           ? {
-            id: transaction.member_table_id.toString(),
-            name: transaction.member_name,
-            email: transaction.member_email,
-            contact: transaction.member_contact,
-          }
+              id: transaction.member_table_id.toString(),
+              name: transaction.member_name,
+              email: transaction.member_email,
+              contact: transaction.member_contact,
+            }
           : null,
         payments,
       };
@@ -364,8 +363,8 @@ const getSalesTransactionById = async (id: string): Promise<SalesTransactionDeta
     const paymentsResult = await pool().query(paymentsQuery, [id]);
 
     // Transform the transaction data
-    const totalAmount = parseFloat(transaction.total_paid_amount || 0) +
-      parseFloat(transaction.outstanding_total_payment_amount || 0);
+    const totalAmount =
+      parseFloat(transaction.total_paid_amount || 0) + parseFloat(transaction.outstanding_total_payment_amount || 0);
 
     const transformedTransaction: SalesTransactionDetail = {
       transaction_id: transaction.id.toString(),
@@ -387,27 +386,27 @@ const getSalesTransactionById = async (id: string): Promise<SalesTransactionDeta
       // Member information
       member: transaction.member_table_id
         ? {
-          id: transaction.member_table_id.toString(),
-          name: transaction.member_name,
-          email: transaction.member_email,
-          contact: transaction.member_contact,
-        }
+            id: transaction.member_table_id.toString(),
+            name: transaction.member_name,
+            email: transaction.member_email,
+            contact: transaction.member_contact,
+          }
         : null,
 
       // Handler information
       handler: transaction.handled_by
         ? {
-          code: transaction.handler_code,
-          name: transaction.handler_name,
-        }
+            code: transaction.handler_code,
+            name: transaction.handler_name,
+          }
         : null,
 
       // Creator information
       creator: transaction.created_by
         ? {
-          code: transaction.creator_code,
-          name: transaction.creator_name,
-        }
+            code: transaction.creator_code,
+            name: transaction.creator_name,
+          }
         : null,
 
       // Payment information
@@ -460,12 +459,7 @@ const getSalesTransactionById = async (id: string): Promise<SalesTransactionDeta
   }
 };
 
-
-
-
-const searchServices = async (
-  searchQuery: string
-): Promise<Service[]> => {
+const searchServices = async (searchQuery: string): Promise<Service[]> => {
   try {
     let query = `
       SELECT 
@@ -722,7 +716,7 @@ const createServicesProductsTransaction = async (
       handled_by,
       created_by,
       customCreatedAt,
-      customUpdatedAt
+      customUpdatedAt,
     ];
 
     console.log('Services/Products Transaction Query:', transactionQuery);
@@ -820,7 +814,7 @@ const createServicesProductsTransaction = async (
           payment.remark || '',
           handled_by,
           customCreatedAt,
-          customUpdatedAt
+          customUpdatedAt,
         ];
 
         const paymentResult = await client.query(paymentQuery, paymentParams);
@@ -876,7 +870,7 @@ const createMcpTransaction = async (
       payments,
 
       created_at,
-      updated_at
+      updated_at,
     } = transactionData;
 
     // Validate required fields
@@ -925,7 +919,6 @@ const createMcpTransaction = async (
       customUpdatedAt = customCreatedAt;
     }
 
-
     mcpId = item.data?.member_care_package_id || item.data?.id;
 
     if (!mcpId) {
@@ -953,12 +946,12 @@ const createMcpTransaction = async (
 
     const PENDING_PAYMENT_METHOD_ID = 7;
 
-    const pendingPayments = payments.filter((payment: PaymentMethodRequest) =>
-      payment.methodId === PENDING_PAYMENT_METHOD_ID
+    const pendingPayments = payments.filter(
+      (payment: PaymentMethodRequest) => payment.methodId === PENDING_PAYMENT_METHOD_ID
     );
 
-    const nonPendingPayments = payments.filter((payment: PaymentMethodRequest) =>
-      payment.methodId !== PENDING_PAYMENT_METHOD_ID
+    const nonPendingPayments = payments.filter(
+      (payment: PaymentMethodRequest) => payment.methodId !== PENDING_PAYMENT_METHOD_ID
     );
     const totalPaidAmount: number = nonPendingPayments.reduce((total: number, payment: PaymentMethodRequest) => {
       return total + (payment.amount || 0);
@@ -1011,7 +1004,7 @@ const createMcpTransaction = async (
       handled_by,
       created_by,
       customCreatedAt,
-      customUpdatedAt
+      customUpdatedAt,
     ];
 
     const transactionResult = await client.query(transactionQuery, transactionParams);
@@ -1050,7 +1043,7 @@ const createMcpTransaction = async (
       item.pricing?.quantity || 1,
       item.pricing?.totalLinePrice || 0,
       'member care package',
-      item.remarks || ''
+      item.remarks || '',
     ];
 
     const itemResult = await client.query(itemQuery, itemParams);
@@ -1076,7 +1069,7 @@ const createMcpTransaction = async (
         mcpId: mcpId,
         previousBalance: currentBalance,
         paidAmount: totalPaidAmount,
-        newBalance: updatedBalance
+        newBalance: updatedBalance,
       });
     }
 
@@ -1102,7 +1095,7 @@ const createMcpTransaction = async (
           payment.remark || '',
           handled_by,
           customCreatedAt,
-          customUpdatedAt
+          customUpdatedAt,
         ];
 
         const paymentResult = await client.query(paymentQuery, paymentParams);
@@ -1128,9 +1121,9 @@ const createMcpTransaction = async (
       handled_by,
       package_name: mcpRecord.package_name,
       items_count: 1,
-      payments_count: payments.filter((p: PaymentMethodRequest) => p.amount > 0).length
+      payments_count: payments.filter((p: PaymentMethodRequest) => p.amount > 0).length,
+      mcpId: mcpId,
     };
-
   } catch (error) {
     await client.query('ROLLBACK');
     console.error('Error creating MCP sale transaction:', error);
@@ -1250,12 +1243,12 @@ const createMvTransaction = async (
 
     const PENDING_PAYMENT_METHOD_ID = 7;
 
-    const pendingPayments = payments.filter((payment: PaymentMethodRequest) =>
-      payment.methodId === PENDING_PAYMENT_METHOD_ID
+    const pendingPayments = payments.filter(
+      (payment: PaymentMethodRequest) => payment.methodId === PENDING_PAYMENT_METHOD_ID
     );
 
-    const nonPendingPayments = payments.filter((payment: PaymentMethodRequest) =>
-      payment.methodId !== PENDING_PAYMENT_METHOD_ID
+    const nonPendingPayments = payments.filter(
+      (payment: PaymentMethodRequest) => payment.methodId !== PENDING_PAYMENT_METHOD_ID
     );
 
     const totalPaidAmount: number = nonPendingPayments.reduce((total: number, payment: PaymentMethodRequest) => {
@@ -1323,8 +1316,6 @@ const createMvTransaction = async (
     const transactionResult = await client.query(transactionQuery, transactionParams);
     const saleTransactionId: number = transactionResult.rows[0].id;
 
-
-
     // Insert voucher item with actual MV ID
     const itemQuery: string = `
       INSERT INTO sale_transaction_items (
@@ -1384,7 +1375,7 @@ const createMvTransaction = async (
           payment.remark || '',
           handled_by,
           customCreatedAt,
-          customUpdatedAt
+          customUpdatedAt,
         ];
 
         const paymentResult = await client.query(paymentQuery, paymentParams);
@@ -1598,8 +1589,9 @@ const createMcpTransferTransaction = async (
     const transferAmount = transferDetails.amount || item.pricing?.totalLinePrice || 0;
 
     // Enhanced remarks with transfer metadata
-    const transferRemarks = `MCP Transfer: ${transferAmount} from MCP ${sourceMcpId} to MCP ${destinationMcpId}${transferDetails.isNew ? ' (New Package)' : ''
-      }${item.remarks ? ` - ${item.remarks}` : ''}`;
+    const transferRemarks = `MCP Transfer: ${transferAmount} from MCP ${sourceMcpId} to MCP ${destinationMcpId}${
+      transferDetails.isNew ? ' (New Package)' : ''
+    }${item.remarks ? ` - ${item.remarks}` : ''}`;
 
     const itemParams: (string | number | null)[] = [
       saleTransactionId,
@@ -1986,9 +1978,9 @@ const processPartialPayment = async (
       payments,
       general_remarks,
       transaction_handler_id,
-      payment_handler_id,    // NEW: Extract payment handler from frontend
-      receipt_number,        // NEW: Extract receipt number from frontend
-      created_at
+      payment_handler_id, // NEW: Extract payment handler from frontend
+      receipt_number, // NEW: Extract receipt number from frontend
+      created_at,
     } = paymentData;
 
     console.log('Processing partial payment for transaction:', transactionId);
@@ -2049,8 +2041,8 @@ const processPartialPayment = async (
     // Calculate payment amounts - EXCLUDE pending payments from total_paid_amount
     const PENDING_PAYMENT_METHOD_ID = 7;
 
-    const actualPayments = payments.filter(payment => payment.payment_method_id !== PENDING_PAYMENT_METHOD_ID);
-    const pendingPayments = payments.filter(payment => payment.payment_method_id === PENDING_PAYMENT_METHOD_ID);
+    const actualPayments = payments.filter((payment) => payment.payment_method_id !== PENDING_PAYMENT_METHOD_ID);
+    const pendingPayments = payments.filter((payment) => payment.payment_method_id === PENDING_PAYMENT_METHOD_ID);
 
     const totalActualPaymentAmount = actualPayments.reduce((sum, payment) => sum + payment.amount, 0);
     const totalPendingAmount = pendingPayments.reduce((sum, payment) => sum + payment.amount, 0);
@@ -2076,7 +2068,7 @@ const processPartialPayment = async (
     const originalItemsResult = await client.query(originalItemsQuery, [transactionId]);
     const originalItems = originalItemsResult.rows;
 
-    // Calculate new transaction values 
+    // Calculate new transaction values
     const newTotalPaidAmount = totalActualPaymentAmount;
     const newOutstandingAmount = originalTransaction.outstanding_total_payment_amount - totalActualPaymentAmount;
     const newTransactionStatus = newOutstandingAmount > 0.01 ? 'PARTIAL' : 'FULL';
@@ -2114,13 +2106,13 @@ const processPartialPayment = async (
       newOutstandingAmount,
       newTransactionStatus,
       general_remarks || `Additional payment for receipt ${originalTransaction.receipt_no}`,
-      finalReceiptNumber,        // Use custom receipt number or original
+      finalReceiptNumber, // Use custom receipt number or original
       originalTransaction.id,
-      transaction_handler_id,    // handled_by (transaction handler from frontend)
-      payment_handler_id,        // created_by (payment handler from frontend)
+      transaction_handler_id, // handled_by (transaction handler from frontend)
+      payment_handler_id, // created_by (payment handler from frontend)
       currentTime,
       currentTime,
-      newProcessPayment
+      newProcessPayment,
     ];
 
     const newTransactionResult = await client.query(newTransactionQuery, newTransactionParams);
@@ -2159,10 +2151,18 @@ const processPartialPayment = async (
       }
 
       const itemParams = [
-        newTransactionId, item.service_name, item.product_name,
-        item.member_care_package_id, item.member_voucher_id,
-        item.original_unit_price, item.custom_unit_price, item.discount_percentage,
-        item.quantity, item.remarks, item.amount, item.item_type
+        newTransactionId,
+        item.service_name,
+        item.product_name,
+        item.member_care_package_id,
+        item.member_voucher_id,
+        item.original_unit_price,
+        item.custom_unit_price,
+        item.discount_percentage,
+        item.quantity,
+        item.remarks,
+        item.amount,
+        item.item_type,
       ];
 
       await client.query(insertItemQuery, itemParams);
@@ -2182,8 +2182,8 @@ const processPartialPayment = async (
         payment.payment_method_id,
         payment.amount,
         payment.remarks || '',
-        payment.payment_handler_id,  // Use payment handler for created_by
-        payment.payment_handler_id,  // Use payment handler for updated_by
+        payment.payment_handler_id, // Use payment handler for created_by
+        payment.payment_handler_id, // Use payment handler for updated_by
         currentTime,
         currentTime,
       ];
@@ -2206,18 +2206,17 @@ const processPartialPayment = async (
     if (voucherItems.length > 0) {
       for (const voucherItem of voucherItems) {
         // Get current balance before update for logging
-        const currentVoucherResult = await client.query(
-          'SELECT current_balance FROM member_vouchers WHERE id = $1',
-          [voucherItem.member_voucher_id]
-        );
+        const currentVoucherResult = await client.query('SELECT current_balance FROM member_vouchers WHERE id = $1', [
+          voucherItem.member_voucher_id,
+        ]);
 
         const currentBalance = parseFloat(currentVoucherResult.rows[0]?.current_balance) || 0;
 
         // Update voucher balance
-        await client.query('UPDATE member_vouchers SET current_balance = COALESCE(current_balance, 0) + $1 WHERE id = $2', [
-          totalActualPaymentAmount,
-          voucherItem.member_voucher_id,
-        ]);
+        await client.query(
+          'UPDATE member_vouchers SET current_balance = COALESCE(current_balance, 0) + $1 WHERE id = $2',
+          [totalActualPaymentAmount, voucherItem.member_voucher_id]
+        );
 
         // Log the partial payment transaction
         const insertPartialPaymentLogQuery = `
@@ -2239,7 +2238,9 @@ const processPartialPayment = async (
         const newBalance = currentBalance + totalActualPaymentAmount;
         const partialPaymentLogParams = [
           voucherItem.member_voucher_id,
-          `Payment received for receipt ${finalReceiptNumber}${newTransactionStatus === 'PARTIAL' ? ' (Partial Payment)' : ''}`,
+          `Payment received for receipt ${finalReceiptNumber}${
+            newTransactionStatus === 'PARTIAL' ? ' (Partial Payment)' : ''
+          }`,
           currentTime,
           newBalance,
           totalActualPaymentAmount,
@@ -2248,12 +2249,18 @@ const processPartialPayment = async (
           payment_handler_id,
           payment_handler_id,
           currentTime,
-          currentTime
+          currentTime,
         ];
 
         await client.query(insertPartialPaymentLogQuery, partialPaymentLogParams);
 
-        console.log(`Inserted voucher transaction log for voucher ID ${voucherItem.member_voucher_id}, balance change: +${totalActualPaymentAmount} (${newTransactionStatus === 'PARTIAL' ? 'Partial Payment' : 'Payment'})`);
+        console.log(
+          `Inserted voucher transaction log for voucher ID ${
+            voucherItem.member_voucher_id
+          }, balance change: +${totalActualPaymentAmount} (${
+            newTransactionStatus === 'PARTIAL' ? 'Partial Payment' : 'Payment'
+          })`
+        );
       }
     }
     // Handle voucher free-of-charge additions if transaction is fully paid
@@ -2302,15 +2309,17 @@ const processPartialPayment = async (
               freeOfCharge,
               transaction_handler_id,
               'ADD FOC',
-              payment_handler_id,    // Use payment handler for created_by
-              payment_handler_id,    // Use payment handler for last_updated_by
+              payment_handler_id, // Use payment handler for created_by
+              payment_handler_id, // Use payment handler for last_updated_by
               currentTime,
-              currentTime
+              currentTime,
             ];
 
             await client.query(insertVoucherLogQuery, voucherLogParams);
 
-            console.log(`Inserted voucher transaction log for voucher ID ${voucherItem.member_voucher_id}, balance change: +${freeOfCharge}`);
+            console.log(
+              `Inserted voucher transaction log for voucher ID ${voucherItem.member_voucher_id}, balance change: +${freeOfCharge}`
+            );
           }
         }
       }
@@ -2323,7 +2332,7 @@ const processPartialPayment = async (
     return {
       new_transaction: {
         id: newTransactionId,
-        receipt_no: finalReceiptNumber,  // Return the actual receipt number used
+        receipt_no: finalReceiptNumber, // Return the actual receipt number used
         total_paid_amount: newTotalPaidAmount,
         outstanding_amount: newOutstandingAmount,
         transaction_status: newTransactionStatus,

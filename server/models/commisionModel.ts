@@ -22,7 +22,12 @@ interface commisionPayload {
   commissionRate: number;
   commissionAmount: number;
   remarks: string;
-  itemType: 'member_vouchers' | 'member_care_packages' | 'products' | 'services';
+  itemType:
+    | 'member_vouchers'
+    | 'member_care_packages'
+    | 'products'
+    | 'services'
+    | 'member_care_package_transaction_logs';
   itemId: string;
   created_at: string;
 }
@@ -31,8 +36,8 @@ const createEmpCommision = async (data: commisionPayload) => {
   try {
     const query = `
         INSERT INTO employee_commissions 
-        (item_type, item_id, employee_id, performance_rate, performance_amount, created_at)
-        VALUES ($1, $2, $3, $4, $5, $6) RETURNING *;
+        (item_type, item_id, employee_id, performance_rate, performance_amount, commission_rate, commission_amount, remarks, created_at)
+        VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9) RETURNING *;
     `;
 
     const result = await pool().query<EmployeeCommisions>(query, [
@@ -41,6 +46,9 @@ const createEmpCommision = async (data: commisionPayload) => {
       data.employeeId,
       data.performanceRate,
       data.performanceAmount,
+      data.commissionRate,
+      data.commissionAmount,
+      data.remarks,
       data.created_at,
     ]);
 
