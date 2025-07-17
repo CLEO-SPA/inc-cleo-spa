@@ -48,8 +48,11 @@ export const useConsumptionStore = create(
     formData: {
       mcp_id: '',
       mcp_details: [],
-      employee_id: '',
     },
+
+    // Add state for employee commission assignments
+    employeeCommissionAssignments: {},
+
     detailForm: {
       mcpd_id: '', // ID of the member_care_package_detail to consume
       service_name: '', // Name of the service for display
@@ -73,6 +76,19 @@ export const useConsumptionStore = create(
     fromLocalDateTimeString,
 
     setIsConfirming: (isConfirming) => set({ isConfirming }, false, 'setIsConfirming'),
+
+    setEmployeeCommissionAssignments: (itemId, assignments) => {
+      set(
+        (state) => ({
+          employeeCommissionAssignments: {
+            ...state.employeeCommissionAssignments,
+            [itemId]: assignments,
+          },
+        }),
+        false,
+        'setEmployeeCommissionAssignments'
+      );
+    },
 
     updateMainField: (field, value) =>
       set(
@@ -197,14 +213,12 @@ export const useConsumptionStore = create(
           'fetchPackageData/fulfilled'
         );
 
-
         // Get service ID and final price from the service for Employee Commission Select
-            const service = processedDetails[0];
-            set({
-                selectedServiceId: service.service_id,
-                selectedServiceFinalPrice: parseFloat(service.price * service.discount).toFixed(2)
-            });
-
+        const service = processedDetails[0];
+        set({
+          selectedServiceId: service.service_id,
+          selectedServiceFinalPrice: parseFloat(service.price * service.discount).toFixed(2),
+        });
       } catch (error) {
         const errorMessage = error.response?.data?.message || error.message || 'An unknown error occurred';
         set({ error: errorMessage, isLoading: false }, false, 'fetchPackageData/rejected');
@@ -215,14 +229,14 @@ export const useConsumptionStore = create(
     setSelectedService: (serviceId, finalPrice) => {
       set({
         selectedServiceId: serviceId,
-        selectedServiceFinalPrice: finalPrice
+        selectedServiceFinalPrice: finalPrice,
       });
     },
 
     clearSelectedService: () => {
       set({
         selectedServiceId: null,
-        selectedServiceFinalPrice: 0
+        selectedServiceFinalPrice: 0,
       });
     },
 
@@ -324,11 +338,15 @@ export const useConsumptionStore = create(
     },
 
     submitConsumption: async () => {
-      const { formData, currentPackageInfo } = get();
+      const { formData, currentPackageInfo, selectedServiceId, employeeCommissionAssignments } = get();
 
-      if (!formData.mcp_id || formData.mcp_details.length === 0 || !formData.employee_id) {
+      // Get employee commission assignments for the selected service
+      const assignedEmployee = employeeCommissionAssignments[selectedServiceId] || [];
+
+      // Check if we have assignments (at least one employee)
+      if (!formData.mcp_id || formData.mcp_details.length === 0 || assignedEmployee.length === 0) {
         set(
-          { error: 'Missing required fields: Package ID, Service Details, or Employee ID.' },
+          { error: 'Missing required fields: Package ID, Service Details, or Employee Assignment.' },
           false,
           'submitConsumption/validationError'
         );
@@ -339,15 +357,18 @@ export const useConsumptionStore = create(
 
       const payload = {
         mcp_id: formData.mcp_id,
-        employee_id: formData.employee_id,
         mcp_details: formData.mcp_details,
+        assignedEmployee: assignedEmployee.map((assignment) => ({
+          ...assignment,
+          itemType: 'package', // Ensure itemType is set for middleware
+        })),
       };
 
-      console.log(payload);
+      console.log('Consumption payload with commissions:', payload);
 
       try {
         const result = await api.post('/mcp/consume', payload);
-        console.log(result);
+        console.log('Consumption result:', result);
 
         set(
           {
@@ -356,9 +377,12 @@ export const useConsumptionStore = create(
           false,
           'submitConsumption/fulfilled'
         );
+
         if (currentPackageInfo && currentPackageInfo.package && currentPackageInfo.package.id) {
           get().fetchPackageData(currentPackageInfo.package.id);
         }
+
+        // Reset state
         set(
           (state) => ({
             formData: {
@@ -370,18 +394,26 @@ export const useConsumptionStore = create(
               mcpd_id: '',
               service_name: '',
               mcpd_quantity: -1,
-              mcpd_date: new Date().toISOString(), // Reset to current time as ISO string
+              mcpd_date: new Date().toISOString(),
               max_quantity: 0,
+            },
+            // Clear employee commission assignments for this item
+            employeeCommissionAssignments: {
+              ...state.employeeCommissionAssignments,
+              [selectedServiceId]: [],
             },
           }),
           false,
           'resetFormsAfterConsumption'
         );
+
+        return result;
       } catch (error) {
         const errorMessage =
           error.response?.data?.message || error.message || 'An unknown error occurred during consumption.';
         set({ error: errorMessage, isSubmitting: false }, false, 'submitConsumption/rejected');
         console.error('Error submitting consumption:', error);
+        throw error;
       }
     },
   }))
