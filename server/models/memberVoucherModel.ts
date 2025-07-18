@@ -946,18 +946,12 @@ const createMemberVoucher = async (
       throw new Error('member_voucher_name is required');
     }
 
-    // ❌ REMOVED: No longer require creation_datetime from voucher since we use sale transaction dates
-    // if (!creation_datetime) {
-    //   throw new Error('creation_datetime is required');
-    // }
-
     // FIXED: Better default calculation
     const default_total_price = selected_template?.default_total_price
       ? Number(selected_template.default_total_price)
       : (total_price ? Number(total_price) : 0);
 
     const is_bypass = bypass_template === true;
-
 
     const createdAt = customCreatedAt;   // Use sale transaction date
     const updatedAt = customUpdatedAt;   // Use sale transaction date
@@ -999,27 +993,67 @@ const createMemberVoucher = async (
       throw new Error(`Voucher template with ID ${voucher_template_id} not found`);
     }
 
-    // FIXED: Payment calculations using correct logic
-    const PENDING_PAYMENT_METHOD_ID = 7;
+    // ✅ FIXED: Payment calculations using CORRECT MCP logic
+    const totalTransactionAmount: number = pricing?.totalLinePrice || 0;
 
+    const PENDING_PAYMENT_METHOD_ID = 7;
+    const GST_PAYMENT_METHOD_ID = 10;
+
+    // Separate payments by type (same as MCP)
     const pendingPayments = payments.filter((payment: PaymentMethodRequest) =>
       payment.methodId === PENDING_PAYMENT_METHOD_ID
     );
 
-    const nonPendingPayments = payments.filter((payment: PaymentMethodRequest) =>
-      payment.methodId !== PENDING_PAYMENT_METHOD_ID
+    const gstPayments = payments.filter((payment: PaymentMethodRequest) =>
+      payment.methodId === GST_PAYMENT_METHOD_ID
     );
 
-    const outstanding_amount = pendingPayments.reduce((total: number, payment: PaymentMethodRequest) => {
+    const actualPayments = payments.filter((payment: PaymentMethodRequest) =>
+      payment.methodId !== PENDING_PAYMENT_METHOD_ID &&
+      payment.methodId !== GST_PAYMENT_METHOD_ID
+    );
+
+    // Calculate amounts (same logic as MCP)
+    const totalActualPaymentAmount: number = actualPayments.reduce((total: number, payment: PaymentMethodRequest) => {
       return total + (payment.amount || 0);
     }, 0);
 
-    const is_fully_paid = outstanding_amount === 0;
+    const totalGSTAmount: number = gstPayments.reduce((total: number, payment: PaymentMethodRequest) => {
+      return total + (payment.amount || 0);
+    }, 0);
+
+    // IGNORE pending amount from frontend - calculate our own (same as MCP)
+    const frontendPendingAmount: number = pendingPayments.reduce((total: number, payment: PaymentMethodRequest) => {
+      return total + (payment.amount || 0);
+    }, 0);
+
+    // Calculate correct outstanding amount (backend authority) - same as MCP
+    const outstandingAmount: number = Math.max(0, totalTransactionAmount - totalActualPaymentAmount);
+
+    // Total paid amount = actual payments + GST (EXCLUDES pending) - same as MCP
+    const totalPaidAmount: number = totalActualPaymentAmount + totalGSTAmount;
+
+    const transactionStatus: 'FULL' | 'PARTIAL' = outstandingAmount <= 0 ? 'FULL' : 'PARTIAL';
+    const processPayment: boolean = outstandingAmount > 0;
+
+    console.log('✅ MV Creation Payment calculations:', {
+      totalTransactionAmount,
+      totalActualPaymentAmount,
+      totalGSTAmount,
+      frontendPendingAmount: `${frontendPendingAmount} (from frontend - IGNORED)`,
+      outstandingAmount: `${outstandingAmount} (backend calculated - USED)`,
+      totalPaidAmount: `${totalPaidAmount} (actual + GST, excludes pending)`,
+      transactionStatus,
+      note: 'Backend ignores frontend pending amount and calculates its own'
+    });
+
+    // ✅ FIXED: Use correct payment logic for voucher balance calculation
+    const is_fully_paid = outstandingAmount <= 0; // Use backend calculated outstanding
 
     // FIXED: Cleaner balance calculation
     const base_balance = default_total_price + free_of_charge;
     const final_starting_balance = base_balance;
-    const final_current_balance = is_fully_paid ? default_total_price : default_total_price - outstanding_amount;
+    const final_current_balance = is_fully_paid ? default_total_price : default_total_price - outstandingAmount;
 
     // ✅ Insert member voucher using sale transaction dates
     const i_mv_sql = `
@@ -1131,31 +1165,6 @@ const createMemberVoucher = async (
       updatedAt      
     ]);
 
-    // FIXED: Calculate transaction totals using correct logic
-    const totalTransactionAmount: number = pricing?.totalLinePrice || 0;
-
-    const totalPaidAmount: number = nonPendingPayments.reduce((total: number, payment: PaymentMethodRequest) => {
-      return total + (payment.amount || 0);
-    }, 0);
-
-    const outstandingAmount: number = pendingPayments.reduce((total: number, payment: PaymentMethodRequest) => {
-      return total + (payment.amount || 0);
-    }, 0);
-
-    const transactionStatus: 'FULL' | 'PARTIAL' = outstandingAmount <= 0 ? 'FULL' : 'PARTIAL';
-    const processPayment: boolean = outstandingAmount > 0;
-
-    // Verification: total should match
-    const calculatedTotal = totalPaidAmount + outstandingAmount;
-    if (Math.abs(calculatedTotal - totalTransactionAmount) > 0.01) {
-      console.warn('Payment total mismatch:', {
-        totalTransactionAmount,
-        totalPaidAmount,
-        outstandingAmount,
-        calculatedTotal
-      });
-    }
-
     // ✅ FOC transaction using sale transaction dates
     if (transactionStatus === 'FULL' && free_of_charge > 0) {
       // Calculate new balance after adding FOC
@@ -1229,8 +1238,8 @@ const createMemberVoucher = async (
     const transactionParams: (string | number | boolean | null | Date)[] = [
       customer_type?.toUpperCase() || 'MEMBER',
       member_id || null,
-      totalPaidAmount,
-      outstandingAmount,
+      totalPaidAmount, // Actual + GST (excludes pending)
+      outstandingAmount, // Transaction amount - actual payments (excludes GST)
       transactionStatus,
       finalReceiptNo,
       remarks || '',
@@ -1285,8 +1294,17 @@ const createMemberVoucher = async (
 
     console.log('Created MV sale transaction item with ID:', saleTransactionItemId);
 
-    // ✅ Insert payments using sale transaction dates
+    // ✅ Insert all payments (actual + GST) and create correct pending payment
     for (const payment of payments) {
+      // Skip frontend pending payments - we'll create our own (same as MCP)
+      if (payment.methodId === PENDING_PAYMENT_METHOD_ID) {
+        console.log('Skipping frontend pending payment:', {
+          amount: payment.amount,
+          note: 'Backend will create correct pending payment'
+        });
+        continue;
+      }
+
       if (payment.amount > 0) {
         const paymentQuery: string = `
           INSERT INTO payment_to_sale_transactions (
@@ -1315,8 +1333,45 @@ const createMemberVoucher = async (
         console.log('MV Payment Params:', paymentParams);
 
         const paymentResult = await client.query(paymentQuery, paymentParams);
-        console.log('Created MV payment with ID:', paymentResult.rows[0].id);
+        console.log('Created MV payment with ID:', paymentResult.rows[0].id, {
+          methodId: payment.methodId,
+          amount: payment.amount,
+          isGST: payment.methodId === GST_PAYMENT_METHOD_ID
+        });
       }
+    }
+
+    // ✅ Create correct pending payment if needed (using backend calculated amount) - same as MCP
+    if (outstandingAmount > 0) {
+      const pendingPaymentQuery: string = `
+        INSERT INTO payment_to_sale_transactions (
+          sale_transaction_id,
+          payment_method_id,
+          amount,
+          remarks,
+          created_by,
+          created_at,
+          updated_at
+        ) VALUES ($1, $2, $3, $4, $5, $6, $7)
+        RETURNING id
+      `;
+
+      const pendingPaymentParams: (number | string | Date)[] = [
+        saleTransactionId,
+        PENDING_PAYMENT_METHOD_ID,
+        outstandingAmount,
+        'Backend calculated pending payment',
+        handled_by,
+        createdAt,
+        updatedAt
+      ];
+
+      const pendingResult = await client.query(pendingPaymentQuery, pendingPaymentParams);
+      console.log('Created correct pending payment with ID:', pendingResult.rows[0].id, {
+        methodId: PENDING_PAYMENT_METHOD_ID,
+        amount: outstandingAmount,
+        note: 'Backend calculated - ignores frontend pending'
+      });
     }
 
     await client.query('COMMIT');
@@ -1329,8 +1384,8 @@ const createMemberVoucher = async (
       customer_type: customer_type?.toUpperCase() || 'MEMBER',
       member_id: member_id ? member_id.toString() : null,
       total_transaction_amount: totalTransactionAmount,
-      total_paid_amount: totalPaidAmount,
-      outstanding_total_payment_amount: outstandingAmount,
+      total_paid_amount: totalPaidAmount, // Actual + GST (excludes pending)
+      outstanding_total_payment_amount: outstandingAmount, // Transaction - actual (excludes GST)
       transaction_status: transactionStatus,
       remarks: remarks || '',
       created_by,

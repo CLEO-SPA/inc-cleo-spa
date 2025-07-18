@@ -164,7 +164,7 @@ const CartItemsWithPayment = ({
     'Products': cartItems.filter(item => item.type === 'product'),
     'Packages': cartItems.filter(item => item.type === 'package'),
     'Vouchers': cartItems.filter(item => item.type === 'member-voucher'),
-    'TransferMCP': cartItems.filter(item => item.type === 'transferMCP' || (item.type === 'transfer' && item.data?.queueItem?.mcp_id1)),
+    'TransferMCP': cartItems.filter(item => item.type === 'transferMCP'),
     'TransferMV': cartItems.filter(item => item.type === 'transferMV'),
   };
 

@@ -980,6 +980,7 @@ const createMcpTransaction = async (
     const PENDING_PAYMENT_METHOD_ID = 7;
     const GST_PAYMENT_METHOD_ID = 10; // GST payment method ID
 
+    // Separate payments by type
     const pendingPayments = payments.filter((payment: PaymentMethodRequest) =>
       payment.methodId === PENDING_PAYMENT_METHOD_ID
     );
@@ -988,32 +989,44 @@ const createMcpTransaction = async (
       payment.methodId === GST_PAYMENT_METHOD_ID
     );
 
-    const nonPendingPayments = payments.filter((payment: PaymentMethodRequest) =>
-      payment.methodId !== PENDING_PAYMENT_METHOD_ID
+    const actualPayments = payments.filter((payment: PaymentMethodRequest) =>
+      payment.methodId !== PENDING_PAYMENT_METHOD_ID &&
+      payment.methodId !== GST_PAYMENT_METHOD_ID
     );
 
-    // Calculate total paid amount (including GST for transaction record)
-    const totalPaidAmount: number = nonPendingPayments.reduce((total: number, payment: PaymentMethodRequest) => {
+    // Calculate amounts
+    const totalActualPaymentAmount: number = actualPayments.reduce((total: number, payment: PaymentMethodRequest) => {
       return total + (payment.amount || 0);
     }, 0);
 
-    // Calculate total paid amount EXCLUDING GST (for MCP balance update)
-    const totalPaidAmountExcludingGST: number = nonPendingPayments.filter((payment: PaymentMethodRequest) =>
-      payment.methodId !== GST_PAYMENT_METHOD_ID
-    ).reduce((total: number, payment: PaymentMethodRequest) => {
+    const totalGSTAmount: number = gstPayments.reduce((total: number, payment: PaymentMethodRequest) => {
       return total + (payment.amount || 0);
     }, 0);
 
-    const gstAmount: number = gstPayments.reduce((total: number, payment: PaymentMethodRequest) => {
+    // IGNORE pending amount from frontend - calculate our own
+    const frontendPendingAmount: number = pendingPayments.reduce((total: number, payment: PaymentMethodRequest) => {
       return total + (payment.amount || 0);
     }, 0);
 
-    const outstandingAmount: number = pendingPayments.reduce((total: number, payment: PaymentMethodRequest) => {
-      return total + (payment.amount || 0);
-    }, 0);
+    // Calculate correct outstanding amount (backend authority)
+    const outstandingAmount: number = Math.max(0, totalTransactionAmount - totalActualPaymentAmount);
+
+    // Total paid amount = actual payments + GST (EXCLUDES pending)
+    const totalPaidAmount: number = totalActualPaymentAmount + totalGSTAmount;
 
     const transactionStatus: 'FULL' | 'PARTIAL' = outstandingAmount <= 0 ? 'FULL' : 'PARTIAL';
     const processPayment: boolean = outstandingAmount > 0;
+
+    console.log('✅ Payment calculations:', {
+      totalTransactionAmount,
+      totalActualPaymentAmount,
+      totalGSTAmount,
+      frontendPendingAmount: `${frontendPendingAmount} (from frontend - IGNORED)`,
+      outstandingAmount: `${outstandingAmount} (backend calculated - USED)`,
+      totalPaidAmount: `${totalPaidAmount} (actual + GST, excludes pending)`,
+      transactionStatus,
+      note: 'Backend ignores frontend pending amount and calculates its own'
+    });
 
     // Use receipt number from frontend
     let finalReceiptNo: string = receipt_number || '';
@@ -1046,8 +1059,8 @@ const createMcpTransaction = async (
     const transactionParams: (string | number | boolean | null | Date)[] = [
       customer_type?.toUpperCase() || 'MEMBER',
       member_id || null,
-      totalPaidAmount, // This includes GST for transaction record
-      outstandingAmount,
+      totalPaidAmount, // Actual + GST (excludes pending)
+      outstandingAmount, // Transaction amount - actual payments (excludes GST)
       transactionStatus,
       finalReceiptNo,
       remarks || '',
@@ -1103,8 +1116,8 @@ const createMcpTransaction = async (
     console.log('Created MCP sale transaction item with ID:', saleTransactionItemId);
 
     // Update MCP balance with the paid amount EXCLUDING GST
-    if (totalPaidAmountExcludingGST > 0) {
-      const newBalance = currentBalance + totalPaidAmountExcludingGST;
+    if (totalActualPaymentAmount > 0) {
+      const newBalance = currentBalance + totalActualPaymentAmount;
 
       const updateBalanceQuery = `
         UPDATE member_care_packages 
@@ -1119,16 +1132,25 @@ const createMcpTransaction = async (
       console.log('✅ Updated MCP balance (excluding GST):', {
         mcpId: mcpId,
         previousBalance: currentBalance,
-        paidAmountExcludingGST: totalPaidAmountExcludingGST,
-        gstAmount: gstAmount,
+        actualPaymentAmount: totalActualPaymentAmount,
+        gstAmount: totalGSTAmount,
         totalPaidAmount: totalPaidAmount,
         newBalance: updatedBalance,
         note: 'GST excluded from balance calculation'
       });
     }
 
-    // Insert all payments (including GST) into payment_to_sale_transactions
+    // Insert all payments (actual + GST) and create correct pending payment
     for (const payment of payments) {
+      // Skip frontend pending payments - we'll create our own
+      if (payment.methodId === PENDING_PAYMENT_METHOD_ID) {
+        console.log('Skipping frontend pending payment:', {
+          amount: payment.amount,
+          note: 'Backend will create correct pending payment'
+        });
+        continue;
+      }
+
       if (payment.amount > 0) {
         const paymentQuery: string = `
           INSERT INTO payment_to_sale_transactions (
@@ -1162,6 +1184,39 @@ const createMcpTransaction = async (
       }
     }
 
+    // Create correct pending payment if needed (using backend calculated amount)
+    if (outstandingAmount > 0) {
+      const pendingPaymentQuery: string = `
+        INSERT INTO payment_to_sale_transactions (
+          sale_transaction_id,
+          payment_method_id,
+          amount,
+          remarks,
+          created_by,
+          created_at,
+          updated_at
+        ) VALUES ($1, $2, $3, $4, $5, $6, $7)
+        RETURNING id
+      `;
+
+      const pendingPaymentParams: (number | string | Date)[] = [
+        saleTransactionId,
+        PENDING_PAYMENT_METHOD_ID,
+        outstandingAmount,
+        'Backend calculated pending payment',
+        handled_by,
+        customCreatedAt,
+        customUpdatedAt
+      ];
+
+      const pendingResult = await client.query(pendingPaymentQuery, pendingPaymentParams);
+      console.log('Created correct pending payment with ID:', pendingResult.rows[0].id, {
+        methodId: PENDING_PAYMENT_METHOD_ID,
+        amount: outstandingAmount,
+        note: 'Backend calculated - ignores frontend pending'
+      });
+    }
+
     await client.query('COMMIT');
     console.log('MCP Transaction committed successfully');
 
@@ -1172,8 +1227,8 @@ const createMcpTransaction = async (
       customer_type: customer_type?.toUpperCase() || 'MEMBER',
       member_id: member_id ? member_id.toString() : null,
       total_transaction_amount: totalTransactionAmount,
-      total_paid_amount: totalPaidAmount, // This includes GST for response
-      outstanding_total_payment_amount: outstandingAmount,
+      total_paid_amount: totalPaidAmount, // Actual + GST (excludes pending)
+      outstanding_total_payment_amount: outstandingAmount, // Transaction - actual (excludes GST)
       transaction_status: transactionStatus,
       remarks: remarks || '',
       created_by,
@@ -1203,6 +1258,7 @@ const createMcpTransaction = async (
   }
 };
 
+//no longer used
 const createMvTransaction = async (
   transactionData: SingleItemTransactionRequestData
 ): Promise<SingleItemTransactionCreationResult> => {
@@ -1301,35 +1357,55 @@ const createMvTransaction = async (
     const totalTransactionAmount: number = item.pricing?.totalLinePrice || 0;
 
     const PENDING_PAYMENT_METHOD_ID = 7;
+    const GST_PAYMENT_METHOD_ID = 10;
 
+    // Separate payments by type (same as MCP)
     const pendingPayments = payments.filter((payment: PaymentMethodRequest) =>
       payment.methodId === PENDING_PAYMENT_METHOD_ID
     );
 
-    const nonPendingPayments = payments.filter((payment: PaymentMethodRequest) =>
-      payment.methodId !== PENDING_PAYMENT_METHOD_ID
+    const gstPayments = payments.filter((payment: PaymentMethodRequest) =>
+      payment.methodId === GST_PAYMENT_METHOD_ID
     );
 
-    const totalPaidAmount: number = nonPendingPayments.reduce((total: number, payment: PaymentMethodRequest) => {
+    const actualPayments = payments.filter((payment: PaymentMethodRequest) =>
+      payment.methodId !== PENDING_PAYMENT_METHOD_ID &&
+      payment.methodId !== GST_PAYMENT_METHOD_ID
+    );
+
+    // Calculate amounts (same logic as MCP)
+    const totalActualPaymentAmount: number = actualPayments.reduce((total: number, payment: PaymentMethodRequest) => {
       return total + (payment.amount || 0);
     }, 0);
 
-    const outstandingAmount: number = pendingPayments.reduce((total: number, payment: PaymentMethodRequest) => {
+    const totalGSTAmount: number = gstPayments.reduce((total: number, payment: PaymentMethodRequest) => {
       return total + (payment.amount || 0);
     }, 0);
+
+    // IGNORE pending amount from frontend - calculate our own (same as MCP)
+    const frontendPendingAmount: number = pendingPayments.reduce((total: number, payment: PaymentMethodRequest) => {
+      return total + (payment.amount || 0);
+    }, 0);
+
+    // Calculate correct outstanding amount (backend authority) - same as MCP
+    const outstandingAmount: number = Math.max(0, totalTransactionAmount - totalActualPaymentAmount);
+
+    // Total paid amount = actual payments + GST (EXCLUDES pending) - same as MCP
+    const totalPaidAmount: number = totalActualPaymentAmount + totalGSTAmount;
 
     const transactionStatus: 'FULL' | 'PARTIAL' = outstandingAmount <= 0 ? 'FULL' : 'PARTIAL';
     const processPayment: boolean = outstandingAmount > 0;
 
-    const calculatedTotal = totalPaidAmount + outstandingAmount;
-    if (Math.abs(calculatedTotal - totalTransactionAmount) > 0.01) {
-      console.warn('Payment total mismatch:', {
-        totalTransactionAmount,
-        totalPaidAmount,
-        outstandingAmount,
-        calculatedTotal,
-      });
-    }
+    console.log('✅ MV Payment calculations:', {
+      totalTransactionAmount,
+      totalActualPaymentAmount,
+      totalGSTAmount,
+      frontendPendingAmount: `${frontendPendingAmount} (from frontend - IGNORED)`,
+      outstandingAmount: `${outstandingAmount} (backend calculated - USED)`,
+      totalPaidAmount: `${totalPaidAmount} (actual + GST, excludes pending)`,
+      transactionStatus,
+      note: 'Backend ignores frontend pending amount and calculates its own'
+    });
 
     let finalReceiptNo: string = receipt_number || '';
     if (!finalReceiptNo) {
@@ -1339,6 +1415,7 @@ const createMvTransaction = async (
       );
       finalReceiptNo = `ST${receiptResult.rows[0].next_number.toString().padStart(6, '0')}`;
     }
+
     const transactionQuery: string = `
       INSERT INTO sale_transactions (
         customer_type,
@@ -1360,22 +1437,20 @@ const createMvTransaction = async (
     const transactionParams: (string | number | boolean | null | Date)[] = [
       customer_type?.toUpperCase() || 'MEMBER',
       member_id || null,
-      totalPaidAmount,
-      outstandingAmount,
+      totalPaidAmount, // Actual + GST (excludes pending)
+      outstandingAmount, // Transaction amount - actual payments (excludes GST)
       transactionStatus,
       finalReceiptNo,
       remarks || '',
       processPayment,
       handled_by,
       created_by,
-      customCreatedAt, // ✅ Use custom created_at instead of NOW()
-      customUpdatedAt, // ✅ Use custom updated_at instead of NOW()
+      customCreatedAt,
+      customUpdatedAt,
     ];
 
     const transactionResult = await client.query(transactionQuery, transactionParams);
     const saleTransactionId: number = transactionResult.rows[0].id;
-
-
 
     // Insert voucher item with actual MV ID
     const itemQuery: string = `
@@ -1414,7 +1489,17 @@ const createMvTransaction = async (
     const itemResult = await client.query(itemQuery, itemParams);
     const saleTransactionItemId: number = itemResult.rows[0].id;
 
+    // Insert all payments (actual + GST) and create correct pending payment
     for (const payment of payments) {
+      // Skip frontend pending payments - we'll create our own (same as MCP)
+      if (payment.methodId === PENDING_PAYMENT_METHOD_ID) {
+        console.log('Skipping frontend pending payment:', {
+          amount: payment.amount,
+          note: 'Backend will create correct pending payment'
+        });
+        continue;
+      }
+
       if (payment.amount > 0) {
         const paymentQuery: string = `
           INSERT INTO payment_to_sale_transactions (
@@ -1440,8 +1525,45 @@ const createMvTransaction = async (
         ];
 
         const paymentResult = await client.query(paymentQuery, paymentParams);
-        console.log('Created MV payment with ID:', paymentResult.rows[0].id);
+        console.log('Created MV payment with ID:', paymentResult.rows[0].id, {
+          methodId: payment.methodId,
+          amount: payment.amount,
+          isGST: payment.methodId === GST_PAYMENT_METHOD_ID
+        });
       }
+    }
+
+    // Create correct pending payment if needed (using backend calculated amount) - same as MCP
+    if (outstandingAmount > 0) {
+      const pendingPaymentQuery: string = `
+        INSERT INTO payment_to_sale_transactions (
+          sale_transaction_id,
+          payment_method_id,
+          amount,
+          remarks,
+          created_by,
+          created_at,
+          updated_at
+        ) VALUES ($1, $2, $3, $4, $5, $6, $7)
+        RETURNING id
+      `;
+
+      const pendingPaymentParams: (number | string | Date)[] = [
+        saleTransactionId,
+        PENDING_PAYMENT_METHOD_ID,
+        outstandingAmount,
+        'Backend calculated pending payment',
+        handled_by,
+        customCreatedAt,
+        customUpdatedAt
+      ];
+
+      const pendingResult = await client.query(pendingPaymentQuery, pendingPaymentParams);
+      console.log('Created correct pending payment with ID:', pendingResult.rows[0].id, {
+        methodId: PENDING_PAYMENT_METHOD_ID,
+        amount: outstandingAmount,
+        note: 'Backend calculated - ignores frontend pending'
+      });
     }
 
     await client.query('COMMIT');
@@ -1454,8 +1576,8 @@ const createMvTransaction = async (
       customer_type: customer_type?.toUpperCase() || 'MEMBER',
       member_id: member_id ? member_id.toString() : null,
       total_transaction_amount: totalTransactionAmount,
-      total_paid_amount: totalPaidAmount,
-      outstanding_total_payment_amount: outstandingAmount,
+      total_paid_amount: totalPaidAmount, // Actual + GST (excludes pending)
+      outstanding_total_payment_amount: outstandingAmount, // Transaction - actual (excludes GST)
       transaction_status: transactionStatus,
       remarks: remarks || '',
       created_by,
@@ -1556,21 +1678,39 @@ const createMcpTransferTransaction = async (
     // Calculate totals from single transfer item
     const totalTransactionAmount: number = item.pricing?.totalLinePrice || 0;
 
-    // For transfers, we expect full payment
-    const totalPaidAmount: number = payments.reduce((total: number, payment: PaymentMethodRequest) => {
+    const GST_PAYMENT_METHOD_ID = 10;
+
+    // Separate payments by type (transfers typically don't have pending payments)
+    const gstPayments = payments.filter((payment: PaymentMethodRequest) =>
+      payment.methodId === GST_PAYMENT_METHOD_ID
+    );
+
+    const actualPayments = payments.filter((payment: PaymentMethodRequest) =>
+      payment.methodId !== GST_PAYMENT_METHOD_ID
+    );
+
+    // Calculate amounts
+    const totalActualPaymentAmount: number = actualPayments.reduce((total: number, payment: PaymentMethodRequest) => {
       return total + (payment.amount || 0);
     }, 0);
 
-    const outstandingAmount: number = 0;
+    const totalGSTAmount: number = gstPayments.reduce((total: number, payment: PaymentMethodRequest) => {
+      return total + (payment.amount || 0);
+    }, 0);
+
+    // For transfers, we expect full payment with no outstanding (transfers are typically fully processed)
+    const totalPaidAmount: number = totalActualPaymentAmount + totalGSTAmount;
+    const outstandingAmount: number = 0; // Transfers don't have outstanding amounts
     const transactionStatus: 'TRANSFER' | 'FULL' = 'TRANSFER';
     const processPayment: boolean = false;
 
-    // Verification: total should match
-    if (Math.abs(totalPaidAmount - totalTransactionAmount) > 0.01) {
-      console.warn('MCP Transfer payment total mismatch:', {
+    // Verification: actual payment should match transaction amount (excluding GST)
+    if (Math.abs(totalActualPaymentAmount - totalTransactionAmount) > 0.01) {
+      console.warn('MCP Transfer payment total mismatch (excluding GST):', {
         totalTransactionAmount,
-        totalPaidAmount,
-        expected: 'Amounts should be equal for transfers',
+        totalActualPaymentAmount,
+        totalGSTAmount,
+        expected: 'Actual payment should equal transaction amount (GST is additional)',
       });
     }
 
@@ -1605,8 +1745,8 @@ const createMcpTransferTransaction = async (
     const transactionParams: (string | number | boolean | null | Date)[] = [
       customer_type?.toUpperCase() || 'MEMBER',
       member_id || null,
-      totalPaidAmount,
-      outstandingAmount,
+      totalPaidAmount, // Includes GST for transaction record
+      outstandingAmount, // 0 for transfers
       transactionStatus,
       finalReceiptNo,
       remarks || '',
@@ -1676,6 +1816,7 @@ const createMcpTransferTransaction = async (
 
     console.log('Created MCP Transfer sale transaction item with ID:', saleTransactionItemId);
 
+    // Insert all payments (including GST) into payment_to_sale_transactions
     for (const payment of payments) {
       if (payment.amount > 0) {
         const paymentQuery: string = `
@@ -1713,7 +1854,11 @@ const createMcpTransferTransaction = async (
         console.log('MCP Transfer Payment Params:', paymentParams);
 
         const paymentResult = await client.query(paymentQuery, paymentParams);
-        console.log('Created MCP Transfer payment with ID:', paymentResult.rows[0].id);
+        console.log('Created MCP Transfer payment with ID:', paymentResult.rows[0].id, {
+          methodId: paymentMethodId,
+          amount: payment.amount,
+          isGST: paymentMethodId === GST_PAYMENT_METHOD_ID
+        });
       }
     }
 
@@ -1727,8 +1872,8 @@ const createMcpTransferTransaction = async (
       customer_type: customer_type?.toUpperCase() || 'MEMBER',
       member_id: member_id ? member_id.toString() : null,
       total_transaction_amount: totalTransactionAmount,
-      total_paid_amount: totalPaidAmount,
-      outstanding_total_payment_amount: outstandingAmount,
+      total_paid_amount: totalPaidAmount, // Includes GST for response
+      outstanding_total_payment_amount: outstandingAmount, // 0 for transfers
       transaction_status: transactionStatus,
       remarks: remarks || '',
       created_by,
@@ -1782,7 +1927,6 @@ const createMvTransferTransaction = async (
       handled_by,
       item,
       payments,
-      // payment_method
       created_at,
       updated_at,
     } = transactionData;
@@ -1845,19 +1989,40 @@ const createMvTransferTransaction = async (
     // Calculate totals from single transfer item
     const totalTransactionAmount: number = item.pricing?.totalLinePrice || 0;
 
-    const totalPaidAmount: number = payments.reduce((total: number, payment: PaymentMethodRequest) => {
+    const GST_PAYMENT_METHOD_ID = 10;
+
+    // Separate payments by type
+    const gstPayments = payments.filter((payment: PaymentMethodRequest) =>
+      payment.methodId === GST_PAYMENT_METHOD_ID
+    );
+
+    const actualPayments = payments.filter((payment: PaymentMethodRequest) =>
+      payment.methodId !== GST_PAYMENT_METHOD_ID
+    );
+
+    // Calculate amounts
+    const totalActualPaymentAmount: number = actualPayments.reduce((total: number, payment: PaymentMethodRequest) => {
       return total + (payment.amount || 0);
     }, 0);
 
-    const outstandingAmount: number = 0;
-    const transactionStatus: 'FULL' | 'PARTIAL' = 'FULL';
-    const processPayment: boolean = false;
+    const totalGSTAmount: number = gstPayments.reduce((total: number, payment: PaymentMethodRequest) => {
+      return total + (payment.amount || 0);
+    }, 0);
 
-    if (Math.abs(totalPaidAmount - totalTransactionAmount) > 0.01) {
-      console.warn('MV Transfer payment total mismatch:', {
+    // For MV transfers, calculate based on partial payments
+    const totalPaidAmount: number = totalActualPaymentAmount + totalGSTAmount;
+    const outstandingAmount: number = Math.max(0, totalTransactionAmount - totalActualPaymentAmount); // Exclude GST from outstanding
+    const transactionStatus: 'FULL' | 'PARTIAL' = outstandingAmount <= 0.01 ? 'FULL' : 'PARTIAL';
+    const processPayment: boolean = outstandingAmount > 0.01;
+
+    // Verification: check if payments make sense (excluding GST from main calculation)
+    if (Math.abs((totalActualPaymentAmount + outstandingAmount) - totalTransactionAmount) > 0.01) {
+      console.warn('MV Transfer payment total mismatch (excluding GST):', {
         totalTransactionAmount,
-        totalPaidAmount,
-        expected: 'Amounts should be equal for transfers',
+        totalActualPaymentAmount,
+        totalGSTAmount,
+        outstandingAmount,
+        expected: 'Actual payment + outstanding should equal transaction amount (GST is additional)',
       });
     }
 
@@ -1892,8 +2057,8 @@ const createMvTransferTransaction = async (
     const transactionParams: (string | number | boolean | null | Date)[] = [
       customer_type?.toUpperCase() || 'MEMBER',
       member_id || null,
-      totalPaidAmount,
-      outstandingAmount,
+      totalPaidAmount, // Includes GST for transaction record
+      outstandingAmount, // Excludes GST - only unpaid transaction amount
       transactionStatus,
       finalReceiptNo,
       remarks || '',
@@ -1954,6 +2119,7 @@ const createMvTransferTransaction = async (
 
     console.log('Created MV Transfer sale transaction item with ID:', saleTransactionItemId);
 
+    // Insert all payments (including GST) into payment_to_sale_transactions
     for (const payment of payments) {
       if (payment.amount > 0) {
         const paymentQuery: string = `
@@ -1991,7 +2157,11 @@ const createMvTransferTransaction = async (
         console.log('MV Transfer Payment Params:', paymentParams);
 
         const paymentResult = await client.query(paymentQuery, paymentParams);
-        console.log('Created MV Transfer payment with ID:', paymentResult.rows[0].id);
+        console.log('Created MV Transfer payment with ID:', paymentResult.rows[0].id, {
+          methodId: paymentMethodId,
+          amount: payment.amount,
+          isGST: paymentMethodId === GST_PAYMENT_METHOD_ID
+        });
       }
     }
 
@@ -2005,8 +2175,8 @@ const createMvTransferTransaction = async (
       customer_type: customer_type?.toUpperCase() || 'MEMBER',
       member_id: member_id ? member_id.toString() : null,
       total_transaction_amount: totalTransactionAmount,
-      total_paid_amount: totalPaidAmount,
-      outstanding_total_payment_amount: outstandingAmount,
+      total_paid_amount: totalPaidAmount, // Includes GST for response
+      outstanding_total_payment_amount: outstandingAmount, // Excludes GST
       transaction_status: transactionStatus,
       remarks: remarks || '',
       created_by,
@@ -2038,15 +2208,11 @@ const processPartialPayment = async (
       payments,
       general_remarks,
       transaction_handler_id,
-      payment_handler_id,    // NEW: Extract payment handler from frontend
-      receipt_number,        // NEW: Extract receipt number from frontend
+      payment_handler_id,
+      receipt_number,
       created_at
     } = paymentData;
 
-    console.log('Processing partial payment for transaction:', transactionId);
-    console.log('Payment data:', paymentData);
-
-    // Validate input
     if (!payments || payments.length === 0) {
       throw new Error('At least one payment method is required');
     }
@@ -2059,7 +2225,6 @@ const processPartialPayment = async (
       throw new Error('Payment handler ID is required');
     }
 
-    // Parse and validate creation date for sale_transactions
     let customCreatedAt = null;
     if (created_at) {
       try {
@@ -2072,7 +2237,6 @@ const processPartialPayment = async (
       }
     }
 
-    // Get original transaction details
     const originalTransactionQuery = `
       SELECT 
         st.id,
@@ -2098,24 +2262,28 @@ const processPartialPayment = async (
 
     const originalTransaction = originalResult.rows[0];
 
-    // Calculate payment amounts - EXCLUDE pending payments from total_paid_amount
     const PENDING_PAYMENT_METHOD_ID = 7;
+    const GST_PAYMENT_METHOD_ID = 10;
 
-    const actualPayments = payments.filter(payment => payment.payment_method_id !== PENDING_PAYMENT_METHOD_ID);
     const pendingPayments = payments.filter(payment => payment.payment_method_id === PENDING_PAYMENT_METHOD_ID);
+    const gstPayments = payments.filter(payment => payment.payment_method_id === GST_PAYMENT_METHOD_ID);
+    const actualPayments = payments.filter(payment => 
+      payment.payment_method_id !== PENDING_PAYMENT_METHOD_ID &&
+      payment.payment_method_id !== GST_PAYMENT_METHOD_ID
+    );
 
     const totalActualPaymentAmount = actualPayments.reduce((sum, payment) => sum + payment.amount, 0);
-    const totalPendingAmount = pendingPayments.reduce((sum, payment) => sum + payment.amount, 0);
-    const totalNewPaymentAmount = totalActualPaymentAmount + totalPendingAmount;
+    const totalGSTAmount = gstPayments.reduce((sum, payment) => sum + payment.amount, 0);
+    const frontendPendingAmount = pendingPayments.reduce((sum, payment) => sum + payment.amount, 0);
+    const outstandingReduction = totalActualPaymentAmount;
+    const totalNewPaidAmount = totalActualPaymentAmount + totalGSTAmount;
 
-    // Validate payment amount doesn't exceed outstanding
-    if (totalNewPaymentAmount > originalTransaction.outstanding_total_payment_amount) {
+    if (outstandingReduction > originalTransaction.outstanding_total_payment_amount) {
       throw new Error(
-        `Payment amount (${totalNewPaymentAmount}) exceeds outstanding amount (${originalTransaction.outstanding_total_payment_amount})`
+        `Payment amount (${outstandingReduction}) exceeds outstanding amount (${originalTransaction.outstanding_total_payment_amount})`
       );
     }
 
-    // Get original transaction items to copy
     const originalItemsQuery = `
       SELECT 
         service_name, product_name, member_care_package_id, member_voucher_id,
@@ -2128,26 +2296,13 @@ const processPartialPayment = async (
     const originalItemsResult = await client.query(originalItemsQuery, [transactionId]);
     const originalItems = originalItemsResult.rows;
 
-    // Calculate new transaction values 
-    const newTotalPaidAmount = totalActualPaymentAmount;
-    const newOutstandingAmount = originalTransaction.outstanding_total_payment_amount - totalActualPaymentAmount;
+    const newTotalPaidAmount = totalNewPaidAmount;
+    const newOutstandingAmount = originalTransaction.outstanding_total_payment_amount - outstandingReduction;
     const newTransactionStatus = newOutstandingAmount > 0.01 ? 'PARTIAL' : 'FULL';
     const newProcessPayment = newOutstandingAmount > 0.01;
 
-    console.log('New transaction calculations:', {
-      originalOutstandingAmount: originalTransaction.outstanding_total_payment_amount,
-      newActualPaymentAmount: totalActualPaymentAmount,
-      newTotalPaidAmount,
-      newOutstandingAmount,
-      newTransactionStatus,
-      newProcessPayment,
-    });
-
-    // Determine receipt number to use
     const finalReceiptNumber = receipt_number || originalTransaction.receipt_no;
-    console.log('Using receipt number:', finalReceiptNumber);
 
-    // Create new transaction with required handlers and custom date/receipt
     const newTransactionQuery = `
       INSERT INTO sale_transactions (
         customer_type, member_id, total_paid_amount, outstanding_total_payment_amount,
@@ -2166,10 +2321,10 @@ const processPartialPayment = async (
       newOutstandingAmount,
       newTransactionStatus,
       general_remarks || `Additional payment for receipt ${originalTransaction.receipt_no}`,
-      finalReceiptNumber,        // Use custom receipt number or original
+      finalReceiptNumber,
       originalTransaction.id,
-      transaction_handler_id,    // handled_by (transaction handler from frontend)
-      payment_handler_id,        // created_by (payment handler from frontend)
+      transaction_handler_id,
+      payment_handler_id,
       currentTime,
       currentTime,
       newProcessPayment
@@ -2181,20 +2336,6 @@ const processPartialPayment = async (
     const packageItems = originalItems.filter((item: any) => item.member_care_package_id);
     const voucherItems = originalItems.filter((item: any) => item.member_voucher_id);
 
-    console.log(
-      'Created new transaction with ID:',
-      newTransactionId,
-      'receipt number:',
-      finalReceiptNumber,
-      'handled by:',
-      transaction_handler_id,
-      'created by:',
-      payment_handler_id,
-      'created at:',
-      customCreatedAt || 'current time'
-    );
-
-    // Copy all items from original transaction
     for (const item of originalItems) {
       const insertItemQuery = `
         INSERT INTO sale_transaction_items (
@@ -2220,8 +2361,11 @@ const processPartialPayment = async (
       await client.query(insertItemQuery, itemParams);
     }
 
-    // Create payment records - Use payment handler from each payment
     for (const payment of payments) {
+      if (payment.payment_method_id === PENDING_PAYMENT_METHOD_ID) {
+        continue;
+      }
+
       const insertPaymentQuery = `
         INSERT INTO payment_to_sale_transactions (
           sale_transaction_id, payment_method_id, amount, remarks, 
@@ -2234,8 +2378,8 @@ const processPartialPayment = async (
         payment.payment_method_id,
         payment.amount,
         payment.remarks || '',
-        payment.payment_handler_id,  // Use payment handler for created_by
-        payment.payment_handler_id,  // Use payment handler for updated_by
+        payment.payment_handler_id,
+        payment.payment_handler_id,
         currentTime,
         currentTime,
       ];
@@ -2243,10 +2387,30 @@ const processPartialPayment = async (
       await client.query(insertPaymentQuery, paymentParams);
     }
 
-    // Update original transaction to disable payment processing
+    if (newOutstandingAmount > 0) {
+      const pendingPaymentQuery = `
+        INSERT INTO payment_to_sale_transactions (
+          sale_transaction_id, payment_method_id, amount, remarks, 
+          created_by, updated_by, created_at, updated_at
+        ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8)
+      `;
+
+      const pendingPaymentParams = [
+        newTransactionId,
+        PENDING_PAYMENT_METHOD_ID,
+        newOutstandingAmount,
+        'Backend calculated pending payment',
+        payment_handler_id,
+        payment_handler_id,
+        currentTime,
+        currentTime,
+      ];
+
+      await client.query(pendingPaymentQuery, pendingPaymentParams);
+    }
+
     await client.query('UPDATE sale_transactions SET process_payment = false WHERE id = $1', [originalTransaction.id]);
 
-    // Update care package balances if applicable
     if (packageItems.length > 0) {
       for (const packageItem of packageItems) {
         await client.query('UPDATE member_care_packages SET balance = COALESCE(balance, 0) + $1 WHERE id = $2', [
@@ -2256,7 +2420,54 @@ const processPartialPayment = async (
       }
     }
 
-    // Handle voucher free-of-charge additions if transaction is fully paid
+    if (voucherItems.length > 0) {
+      for (const voucherItem of voucherItems) {
+        await client.query(
+          'UPDATE member_vouchers SET current_balance = COALESCE(current_balance, 0) + $1 WHERE id = $2',
+          [totalActualPaymentAmount, voucherItem.member_voucher_id]
+        );
+
+        const voucherResult = await client.query(
+          'SELECT current_balance FROM member_vouchers WHERE id = $1',
+          [voucherItem.member_voucher_id]
+        );
+
+        const updatedBalance = parseFloat(voucherResult.rows[0]?.current_balance || 0);
+
+        const insertVoucherLogQuery = `
+          INSERT INTO member_voucher_transaction_logs (
+            member_voucher_id,
+            service_description,
+            service_date,
+            current_balance,
+            amount_change,
+            serviced_by,
+            type,
+            created_by,
+            last_updated_by,
+            created_at,
+            updated_at
+          ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11)
+        `;
+
+        const voucherLogParams = [
+          voucherItem.member_voucher_id,
+          `Partial payment of $${totalActualPaymentAmount} for receipt ${finalReceiptNumber}`,
+          currentTime,
+          updatedBalance,
+          totalActualPaymentAmount,
+          transaction_handler_id,
+          'PURCHASE',
+          payment_handler_id,
+          payment_handler_id,
+          currentTime,
+          currentTime
+        ];
+
+        await client.query(insertVoucherLogQuery, voucherLogParams);
+      }
+    }
+
     if (voucherItems.length > 0 && newTransactionStatus === 'FULL') {
       for (const voucherItem of voucherItems) {
         const voucherResult = await client.query(
@@ -2270,13 +2481,11 @@ const processPartialPayment = async (
           const currentBalance = parseFloat(voucher.current_balance) || 0;
 
           if (freeOfCharge > 0) {
-            // Update the voucher balance
             await client.query(
               'UPDATE member_vouchers SET current_balance = COALESCE(current_balance, 0) + $1 WHERE id = $2',
               [freeOfCharge, voucherItem.member_voucher_id]
             );
 
-            // Insert transaction log for the fully paid voucher
             const insertVoucherLogQuery = `
               INSERT INTO member_voucher_transaction_logs (
                 member_voucher_id,
@@ -2296,21 +2505,19 @@ const processPartialPayment = async (
             const newBalance = currentBalance + freeOfCharge;
             const voucherLogParams = [
               voucherItem.member_voucher_id,
-              `Payment completed for receipt ${finalReceiptNumber}`,
+              `Payment completed for receipt ${finalReceiptNumber} - FOC addition`,
               currentTime,
               newBalance,
               freeOfCharge,
               transaction_handler_id,
               'ADD FOC',
-              payment_handler_id,    // Use payment handler for created_by
-              payment_handler_id,    // Use payment handler for last_updated_by
+              payment_handler_id,
+              payment_handler_id,
               currentTime,
               currentTime
             ];
 
             await client.query(insertVoucherLogQuery, voucherLogParams);
-
-            console.log(`Inserted voucher transaction log for voucher ID ${voucherItem.member_voucher_id}, balance change: +${freeOfCharge}`);
           }
         }
       }
@@ -2318,12 +2525,10 @@ const processPartialPayment = async (
 
     await client.query('COMMIT');
 
-    console.log('Payment processing completed successfully');
-
     return {
       new_transaction: {
         id: newTransactionId,
-        receipt_no: finalReceiptNumber,  // Return the actual receipt number used
+        receipt_no: finalReceiptNumber,
         total_paid_amount: newTotalPaidAmount,
         outstanding_amount: newOutstandingAmount,
         transaction_status: newTransactionStatus,
@@ -2334,8 +2539,8 @@ const processPartialPayment = async (
         receipt_no: originalTransaction.receipt_no,
         process_payment: false,
       },
-      payments_processed: payments.length,
-      total_payment_amount: totalNewPaymentAmount,
+      payments_processed: payments.filter(p => p.payment_method_id !== PENDING_PAYMENT_METHOD_ID).length,
+      total_payment_amount: totalNewPaidAmount,
     };
   } catch (error) {
     await client.query('ROLLBACK');

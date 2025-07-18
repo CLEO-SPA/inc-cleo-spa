@@ -46,48 +46,48 @@ const useSaleTransactionStore = create(
       PENDING_PAYMENT_METHOD_ID: 7, // Based on your database structure
 
       // Helper function to calculate outstanding amount and add pending payment
-      addAutoPendingPayment: (totalAmount, existingPayments) => {
-        // Calculate total paid amount from existing payments
-        const totalPaid = existingPayments.reduce((sum, payment) => {
-          return sum + (payment.amount || 0);
-        }, 0);
+addAutoPendingPayment: (totalAmount, existingPayments) => {
+  const PENDING_PAYMENT_METHOD_ID = 7;
+  const GST_PAYMENT_METHOD_ID = 10;
 
-        // Calculate outstanding amount
-        const outstandingAmount = totalAmount - totalPaid;
+  // Separate payments by type (same as backend)
+  const pendingPayments = existingPayments.filter(
+    (payment) => payment.methodId === PENDING_PAYMENT_METHOD_ID
+  );
 
-        // Check if there's already a pending payment
-        const existingPendingPayment = existingPayments.find(
-          (payment) => payment.methodId === get().PENDING_PAYMENT_METHOD_ID
-        );
+  const gstPayments = existingPayments.filter(
+    (payment) => payment.methodId === GST_PAYMENT_METHOD_ID
+  );
 
-        let updatedPayments = [...existingPayments];
+  const actualPayments = existingPayments.filter(
+    (payment) => payment.methodId !== PENDING_PAYMENT_METHOD_ID &&
+              payment.methodId !== GST_PAYMENT_METHOD_ID
+  );
 
-        if (outstandingAmount > 0) {
-          if (existingPendingPayment) {
-            // Update existing pending payment amount
-            updatedPayments = updatedPayments.map((payment) =>
-              payment.methodId === get().PENDING_PAYMENT_METHOD_ID ? { ...payment, amount: outstandingAmount } : payment
-            );
-          } else {
-            // Add new pending payment
-            updatedPayments.push({
-              id: crypto.randomUUID(),
-              methodId: get().PENDING_PAYMENT_METHOD_ID,
-              methodName: 'Pending',
-              amount: outstandingAmount,
-              remark: 'Auto-generated pending payment for outstanding amount',
-              isAutoPending: true,
-            });
-          }
-        } else if (outstandingAmount <= 0 && existingPendingPayment) {
-          // Remove pending payment if outstanding amount is 0 or negative
-          updatedPayments = updatedPayments.filter(
-            (payment) => payment.methodId !== get().PENDING_PAYMENT_METHOD_ID || !payment.isAutoPending
-          );
-        }
+  // Calculate amounts (same logic as backend)
+  const totalActualPaymentAmount = actualPayments.reduce((sum, payment) => {
+    return sum + (payment.amount || 0);
+  }, 0);
 
-        return updatedPayments;
-      },
+  const totalGSTAmount = gstPayments.reduce((sum, payment) => {
+    return sum + (payment.amount || 0);
+  }, 0);
+
+  // IGNORE pending amount from frontend - calculate our own (same as backend)
+  const frontendPendingAmount = pendingPayments.reduce((sum, payment) => {
+    return sum + (payment.amount || 0);
+  }, 0);
+
+  // Calculate correct outstanding amount (backend authority) - same as backend
+  const outstandingAmount = Math.max(0, totalAmount - totalActualPaymentAmount);
+
+  let updatedPayments = existingPayments.filter(
+    (payment) => payment.methodId !== PENDING_PAYMENT_METHOD_ID
+  );
+
+  return updatedPayments;
+},
+
 
       // Update transaction details
       updateTransactionDetails: (details) => {
