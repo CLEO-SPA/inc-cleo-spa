@@ -952,7 +952,6 @@ const createMcpTransaction = async (
       customUpdatedAt = customCreatedAt;
     }
 
-
     mcpId = item.data?.member_care_package_id || item.data?.id;
 
     if (!mcpId) {
@@ -979,15 +978,33 @@ const createMcpTransaction = async (
     const totalTransactionAmount: number = item.pricing?.totalLinePrice || 0;
 
     const PENDING_PAYMENT_METHOD_ID = 7;
+    const GST_PAYMENT_METHOD_ID = 10; // GST payment method ID
 
     const pendingPayments = payments.filter((payment: PaymentMethodRequest) =>
       payment.methodId === PENDING_PAYMENT_METHOD_ID
     );
 
+    const gstPayments = payments.filter((payment: PaymentMethodRequest) =>
+      payment.methodId === GST_PAYMENT_METHOD_ID
+    );
+
     const nonPendingPayments = payments.filter((payment: PaymentMethodRequest) =>
       payment.methodId !== PENDING_PAYMENT_METHOD_ID
     );
+
+    // Calculate total paid amount (including GST for transaction record)
     const totalPaidAmount: number = nonPendingPayments.reduce((total: number, payment: PaymentMethodRequest) => {
+      return total + (payment.amount || 0);
+    }, 0);
+
+    // Calculate total paid amount EXCLUDING GST (for MCP balance update)
+    const totalPaidAmountExcludingGST: number = nonPendingPayments.filter((payment: PaymentMethodRequest) =>
+      payment.methodId !== GST_PAYMENT_METHOD_ID
+    ).reduce((total: number, payment: PaymentMethodRequest) => {
+      return total + (payment.amount || 0);
+    }, 0);
+
+    const gstAmount: number = gstPayments.reduce((total: number, payment: PaymentMethodRequest) => {
       return total + (payment.amount || 0);
     }, 0);
 
@@ -1029,7 +1046,7 @@ const createMcpTransaction = async (
     const transactionParams: (string | number | boolean | null | Date)[] = [
       customer_type?.toUpperCase() || 'MEMBER',
       member_id || null,
-      totalPaidAmount,
+      totalPaidAmount, // This includes GST for transaction record
       outstandingAmount,
       transactionStatus,
       finalReceiptNo,
@@ -1085,9 +1102,9 @@ const createMcpTransaction = async (
 
     console.log('Created MCP sale transaction item with ID:', saleTransactionItemId);
 
-    // Update MCP balance with the paid amount (only non-pending payments)
-    if (totalPaidAmount > 0) {
-      const newBalance = currentBalance + totalPaidAmount;
+    // Update MCP balance with the paid amount EXCLUDING GST
+    if (totalPaidAmountExcludingGST > 0) {
+      const newBalance = currentBalance + totalPaidAmountExcludingGST;
 
       const updateBalanceQuery = `
         UPDATE member_care_packages 
@@ -1095,20 +1112,22 @@ const createMcpTransaction = async (
         WHERE id = $3
         RETURNING balance
       `;
-      
-
 
       const updateBalanceResult = await client.query(updateBalanceQuery, [newBalance, customUpdatedAt, mcpId]);
       const updatedBalance = updateBalanceResult.rows[0].balance;
 
-      console.log('✅ Updated MCP balance:', {
+      console.log('✅ Updated MCP balance (excluding GST):', {
         mcpId: mcpId,
         previousBalance: currentBalance,
-        paidAmount: totalPaidAmount,
-        newBalance: updatedBalance
+        paidAmountExcludingGST: totalPaidAmountExcludingGST,
+        gstAmount: gstAmount,
+        totalPaidAmount: totalPaidAmount,
+        newBalance: updatedBalance,
+        note: 'GST excluded from balance calculation'
       });
     }
 
+    // Insert all payments (including GST) into payment_to_sale_transactions
     for (const payment of payments) {
       if (payment.amount > 0) {
         const paymentQuery: string = `
@@ -1135,7 +1154,11 @@ const createMcpTransaction = async (
         ];
 
         const paymentResult = await client.query(paymentQuery, paymentParams);
-        console.log('Created payment with ID:', paymentResult.rows[0].id);
+        console.log('Created payment with ID:', paymentResult.rows[0].id, {
+          methodId: payment.methodId,
+          amount: payment.amount,
+          isGST: payment.methodId === GST_PAYMENT_METHOD_ID
+        });
       }
     }
 
@@ -1149,7 +1172,7 @@ const createMcpTransaction = async (
       customer_type: customer_type?.toUpperCase() || 'MEMBER',
       member_id: member_id ? member_id.toString() : null,
       total_transaction_amount: totalTransactionAmount,
-      total_paid_amount: totalPaidAmount,
+      total_paid_amount: totalPaidAmount, // This includes GST for response
       outstanding_total_payment_amount: outstandingAmount,
       transaction_status: transactionStatus,
       remarks: remarks || '',
