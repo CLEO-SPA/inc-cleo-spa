@@ -53,7 +53,7 @@ const createPaymentMethod = async (input: CreatePaymentMethodInput) => {
   const {
     payment_method_name,
     is_enabled,
-    is_revenue,
+    is_income,
     show_on_payment_page,
     created_at,
     updated_at,
@@ -71,7 +71,7 @@ const createPaymentMethod = async (input: CreatePaymentMethodInput) => {
 
     const query = `
       INSERT INTO payment_methods (
-        payment_method_name, is_enabled, is_revenue,
+        payment_method_name, is_enabled, is_income,
         show_on_payment_page, created_at, updated_at
       ) VALUES ($1, $2, $3, $4, $5, $6)
       RETURNING *;
@@ -79,7 +79,7 @@ const createPaymentMethod = async (input: CreatePaymentMethodInput) => {
     const values = [
       payment_method_name,
       is_enabled,
-      is_revenue,
+      is_income,
       show_on_payment_page,
       created_at,
       updated_at,
@@ -101,8 +101,9 @@ const updatePaymentMethod = async (input: UpdatePaymentMethodInput) => {
     id,
     payment_method_name,
     is_enabled,
-    is_revenue,
+    is_income,
     show_on_payment_page,
+    percentage_rate,
     created_at,
     updated_at,
   } = input;
@@ -110,7 +111,7 @@ const updatePaymentMethod = async (input: UpdatePaymentMethodInput) => {
   try {
     // Step 1: Fetch current payment method
     const existingMethod = await pool().query(
-      `SELECT payment_method_name, is_protected FROM payment_methods WHERE id = $1;`,
+      `SELECT payment_method_name, is_protected, LOWER(payment_method_name) as lower_name FROM payment_methods WHERE id = $1;`,
       [id]
     );
 
@@ -118,12 +119,41 @@ const updatePaymentMethod = async (input: UpdatePaymentMethodInput) => {
       throw new Error('Payment method not found');
     }
 
+    const currentMethod = existingMethod.rows[0];
+
     // Step 2: Check if it's protected
-    if (existingMethod.rows[0].is_protected) {
-      throw new Error('This payment method is protected and cannot be modified');
+    const isGstMethod = currentMethod.lower_name === 'gst' || 
+                        currentMethod.lower_name.includes('gst');
+
+    if (currentMethod.is_protected) {
+      // Special case: GST is protected but can have percentage_rate edited
+      if (isGstMethod) {
+
+        // Update only percentage_rate for GST
+        const gstQuery = `
+          UPDATE payment_methods
+          SET
+            percentage_rate = $1,
+            updated_at = $2
+          WHERE id = $3
+          RETURNING *;
+        `;
+
+        const gstValues = [
+          percentage_rate,  // $1
+          updated_at,       // $2
+          id               // $3
+        ];
+
+        const result = await pool().query(gstQuery, gstValues);
+        return result.rows[0];
+      } else {
+        // All other protected methods cannot be modified at all
+        throw new Error('This payment method is protected and cannot be modified');
+      }
     }
 
-    // Step 3: Check for duplicate name (excluding current id)
+    // Step 3: For non-protected methods, check for duplicate name (excluding current id)
     const duplicateCheck = await pool().query(
       `SELECT id FROM payment_methods WHERE LOWER(payment_method_name) = LOWER($1) AND id != $2;`,
       [payment_method_name, id]
@@ -133,28 +163,30 @@ const updatePaymentMethod = async (input: UpdatePaymentMethodInput) => {
       throw new Error('Another payment method with this name already exists');
     }
 
-    // Step 4: Proceed with update
+    // Step 4: Proceed with full update for non-protected methods
     const query = `
       UPDATE payment_methods
       SET
         payment_method_name = $1,
         is_enabled = $2,
-        is_revenue = $3,
+        is_income = $3,
         show_on_payment_page = $4,
-        updated_at = $5,
-        created_at = $6
-      WHERE id = $7
+        percentage_rate = $5,
+        updated_at = $6,
+        created_at = $7
+      WHERE id = $8
       RETURNING *;
     `;
 
     const values = [
       payment_method_name,  // $1
       is_enabled,           // $2
-      is_revenue,           // $3
+      is_income,           // $3
       show_on_payment_page, // $4
-      updated_at,           // $5
-      created_at,           // $6
-      id                    // $7
+      percentage_rate,      // $5
+      updated_at,           // $6
+      created_at,           // $7
+      id                    // $8
     ];
 
     const result = await pool().query(query, values);
@@ -167,7 +199,6 @@ const updatePaymentMethod = async (input: UpdatePaymentMethodInput) => {
     throw new Error('Could not update payment method');
   }
 };
-
 
 
 const deletePaymentMethod = async (id: number) => {

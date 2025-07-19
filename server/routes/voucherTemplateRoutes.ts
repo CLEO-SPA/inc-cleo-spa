@@ -1,8 +1,9 @@
 import express from 'express';
-import controller from '../controllers/voucherTemplateController.js';
-
 const router = express.Router();
+
 import isAuthenticated from '../middlewares/authMiddleware.js';
+
+import controller from '../controllers/voucherTemplateController.js';
 
 // =========================
 // Public routes

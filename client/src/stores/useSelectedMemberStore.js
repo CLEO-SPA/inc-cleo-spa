@@ -50,6 +50,10 @@ const useSelectedMemberStore = create(
 
     // MEMBER SEARCH
     searchMember: async (searchTerm) => {
+      if (!searchTerm || typeof searchTerm !== 'string') {
+        throw new Error('Search term must be a non-empty string');
+      }
+
       set({ memberSearchLoading: true, error: false, errorMessage: null });
 
       try {
@@ -58,6 +62,7 @@ const useSelectedMemberStore = create(
         });
 
         const data = response.data;
+        // console.log('Member search response:', data);
 
         if (data.members && data.members.length > 0) {
           const member = data.members[0];

@@ -9,7 +9,7 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { AppSidebar } from '@/components/app-sidebar';
 import { SiteHeader } from '@/components/site-header';
 import { SidebarInset, SidebarProvider } from '@/components/ui/sidebar';
-import { ArrowLeft } from 'lucide-react';
+import { ArrowLeft, Car } from 'lucide-react';
 import { useState } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import MembershipTypeSelect from './MembershipTypeSelect';
@@ -40,6 +40,7 @@ const CreateMembersPage = () => {
       sex: '',
       address: '',
       membership_type_id: '',
+      card_number: '',
       created_at: '',
       created_by: '',
       remarks: ''
@@ -135,14 +136,13 @@ const CreateMembersPage = () => {
 
                         <div className="space-y-2">
                           <Label htmlFor="email" className="text-sm font-medium text-gray-700">
-                            Email Address *
+                            Email Address 
                           </Label>
                           <Input
                             id="email"
                             placeholder="Enter email address"
                             type="email"
                             {...register("email", {
-                              required: "Email is required",
                               pattern: {
                                 value: /^[A-Z0-9._%+-]+@[A-Z0-9.-]+\.[A-Z]{2,}$/i,
                                 message: "Invalid email address"
@@ -157,12 +157,12 @@ const CreateMembersPage = () => {
 
                         <div className="space-y-2">
                           <Label htmlFor="contact" className="text-sm font-medium text-gray-700">
-                            Contact Number *
+                            Contact Number 
                           </Label>
                           <Input
                             id="contact"
                             placeholder="Enter contact number"
-                            {...register("contact", { required: "Contact number is required" })}
+                            {...register("contact")}
                             className={errors.contact ? "border-red-500" : ""}
                           />
                           {errors.contact && (
@@ -207,8 +207,19 @@ const CreateMembersPage = () => {
                             </SelectContent>
                           </Select>
                         </div>
-                      </div>
 
+                        <div className="space-y-2">
+                          <Label htmlFor="card_number" className="text-sm font-medium text-gray-700">
+                            Card Number
+                          </Label>
+                          <Input
+                            id="card_number"
+                            placeholder="Enter membership card number"
+                            {...register("card_number")}
+                          />
+                        </div>
+                      </div>
+                          
                       <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                         <div className="space-y-2">
                           <Label htmlFor="address" className="text-sm font-medium text-gray-700">

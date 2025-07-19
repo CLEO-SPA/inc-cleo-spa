@@ -113,6 +113,10 @@ const data = {
           title: 'Manage Voucher Templates',
           url: '/voucher-template',
         },
+        {
+          title: 'Manage Member Voucher',
+          url: '/mv',
+        }
       ],
     },
     {

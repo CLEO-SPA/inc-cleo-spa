@@ -168,7 +168,7 @@ const MemberVoucherTransactionLogs = () => {
                                 memberVoucherTransactionLogs.map((transaction, index) => (
                                     <TableRow key={transaction.id}>
                                         {tableHeaders.map((header) => {
-                                            if (header.key === 'actions') {
+                                            if (header.key === 'actions' && (transaction.type === 'CONSUMPTION' || transaction.type === 'FOC')) {
                                                 return (
                                                     <TableCell key={header.key} className='text-right'>
                                                         <DropdownMenu>
@@ -219,7 +219,7 @@ const MemberVoucherTransactionLogs = () => {
                                                 const rowNumber = (currentPage - 1) * currentLimit + index + 1;
                                                 return <TableCell key={header.key}>{rowNumber}</TableCell>;
                                             }
-                                            return <TableCell key={header.key}>{transaction[header.key] ?? 'N/A'}</TableCell>;
+                                            return <TableCell key={header.key}>{transaction[header.key] ?? ''}</TableCell>;
                                         })}
                                     </TableRow>
                                 ))}

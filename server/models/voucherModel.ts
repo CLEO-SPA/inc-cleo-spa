@@ -111,78 +111,60 @@ const getAllVoucherTemplateNames = async (): Promise<any[]> => {
     }
 };
 
-const checkIfFreeOfChargeIsUsed = async (
-    memberId: number,
-    voucher_template_name: string
+const checkIfFreeOfChargeIsUsedById = async (
+    voucher_id: number
 ): Promise<boolean> => {
     try {
         const query = `
-      SELECT id, current_balance, free_of_charge
+      SELECT current_balance, free_of_charge
       FROM member_vouchers
-      WHERE member_id = $1 AND member_voucher_name = $2
+      WHERE id = $1
     `;
-        const values = [memberId, voucher_template_name];
+        const values = [voucher_id];
         const result = await pool().query(query, values);
-        console.log("Checking FOC usage for member:", memberId, "voucher:", voucher_template_name);
 
         if (result.rows.length === 0) {
-            throw new Error('No member_voucher found');
+            throw new Error('Voucher not found');
         }
 
         const { current_balance, free_of_charge } = result.rows[0];
-
-        const currentBalanceNum = Number(current_balance);
-        const freeOfChargeNum = Number(free_of_charge);
-
-        return currentBalanceNum > freeOfChargeNum;
-
+        return Number(current_balance) > Number(free_of_charge);
     } catch (error) {
-        console.error("Error checking free of charge usage:", error);
-        throw new Error("Failed to check free of charge usage");
+        console.error("Error checking FOC usage by ID:", error);
+        throw new Error("Failed to check free of charge usage by ID");
     }
 };
 
-const removeFOCFromVoucher = async (
-    memberId: number,
-    member_voucher_name: string,
-    created_by: number,
-    created_at: string // ✅ passed in timestamp
-): Promise<{ member_voucher_name: string; newBalance: number }> => {
 
-    console.log("Removing FOC from voucher for member:", memberId, "voucher:", member_voucher_name);
+const removeFOCFromVoucherById = async (
+    voucher_id: number,
+    created_by: number,
+    created_at: string
+): Promise<{ voucher_id: number; newBalance: number }> => {
     try {
-        // Step 1: Fetch the voucher record
         const fetchQuery = `
-      SELECT id, current_balance, free_of_charge
+      SELECT current_balance, free_of_charge
       FROM member_vouchers
-      WHERE member_voucher_name = $1 AND member_id = $2
+      WHERE id = $1
     `;
-        const fetchValues = [member_voucher_name, memberId];
-        const fetchResult = await pool().query(fetchQuery, fetchValues);
+        const fetchResult = await pool().query(fetchQuery, [voucher_id]);
 
         if (fetchResult.rows.length === 0) {
-            throw new Error("Member voucher not found.");
+            throw new Error("Voucher not found.");
         }
 
-        const { id: memberVoucherId, current_balance, free_of_charge } = fetchResult.rows[0];
-
+        const { current_balance, free_of_charge } = fetchResult.rows[0];
         const currentBalanceNum = parseFloat(current_balance);
         const focNum = parseFloat(free_of_charge);
-
-        // Step 2: Calculate new balance
         const newBalance = Math.max(0, currentBalanceNum - focNum);
 
-        // Step 3: Update voucher record
         const updateQuery = `
       UPDATE member_vouchers
-      SET current_balance = $1,
-          updated_at = $2
-      WHERE member_voucher_name = $3 AND member_id = $4
+      SET current_balance = $1, updated_at = $2
+      WHERE id = $3
     `;
-        const updateValues = [newBalance, created_at, member_voucher_name, memberId];
-        await pool().query(updateQuery, updateValues);
+        await pool().query(updateQuery, [newBalance, created_at, voucher_id]);
 
-        // Step 4: Log the FOC removal
         const insertLogQuery = `
       INSERT INTO member_voucher_transaction_logs (
         member_voucher_id,
@@ -196,102 +178,89 @@ const removeFOCFromVoucher = async (
         created_at,
         updated_at
       ) VALUES (
-        $1, 'Remove Free Of Charge', $2,
-        $3, $4, $5, 'Remove OF FOC',
-        $5, $2, $2
+        $1, 'Remove Free Of Charge', $2, $3, $4, $5, 'Remove OF FOC', $5, $2, $2
       )
     `;
         const insertValues = [
-            memberVoucherId, // $1
-            created_at,      // $2 (service_date, created_at, updated_at)
-            newBalance,      // $3
-            -focNum,         // $4
-            created_by       // $5 (serviced_by, created_by)
+            voucher_id,
+            created_at,
+            newBalance,
+            -focNum,
+            created_by
         ];
         await pool().query(insertLogQuery, insertValues);
 
-        return { member_voucher_name, newBalance };
+        return { voucher_id, newBalance };
     } catch (error) {
-        console.error("Error removing FOC from member voucher:", error);
-        throw new Error("Failed to remove FOC from member voucher.");
+        console.error("Error removing FOC by ID:", error);
+        throw new Error("Failed to remove FOC by voucher ID.");
     }
 };
 
 
-const setMemberVoucherBalanceAfterTransfer = async (
-    memberId: number,
-    member_voucher_name: string,
+const setMemberVoucherBalanceAfterTransferById = async (
+    voucher_id: number,
     transferredBalance: number,
-    createdAt: string // ✅ NEW
-): Promise<{ member_voucher_name: string; newBalance: number }> => {
+    created_at: string
+): Promise<{ voucher_id: number; newBalance: number }> => {
     try {
         const selectQuery = `
       SELECT current_balance
       FROM member_vouchers
-      WHERE member_voucher_name = $1 AND member_id = $2
+      WHERE id = $1
     `;
-        const selectValues = [member_voucher_name, memberId];
-        const result = await pool().query(selectQuery, selectValues);
+        const result = await pool().query(selectQuery, [voucher_id]);
 
         if (result.rows.length === 0) {
-            throw new Error("Member voucher not found.");
+            throw new Error("Voucher not found.");
         }
 
-        const currentBalance = result.rows[0].current_balance;
         const newBalance = 0;
 
         const updateQuery = `
       UPDATE member_vouchers
-      SET current_balance = $1,
-          updated_at = $4,
-          status = 'disabled'
-      WHERE member_voucher_name = $2 AND member_id = $3
+      SET current_balance = $1, updated_at = $2, status = 'disabled'
+      WHERE id = $3
     `;
-        const updateValues = [newBalance, member_voucher_name, memberId, createdAt];
-        await pool().query(updateQuery, updateValues);
+        await pool().query(updateQuery, [newBalance, created_at, voucher_id]);
 
-        return {
-            member_voucher_name,
-            newBalance,
-        };
+        return { voucher_id, newBalance };
     } catch (error) {
-        console.error("Error updating member voucher balance:", error);
-        throw new Error("Failed to update member voucher balance.");
+        console.error("Error updating voucher balance by ID:", error);
+        throw new Error("Failed to update voucher balance by ID");
     }
 };
 
-const getMemberVoucherCurrentBalance = async (
-    memberId: number,
-    memberVoucherName: string
+
+const getMemberVoucherCurrentBalanceById = async (
+    voucher_id: number
 ): Promise<number> => {
     try {
         const query = `
       SELECT current_balance
       FROM member_vouchers
-      WHERE member_id = $1 AND member_voucher_name = $2
+      WHERE id = $1
       LIMIT 1
     `;
-        const values = [memberId, memberVoucherName];
-        const result = await pool().query(query, values);
+        const result = await pool().query(query, [voucher_id]);
 
         if (result.rows.length === 0) {
-            throw new Error('Voucher not found for current balance lookup');
+            throw new Error('Voucher not found');
         }
 
         return Number(result.rows[0].current_balance);
     } catch (error) {
-        console.error('❌ Error getting voucher current balance:', error);
-        throw new Error('Failed to get current balance');
+        console.error("❌ Error getting current balance by ID:", error);
+        throw new Error("Failed to get current balance by ID");
     }
 };
-
 
 export default {
     getVoucherTemplatesDetails,
     getMemberVoucherWithDetails,
     getAllVoucherTemplateNames,
-    checkIfFreeOfChargeIsUsed,
-    removeFOCFromVoucher,
-    setMemberVoucherBalanceAfterTransfer,
-    getMemberVoucherCurrentBalance
+    checkIfFreeOfChargeIsUsedById,
+    removeFOCFromVoucherById,
+    setMemberVoucherBalanceAfterTransferById,
+    getMemberVoucherCurrentBalanceById
 };

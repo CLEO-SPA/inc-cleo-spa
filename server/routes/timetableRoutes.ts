@@ -7,7 +7,7 @@ import timetableController from '../controllers/timetableController.js';
 // =========================
 // Private routes
 // =========================
-// router.use(isAuthenticated);
+router.use(isAuthenticated);
 
 // GET /api/et/current-and-upcoming/:employeeId?currentDate=YYYY-MM-DD
 router.get('/current-and-upcoming/:employeeId', timetableController.getCurrentAndUpcomingTimetables);
@@ -24,7 +24,7 @@ router.get('/:timetableId', timetableController.getTimetableById);
 // PUT /api/et/update-employee-timetable/:timetableId
 router.put('/update-employee-timetable/:timetableId', timetableController.updateTimetable);
 
-// GET /api/et/employee/:employeeId?month=2025-02  
+// GET /api/et/employee/:employeeId?month=2025-02
 router.get('/employee/:employeeId', timetableController.getActiveRestDaysByEmployee);
 
 // GET /api/et/position/:positionId?month=2025-02

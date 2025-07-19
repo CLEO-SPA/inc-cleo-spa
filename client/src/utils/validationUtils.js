@@ -16,6 +16,9 @@ export const validateNewMembershipTypeData = (obj) => {
             obj.default_percentage_discount_for_services > 100) {
             return { isValid: false, error: "Service discount must be between 0-100%" };
         };
+        if (!obj.created_by) {
+            return { isValid: false, error: "Created by is required" };
+        }
         return { isValid: true, error: "No Errors" };
     } catch (error) {
         return { isValid: false, error: handleSystemError(error) };
@@ -65,7 +68,7 @@ export const validateTransactionLogId = (id) => {
     };
 };
 
-export const validateMemberVoucherConsumptionCreateData = (formData) => {
+export const validateMemberVoucherConsumptionCreateData = (formData, minDate) => {
     try {
         const numValue = Number(formData.consumptionValue);
         if ((formData.consumptionValue === '' || formData.consumptionValue == null) || Number.isNaN(numValue)) {
@@ -74,22 +77,27 @@ export const validateMemberVoucherConsumptionCreateData = (formData) => {
         if (formData.remarks.length > 500) {
             return { isValid: false, error: "Remarks input is too long. Please try again." };
         };
-        if (!formData.date || !(typeof formData.date === 'string') || !/^\d{4}-\d{2}-\d{2}$/.test(formData.date)) {
+
+        if (!formData.date || !/^\d{4}-\d{2}-\d{2}$/.test(formData.date)) {
             return { isValid: false, error: "Date input is invalid. Please try again." };
         };
+
+        const inputDate = new Date(`${formData.date}T${formData.time}`);
+
+        if (inputDate < minDate) {
+            return { isValid: false, error: "Date & Time input is before purchase date. Please try again." };
+        };
+
         if (!formData.type) {
             return { isValid: false, error: "Missing Type input. Please try again." };
         };
-        const regex = /^([01]\d|2[0-3]):([0-5]\d)$/;
-        if (!formData.time || !regex.test(formData.time)) {
-            return { isValid: false, error: "Time input is invalid. Please try again." };
+        if (!formData.createdBy) {
+            return { isValid: false, error: "Created By input is missing. Please try again." };
         };
-        if (!formData.createdBy || !(typeof formData.createdBy === 'string')) {
-            return { isValid: false, error: "Created By input is invalid. Please try again." };
+        if (!formData.handledBy) {
+            return { isValid: false, error: "Handled By input is missing. Please try again." };
         };
-        if (!formData.handledBy || !(typeof formData.handledBy === 'string')) {
-            return { isValid: false, error: "Handled By input is invalid. Please try again." };
-        };
+
         return { isValid: true, error: "No Errors" };
     } catch (error) {
         return { isValid: false, error: handleSystemError(error) };

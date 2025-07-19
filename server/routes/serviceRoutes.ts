@@ -1,8 +1,19 @@
 import express from 'express';
+
+import isAuthenticated from '../middlewares/authMiddleware.js';
+
 import serviceController from '../controllers/serviceController.js';
 
 const router = express.Router();
 
+// =========================
+// Public routes
+// =========================
+
+// =========================
+// Private routes
+// =========================
+router.use(isAuthenticated);
 // Get all services
 router.get('/', serviceController.getAllServices);
 

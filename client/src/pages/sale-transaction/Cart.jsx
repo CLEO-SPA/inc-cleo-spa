@@ -63,9 +63,11 @@ const formatItemDetails = (item) => {
       };
     case 'package':
       return {
-        name: item.data.name,
-        price: item.data.price,
-        details: item.data.description || null,
+        name: item.data.name || item.data.package_name,
+        price: item.data.price || item.data.package_price,
+        details: item.data.description || item.data.package_remarks || null,
+        services: item.data.services || [],
+        isCustom: item.data.is_custom || false,
       };
     case 'transferMCP':
       return {
@@ -182,15 +184,41 @@ export default function TransactionCart() {
                             <span className='px-2 py-0.5 text-xs bg-slate-100 text-slate-600 rounded-full'>
                               {getItemTypeLabel(item.type)}
                             </span>
+                            {item.type === 'package' && itemDetails.isCustom && (
+                              <span className='px-2 py-0.5 text-xs bg-amber-100 text-amber-600 rounded-full'>
+                                Custom
+                              </span>
+                            )}
                           </div>
                           {itemDetails.details && <p className='text-sm text-slate-500 mb-2'>{itemDetails.details}</p>}
+
+                          {/* Display services for package type */}
+                          {item.type === 'package' && itemDetails.services && itemDetails.services.length > 0 && (
+                            <div className='mt-2 mb-3'>
+                              <p className='text-xs font-medium text-slate-500 mb-1'>Services included:</p>
+                              <div className='ml-2 space-y-1'>
+                                {itemDetails.services.map((service, index) => (
+                                  <div key={index} className='text-xs text-slate-600 flex justify-between'>
+                                    <div className='flex items-center gap-1'>
+                                      <span className='font-medium'>{service.name}</span>
+                                      <span className='text-slate-400'>×{service.quantity}</span>
+                                    </div>
+                                    <div className='text-slate-500'>
+                                      ${(service.finalPrice * service.quantity).toFixed(2)}
+                                    </div>
+                                  </div>
+                                ))}
+                              </div>
+                            </div>
+                          )}
+
                           <div className='flex items-center justify-between'>
                             <span className='font-semibold text-slate-900'>${itemDetails.price.toFixed(2)}</span>
                             {item.status && (
                               <span
                                 className={`px-2 py-1 text-xs rounded-full ${item.status === 'pending'
-                                  ? 'bg-yellow-100 text-yellow-700'
-                                  : 'bg-green-100 text-green-700'
+                                    ? 'bg-yellow-100 text-yellow-700'
+                                    : 'bg-green-100 text-green-700'
                                   }`}
                               >
                                 {item.status}

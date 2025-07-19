@@ -234,15 +234,6 @@ const SaleTransactionSummary = () => {
     }
 
     // Check employee assignments for ALL items
-    // const itemsNeedingEmployees = cartItems.filter(item => {
-    //   // Log for debugging
-    //   // console.log('Checking item:', item);
-
-
-    //   return item.type !== 'transferMV' && !itemEmployees[item.id];
-    // });
-
-
     const itemsNeedingEmployees = cartItems.filter(item =>
       !itemEmployees[item.id]
     );
@@ -251,27 +242,54 @@ const SaleTransactionSummary = () => {
       errors.push(`Assign employees to all items (${itemsNeedingEmployees.length} items missing employee assignment)`);
     }
 
-
-    // Check Services & Products payment requirement
+    // ✅ FIXED: Check Services & Products payment requirement including GST
     const servicesAndProducts = [
       ...cartItems.filter(item => item.type === 'service'),
       ...cartItems.filter(item => item.type === 'product')
     ];
 
     if (servicesAndProducts.length > 0) {
-      const sectionTotal = servicesAndProducts.reduce((total, item) => {
+      // Calculate section subtotal (excluding GST)
+      const sectionSubtotal = servicesAndProducts.reduce((total, item) => {
         const pricing = getItemPricing(item.id);
         return total + pricing.totalLinePrice;
       }, 0);
 
+      // Get total payments made (this should include both regular payments and GST)
       const sectionPaymentTotal = sectionPayments['services-products']?.reduce((total, payment) =>
         total + (payment.amount || 0), 0
       ) || 0;
 
-      const remainingAmount = sectionTotal - sectionPaymentTotal;
+      // Calculate GST based on actual non-GST payments made
+      const nonGSTPayments = sectionPayments['services-products']?.filter(payment =>
+        payment.methodName !== 'GST (9%)'
+      ) || [];
 
-      if (Math.abs(remainingAmount) >= 0.01) { // Allow for small rounding differences
-        errors.push(`Services & Products section must be fully paid (remaining: ${formatCurrency(remainingAmount)})`);
+      const nonGSTPaymentTotal = nonGSTPayments.reduce((total, payment) =>
+        total + (payment.amount || 0), 0
+      );
+
+      // Calculate expected GST (9% of non-GST payments)
+      const expectedGST = nonGSTPaymentTotal * 0.09;
+
+      // Calculate expected total with GST
+      const expectedTotalWithGST = nonGSTPaymentTotal + expectedGST;
+
+      // Check if the section subtotal is fully covered by non-GST payments
+      const remainingSubtotal = sectionSubtotal - nonGSTPaymentTotal;
+
+      if (Math.abs(remainingSubtotal) >= 0.01) { // Allow for small rounding differences
+        errors.push(`Services & Products section subtotal must be fully paid (remaining: ${formatCurrency(remainingSubtotal)})`);
+      }
+
+      // Also check total consistency (this is more for debugging)
+      const totalDifference = expectedTotalWithGST - sectionPaymentTotal;
+      if (Math.abs(totalDifference) >= 0.01) {
+        console.warn('Payment total inconsistency detected:', {
+          expectedTotalWithGST,
+          actualPaymentTotal: sectionPaymentTotal,
+          difference: totalDifference
+        });
       }
     }
 
@@ -456,6 +474,7 @@ const SaleTransactionSummary = () => {
   };
 
   return (
+
     <div className='[--header-height:calc(theme(spacing.14))]'>
       <SidebarProvider className='flex flex-col'>
         <SiteHeader />
@@ -585,6 +604,111 @@ const SaleTransactionSummary = () => {
                   </CardContent>
                 </Card>
               )}
+              {/* Debug Panel - Sale Transaction Data Only */}
+              {showDebug && (
+                <Card className="border-2 border-blue-200 bg-blue-50">
+                  <CardHeader>
+                    <div className="flex items-center justify-between">
+                      <CardTitle className="text-lg text-blue-800">🐛 Debug: Sale Transaction Data</CardTitle>
+                      <Button
+                        onClick={() => setShowDebug(!showDebug)}
+                        variant="outline"
+                        size="sm"
+                      >
+                        Hide Debug
+                      </Button>
+                    </div>
+                  </CardHeader>
+                  <CardContent>
+                    {/* Prepared Transaction Data Preview */}
+                    <div className="bg-white p-3 rounded border">
+                      <h4 className="font-semibold text-sm mb-2 text-teal-700">📤 Prepared Sale Transaction Data</h4>
+                      <pre className="text-xs overflow-auto max-h-96 bg-gray-100 p-2 rounded">
+                        {JSON.stringify({
+                          // Transaction Details (from store)
+                          transactionDetails: {
+                            receiptNumber: transactionDetails.receiptNumber,
+                            transactionRemark: transactionDetails.transactionRemark,
+                            createdBy: transactionDetails.createdBy,
+                            handledBy: transactionDetails.handledBy,
+                            memberId: transactionDetails.memberId,
+                            customerType: transactionDetails.customerType,
+                            createdAt: transactionDetails.createdAt,
+                            updatedAt: transactionDetails.updatedAt
+                          },
+                          // Transaction Data
+                          servicesProducts: (() => {
+                            const groupedItems = {
+                              services: cartItems.filter(item => item.type === 'service'),
+                              products: cartItems.filter(item => item.type === 'product'),
+                            };
+                            const items = [...groupedItems.services, ...groupedItems.products];
+                            return items.length === 0 ? null : {
+                              items: items.map(item => ({
+                                ...item,
+                                pricing: getItemPricing(item.id),
+                                assignedEmployee: itemEmployees[item.id] || null,
+                                remarks: itemRemarks[item.id] || ''
+                              })),
+                              payments: sectionPayments['services-products'] || []
+                            };
+                          })(),
+                          mcpTransactions: cartItems.filter(item => item.type === 'package').map(pkg => ({
+                            item: {
+                              ...pkg,
+                              pricing: getItemPricing(pkg.id),
+                              assignedEmployee: itemEmployees[pkg.id] || null,
+                              remarks: itemRemarks[pkg.id] || ''
+                            },
+                            payments: sectionPayments[`package-${pkg.id}`] || []
+                          })),
+                          mvTransactions: cartItems.filter(item => item.type === 'member-voucher').map(voucher => ({
+                            item: {
+                              ...voucher,
+                              pricing: getItemPricing(voucher.id),
+                              assignedEmployee: itemEmployees[voucher.id] || null,
+                              remarks: itemRemarks[voucher.id] || ''
+                            },
+                            payments: sectionPayments[`voucher-${voucher.id}`] || []
+                          })),
+                          mcpTransferTransactions: cartItems.filter(item => item.type === 'transferMCP' || (item.type === 'transfer' && item.data?.queueItem?.mcp_id1)).map(mcpTransfer => ({
+                            item: {
+                              ...mcpTransfer,
+                              pricing: getItemPricing(mcpTransfer.id),
+                              assignedEmployee: itemEmployees[mcpTransfer.id] || null,
+                              remarks: itemRemarks[mcpTransfer.id] || ''
+                            },
+                            payments: sectionPayments[`transfer-mcp-${mcpTransfer.id}`] || []
+                          })),
+                          mvTransferTransactions: cartItems.filter(item => item.type === 'transferMV').map(mvTransfer => ({
+                            item: {
+                              ...mvTransfer,
+                              pricing: getItemPricing(mvTransfer.id),
+                              assignedEmployee: itemEmployees[mvTransfer.id] || null,
+                              remarks: itemRemarks[mvTransfer.id] || ''
+                            },
+                            payments: sectionPayments[`transfer-mv-${mvTransfer.id}`] || []
+                          }))
+                        }, null, 2)}
+                      </pre>
+                    </div>
+                  </CardContent>
+                </Card>
+              )}
+
+              {/* Debug Toggle Button (when debug is hidden) */}
+              {!showDebug && (
+                <div className="flex justify-center">
+                  <Button
+                    onClick={() => setShowDebug(true)}
+                    variant="outline"
+                    size="sm"
+                    className="border-blue-300 text-blue-600 hover:bg-blue-50"
+                  >
+                    🐛 Show Debug Info
+                  </Button>
+                </div>
+              )}
 
               {/* Transaction Information */}
               <Card>
@@ -680,13 +804,12 @@ const SaleTransactionSummary = () => {
                         <p className="text-red-500 text-xs mt-1">Transaction creator is required</p>
                       )}
                     </div>
-                    
-                    <div className={`${
-                      !transactionDetails.handledBy || transactionDetails.handledBy === ''
-                        ? 'ring-2 ring-red-200 rounded-md p-2' 
+
+                    <div className={`${!transactionDetails.handledBy || transactionDetails.handledBy === ''
+                        ? 'ring-2 ring-red-200 rounded-md p-2'
                         : ''
-                    }`}>
-                      <EmployeeSelect 
+                      }`}>
+                      <EmployeeSelect
                         label="Payment Handler *"
                         value={transactionDetails.handledBy || ""}
                         onChange={setHandledBy}

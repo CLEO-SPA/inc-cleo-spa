@@ -3,7 +3,16 @@ const router = express.Router();
 
 import voucherController from '../controllers/voucherController.js';
 
-// console.log("✅ Voucher routes file is loaded");
+import isAuthenticated from '../middlewares/authMiddleware.js';
+
+// =========================
+// Public routes
+// =========================
+
+// =========================
+// Private routes
+// =========================
+router.use(isAuthenticated);
 
 router.get('/', voucherController.getVoucherTemplatesDetailsHandler);
 router.get('/m', voucherController.getMemberVoucherDetailsHandler);

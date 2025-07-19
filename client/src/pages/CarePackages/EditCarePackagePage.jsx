@@ -193,7 +193,7 @@ const EditCarePackagePage = () => {
       // update main form fields
       updateMainField('package_name', packageName);
       updateMainField('package_price', packagePrice);
-      updateMainField('customizable', isCustomizable);
+      updateMainField('is_customizable', isCustomizable);
       updateMainField('package_remarks', packageRemarks);
       updateMainField('employee_id', employeeId);
       methods.setValue('employee_id', employeeId);
@@ -278,7 +278,7 @@ const EditCarePackagePage = () => {
       const currentFormData = {
         package_name: (mainFormData.package_name || '').trim(),
         package_price: Number(mainFormData.package_price) || 0,
-        customizable: Boolean(mainFormData.customizable),
+        customizable: Boolean(mainFormData.is_customizable),
         package_remarks: (mainFormData.package_remarks || '').trim(),
         employee_id: mainFormData.employee_id || '',
         services: (mainFormData.services || [])
@@ -326,7 +326,7 @@ const EditCarePackagePage = () => {
   }, [
     mainFormData.package_name,
     mainFormData.package_price,
-    mainFormData.customizable,
+    mainFormData.is_customizable,
     mainFormData.package_remarks,
     mainFormData.employee_id,
     mainFormData.services,
@@ -469,7 +469,7 @@ const EditCarePackagePage = () => {
         package_name: mainFormData.package_name.trim(),
         package_remarks: (mainFormData.package_remarks || '').trim(),
         package_price: packagePrice, // ensure positive price
-        is_customizable: Boolean(mainFormData.customizable),
+        is_customizable: Boolean(mainFormData.is_customizable),
         employee_id: mainFormData.employee_id,
         services: processedServices.map((service) => ({
           id: service.id,
@@ -764,8 +764,8 @@ const EditCarePackagePage = () => {
                   <div>
                     <label className='block text-xs font-medium text-gray-600 mb-1'>CUSTOMIZABLE</label>
                     <select
-                      value={mainFormData.customizable ? 'yes' : 'no'}
-                      onChange={(e) => updateMainField('customizable', e.target.value === 'yes')}
+                      value={mainFormData.is_customizable ? 'yes' : 'no'}
+                      onChange={(e) => updateMainField('is_customizable', e.target.value === 'yes')}
                       className='w-full px-2 py-1 border border-gray-200 rounded text-sm focus:outline-none focus:ring-2 focus:ring-gray-500 focus:border-transparent'
                     >
                       <option value='no'>No</option>
