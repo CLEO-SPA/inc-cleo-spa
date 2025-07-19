@@ -360,6 +360,10 @@ const addTransactionLogsByMemberVoucherId = async (data: MemberVoucherTransactio
 
   const currentBalanceAfterDeduction = current_balance - consumptionValue;
 
+  const negConsumptionValue = -consumptionValue;
+
+  console.log("consumptionValue: " + negConsumptionValue);
+
   const service_date = new Date(`${date}T${time}`);
 
   const last_updated_by = createdBy;
@@ -383,7 +387,7 @@ const addTransactionLogsByMemberVoucherId = async (data: MemberVoucherTransactio
       remarks,
       service_date,
       currentBalanceAfterDeduction,
-      consumptionValue,
+      negConsumptionValue,
       handledBy,
       type,
       createdBy,
@@ -637,13 +641,13 @@ const setTransactionLogsAndCurrentBalanceByLogId = async (data: MemberVoucherTra
 
     const updateMemberVoucherQuery = `
         UPDATE member_vouchers
-        SET current_balance = current_balance + $1 - $2
+        SET current_balance = current_balance - $1 + $2
         WHERE id = $3;
         `;
 
     const updateCurrentBalanceOfTransactionLogsQuery = `
         UPDATE member_voucher_transaction_logs
-        SET current_balance = current_balance + $1 - $2
+        SET current_balance = current_balance - $1 + $2
         WHERE id >= $3 AND member_voucher_id = $4;
         `;
 

@@ -12,6 +12,8 @@ import { SidebarInset, SidebarProvider } from "@/components/ui/sidebar";
 import useRefundStore from "@/stores/useRefundStore";
 import { useAuth } from "@/context/AuthContext";
 import useEmployeeStore from "@/stores/useEmployeeStore";
+import EmployeeSelect from '@/components/ui/forms/EmployeeSelect';
+
 
 const RefundVoucherForm = () => {
     const { voucherId } = useParams();
@@ -357,6 +359,8 @@ const RefundVoucherForm = () => {
                                                 className="h-10 text-sm w-60"
                                             />
                                         </div>
+
+                                        {/*
                                         <div className="space-y-1">
                                             <Label htmlFor="handledBy">Handled By</Label>
                                             <select
@@ -374,6 +378,17 @@ const RefundVoucherForm = () => {
                                             </select>
                                             {isLoadingEmployees && <p className="text-sm text-gray-500">Loading staff...</p>}
                                         </div>
+                                        */}
+
+                                        <EmployeeSelect
+                                            name="handled_by"
+                                            label="Handled By"
+                                            value={handledById}
+                                            onChange={setHandledById}
+                                            customHeight
+                                            className="w-60"
+                                        />
+
 
                                         <div className="space-y-1">
                                             <Label htmlFor="creditNoteNo">Manual Credit Note No. (optional)</Label>
