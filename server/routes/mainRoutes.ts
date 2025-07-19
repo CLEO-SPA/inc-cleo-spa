@@ -54,7 +54,6 @@ router.use('/em', employeeRoutes);
 router.use('/et', timetableRoutes);
 router.use('/ab', appointmentRoutes);
 router.use('/rr', revenueRoutes);
->>>>>>>>> Temporary merge branch 2
 // router.use('/sa', superAdminRoutes);
 router.use('/product', productRoutes);
 
