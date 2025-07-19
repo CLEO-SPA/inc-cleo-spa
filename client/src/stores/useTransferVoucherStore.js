@@ -16,11 +16,10 @@ const useTransferVoucherStore = create((set, get) => ({
     transferFormData: null, // ✅ NEW STATE
 
     // New fields for created_by, updated_by, remarks
-    // New fields for created_by, created_at, and remarks
     created_by: "",
-    created_at: "", // added
+    updated_by: "",
     remarks: "",
-
+    topUpBalance: 0,  // <-- new state field
 
     // Fetch voucher templates
     fetchVoucherTemplates: async () => {
@@ -40,8 +39,7 @@ const useTransferVoucherStore = create((set, get) => ({
 
     // Fetch member vouchers
     fetchMemberVoucher: async (name) => {
-
-        console.log("name1", name)
+        if (!name) return;
         try {
             const res = await api.get(`/voucher/m?name=${encodeURIComponent(name)}`);
             set({ memberVouchers: res.status === 200 ? res.data.data : [] });
@@ -99,9 +97,12 @@ const useTransferVoucherStore = create((set, get) => ({
     setOldVouchers: (vouchers) => set({ oldVouchers: vouchers }),
     setSelectedMember: (member) => set({ selectedMember: member }),
     setTransferFormData: (formData) => set({ transferFormData: formData }), // ✅ NEW SETTER
+    // New setters for created_by, updated_by, remarks
     setCreatedBy: (id) => set({ created_by: id }),
-    setCreatedAt: (dateTime) => set({ created_at: dateTime }), // ✅ new setter
+    setUpdatedBy: (id) => set({ updated_by: id }),
     setRemarks: (text) => set({ remarks: text }),
+    setTopUpBalance: (value) => set({ topUpBalance: value }),
+
 
     // Derived values
     getTotalOldBalance: () => {
@@ -112,15 +113,9 @@ const useTransferVoucherStore = create((set, get) => ({
         }, 0);
     },
 
-    getTopUpBalance: () => {
-        const total = get().getTotalOldBalance();
-        const priceNum = Number(get().price) || 0;
-        return Math.max(0, priceNum - total);
-    },
 
     // Final transfer submission
     submitTransfer: async (formData) => {
-
         if (!formData) {
             throw new Error("No form data provided for voucher transfer.");
         }
@@ -134,8 +129,10 @@ const useTransferVoucherStore = create((set, get) => ({
             old_voucher_details,
             is_bypass,
             created_by,
-            created_at,
-            remarks, // <-- added here
+            updated_by,
+            remarks,
+            top_up_balance
+
         } = formData;
 
         if (
@@ -147,6 +144,7 @@ const useTransferVoucherStore = create((set, get) => ({
         ) {
             throw new Error("Missing required fields for voucher transfer.");
         }
+
 
         const payload = {
             member_name,
@@ -161,10 +159,10 @@ const useTransferVoucherStore = create((set, get) => ({
                 balance_to_transfer: Number(v.balance_to_transfer),
             })),
             created_by,
-            created_at,
+            updated_by,
             remarks,
+            top_up_balance, // ✅ Include top_up_balance in the payload
         };
-
 
         const res = await api.post("/voucher/transfer", payload);
         return res.data;

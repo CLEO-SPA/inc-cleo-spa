@@ -25,10 +25,12 @@ router.get('/:id/s', controller.getAllServicesOfMemberVoucherById);
 
 router.get('/:id/t', controller.getAllTransactionLogsOfMemberVoucherById);
 
+router.get('/:id/t/pd', controller.getMemberVoucherPurchaseDate);
+
 router.post(
   '/:id/t/create',
   controller.checkCurrentBalance,
-  controller.checkPaidCurrentBalance,
+  // controller.checkPaidCurrentBalance,
   controller.createTransactionLogsByMemberVoucherId
 );
 

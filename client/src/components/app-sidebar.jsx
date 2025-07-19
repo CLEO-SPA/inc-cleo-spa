@@ -153,7 +153,7 @@ const data = {
         },
       ],
     },
-        {
+    {
       title: 'Sale Transactions',
       url: '#',
       icon: CreditCard,
@@ -165,7 +165,7 @@ const data = {
         {
           title: 'View Sale Transactions',
           url: '/sale-transaction/list',
-        }
+        },
       ],
     },
     {
@@ -206,25 +206,7 @@ const data = {
         },
       ],
     },
-    {
-      title: 'Vouchers',
-      url: '#',
-      icon: Tickets,
-      items: [
-        {
-          title: 'Create Voucher Template',
-          url: '/voucher-template/create',
-        },
-        {
-          title: 'Manage Voucher Templates',
-          url: '/voucher-template',
-        },
-        {
-          title: 'Transfer Voucher',
-          url: '/strans',
-        },
-      ],
-    },
+
     {
       title: 'Payment Methods',
       url: '/payment-method',
@@ -292,7 +274,7 @@ const data = {
         {
           title: 'Translations',
           url: '/translations',
-        }
+        },
       ],
     },
   ],

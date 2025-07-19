@@ -16,7 +16,7 @@ const getInitialState = () => ({
     total: 0,
     completed: 0,
     failed: 0,
-    currentOperation: ''
+    currentOperation: '',
   },
 
   // ✅ UPDATED: General transaction details with creation date/time fields
@@ -29,7 +29,7 @@ const getInitialState = () => ({
     customerType: 'MEMBER',
     // ✅ NEW: Add creation date/time fields
     createdAt: new Date().toISOString().slice(0, 16), // Default to current datetime
-    updatedAt: new Date().toISOString().slice(0, 16)  // Default to current datetime
+    updatedAt: new Date().toISOString().slice(0, 16), // Default to current datetime
   },
 
   // Error handling
@@ -47,129 +47,127 @@ const useSaleTransactionStore = create(
 
       // Helper function to calculate outstanding amount and add pending payment
       addAutoPendingPayment: (totalAmount, existingPayments) => {
-        // Calculate total paid amount from existing payments
-        const totalPaid = existingPayments.reduce((sum, payment) => {
+        const PENDING_PAYMENT_METHOD_ID = 7;
+        const GST_PAYMENT_METHOD_ID = 10;
+
+        // Separate payments by type (same as backend)
+        const pendingPayments = existingPayments.filter(
+          (payment) => payment.methodId === PENDING_PAYMENT_METHOD_ID
+        );
+
+        const gstPayments = existingPayments.filter(
+          (payment) => payment.methodId === GST_PAYMENT_METHOD_ID
+        );
+
+        const actualPayments = existingPayments.filter(
+          (payment) => payment.methodId !== PENDING_PAYMENT_METHOD_ID &&
+            payment.methodId !== GST_PAYMENT_METHOD_ID
+        );
+
+        // Calculate amounts (same logic as backend)
+        const totalActualPaymentAmount = actualPayments.reduce((sum, payment) => {
           return sum + (payment.amount || 0);
         }, 0);
 
-        // Calculate outstanding amount
-        const outstandingAmount = totalAmount - totalPaid;
+        const totalGSTAmount = gstPayments.reduce((sum, payment) => {
+          return sum + (payment.amount || 0);
+        }, 0);
 
-        // Check if there's already a pending payment
-        const existingPendingPayment = existingPayments.find(
-          payment => payment.methodId === get().PENDING_PAYMENT_METHOD_ID
+        // IGNORE pending amount from frontend - calculate our own (same as backend)
+        const frontendPendingAmount = pendingPayments.reduce((sum, payment) => {
+          return sum + (payment.amount || 0);
+        }, 0);
+
+        // Calculate correct outstanding amount (backend authority) - same as backend
+        const outstandingAmount = Math.max(0, totalAmount - totalActualPaymentAmount);
+
+        let updatedPayments = existingPayments.filter(
+          (payment) => payment.methodId !== PENDING_PAYMENT_METHOD_ID
         );
-
-        let updatedPayments = [...existingPayments];
-
-        if (outstandingAmount > 0) {
-          if (existingPendingPayment) {
-            // Update existing pending payment amount
-            updatedPayments = updatedPayments.map(payment =>
-              payment.methodId === get().PENDING_PAYMENT_METHOD_ID
-                ? { ...payment, amount: outstandingAmount }
-                : payment
-            );
-          } else {
-            // Add new pending payment
-            updatedPayments.push({
-              id: crypto.randomUUID(),
-              methodId: get().PENDING_PAYMENT_METHOD_ID,
-              methodName: 'Pending',
-              amount: outstandingAmount,
-              remark: 'Auto-generated pending payment for outstanding amount',
-              isAutoPending: true
-            });
-          }
-        } else if (outstandingAmount <= 0 && existingPendingPayment) {
-          // Remove pending payment if outstanding amount is 0 or negative
-          updatedPayments = updatedPayments.filter(
-            payment => payment.methodId !== get().PENDING_PAYMENT_METHOD_ID || !payment.isAutoPending
-          );
-        }
 
         return updatedPayments;
       },
 
+
       // Update transaction details
       updateTransactionDetails: (details) => {
-        set(state => ({
+        set((state) => ({
           transactionDetails: {
             ...state.transactionDetails,
-            ...details
-          }
+            ...details,
+          },
         }));
       },
 
       // ✅ NEW: Set creation date/time
       setCreatedAt: (createdAt) => {
-        set(state => ({
+        set((state) => ({
           transactionDetails: {
             ...state.transactionDetails,
             createdAt,
-            updatedAt: createdAt // Update both when created_at changes
-          }
+            updatedAt: createdAt, // Update both when created_at changes
+          },
         }));
       },
 
       // ✅ NEW: Set updated date/time
       setUpdatedAt: (updatedAt) => {
-        set(state => ({
+        set((state) => ({
           transactionDetails: {
             ...state.transactionDetails,
-            updatedAt
-          }
+            updatedAt,
+          },
         }));
       },
 
       // Set receipt number
       setReceiptNumber: (receiptNumber) => {
-        set(state => ({
+        set((state) => ({
           transactionDetails: {
             ...state.transactionDetails,
-            receiptNumber
-          }
+            receiptNumber,
+          },
         }));
       },
 
       // Set transaction remark
       setTransactionRemark: (transactionRemark) => {
-        set(state => ({
+        set((state) => ({
           transactionDetails: {
             ...state.transactionDetails,
-            transactionRemark
-          }
+            transactionRemark,
+          },
         }));
       },
 
       // Set created by employee
       setCreatedBy: (createdBy) => {
-        set(state => ({
+        set((state) => ({
           transactionDetails: {
             ...state.transactionDetails,
-            createdBy
-          }
+            createdBy,
+          },
         }));
       },
 
       // Set handled by employee
       setHandledBy: (handledBy) => {
-        set(state => ({
+        set((state) => ({
           transactionDetails: {
             ...state.transactionDetails,
-            handledBy
-          }
+            handledBy,
+          },
         }));
       },
 
       // Set member info
       setMemberInfo: (member) => {
-        set(state => ({
+        set((state) => ({
           transactionDetails: {
             ...state.transactionDetails,
             memberId: member?.id || null,
-            customerType: member ? 'MEMBER' : 'WALK_IN'
-          }
+            customerType: member ? 'MEMBER' : 'WALK_IN',
+          },
         }));
       },
 
@@ -180,7 +178,7 @@ const useSaleTransactionStore = create(
           currentStep: 'preparing',
           createdTransactions: [],
           failedTransactions: [],
-          errors: []
+          errors: [],
         });
 
         try {
@@ -218,7 +216,7 @@ const useSaleTransactionStore = create(
             mcpTransferTransactions: mcpTransferCount,
             mvTransferTransactions: mvTransferCount,
             total: totalTransactions,
-            transactionDetails
+            transactionDetails,
           });
 
           set({
@@ -227,8 +225,8 @@ const useSaleTransactionStore = create(
               total: totalTransactions,
               completed: 0,
               failed: 0,
-              currentOperation: 'Starting transaction creation...'
-            }
+              currentOperation: 'Starting transaction creation...',
+            },
           });
 
           const createdTransactions = [];
@@ -236,11 +234,11 @@ const useSaleTransactionStore = create(
 
           // 1. Create Services + Products transaction (if exists)
           if (processedTransactionData.servicesProducts?.items?.length > 0) {
-            set(state => ({
+            set((state) => ({
               progress: {
                 ...state.progress,
-                currentOperation: 'Creating Services & Products transaction...'
-              }
+                currentOperation: 'Creating Services & Products transaction...',
+              },
             }));
 
             try {
@@ -251,30 +249,29 @@ const useSaleTransactionStore = create(
               createdTransactions.push({
                 type: 'services-products',
                 transaction: servicesTransaction,
-                items: processedTransactionData.servicesProducts.items
+                items: processedTransactionData.servicesProducts.items,
               });
 
-              set(state => ({
+              set((state) => ({
                 progress: {
                   ...state.progress,
-                  completed: state.progress.completed + 1
-                }
+                  completed: state.progress.completed + 1,
+                },
               }));
-
             } catch (error) {
               console.error('❌ Services/Products transaction failed:', error);
               failedTransactions.push({
                 type: 'services-products',
                 error: error.message,
-                data: processedTransactionData.servicesProducts
+                data: processedTransactionData.servicesProducts,
               });
 
-              set(state => ({
+              set((state) => ({
                 progress: {
                   ...state.progress,
-                  failed: state.progress.failed + 1
+                  failed: state.progress.failed + 1,
                 },
-                errors: [...state.errors, `Services/Products: ${error.message}`]
+                errors: [...state.errors, `Services/Products: ${error.message}`],
               }));
             }
           }
@@ -285,12 +282,12 @@ const useSaleTransactionStore = create(
 
             try {
               const mcpFormStore = useMcpFormStore.getState();
-              mcpCreationResult = await mcpFormStore.processMcpCreationQueue();
+              mcpCreationResult = await mcpFormStore.processMcpCreationQueue(get().transactionDetails.createdAt);
               console.log('✅ MCP creation queue processed successfully:', mcpCreationResult);
             } catch (error) {
               console.error('❌ MCP creation queue processing failed:', error);
-              set(state => ({
-                errors: [...state.errors, `MCP Creation Queue: ${error.message}`]
+              set((state) => ({
+                errors: [...state.errors, `MCP Creation Queue: ${error.message}`],
               }));
             }
 
@@ -300,11 +297,12 @@ const useSaleTransactionStore = create(
             for (let i = 0; i < processedTransactionData.mcpTransactions.length; i++) {
               const mcpData = processedTransactionData.mcpTransactions[i];
 
-              set(state => ({
+              set((state) => ({
                 progress: {
                   ...state.progress,
-                  currentOperation: `Creating MCP transaction ${i + 1}/${processedTransactionData.mcpTransactions.length}...`
-                }
+                  currentOperation: `Creating MCP transaction ${i + 1}/${processedTransactionData.mcpTransactions.length
+                    }...`,
+                },
               }));
 
               try {
@@ -324,42 +322,44 @@ const useSaleTransactionStore = create(
                     data: {
                       ...mcpData.item.data,
                       id: actualMcpId,
-                      member_care_package_id: actualMcpId
-                    }
-                  }
+                      member_care_package_id: actualMcpId,
+                    },
+                  },
                 };
 
-                console.log(`📦 Creating MCP transaction with ID ${actualMcpId} for package: ${mcpData.item.data?.package_name || mcpData.item.data?.name}`);
+                console.log(
+                  `📦 Creating MCP transaction with ID ${actualMcpId} for package: ${mcpData.item.data?.package_name || mcpData.item.data?.name
+                  }`
+                );
 
                 const mcpTransaction = await get().createMcpTransaction(updatedMcpData);
 
                 createdTransactions.push({
                   type: 'mcp',
                   transaction: mcpTransaction,
-                  item: updatedMcpData.item
+                  item: updatedMcpData.item,
                 });
 
-                set(state => ({
+                set((state) => ({
                   progress: {
                     ...state.progress,
-                    completed: state.progress.completed + 1
-                  }
+                    completed: state.progress.completed + 1,
+                  },
                 }));
-
               } catch (error) {
                 console.error('❌ MCP transaction failed:', error);
                 failedTransactions.push({
                   type: 'mcp',
                   error: error.message,
-                  data: mcpData
+                  data: mcpData,
                 });
 
-                set(state => ({
+                set((state) => ({
                   progress: {
                     ...state.progress,
-                    failed: state.progress.failed + 1
+                    failed: state.progress.failed + 1,
                   },
-                  errors: [...state.errors, `MCP (${mcpData.item.data?.name}): ${error.message}`]
+                  errors: [...state.errors, `MCP (${mcpData.item.data?.name}): ${error.message}`],
                 }));
               }
             }
@@ -370,11 +370,12 @@ const useSaleTransactionStore = create(
             for (let i = 0; i < processedTransactionData.mvTransactions.length; i++) {
               const mvData = processedTransactionData.mvTransactions[i];
 
-              set(state => ({
+              set((state) => ({
                 progress: {
                   ...state.progress,
-                  currentOperation: `Creating MV transaction ${i + 1}/${processedTransactionData.mvTransactions.length}...`
-                }
+                  currentOperation: `Creating MV transaction ${i + 1}/${processedTransactionData.mvTransactions.length
+                    }...`,
+                },
               }));
 
               try {
@@ -383,30 +384,29 @@ const useSaleTransactionStore = create(
                 createdTransactions.push({
                   type: 'mv',
                   transaction: mvTransaction,
-                  item: mvData.item
+                  item: mvData.item,
                 });
 
-                set(state => ({
+                set((state) => ({
                   progress: {
                     ...state.progress,
-                    completed: state.progress.completed + 1
-                  }
+                    completed: state.progress.completed + 1,
+                  },
                 }));
-
               } catch (error) {
                 console.error('❌ MV transaction failed:', error);
                 failedTransactions.push({
                   type: 'mv',
                   error: error.message,
-                  data: mvData
+                  data: mvData,
                 });
 
-                set(state => ({
+                set((state) => ({
                   progress: {
                     ...state.progress,
-                    failed: state.progress.failed + 1
+                    failed: state.progress.failed + 1,
                   },
-                  errors: [...state.errors, `MV (${mvData.item.data?.member_voucher_name}): ${error.message}`]
+                  errors: [...state.errors, `MV (${mvData.item.data?.member_voucher_name}): ${error.message}`],
                 }));
               }
             }
@@ -418,12 +418,12 @@ const useSaleTransactionStore = create(
 
             try {
               const mcpFormStore = useMcpFormStore.getState();
-              mcpTransferResult = await mcpFormStore.processMcpTransferQueue();
+              mcpTransferResult = await mcpFormStore.processMcpTransferQueue(get().transactionDetails.createdAt);
               console.log('✅ MCP transfer queue processed successfully:', mcpTransferResult);
             } catch (error) {
               console.error('❌ MCP transfer queue processing failed:', error);
-              set(state => ({
-                errors: [...state.errors, `MCP Transfer Queue: ${error.message}`]
+              set((state) => ({
+                errors: [...state.errors, `MCP Transfer Queue: ${error.message}`],
               }));
             }
 
@@ -433,11 +433,12 @@ const useSaleTransactionStore = create(
             for (let i = 0; i < processedTransactionData.mcpTransferTransactions.length; i++) {
               const mcpTransferData = processedTransactionData.mcpTransferTransactions[i];
 
-              set(state => ({
+              set((state) => ({
                 progress: {
                   ...state.progress,
-                  currentOperation: `Creating MCP Transfer transaction ${i + 1}/${processedTransactionData.mcpTransferTransactions.length}...`
-                }
+                  currentOperation: `Creating MCP Transfer transaction ${i + 1}/${processedTransactionData.mcpTransferTransactions.length
+                    }...`,
+                },
               }));
 
               try {
@@ -458,42 +459,46 @@ const useSaleTransactionStore = create(
                       mcp_id1: correspondingTransfer.mcp_id1,
                       mcp_id2: correspondingTransfer.mcp_id2,
                       isNew: correspondingTransfer.isNew,
-                      amount: correspondingTransfer.amount
-                    }
-                  }
+                      amount: correspondingTransfer.amount,
+                    },
+                  },
                 };
 
-                console.log(`🔄 Creating MCP Transfer transaction from ${correspondingTransfer.mcp_id1} to ${correspondingTransfer.mcp_id2} (Amount: $${correspondingTransfer.amount})`);
+                console.log(
+                  `🔄 Creating MCP Transfer transaction from ${correspondingTransfer.mcp_id1} to ${correspondingTransfer.mcp_id2} (Amount: $${correspondingTransfer.amount})`
+                );
 
                 const mcpTransferTransaction = await get().createMcpTransferTransaction(updatedMcpTransferData);
 
                 createdTransactions.push({
                   type: 'mcp-transfer',
                   transaction: mcpTransferTransaction,
-                  item: updatedMcpTransferData.item
+                  item: updatedMcpTransferData.item,
                 });
 
-                set(state => ({
+                set((state) => ({
                   progress: {
                     ...state.progress,
-                    completed: state.progress.completed + 1
-                  }
+                    completed: state.progress.completed + 1,
+                  },
                 }));
-
               } catch (error) {
                 console.error('❌ MCP Transfer transaction failed:', error);
                 failedTransactions.push({
                   type: 'mcp-transfer',
                   error: error.message,
-                  data: mcpTransferData
+                  data: mcpTransferData,
                 });
 
-                set(state => ({
+                set((state) => ({
                   progress: {
                     ...state.progress,
-                    failed: state.progress.failed + 1
+                    failed: state.progress.failed + 1,
                   },
-                  errors: [...state.errors, `MCP Transfer (${mcpTransferData.item.data?.description || 'Transfer'}): ${error.message}`]
+                  errors: [
+                    ...state.errors,
+                    `MCP Transfer (${mcpTransferData.item.data?.description || 'Transfer'}): ${error.message}`,
+                  ],
                 }));
               }
             }
@@ -511,46 +516,66 @@ const useSaleTransactionStore = create(
             for (let i = 0; i < processedTransactionData.mvTransferTransactions.length; i++) {
               const mvTransferData = processedTransactionData.mvTransferTransactions[i];
 
-              set(state => ({
+              set((state) => ({
                 progress: {
                   ...state.progress,
-                  currentOperation: `Creating MV Transfer transaction ${i + 1}/${processedTransactionData.mvTransferTransactions.length}...`
-                }
+                  currentOperation: `Creating MV Transfer transaction ${i + 1}/${processedTransactionData.mvTransferTransactions.length
+                    }...`,
+                },
               }));
 
               try {
 
-                const mvTransferMemberVoucherTransactionLogs = await transferStore.submitTransfer(transferFormData);
+                const transferFormDataWithSaleTransactionDate = {
+                  ...transferFormData,
+                  created_at: transactionDetails.createdAt,
+                  updated_at: transactionDetails.updatedAt
+                };
 
-                const mvTransferTransaction = await get().createMvTransferTransaction(mvTransferData);
+                const response = await transferStore.submitTransfer(transferFormDataWithSaleTransactionDate);
 
-                createdTransactions.push({
-                  type: 'mv-transfer',
-                  transaction: mvTransferTransaction,
-                  item: mvTransferData.item
-                });
+                if (response.success && response.newVoucherId) {
+                  const newVoucherId = response.newVoucherId;
 
-                set(state => ({
-                  progress: {
-                    ...state.progress,
-                    completed: state.progress.completed + 1
-                  }
-                }));
+                  const mvTransferDataWithId = {
+                    ...mvTransferData,
+                    newVoucherId,
+                  };
 
+                  const mvTransferTransaction = await get().createMvTransferTransaction(mvTransferDataWithId);
+
+                  createdTransactions.push({
+                    type: 'mv-transfer',
+                    transaction: mvTransferTransaction,
+                    item: mvTransferData.item,
+                  });
+
+                  set((state) => ({
+                    progress: {
+                      ...state.progress,
+                      completed: state.progress.completed + 1,
+                    },
+                  }));
+                } else {
+                  throw new Error(response.message || 'Unknown error during voucher transfer');
+                }
               } catch (error) {
                 console.error('❌ MV Transfer transaction failed:', error);
                 failedTransactions.push({
                   type: 'mv-transfer',
                   error: error.message,
-                  data: mvTransferData
+                  data: mvTransferData,
                 });
 
-                set(state => ({
+                set((state) => ({
                   progress: {
                     ...state.progress,
-                    failed: state.progress.failed + 1
+                    failed: state.progress.failed + 1,
                   },
-                  errors: [...state.errors, `MV Transfer (${mvTransferData.item.data?.description || 'Transfer'}): ${error.message}`]
+                  errors: [
+                    ...state.errors,
+                    `MV Transfer (${mvTransferData.item.data?.description || 'Transfer'}): ${error.message}`,
+                  ],
                 }));
               }
             }
@@ -567,35 +592,34 @@ const useSaleTransactionStore = create(
             isCreating: false,
             progress: {
               ...get().progress,
-              currentOperation: hasFailures ? 'Some transactions failed' : 'All transactions completed successfully'
-            }
+              currentOperation: hasFailures ? 'Some transactions failed' : 'All transactions completed successfully',
+            },
           });
 
           console.log('📈 Transaction Results:', {
             successful: createdTransactions.length,
             failed: failedTransactions.length,
-            total: totalTransactions
+            total: totalTransactions,
           });
 
           return {
             success: !hasFailures || hasSuccesses,
             createdTransactions,
             failedTransactions,
-            hasPartialSuccess: hasSuccesses && hasFailures
+            hasPartialSuccess: hasSuccesses && hasFailures,
           };
-
         } catch (error) {
           console.error('💥 Critical error in transaction creation:', error);
           set({
             currentStep: 'failed',
             isCreating: false,
             lastError: error.message,
-            errors: [error.message]
+            errors: [error.message],
           });
 
           return {
             success: false,
-            error: error.message
+            error: error.message,
           };
         }
       },
@@ -608,7 +632,7 @@ const useSaleTransactionStore = create(
 
         // Process MCP transactions
         if (processedData.mcpTransactions?.length > 0) {
-          processedData.mcpTransactions = processedData.mcpTransactions.map(mcpData => {
+          processedData.mcpTransactions = processedData.mcpTransactions.map((mcpData) => {
             const totalAmount = mcpData.item.pricing?.totalLinePrice || 0;
             const existingPayments = mcpData.payments || [];
 
@@ -620,19 +644,19 @@ const useSaleTransactionStore = create(
               totalAmount,
               existingPayments: existingPayments.length,
               updatedPayments: updatedPayments.length,
-              pendingAmount: updatedPayments.find(p => p.isAutoPending)?.amount || 0
+              pendingAmount: updatedPayments.find((p) => p.isAutoPending)?.amount || 0,
             });
 
             return {
               ...mcpData,
-              payments: updatedPayments
+              payments: updatedPayments,
             };
           });
         }
 
         // Process MV transactions
         if (processedData.mvTransactions?.length > 0) {
-          processedData.mvTransactions = processedData.mvTransactions.map(mvData => {
+          processedData.mvTransactions = processedData.mvTransactions.map((mvData) => {
             const totalAmount = mvData.item.pricing?.totalLinePrice || 0;
             const existingPayments = mvData.payments || [];
 
@@ -644,24 +668,24 @@ const useSaleTransactionStore = create(
               totalAmount,
               existingPayments: existingPayments.length,
               updatedPayments: updatedPayments.length,
-              pendingAmount: updatedPayments.find(p => p.isAutoPending)?.amount || 0
+              pendingAmount: updatedPayments.find((p) => p.isAutoPending)?.amount || 0,
             });
 
             return {
               ...mvData,
-              payments: updatedPayments
+              payments: updatedPayments,
             };
           });
         }
 
         // Process MCP Transfer transactions (no auto-pending needed, transfers are fully paid)
         if (processedData.mcpTransferTransactions?.length > 0) {
-          processedData.mcpTransferTransactions = processedData.mcpTransferTransactions.map(mcpTransferData => {
+          processedData.mcpTransferTransactions = processedData.mcpTransferTransactions.map((mcpTransferData) => {
             console.log('🔄 MCP Transfer Processing:', {
               itemName: mcpTransferData.item.data?.description || 'Transfer',
               totalAmount: mcpTransferData.item.pricing?.totalLinePrice || 0,
               existingPayments: mcpTransferData.payments?.length || 0,
-              note: 'No auto-pending needed for transfers'
+              note: 'No auto-pending needed for transfers',
             });
 
             return mcpTransferData; // No changes needed for transfer transactions
@@ -670,12 +694,12 @@ const useSaleTransactionStore = create(
 
         // Process MV Transfer transactions (no auto-pending needed, transfers are fully paid)
         if (processedData.mvTransferTransactions?.length > 0) {
-          processedData.mvTransferTransactions = processedData.mvTransferTransactions.map(mvTransferData => {
+          processedData.mvTransferTransactions = processedData.mvTransferTransactions.map((mvTransferData) => {
             console.log('🔄 MV Transfer Processing:', {
               itemName: mvTransferData.item.data?.description || 'Transfer',
               totalAmount: mvTransferData.item.pricing?.totalLinePrice || 0,
               existingPayments: mvTransferData.payments?.length || 0,
-              note: 'No auto-pending needed for transfers'
+              note: 'No auto-pending needed for transfers',
             });
 
             return mvTransferData; // No changes needed for transfer transactions
@@ -701,14 +725,14 @@ const useSaleTransactionStore = create(
           // ✅ NEW: Include creation date/time in payload
           created_at: transactionDetails.createdAt,
           updated_at: transactionDetails.updatedAt,
-          items: servicesProductsData.items.map(item => ({
+          items: servicesProductsData.items.map((item) => ({
             type: item.type,
             data: item.data,
             pricing: item.pricing,
             assignedEmployee: item.assignedEmployee || item.employee_id,
-            remarks: item.remarks || ''
+            remarks: item.remarks || '',
           })),
-          payments: servicesProductsData.payments || []
+          payments: servicesProductsData.payments || [],
         };
 
         console.log('📤 Services/Products payload with creation date:', payload);
@@ -735,7 +759,6 @@ const useSaleTransactionStore = create(
           remarks: transactionDetails.transactionRemark,
           created_by: transactionDetails.createdBy,
           handled_by: transactionDetails.handledBy,
-          // ✅ NEW: Include creation date/time in payload
           created_at: transactionDetails.createdAt,
           updated_at: transactionDetails.updatedAt,
           item: {
@@ -743,9 +766,9 @@ const useSaleTransactionStore = create(
             data: mcpData.item.data,
             pricing: mcpData.item.pricing,
             assignedEmployee: mcpData.item.assignedEmployee || mcpData.item.employee_id,
-            remarks: mcpData.item.remarks || ''
+            remarks: mcpData.item.remarks || '',
           },
-          payments: mcpData.payments || []
+          payments: mcpData.payments || [],
         };
 
         console.log('📤 MCP payload with creation date:', payload);
@@ -772,7 +795,6 @@ const useSaleTransactionStore = create(
           remarks: transactionDetails.transactionRemark,
           created_by: transactionDetails.createdBy,
           handled_by: transactionDetails.handledBy,
-          // ✅ NEW: Include creation date/time in payload
           created_at: transactionDetails.createdAt,
           updated_at: transactionDetails.updatedAt,
           item: {
@@ -780,9 +802,9 @@ const useSaleTransactionStore = create(
             data: mvData.item.data,
             pricing: mvData.item.pricing,
             assignedEmployee: mvData.item.assignedEmployee || mvData.item.employee_id,
-            remarks: mvData.item.remarks || ''
+            remarks: mvData.item.remarks || '',
           },
-          payments: mvData.payments || []
+          payments: mvData.payments || [],
         };
 
         console.log('📤 MV payload with creation date:', payload);
@@ -811,7 +833,6 @@ const useSaleTransactionStore = create(
           remarks: transactionDetails.transactionRemark,
           created_by: transactionDetails.createdBy,
           handled_by: transactionDetails.handledBy,
-          // ✅ NEW: Include creation date/time in payload
           created_at: transactionDetails.createdAt,
           updated_at: transactionDetails.updatedAt,
           item: {
@@ -819,9 +840,9 @@ const useSaleTransactionStore = create(
             data: mcpTransferData.item.data,
             pricing: mcpTransferData.item.pricing,
             assignedEmployee: mcpTransferData.item.assignedEmployee || mcpTransferData.item.employee_id,
-            remarks: mcpTransferData.item.remarks || ''
+            remarks: mcpTransferData.item.remarks || '',
           },
-          payments: mcpTransferData.payments || []
+          payments: mcpTransferData.payments || [],
         };
 
         console.log('📤 MCP Transfer payload with creation date:', payload);
@@ -856,9 +877,10 @@ const useSaleTransactionStore = create(
             data: mvTransferData.item.data,
             pricing: mvTransferData.item.pricing,
             assignedEmployee: mvTransferData.item.assignedEmployee || mvTransferData.item.employee_id,
-            remarks: mvTransferData.item.remarks || ''
+            remarks: mvTransferData.item.remarks || '',
           },
-          payments: mvTransferData.payments || []
+          payments: mvTransferData.payments || [],
+          newVoucherId: mvTransferData.newVoucherId, // ✅ Include in payload
         };
 
         console.log('📤 MV Transfer payload with creation date:', payload);
@@ -917,7 +939,7 @@ const useSaleTransactionStore = create(
 
         return {
           isValid: errors.length === 0,
-          errors
+          errors,
         };
       },
 
@@ -931,7 +953,7 @@ const useSaleTransactionStore = create(
           totalCreated: state.createdTransactions.length,
           totalFailed: state.failedTransactions.length,
           errors: state.errors,
-          transactionDetails: state.transactionDetails
+          transactionDetails: state.transactionDetails,
         };
       },
 
@@ -944,7 +966,7 @@ const useSaleTransactionStore = create(
       // Clear errors
       clearErrors: () => {
         set({ errors: [], lastError: null });
-      }
+      },
     }),
     { name: 'sale-transaction-store' }
   )

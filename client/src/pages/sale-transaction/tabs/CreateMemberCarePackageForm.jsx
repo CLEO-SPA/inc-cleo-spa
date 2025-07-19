@@ -36,8 +36,8 @@ const CreateMemberCarePackageForm = () => {
     selectCarePackage,
     addMcpToCreationQueue,
     setBypassMode,
-    getFormattedDate,
-    updateDateField,
+    // getFormattedDate,
+    // updateDateField,
   } = useMcpFormStore();
 
   const { selectedMember, addCartItem } = useTransactionCartStore();
@@ -123,7 +123,11 @@ const CreateMemberCarePackageForm = () => {
         }
       }
     } else {
-      if (!mainFormData.package_name) {
+      // When turning off bypass mode, if we have a selected package
+      // we should re-select it to restore its original settings
+      if (selectedPackageId && mainFormData.package_name) {
+        selectCarePackage({ id: selectedPackageId });
+      } else if (!mainFormData.package_name) {
         resetMainForm();
         setSelectedPackageId(null);
       }
@@ -145,17 +149,17 @@ const CreateMemberCarePackageForm = () => {
       {/* member selection */}
       {!selectedMember && (
         <Card className='border-orange-200 bg-orange-50'>
-          <CardContent className='pt-4'>
-            <p className='text-orange-800 text-sm'>Please select a member first before creating a care package.</p>
+          <CardContent className='py-2'>
+            <p className='text-orange-800 text-sm'>Please select a member first before adding care packages.</p>
           </CardContent>
         </Card>
       )}
 
       {selectedMember && (
         <Card className='border-green-200 bg-green-50'>
-          <CardContent className='pt-4'>
+          <CardContent className='py-2'>
             <p className='text-green-800 text-sm'>
-              Creating care package for: <strong>{selectedMember.name}</strong>
+              Adding care packages for: <strong>{selectedMember.name}</strong>
             </p>
           </CardContent>
         </Card>
@@ -265,18 +269,18 @@ const CreateMemberCarePackageForm = () => {
         {/* employee selection */}
         <Card>
           <CardContent className='space-y-4 pt-6'>
-            <div className='grid grid-cols-1 md:grid-cols-2 gap-4'>
-              <div className='space-y-1'>
-                <EmployeeSelect
-                  name='employee_id'
-                  label='Created By *'
-                  value={mainFormData.employee_id}
-                  onChange={(employeeId) => updateMainField('employee_id', employeeId)}
-                  options={employeeOptions}
-                  errors={{}}
-                />
-              </div>
-              <div className='space-y-1'>
+            {/* <div className='grid grid-cols-1 md:grid-cols-2 gap-4'> */}
+            <div className='space-y-1'>
+              <EmployeeSelect
+                name='employee_id'
+                label='Created By *'
+                value={mainFormData.employee_id}
+                onChange={(employeeId) => updateMainField('employee_id', employeeId)}
+                options={employeeOptions}
+                errors={{}}
+              />
+            </div>
+            {/* <div className='space-y-1'>
                 <Label htmlFor='created_at' className='text-sm font-medium pb-1 text-gray-700'>
                   Creation date & time *
                 </Label>
@@ -287,8 +291,8 @@ const CreateMemberCarePackageForm = () => {
                   onChange={(e) => updateDateField('created_at', e.target.value)}
                   step='1'
                 />
-              </div>
-            </div>
+              </div> */}
+            {/* </div> */}
 
             <div className='space-y-2'>
               <Label htmlFor='package_remarks' className='text-sm font-medium text-gray-700'>
@@ -547,13 +551,13 @@ const ServiceRow = ({ service, index, canModify, onUpdate, onRemove }) => {
 
   return (
     <div className='p-3 border rounded-lg bg-white space-y-3'>
-      <div className='grid grid-cols-1 md:grid-cols-5 gap-4 items-center'>
-        <div className='space-y-1'>
+      <div className='grid grid-cols-1 md:grid-cols-12 gap-4 items-center'>
+        <div className='space-y-1 md:col-span-3'>
           <Label className='text-sm font-medium text-gray-700'>Service</Label>
           <div className='text-sm'>{service.name}</div>
         </div>
 
-        <div className='space-y-1'>
+        <div className='space-y-1 md:col-span-2'>
           <Label className='text-sm font-medium text-gray-700'>Quantity</Label>
           {isEditing && canModify ? (
             <Input
@@ -578,7 +582,7 @@ const ServiceRow = ({ service, index, canModify, onUpdate, onRemove }) => {
           )}
         </div>
 
-        <div className='space-y-1'>
+        <div className='space-y-1 md:col-span-2'>
           <Label className='text-sm font-medium text-gray-700'>Discount</Label>
           {isEditing && canModify ? (
             <Input
@@ -605,20 +609,24 @@ const ServiceRow = ({ service, index, canModify, onUpdate, onRemove }) => {
           )}
         </div>
 
-        <div className='space-y-1'>
-          <Label className='text-sm font-medium text-gray-700'>Final Price</Label>
+        <div className='space-y-1 md:col-span-2 xl:col-span-2'>
+          <Label className='text-sm font-medium text-gray-700'>Price</Label>
           <div className='text-sm font-medium'>${(service.price || 0).toFixed(2)}</div>
         </div>
 
-        <div className='flex space-x-2'>
+        <div
+          className={`flex md:col-span-3 xl:col-span-3 ${
+            isEditing ? 'flex-col space-y-2 ml-4' : 'space-x-2'
+          } justify-end`}
+        >
           {canModify && (
             <>
               {isEditing ? (
                 <>
-                  <Button size='sm' variant='outline' onClick={handleSave}>
+                  <Button size='sm' variant='outline' onClick={handleSave} className='w-full md:w-auto'>
                     Save
                   </Button>
-                  <Button size='sm' variant='outline' onClick={handleCancel}>
+                  <Button size='sm' variant='outline' onClick={handleCancel} className='w-full md:w-auto'>
                     Cancel
                   </Button>
                 </>
@@ -631,7 +639,7 @@ const ServiceRow = ({ service, index, canModify, onUpdate, onRemove }) => {
                 size='sm'
                 variant='outline'
                 onClick={() => onRemove(index)}
-                className='text-red-600 hover:text-red-700'
+                className={`text-red-600 hover:text-red-700 ${isEditing ? 'w-full md:w-auto' : ''}`}
               >
                 <Trash2 className='h-4 w-4' />
               </Button>

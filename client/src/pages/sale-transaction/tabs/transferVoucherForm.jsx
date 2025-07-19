@@ -1,5 +1,6 @@
 import React, { useEffect, useState } from 'react';
 import { IoAddOutline } from 'react-icons/io5';
+import { Card, CardContent } from '@/components/ui/card';
 import useTransferVoucherStore from '@/stores/useTransferVoucherStore';
 import useTransactionCartStore from '@/stores/useTransactionCartStore';
 import useSelectedMemberStore from '@/stores/useSelectedMemberStore';
@@ -7,6 +8,7 @@ import useEmployeeStore from '@/stores/useEmployeeStore';
 
 const TransferVoucherForm = () => {
   const currentMember = useSelectedMemberStore((state) => state.currentMember);
+  const { selectedMember } = useTransactionCartStore();
 
   const {
     voucherTemplates,
@@ -23,9 +25,11 @@ const TransferVoucherForm = () => {
     setPrice,
     setFoc,
     setOldVouchers,
+    getTotalOldBalance,
     getTopUpBalance,
     setSelectedMember,
     setTransferFormData,
+    setTopUpBalance,
   } = useTransferVoucherStore();
 
   const { addCartItem } = useTransactionCartStore();
@@ -35,11 +39,12 @@ const TransferVoucherForm = () => {
   const [hasCustomPrice, setHasCustomPrice] = useState(false);
   const [hasCustomFoc, setHasCustomFoc] = useState(false);
   const [createdBy, setCreatedBy] = useState('');
-  const [createdAt, setCreatedAt] = useState(() => {
-    const now = new Date();
-    now.setSeconds(0, 0); // truncate seconds/ms for input compatibility
-    return now.toISOString().slice(0, 16); // for datetime-local input
-  });
+  // ❌ REMOVED: Calendar component for creation date/time
+  // const [createdAt, setCreatedAt] = useState(() => {
+  //   const now = new Date();
+  //   now.setSeconds(0, 0); // truncate seconds/ms for input compatibility
+  //   return now.toISOString().slice(0, 16); // for datetime-local input
+  // });
 
   const [remarks, setRemarks] = useState('');
   const isFocGreaterThanPrice = parseFloat(foc || '0') > parseFloat(price || '0');
@@ -110,7 +115,7 @@ const TransferVoucherForm = () => {
       .map((v) => ({
         voucher_id: v.id,
         member_voucher_name: v.member_voucher_name,
-        balance_to_transfer: Number(v.current_balance) - (Number(v.foc_balance) || 0),
+        balance_to_transfer: Number(v.current_balance),
       }));
 
     const payload = {
@@ -122,8 +127,8 @@ const TransferVoucherForm = () => {
       old_voucher_details: oldVoucherDetails,
       is_bypass: bypassTemplate,
       created_by: createdBy,
-      created_at: createdAt,
-      remarks,
+      updated_by: updatedBy,
+      remarks: remarks, // <-- add remarks here
     };
 
     setTransferFormData(payload);
@@ -137,8 +142,8 @@ const TransferVoucherForm = () => {
     bypassTemplate,
     customVoucherName,
     createdBy,
-    createdAt,
-    remarks,
+    updatedBy,
+    remarks, // add remarks here as dependency
   ]);
 
   const handleDecimalInput = (e, setter, setCustomFlag, isFoc = false) => {
@@ -158,26 +163,30 @@ const TransferVoucherForm = () => {
   };
 
   const isBalanceGreater = totalOldBalance > Number(price);
-
-  const handleAddToCart = () => {
-    const voucherNameToUse = bypassTemplate ? customVoucherName : selectedVoucherName;
-    if (!voucherNameToUse || !price) return;
-
-    const cartPayload = {
-      id: `transfer-${Date.now()}`,
-      type: 'transferMV',
-      data: {
-        name: voucherNameToUse,
-        amount: Number(price),
-        description: `Transferred from: ${oldVouchers.join(', ')}`,
-      },
-    };
-
-    addCartItem(cartPayload);
-  };
+  const topUpBalance = getTopUpBalance();
 
   return (
     <div className='p-0'>
+      {!selectedMember && (
+        <Card className='border-orange-200 bg-orange-50'>
+          <CardContent className='py-2'>
+            <p className='text-orange-800 text-sm'>
+              Please select a member first before transferring member voucher balances.
+            </p>
+          </CardContent>
+        </Card>
+      )}
+
+      {selectedMember && (
+        <Card className='border-green-200 bg-green-50'>
+          <CardContent className='py-2'>
+            <p className='text-green-800 text-sm'>
+              Transferring member voucher balance for: <strong>{selectedMember.name}</strong>
+            </p>
+          </CardContent>
+        </Card>
+      )}
+
       <div className='p-3 bg-white shadow rounded-lg h-[700px] overflow-y-auto'>
         <h2 className='text-xl font-semibold mb-4'>Transfer Voucher</h2>
 
@@ -247,13 +256,6 @@ const TransferVoucherForm = () => {
             placeholder={bypassTemplate ? 'Enter FOC' : 'Auto-filled unless changed'}
           />
         </div>
-        {parseFloat(foc || '0') > parseFloat(price || '0') && (
-          <div className='mb-4 p-2 bg-red-100 text-red-700 rounded'>
-            ⚠️ FOC cannot be more than price.
-          </div>
-        )}
-
-        {/* Remarks */}
         <div className='mb-6'>
           <label className='block font-medium mb-1'>Remarks</label>
           <input
@@ -267,7 +269,7 @@ const TransferVoucherForm = () => {
 
         {/* Old Vouchers */}
         <div className='mb-6'>
-          <label className='block font-medium mb-1'>Old Voucher(s)</label>
+          <label className='block font-medium mb-1'>Old Voucher(s) [INCLUDE FOC]</label>
           {oldVouchers.map((voucherName, index) => (
             <div key={index} className='mb-2 flex items-center gap-2'>
               <select
@@ -349,25 +351,12 @@ const TransferVoucherForm = () => {
           </select>
         </div>
 
-        {/* Created At */}
-        <div className='mb-6'>
-          <label className='block font-medium mb-1'>Created At</label>
-          <input
-            type='datetime-local'
-            className='w-full border px-3 py-2 rounded'
-            value={createdAt}
-            onChange={(e) => setCreatedAt(e.target.value)}
-          />
-        </div>
-
         {/* Add to Cart Button */}
         <div className='mt-4 flex justify-end'>
           <button
             onClick={handleAddToCart}
             disabled={isFocGreaterThanPrice}
-            className={`px-6 py-2 rounded transition ${isFocGreaterThanPrice
-              ? 'bg-gray-400 cursor-not-allowed'
-              : 'bg-green-600 hover:bg-green-700 text-white'
+            className={`px-6 py-2 rounded transition ${isFocGreaterThanPrice ? 'bg-gray-400 cursor-not-allowed' : 'bg-green-600 hover:bg-green-700 text-white'
               }`}
           >
             Add to Cart

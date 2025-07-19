@@ -2,7 +2,6 @@ import React, { useState, useEffect } from 'react';
 import { Trash2, Edit3, Save, X, Clock, Tag } from 'lucide-react';
 import ServiceSelect from '@/components/ui/forms/ServiceSelect';
 import { FormProvider, useForm } from 'react-hook-form';
-import useServiceStore from '@/stores/useServiceStore';
 
 const ServiceItem = ({ service, index, isEditing, onEdit, onSave, onCancel, onRemove }) => {
   const [editData, setEditData] = useState({
@@ -295,13 +294,39 @@ const ServiceItem = ({ service, index, isEditing, onEdit, onSave, onCancel, onRe
 
         {/* service details */}
         {isEditing ? (
-          <div className='grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-6 gap-4'>
-            <div className='xl:col-span-2'>
-              <ServiceSelect name='service_id' label='Service *' onSelectFullDetails={handleServiceSelect} />
+          <div className='grid grid-cols-1 md:grid-cols-6 gap-4'>
+            {/* custom ServiceSelect with inline styles to override default spacing */}
+            <div className='md:col-span-2'>
+              <ServiceSelect 
+                name='service_id' 
+                label='Service *' 
+                onSelectFullDetails={handleServiceSelect}
+                className="space-y-1"
+                style={{ 
+                  '--label-margin': '0.25rem',
+                  '--input-padding': '0.5rem 0.75rem'
+                }}
+              />
+              <style jsx>{`
+                .space-y-1 > * + * {
+                  margin-top: 0.25rem !important;
+                }
+                .space-y-1 label {
+                  margin-bottom: 0.25rem !important;
+                  font-size: 0.75rem !important;
+                  font-weight: 500 !important;
+                  color: rgb(75 85 99) !important;
+                }
+                .space-y-1 button[role="combobox"] {
+                  padding: 0.5rem 0.75rem !important;
+                  font-size: 0.875rem !important;
+                  height: auto !important;
+                }
+              `}</style>
             </div>
 
             {/* original price (read-only - service's base price from database) */}
-            <div>
+            <div className='md:col-span-1'>
               <label className='block text-xs font-medium text-gray-600 mb-1'>
                 Original Price
                 <span className='text-xs text-gray-400 ml-1'>(from service)</span>
@@ -312,7 +337,7 @@ const ServiceItem = ({ service, index, isEditing, onEdit, onSave, onCancel, onRe
             </div>
 
             {/* custom price (editable - stored in database WITHOUT discount applied) */}
-            <div>
+            <div className='md:col-span-1'>
               <label className='block text-xs font-medium text-gray-600 mb-1'>
                 Custom Price
                 <span className='text-xs text-gray-400 ml-1'>(before discount)</span>
@@ -333,7 +358,7 @@ const ServiceItem = ({ service, index, isEditing, onEdit, onSave, onCancel, onRe
             </div>
 
             {/* discount factor with existing error handling */}
-            <div>
+            <div className='md:col-span-1'>
               <label className='block text-xs font-medium text-gray-600 mb-1'>Discount Factor</label>
               <input
                 type='number'
@@ -359,29 +384,8 @@ const ServiceItem = ({ service, index, isEditing, onEdit, onSave, onCancel, onRe
               </div>
             </div>
 
-            {/* discount factor */}
-            <div>
-              <label className='block text-xs font-medium text-gray-600 mb-1'>Discount Factor</label>
-              <input
-                type='number'
-                value={editData.discount !== undefined && editData.discount !== null ? editData.discount : ''}
-                onChange={(e) => handleEditDataChange('discount', e.target.value)}
-                onBlur={(e) => handleBlur('discount', e.target.value)}
-                className='w-full px-3 py-2 border border-gray-300 rounded-md text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent'
-                min='0'
-                max='1'
-                step='0.01'
-                placeholder='1.0'
-              />
-              <div className='text-xs text-gray-500 mt-1'>
-                {editData.discount !== undefined && editData.discount !== null && editData.discount !== ''
-                  ? `${getDiscountPercentage(editData.discount)}% off`
-                  : 'Range: 0.0-1.0 (1.0 = full price, 0.0 = 100% off)'}
-              </div>
-            </div>
-
             {/* quantity */}
-            <div>
+            <div className='md:col-span-1'>
               <label className='block text-xs font-medium text-gray-600 mb-1'>Quantity</label>
               <input
                 type='number'
@@ -395,9 +399,9 @@ const ServiceItem = ({ service, index, isEditing, onEdit, onSave, onCancel, onRe
             </div>
           </div>
         ) : (
-          <div className='grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-6 gap-4'>
+          <div className='grid grid-cols-1 md:grid-cols-6 gap-4'>
             {/* service name (read-only) */}
-            <div className='xl:col-span-2'>
+            <div className='md:col-span-2'>
               <label className='block text-xs font-medium text-gray-600 mb-1'>Service</label>
               <div className='w-full px-3 py-2 border border-gray-300 rounded-md text-sm bg-gray-50 text-gray-700'>
                 {service.name}
@@ -405,7 +409,7 @@ const ServiceItem = ({ service, index, isEditing, onEdit, onSave, onCancel, onRe
             </div>
 
             {/* original price (read-only) */}
-            <div>
+            <div className='md:col-span-1'>
               <label className='block text-xs font-medium text-gray-600 mb-1'>
                 Original Price
                 <span className='text-xs text-gray-400 ml-1'>(from service)</span>
@@ -416,7 +420,7 @@ const ServiceItem = ({ service, index, isEditing, onEdit, onSave, onCancel, onRe
             </div>
 
             {/* custom price (read-only - stored price WITHOUT discount) */}
-            <div>
+            <div className='md:col-span-1'>
               <label className='block text-xs font-medium text-gray-600 mb-1'>
                 Custom Price
                 <span className='text-xs text-gray-400 ml-1'>(before discount)</span>
@@ -427,7 +431,7 @@ const ServiceItem = ({ service, index, isEditing, onEdit, onSave, onCancel, onRe
             </div>
 
             {/* discount factor */}
-            <div>
+            <div className='md:col-span-1'>
               <label className='block text-xs font-medium text-gray-600 mb-1'>Discount Factor</label>
               <div className='w-full px-3 py-2 border border-gray-300 rounded-md text-sm bg-gray-50 text-gray-700'>
                 {discountFactorDisplay} ({getDiscountPercentage(discountFactorDisplay)}% off)
@@ -435,7 +439,7 @@ const ServiceItem = ({ service, index, isEditing, onEdit, onSave, onCancel, onRe
             </div>
 
             {/* quantity */}
-            <div>
+            <div className='md:col-span-1'>
               <label className='block text-xs font-medium text-gray-600 mb-1'>Quantity</label>
               <div className='w-full px-3 py-2 border border-gray-300 rounded-md text-sm bg-gray-50 text-gray-700'>
                 {quantityInDisplay}

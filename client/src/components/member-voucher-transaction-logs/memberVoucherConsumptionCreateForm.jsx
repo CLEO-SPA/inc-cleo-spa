@@ -2,6 +2,7 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Button } from '@/components/ui/button';
 import useAuth from '@/hooks/useAuth';
+import EmployeeSelect from '@/components/ui/forms/EmployeeSelect';
 
 import {
   Select,
@@ -16,6 +17,7 @@ const MemberVoucherConsumptionForm = () => {
   const { user } = useAuth();
   const {
     createFormFieldData,
+    loading,
 
     updateCreateFormField,
     clearCreateFormData,
@@ -105,22 +107,20 @@ const MemberVoucherConsumptionForm = () => {
         </div>
 
         <div>
-          <Label htmlFor="createdBy" className="block mb-2">Created By</Label>
-          <Input
-            id="createdBy"
+          <EmployeeSelect
+            label='Created By'
             value={createFormFieldData.createdBy}
-            onChange={(e) => handleInputChange('createdBy', e.target.value)}
-            placeholder="Enter creator name"
+            onChange={(value) => handleInputChange('createdBy', value)}
+            disabled={loading}
           />
         </div>
 
         <div>
-          <Label htmlFor="handledBy" className="block mb-2">Handled By</Label>
-          <Input
-            id="handledBy"
+          <EmployeeSelect
+            label='Handled By'
             value={createFormFieldData.handledBy}
-            onChange={(e) => handleInputChange('handledBy', e.target.value)}
-            placeholder="Enter handler name"
+            onChange={(value) => handleInputChange('handledBy', value)}
+            disabled={loading}
           />
         </div>
 

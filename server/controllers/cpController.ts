@@ -195,7 +195,7 @@ const createCarePackage = async (req: Request, res: Response, next: NextFunction
       package_remarks,
       parseFloat(package_price),
       services,
-      !!!is_customizable,
+      !!is_customizable,
       employee_id || req.session.user_id,
       created_at,
       updated_at
@@ -261,7 +261,7 @@ const updateCarePackageById = async (req: Request, res: Response, next: NextFunc
       package_remarks,
       parseFloat(package_price),
       services,
-      !!!is_customizable,
+      !!is_customizable,
       employee_id || req.session.user_id,
       updated_at || new Date().toISOString()
     );
