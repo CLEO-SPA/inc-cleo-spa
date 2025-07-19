@@ -11,7 +11,6 @@ import {
   Service,
   Product,
   TransactionRequestData,
-  TransactionRequestData,
   TransactionCreationResult,
   TransactionRequestItem,
   PaymentMethodRequest,
@@ -461,7 +460,12 @@ const getSalesTransactionById = async (id: string): Promise<SalesTransactionDeta
   }
 };
 
-const searchServices = async (searchQuery: string): Promise<Service[]> => {
+
+
+
+const searchServices = async (
+  searchQuery: string
+): Promise<Service[]> => {
   try {
     let query = `
       SELECT 
@@ -884,9 +888,7 @@ const createMcpTransaction = async (
   transactionData: SingleItemTransactionRequestData
 ): Promise<SingleItemTransactionCreationResult> => {
   const client = await pool().connect();
-  // Define mcpId outside the try block so it's available in the catch block
   let mcpId: string | number | null | undefined = null;
-
   try {
     await client.query('BEGIN');
 
@@ -900,9 +902,8 @@ const createMcpTransaction = async (
       handled_by,
       item,
       payments,
-
       created_at,
-      updated_at,
+      updated_at
     } = transactionData;
 
     // Validate required fields
@@ -922,7 +923,35 @@ const createMcpTransaction = async (
       throw new Error('payments array is required and cannot be empty');
     }
 
-    // Extract the actual MCP ID from the item data
+    let customCreatedAt = null;
+    let customUpdatedAt = null;
+
+    if (created_at) {
+      try {
+        customCreatedAt = new Date(created_at);
+        if (isNaN(customCreatedAt.getTime())) {
+          customCreatedAt = new Date();
+        }
+      } catch (error) {
+        customCreatedAt = new Date();
+      }
+    } else {
+      customCreatedAt = new Date();
+    }
+
+    if (updated_at) {
+      try {
+        customUpdatedAt = new Date(updated_at);
+        if (isNaN(customUpdatedAt.getTime())) {
+          customUpdatedAt = customCreatedAt;
+        }
+      } catch (error) {
+        customUpdatedAt = customCreatedAt;
+      }
+    } else {
+      customUpdatedAt = customCreatedAt;
+    }
+
     mcpId = item.data?.member_care_package_id || item.data?.id;
 
     if (!mcpId) {
@@ -949,13 +978,20 @@ const createMcpTransaction = async (
     const totalTransactionAmount: number = item.pricing?.totalLinePrice || 0;
 
     const PENDING_PAYMENT_METHOD_ID = 7;
+    const GST_PAYMENT_METHOD_ID = 10; // GST payment method ID
 
-    const pendingPayments = payments.filter(
-      (payment: PaymentMethodRequest) => payment.methodId === PENDING_PAYMENT_METHOD_ID
+    // Separate payments by type
+    const pendingPayments = payments.filter((payment: PaymentMethodRequest) =>
+      payment.methodId === PENDING_PAYMENT_METHOD_ID
     );
 
-    const nonPendingPayments = payments.filter(
-      (payment: PaymentMethodRequest) => payment.methodId !== PENDING_PAYMENT_METHOD_ID
+    const gstPayments = payments.filter((payment: PaymentMethodRequest) =>
+      payment.methodId === GST_PAYMENT_METHOD_ID
+    );
+
+    const actualPayments = payments.filter((payment: PaymentMethodRequest) =>
+      payment.methodId !== PENDING_PAYMENT_METHOD_ID &&
+      payment.methodId !== GST_PAYMENT_METHOD_ID
     );
 
     // Calculate amounts
@@ -1032,7 +1068,7 @@ const createMcpTransaction = async (
       handled_by,
       created_by,
       customCreatedAt,
-      customUpdatedAt,
+      customUpdatedAt
     ];
 
     const transactionResult = await client.query(transactionQuery, transactionParams);
@@ -1071,7 +1107,7 @@ const createMcpTransaction = async (
       item.pricing?.quantity || 1,
       item.pricing?.totalLinePrice || 0,
       'member care package',
-      item.remarks || '',
+      item.remarks || ''
     ];
 
     const itemResult = await client.query(itemQuery, itemParams);
@@ -1079,9 +1115,9 @@ const createMcpTransaction = async (
 
     console.log('Created MCP sale transaction item with ID:', saleTransactionItemId);
 
-    // Update MCP balance with the paid amount (only non-pending payments)
-    if (totalPaidAmount > 0) {
-      const newBalance = currentBalance + totalPaidAmount;
+    // Update MCP balance with the paid amount EXCLUDING GST
+    if (totalActualPaymentAmount > 0) {
+      const newBalance = currentBalance + totalActualPaymentAmount;
 
       const updateBalanceQuery = `
         UPDATE member_care_packages 
@@ -1093,14 +1129,18 @@ const createMcpTransaction = async (
       const updateBalanceResult = await client.query(updateBalanceQuery, [newBalance, customUpdatedAt, mcpId]);
       const updatedBalance = updateBalanceResult.rows[0].balance;
 
-      console.log('✅ Updated MCP balance:', {
+      console.log('✅ Updated MCP balance (excluding GST):', {
         mcpId: mcpId,
         previousBalance: currentBalance,
-        paidAmount: totalPaidAmount,
+        actualPaymentAmount: totalActualPaymentAmount,
+        gstAmount: totalGSTAmount,
+        totalPaidAmount: totalPaidAmount,
         newBalance: updatedBalance,
+        note: 'GST excluded from balance calculation'
       });
     }
 
+    // Insert all payments (actual + GST) and create correct pending payment
     for (const payment of payments) {
       // Skip frontend pending payments - we'll create our own
       if (payment.methodId === PENDING_PAYMENT_METHOD_ID) {
@@ -1130,9 +1170,9 @@ const createMcpTransaction = async (
           payment.methodId,
           payment.amount,
           payment.remark || '',
-          created_by,
+          handled_by,
           customCreatedAt,
-          customUpdatedAt,
+          customUpdatedAt
         ];
 
         const paymentResult = await client.query(paymentQuery, paymentParams);
@@ -1193,8 +1233,7 @@ const createMcpTransaction = async (
       remarks: remarks || '',
       created_by,
       handled_by,
-      package_id: mcpId as number, // Use actual MCP ID
-      package_name: mcpRecord.care_package_name, // Use actual package name from database
+      package_name: mcpRecord.package_name,
       items_count: 1,
       payments_count: payments.filter((p: PaymentMethodRequest) => p.amount > 0).length
     };
@@ -1318,13 +1357,20 @@ const createMvTransaction = async (
     const totalTransactionAmount: number = item.pricing?.totalLinePrice || 0;
 
     const PENDING_PAYMENT_METHOD_ID = 7;
+    const GST_PAYMENT_METHOD_ID = 10;
 
-    const pendingPayments = payments.filter(
-      (payment: PaymentMethodRequest) => payment.methodId === PENDING_PAYMENT_METHOD_ID
+    // Separate payments by type (same as MCP)
+    const pendingPayments = payments.filter((payment: PaymentMethodRequest) =>
+      payment.methodId === PENDING_PAYMENT_METHOD_ID
     );
 
-    const nonPendingPayments = payments.filter(
-      (payment: PaymentMethodRequest) => payment.methodId !== PENDING_PAYMENT_METHOD_ID
+    const gstPayments = payments.filter((payment: PaymentMethodRequest) =>
+      payment.methodId === GST_PAYMENT_METHOD_ID
+    );
+
+    const actualPayments = payments.filter((payment: PaymentMethodRequest) =>
+      payment.methodId !== PENDING_PAYMENT_METHOD_ID &&
+      payment.methodId !== GST_PAYMENT_METHOD_ID
     );
 
     // Calculate amounts (same logic as MCP)
@@ -1405,8 +1451,6 @@ const createMvTransaction = async (
 
     const transactionResult = await client.query(transactionQuery, transactionParams);
     const saleTransactionId: number = transactionResult.rows[0].id;
-
-
 
     // Insert voucher item with actual MV ID
     const itemQuery: string = `
@@ -1556,6 +1600,8 @@ const createMcpTransferTransaction = async (
   transactionData: SingleItemTransactionRequestData
 ): Promise<SingleItemTransactionCreationResult> => {
   const client = await pool().connect();
+
+  let transferDetails;
 
   try {
     await client.query('BEGIN');
@@ -1708,7 +1754,7 @@ const createMcpTransferTransaction = async (
       handled_by,
       created_by,
       customCreatedAt,
-      customUpdatedAt
+      customUpdatedAt,
     ];
 
     console.log('MCP Transfer Transaction Query:', transactionQuery);
@@ -1801,7 +1847,7 @@ const createMcpTransferTransaction = async (
           payment.remark || '',
           created_by,
           customCreatedAt,
-          customUpdatedAt
+          customUpdatedAt,
         ];
 
         console.log('MCP Transfer Payment Query:', paymentQuery);
@@ -1881,7 +1927,6 @@ const createMvTransferTransaction = async (
       handled_by,
       item,
       payments,
-      // payment_method
       created_at,
       updated_at,
     } = transactionData;
@@ -2021,7 +2066,7 @@ const createMvTransferTransaction = async (
       handled_by,
       created_by,
       customCreatedAt,
-      customUpdatedAt
+      customUpdatedAt,
     ];
 
     console.log('MV Transfer Transaction Query:', transactionQuery);
@@ -2105,7 +2150,7 @@ const createMvTransferTransaction = async (
           payment.remark || '',
           created_by,
           customCreatedAt,
-          customUpdatedAt
+          customUpdatedAt,
         ];
 
         console.log('MV Transfer Payment Query:', paymentQuery);
@@ -2218,9 +2263,14 @@ const processPartialPayment = async (
     const originalTransaction = originalResult.rows[0];
 
     const PENDING_PAYMENT_METHOD_ID = 7;
+    const GST_PAYMENT_METHOD_ID = 10;
 
-    const actualPayments = payments.filter((payment) => payment.payment_method_id !== PENDING_PAYMENT_METHOD_ID);
-    const pendingPayments = payments.filter((payment) => payment.payment_method_id === PENDING_PAYMENT_METHOD_ID);
+    const pendingPayments = payments.filter(payment => payment.payment_method_id === PENDING_PAYMENT_METHOD_ID);
+    const gstPayments = payments.filter(payment => payment.payment_method_id === GST_PAYMENT_METHOD_ID);
+    const actualPayments = payments.filter(payment =>
+      payment.payment_method_id !== PENDING_PAYMENT_METHOD_ID &&
+      payment.payment_method_id !== GST_PAYMENT_METHOD_ID
+    );
 
     const totalActualPaymentAmount = actualPayments.reduce((sum, payment) => sum + payment.amount, 0);
     const totalGSTAmount = gstPayments.reduce((sum, payment) => sum + payment.amount, 0);
@@ -2246,9 +2296,8 @@ const processPartialPayment = async (
     const originalItemsResult = await client.query(originalItemsQuery, [transactionId]);
     const originalItems = originalItemsResult.rows;
 
-    // Calculate new transaction values
-    const newTotalPaidAmount = totalActualPaymentAmount;
-    const newOutstandingAmount = originalTransaction.outstanding_total_payment_amount - totalActualPaymentAmount;
+    const newTotalPaidAmount = totalNewPaidAmount;
+    const newOutstandingAmount = originalTransaction.outstanding_total_payment_amount - outstandingReduction;
     const newTransactionStatus = newOutstandingAmount > 0.01 ? 'PARTIAL' : 'FULL';
     const newProcessPayment = newOutstandingAmount > 0.01;
 
@@ -2373,9 +2422,58 @@ const processPartialPayment = async (
 
     if (voucherItems.length > 0) {
       for (const voucherItem of voucherItems) {
-        const voucherResult = await client.query('SELECT free_of_charge FROM member_vouchers WHERE id = $1', [
+        await client.query(
+          'UPDATE member_vouchers SET current_balance = COALESCE(current_balance, 0) + $1 WHERE id = $2',
+          [totalActualPaymentAmount, voucherItem.member_voucher_id]
+        );
+
+        const voucherResult = await client.query(
+          'SELECT current_balance FROM member_vouchers WHERE id = $1',
+          [voucherItem.member_voucher_id]
+        );
+
+        const updatedBalance = parseFloat(voucherResult.rows[0]?.current_balance || 0);
+
+        const insertVoucherLogQuery = `
+          INSERT INTO member_voucher_transaction_logs (
+            member_voucher_id,
+            service_description,
+            service_date,
+            current_balance,
+            amount_change,
+            serviced_by,
+            type,
+            created_by,
+            last_updated_by,
+            created_at,
+            updated_at
+          ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11)
+        `;
+
+        const voucherLogParams = [
           voucherItem.member_voucher_id,
-        ]);
+          `Partial payment of $${totalActualPaymentAmount} for receipt ${finalReceiptNumber}`,
+          currentTime,
+          updatedBalance,
+          totalActualPaymentAmount,
+          transaction_handler_id,
+          'PURCHASE',
+          payment_handler_id,
+          payment_handler_id,
+          currentTime,
+          currentTime
+        ];
+
+        await client.query(insertVoucherLogQuery, voucherLogParams);
+      }
+    }
+
+    if (voucherItems.length > 0 && newTransactionStatus === 'FULL') {
+      for (const voucherItem of voucherItems) {
+        const voucherResult = await client.query(
+          'SELECT free_of_charge, current_balance FROM member_vouchers WHERE id = $1',
+          [voucherItem.member_voucher_id]
+        );
 
         if (voucherResult.rows.length > 0) {
           const voucher = voucherResult.rows[0];
@@ -2383,11 +2481,43 @@ const processPartialPayment = async (
           const currentBalance = parseFloat(voucher.current_balance) || 0;
 
           if (freeOfCharge > 0) {
-            // Update the voucher balance
             await client.query(
               'UPDATE member_vouchers SET current_balance = COALESCE(current_balance, 0) + $1 WHERE id = $2',
               [freeOfCharge, voucherItem.member_voucher_id]
             );
+
+            const insertVoucherLogQuery = `
+              INSERT INTO member_voucher_transaction_logs (
+                member_voucher_id,
+                service_description,
+                service_date,
+                current_balance,
+                amount_change,
+                serviced_by,
+                type,
+                created_by,
+                last_updated_by,
+                created_at,
+                updated_at
+              ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11)
+            `;
+
+            const newBalance = currentBalance + freeOfCharge;
+            const voucherLogParams = [
+              voucherItem.member_voucher_id,
+              `Payment completed for receipt ${finalReceiptNumber} - FOC addition`,
+              currentTime,
+              newBalance,
+              freeOfCharge,
+              transaction_handler_id,
+              'ADD FOC',
+              payment_handler_id,
+              payment_handler_id,
+              currentTime,
+              currentTime
+            ];
+
+            await client.query(insertVoucherLogQuery, voucherLogParams);
           }
         }
       }
