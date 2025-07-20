@@ -3,7 +3,7 @@ const router = express.Router();
 
 import roleMiddleware from '../middlewares/roleMiddleware.js';
 import isAuthenticated from '../middlewares/authMiddleware.js';
-import commisionMiddleware from '../middlewares/commisionMiddleware.js';
+import commisionMiddleware from '../middlewares/commissionMiddleware.js';
 
 import controller from '../controllers/mcpController.js';
 

@@ -727,6 +727,7 @@ const createServicesProductsTransaction = async (
 
     console.log('Created sale transaction with ID:', saleTransactionId);
 
+    const createdItemIds: number[] = [];
     // Insert sale transaction items
     for (const item of items) {
       const itemQuery: string = `
@@ -789,6 +790,8 @@ const createServicesProductsTransaction = async (
       const itemResult = await client.query(itemQuery, itemParams);
       const saleTransactionItemId: number = itemResult.rows[0].id;
 
+      createdItemIds.push(saleTransactionItemId);
+
       console.log('Created sale transaction item with ID:', saleTransactionItemId);
     }
 
@@ -840,6 +843,7 @@ const createServicesProductsTransaction = async (
       handled_by,
       items_count: items.length,
       payments_count: payments.filter((p: PaymentMethodRequest) => p.amount > 0).length,
+      createdItemIds
     };
   } catch (error) {
     await client.query('ROLLBACK');

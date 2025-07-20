@@ -1,5 +1,5 @@
 import { Request, Response, NextFunction } from 'express';
-import model from '../models/commisionModel.js';
+import model from '../models/commissionModel.js';
 
 /**
  * Get /api/com/commissionSettings

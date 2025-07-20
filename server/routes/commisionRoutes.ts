@@ -4,7 +4,7 @@ const router = express.Router();
 import roleMiddleware from '../middlewares/roleMiddleware.js';
 import isAuthenticated from '../middlewares/authMiddleware.js';
 
-import commisionController from '../controllers/commisionController.js';
+import commisionController from '../controllers/commissionController.js';
 
 // =========================
 // Public routes

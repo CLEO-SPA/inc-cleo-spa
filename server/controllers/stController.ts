@@ -124,7 +124,7 @@ const searchProducts = async (req: Request, res: Response): Promise<void> => {
   }
 };
 
-const createServicesProductsTransaction = async (req: Request, res: Response): Promise<void> => {
+const createServicesProductsTransaction = async (req: Request, res: Response, next: NextFunction): Promise<void> => {
   try {
     console.log('Creating services/products transaction:', req.body);
 
@@ -133,11 +133,19 @@ const createServicesProductsTransaction = async (req: Request, res: Response): P
 
     console.log('Services/products transaction created successfully:', result);
 
-    res.status(201).json({
+    res.locals.data = {
       success: true,
       message: 'Services/products transaction created successfully',
-      data: result,
-    });
+      data: result
+    };
+
+    next();
+
+    // res.status(201).json({
+    //   success: true,
+    //   message: 'Services/products transaction created successfully',
+    //   data: result,
+    // });
   } catch (error: any) {
     console.error('Error creating services/products transaction:', error);
 

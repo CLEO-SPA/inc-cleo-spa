@@ -181,6 +181,7 @@ export interface TransactionCreationResult {
   handled_by: number;
   items_count: number;
   payments_count: number;
+  createdItemIds?: number[];
 }
 
 export interface SingleTransactionRequestItem {
