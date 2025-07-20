@@ -54,7 +54,7 @@ const MCPDetail = () => {
   const [selectedServices, setSelectedServices] = useState([]);
 
 
-  useEffect(() => {
+useEffect(() => {
     const fetchPackageDetails = async () => {
       try {
         setIsLoading(true);
@@ -85,11 +85,10 @@ const MCPDetail = () => {
     fetchPackageDetails();
   }, [packageId]);
 
-  // In the initialization useEffect
   useEffect(() => {
     if (packageData?.services) {
       setSelectedServices(packageData.services.map(service => ({
-        detail_id: service.detail_id, // Use detail_id from the API
+        detail_id: service.detail_id,
         service_id: service.service_id,
         service_name: service.service_name,
         price: service.totals.price,
@@ -106,16 +105,15 @@ const MCPDetail = () => {
       prevServices.map(service =>
         service.detail_id === detail_id
           ? {
-            ...service,
-            quantity: Math.max(0, Math.min(Number(value), service.maxQuantity)),
-            amount: Math.max(0, Math.min(Number(value), service.maxQuantity)) * service.price * service.discount
-          }
+              ...service,
+              quantity: Math.max(0, Math.min(Number(value), service.maxQuantity)),
+              amount: Math.max(0, Math.min(Number(value), service.maxQuantity)) * service.price * service.discount
+            }
           : service
       )
     );
   };
 
-  // Calculate total directly
   const totalRefundAmount = selectedServices.reduce(
     (sum, service) => sum + service.amount,
     0
@@ -135,7 +133,7 @@ const MCPDetail = () => {
     const refundItems = selectedServices
       .filter(service => service.quantity > 0)
       .map(service => ({
-        detail_id: Number(service.detail_id), // Convert to number
+        detail_id: Number(service.detail_id),
         quantity: service.quantity
       }));
 
@@ -144,14 +142,13 @@ const MCPDetail = () => {
       return;
     }
 
-    // Format the refund date properly if using custom date
     let formattedRefundDate = null;
     if (useCustomDate && refundDate) {
       formattedRefundDate = refundDate.toISOString().replace('T', ' ').replace(/\..+/, '') + '+00';
     }
 
     const requestBody = {
-      mcpId: Number(packageId), // Convert to number
+      mcpId: Number(packageId),
       refundedBy: handledById,
       refundRemarks: remarks,
       refundDate: formattedRefundDate,
@@ -166,7 +163,37 @@ const MCPDetail = () => {
 
     try {
       await api.processPartialRefund(requestBody);
-      // ... rest of your success handling
+      
+      // Show success message
+      setSuccessMessage('Refund processed successfully!');
+      
+      // Reset form and refetch data after 2 seconds
+      setTimeout(async () => {
+        try {
+          setIsLoading(true);
+          const data = await api.getPackageDetails(packageId);
+          setPackageData(data);
+          setSelectedServices(data.services.map(service => ({
+            detail_id: service.detail_id,
+            service_id: service.service_id,
+            service_name: service.service_name,
+            price: service.totals.price,
+            discount: service.totals.discount || 1,
+            maxQuantity: service.totals.remaining,
+            quantity: 0,
+            amount: 0
+          })));
+          setRemarks('');
+          setRefundDate(null);
+          setUseCustomDate(false);
+          setSuccessMessage('');
+        } catch (error) {
+          console.error('Error refreshing package details:', error);
+        } finally {
+          setIsLoading(false);
+        }
+      }, 2000);
+
     } catch (err) {
       console.error('Refund processing failed:', err);
       setError(err.response?.data?.message || 'Failed to process refund. Please try again.');
