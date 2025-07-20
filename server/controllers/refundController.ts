@@ -328,15 +328,12 @@ const fetchMCPStatus = async (req: Request, res: Response, next: NextFunction) =
       return res.status(400).json({ error: 'Invalid ID' });
     }
 
-    // Get basic package status
     const results = await model.fetchMCPStatusById(id);
     if (!results?.length) {
       return res.status(404).json({ error: 'Package not found' });
     }
 
     const { package_id, package_name, balance } = results[0];
-
-    // Check if any service was refunded
     const hasRefundedService = results.some(s => parseInt(s.refunded) > 0);
     let refundDetails = null;
 
@@ -349,7 +346,7 @@ const fetchMCPStatus = async (req: Request, res: Response, next: NextFunction) =
       const consumed = parseInt(s.consumed) || 0;
       const refunded = parseInt(s.refunded) || 0;
       const unpaid = parseInt(s.unpaid) || 0;
-      const price = parseFloat(s.discounted_price) || 0; // Use discounted_price here
+      const price = parseFloat(s.discounted_price) || 0;
       const remaining = parseInt(s.remaining) || 0;
       const total = parseInt(s.total_quantity) || 0;
 
@@ -363,11 +360,12 @@ const fetchMCPStatus = async (req: Request, res: Response, next: NextFunction) =
       }
 
       return {
+        detail_id: s.detail_id,  // Add this line
         service_id: s.service_id,
         service_name: s.service_name,
         totals: {
           total,
-          price, // This now contains the discounted price
+          price,
           purchased,
           consumed,
           refunded,

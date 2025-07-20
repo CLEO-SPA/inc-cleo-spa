@@ -883,14 +883,14 @@ const fetchMCPStatusById = async (packageId: number) => {
       mcp.id AS package_id,
       mcp.package_name,
       mcp.balance,
-      mcpd.id,
+      mcpd.id AS id,  
+      mcpd.id AS detail_id,
       mcpd.service_id,
       mcpd.service_name,
       mcpd.price,
       mcpd.discount,
       mcpd.price * mcpd.discount AS discounted_price,
       mcpd.quantity AS total_quantity,
-      mcpd.quantity AS original_quantity,  
       FLOOR(COALESCE(pt.purchased_quantity, 0)) AS purchased,
       COALESCE(ct.consumed, 0) AS consumed,
       FLOOR(COALESCE(rt.refunded_quantity, 0)) AS refunded,
@@ -914,7 +914,6 @@ const fetchMCPStatusById = async (packageId: number) => {
   const { rows } = await pool().query(query, [packageId]);
   return rows;
 };
-
 
 const getRefundDetailsForPackage = async (packageId: number) => {
   const query = `

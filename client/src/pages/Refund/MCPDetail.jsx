@@ -89,8 +89,7 @@ const MCPDetail = () => {
   useEffect(() => {
     if (packageData?.services) {
       setSelectedServices(packageData.services.map(service => ({
-        id: service.detail_id, // Make sure this matches what's in packageData
-        detail_id: service.detail_id, // Add this for clarity
+        detail_id: service.detail_id, // Use detail_id from the API
         service_id: service.service_id,
         service_name: service.service_name,
         price: service.totals.price,
@@ -103,20 +102,17 @@ const MCPDetail = () => {
   }, [packageData]);
 
   const handleQuantityChange = (detail_id, value) => {
-    const numericValue = Math.max(0, Math.min(
-      Number(value),
-      selectedServices.find(s => s.detail_id === detail_id)?.maxQuantity || 0
-    ));
-
-    setSelectedServices(prev => prev.map(service =>
-      service.detail_id === detail_id
-        ? {
-          ...service,
-          quantity: numericValue,
-          amount: numericValue * service.price * service.discount
-        }
-        : service
-    ));
+    setSelectedServices(prevServices =>
+      prevServices.map(service =>
+        service.detail_id === detail_id
+          ? {
+            ...service,
+            quantity: Math.max(0, Math.min(Number(value), service.maxQuantity)),
+            amount: Math.max(0, Math.min(Number(value), service.maxQuantity)) * service.price * service.discount
+          }
+          : service
+      )
+    );
   };
 
   // Calculate total directly
@@ -475,7 +471,7 @@ const MCPDetail = () => {
                             const maxAvailable = service.totals.remaining;
 
                             return (
-                              <div key={service.detail_idid} className="border border-gray-200 rounded-lg overflow-hidden">
+                              <div key={`service-${service.detail_id}`} className="border border-gray-200 rounded-lg overflow-hidden">
                                 <div className="bg-gray-50 px-6 py-4 border-b border-gray-200">
                                   <div className="flex items-center justify-between">
                                     <div>
