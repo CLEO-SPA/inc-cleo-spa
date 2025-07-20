@@ -1,10 +1,11 @@
-import React, { useState } from 'react';
+import React from 'react';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Button } from '@/components/ui/button';
 import useAuth from '@/hooks/useAuth';
 import EmployeeSelect from '@/components/ui/forms/EmployeeSelect';
 import EmployeeCommissionSelect from '@/components/ui/forms/EmployeeCommissionSelect';
+import useEmployeeCommissionStore from '@/stores/useEmployeeCommissionStore'; 
 
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import useMemberVoucherTransactionStore from '@/stores/MemberVoucher/useMemberVoucherTransactionStore';
@@ -15,7 +16,7 @@ const MemberVoucherConsumptionForm = () => {
     createFormFieldData,
     loading,
     selectedServiceId, // Used for EmployeeCommissionSelect
-    selectedServiceFinalPrice, // Used for EmployeeCommissionSelect
+    // selectedServiceFinalPrice, // Used for EmployeeCommissionSelect
 
     updateCreateFormField,
     clearCreateFormData,
@@ -24,12 +25,78 @@ const MemberVoucherConsumptionForm = () => {
     setIsConfirming,
   } = useMemberVoucherTransactionStore();
 
+  const getCommissionAssignments = useEmployeeCommissionStore((state) => state.getCommissionAssignments);
+
   const handleInputChange = (field, value) => {
     updateCreateFormField(field, value);
   };
 
+  // const handleSubmit = () => {
+  //   // Get commission data from commission store
+  //   const itemId = selectedServiceId || 'mv-consumption';
+  //   const rawCommissionData = getCommissionAssignments(itemId);
+    
+  //   // Clean and structure commission data for API
+  //   const cleanCommissionData = rawCommissionData?.map(assignment => ({
+  //     employeeId: assignment.employeeId,
+  //     employeeName: assignment.employeeName,
+  //     performanceRate: assignment.performanceRate,
+  //     performanceAmount: assignment.performanceAmount,
+  //     commissionRate: assignment.commissionRate,
+  //     commissionAmount: assignment.commissionAmount,
+  //     remarks: assignment.remarks || '',
+  //     itemType: 'member-voucher' 
+  //   })) || [];
+
+  //   // Create form data with cleaned commission data
+  //   const formDataWithCommission = {
+  //     consumptionValue: createFormFieldData.consumptionValue,
+  //     remarks: createFormFieldData.remarks,
+  //     date: createFormFieldData.date,
+  //     time: createFormFieldData.time,
+  //     type: createFormFieldData.type,
+  //     createdBy: createFormFieldData.createdBy,
+  //     handledBy: createFormFieldData.handledBy,
+  //     assignedEmployee: cleanCommissionData 
+  //   };
+
+  //   if (setStoreFormData(formDataWithCommission)) {
+  //     setIsCreating(true);
+  //     setIsConfirming(true);
+  //   }
+  // };
+
   const handleSubmit = () => {
-    if (setStoreFormData(createFormFieldData)) {
+    // Get and clean commission data
+    const itemId = selectedServiceId || 'mv-consumption';
+    const rawCommissionData = getCommissionAssignments(itemId);
+    
+    const assignedEmployee = rawCommissionData?.map(({ 
+      employeeId, 
+      employeeName, 
+      performanceRate, 
+      performanceAmount, 
+      commissionRate, 
+      commissionAmount, 
+      remarks = '' 
+    }) => ({
+      employeeId,
+      employeeName,
+      performanceRate,
+      performanceAmount,
+      commissionRate,
+      commissionAmount,
+      remarks,
+      itemType: 'member-voucher'
+    })) || [];
+
+    // Submit form data with commission
+    const formData = {
+      ...createFormFieldData,
+      assignedEmployee
+    };
+
+    if (setStoreFormData(formData)) {
       setIsCreating(true);
       setIsConfirming(true);
     }
@@ -40,6 +107,7 @@ const MemberVoucherConsumptionForm = () => {
   };
 
   const canAdd = user?.role === 'super_admin' || user?.role === 'data_admin';
+  const consumptionValue = parseFloat(createFormFieldData.consumptionValue) || 0;
 
   return (
     <div className='max-h-130 overflow-y-auto bg-gray mr-5 my-2 rounded-lg'>
@@ -68,6 +136,11 @@ const MemberVoucherConsumptionForm = () => {
             onChange={(e) => handleInputChange('remarks', e.target.value)}
             placeholder='Enter remarks'
           />
+          {consumptionValue > 0 && (
+            <div className="text-xs text-blue-600 mt-1">
+              Commission will be calculated based on $${consumptionValue.toFixed(2)} consumption
+            </div>
+          )}
         </div>
 
         <div className='grid grid-cols-2 gap-2'>
@@ -132,10 +205,17 @@ const MemberVoucherConsumptionForm = () => {
         <EmployeeCommissionSelect
           itemId={selectedServiceId}
           itemType={'mvConsumption'}
-          totalPrice={selectedServiceFinalPrice}
+          totalPrice={consumptionValue}
           formatCurrency={(value) => `$${value.toFixed(2)}`}
-          disabled={false}
+          disabled={consumptionValue <= 0}
         />
+
+        {/* ✅ Show warning if no consumption value */}
+        {consumptionValue <= 0 && (
+          <div className="text-sm text-orange-600 bg-orange-50 p-2 rounded">
+            Please enter a consumption value to calculate employee commissions
+          </div>
+        )}
 
         <div className='flex gap-2 py-4'>
           <Button variant='outline' onClick={handleClear} className='flex-1'>

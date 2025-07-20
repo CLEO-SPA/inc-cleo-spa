@@ -189,7 +189,7 @@ const createMcpTransaction = async (req: Request, res: Response, next: NextFunct
   }
 };
 
-const createMvTransaction = async (req: Request, res: Response): Promise<void> => {
+const createMvTransaction = async (req: Request, res: Response, next: NextFunction): Promise<void> => {
   try {
     console.log('Creating MV transaction:', req.body);
 
@@ -198,11 +198,13 @@ const createMvTransaction = async (req: Request, res: Response): Promise<void> =
 
     console.log('MV transaction created successfully:', result);
 
-    res.status(201).json({
+    res.locals.data = {
       success: true,
       message: 'MV transaction created successfully',
       data: result,
-    });
+    };
+
+    next();
   } catch (error: any) {
     console.error('Error creating MV transaction:', error);
 

@@ -343,7 +343,9 @@ const getPaginatedMemberVoucherTransactionLogs = async (
   }
 };
 
-const addTransactionLogsByMemberVoucherId = async (data: MemberVoucherTransactionLogCreateData): Promise<{ success: boolean, message: string }> => {
+const addTransactionLogsByMemberVoucherId = async (data: MemberVoucherTransactionLogCreateData): Promise<{
+  success: boolean, message: string, transactionLogId?: number
+}> => {
   const {
     id,
     consumptionValue,
@@ -365,21 +367,17 @@ const addTransactionLogsByMemberVoucherId = async (data: MemberVoucherTransactio
   console.log("consumptionValue: " + negConsumptionValue);
 
   const service_date = new Date(`${date}T${time}`);
-
   const last_updated_by = createdBy;
-
   const created_at = new Date();
-
   const updated_at = created_at;
-
   const client = await pool().connect();
 
   try {
-
     const insertQuery = `
         INSERT INTO member_voucher_transaction_logs (
           member_voucher_id, service_description, service_date, current_balance, amount_change, serviced_by, type, created_by, last_updated_by, created_at, updated_at)
-          VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11);
+          VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11)
+          RETURNING id;
         `;
 
     const insertValues = [
@@ -398,6 +396,7 @@ const addTransactionLogsByMemberVoucherId = async (data: MemberVoucherTransactio
     await client.query('BEGIN');
 
     const insertResult = await client.query(insertQuery, insertValues);
+    const transactionLogId = insertResult.rows[0]?.id;
 
     const updateQuery = `
     UPDATE member_vouchers 
@@ -418,6 +417,7 @@ const addTransactionLogsByMemberVoucherId = async (data: MemberVoucherTransactio
       return {
         success: true,
         message: "Member Voucher transaction log created and balance updated successfully.",
+        transactionLogId: transactionLogId
       };
     } else {
       // Rollback if any operation failed
@@ -965,7 +965,22 @@ const createMemberVoucher = async (
     const updatedAt = createdAt;                    // Keep voucher update date separate
 
     // FIXED: Proper employee ID handling
-    const employee_id = assignedEmployee ? Number(assignedEmployee) : Number(created_by);
+    /**
+     * Original code - since we are sending an array of assigned employees from the frontend, i changed this to handle that.
+     */
+    // const employee_id = assignedEmployee ? Number(assignedEmployee) : Number(created_by);
+
+    /**
+     * Debugging employee_id calculation
+     */
+    const employee_id = assignedEmployee && Array.isArray(assignedEmployee) && assignedEmployee.length > 0
+      ? Number(assignedEmployee[0].employeeId || assignedEmployee[0]) // Get first employee's ID for voucher creation
+      : Number(created_by); // Fallback to created_by
+
+    // Validate that employee_id is not NaN
+    if (isNaN(employee_id)) {
+      throw new Error(`Invalid employee ID: ${employee_id}. Check assignedEmployee data or created_by value.`);
+    }
 
     // Database validations
     let validationPromises = [

@@ -32,7 +32,8 @@ const getInitialState = () => ({
         time: '12:00',
         type: '',
         createdBy: '',
-        handledBy: ''
+        handledBy: '',
+        assignedEmployee: []
     },
     updateFormFieldData: {
         consumptionValue: '',
@@ -303,7 +304,8 @@ const useMemberVoucherTransactionStore = create((set, get) => ({
                     time: '12:00',
                     type: '',
                     createdBy: '',
-                    handledBy: ''
+                    handledBy: '',
+                    assignedEmployee: []
                 },
             });
 
@@ -466,13 +468,15 @@ const useMemberVoucherTransactionStore = create((set, get) => ({
                 ...formFieldData,
                 createdByWithName,
                 handledByWithName,
-                lastUpdatedByWithName
+                lastUpdatedByWithName,
+                assignedEmployee: formFieldData.assignedEmployee || []
             };
         } else {
             formFieldDataWithEmpName = {
                 ...formFieldData,
                 createdByWithName,
-                handledByWithName
+                handledByWithName,
+                assignedEmployee: formFieldData.assignedEmployee || []
             };
         }
 
@@ -559,7 +563,8 @@ const useMemberVoucherTransactionStore = create((set, get) => ({
                 time: '12:00',
                 type: '',
                 createdBy: '',
-                handledBy: ''
+                handledBy: '',
+                assignedEmployee: []
             }
         });
     },
