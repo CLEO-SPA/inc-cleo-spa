@@ -156,7 +156,7 @@ const getServicesOfMemberVoucherById = async (id: number): Promise<{ success: bo
       return { success: false, data: [], message: "Error 400: The input Id of Member Voucher does not exist" };
     }
   } catch (error) {
-    console.error('Error retrieving paginated services of member voucher:', error);
+    console.error('Error retrieving services of member voucher:', error);
 
     console.error('Full error details:', {
       error: error instanceof Error ? error.message : 'Unknown error',
@@ -169,7 +169,50 @@ const getServicesOfMemberVoucherById = async (id: number): Promise<{ success: bo
       throw new Error('Database connection failed. Please try again later.');
     }
 
-    return { success: false, data: [], message: "Failed to retrieve paginated services of member voucher due to database error." };
+    return { success: false, data: [], message: "Failed to retrieve services of member voucher due to database error." };
+  }
+};
+
+const getPurchaseDateOfMemberVoucherById = async (id: number): Promise<{ success: boolean, data?: Date, message?: string }> => {
+  if (!Number(id)) {
+    return { success: false, message: "id must be an integer" };
+  }
+
+  const client = await pool().connect();
+  try {
+    const query = `
+    SELECT service_date
+    FROM member_voucher_transaction_logs
+    WHERE member_voucher_id = $1
+    ORDER BY id ASC
+    LIMIT 1;
+    `;
+
+    const results = await client.query(query, [id]);
+
+    console.log("Purchase Date: ");
+    console.log(results.rows[0].service_date);
+
+    if (results.rows.length > 0) {
+      return { success: true, data: results.rows[0].service_date, message: "Get Purchase Date of Member Voucher By Id was successful" };
+    } else {
+      return { success: false, message: "Error 400: The input Id of Member Voucher does not exist" };
+    }
+  } catch (error) {
+    console.error('Error retrieving Purchase Date of member voucher:', error);
+
+    console.error('Full error details:', {
+      error: error instanceof Error ? error.message : 'Unknown error',
+      stack: error instanceof Error ? error.stack : undefined
+    });
+
+    // Return user-friendly message but also throw for critical errors
+    if (error instanceof Error && error.message.includes('connection')) {
+      // Critical database errors should bubble up
+      throw new Error('Database connection failed. Please try again later.');
+    }
+
+    return { success: false, message: "Failed to retrieve Purchase Date of member voucher due to database error." };
   }
 };
 
@@ -315,7 +358,11 @@ const addTransactionLogsByMemberVoucherId = async (data: MemberVoucherTransactio
 
   console.log(current_balance);
 
-  const currentBalanceAfterDeduction = current_balance + consumptionValue;
+  const currentBalanceAfterDeduction = current_balance - consumptionValue;
+
+  const negConsumptionValue = -consumptionValue;
+
+  console.log("consumptionValue: " + negConsumptionValue);
 
   const service_date = new Date(`${date}T${time}`);
 
@@ -340,7 +387,7 @@ const addTransactionLogsByMemberVoucherId = async (data: MemberVoucherTransactio
       remarks,
       service_date,
       currentBalanceAfterDeduction,
-      consumptionValue,
+      negConsumptionValue,
       handledBy,
       type,
       createdBy,
@@ -409,7 +456,7 @@ const addTransactionLogsByMemberVoucherId = async (data: MemberVoucherTransactio
   }
 };
 
-const getMemberVoucherCurrentBalance = async (id: number, consumptionValue: number): Promise<{ success: boolean, message?: string }> => {
+const getMemberVoucherCurrentBalance = async (id: number, consumptionValue: number): Promise<{ success: boolean, data?: number, message?: string }> => {
   if (!Number(id)) {
     return { success: false, message: "Error 400: id must be an integer" };
   };
@@ -428,16 +475,18 @@ const getMemberVoucherCurrentBalance = async (id: number, consumptionValue: numb
 
     const results = await client.query(query, [id]);
 
-    if (Number.isNaN(Number(results.rows[0].current_balance))) {
+    const current_balance = results.rows[0].current_balance;
+
+    if (Number.isNaN(Number(current_balance))) {
       return { success: false, message: "Error 400: This Member Voucher does not exist" };
     }
 
-    const balanceAfterDeduction = parseFloat(results.rows[0].current_balance) + consumptionValue;
+    const balanceAfterDeduction = parseFloat(current_balance) - consumptionValue;
 
     if (balanceAfterDeduction < 0) {
       return { success: false, message: "Error 400: The Consumption Value is greater than the Current balance." };
     } else {
-      return { success: true };
+      return { success: true, data: current_balance };
     }
   } catch (error) {
     console.error('Error retrieving current balance by Member Voucher Id:', error);
@@ -457,66 +506,66 @@ const getMemberVoucherCurrentBalance = async (id: number, consumptionValue: numb
   }
 };
 
-const getMemberVoucherPaidCurrentBalance = async (id: number, consumptionValue: number): Promise<{ success: boolean, data?: number, message?: string }> => {
-  if (!Number(id)) {
-    return { success: false, message: "Error 400: id must be an integer" };
-  };
+// const getMemberVoucherPaidCurrentBalance = async (id: number, consumptionValue: number): Promise<{ success: boolean, data?: number, message?: string }> => {
+//   if (!Number(id)) {
+//     return { success: false, message: "Error 400: id must be an integer" };
+//   };
 
-  if (isNaN(Number(consumptionValue))) {
-    return { success: false, message: "Error 400: consumption value must be an integer" };
-  };
+//   if (isNaN(Number(consumptionValue))) {
+//     return { success: false, message: "Error 400: consumption value must be an integer" };
+//   };
 
-  const client = await pool().connect();
-  try {
-    const query = `
-    SELECT st.outstanding_total_payment_amount, mv.current_balance
-    FROM sale_transactions st
-    JOIN sale_transaction_items sti ON st.id = sti.sale_transaction_id
-    JOIN member_vouchers mv ON sti.member_voucher_id = mv.id
-    WHERE sti.member_voucher_id = $1
-    ORDER BY sti.sale_transaction_id DESC
-    LIMIT 1;
-    `;
+//   const client = await pool().connect();
+//   try {
+//     const query = `
+//     SELECT st.outstanding_total_payment_amount, mv.current_balance
+//     FROM sale_transactions st
+//     JOIN sale_transaction_items sti ON st.id = sti.sale_transaction_id
+//     JOIN member_vouchers mv ON sti.member_voucher_id = mv.id
+//     WHERE sti.member_voucher_id = $1
+//     ORDER BY sti.sale_transaction_id DESC
+//     LIMIT 1;
+//     `;
 
-    const results = await client.query(query, [id]);
-    console.log(results);
+//     const results = await client.query(query, [id]);
+//     console.log(results);
 
-    if (results.rowCount === 0) {
-      return { success: false, message: "Error 400: This Member Voucher does not exist" };
-    }
+//     if (results.rowCount === 0) {
+//       return { success: false, message: "Error 400: This Member Voucher does not exist" };
+//     }
 
-    const current_balance = parseFloat(results.rows[0].current_balance);
-    const outstanding_total_payment_amount = parseFloat(results.rows[0].outstanding_total_payment_amount);
-    // const free_of_charge = parseFloat(results.rows[0].free_of_charge);
+//     const current_balance = parseFloat(results.rows[0].current_balance);
+//     const outstanding_total_payment_amount = parseFloat(results.rows[0].outstanding_total_payment_amount);
+//     // const free_of_charge = parseFloat(results.rows[0].free_of_charge);
 
-    if (outstanding_total_payment_amount === 0) {
-      return { success: true, data: current_balance };
-    }
+//     if (outstanding_total_payment_amount === 0) {
+//       return { success: true, data: current_balance };
+//     }
 
-    const paidBalance = current_balance - outstanding_total_payment_amount //- free_of_charge;
+//     const paidBalance = current_balance - outstanding_total_payment_amount //- free_of_charge;
 
-    const paidbalanceAfterDeduction = paidBalance + consumptionValue;
+//     const paidbalanceAfterDeduction = paidBalance + consumptionValue;
 
-    if (paidbalanceAfterDeduction < 0) {
-      return { success: false, message: "Error 400: The Consumption Value is greater than the Paid Current balance." };
-    } else {
-      return { success: true, data: current_balance };
-    }
-  } catch (error) {
-    console.error('Error retrieving paid current balance by Member Voucher Id:', error);
+//     if (paidbalanceAfterDeduction < 0) {
+//       return { success: false, message: "Error 400: The Consumption Value is greater than the Paid Current balance." };
+//     } else {
+//       return { success: true, data: current_balance };
+//     }
+//   } catch (error) {
+//     console.error('Error retrieving paid current balance by Member Voucher Id:', error);
 
-    console.error('Full error details:', {
-      error: error instanceof Error ? error.message : 'Unknown error',
-      stack: error instanceof Error ? error.stack : undefined
-    });
+//     console.error('Full error details:', {
+//       error: error instanceof Error ? error.message : 'Unknown error',
+//       stack: error instanceof Error ? error.stack : undefined
+//     });
 
-    if (error instanceof Error && error.message.includes('connection')) {
-      throw new Error('Database connection failed. Please try again later.');
-    }
+//     if (error instanceof Error && error.message.includes('connection')) {
+//       throw new Error('Database connection failed. Please try again later.');
+//     }
 
-    return { success: false, message: "Failed to get paid current balance by Member Voucher Id due to database error." };
-  }
-};
+//     return { success: false, message: "Failed to get paid current balance by Member Voucher Id due to database error." };
+//   }
+// };
 
 const getMemberNameByMemberVoucherId = async (id: number): Promise<{ success: boolean, data: MemberName | null, message: string }> => {
   if (!Number(id)) {
@@ -794,7 +843,6 @@ const createMemberVoucher = async (
   try {
     await client.query('BEGIN');
 
-    // VALIDATION MOVED TO TOP - Validate required fields first
     const {
       created_by,
       customer_type,
@@ -804,8 +852,8 @@ const createMemberVoucher = async (
       payments,
       receipt_number,
       remarks,
-      created_at,        // ✅ NEW: Add custom date support
-      updated_at         // ✅ NEW: Add custom date support
+      created_at,
+      updated_at
     } = transactionData;
 
     // Early validation
@@ -829,7 +877,7 @@ const createMemberVoucher = async (
       throw new Error('member_id is required for member voucher transactions');
     }
 
-    // ✅ NEW: Parse and validate custom creation date/time for sale transactions
+    // ✅ Parse and validate custom creation date/time for sale transactions
     let customCreatedAt = null;
     let customUpdatedAt = null;
 
@@ -902,20 +950,16 @@ const createMemberVoucher = async (
       throw new Error('member_voucher_name is required');
     }
 
-    if (!creation_datetime) {
-      throw new Error('creation_datetime is required');
-    }
-
     // FIXED: Better default calculation
     const default_total_price = selected_template?.default_total_price
       ? Number(selected_template.default_total_price)
       : (total_price ? Number(total_price) : 0);
 
     const is_bypass = bypass_template === true;
-    const createdAt = new Date(creation_datetime);  // Keep voucher creation date separate
-    const updatedAt = createdAt;                    // Keep voucher update date separate
 
-    // FIXED: Proper employee ID handling
+    const createdAt = customCreatedAt;   // Use sale transaction date
+    const updatedAt = customUpdatedAt;   // Use sale transaction date
+
     const employee_id = assignedEmployee ? Number(assignedEmployee) : Number(created_by);
 
     // Database validations
@@ -953,29 +997,69 @@ const createMemberVoucher = async (
       throw new Error(`Voucher template with ID ${voucher_template_id} not found`);
     }
 
-    // FIXED: Payment calculations using correct logic
-    const PENDING_PAYMENT_METHOD_ID = 7;
+    // ✅ FIXED: Payment calculations using CORRECT MCP logic
+    const totalTransactionAmount: number = pricing?.totalLinePrice || 0;
 
+    const PENDING_PAYMENT_METHOD_ID = 7;
+    const GST_PAYMENT_METHOD_ID = 10;
+
+    // Separate payments by type (same as MCP)
     const pendingPayments = payments.filter((payment: PaymentMethodRequest) =>
       payment.methodId === PENDING_PAYMENT_METHOD_ID
     );
 
-    const nonPendingPayments = payments.filter((payment: PaymentMethodRequest) =>
-      payment.methodId !== PENDING_PAYMENT_METHOD_ID
+    const gstPayments = payments.filter((payment: PaymentMethodRequest) =>
+      payment.methodId === GST_PAYMENT_METHOD_ID
     );
 
-    const outstanding_amount = pendingPayments.reduce((total: number, payment: PaymentMethodRequest) => {
+    const actualPayments = payments.filter((payment: PaymentMethodRequest) =>
+      payment.methodId !== PENDING_PAYMENT_METHOD_ID &&
+      payment.methodId !== GST_PAYMENT_METHOD_ID
+    );
+
+    // Calculate amounts (same logic as MCP)
+    const totalActualPaymentAmount: number = actualPayments.reduce((total: number, payment: PaymentMethodRequest) => {
       return total + (payment.amount || 0);
     }, 0);
 
-    const is_fully_paid = outstanding_amount === 0;
+    const totalGSTAmount: number = gstPayments.reduce((total: number, payment: PaymentMethodRequest) => {
+      return total + (payment.amount || 0);
+    }, 0);
+
+    // IGNORE pending amount from frontend - calculate our own (same as MCP)
+    const frontendPendingAmount: number = pendingPayments.reduce((total: number, payment: PaymentMethodRequest) => {
+      return total + (payment.amount || 0);
+    }, 0);
+
+    // Calculate correct outstanding amount (backend authority) - same as MCP
+    const outstandingAmount: number = Math.max(0, totalTransactionAmount - totalActualPaymentAmount);
+
+    // Total paid amount = actual payments + GST (EXCLUDES pending) - same as MCP
+    const totalPaidAmount: number = totalActualPaymentAmount + totalGSTAmount;
+
+    const transactionStatus: 'FULL' | 'PARTIAL' = outstandingAmount <= 0 ? 'FULL' : 'PARTIAL';
+    const processPayment: boolean = outstandingAmount > 0;
+
+    console.log('✅ MV Creation Payment calculations:', {
+      totalTransactionAmount,
+      totalActualPaymentAmount,
+      totalGSTAmount,
+      frontendPendingAmount: `${frontendPendingAmount} (from frontend - IGNORED)`,
+      outstandingAmount: `${outstandingAmount} (backend calculated - USED)`,
+      totalPaidAmount: `${totalPaidAmount} (actual + GST, excludes pending)`,
+      transactionStatus,
+      note: 'Backend ignores frontend pending amount and calculates its own'
+    });
+
+    // ✅ FIXED: Use correct payment logic for voucher balance calculation
+    const is_fully_paid = outstandingAmount <= 0; // Use backend calculated outstanding
 
     // FIXED: Cleaner balance calculation
     const base_balance = default_total_price + free_of_charge;
     const final_starting_balance = base_balance;
-    const final_current_balance = is_fully_paid ? base_balance : default_total_price;
+    const final_current_balance = is_fully_paid ? default_total_price : default_total_price - outstandingAmount;
 
-    // Insert member voucher (UNCHANGED - uses voucher creation dates)
+    // ✅ Insert member voucher using sale transaction dates
     const i_mv_sql = `
       INSERT INTO member_vouchers
       (member_voucher_name, voucher_template_id, member_id, current_balance, starting_balance, 
@@ -998,8 +1082,8 @@ const createMemberVoucher = async (
       employee_id,
       employee_id,
       employee_id,
-      createdAt,      // Voucher creation date
-      updatedAt       // Voucher update date
+      createdAt,
+      updatedAt
     ]);
 
     const memberVoucherId = Number(mvRows[0].id);
@@ -1027,7 +1111,7 @@ const createMemberVoucher = async (
       };
     });
 
-    // Insert voucher details (UNCHANGED - uses voucher creation dates)
+    // ✅ Insert voucher details using sale transaction dates
     if (services.length > 0) {
       const i_mvd_sql = `
         INSERT INTO member_voucher_details
@@ -1055,14 +1139,14 @@ const createMemberVoucher = async (
             service.discount,
             service.final_price,
             service.duration,
-            createdAt,    // Voucher creation date
-            updatedAt     // Voucher update date
+            createdAt,
+            updatedAt
           ])
         )
       );
     }
 
-    // Insert transaction log (UNCHANGED - uses voucher creation dates)
+    // ✅ Insert transaction log using sale transaction dates
     const i_mvtl_sql = `
       INSERT INTO member_voucher_transaction_logs
       (member_voucher_id, service_description, service_date, current_balance, 
@@ -1074,39 +1158,55 @@ const createMemberVoucher = async (
     await client.query(i_mvtl_sql, [
       memberVoucherId,
       'N.A',
-      createdAt,      // Voucher creation date
+      createdAt,
       final_current_balance,
       final_current_balance,
       employee_id,
       'PURCHASE',
       employee_id,
       employee_id,
-      createdAt,      // Voucher creation date
+      createdAt,
       updatedAt
     ]);
 
-    // FIXED: Calculate transaction totals using correct logic
-    const totalTransactionAmount: number = pricing?.totalLinePrice || 0;
+    // ✅ FOC transaction using sale transaction dates
+    if (transactionStatus === 'FULL' && free_of_charge > 0) {
+      // Calculate new balance after adding FOC
+      const newCurrentBalance = final_current_balance + free_of_charge;
 
-    const totalPaidAmount: number = nonPendingPayments.reduce((total: number, payment: PaymentMethodRequest) => {
-      return total + (payment.amount || 0);
-    }, 0);
+      // Update the member voucher with new balance
+      const updateVoucherSql = `
+        UPDATE member_vouchers
+        SET current_balance = $1, updated_at = $2
+        WHERE id = $3
+      `;
 
-    const outstandingAmount: number = pendingPayments.reduce((total: number, payment: PaymentMethodRequest) => {
-      return total + (payment.amount || 0);
-    }, 0);
+      await client.query(updateVoucherSql, [
+        newCurrentBalance,
+        updatedAt,  // ✅ Now uses sale transaction date
+        memberVoucherId
+      ]);
 
-    const transactionStatus: 'FULL' | 'PARTIAL' = outstandingAmount <= 0 ? 'FULL' : 'PARTIAL';
-    const processPayment: boolean = outstandingAmount > 0;
+      // Insert FOC transaction log
+      await client.query(i_mvtl_sql, [
+        memberVoucherId,
+        'Free of Charge Addition',
+        createdAt,
+        newCurrentBalance,    // Updated balance after FOC
+        free_of_charge,       // FOC amount as amount_change
+        employee_id,
+        'ADD FOC',
+        employee_id,
+        employee_id,
+        createdAt,
+        updatedAt
+      ]);
 
-    // Verification: total should match
-    const calculatedTotal = totalPaidAmount + outstandingAmount;
-    if (Math.abs(calculatedTotal - totalTransactionAmount) > 0.01) {
-      console.warn('Payment total mismatch:', {
-        totalTransactionAmount,
-        totalPaidAmount,
-        outstandingAmount,
-        calculatedTotal
+      console.log('FOC transaction added:', {
+        memberVoucherId,
+        focAmount: free_of_charge,
+        newCurrentBalance,
+        transactionType: 'ADD FOC'
       });
     }
 
@@ -1120,6 +1220,7 @@ const createMemberVoucher = async (
       finalReceiptNo = `ST${receiptResult.rows[0].next_number.toString().padStart(6, '0')}`;
     }
 
+    // ✅ Insert sale transaction using sale transaction dates
     const transactionQuery: string = `
       INSERT INTO sale_transactions (
         customer_type,
@@ -1141,8 +1242,8 @@ const createMemberVoucher = async (
     const transactionParams: (string | number | boolean | null | Date)[] = [
       customer_type?.toUpperCase() || 'MEMBER',
       member_id || null,
-      totalPaidAmount,
-      outstandingAmount,
+      totalPaidAmount, // Actual + GST (excludes pending)
+      outstandingAmount, // Transaction amount - actual payments (excludes GST)
       transactionStatus,
       finalReceiptNo,
       remarks || '',
@@ -1197,8 +1298,17 @@ const createMemberVoucher = async (
 
     console.log('Created MV sale transaction item with ID:', saleTransactionItemId);
 
-
+    // ✅ Insert all payments (actual + GST) and create correct pending payment
     for (const payment of payments) {
+      // Skip frontend pending payments - we'll create our own (same as MCP)
+      if (payment.methodId === PENDING_PAYMENT_METHOD_ID) {
+        console.log('Skipping frontend pending payment:', {
+          amount: payment.amount,
+          note: 'Backend will create correct pending payment'
+        });
+        continue;
+      }
+
       if (payment.amount > 0) {
         const paymentQuery: string = `
           INSERT INTO payment_to_sale_transactions (
@@ -1219,16 +1329,53 @@ const createMemberVoucher = async (
           payment.amount,
           payment.remark || '',
           created_by,
-          createdAt,
-          updatedAt
+          createdAt,  // ✅ Now uses sale transaction date
+          updatedAt   // ✅ Now uses sale transaction date
         ];
 
         console.log('MV Payment Query:', paymentQuery);
         console.log('MV Payment Params:', paymentParams);
 
         const paymentResult = await client.query(paymentQuery, paymentParams);
-        console.log('Created MV payment with ID:', paymentResult.rows[0].id);
+        console.log('Created MV payment with ID:', paymentResult.rows[0].id, {
+          methodId: payment.methodId,
+          amount: payment.amount,
+          isGST: payment.methodId === GST_PAYMENT_METHOD_ID
+        });
       }
+    }
+
+    // ✅ Create correct pending payment if needed (using backend calculated amount) - same as MCP
+    if (outstandingAmount > 0) {
+      const pendingPaymentQuery: string = `
+        INSERT INTO payment_to_sale_transactions (
+          sale_transaction_id,
+          payment_method_id,
+          amount,
+          remarks,
+          created_by,
+          created_at,
+          updated_at
+        ) VALUES ($1, $2, $3, $4, $5, $6, $7)
+        RETURNING id
+      `;
+
+      const pendingPaymentParams: (number | string | Date)[] = [
+        saleTransactionId,
+        PENDING_PAYMENT_METHOD_ID,
+        outstandingAmount,
+        'Backend calculated pending payment',
+        handled_by,
+        createdAt,
+        updatedAt
+      ];
+
+      const pendingResult = await client.query(pendingPaymentQuery, pendingPaymentParams);
+      console.log('Created correct pending payment with ID:', pendingResult.rows[0].id, {
+        methodId: PENDING_PAYMENT_METHOD_ID,
+        amount: outstandingAmount,
+        note: 'Backend calculated - ignores frontend pending'
+      });
     }
 
     await client.query('COMMIT');
@@ -1241,8 +1388,8 @@ const createMemberVoucher = async (
       customer_type: customer_type?.toUpperCase() || 'MEMBER',
       member_id: member_id ? member_id.toString() : null,
       total_transaction_amount: totalTransactionAmount,
-      total_paid_amount: totalPaidAmount,
-      outstanding_total_payment_amount: outstandingAmount,
+      total_paid_amount: totalPaidAmount, // Actual + GST (excludes pending)
+      outstanding_total_payment_amount: outstandingAmount, // Transaction - actual (excludes GST)
       transaction_status: transactionStatus,
       remarks: remarks || '',
       created_by,
@@ -1315,10 +1462,14 @@ const createMemberVoucherForTransfer = async (
   foc: number,
   remarks: string,
   createdBy: number,
-  createdAt: string,
+  saleTransactionCreatedAt: string, // ✅ RENAMED: Now expects sale transaction's creation date
   isBypass?: boolean // still accepted, but not used now
 ): Promise<MemberVouchers> => {
   try {
+    // ✅ FIXED: Use sale transaction's creation date for all operations
+    const createdAt = saleTransactionCreatedAt;
+    const updatedAt = saleTransactionCreatedAt;
+
     const insertVoucherQuery = `
       INSERT INTO member_vouchers (
         member_id,
@@ -1335,7 +1486,7 @@ const createMemberVoucherForTransfer = async (
         last_updated_by,
         created_at,
         updated_at
-      ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $10, $10, $11, $11)
+      ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $10, $10, $11, $12)
       RETURNING *;
     `;
 
@@ -1352,12 +1503,12 @@ const createMemberVoucherForTransfer = async (
       "is_enabled",
       remarks,
       createdBy || null,
-      createdAt
+      createdAt,    // ✅ Uses sale transaction date
+      updatedAt     // ✅ Uses sale transaction date
     ];
 
     const result = await pool().query(insertVoucherQuery, voucherValues);
     const newVoucher: MemberVouchers = result.rows[0];
-
 
     // 🔁 Always insert member_voucher_details based on template
     const templateDetailsQuery = `
@@ -1366,7 +1517,6 @@ const createMemberVoucherForTransfer = async (
     `;
     const templateDetailsResult = await pool().query(templateDetailsQuery, [voucherTemplateId]);
     const templateDetails = templateDetailsResult.rows;
-
 
     for (const detail of templateDetails) {
       const insertDetailQuery = `
@@ -1382,9 +1532,8 @@ const createMemberVoucherForTransfer = async (
           created_at,
           updated_at,
           service_category_id
-        ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $9, $10)
+        ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11)
       `;
-
 
       const insertDetailValues = [
         newVoucher.id,                   // $1 member_voucher_id
@@ -1395,10 +1544,10 @@ const createMemberVoucherForTransfer = async (
         detail.discount,                // $6
         detail.final_price,             // $7
         detail.duration,                // $8
-        createdAt,                      // $9 (created_at and updated_at)
-        detail.service_category_id      // $10
+        createdAt,                      // $9 ✅ Uses sale transaction date
+        updatedAt,                      // $10 ✅ Uses sale transaction date
+        detail.service_category_id      // $11
       ];
-
 
       console.log("Insert Detail Values: ", insertDetailValues);
       await pool().query(insertDetailQuery, insertDetailValues);
@@ -1421,7 +1570,8 @@ export default {
   getPaginatedMemberVoucherTransactionLogs,
   addTransactionLogsByMemberVoucherId,
   getMemberVoucherCurrentBalance,
-  getMemberVoucherPaidCurrentBalance,
+  // getMemberVoucherPaidCurrentBalance,
+  getPurchaseDateOfMemberVoucherById,
   getMemberNameByMemberVoucherId,
   setTransactionLogsAndCurrentBalanceByLogId,
   deleteTransactionLogsAndCurrentBalanceByLogId,

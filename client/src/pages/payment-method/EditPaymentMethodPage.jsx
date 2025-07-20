@@ -9,7 +9,7 @@ import { Switch } from '@/components/ui/switch';
 import { AppSidebar } from '@/components/app-sidebar';
 import { SiteHeader } from '@/components/site-header';
 import { SidebarInset, SidebarProvider } from '@/components/ui/sidebar';
-import { ArrowLeft, Loader2, AlertTriangle } from 'lucide-react';
+import { ArrowLeft, Loader2, AlertTriangle, Shield, Lock } from 'lucide-react';
 import { useState, useEffect } from 'react';
 import { Link } from 'react-router-dom';
 import {
@@ -33,9 +33,11 @@ const EditPaymentMethodPage = () => {
   const [error, setError] = useState(null);
   const [isInitialLoading, setIsInitialLoading] = useState(true);
   const [showSuccessDialog, setShowSuccessDialog] = useState(false);
-  const [showRevenueWarning, setShowRevenueWarning] = useState(false);
-  const [pendingRevenueValue, setPendingRevenueValue] = useState(null);
+  const [showIncomeWarning, setShowIncomeWarning] = useState(false);
+  const [pendingIncomeValue, setPendingIncomeValue] = useState(null);
   const [updatedPaymentMethod, setUpdatedPaymentMethod] = useState(null);
+  const [isProtected, setIsProtected] = useState(false);
+  const [isGSTMethod, setIsGSTMethod] = useState(false);
 
   const handleGoToPaymentMethods = () => {
     navigate('/payment-method');
@@ -102,15 +104,16 @@ const EditPaymentMethodPage = () => {
     defaultValues: {
       payment_method_name: '',
       is_enabled: true,
-      is_revenue: false,
+      is_income: false,
       show_on_payment_page: true,
-      created_at: ''
+      created_at: '',
+      percentage_rate: 0
     }
   });
 
   // Watch switch values for controlled components
   const isEnabled = watch('is_enabled');
-  const isRevenue = watch('is_revenue');
+  const isIncome = watch('is_income');
   const showOnPaymentPage = watch('show_on_payment_page');
 
   // Fetch payment method data on component mount
@@ -122,13 +125,24 @@ const EditPaymentMethodPage = () => {
 
         if (result.success && result.data) {
           const data = result.data;
+          // Check if payment method is protected
+          setIsProtected(data.is_protected === true);
+          
+          // Check if this is GST method (by name or id)
+          setIsGSTMethod(
+            data.payment_method_name?.toLowerCase() === 'gst' || 
+            data.id === 10 || 
+            parseInt(id) === 10
+          );
+          
           // Pre-populate form with existing data
           reset({
             payment_method_name: data.payment_method_name || '',
             is_enabled: data.is_enabled !== undefined ? data.is_enabled : true,
-            is_revenue: data.is_revenue !== undefined ? data.is_revenue : false,
+            is_income : data.is_income !== undefined ? data.is_income : false,
             show_on_payment_page: data.show_on_payment_page !== undefined ? data.show_on_payment_page : true,
-            created_at: formatDateTimeForInput(data.created_at)
+            created_at: formatDateTimeForInput(data.created_at),
+            percentage_rate: data.percentage_rate || 0
           });
         } else {
           setError(result.error || 'Failed to load payment method');
@@ -140,26 +154,35 @@ const EditPaymentMethodPage = () => {
     loadPaymentMethod();
   }, [id, fetchPaymentMethodById, reset]);
 
-  const handleRevenueToggle = (checked) => {
+  const handleIncomeToggle = (checked) => {
+    // Prevent changes if protected (unless it's GST method)
+    if (isProtected && !isGSTMethod) return;
+    
     // Store the pending value and show warning dialog
-    setPendingRevenueValue(checked);
-    setShowRevenueWarning(true);
+    setPendingIncomeValue(checked);
+    setShowIncomeWarning(true);
   };
 
-  const confirmRevenueChange = () => {
-    // Apply the pending revenue value
-    setValue('is_revenue', pendingRevenueValue, { shouldDirty: true });
-    setShowRevenueWarning(false);
-    setPendingRevenueValue(null);
+  const confirmIncomeChange = () => {
+    // Apply the pending income value
+    setValue('is_income', pendingIncomeValue, { shouldDirty: true });
+    setShowIncomeWarning(false);
+    setPendingIncomeValue(null);
   };
 
-  const cancelRevenueChange = () => {
+  const cancelIncomeChange = () => {
     // Reset and close the dialog
-    setShowRevenueWarning(false);
-    setPendingRevenueValue(null);
+    setShowIncomeWarning(false);
+    setPendingIncomeValue(null);
   };
 
   const onSubmit = async (data) => {
+    // Prevent submission if protected (unless it's GST method)
+    if (isProtected && !isGSTMethod) {
+      setError('This payment method is protected and cannot be modified.');
+      return;
+    }
+
     setError(null);
     
     try {
@@ -167,11 +190,17 @@ const EditPaymentMethodPage = () => {
       const createdAtISO = new Date(data.created_at).toISOString();
       const currentTime = new Date().toISOString();
       
-      const result = await updatePaymentMethod(id, {
-        ...data,
-        created_at: createdAtISO,
-        updated_at: currentTime,
-      });
+      // For GST methods, only allow percentage_rate to be updated
+      const updateData = isGSTMethod && isProtected 
+        ? { percentage_rate: parseFloat(data.percentage_rate) }
+        : {
+            ...data,
+            created_at: createdAtISO,
+            updated_at: currentTime,
+            percentage_rate: parseFloat(data.percentage_rate)
+          };
+      
+      const result = await updatePaymentMethod(id, updateData);
 
       if (result.success) {
         setUpdatedPaymentMethod(result.data);
@@ -187,7 +216,7 @@ const EditPaymentMethodPage = () => {
   };
 
   const handleCancel = () => {
-    if (isDirty) {
+    if (isDirty && (!isProtected || isGSTMethod)) {
       const confirmLeave = window.confirm('You have unsaved changes. Are you sure you want to leave?');
       if (confirmLeave) {
         navigate('/payment-method');
@@ -236,11 +265,44 @@ const EditPaymentMethodPage = () => {
                     <ArrowLeft className="h-4 w-4" />
                   </Button>
                 </Link>
-                <div>
-                  <h1 className="text-2xl font-semibold text-gray-900">Edit Payment Method</h1>
-                  <p className="text-sm text-gray-600 mt-1">Update payment method settings</p>
+                <div className="flex-1">
+                  <div className="flex items-center gap-2">
+                    <h1 className="text-2xl font-semibold text-gray-900">
+                      {isProtected && !isGSTMethod ? 'View Payment Method' : 'Edit Payment Method'}
+                    </h1>
+                    {isProtected && (
+                      <div className="flex items-center gap-1 px-2 py-1 bg-amber-100 text-amber-800 rounded-full text-xs font-medium">
+                        <Shield className="h-3 w-3" />
+                        {isGSTMethod ? 'Protected (Rate Editable)' : 'Protected'}
+                      </div>
+                    )}
+                  </div>
+                  <p className="text-sm text-gray-600 mt-1">
+                    {isProtected && !isGSTMethod
+                      ? 'This payment method is protected and cannot be modified'
+                      : isProtected && isGSTMethod
+                      ? 'This payment method is protected. Only the percentage rate can be modified.'
+                      : 'Update payment method settings'
+                    }
+                  </p>
                 </div>
               </div>
+
+              {/* Protection Notice */}
+              {isProtected && (
+                <div className="mb-6 bg-amber-50 border border-amber-200 rounded-lg p-4">
+                  <div className="flex items-center gap-2">
+                    <Lock className="h-5 w-5 text-amber-600" />
+                    <h3 className="font-medium text-amber-900">Protected Payment Method</h3>
+                  </div>
+                  <p className="text-sm text-amber-800 mt-2">
+                    {isGSTMethod 
+                      ? 'This payment method is protected by the system. Only the percentage rate can be modified to adjust GST calculations.'
+                      : 'This payment method is protected by the system and cannot be modified or deleted. All fields are read-only to preserve system integrity.'
+                    }
+                  </p>
+                </div>
+              )}
 
               <form onSubmit={handleSubmit(onSubmit)} className="space-y-6">
                 {/* Basic Information Card */}
@@ -272,7 +334,9 @@ const EditPaymentMethodPage = () => {
                               message: "Payment method name contains invalid characters"
                             }
                           })}
-                          className={errors.payment_method_name ? "border-red-500" : ""}
+                          className={`${errors.payment_method_name ? "border-red-500" : ""} ${isProtected ? "bg-gray-50 cursor-not-allowed" : ""}`}
+                          disabled={isProtected}
+                          readOnly={isProtected}
                         />
                         {errors.payment_method_name && (
                           <p className="text-red-500 text-xs">{errors.payment_method_name.message}</p>
@@ -290,8 +354,10 @@ const EditPaymentMethodPage = () => {
                             required: "Creation date and time is required",
                             validate: validateDateTime
                           })}
-                          className={errors.created_at ? "border-red-500" : ""}
+                          className={`${errors.created_at ? "border-red-500" : ""} ${isProtected ? "bg-gray-50 cursor-not-allowed" : ""}`}
                           max={formatDateTimeForInput(new Date().toISOString())} // Prevent future dates
+                          disabled={isProtected}
+                          readOnly={isProtected}
                         />
                         {errors.created_at && (
                           <p className="text-red-500 text-xs">{errors.created_at.message}</p>
@@ -301,6 +367,48 @@ const EditPaymentMethodPage = () => {
                         </p>
                       </div>
                     </div>
+
+                    {/* Percentage Rate Field - Only for GST method */}
+                    {isGSTMethod && (
+                      <div className="grid grid-cols-1 md:grid-cols-2 gap-6 mt-6">
+                        <div className="space-y-2">
+                          <Label htmlFor="percentage_rate" className="text-sm font-medium text-gray-700">
+                            Percentage Rate (%) *
+                          </Label>
+                          <Input
+                            id="percentage_rate"
+                            type="number"
+                            step="0.01"
+                            min="0"
+                            max="100"
+                            placeholder="Enter percentage rate (e.g., 10.00)"
+                            {...register("percentage_rate", {
+                              required: "Percentage rate is required",
+                              min: {
+                                value: 0,
+                                message: "Percentage rate must be 0 or greater"
+                              },
+                              max: {
+                                value: 100,
+                                message: "Percentage rate cannot exceed 100%"
+                              },
+                              pattern: {
+                                value: /^\d+\.?\d*$/,
+                                message: "Please enter a valid percentage rate"
+                              }
+                            })}
+                            className={`${errors.percentage_rate ? "border-red-500" : ""} ${!isGSTMethod ? "bg-gray-50 cursor-not-allowed" : ""}`}
+                            disabled={!isGSTMethod}
+                          />
+                          {errors.percentage_rate && (
+                            <p className="text-red-500 text-xs">{errors.percentage_rate.message}</p>
+                          )}
+                          <p className="text-xs text-gray-500">
+                            The percentage rate applied for GST calculations. Enter as a decimal (e.g., 10.00 for 10%).
+                          </p>
+                        </div>
+                      </div>
+                    )}
                   </CardContent>
                 </Card>
 
@@ -312,7 +420,7 @@ const EditPaymentMethodPage = () => {
                   <CardContent className="space-y-6">
                     <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
                       {/* Is Enabled Switch */}
-                      <div className="flex items-center justify-between space-x-2 p-4 border rounded-lg">
+                      <div className={`flex items-center justify-between space-x-2 p-4 border rounded-lg ${isProtected ? 'bg-gray-50' : ''}`}>
                         <div className="space-y-1">
                           <Label htmlFor="is_enabled" className="text-sm font-medium text-gray-700">
                             Enable Payment Method
@@ -324,29 +432,31 @@ const EditPaymentMethodPage = () => {
                         <Switch
                           id="is_enabled"
                           checked={isEnabled}
-                          onCheckedChange={(checked) => setValue('is_enabled', checked, { shouldDirty: true })}
+                          onCheckedChange={(checked) => !(isProtected) && setValue('is_enabled', checked, { shouldDirty: true })}
+                          disabled={isProtected}
                         />
                       </div>
 
-                      {/* Is Revenue Switch */}
-                      <div className="flex items-center justify-between space-x-2 p-4 border rounded-lg">
+                      {/* Is Income Switch */}
+                      <div className={`flex items-center justify-between space-x-2 p-4 border rounded-lg ${isProtected ? 'bg-gray-50' : ''}`}>
                         <div className="space-y-1">
-                          <Label htmlFor="is_revenue" className="text-sm font-medium text-gray-700">
-                            Revenue Generating
+                          <Label htmlFor="is_income" className="text-sm font-medium text-gray-700">
+                            Income Generating
                           </Label>
                           <p className="text-xs text-gray-500">
-                            This payment method generates revenue
+                            This payment method generates income
                           </p>
                         </div>
                         <Switch
-                          id="is_revenue"
-                          checked={isRevenue}
-                          onCheckedChange={handleRevenueToggle}
+                          id="is_income"
+                          checked={isIncome}
+                          onCheckedChange={handleIncomeToggle}
+                          disabled={isProtected}
                         />
                       </div>
 
                       {/* Show on Payment Page Switch */}
-                      <div className="flex items-center justify-between space-x-2 p-4 border rounded-lg">
+                      <div className={`flex items-center justify-between space-x-2 p-4 border rounded-lg ${isProtected ? 'bg-gray-50' : ''}`}>
                         <div className="space-y-1">
                           <Label htmlFor="show_on_payment_page" className="text-sm font-medium text-gray-700">
                             Show on Payment Page
@@ -358,7 +468,8 @@ const EditPaymentMethodPage = () => {
                         <Switch
                           id="show_on_payment_page"
                           checked={showOnPaymentPage}
-                          onCheckedChange={(checked) => setValue('show_on_payment_page', checked, { shouldDirty: true })}
+                          onCheckedChange={(checked) => !(isProtected) && setValue('show_on_payment_page', checked, { shouldDirty: true })}
+                          disabled={isProtected}
                         />
                       </div>
                     </div>
@@ -374,9 +485,9 @@ const EditPaymentMethodPage = () => {
                           </span>
                         </div>
                         <div className="flex items-center gap-2">
-                          <div className={`w-2 h-2 rounded-full ${isRevenue ? 'bg-blue-500' : 'bg-gray-400'}`}></div>
-                          <span className={isRevenue ? 'text-blue-700' : 'text-gray-600'}>
-                            {isRevenue ? 'Revenue Source' : 'Non-Revenue'}
+                          <div className={`w-2 h-2 rounded-full ${isIncome ? 'bg-blue-500' : 'bg-gray-400'}`}></div>
+                          <span className={isIncome ? 'text-blue-700' : 'text-gray-600'}>
+                            {isIncome ? 'Income Source' : 'Non-Income Source'}
                           </span>
                         </div>
                         <div className="flex items-center gap-2">
@@ -404,7 +515,12 @@ const EditPaymentMethodPage = () => {
                 {/* Action Buttons */}
                 <div className="flex justify-between items-center pt-6 border-t">
                   <div className="text-sm text-gray-500">
-                    All fields marked with * are required
+                    {isProtected && !isGSTMethod
+                      ? 'This payment method is protected and cannot be modified'
+                      : isProtected && isGSTMethod
+                      ? 'Only the percentage rate can be modified for this protected payment method'
+                      : 'All fields marked with * are required'
+                    }
                   </div>
                   <div className="flex gap-3">
                     <Button
@@ -414,22 +530,24 @@ const EditPaymentMethodPage = () => {
                       disabled={isUpdating}
                       className="px-8 py-3 text-base"
                     >
-                      Cancel
+                      {isProtected && !isGSTMethod ? 'Back' : 'Cancel'}
                     </Button>
-                    <Button
-                      type="submit"
-                      disabled={isUpdating || !isDirty}
-                      className="px-12 py-3 bg-blue-600 hover:bg-blue-700 text-white font-medium text-base"
-                    >
-                      {isUpdating ? (
-                        <>
-                          <Loader2 className="h-4 w-4 mr-2 animate-spin" />
-                          Updating...
-                        </>
-                      ) : (
-                        "Update Payment Method"
-                      )}
-                    </Button>
+                    {(!isProtected || isGSTMethod) && (
+                      <Button
+                        type="submit"
+                        disabled={isUpdating || !isDirty}
+                        className="px-12 py-3 bg-blue-600 hover:bg-blue-700 text-white font-medium text-base"
+                      >
+                        {isUpdating ? (
+                          <>
+                            <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+                            Updating...
+                          </>
+                        ) : (
+                          isGSTMethod && isProtected ? "Update Rate" : "Update Payment Method"
+                        )}
+                      </Button>
+                    )}
                   </div>
                 </div>
               </form>
@@ -437,38 +555,38 @@ const EditPaymentMethodPage = () => {
           </SidebarInset>
         </div>
 
-        {/* Revenue Warning Dialog */}
-        <Dialog open={showRevenueWarning} onOpenChange={setShowRevenueWarning}>
+        {/* Income Warning Dialog */}
+        <Dialog open={showIncomeWarning} onOpenChange={setShowIncomeWarning}>
           <DialogContent className="sm:max-w-md">
             <DialogHeader>
               <DialogTitle className="flex items-center gap-2 text-amber-600">
                 <AlertTriangle className="w-5 h-5" />
-                Revenue Setting Warning
+                Income Setting Warning
               </DialogTitle>
             </DialogHeader>
             <div className="py-4">
               <p className="text-sm text-gray-700 mb-4">
-                Changing the revenue setting for this payment method may affect your revenue reports and financial calculations.
+                Changing the income setting for this payment method may affect your income reports and financial calculations.
               </p>
               <div className="bg-amber-50 border border-amber-200 rounded-lg p-3 mb-4">
                 <p className="text-sm text-amber-800">
-                  <strong>Impact:</strong> This change will affect how transactions using this payment method are calculated in revenue sheets and financial reports.
+                  <strong>Impact:</strong> This change will affect how transactions using this payment method are calculated in income sheets and financial reports.
                 </p>
               </div>
               <p className="text-sm text-gray-600">
-                Are you sure you want to {pendingRevenueValue ? 'enable' : 'disable'} revenue generation for this payment method?
+                Are you sure you want to {pendingIncomeValue ? 'enable' : 'disable'} income generation for this payment method?
               </p>
             </div>
             <DialogFooter className="flex gap-2">
               <Button
                 variant="outline"
-                onClick={cancelRevenueChange}
+                onClick={cancelIncomeChange}
                 className="flex-1"
               >
                 Cancel
               </Button>
               <Button
-                onClick={confirmRevenueChange}
+                onClick={confirmIncomeChange}
                 className="flex-1 bg-amber-600 hover:bg-amber-700"
               >
                 Continue
@@ -502,9 +620,9 @@ const EditPaymentMethodPage = () => {
                   </span>
                 </div>
                 <div className="flex justify-between text-sm">
-                  <span className="text-gray-600">Revenue Generating:</span>
-                  <span className={`font-medium ${updatedPaymentMethod?.is_revenue ? 'text-blue-600' : 'text-gray-600'}`}>
-                    {updatedPaymentMethod?.is_revenue ? 'Yes' : 'No'}
+                  <span className="text-gray-600">Income Generating:</span>
+                  <span className={`font-medium ${updatedPaymentMethod?.is_income ? 'text-blue-600' : 'text-gray-600'}`}>
+                    {updatedPaymentMethod?.is_income ? 'Yes' : 'No'}
                   </span>
                 </div>
                 <div className="flex justify-between text-sm">

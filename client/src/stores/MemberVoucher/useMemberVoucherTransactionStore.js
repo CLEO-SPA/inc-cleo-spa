@@ -13,10 +13,11 @@ const getInitialState = () => ({
     // View
     memberVoucherServiceList: [],
     memberVoucherTransactionLogs: [],
-    employeeList: null,
+    employeeList: [],
     memberName: null,
     selectedMemberVoucherId: -1,
     selectedTransactionLogId: -1,
+    memberVoucherPurchasedAt: null,
 
     // Create and Update
     formData: [], // form Data is validate data while formFieldData is user input
@@ -59,15 +60,6 @@ const getInitialState = () => ({
 const useMemberVoucherTransactionStore = create((set, get) => ({
 
     ...getInitialState(),
-
-    getNameById: (empMap, id) => {
-        for (let [name, empId] of empMap) {
-            if (empId === id) {
-                return name;
-            }
-        }
-        return null;
-    },
 
     fetchServiceOfMemberVoucher: async () => {
         if (get().loading) {
@@ -116,7 +108,6 @@ const useMemberVoucherTransactionStore = create((set, get) => ({
             const response = await api.get(`/mv/${selectedMemberVoucherId}/mn`);
 
             const memberName = response.data.data;
-            console.log(memberName);
 
             set({
                 success: true,
@@ -147,18 +138,13 @@ const useMemberVoucherTransactionStore = create((set, get) => ({
 
             const employeeList = response.data.data;
 
-            const empMap = new Map();
-            employeeList.forEach(emp => {
-                empMap.set(emp.employee_name.toLowerCase(), emp.id);
-            });
-
             set({
                 loading: false,
                 error: false,
                 success: true,
                 errorMessage: null,
 
-                employeeList: empMap,
+                employeeList: employeeList,
             });
 
             get().setSuccessWithTimeout();
@@ -202,15 +188,10 @@ const useMemberVoucherTransactionStore = create((set, get) => ({
         }
 
         try {
-
             const response = await api.get(`/mv/${selectedMemberVoucherId}/t`, { params: queryParams });
-
-            console.log(response);
 
             const transactionList = response.data.data.data;
             const pageInfo = response.data.data.pageInfo;
-
-            console.log(transactionList);
 
             set({
                 loading: false,
@@ -226,7 +207,41 @@ const useMemberVoucherTransactionStore = create((set, get) => ({
                 totalCount: pageInfo.totalCount ? pageInfo.totalCount : totalCount,
             });
 
-            console.log('State after fetchTransactionLog:', { ...response });
+            get().setSuccessWithTimeout();
+
+        } catch (error) {
+            const errorMessage = handleApiError(error);
+            set({ error: true, errorMessage: errorMessage, loading: false });
+        }
+    },
+
+    fetchMemberVoucherPurchaseDate: async () => {
+        if (get().loading) {
+            set({ success: false, error: true, errorMessage: "Another process is running." });
+            return;
+        };
+
+        set({ loading: true, success: false, error: false });
+
+        const state = get(); // Get the current state
+        const { selectedMemberVoucherId } = state;
+
+        try {
+
+            const response = await api.get(`/mv/${selectedMemberVoucherId}/t/pd`);
+
+            const memberVoucherPurchasedDateStr = response.data.data;
+
+            const memberVoucherPurchasedDate = new Date(memberVoucherPurchasedDateStr);
+
+            set({
+                loading: false,
+                error: false,
+                success: true,
+                errorMessage: null,
+
+                memberVoucherPurchasedAt: memberVoucherPurchasedDate,
+            });
 
             get().setSuccessWithTimeout();
 
@@ -246,17 +261,9 @@ const useMemberVoucherTransactionStore = create((set, get) => ({
 
         try {
             const state = get();
-            const { selectedMemberVoucherId, formData, employeeList } = state;
+            const { selectedMemberVoucherId, formData } = state;
 
-            const formDataWithEmployeeId = {
-                ...formData,
-                createdBy: employeeList.get(formData.createdBy.toLowerCase()),
-                handledBy: employeeList.get(formData.handledBy.toLowerCase())
-            };
-
-            console.log("fetch function form data: ");
-            console.log(formDataWithEmployeeId);
-            await api.post(`/mv/${selectedMemberVoucherId}/t/create`, formDataWithEmployeeId);
+            await api.post(`/mv/${selectedMemberVoucherId}/t/create`, formData);
 
             set({
                 isConfirming: false,
@@ -295,18 +302,15 @@ const useMemberVoucherTransactionStore = create((set, get) => ({
 
         try {
             const state = get();
-            const { selectedMemberVoucherId, formData, employeeList, selectedTransactionLogId } = state;
+            const { selectedMemberVoucherId, formData, selectedTransactionLogId } = state;
 
-            const formDataWithEmployeeId = {
+            const formDataWithTransactionId = {
                 ...formData,
-                createdBy: employeeList.get(formData.createdBy.toLowerCase()),
-                handledBy: employeeList.get(formData.handledBy.toLowerCase()),
-                lastUpdatedBy: employeeList.get(formData.lastUpdatedBy.toLowerCase()),
                 transaction_log_id: selectedTransactionLogId
             };
 
 
-            await api.put(`/mv/${selectedMemberVoucherId}/t/update`, formDataWithEmployeeId);
+            await api.put(`/mv/${selectedMemberVoucherId}/t/update`, formDataWithTransactionId);
 
             set({
                 isConfirming: false,
@@ -414,12 +418,11 @@ const useMemberVoucherTransactionStore = create((set, get) => ({
 
     setStoreFormData: (formFieldData) => {
         const state = get();
-        const { employeeList } = state;
-        const validate = validateMemberVoucherConsumptionCreateData(formFieldData);
+        const { employeeList, memberVoucherPurchasedAt } = state;
+        const validate = validateMemberVoucherConsumptionCreateData(formFieldData, memberVoucherPurchasedAt);
 
         if (!validate.isValid) {
 
-            console.log(validate.error);
             set({
                 error: true,
                 errorMessage: validate.error
@@ -427,33 +430,31 @@ const useMemberVoucherTransactionStore = create((set, get) => ({
             return false;
         };
 
-        const validateCreatedBy = employeeList.get(formFieldData.createdBy.toLowerCase());
-        const validatehandledBy = employeeList.get(formFieldData.handledBy.toLowerCase());
+        const createdByWithName = employeeList.find(emp => emp.id === String(formFieldData.createdBy))?.employee_name || 'Unknown';
+        const handledByWithName = employeeList.find(emp => emp.id === String(formFieldData.handledBy))?.employee_name || 'Unknown';
 
-        if (!validateCreatedBy || !validatehandledBy) {
-            set({
-                error: true,
-                errorMessage: "This Employee does not exist. Please try again."
-            });
-            return false;
-        };
+        let formFieldDataWithEmpName;
 
         if (formFieldData.lastUpdatedBy) {
-            const validateLastUpdatedBy = employeeList.get(formFieldData.lastUpdatedBy.toLowerCase());
-
-            if (!validateLastUpdatedBy) {
-                set({
-                    error: true,
-                    errorMessage: "This Employee does not exist. Please try again."
-                });
-                return false;
+            const lastUpdatedByWithName = employeeList.find(emp => emp.id === String(formFieldData.lastUpdatedBy))?.employee_name || 'Unknown';
+            formFieldDataWithEmpName = {
+                ...formFieldData,
+                createdByWithName,
+                handledByWithName,
+                lastUpdatedByWithName
             };
-        };
+        } else {
+            formFieldDataWithEmpName = {
+                ...formFieldData,
+                createdByWithName,
+                handledByWithName
+            };
+        }
 
         // No error
         console.log("Set Form Success");
         set({
-            formData: formFieldData
+            formData: formFieldDataWithEmpName
         });
         return true;
     },
@@ -499,6 +500,7 @@ const useMemberVoucherTransactionStore = create((set, get) => ({
         await get().fetchServiceOfMemberVoucher();
         await get().fetchTransactionLogsOfMemberVoucher();
         await get().fetchEmployeeBasicDetails();
+        await get().fetchMemberVoucherPurchaseDate();
     },
 
     clearError: () => {
@@ -560,7 +562,7 @@ const useMemberVoucherTransactionStore = create((set, get) => ({
 
     setUpdateFormData: () => {
         const state = get();
-        const { memberVoucherTransactionLogs, employeeList, selectedTransactionLogId, getNameById } = state;
+        const { memberVoucherTransactionLogs, selectedTransactionLogId } = state;
         const memberVoucherTransactionLog = memberVoucherTransactionLogs.find(log => log.id === selectedTransactionLogId);
 
         const dateStr = memberVoucherTransactionLog.service_date;
@@ -572,9 +574,9 @@ const useMemberVoucherTransactionStore = create((set, get) => ({
         const dateFormatted = `${year}-${month}-${day}`;
         const timeFormatted = `${String(date.getHours()).padStart(2, '0')}:${String(date.getMinutes()).padStart(2, '0')}`;
 
-        const createdByEmpName = getNameById(employeeList, String(memberVoucherTransactionLog.created_by));
-        const handledByEmpName = getNameById(employeeList, String(memberVoucherTransactionLog.serviced_by));
-        const lastUpdatedByEmpName = getNameById(employeeList, String(memberVoucherTransactionLog.last_updated_by));
+        const createdBy = memberVoucherTransactionLog.created_by;
+        const handledBy = memberVoucherTransactionLog.serviced_by
+        const lastUpdatedBy = memberVoucherTransactionLog.last_updated_by
 
         set({
             updateFormFieldData: {
@@ -583,16 +585,16 @@ const useMemberVoucherTransactionStore = create((set, get) => ({
                 date: dateFormatted,
                 time: timeFormatted,
                 type: memberVoucherTransactionLog.type,
-                createdBy: createdByEmpName,
-                handledBy: handledByEmpName,
-                lastUpdatedBy: lastUpdatedByEmpName
+                createdBy: createdBy,
+                handledBy: handledBy,
+                lastUpdatedBy: lastUpdatedBy
             }
         });
     },
 
     setDeleteFormData: () => {
         const state = get();
-        const { memberVoucherTransactionLogs, employeeList, selectedTransactionLogId, getNameById } = state;
+        const { memberVoucherTransactionLogs, selectedTransactionLogId, employeeList } = state;
         const memberVoucherTransactionLog = memberVoucherTransactionLogs.find(log => log.id === selectedTransactionLogId);
 
         const dateStr = memberVoucherTransactionLog.service_date;
@@ -604,8 +606,8 @@ const useMemberVoucherTransactionStore = create((set, get) => ({
         const dateFormatted = `${year}-${month}-${day}`;
         const timeFormatted = `${String(date.getHours()).padStart(2, '0')}:${String(date.getMinutes()).padStart(2, '0')}`;
 
-        const createdByEmpName = getNameById(employeeList, String(memberVoucherTransactionLog.created_by));
-        const handledByEmpName = getNameById(employeeList, String(memberVoucherTransactionLog.serviced_by));
+        const createdByWithName = employeeList.find(emp => emp.id === String(memberVoucherTransactionLog.created_by))?.employee_name || 'Unknown';
+        const handledByWithName = employeeList.find(emp => emp.id === String(memberVoucherTransactionLog.serviced_by))?.employee_name || 'Unknown';
 
         set({
             formData: {
@@ -614,8 +616,8 @@ const useMemberVoucherTransactionStore = create((set, get) => ({
                 date: dateFormatted,
                 time: timeFormatted,
                 type: memberVoucherTransactionLog.type,
-                createdBy: createdByEmpName,
-                handledBy: handledByEmpName
+                createdByWithName: createdByWithName,
+                handledByWithName: handledByWithName
             },
             isDeleting: true,
             isConfirming: true

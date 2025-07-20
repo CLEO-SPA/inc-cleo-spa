@@ -112,6 +112,7 @@ const createMember = async ({
   address,
   nric,
   membership_type_id,
+  card_number,
   created_at,
   updated_at,
   created_by,
@@ -161,9 +162,9 @@ const createMember = async ({
     const insertMemberQuery = `
       INSERT INTO members (
         name, email, contact, dob, sex, remarks, address, nric,
-        membership_type_id, created_at, updated_at, created_by, user_auth_id
+        membership_type_id, card_number,created_at, updated_at, created_by, user_auth_id
       )
-      VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13)
+      VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14)
       RETURNING *;
     `;
     const memberValues = [
@@ -176,6 +177,7 @@ const createMember = async ({
       address,
       nric,
       membership_type_id,
+      card_number,
       created_at,
       updated_at,
       created_by,
@@ -221,6 +223,7 @@ const updateMember = async ({
   address,
   nric,
   membership_type_id,
+  card_number,
   updated_at,
 }: UpdateMemberInput) => {
   const client = await pool().connect();
@@ -276,12 +279,13 @@ const updateMember = async ({
         address = $7,
         nric = $8,
         membership_type_id = $9,
-        updated_at = $10
-      WHERE id = $11
+        card_number = $10,
+        updated_at = $11
+      WHERE id = $12
       RETURNING *;
     `;
 
-    const values = [name, email, contact, dob, sex, remarks, address, nric, membership_type_id, updated_at, id];
+    const values = [name, email, contact, dob, sex, remarks, address, nric, membership_type_id, card_number, updated_at, id];
 
     const memberResult = await client.query(updateMemberQuery, values);
 
@@ -408,7 +412,7 @@ FROM members m
 LEFT JOIN membership_types mt ON m.membership_type_id::bigint = mt.id
 LEFT JOIN employees e ON m.created_by = e.id
 WHERE 
-  (m.name ILIKE $1 OR m.contact ILIKE $1)
+  (m.name ILIKE $1 OR m.contact ILIKE $1 OR m.card_number ILIKE $1)
   AND m.created_at BETWEEN $2 AND $3;
 
     `;
@@ -605,7 +609,7 @@ const getMemberCarePackages = async (
 const getAllMembersForDropdown = async () => {
   try {
     const query = `
-      SELECT id, name, contact FROM members
+      SELECT id, name, contact, card_number FROM members
       ORDER BY name ASC
     `;
     const result = await pool().query(query);

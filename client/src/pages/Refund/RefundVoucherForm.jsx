@@ -12,6 +12,8 @@ import { SidebarInset, SidebarProvider } from "@/components/ui/sidebar";
 import useRefundStore from "@/stores/useRefundStore";
 import { useAuth } from "@/context/AuthContext";
 import useEmployeeStore from "@/stores/useEmployeeStore";
+import EmployeeSelect from '@/components/ui/forms/EmployeeSelect';
+
 
 const RefundVoucherForm = () => {
     const { voucherId } = useParams();
@@ -37,11 +39,18 @@ const RefundVoucherForm = () => {
         submitRefundMemberVoucher,
     } = useRefundStore();
 
+    const [refundAmount, setRefundAmount] = useState(0);
 
     useEffect(() => {
         if (voucherId) fetchMemberVoucherById(Number(voucherId));
         //console.log("Fetching voucher with ID:", voucherId);
     }, [voucherId]);
+
+    useEffect(() => {
+        if (memberVoucherDetail?.refundable_amount != null) {
+            setRefundAmount(memberVoucherDetail.refundable_amount);
+        }
+    }, [memberVoucherDetail]);
 
     const [handledById, setHandledById] = useState(null);
 
@@ -56,6 +65,7 @@ const RefundVoucherForm = () => {
     }, []);
 
     const handleSubmit = async () => {
+        console.log(parseFloat(refundAmount.toFixed(2)), "refundAmount");
         const createdById = user?.user_id;
 
         if (!createdById || !handledById) {
@@ -63,17 +73,30 @@ const RefundVoucherForm = () => {
             return;
         }
 
+        if (!refundAmount || isNaN(refundAmount)) {
+            setError("Please enter a valid refund amount.");
+            return;
+        }
+
+        if (refundAmount > voucher?.refundable_amount) {
+            setRefundAmount(voucher.refundable_amount); // Auto-correct
+            setError(`Refund amount cannot exceed $${voucher.refundable_amount.toFixed(2)}.`);
+            return;
+        }
+
+
         const formattedDate = new Date(refundDate).toISOString();
 
         try {
             console.log("date:", refundDate);
             const data = await submitRefundMemberVoucher({
                 memberVoucherId: Number(voucherId),
-                refundedBy: Number(handledById),  
-                createdBy: createdById,     
+                refundedBy: Number(handledById),
+                createdBy: createdById,
                 refundDate: formattedDate,
                 remarks: remarks.trim() === "" ? null : remarks,
                 creditNoteNumber: creditNoteNo.trim() === "" ? null : creditNoteNo.trim(),
+                refundAmount: parseFloat(refundAmount.toFixed(2)), // Ensure 2 decimal places
             });
             setRefundId(data.refundTransactionId);
             setIsSuccess(true);
@@ -228,13 +251,19 @@ const RefundVoucherForm = () => {
                                     <p className="text-sm text-gray-500 mt-6">
                                         Refund Transaction ID: <code className="font-mono bg-gray-200 px-2 py-1 rounded">{refundId}</code>
                                     </p>
-
                                     <Button
-                                        className="mt-6 px-8 py-3 bg-gray-900 hover:bg-black rounded-md text-white font-semibold"
+                                        className="mt-4 px-8 py-3 bg-blue-600 hover:bg-blue-800 rounded-md text-white font-semibold"
+                                        onClick={() => navigate(`/credit-notes/${refundId}`)}
+                                    >
+                                        View Credit Note Record
+                                    </Button>
+                                    <Button
+                                        className="mt-2 px-8 py-3 bg-gray-900 hover:bg-black rounded-md text-white font-semibold"
                                         onClick={() => navigate(-1)}
                                     >
                                         Back to Previous Page
                                     </Button>
+
                                 </div>
                             </div>
                         </SidebarInset>
@@ -330,6 +359,8 @@ const RefundVoucherForm = () => {
                                                 className="h-10 text-sm w-60"
                                             />
                                         </div>
+
+                                        {/*
                                         <div className="space-y-1">
                                             <Label htmlFor="handledBy">Handled By</Label>
                                             <select
@@ -347,6 +378,17 @@ const RefundVoucherForm = () => {
                                             </select>
                                             {isLoadingEmployees && <p className="text-sm text-gray-500">Loading staff...</p>}
                                         </div>
+                                        */}
+
+                                        <EmployeeSelect
+                                            name="handled_by"
+                                            label="Handled By"
+                                            value={handledById}
+                                            onChange={setHandledById}
+                                            customHeight
+                                            className="w-60"
+                                        />
+
 
                                         <div className="space-y-1">
                                             <Label htmlFor="creditNoteNo">Manual Credit Note No. (optional)</Label>
@@ -359,6 +401,37 @@ const RefundVoucherForm = () => {
                                                 className="h-10 text-sm w-60"
                                             />
                                         </div>
+
+                                        <div className="space-y-1">
+                                            <Label htmlFor="refundAmount">Refund Amount</Label>
+                                            <Input
+                                                id="refundAmount"
+                                                type="number"
+                                                step="0.01"
+                                                inputMode="decimal"
+                                                value={refundAmount === 0 ? "" : refundAmount}
+                                                onChange={(e) => {
+                                                    const raw = e.target.value;
+                                                    const value = parseFloat(raw);
+                                                    const max = parseFloat(voucher.refundable_amount);
+
+                                                    if (isNaN(value)) {
+                                                        setRefundAmount(0);
+                                                    } else if (value > max) {
+                                                        setRefundAmount(max);
+                                                    } else {
+                                                        setRefundAmount(value);
+                                                    }
+                                                }}
+                                                min={0.01}
+                                                max={voucher.refundable_amount}
+                                                className="h-10 text-sm w-60"
+                                            />
+                                            <div className="text-xs text-gray-500">
+                                                Max: ${voucher.refundable_amount?.toFixed(2)}
+                                            </div>
+                                        </div>
+
 
                                         <div className="space-y-1">
                                             <Label htmlFor="remarks">Remarks</Label>
