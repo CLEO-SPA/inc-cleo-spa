@@ -4,7 +4,7 @@ const router = express.Router();
 import roleMiddleware from '../middlewares/roleMiddleware.js';
 import isAuthenticated from '../middlewares/authMiddleware.js';
 
-import commisionController from '../controllers/commissionController.js';
+import commissionController from '../controllers/commissionController.js';
 
 // =========================
 // Public routes
@@ -16,6 +16,11 @@ import commisionController from '../controllers/commissionController.js';
 router.use(isAuthenticated);
 
 // GET /api/com/commissionSettings - for commission rates for assigned employees
-router.get('/commissionSettings', commisionController.getAllCommissionSettings);
+router.get('/commissionSettings', commissionController.getAllCommissionSettings);
+
+// PUT /api/com/commissionSettings - update commission settings 
+router.put('/commissionSettings', 
+  commissionController.updateCommissionSettings  
+);
 
 export default router;

@@ -104,6 +104,7 @@ import RefundVouchersPage from '@/pages/Refund/RefundVouchersPage';
 import RefundVoucherForm from '@/pages/Refund/RefundVoucherForm';
 import CreditNotesPage from '@/pages/Refund/CreditNotesPage';
 import CreditNoteDetailsPage from '@/pages/Refund/CreditNoteDetailsPage';
+import CommissionSettingsManager from '@/pages/CommissionSettingManager';
 
 function App() {
   return (
@@ -258,6 +259,9 @@ function App() {
               <Route path='/login' element={<LoginPage />} />
               <Route path='/invites' element={<ResetPasswordPage />} />
               <Route path='/reset-password' element={<ResetPasswordPage />} />
+
+              {/* Commission Settings Manager */}
+              <Route path="/admin/commission-settings" element={<CommissionSettingsManager />} />
 
               {/* 404 Page */}
               <Route path='*' element={<NotFoundPage />} />

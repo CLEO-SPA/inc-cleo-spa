@@ -98,7 +98,7 @@ const applyMcpCommission = async (req: Request, res: Response, next: NextFunctio
         });
 
         // Save to database
-        const result = await model.createEmpCommision(payload);
+        const result = await model.createEmpCommission(payload);
         results.push(result.rows[0]);
       }
     }
@@ -223,7 +223,7 @@ const applyServicesProductsCommission = async (req: Request, res: Response, next
         });
 
         // Save to database
-        const result = await model.createEmpCommision(payload);
+        const result = await model.createEmpCommission(payload);
         results.push(result.rows[0]);
       }
     }
@@ -321,7 +321,7 @@ const applyMvCommission = async (req: Request, res: Response, next: NextFunction
           // For now, using the MV ID, but should be the transaction log ID
         }
 
-        const payload: commisionPayload = {
+        const payload: commissionPayload = {
           employeeId: employee.employeeId.toString(),
           performanceRate: parseFloat(employee.performanceRate),
           performanceAmount: parseFloat(employee.performanceAmount),
@@ -333,17 +333,8 @@ const applyMvCommission = async (req: Request, res: Response, next: NextFunction
           created_at: req.body.created_at || new Date().toISOString(),
         };
 
-        console.log('Creating MV commission with payload:', {
-          employeeId: payload.employeeId,
-          itemType: payload.itemType,
-          itemId: payload.itemId,
-          sourceType: sourceType,
-          performanceRate: payload.performanceRate,
-          commissionRate: payload.commissionRate,
-        });
-
         // Save to database
-        const result = await model.createEmpCommision(payload);
+        const result = await model.createEmpCommission(payload);
         results.push(result.rows[0]);
       }
     }

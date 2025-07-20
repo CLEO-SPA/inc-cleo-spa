@@ -1,5 +1,21 @@
-import { pool } from '../config/database.js';
+import { pool, withTransaction } from '../config/database.js';
 import { EmployeeCommisions } from '../types/model.types.js';
+
+interface CommissionSettingUpdate {
+  key: string;
+  value: string;
+  frontendKey: string;
+}
+
+// Key mapping between frontend and database
+const KEY_MAPPING = {
+  service: 'adhoc_service',
+  product: 'adhoc_product',
+  package: 'member_care_package_purchase',
+  'member-voucher': 'member_voucher_purchase',
+  mcpConsumption: 'member_care_package_consumption',
+  mvConsumption: 'member_voucher_consumption'
+};
 
 const getAllCommissionSettings = async () => {
   try {
@@ -13,6 +29,97 @@ const getAllCommissionSettings = async () => {
     console.error('Error fetching commission settings list:', error);
     throw new Error('Error fetching commission settings list');
   }
+};
+
+const updateMultipleCommissionSettings = async (updates: Record<string, number>): Promise<CommissionSettingUpdate[]> => {
+  return withTransaction(async (client) => {
+    const results: CommissionSettingUpdate[] = [];
+    
+    for (const [frontendKey, value] of Object.entries(updates)) {
+      const dbKey = KEY_MAPPING[frontendKey as keyof typeof KEY_MAPPING];
+      
+      if (!dbKey) {
+        console.warn(` Unknown commission setting key: ${frontendKey}`);
+        continue;
+      }
+
+      // Validate rate (0-100%)
+      if (isNaN(value) || value < 0 || value > 100) {
+        throw new Error(`Invalid commission rate for ${frontendKey}: ${value}. Must be between 0 and 100.`);
+      }
+
+      // First try to update existing record
+      const updateQuery = `
+        UPDATE settings 
+        SET value = $1 
+        WHERE type = 'Commission' AND key = $2
+        RETURNING *;
+      `;
+      
+      const updateResult = await client.query(updateQuery, [value.toFixed(2), dbKey]);
+      
+      if (updateResult.rows.length > 0) {
+        // Record was updated
+        results.push({
+          key: dbKey,
+          value: value.toFixed(2),
+          frontendKey: frontendKey
+        });
+      } else {
+        // Record doesn't exist, insert new one
+        const insertQuery = `
+          INSERT INTO settings (type, key, value)
+          VALUES ('Commission', $1, $2)
+          RETURNING *;
+        `;
+        
+        const insertResult = await client.query(insertQuery, [dbKey, value.toFixed(2)]);
+        
+        if (insertResult.rows.length > 0) {
+          results.push({
+            key: dbKey,
+            value: value.toFixed(2),
+            frontendKey: frontendKey
+          });
+        }
+      }
+    }    
+    return results;
+  });
+};
+
+const validateCommissionSettings = (settings: Record<string, any>): { isValid: boolean, errors: string[] } => {
+  const errors: string[] = [];
+  
+  for (const [key, value] of Object.entries(settings)) {
+    if (!KEY_MAPPING[key as keyof typeof KEY_MAPPING]) {
+      errors.push(`Unknown setting: ${key}`);
+      continue;
+    }
+    
+    // Convert string to number if needed
+    const numericValue = typeof value === 'string' ? parseFloat(value) : value;
+    
+    if (typeof numericValue !== 'number' || isNaN(numericValue)) {
+      errors.push(`${key} must be a valid number`);
+      continue;
+    }
+    
+    if (numericValue < 0) {
+      errors.push(`${key} cannot be negative`);
+      continue;
+    }
+    
+    if (numericValue > 100) {
+      errors.push(`${key} cannot exceed 100%`);
+      continue;
+    }
+  }
+  
+  return {
+    isValid: errors.length === 0,
+    errors
+  };
 };
 
 interface commissionPayload {
@@ -33,7 +140,7 @@ interface commissionPayload {
   created_at: string;
 }
 
-const createEmpCommision = async (data: commissionPayload) => {
+const createEmpCommission = async (data: commissionPayload) => {
   try {
     const query = `
         INSERT INTO employee_commissions 
@@ -131,7 +238,6 @@ const getCommissionSummaryByEmployee = async (employeeId: string, startDate?: st
   }
 };
 
-
 /**
  * Future Enhancements:
  * - Add validation to ensure item exists before creating commission records.
@@ -198,7 +304,10 @@ const getCommissionSummaryByEmployee = async (employeeId: string, startDate?: st
 
 export default {
   getAllCommissionSettings,
-  createEmpCommision,
+  createEmpCommission,
   getCommissionsByTransaction,
-  getCommissionSummaryByEmployee
+  getCommissionSummaryByEmployee,
+  updateMultipleCommissionSettings,
+  validateCommissionSettings,
+  KEY_MAPPING
 };
