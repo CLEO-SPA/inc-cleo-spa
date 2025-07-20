@@ -11,7 +11,7 @@ import { AppSidebar } from '@/components/app-sidebar';
 import { SiteHeader } from '@/components/site-header';
 import { SidebarProvider, SidebarInset } from '@/components/ui/sidebar';
 import {
-  Card, CardContent, CardHeader, CardTitle,
+  Card, CardContent,
 } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -21,7 +21,7 @@ import {
 } from '@/components/ui/dropdown-menu';
 import { Alert, AlertDescription } from '@/components/ui/alert';
 import {
-  MoreHorizontal, Eye, Edit, Trash2, RefreshCw, Plus, Search,
+  MoreHorizontal, Eye, Edit, Trash2, RefreshCw, Plus, Search, Clipboard,
 } from 'lucide-react';
 
 import useAuth from '@/hooks/useAuth';
@@ -42,24 +42,19 @@ export default function ManageUsersPage() {
     searchTerm,
     isLoading,
     error,
-    selectedUser,
-    actioningUsers,
-    isGeneratingLink,
-    inviteDialogOpen,
     initializePagination,
     goToPage,
     goToNextPage,
     goToPreviousPage,
     setSearchTerm,
     setLimit,
-    openInviteDialog,
-    closeInviteDialog,
     regenerateInvitationLink,
     deleteUser,
     clearError,
   } = useUsersStore();
 
   const [inputSearchTerm, setInputSearchTerm] = useState(searchTerm);
+  const [regeneratedUrl, setRegeneratedUrl] = useState('');
 
   const canCreate = user?.role === 'super_admin';
   const canEdit = user?.role === 'super_admin';
@@ -72,6 +67,19 @@ export default function ManageUsersPage() {
 
   const handleSearch = () => {
     setSearchTerm(inputSearchTerm);
+  };
+
+  const handleRegenerateInvite = async (email) => {
+    try {
+      const url = await regenerateInvitationLink(email);
+      setRegeneratedUrl(url);
+    } catch (err) {
+      console.error('Failed to regenerate invite:', err);
+    }
+  };
+
+  const handleCopy = async () => {
+    await navigator.clipboard.writeText(regeneratedUrl);
   };
 
   const pageNumbers = useMemo(() => {
@@ -102,6 +110,25 @@ export default function ManageUsersPage() {
               {error && (
                 <Alert variant='destructive'>
                   <AlertDescription>{error}</AlertDescription>
+                </Alert>
+              )}
+
+              {regeneratedUrl && (
+                <Alert>
+                  <AlertDescription className="flex flex-col gap-1 text-sm break-all">
+                    Invitation link regenerated:
+                    <a
+                      href={regeneratedUrl}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className="text-blue-600 underline"
+                    >
+                      {regeneratedUrl}
+                    </a>
+                    <Button onClick={handleCopy} variant="outline" size="sm" className="w-fit">
+                      <Clipboard className="w-4 h-4 mr-1" /> Copy to Clipboard
+                    </Button>
+                  </AlertDescription>
                 </Alert>
               )}
 
@@ -196,7 +223,7 @@ export default function ManageUsersPage() {
                                       </DropdownMenuItem>
                                     )}
                                     {u.status_name !== 'VERIFIED' && (
-                                      <DropdownMenuItem onClick={() => regenerateInvitationLink(u.email)}>
+                                      <DropdownMenuItem onClick={() => handleRegenerateInvite(u.email)}>
                                         <RefreshCw className='mr-2 h-4 w-4' /> Regenerate Invite
                                       </DropdownMenuItem>
                                     )}

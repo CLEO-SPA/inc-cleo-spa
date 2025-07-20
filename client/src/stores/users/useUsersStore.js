@@ -138,7 +138,7 @@ const useUsersStore = create(
       try {
         const response = await api.post('/auth/create', userData);
 
-        const inviteUrl = response.data.resetUrl; 
+        const inviteUrl = response.data.resetUrl;
         set({
           success: response.message || 'User created successfully',
           invitationLink: inviteUrl,
@@ -203,10 +203,15 @@ const useUsersStore = create(
       set({ isGeneratingLink: true });
       try {
         const response = await api.post('/auth/regenerate-uri', { email });
-        set({ invitationLink: response.data.inviteUrl });
-        return response.data.inviteUrl;
+
+        // Updated key is `callbackUrl` instead of `inviteUrl`
+        set({ invitationLink: response.data.callbackUrl });
+
+        return response.data.callbackUrl;
       } catch (error) {
-        set({ error: error.response?.data?.message || 'Failed to regenerate invitation link' });
+        set({
+          error: error.response?.data?.message || 'Failed to regenerate invitation link',
+        });
         throw error;
       } finally {
         set({ isGeneratingLink: false });
