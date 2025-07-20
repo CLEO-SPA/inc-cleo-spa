@@ -347,7 +347,7 @@ const createAndInviteUser = async (req: Request, res: Response, next: NextFuncti
 
     const randomPassword = crypto.randomBytes(8).toString('hex');
 
-    const results = model.createUserModel({
+    const results = await model.createUserModel({
       username,
       email,
       password_hash: randomPassword,

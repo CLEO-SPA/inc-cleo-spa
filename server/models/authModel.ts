@@ -128,7 +128,7 @@ const updateUserPassword = async (email: string, password_hash: string, isInvite
     if (isInvite) {
       const query = `
         UPDATE users
-        SET verified_status_id = (SELECT get_or_create_status('Verified'))
+        SET verified_status_id = (SELECT get_or_create_status('VERIFIED')), updated_at = NOW()
         WHERE email = $1;
       `;
       const values = [email];
@@ -173,6 +173,7 @@ const createUserModel = async (data: NewUserData) => {
   try {
     await client.query('BEGIN');
 
+    // Step 1: Insert into user_auth
     const ua_query = `
       INSERT INTO user_auth (
         email, password, created_at, updated_at
@@ -180,21 +181,22 @@ const createUserModel = async (data: NewUserData) => {
       VALUES ($1, $2, $3, $4)
       RETURNING id
     `;
-
-    const { rows: ua_result } = await client.query<UserAuth>(ua_query, [
+    const { rows: ua_result } = await client.query<{ id: string }>(ua_query, [
       data.email,
       data.password_hash,
       data.created_at,
       data.updated_at,
     ]);
+    const user_auth_id = ua_result[0].id;
 
+    // Step 2: Insert into user_to_role
     const ua_to_role_query = `
-      INSERT INTO user_to_role (user_auth_id, role_id)
-      VALUES ($1, (SELECT get_or_create_roles($2)))
-    `;
+  INSERT INTO user_to_role (user_auth_id, role_id, created_at, updated_at)
+  VALUES ($1, (SELECT get_or_create_roles($2)), CURRENT_TIMESTAMP, CURRENT_TIMESTAMP)
+`;
+    await client.query(ua_to_role_query, [user_auth_id, data.role_name]);
 
-    await client.query(ua_to_role_query, [ua_result[0].id, data.role_name]);
-
+    // Step 3: Insert into users (now includes username and user_auth_id)
     const u_query = `
       INSERT INTO users (
         username, email, user_auth_id, created_at, updated_at, verified_status_id
@@ -205,17 +207,17 @@ const createUserModel = async (data: NewUserData) => {
     const userResult = await client.query<{ id: string }>(u_query, [
       data.username,
       data.email,
+      user_auth_id,
       data.created_at,
       data.updated_at,
     ]);
-    const userId = userResult.rows[0].id;
 
     await client.query('COMMIT');
-    return { userId };
+    return { userId: userResult.rows[0].id };
   } catch (error) {
     await client.query('ROLLBACK');
-    console.error('Error creating employee with auth:', error);
-    throw new Error('Failed to create employee with auth');
+    console.error('Error creating user with auth:', error);
+    throw new Error('Failed to create user with auth');
   } finally {
     client.release();
   }
