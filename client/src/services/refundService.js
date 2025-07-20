@@ -51,5 +51,21 @@ export default {
       console.error('[REFUND FAILED]', error.response?.data || error.message);
       throw error;
     });
-  }
+  },
+
+  processPartialRefund: (data) => {
+  return api.post('api/refund/mcp/partial', {
+    mcpId: data.mcpId,
+    refundedBy: data.refundedBy,
+    refundRemarks: data.refundRemarks,
+    refundDate: data.refundDate ? data.refundDate.toISOString() : null,
+    refundItems: data.refundItems
+  }, {
+    withCredentials: true
+  }).catch(error => {
+    console.error('[PARTIAL REFUND FAILED]', error.response?.data || error.message);
+    throw error;
+  });
+}
+
 };

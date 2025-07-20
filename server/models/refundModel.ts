@@ -483,7 +483,7 @@ const processRefundService = async (body: {
 
 const getMCPById = async (mcpId: number) => {
   const { rows } = await pool().query(
-    `SELECT id, member_id, status 
+    `SELECT id, member_id, balance, status 
      FROM member_care_packages 
      WHERE id = $1`,
     [mcpId]
@@ -683,6 +683,167 @@ const processFullRefundTransaction = async (params: {
   }
 };
 
+// Updated processPartialRefundTransaction
+const processPartialRefundTransaction = async (params: {
+  mcpId: number;
+  memberId: number;
+  refundDetails: Array<{
+    id: number;
+    service_name: string;
+    price: number;
+    discount: number;
+    refundQuantity: number;
+    refundAmount: number;
+  }>;
+  refundedBy: number;
+  refundRemarks?: string;
+  refundDate?: Date;
+  totalRefundAmount: number;
+}) => {
+  const client = await pool().connect();
+  try {
+    await client.query('BEGIN');
+
+    // Get current package details with FOR UPDATE to lock the row
+    const { rows: packageRows } = await client.query(
+      `SELECT balance FROM member_care_packages WHERE id = $1 FOR UPDATE`,
+      [params.mcpId]
+    );
+    const currentBalance = parseFloat(packageRows[0].balance);
+
+    // Format the refund date (use current date if not provided)
+    const refundDate = params.refundDate || new Date();
+    const formattedRefundDate = refundDate.toISOString();
+
+    // Look up Refund payment method
+    const { rows: paymentMethodRows } = await client.query(
+      `SELECT id FROM payment_methods WHERE payment_method_name = 'Refund' LIMIT 1`
+    );
+    const refundPaymentMethodId = paymentMethodRows[0]?.id;
+
+    if (!refundPaymentMethodId) {
+      throw new Error('Refund payment method not found in database');
+    }
+
+    // Generate receipt number
+    const receiptNo = await generateCreditNoteNumber(client);
+
+    // Create refund transaction
+    const { rows: txRows } = await client.query(
+      `INSERT INTO sale_transactions (
+        customer_type, member_id, total_paid_amount, 
+        outstanding_total_payment_amount, sale_transaction_status,
+        remarks, receipt_no, handled_by, created_by, created_at, updated_at
+      ) VALUES (
+        'MEMBER', $1, $2, 0, 'REFUND',
+        $3, $4, $5, $6, $7, $7
+      ) RETURNING id`,
+      [
+        params.memberId,
+        (-params.totalRefundAmount).toFixed(2),
+        params.refundRemarks || 'Partial package refund',
+        receiptNo,
+        params.refundedBy,
+        params.refundedBy,
+        formattedRefundDate
+      ]
+    );
+    const refundTxId = txRows[0].id;
+
+    // Create sale transaction items for each refunded service
+    for (const service of params.refundDetails) {
+      if (service.refundQuantity <= 0) continue;
+
+      await client.query(
+        `INSERT INTO sale_transaction_items (
+          sale_transaction_id, service_name, member_care_package_id,
+          original_unit_price, custom_unit_price, discount_percentage, 
+          quantity, amount, item_type, remarks
+        ) VALUES ($1, $2, $3, $4, $4, $5, $6, $7, 'member care package', $8)`,
+        [
+          refundTxId,
+          service.service_name,
+          params.mcpId,
+          service.price,
+          service.discount,
+          service.refundQuantity,
+          -service.refundAmount,
+          `Partial refund for ${service.refundQuantity} session(s) of ${service.service_name} - ${params.refundRemarks || 'No remarks provided'}`
+        ]
+      );
+
+      // Create transaction log for the refund (without service_id if it's null)
+      await client.query(
+        `INSERT INTO member_care_package_transaction_logs (
+          type, description, transaction_date,
+          transaction_amount, amount_changed,
+          member_care_package_details_id, employee_id,
+          service_id, created_at
+        ) VALUES (
+          'REFUND', $1, $2, $3, $4, $5, $6, $7, $8
+        )`,
+        [
+          `Partial refund of ${service.refundQuantity} session(s) of ${service.service_name}`,
+          formattedRefundDate,
+          -service.refundAmount,
+          service.refundAmount,
+          service.id,
+          params.refundedBy,
+          null, // service_id can be null for bypass packages
+          formattedRefundDate
+        ]
+      );
+    }
+
+    // Create refund payment
+    await client.query(
+      `INSERT INTO payment_to_sale_transactions (
+        payment_method_id, sale_transaction_id, amount,
+        remarks, created_by, updated_by, created_at, updated_at
+      ) VALUES ($1, $2, $3, $4, $5, $6, $7, $7)`,
+      [
+        refundPaymentMethodId,
+        refundTxId,
+        -params.totalRefundAmount,
+        params.refundRemarks || `Partial package refund (${params.refundDetails.length} services)`,
+        params.refundedBy,
+        params.refundedBy,
+        formattedRefundDate
+      ]
+    );
+
+    // Update MCP balance only
+    const newBalance = currentBalance - params.totalRefundAmount;
+    await client.query(
+      `UPDATE member_care_packages
+       SET balance = $1
+       WHERE id = $2`,
+      [newBalance.toFixed(2), params.mcpId]
+    );
+
+    await client.query('COMMIT');
+
+    return {
+      refundTransactionId: refundTxId,
+      totalRefund: params.totalRefundAmount,
+      refundedServices: params.refundDetails.map(s => ({
+        serviceName: s.service_name,
+        quantity: s.refundQuantity,
+        amount: s.refundAmount
+      })),
+      newPackageBalance: newBalance,
+      refundDate: refundDate.toISOString(),
+      receiptNo
+    };
+  } catch (error) {
+    await client.query('ROLLBACK');
+    console.error('Partial refund processing failed:', error);
+    throw error;
+  } finally {
+    client.release();
+  }
+};
+
 const fetchMCPStatusById = async (packageId: number) => {
   const query = `
     WITH purchase_totals AS (
@@ -733,10 +894,10 @@ const fetchMCPStatusById = async (packageId: number) => {
       FLOOR(COALESCE(pt.purchased_quantity, 0)) AS purchased,
       COALESCE(ct.consumed, 0) AS consumed,
       FLOOR(COALESCE(rt.refunded_quantity, 0)) AS refunded,
-      CASE 
-        WHEN COALESCE(rt.refunded_quantity, 0) > 0 THEN 0
-        ELSE (FLOOR(COALESCE(pt.purchased_quantity, 0)) - COALESCE(ct.consumed, 0))
-      END AS remaining,
+      GREATEST(
+        mcpd.quantity - FLOOR(COALESCE(rt.refunded_quantity, 0)) - COALESCE(ct.consumed, 0),
+        0
+      ) AS remaining,
       GREATEST(mcpd.quantity - FLOOR(COALESCE(pt.purchased_quantity, 0)), 0) AS unpaid
     FROM member_care_packages mcp
     JOIN member_care_package_details mcpd 
@@ -753,6 +914,7 @@ const fetchMCPStatusById = async (packageId: number) => {
   const { rows } = await pool().query(query, [packageId]);
   return rows;
 };
+
 
 const getRefundDetailsForPackage = async (packageId: number) => {
   const query = `
@@ -1657,6 +1819,7 @@ export default {
   getRemainingServices,
   //getStatusId,
   processFullRefundTransaction,
+  processPartialRefundTransaction,
   fetchMCPStatusById,
   searchMembers,
   getMemberCarePackages,
