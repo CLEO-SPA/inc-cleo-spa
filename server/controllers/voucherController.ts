@@ -165,8 +165,7 @@ const transferVoucherDetailsHandler = async (
 
     for (const { voucher_id, member_voucher_name } of old_voucher_details) {
       const isFOCUsed = await voucherModel.checkIfFreeOfChargeIsUsedById(voucher_id);
-      console.log(`[FOC CHECK] Checking FOC for voucher ID: ${voucher_id}`);
-      console.log(`[FOC CHECK] isFOCUsed = ${isFOCUsed}`);
+     
 
       if (isFOCUsed) {
         await voucherModel.removeFOCFromVoucherById(voucher_id, created_by, created_at);

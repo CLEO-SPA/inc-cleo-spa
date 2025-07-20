@@ -108,7 +108,6 @@ const useMemberVoucherTransactionStore = create((set, get) => ({
             const response = await api.get(`/mv/${selectedMemberVoucherId}/mn`);
 
             const memberName = response.data.data;
-            console.log(memberName);
 
             set({
                 success: true,
@@ -189,15 +188,10 @@ const useMemberVoucherTransactionStore = create((set, get) => ({
         }
 
         try {
-
             const response = await api.get(`/mv/${selectedMemberVoucherId}/t`, { params: queryParams });
-
-            console.log(response);
 
             const transactionList = response.data.data.data;
             const pageInfo = response.data.data.pageInfo;
-
-            console.log(transactionList);
 
             set({
                 loading: false,
@@ -212,8 +206,6 @@ const useMemberVoucherTransactionStore = create((set, get) => ({
                 hasPreviousPage: pageInfo.hasPreviousPage,
                 totalCount: pageInfo.totalCount ? pageInfo.totalCount : totalCount,
             });
-
-            console.log('State after fetchTransactionLog:', { ...response });
 
             get().setSuccessWithTimeout();
 
@@ -240,11 +232,7 @@ const useMemberVoucherTransactionStore = create((set, get) => ({
 
             const memberVoucherPurchasedDateStr = response.data.data;
 
-            console.log("memberVoucherPurchasedDateStr: " + memberVoucherPurchasedDateStr);
-
             const memberVoucherPurchasedDate = new Date(memberVoucherPurchasedDateStr);
-
-            console.log("memberVoucherPurchasedDate: " + memberVoucherPurchasedDate);
 
             set({
                 loading: false,
@@ -254,8 +242,6 @@ const useMemberVoucherTransactionStore = create((set, get) => ({
 
                 memberVoucherPurchasedAt: memberVoucherPurchasedDate,
             });
-
-            console.log('State after fetchPurchaseDate:', { ...response });
 
             get().setSuccessWithTimeout();
 
@@ -277,8 +263,6 @@ const useMemberVoucherTransactionStore = create((set, get) => ({
             const state = get();
             const { selectedMemberVoucherId, formData } = state;
 
-            console.log("fetch function form data: ");
-            console.log(formData);
             await api.post(`/mv/${selectedMemberVoucherId}/t/create`, formData);
 
             set({
@@ -439,7 +423,6 @@ const useMemberVoucherTransactionStore = create((set, get) => ({
 
         if (!validate.isValid) {
 
-            console.log(validate.error);
             set({
                 error: true,
                 errorMessage: validate.error
