@@ -133,16 +133,24 @@ const useUsersStore = create(
 
     // User management functions
     createUser: async (userData) => {
-      set({ isLoading: true });
+      set({ isCreating: true, error: '', success: false });
+
       try {
         const response = await api.post('/auth/create', userData);
-        await get().fetchUsers();
-        return response.data;
-      } catch (error) {
-        set({ error: error.response?.data?.message || 'Failed to create user' });
-        throw error;
+
+        const inviteUrl = response.data.resetUrl; 
+        set({
+          success: response.message || 'User created successfully',
+          invitationLink: inviteUrl,
+        });
+
+        return { inviteUrl };
+      } catch (err) {
+        const message = err.response?.data?.message || 'Failed to create user. Please try again.';
+        set({ error: message });
+        throw new Error(message);
       } finally {
-        set({ isLoading: false });
+        set({ isCreating: false });
       }
     },
 

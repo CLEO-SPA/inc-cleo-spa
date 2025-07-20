@@ -259,7 +259,7 @@ function App() {
 
                 {/* Users */}
                 <Route path='/users' element={<ManageUsersPage />} />
-                <Route path='/users/c' element={<CreateUserPage />} />
+                <Route path='/users/create' element={<CreateUserPage />} />
               </Route>
 
               {/* Public routes */}

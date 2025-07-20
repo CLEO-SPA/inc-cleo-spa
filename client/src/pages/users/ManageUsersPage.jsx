@@ -13,19 +13,15 @@ import { SidebarProvider, SidebarInset } from '@/components/ui/sidebar';
 import {
   Card, CardContent, CardHeader, CardTitle,
 } from '@/components/ui/card';
-import {
-  Button
-} from '@/components/ui/button';
+import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import {
   DropdownMenu, DropdownMenuContent, DropdownMenuItem,
   DropdownMenuTrigger, DropdownMenuSeparator,
 } from '@/components/ui/dropdown-menu';
 import { Alert, AlertDescription } from '@/components/ui/alert';
-
 import {
-  MoreHorizontal, Eye, Edit, Trash2, RefreshCw, Copy,
-  CheckCircle, Plus, Search,
+  MoreHorizontal, Eye, Edit, Trash2, RefreshCw, Plus, Search,
 } from 'lucide-react';
 
 import useAuth from '@/hooks/useAuth';
@@ -46,7 +42,6 @@ export default function ManageUsersPage() {
     searchTerm,
     isLoading,
     error,
-    invitationLink,
     selectedUser,
     actioningUsers,
     isGeneratingLink,
@@ -87,10 +82,6 @@ export default function ManageUsersPage() {
     return pages;
   }, [currentPage, totalPages]);
 
-  const handleCopyLink = () => {
-    navigator.clipboard.writeText(invitationLink);
-  };
-
   return (
     <div className='[--header-height:calc(theme(spacing.14))]'>
       <SidebarProvider className='flex flex-col'>
@@ -108,17 +99,6 @@ export default function ManageUsersPage() {
                 )}
               </div>
 
-              {invitationLink && (
-                <Alert>
-                  <CheckCircle className='h-4 w-4' />
-                  <AlertDescription className='flex items-center gap-2'>
-                    <span>{invitationLink}</span>
-                    <Button size='sm' variant='outline' onClick={handleCopyLink}>
-                      <Copy className='w-4 h-4 mr-1' /> Copy
-                    </Button>
-                  </AlertDescription>
-                </Alert>
-              )}
               {error && (
                 <Alert variant='destructive'>
                   <AlertDescription>{error}</AlertDescription>
@@ -187,7 +167,17 @@ export default function ManageUsersPage() {
                               <TableCell>{(currentPage - 1) * currentLimit + index + 1}</TableCell>
                               <TableCell>{u.username}</TableCell>
                               <TableCell>{u.email}</TableCell>
-                              <TableCell>{u.status_name}</TableCell>
+                              <TableCell>
+                                {u.status_name === 'VERIFIED' ? (
+                                  <span className='inline-flex items-center rounded-full bg-blue-100 px-2 py-0.5 text-xs font-medium text-blue-800'>
+                                    VERIFIED
+                                  </span>
+                                ) : (
+                                  <span className='inline-flex items-center rounded-full bg-gray-100 px-2 py-0.5 text-xs font-medium text-gray-800'>
+                                    {u.status_name}
+                                  </span>
+                                )}
+                              </TableCell>
                               <TableCell>{u.role_name}</TableCell>
                               <TableCell className='text-right'>
                                 <DropdownMenu>
