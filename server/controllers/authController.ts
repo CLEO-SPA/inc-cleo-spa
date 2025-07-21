@@ -543,7 +543,28 @@ const getUsers = async (req: Request, res: Response, next: NextFunction): Promis
   }
 };
 
+const getUserById = async (req: Request, res: Response, next: NextFunction) => {
+  try {
+    const { id } = req.params;
 
+    if (!id) {
+      res.status(400).json({ message: 'User ID is required' });
+      return;
+    }
+
+    const user = await model.getUserById(id);
+
+    if (!user) {
+      res.status(404).json({ message: 'User not found' });
+      return;
+    }
+
+    res.status(200).json(user);
+  } catch (error) {
+    console.error('Error in getUserById controller:', error);
+    next(error); // or use res.status(500).json({ message: 'Internal server error' });
+  }
+};
 
 export default {
   isAuthenticated,
@@ -560,4 +581,5 @@ export default {
   updateUser,
   deleteUser,
   getUsers,
+  getUserById
 };

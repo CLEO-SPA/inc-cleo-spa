@@ -1,128 +1,100 @@
-import React, { useState, useEffect } from 'react';
+'use client';
+
+import React, { useEffect, useState } from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
 import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import * as z from 'zod';
+
+import { toast } from 'sonner';
 import { AppSidebar } from '@/components/app-sidebar';
 import { SiteHeader } from '@/components/site-header';
 import { SidebarInset, SidebarProvider } from '@/components/ui/sidebar';
-import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
+import {
+  Card, CardHeader, CardTitle, CardContent,
+} from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
-import { Form, FormControl, FormDescription, FormField, FormItem, FormLabel, FormMessage } from '@/components/ui/form';
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Input } from '@/components/ui/input';
+import { Label } from '@/components/ui/label';
 import { Alert, AlertDescription } from '@/components/ui/alert';
-import { ArrowLeft, UserCog, AlertCircle, Shield, Mail, User as UserIcon, Key, Copy } from 'lucide-react';
+import {
+  ArrowLeft, AlertCircle, CheckCircle, Shield,
+} from 'lucide-react';
 import useUsersStore from '@/stores/users/useUsersStore';
 import useAuth from '@/hooks/useAuth';
 import api from '@/services/api';
+import {
+  Form, FormField, FormItem, FormLabel, FormControl, FormMessage,
+} from '@/components/ui/form';
+import {
+  Select, SelectTrigger, SelectValue, SelectContent, SelectItem,
+} from '@/components/ui/select';
 
 const updateUserSchema = z.object({
   username: z.string().min(3, 'Username must be at least 3 characters'),
   email: z.string().email('Invalid email address'),
   role_name: z.string().optional(),
-  password: z.string().optional().refine((val) => !val || val.length >= 8, {
-    message: 'Password must be at least 8 characters long or empty',
-  }),
 });
 
-function UpdateUserPage() {
+export default function UpdateUserPage() {
   const navigate = useNavigate();
   const { id } = useParams();
   const { user: currentUser } = useAuth();
-  const { updateUser, invitationLink } = useUsersStore();
+  const { updateUser } = useUsersStore();
 
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [roles, setRoles] = useState([]);
   const [error, setError] = useState('');
-  const [successMessage, setSuccessMessage] = useState('');
+  const [success, setSuccess] = useState(false);
   const [user, setUser] = useState(null);
-  const [loading, setLoading] = useState(true);
-
   const form = useForm({
     resolver: zodResolver(updateUserSchema),
     defaultValues: {
       username: '',
       email: '',
       role_name: '',
-      password: '',
     },
   });
 
+  const { control, handleSubmit, reset, formState: { errors } } = form;
+  const canEditRole = currentUser?.role === 'super_admin';
+
   useEffect(() => {
     const fetchData = async () => {
-      setLoading(true);
       try {
-        const userResponse = await api.get(`/auth/users/${id}`);
-        setUser(userResponse.data);
-        form.reset({
-          username: userResponse.data.username,
-          email: userResponse.data.email,
-          role_name: userResponse.data.role_name,
-          password: '',
+        const userRes = await api.get(`/auth/users/${id}`);
+        setUser(userRes.data);
+        reset({
+          username: userRes.data.username,
+          email: userRes.data.email,
+          role_name: userRes.data.role_name,
         });
 
-        const rolesResponse = await api.get('/auth/roles');
-        setRoles(rolesResponse.data);
+        const rolesRes = await api.get('/auth/roles');
+        setRoles(rolesRes.data);
       } catch (err) {
         setError(err.response?.data?.message || 'Failed to load user data');
-        console.error('Error loading user data:', err);
-      } finally {
-        setLoading(false);
       }
     };
-
     fetchData();
-  }, [id, form]);
+  }, [id, reset]);
 
   const onSubmit = async (data) => {
     setIsSubmitting(true);
     setError('');
-    setSuccessMessage('');
-
+    setSuccess(false);
     const updatedData = { ...data };
-    if (!updatedData.password) delete updatedData.password;
-    if (currentUser.role !== 'super_admin') delete updatedData.role_name;
+    if (!canEditRole) delete updatedData.role_name;
 
     try {
-      const result = await updateUser(id, updatedData);
-      setSuccessMessage('User updated successfully');
-      form.setValue('password', '');
+      await updateUser(id, updatedData);
+      setSuccess(true);
     } catch (err) {
-      setError(err.response?.data?.message || 'Failed to update user');
+      setError(err.response?.data?.message || 'Failed to update user. Please try again.');
     } finally {
       setIsSubmitting(false);
     }
   };
-
-  const canEditRole = currentUser?.role === 'super_admin';
-
-  const handleCopy = async () => {
-    if (invitationLink) {
-      await navigator.clipboard.writeText(invitationLink);
-      alert('Invite link copied to clipboard');
-    }
-  };
-
-  if (loading) {
-    return (
-      <div className='[--header-height:calc(theme(spacing.14))]'>
-        <SidebarProvider className='flex flex-col'>
-          <SiteHeader />
-          <div className='flex flex-1'>
-            <AppSidebar />
-            <SidebarInset>
-              <div className='flex h-full items-center justify-center'>
-                <div className='text-center'>
-                  <div className='text-2xl font-semibold'>Loading user data...</div>
-                </div>
-              </div>
-            </SidebarInset>
-          </div>
-        </SidebarProvider>
-      </div>
-    );
-  }
 
   return (
     <div className='[--header-height:calc(theme(spacing.14))]'>
@@ -131,105 +103,64 @@ function UpdateUserPage() {
         <div className='flex flex-1'>
           <AppSidebar />
           <SidebarInset>
-            <div className='container mx-auto p-6 max-w-3xl'>
-              <div className='flex items-center justify-between mb-6'>
-                <div className='flex items-center'>
-                  <Button variant='ghost' onClick={() => navigate('/users')} className='mr-4'>
-                    <ArrowLeft className='h-4 w-4 mr-2' />
-                    Back
-                  </Button>
-                  <h1 className='text-2xl font-bold'>Update User</h1>
-                </div>
+            <div className='flex flex-col gap-4 p-4 max-w-2xl'>
+              <div className='flex items-center'>
+                <Button variant='ghost' onClick={() => navigate(-1)} className='mr-4'>
+                  <ArrowLeft className='h-4 w-4 mr-2' /> Back
+                </Button>
+                <h1 className='text-2xl font-bold'>Update User</h1>
               </div>
 
               {error && (
-                <Alert variant='destructive' className='mb-6'>
+                <Alert variant='destructive'>
                   <AlertCircle className='h-4 w-4' />
                   <AlertDescription>{error}</AlertDescription>
                 </Alert>
               )}
-
-              {successMessage && (
-                <Alert className='mb-6 bg-green-50 border-green-200'>
-                  <AlertCircle className='h-4 w-4 text-green-600' />
-                  <AlertDescription className='text-green-800'>{successMessage}</AlertDescription>
+              {success && (
+                <Alert variant='success'>
+                  <CheckCircle className='h-4 w-4' />
+                  <AlertDescription>User updated successfully.</AlertDescription>
                 </Alert>
               )}
 
-              {invitationLink && (
-                <Alert className='mb-6 bg-blue-50 border-blue-200'>
-                  <AlertCircle className='h-4 w-4 text-blue-600' />
-                  <AlertDescription className='text-blue-800'>
-                    Invite link: <span className='underline'>{invitationLink}</span>
-                    <Button variant='link' size='sm' onClick={handleCopy} className='ml-2'>
-                      <Copy className='h-4 w-4 inline' /> Copy
-                    </Button>
-                  </AlertDescription>
-                </Alert>
-              )}
-
-              <Card>
-                <CardHeader>
-                  <CardTitle className='flex items-center'>
-                    <UserCog className='h-5 w-5 mr-2' />
-                    Edit User: {user?.username}
-                  </CardTitle>
-                </CardHeader>
-                <CardContent>
-                  <Form {...form}>
-                    <form onSubmit={form.handleSubmit(onSubmit)} className='space-y-6'>
-                      <FormField
-                        control={form.control}
-                        name='username'
-                        render={({ field }) => (
-                          <FormItem>
-                            <FormLabel className='flex items-center'>
-                              <UserIcon className='h-4 w-4 mr-2 text-muted-foreground' />
-                              Username
-                            </FormLabel>
-                            <FormControl>
-                              <Input placeholder='johndoe' {...field} />
-                            </FormControl>
-                            <FormDescription>The username for this user account.</FormDescription>
-                            <FormMessage />
-                          </FormItem>
+              <Form {...form}>
+                <form onSubmit={handleSubmit(onSubmit)} className='space-y-6'>
+                  <Card>
+                    <CardHeader>
+                      <CardTitle>Edit User Details</CardTitle>
+                    </CardHeader>
+                    <CardContent className='space-y-6'>
+                      <div>
+                        <Label htmlFor='username'>Username *</Label>
+                        <Input id='username' {...form.register('username')} />
+                        {errors.username && (
+                          <p className='text-red-500 text-xs mt-1'>{errors.username.message}</p>
                         )}
-                      />
+                      </div>
 
-                      <FormField
-                        control={form.control}
-                        name='email'
-                        render={({ field }) => (
-                          <FormItem>
-                            <FormLabel className='flex items-center'>
-                              <Mail className='h-4 w-4 mr-2 text-muted-foreground' />
-                              Email
-                            </FormLabel>
-                            <FormControl>
-                              <Input type='email' placeholder='john.doe@example.com' {...field} />
-                            </FormControl>
-                            <FormDescription>
-                              Changing the email will require the user to verify their new email address.
-                            </FormDescription>
-                            <FormMessage />
-                          </FormItem>
+                      <div>
+                        <Label htmlFor='email'>Email *</Label>
+                        <Input id='email' type='email' {...form.register('email')} />
+                        {errors.email && (
+                          <p className='text-red-500 text-xs mt-1'>{errors.email.message}</p>
                         )}
-                      />
+                      </div>
 
                       {canEditRole && (
                         <FormField
-                          control={form.control}
+                          control={control}
                           name='role_name'
                           render={({ field }) => (
                             <FormItem>
-                              <FormLabel className='flex items-center'>
+                              <FormLabel htmlFor='role_name' className='flex items-center'>
                                 <Shield className='h-4 w-4 mr-2 text-muted-foreground' />
                                 Role
                               </FormLabel>
-                              <Select onValueChange={field.onChange} defaultValue={field.value} value={field.value}>
+                              <Select onValueChange={field.onChange} defaultValue={field.value}>
                                 <FormControl>
                                   <SelectTrigger>
-                                    <SelectValue placeholder='Select a role' />
+                                    <SelectValue placeholder='Select role' />
                                   </SelectTrigger>
                                 </FormControl>
                                 <SelectContent>
@@ -240,45 +171,19 @@ function UpdateUserPage() {
                                   ))}
                                 </SelectContent>
                               </Select>
-                              <FormDescription>
-                                The user's role determines their permissions in the system.
-                              </FormDescription>
                               <FormMessage />
                             </FormItem>
                           )}
                         />
                       )}
+                    </CardContent>
+                  </Card>
 
-                      <FormField
-                        control={form.control}
-                        name='password'
-                        render={({ field }) => (
-                          <FormItem>
-                            <FormLabel className='flex items-center'>
-                              <Key className='h-4 w-4 mr-2 text-muted-foreground' />
-                              Password
-                            </FormLabel>
-                            <FormControl>
-                              <Input type='password' placeholder='Leave blank to keep current password' {...field} />
-                            </FormControl>
-                            <FormDescription>Enter a new password only if you want to change it.</FormDescription>
-                            <FormMessage />
-                          </FormItem>
-                        )}
-                      />
-
-                      <div className='flex justify-end space-x-4 pt-4'>
-                        <Button type='button' variant='outline' onClick={() => navigate('/users')}>
-                          Cancel
-                        </Button>
-                        <Button type='submit' disabled={isSubmitting}>
-                          {isSubmitting ? 'Saving...' : 'Update User'}
-                        </Button>
-                      </div>
-                    </form>
-                  </Form>
-                </CardContent>
-              </Card>
+                  <Button type='submit' disabled={isSubmitting} className='w-full'>
+                    {isSubmitting ? 'Updating...' : 'Update User'}
+                  </Button>
+                </form>
+              </Form>
             </div>
           </SidebarInset>
         </div>
@@ -286,5 +191,3 @@ function UpdateUserPage() {
     </div>
   );
 }
-
-export default UpdateUserPage;
