@@ -220,10 +220,12 @@ CREATE TABLE "membership_accounts" (
 CREATE TABLE "membership_types" (
     "id" BIGSERIAL NOT NULL,
     "membership_type_name" VARCHAR(50) NOT NULL,
-    "default_discount_for_products" DECIMAL,
-    "default_discount_percentage_for_service" DECIMAL,
+    "default_percentage_discount_for_products" DECIMAL,
+    "default_percentage_discount_for_services" DECIMAL,
     "created_at" TIMESTAMPTZ(6),
     "updated_at" TIMESTAMPTZ(6),
+    "created_by" BIGINT NOT NULL,
+    "last_updated_by" BIGINT NOT NULL,
 
     CONSTRAINT "membership_types_pkey" PRIMARY KEY ("id")
 );

@@ -1,0 +1,2 @@
+id,customer_type,member_id,total_paid_amount,outstanding_total_payment_amount,sale_transaction_status,remarks,receipt,reference_sales_transaction_id,handled_by,created_by,created_by,updated_by
+101,member,51,1888,0,FULL,,,0,14,14,2025-02-01 12:00:00+08,2025-02-01 12:00:00+08

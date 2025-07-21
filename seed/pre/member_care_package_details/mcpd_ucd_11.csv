@@ -1,0 +1,4 @@
+id,member_care_package_id,service_id,service_name,price,status,discount,quantity
+26,26,124,Refreshing Cica,58,ENABLED,1,6
+27,27,9,Eye Hot Mask,45,ENABLED,1,6
+28,27,10,Face Soft Mask,45,ENABLED,1,6
