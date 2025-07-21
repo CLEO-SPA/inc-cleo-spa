@@ -51,13 +51,14 @@ const useTransactionCartStore = create(
           });
         }
 
-        if (item.type === 'transferMCP' || item.type === 'transfer') {
+        if (item.type === 'transferMCP') {
           console.log('🔄 MCP Transfer Details:', {
             description: item.data?.description,
             amount: item.data?.amount,
             fromMember: item.data?.fromMember,
             toMember: item.data?.toMember,
             queueItem: item.data?.queueItem,
+            transferAmount: item.data?.amount,
           });
         }
 
@@ -190,9 +191,7 @@ const useTransactionCartStore = create(
       // Get MCP transfer items
       getMcpTransferItems: () => {
         const state = get();
-        const items = state.cartItems.filter(
-          (item) => item.type === 'transferMCP' || (item.type === 'transfer' && item.data?.queueItem?.mcp_id1)
-        );
+  const items = state.cartItems.filter((item) => item.type === 'transferMCP');
         console.log(`🔄 Getting MCP transfer items:`, items.length);
         return items;
       },

@@ -163,17 +163,15 @@ const transferVoucherDetailsHandler = async (
     // Sum actual current balances from DB
     let totalActualTransferredBalance = 0;
 
-    for (const { member_voucher_name } of old_voucher_details) {
-      const isFOCUsed = await voucherModel.checkIfFreeOfChargeIsUsed(memberId, member_voucher_name);
-      console.log(`[FOC CHECK] Checking FOC for voucher: ${member_voucher_name}`);
-      console.log(`[FOC CHECK] isFOCUsed = ${isFOCUsed}`);
+    for (const { voucher_id, member_voucher_name } of old_voucher_details) {
+      const isFOCUsed = await voucherModel.checkIfFreeOfChargeIsUsedById(voucher_id);
+     
+
       if (isFOCUsed) {
-        await voucherModel.removeFOCFromVoucher(memberId, member_voucher_name, created_by, created_at);
+        await voucherModel.removeFOCFromVoucherById(voucher_id, created_by, created_at);
       }
 
-
-      const currentBalance = await voucherModel.getMemberVoucherCurrentBalance(memberId, member_voucher_name);
-
+      const currentBalance = await voucherModel.getMemberVoucherCurrentBalanceById(voucher_id);
 
       await memberVoucherTransactionLogsModel.addTransferMemberVoucherTransactionLog(
         memberId,
@@ -185,15 +183,13 @@ const transferVoucherDetailsHandler = async (
         created_at,
       );
 
-      await voucherModel.setMemberVoucherBalanceAfterTransfer(
-        memberId,
-        member_voucher_name,
+      await voucherModel.setMemberVoucherBalanceAfterTransferById(
+        voucher_id,
         currentBalance,
         created_at
       );
 
       totalActualTransferredBalance += currentBalance;
-
     }
 
     // Add Top-Up + FOC logs
@@ -221,6 +217,7 @@ const transferVoucherDetailsHandler = async (
     });
   }
 };
+
 
 
 
