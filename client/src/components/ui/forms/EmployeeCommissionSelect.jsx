@@ -188,8 +188,8 @@ const EmployeeCommissionSelect = ({
       return assignment;
     });
 
-    // If performance rate was updated and there are multiple employees, adjust others
-    if (field === 'performanceRate' && currentAssignments.length > 1) {
+    // If performance rate was updated and there are 2 assigned employees, auto-distribute remaining rate
+    if (field === 'performanceRate' && currentAssignments.length === 2) {
       const updatedEmployee = updatedAssignments.find(a => a.id === assignmentId);
       const otherEmployees = updatedAssignments.filter(a => a.id !== assignmentId);
 
@@ -378,7 +378,7 @@ const EmployeeCommissionSelect = ({
                 min="0"
                 max="100"
                 step="1"
-                value={assignment.performanceRate}
+                value={assignment.performanceRate.toFixed(2)}
                 onChange={(e) => handleUpdateAssignment(assignment.id, 'performanceRate', e.target.value)}
                 disabled={disabled}
                 className="text-sm w-full"

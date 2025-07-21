@@ -14,7 +14,9 @@ const KEY_MAPPING = {
   package: 'member_care_package_purchase',
   'member-voucher': 'member_voucher_purchase',
   mcpConsumption: 'member_care_package_consumption',
-  mvConsumption: 'member_voucher_consumption'
+  mvConsumption: 'member_voucher_consumption',
+  transferMCP: 'mcp_transfer',
+  transferMV: 'mv_transfer'
 };
 
 const getAllCommissionSettings = async () => {

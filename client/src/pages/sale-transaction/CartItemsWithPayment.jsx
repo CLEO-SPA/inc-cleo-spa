@@ -231,16 +231,23 @@ const CartItemsWithPayment = ({
     console.log('item type:', item.type);
 
     // Get the commission rate based on item type
-    let rawRate = '6.00'; // fallback default
+    let rawRate = '6.00'; // ultimate fallback
 
-    if (commissionSettings && item.type) {
-      // Map item types to commission setting keys
-      const commissionKey = item.type === 'member-voucher' ? 'member-voucher' : item.type;
-      rawRate = commissionSettings[commissionKey] || commissionSettings['service'] || '6.00';
+    if (commissionSettings) {
+      const commissionKey = item.type === 'member-voucher'
+        ? 'member-voucher'
+        : item.type;
+
+      rawRate = commissionSettings[commissionKey]
+        // only if commissionKey is missing, use overall default
+        || commissionSettings['default']
+        // if that’s missing, use our literal
+        || rawRate;
     }
 
     const defaultCommRate = parseFloat(rawRate);
     console.log('Selected commission rate:', defaultCommRate, 'for item type:', item.type);
+
     const perfAmt = (pricing.totalLinePrice * defaultPerfRate) / 100;
     const commAmt = (perfAmt * defaultCommRate) / 100;
     const newAssignment = {
@@ -345,7 +352,7 @@ const CartItemsWithPayment = ({
     });
 
     // If performance rate was updated, adjust other employees' rates
-    if (field === 'performanceRate') {
+    if (field === 'performanceRate' && currentAssignments.length === 2) {
       const updatedEmployee = updatedAssignments.find((a) => a.id === assignmentId);
       const otherEmployees = updatedAssignments.filter((a) => a.id !== assignmentId);
 
@@ -786,7 +793,7 @@ const CartItemsWithPayment = ({
                                       min='0'
                                       max='100'
                                       step='1'
-                                      value={assignment.performanceRate}
+                                      value={assignment.performanceRate.toFixed(2)}
                                       onChange={(e) =>
                                         handleUpdateEmployeeAssignment(
                                           item.id,
@@ -958,9 +965,8 @@ const CartItemsWithPayment = ({
                   <div className='flex justify-between items-center mt-1'>
                     <span className='text-sm text-gray-500'>Remaining:</span>
                     <span
-                      className={`text-sm font-medium ${
-                        section.amount - getSectionPaymentTotal(section.id) === 0 ? 'text-green-600' : 'text-red-600'
-                      }`}
+                      className={`text-sm font-medium ${section.amount - getSectionPaymentTotal(section.id) === 0 ? 'text-green-600' : 'text-red-600'
+                        }`}
                     >
                       {formatCurrency(section.amount - getSectionPaymentTotal(section.id))}
                     </span>
