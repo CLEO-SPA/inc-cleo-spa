@@ -653,7 +653,10 @@ const insertDataModel = async (targetTable: string, tablePayload: tablePayload[]
         try {
           if (fs.existsSync(csvFilePath)) {
             const fileHash = await calculateFileHash(csvFilePath);
-            await logSeededFile(tableName, payloadEntry.type, fileNameWithoutExtension, fileHash);
+            // Only log if it's not a merged type
+            if (payloadEntry.type !== 'merged') {
+              await logSeededFile(tableName, payloadEntry.type, fileNameWithoutExtension, fileHash);
+            }
           }
         } catch (logError: any) {
           console.error(
