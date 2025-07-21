@@ -191,6 +191,8 @@ const SaleTransactionSummary = () => {
   // Enhanced validation function for better error messages
   const getValidationErrors = () => {
     const errors = [];
+    const itemsNeedingEmployees = [];
+    const itemsWithInvalidPerformance = [];
 
     // Check cart items
     if (cartItems.length === 0) {
@@ -226,26 +228,39 @@ const SaleTransactionSummary = () => {
       }
     }
 
-    // Check employee assignments for ALL items
-    // const itemsNeedingEmployees = cartItems.filter(item => {
-    //   // Log for debugging
-    //   // console.log('Checking item:', item);
+    cartItems.forEach((item) => {
+      const assignments = itemEmployees[item.id] || [];
 
+      if (assignments.length === 0) {
+        itemsNeedingEmployees.push(item);
+      } else {
+        const totalPerfRate = assignments.reduce((sum, emp) => sum + (parseFloat(emp.performanceRate) || 0), 0);
+        const roundedTotal = parseFloat(totalPerfRate.toFixed(2)); // Prevents float precision bugs
 
-    //   return item.type !== 'transferMV' && !itemEmployees[item.id];
-    // });
+        if (roundedTotal !== 100) {
+          itemsWithInvalidPerformance.push({
+            name: item.name || item.data?.name,
+            rate: roundedTotal,
+          });
+        }
+      }
+    });
 
-    const itemsNeedingEmployees = cartItems.filter(item =>
-      !(itemEmployees[item.id] && itemEmployees[item.id].length > 0)
-    );
-
+    // Build error message for items with no assigned employees
     if (itemsNeedingEmployees.length > 0) {
-      const itemNames = itemsNeedingEmployees.map(it => it.name || `${it.data.name}`);
+      const itemNames = itemsNeedingEmployees.map(it => it.name || it.data?.name);
       errors.push(
         `Please assign employee(s) to the following ${itemsNeedingEmployees.length} item(s): ${itemNames.join(', ')}.`
       );
     }
 
+    // Build error message for items with invalid performance rate
+    if (itemsWithInvalidPerformance.length > 0) {
+      const badItems = itemsWithInvalidPerformance.map(it => `${it.name} (Total Rate: ${it.rate}%)`);
+      errors.push(
+        `The following item(s) have assigned employees whose combined performance rate is not 100%: ${badItems.join(', ')}.`
+      );
+    }
 
     // Check Services & Products payment requirement
     const servicesAndProducts = [

@@ -225,7 +225,7 @@ const CartItemsWithPayment = ({
 
     // Calculate performance rate based on number of employees
     const totalEmployees = currentAssignments.length + 1; // +1 for the new employee
-    const defaultPerfRate = 100 / totalEmployees;
+    const defaultPerfRate = parseFloat((100 / totalEmployees).toFixed(2));
 
     console.log('commissionSettings:', commissionSettings);
     console.log('item type:', item.type);
@@ -272,7 +272,12 @@ const CartItemsWithPayment = ({
       return updatedAssignment;
     });
 
-    onEmployeeChange(itemId, [...updatedExistingAssignments, newAssignment]);
+    const allAssignments = [...updatedExistingAssignments, newAssignment];
+    const assignmentSummary = allAssignments.map(emp => ({
+      ...emp,
+      displayName: `${emp.employeeName} (${emp.performanceRate}%)`
+    }));
+    onEmployeeChange(itemId, assignmentSummary);
 
     // Clear temp selection
     setTempEmployeeSelections((prev) => ({
@@ -296,10 +301,15 @@ const CartItemsWithPayment = ({
     // After removing, redistribute performance rates equally among remaining employees
     if (updatedAssignments.length > 0) {
       const pricing = getItemPricing(itemId);
-      const equalRate = 100 / updatedAssignments.length;
+      let equalRate = 100 / updatedAssignments.length;
+      equalRate = parseFloat(equalRate.toFixed(2));
 
       updatedAssignments = updatedAssignments.map((assignment) => {
-        const updatedAssignment = { ...assignment, performanceRate: equalRate };
+       const updatedAssignment = { 
+      ...assignment, 
+      performanceRate: equalRate,
+      displayName: `${assignment.employeeName} (${equalRate}%)` // Add this line
+    };
         const perfAmt = (pricing.totalLinePrice * equalRate) / 100;
         updatedAssignment.performanceAmount = perfAmt;
         const commRate = parseFloat(assignment.commissionRate) || 0;
@@ -330,7 +340,9 @@ const CartItemsWithPayment = ({
           // Clamp rate between 0 and 100
           let rate = parseFloat(value) || 0;
           rate = Math.min(100, Math.max(0, rate));
+          rate = parseFloat(rate.toFixed(2)); // Ensure two decimal places
           updatedAssignment.performanceRate = rate;
+           updatedAssignment.displayName = `${assignment.employeeName} (${rate}%)`;
           const perfAmt = (pricing.totalLinePrice * rate) / 100;
           updatedAssignment.performanceAmount = perfAmt;
 
@@ -358,7 +370,8 @@ const CartItemsWithPayment = ({
 
       if (updatedEmployee && otherEmployees.length > 0) {
         const remainingRate = 100 - updatedEmployee.performanceRate;
-        const ratePerOtherEmployee = remainingRate / otherEmployees.length;
+        let ratePerOtherEmployee = remainingRate / otherEmployees.length;
+        ratePerOtherEmployee = parseFloat(ratePerOtherEmployee.toFixed(2));
 
         // Update other employees' rates
         const finalAssignments = updatedAssignments.map((assignment) => {
@@ -417,6 +430,7 @@ const CartItemsWithPayment = ({
           commissionAmount: commAmt,
           remarks: '',
           itemType: item?.type || 'unknown', // Add the itemType property
+          displayName: `${emp?.employee_name || ''} (${perfRate.toFixed(2)}%)` 
         };
       }
 
@@ -793,7 +807,7 @@ const CartItemsWithPayment = ({
                                       min='0'
                                       max='100'
                                       step='1'
-                                      value={assignment.performanceRate.toFixed(2)}
+                                      value={assignment.performanceRate}
                                       onChange={(e) =>
                                         handleUpdateEmployeeAssignment(
                                           item.id,

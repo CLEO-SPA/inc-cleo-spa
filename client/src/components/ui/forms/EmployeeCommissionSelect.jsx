@@ -108,7 +108,7 @@ const EmployeeCommissionSelect = ({
   const redistributePerformanceRates = useCallback((assignments) => {
     if (assignments.length === 0) return [];
 
-    const equalRate = calculatePerformanceRate(assignments.length);
+    const equalRate = parseFloat(calculatePerformanceRate(assignments.length).toFixed(2));
 
     return assignments.map(assignment => {
       const performanceAmount = calculatePerformanceAmount(totalPrice, equalRate);
@@ -167,7 +167,7 @@ const EmployeeCommissionSelect = ({
             updatedAssignment.performanceRate = 100;
           } else {
             // Clamp rate between 0 and 100
-            const rate = Math.min(100, Math.max(0, parseFloat(value) || 0));
+            const rate = parseFloat(Math.min(100, Math.max(0, parseFloat(value) || 0)).toFixed(2));
             updatedAssignment.performanceRate = rate;
           }
 
@@ -378,7 +378,7 @@ const EmployeeCommissionSelect = ({
                 min="0"
                 max="100"
                 step="1"
-                value={assignment.performanceRate.toFixed(2)}
+                value={assignment.performanceRate}
                 onChange={(e) => handleUpdateAssignment(assignment.id, 'performanceRate', e.target.value)}
                 disabled={disabled}
                 className="text-sm w-full"
