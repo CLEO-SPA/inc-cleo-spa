@@ -18,7 +18,7 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Alert, AlertDescription } from '@/components/ui/alert';
 import {
-  ArrowLeft, AlertCircle, CheckCircle, Shield,
+  ArrowLeft, AlertCircle, CheckCircle, Shield, LinkIcon, Copy,
 } from 'lucide-react';
 import useUsersStore from '@/stores/users/useUsersStore';
 import useAuth from '@/hooks/useAuth';
@@ -46,7 +46,9 @@ export default function UpdateUserPage() {
   const [roles, setRoles] = useState([]);
   const [error, setError] = useState('');
   const [success, setSuccess] = useState(false);
+  const [inviteUri, setInviteUri] = useState('');
   const [user, setUser] = useState(null);
+
   const form = useForm({
     resolver: zodResolver(updateUserSchema),
     defaultValues: {
@@ -83,17 +85,27 @@ export default function UpdateUserPage() {
     setIsSubmitting(true);
     setError('');
     setSuccess(false);
+    setInviteUri('');
+
     const updatedData = { ...data };
     if (!canEditRole) delete updatedData.role_name;
 
     try {
-      await updateUser(id, updatedData);
+      const result = await updateUser(id, updatedData);
       setSuccess(true);
+      if (result?.inviteUri) setInviteUri(result.inviteUri);
     } catch (err) {
       setError(err.response?.data?.message || 'Failed to update user. Please try again.');
     } finally {
       setIsSubmitting(false);
     }
+  };
+
+  const handleCopy = () => {
+    navigator.clipboard.writeText(inviteUri);
+    toast('Invitation link copied', {
+      description: 'The link has been copied to your clipboard.',
+    });
   };
 
   return (
@@ -122,6 +134,19 @@ export default function UpdateUserPage() {
                   <CheckCircle className='h-4 w-4' />
                   <AlertDescription>User updated successfully.</AlertDescription>
                 </Alert>
+              )}
+
+              {success && inviteUri && (
+                <div className='p-4 border rounded-md space-y-2'>
+                  <h3 className='text-lg font-semibold'>Invitation Link</h3>
+                  <div className='flex items-center gap-2 p-2 bg-muted rounded-md'>
+                    <LinkIcon className='h-4 w-4 text-muted-foreground' />
+                    <div className='text-sm flex-1 overflow-x-auto whitespace-nowrap'>{inviteUri}</div>
+                    <Button variant='outline' size='sm' onClick={handleCopy}>
+                      <Copy className='h-4 w-4 mr-1' /> Copied
+                    </Button>
+                  </div>
+                </div>
               )}
 
               <Form {...form}>
