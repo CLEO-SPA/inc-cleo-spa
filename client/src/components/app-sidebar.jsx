@@ -38,20 +38,12 @@ const data = {
     },
     {
       title: 'Users',
-      url: '#',
+      url: '/users',
       icon: ShieldUser,
       items: [
         {
           title: 'View Users',
           url: '/users',
-        },
-        {
-          title: 'Starred',
-          url: '#',
-        },
-        {
-          title: 'Settings',
-          url: '#',
         },
       ],
     },
