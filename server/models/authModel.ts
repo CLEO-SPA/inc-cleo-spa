@@ -4,6 +4,7 @@ import { UserAuth } from '../types/model.types.js';
 import { PoolClient } from 'pg';
 import { CursorPayload, PaginatedOptions, PaginatedReturn } from '../types/common.types.js';
 import { encodeCursor } from '../utils/cursorUtils.js';
+import validator from 'validator';
 
 const createSuperUser = async (email: string, password_hash: string) => {
   try {
@@ -231,7 +232,6 @@ const updateUserModel = async (userId: string, data: Partial<NewUserData>) => {
   try {
     await client.query('BEGIN');
 
-    // Get user_auth_id and current email for this user
     const userQuery = `
       SELECT u.user_auth_id, ua.email 
       FROM users u
@@ -247,90 +247,71 @@ const updateUserModel = async (userId: string, data: Partial<NewUserData>) => {
     const userAuthId = userResult.rows[0].user_auth_id;
     const currentEmail = userResult.rows[0].email;
 
-    // Check if email is changing
+    // Validate and check email uniqueness
     if (data.email && data.email !== currentEmail) {
+      if (!validator.isEmail(data.email)) {
+        throw new Error('Invalid email format');
+      }
+
+      const duplicateCheck = await client.query(
+        `SELECT id FROM users WHERE email = $1 AND id != $2`,
+        [data.email, userId]
+      );
+
+      if (duplicateCheck.rows.length > 0) {
+        throw new Error('Email is already in use by another user');
+      }
+
       emailChanged = true;
       newEmail = data.email;
     }
 
-    // Update user_auth table if email or password is changing
-    if (data.email || data.password_hash) {
-      const updateFields = [];
-      const values = [];
-      let paramCount = 1;
-
-      if (data.email) {
-        updateFields.push(`email = $${paramCount}`);
-        values.push(data.email);
-        paramCount++;
-      }
-
-      if (data.password_hash) {
-        updateFields.push(`password = $${paramCount}`);
-        values.push(data.password_hash);
-        paramCount++;
-      }
-
-      updateFields.push(`updated_at = CURRENT_TIMESTAMP`);
-
-      if (updateFields.length > 0) {
-        const uaQuery = `
-          UPDATE user_auth 
-          SET ${updateFields.join(', ')}
-          WHERE id = $${paramCount}
-        `;
-        values.push(userAuthId);
-        await client.query(uaQuery, values);
-      }
+    // Update user_auth
+    if (data.email) {
+      await client.query(
+        `UPDATE user_auth SET email = $1, updated_at = CURRENT_TIMESTAMP WHERE id = $2`,
+        [data.email, userAuthId]
+      );
     }
 
-    // Update users table
-    if (data.username || data.email) {
-      const updateFields = [];
-      const values = [];
-      let paramCount = 1;
+    // Update users
+    const updateFields = [];
+    const values = [];
+    let paramCount = 1;
 
-      if (data.username) {
-        updateFields.push(`username = $${paramCount}`);
-        values.push(data.username);
-        paramCount++;
-      }
-
-      if (data.email) {
-        updateFields.push(`email = $${paramCount}`);
-        values.push(data.email);
-        paramCount++;
-      }
-
-      updateFields.push(`updated_at = CURRENT_TIMESTAMP`);
-
-      // If email changed, reset verification status
-      if (emailChanged) {
-        updateFields.push(`verified_status_id = (SELECT get_or_create_status('UNVERIFIED'))`);
-      }
-
-      if (updateFields.length > 0) {
-        const uQuery = `
-          UPDATE users 
-          SET ${updateFields.join(', ')}
-          WHERE id = $${paramCount}
-        `;
-        values.push(userId);
-        await client.query(uQuery, values);
-      }
+    if (data.username) {
+      updateFields.push(`username = $${paramCount++}`);
+      values.push(data.username);
+    }
+    if (data.email) {
+      updateFields.push(`email = $${paramCount++}`);
+      values.push(data.email);
+    }
+    updateFields.push(`updated_at = CURRENT_TIMESTAMP`);
+    if (emailChanged) {
+      updateFields.push(`verified_status_id = (SELECT get_or_create_status('UNVERIFIED'))`);
     }
 
-    // Update role if specified
+    if (updateFields.length > 0) {
+      const setClause = updateFields.join(', ');
+      const updateQuery = `UPDATE users SET ${setClause} WHERE id = $${paramCount}`;
+      values.push(userId);
+      await client.query(updateQuery, values);
+    }
+
+    // Role update
     if (data.role_name) {
-      // Delete existing role
-      await client.query(`DELETE FROM user_to_role WHERE user_auth_id = $1`, [userAuthId]);
+      const roleCheck = await client.query(`SELECT id FROM roles WHERE role_name = $1`, [data.role_name]);
+      if (roleCheck.rowCount === 0) {
+        throw new Error(`Role '${data.role_name}' does not exist`);
+      }
 
-      // Insert new role
-      const roleQuery = `
-        INSERT INTO user_to_role (user_auth_id, role_id, created_at, updated_at)
-        VALUES ($1, (SELECT get_or_create_roles($2)), CURRENT_TIMESTAMP, CURRENT_TIMESTAMP)
-      `;
-      await client.query(roleQuery, [userAuthId, data.role_name]);
+      await client.query(`DELETE FROM user_to_role WHERE user_auth_id = $1`, [userAuthId]);
+      await client.query(
+        `INSERT INTO user_to_role (user_auth_id, role_id, created_at, updated_at)
+         VALUES ($1, (SELECT id FROM roles WHERE role_name = $2), CURRENT_TIMESTAMP, CURRENT_TIMESTAMP)`,
+        [userAuthId, data.role_name]
+      );
     }
 
     await client.query('COMMIT');
@@ -343,11 +324,12 @@ const updateUserModel = async (userId: string, data: Partial<NewUserData>) => {
   } catch (error) {
     await client.query('ROLLBACK');
     console.error('Error updating user:', error);
-    throw new Error('Failed to update user');
+    throw error;
   } finally {
     client.release();
   }
 };
+
 
 const deleteUserModel = async (userId: string) => {
   const client = await pool().connect();
