@@ -157,7 +157,13 @@ const useUsersStore = create(
     updateUser: async (userId, userData) => {
       set((state) => ({ actioningUsers: new Set(state.actioningUsers).add(userId) }));
       try {
-        await api.put(`/auth/users/${userId}`, userData);
+        const response = await api.put(`/auth/users/${userId}`, userData);
+
+        // If invite URL is returned (due to email change), store it
+        if (response.data.inviteUrl) {
+          set({ invitationLink: response.data.inviteUrl });
+        }
+
         await get().fetchUsers();
         return true;
       } catch (error) {

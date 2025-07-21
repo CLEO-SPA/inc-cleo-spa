@@ -12,29 +12,25 @@ import { Form, FormControl, FormDescription, FormField, FormItem, FormLabel, For
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Input } from '@/components/ui/input';
 import { Alert, AlertDescription } from '@/components/ui/alert';
-import { ArrowLeft, UserCog, AlertCircle, Shield, Mail, User as UserIcon, Key } from 'lucide-react';
+import { ArrowLeft, UserCog, AlertCircle, Shield, Mail, User as UserIcon, Key, Copy } from 'lucide-react';
 import useUsersStore from '@/stores/users/useUsersStore';
 import useAuth from '@/hooks/useAuth';
 import api from '@/services/api';
 
-// Form validation schema
 const updateUserSchema = z.object({
   username: z.string().min(3, 'Username must be at least 3 characters'),
   email: z.string().email('Invalid email address'),
   role_name: z.string().optional(),
-  password: z
-    .string()
-    .optional()
-    .refine((val) => !val || val.length >= 8, {
-      message: 'Password must be at least 8 characters long or empty',
-    }),
+  password: z.string().optional().refine((val) => !val || val.length >= 8, {
+    message: 'Password must be at least 8 characters long or empty',
+  }),
 });
 
 function UpdateUserPage() {
   const navigate = useNavigate();
   const { id } = useParams();
   const { user: currentUser } = useAuth();
-  const { updateUser } = useUsersStore();
+  const { updateUser, invitationLink } = useUsersStore();
 
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [roles, setRoles] = useState([]);
@@ -53,16 +49,12 @@ function UpdateUserPage() {
     },
   });
 
-  // Fetch user data and roles
   useEffect(() => {
     const fetchData = async () => {
       setLoading(true);
       try {
-        // Fetch user details
         const userResponse = await api.get(`/auth/users/${id}`);
         setUser(userResponse.data);
-
-        // Set form values
         form.reset({
           username: userResponse.data.username,
           email: userResponse.data.email,
@@ -70,7 +62,6 @@ function UpdateUserPage() {
           password: '',
         });
 
-        // Fetch available roles
         const rolesResponse = await api.get('/auth/roles');
         setRoles(rolesResponse.data);
       } catch (err) {
@@ -89,20 +80,13 @@ function UpdateUserPage() {
     setError('');
     setSuccessMessage('');
 
-    // Remove empty fields
     const updatedData = { ...data };
     if (!updatedData.password) delete updatedData.password;
-
-    // Only allow super_admin to change roles
-    if (currentUser.role !== 'super_admin') {
-      delete updatedData.role_name;
-    }
+    if (currentUser.role !== 'super_admin') delete updatedData.role_name;
 
     try {
-      await updateUser(id, updatedData);
+      const result = await updateUser(id, updatedData);
       setSuccessMessage('User updated successfully');
-
-      // Clear password field after successful update
       form.setValue('password', '');
     } catch (err) {
       setError(err.response?.data?.message || 'Failed to update user');
@@ -111,9 +95,14 @@ function UpdateUserPage() {
     }
   };
 
-  // Check if current user can edit this user
   const canEditRole = currentUser?.role === 'super_admin';
-  const isOwnAccount = currentUser?.id === id;
+
+  const handleCopy = async () => {
+    if (invitationLink) {
+      await navigator.clipboard.writeText(invitationLink);
+      alert('Invite link copied to clipboard');
+    }
+  };
 
   if (loading) {
     return (
@@ -164,6 +153,18 @@ function UpdateUserPage() {
                 <Alert className='mb-6 bg-green-50 border-green-200'>
                   <AlertCircle className='h-4 w-4 text-green-600' />
                   <AlertDescription className='text-green-800'>{successMessage}</AlertDescription>
+                </Alert>
+              )}
+
+              {invitationLink && (
+                <Alert className='mb-6 bg-blue-50 border-blue-200'>
+                  <AlertCircle className='h-4 w-4 text-blue-600' />
+                  <AlertDescription className='text-blue-800'>
+                    Invite link: <span className='underline'>{invitationLink}</span>
+                    <Button variant='link' size='sm' onClick={handleCopy} className='ml-2'>
+                      <Copy className='h-4 w-4 inline' /> Copy
+                    </Button>
+                  </AlertDescription>
                 </Alert>
               )}
 

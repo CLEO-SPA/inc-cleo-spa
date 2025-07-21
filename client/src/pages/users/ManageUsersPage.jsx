@@ -218,7 +218,7 @@ export default function ManageUsersPage() {
                                       <Eye className='mr-2 h-4 w-4' /> View
                                     </DropdownMenuItem>
                                     {canEdit && (
-                                      <DropdownMenuItem onClick={() => navigate(`/users/${u.id}/edit`)}>
+                                      <DropdownMenuItem onClick={() => navigate(`/users/edit/${u.id}`)}>
                                         <Edit className='mr-2 h-4 w-4' /> Edit
                                       </DropdownMenuItem>
                                     )}

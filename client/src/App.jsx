@@ -108,6 +108,7 @@ import CreditNoteDetailsPage from '@/pages/Refund/CreditNoteDetailsPage';
 // Users
 import ManageUsersPage from '@/pages/users/ManageUsersPage';
 import CreateUserPage from '@/pages/users/CreateUserPage';
+import UpdateUserPage from '@/pages/users/UpdateUserPage';
 
 function App() {
   return (
@@ -260,6 +261,7 @@ function App() {
                 {/* Users */}
                 <Route path='/users' element={<ManageUsersPage />} />
                 <Route path='/users/create' element={<CreateUserPage />} />
+                <Route path='/users/edit/:id' element={<UpdateUserPage />} />
               </Route>
 
               {/* Public routes */}

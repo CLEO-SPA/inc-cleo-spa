@@ -543,6 +543,8 @@ const getUsers = async (req: Request, res: Response, next: NextFunction): Promis
   }
 };
 
+
+
 export default {
   isAuthenticated,
   setUpSuperUser,
