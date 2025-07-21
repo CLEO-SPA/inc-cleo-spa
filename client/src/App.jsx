@@ -115,6 +115,11 @@ const SuperAdminRoute = ({ children }) => {
   return <NotFoundPage />;
 };
 
+// Users
+import ManageUsersPage from '@/pages/users/ManageUsersPage';
+import CreateUserPage from '@/pages/users/CreateUserPage';
+import UpdateUserPage from '@/pages/users/UpdateUserPage';
+
 function App() {
   return (
     <AuthProvider>
@@ -270,6 +275,11 @@ function App() {
                 {/* Translations */}
                 <Route path='/translations' element={<ViewTranslations />} />
                 <Route path='/create-translation' element={<TranslationPage />} />
+
+                {/* Users */}
+                <Route path='/users' element={<ManageUsersPage />} />
+                <Route path='/users/create' element={<CreateUserPage />} />
+                <Route path='/users/edit/:id' element={<UpdateUserPage />} />
               </Route>
 
               {/* Public routes */}

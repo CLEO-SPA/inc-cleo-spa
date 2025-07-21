@@ -40,20 +40,12 @@ const data = {
     },
     {
       title: 'Users',
-      url: '#',
+      url: '/users',
       icon: ShieldUser,
       items: [
         {
           title: 'View Users',
-          url: '#',
-        },
-        {
-          title: 'Starred',
-          url: '#',
-        },
-        {
-          title: 'Settings',
-          url: '#',
+          url: '/users',
         },
       ],
     },
@@ -316,6 +308,33 @@ export function AppSidebar({ className: propsClassName, ...props }) {
   const heightClass = isSimulationActive
     ? 'h-[calc(100svh-var(--header-height)-var(--sim-bar-height))]!'
     : 'h-[calc(100svh-var(--header-height))]!';
+
+  const dataForUser = React.useMemo(() => {
+    const navData = {
+      navMain: data.navMain.map((item) => ({
+        ...item,
+        items: item.items ? item.items.map((subItem) => ({ ...subItem })) : undefined,
+      })),
+    };
+    if (user && user.role === 'super_admin') {
+      const userSection = navData.navMain.find((item) => item.title === 'Users');
+      if (userSection) {
+        userSection.items.push({
+          title: 'Create User',
+          url: '/users/c',
+        });
+      }
+
+      const othersSection = navData.navMain.find((item) => item.title === 'Others');
+      if (othersSection) {
+        othersSection.items.push({
+          title: 'Data Seeding',
+          url: '/seed',
+        });
+      }
+    }
+    return navData;
+  }, [user]);
 
   return (
     <Sidebar className={cn(topClass, heightClass, propsClassName)} {...props}>
