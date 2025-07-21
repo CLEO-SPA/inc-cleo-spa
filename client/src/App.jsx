@@ -111,10 +111,11 @@ import CreateUserPage from '@/pages/users/CreateUserPage';
 
 function App() {
   return (
-    <AuthProvider>
-      <ReloadTimerPopup />
-      <DateRangeProvider>
-        <TranslationProvider>
+      <AuthProvider>
+        <ReloadTimerPopup />
+        <DateRangeProvider>
+    <TranslationProvider>
+
           <Router>
             <Routes>
               <Route path='/' element={<ProtectedRoute />}>
@@ -271,9 +272,10 @@ function App() {
               <Route path='*' element={<NotFoundPage />} />
             </Routes>
           </Router>
-        </TranslationProvider>
-      </DateRangeProvider>
-    </AuthProvider>
+              </TranslationProvider>
+
+        </DateRangeProvider>
+      </AuthProvider>
   );
 }
 

@@ -48,12 +48,12 @@ router.use('/refund', refundRoutes);
 router.use('/position', positionRoutes);
 router.use('/de', dataExportRoutes);
 router.use('/payment-method', paymentMethodRoutes);
+router.use('/st', stRoutes);
+router.use('/voucher', voucherRoutes);
 router.use('/em', employeeRoutes);
 router.use('/et', timetableRoutes);
 router.use('/ab', appointmentRoutes);
 router.use('/rr', revenueRoutes);
-router.use('/st', stRoutes);
-router.use('/voucher', voucherRoutes);
 // router.use('/sa', superAdminRoutes);
 router.use('/product', productRoutes);
 

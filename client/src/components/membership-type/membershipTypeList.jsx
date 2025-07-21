@@ -61,8 +61,8 @@ const MembershipTypeTable = () => {
                                     <TableCell>{type.membership_type_name}</TableCell>
                                     <TableCell>{type.default_percentage_discount_for_services}%</TableCell>
                                     <TableCell>{type.default_percentage_discount_for_products}%</TableCell>
-                                    <TableCell style={{ textTransform: 'capitalize' }}>{getNameById(employeeList, String(type.created_by))}</TableCell>
-                                    <TableCell style={{ textTransform: 'capitalize' }}>{getNameById(employeeList, String(type.last_updated_by))}</TableCell>
+                                    <TableCell style={{ textTransform: 'capitalize' }}>{employeeList.find(emp => emp.id === String(type.created_by))?.employee_name || 'Unknown'}</TableCell>
+                                    <TableCell style={{ textTransform: 'capitalize' }}>{employeeList.find(emp => emp.id === String(type.last_updated_by))?.employee_name || 'Unknown'}</TableCell>
                                     <TableCell>
                                         <div className="flex justify-center">
                                             <DropdownMenu>
