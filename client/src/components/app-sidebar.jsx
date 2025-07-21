@@ -12,6 +12,8 @@ import {
   Tickets,
   ChartColumnStacked,
   CreditCard,
+  DollarSign,
+  Receipt,
 } from 'lucide-react';
 import { NavMain } from '@/components/nav-main';
 import { NavUser } from '@/components/nav-user';
@@ -40,7 +42,6 @@ const data = {
       title: 'Users',
       url: '#',
       icon: ShieldUser,
-      isActive: true,
       items: [
         {
           title: 'View Users',
@@ -53,6 +54,21 @@ const data = {
         {
           title: 'Settings',
           url: '#',
+        },
+      ],
+    },
+    {
+      title: 'Revenue',
+      url: '#',
+      icon: DollarSign,
+      items: [
+        {
+          title: 'Revenue Report',
+          url: '/rr',
+        },
+        {
+          title: 'Deferred Revenue',
+          url: '/dr',
         },
       ],
     },
@@ -78,11 +94,11 @@ const data = {
       items: [
         {
           title: 'Create Product',
-          url: '#',
+          url: '/create-product',
         },
         {
           title: 'Manage Products',
-          url: '#',
+          url: '/manage-product',
         },
       ],
     },
@@ -99,6 +115,10 @@ const data = {
           title: 'Manage Voucher Templates',
           url: '/voucher-template',
         },
+        {
+          title: 'Manage Member Voucher',
+          url: '/mv',
+        }
       ],
     },
     {
@@ -133,24 +153,43 @@ const data = {
           title: 'Manage Care Packages',
           url: '/cp',
         },
+        {
+          title: 'Manage Member Care Package',
+          url: '/mcp',
+        },
+      ],
+    },
+    {
+      title: 'Sale Transactions',
+      url: '#',
+      icon: CreditCard,
+      items: [
+        {
+          title: 'Create Sale Transactions',
+          url: '/sale-transaction',
+        },
+        {
+          title: 'View Sale Transactions',
+          url: '/sale-transaction/list',
+        },
       ],
     },
     {
       title: 'Employees',
-      url: '',
+      url: '/employees',
       icon: Users,
       items: [
         {
           title: 'Add new employee',
-          url: '#',
+          url: '/employees/create',
         },
         {
           title: 'Manage employees',
-          url: '#',
+          url: '/employees',
         },
         {
           title: 'Add new position',
-          url: '/positions/add',
+          url: '/positions/create',
         },
         {
           title: 'Manage positions',
@@ -160,19 +199,20 @@ const data = {
     },
     {
       title: 'Appointments',
-      url: '#',
+      url: '/appointments',
       icon: CalendarDays,
       items: [
         {
           title: 'View Appointments',
-          url: '#',
+          url: '/appointments',
         },
         {
           title: 'Add New Appointment',
-          url: '#',
+          url: '/appointments/create',
         },
       ],
     },
+
     {
       title: 'Payment Methods',
       url: '/payment-method',
@@ -185,17 +225,46 @@ const data = {
       ],
     },
     {
-      title: 'Statistics',
-      url: '#',
-      icon: ChartColumnStacked,
+      title: 'Refunds',
+      icon: Receipt,
       items: [
         {
-          title: 'View Database Report',
-          url: '/dbcr',
+          title: 'Refund Management',
+          url: '/refunds',
         },
         {
-          title: 'View Monthly Revenue Report',
-          url: '#',
+          title: 'Credit Notes',
+          url: '/credit-notes',
+        },
+      ],
+    },
+    // {
+    //   title: 'Statistics',
+    //   url: '#',
+    //   icon: ChartColumnStacked,
+    //   items: [
+    //     {
+    //       title: 'View Database Report',
+    //       url: '/dbcr',
+    //     },
+    //     {
+    //       title: 'View Monthly Revenue Report',
+    //       url: '#',
+    //     },
+    //   ],
+    // },
+    {
+      title: 'Timetables',
+      url: '#',
+      icon: CalendarDays,
+      items: [
+        {
+          title: 'Create Timetable',
+          url: '/et/create-employee-timetable',
+        },
+        {
+          title: 'Manage Timetable',
+          url: '/et',
         },
       ],
     },
@@ -207,6 +276,10 @@ const data = {
         {
           title: 'Data Export',
           url: '/data-export',
+        },
+        {
+          title: 'Translations',
+          url: '/translations',
         },
       ],
     },

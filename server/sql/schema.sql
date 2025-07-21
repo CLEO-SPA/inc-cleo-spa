@@ -82,12 +82,12 @@ CREATE TABLE "employees" (
     "id" BIGSERIAL NOT NULL,
     "user_auth_id" BIGINT NOT NULL,
     "employee_code" VARCHAR(50) NOT NULL,
-    "created_at" TIMESTAMPTZ(6) NOT NULL,
     "employee_contact" VARCHAR(20) NOT NULL,
     "employee_email" VARCHAR(255) NOT NULL,
     "employee_is_active" BOOLEAN NOT NULL,
     "verified_status_id" BIGINT NOT NULL,
     "employee_name" VARCHAR(100) NOT NULL,
+    "created_at" TIMESTAMPTZ(6) NOT NULL,
     "updated_at" TIMESTAMPTZ(6) NOT NULL,
 
     CONSTRAINT "employees_pkey" PRIMARY KEY ("id")
@@ -151,7 +151,7 @@ CREATE TABLE "member_care_package_details" (
     "discount" DECIMAL(10,2) NOT NULL,
     "price" DECIMAL(10,2) NOT NULL,
     "member_care_package_id" BIGINT NOT NULL,
-    "service_id" BIGINT NOT NULL,
+    "service_id" BIGINT,
     "status" VARCHAR(50) NOT NULL,
     "quantity" INTEGER NOT NULL,
 
@@ -179,7 +179,7 @@ CREATE TABLE "member_care_package_transaction_logs" (
     "created_at" TIMESTAMPTZ(6) NOT NULL,
     "member_care_package_details_id" BIGINT NOT NULL,
     "employee_id" BIGINT NOT NULL,
-    "service_id" BIGINT NOT NULL,
+    "service_id" BIGINT,
 
     CONSTRAINT "member_care_package_transaction_logs_pkey" PRIMARY KEY ("id")
 );
@@ -354,7 +354,7 @@ CREATE TABLE "user_to_role" (
 
 -- CreateTable
 CREATE TABLE "appointments" (
-    "id" BIGINT NOT NULL,
+    "id" BIGSERIAL NOT NULL,
     "member_id" BIGINT,
     "servicing_employee_id" BIGINT,
     "appointment_date" TIMESTAMPTZ(6),
@@ -371,7 +371,7 @@ CREATE TABLE "appointments" (
 
 -- CreateTable
 CREATE TABLE "member_voucher_details" (
-    "id" BIGINT NOT NULL,
+    "id" BIGSERIAL NOT NULL,
     "member_voucher_id" BIGINT NOT NULL,
     "service_id" INTEGER NOT NULL,
     "service_name" VARCHAR(100),
@@ -594,10 +594,6 @@ ALTER TABLE "membership_accounts" ADD CONSTRAINT "membership_accounts_membership
 -- Foreign Keys for table "members"
 ALTER TABLE "members" ADD CONSTRAINT "members_membership_type_id_fkey" FOREIGN KEY ("membership_type_id") REFERENCES "membership_types"("id") ON DELETE SET NULL ON UPDATE CASCADE;
 ALTER TABLE "members" ADD CONSTRAINT "members_created_by_fkey" FOREIGN KEY ("created_by") REFERENCES "employees"("id") ON DELETE SET NULL ON UPDATE CASCADE;
-
--- Foreign Keys for table "membership_types"
-ALTER TABLE "membership_types" ADD CONSTRAINT "membership_types_created_by_fkey" FOREIGN KEY ("created_by") REFERENCES "employees"("id") ON DELETE SET NULL ON UPDATE CASCADE;
-ALTER TABLE "membership_types" ADD CONSTRAINT "membership_types_last_updated_by_fkey" FOREIGN KEY ("last_updated_by") REFERENCES "employees"("id") ON DELETE SET NULL ON UPDATE CASCADE;
 
 -- Foreign Keys for table "products"
 ALTER TABLE "products" ADD CONSTRAINT "products_product_category_id_fkey" FOREIGN KEY ("product_category_id") REFERENCES "product_categories"("id") ON DELETE SET NULL ON UPDATE CASCADE;

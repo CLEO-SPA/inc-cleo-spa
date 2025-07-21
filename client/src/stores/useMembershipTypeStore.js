@@ -38,15 +38,6 @@ const useMembershipTypeStore = create((set, get) => ({
 
     ...getInitialState(),
 
-    getNameById(empMap, id) {
-        for (let [name, empId] of empMap) {
-            if (empId === id) {
-                return name;
-            }
-        }
-        return null;
-    },
-
     fetchEmployeeBasicDetails: async () => {
         if (get().loading) {
             set({ success: false, error: true, errorMessage: "Another process is running." });
@@ -60,18 +51,13 @@ const useMembershipTypeStore = create((set, get) => ({
 
             const employeeList = response.data.data;
 
-            const empMap = new Map();
-            employeeList.forEach(emp => {
-                empMap.set(emp.employee_name.toLowerCase(), emp.id);
-            });
-
             set({
                 loading: false,
                 error: false,
                 success: true,
                 errorMessage: null,
 
-                employeeList: empMap,
+                employeeList: employeeList,
             });
 
             get().setSuccessWithTimeout();
@@ -121,17 +107,9 @@ const useMembershipTypeStore = create((set, get) => ({
         try {
 
             const state = get();
-            const { formData, employeeList } = state;
+            const { formData } = state;
 
-            const formDataWithEmployeeId = {
-                ...formData,
-                created_by: employeeList.get(formData.created_by.toLowerCase()),
-            };
-
-            console.log("fetch function form data: ");
-            console.log(formDataWithEmployeeId);
-
-            await api.post(`/membership-type/create`, formDataWithEmployeeId);
+            await api.post(`/membership-type/create`, formData);
             console.log("Membership created successfully");
             set({
                 isConfirming: false,
@@ -169,18 +147,9 @@ const useMembershipTypeStore = create((set, get) => ({
         try {
 
             const state = get();
-            const { selectedMembershipTypeId, formData, employeeList } = state;
+            const { selectedMembershipTypeId, formData } = state;
 
-            const formDataWithEmployeeId = {
-                ...formData,
-                created_by: employeeList.get(formData.created_by.toLowerCase()),
-                last_updated_by: employeeList.get(formData.last_updated_by.toLowerCase()),
-            };
-
-            console.log("fetch function form data: ");
-            console.log(formDataWithEmployeeId);
-
-            await api.put(`/membership-type/${selectedMembershipTypeId}/update`, formDataWithEmployeeId);
+            await api.put(`/membership-type/${selectedMembershipTypeId}/update`, formData);
             console.log("Membership updated successfully");
 
             set({
@@ -266,7 +235,6 @@ const useMembershipTypeStore = create((set, get) => ({
         const validate = validateNewMembershipTypeData(formFieldData);
 
         if (!validate.isValid) {
-            console.log(validate.error);
             set({
                 error: true,
                 errorMessage: validate.error
@@ -274,32 +242,28 @@ const useMembershipTypeStore = create((set, get) => ({
             return false;
         };
 
-        const validateCreatedBy = employeeList.get(formFieldData.created_by.toLowerCase());
+        const created_by_with_name = employeeList.find(emp => emp.id === String(formFieldData.created_by))?.employee_name || 'Unknown';
 
-        if (!validateCreatedBy) {
-            set({
-                error: true,
-                errorMessage: "This Employee does not exist. Please try again."
-            });
-            return false;
-        };
+        let formFieldDataWithEmpName;
 
         if (formFieldData.last_updated_by) {
-            const validateLastUpdatedBy = employeeList.get(formFieldData.last_updated_by.toLowerCase());
-
-            if (!validateLastUpdatedBy) {
-                set({
-                    error: true,
-                    errorMessage: "This Employee does not exist. Please try again."
-                });
-                return false;
+            const last_updated_by_with_name = employeeList.find(emp => emp.id === String(formFieldData.last_updated_by))?.employee_name || 'Unknown';
+            formFieldDataWithEmpName = {
+                ...formFieldData,
+                created_by_with_name,
+                last_updated_by_with_name
             };
-        };
+        } else {
+            formFieldDataWithEmpName = {
+                ...formFieldData,
+                created_by_with_name
+            };
+        }
 
         // No error
         console.log("Set Form Success");
         set({
-            formData: formFieldData
+            formData: formFieldDataWithEmpName
         });
         return true;
     },
@@ -341,38 +305,33 @@ const useMembershipTypeStore = create((set, get) => ({
 
     setUpdateFormData: () => {
         const state = get();
-        const { membershipTypeList, employeeList, selectedMembershipTypeId, getNameById } = state;
+        const { membershipTypeList, selectedMembershipTypeId } = state;
         const membershipType = membershipTypeList.find(log => log.id === selectedMembershipTypeId);
-
-        const createdByEmpName = getNameById(employeeList, String(membershipType.created_by));
-        const lastUpdatedByEmpName = getNameById(employeeList, String(membershipType.last_updated_by));
 
         set({
             updateFormFieldData: {
                 membership_type_name: membershipType.membership_type_name,
                 default_percentage_discount_for_products: membershipType.default_percentage_discount_for_products,
                 default_percentage_discount_for_services: membershipType.default_percentage_discount_for_services,
-                created_by: createdByEmpName,
-                last_updated_by: lastUpdatedByEmpName
+                created_by: membershipType.created_by,
+                last_updated_by: membershipType.last_updated_by
             }
         });
     },
 
     setDeleteFormData: () => {
         const state = get();
-        const { membershipTypeList, employeeList, selectedMembershipTypeId, getNameById } = state;
+        const { membershipTypeList, employeeList, selectedMembershipTypeId } = state;
         const membershipType = membershipTypeList.find(log => log.id === selectedMembershipTypeId);
 
-        const createdByEmpName = getNameById(employeeList, String(membershipType.created_by));
-        const lastUpdatedByEmpName = getNameById(employeeList, String(membershipType.last_updated_by));
+        const created_by_with_name = employeeList.find(emp => emp.id === String(membershipType.created_by))?.employee_name || 'Unknown';
 
         set({
             formData: {
                 membership_type_name: membershipType.membership_type_name,
                 default_percentage_discount_for_products: membershipType.default_percentage_discount_for_products,
                 default_percentage_discount_for_services: membershipType.default_percentage_discount_for_services,
-                created_by: createdByEmpName,
-                last_updated_by: lastUpdatedByEmpName
+                created_by_with_name: created_by_with_name
             },
             isDeleting: true,
             isConfirming: true

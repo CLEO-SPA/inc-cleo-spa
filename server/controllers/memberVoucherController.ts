@@ -282,6 +282,8 @@ const checkCurrentBalance = async (req: Request, res: Response, next: NextFuncti
 
     const results = await model.getMemberVoucherCurrentBalance(intId, numericConsumptionValue);
     if (results.success) {
+      req.body.current_balance = results.data;
+      console.log(req.body.current_balance);
       next();
     } else {
       res.status(400).json({ message: results.message });
@@ -294,20 +296,11 @@ const checkCurrentBalance = async (req: Request, res: Response, next: NextFuncti
   }
 };
 
-const checkPaidCurrentBalance = async (req: Request, res: Response, next: NextFunction): Promise<void> => {
+const getMemberVoucherPurchaseDate = async (req: Request, res: Response, next: NextFunction): Promise<void> => {
   const { id } = req.params;
-  const { consumptionValue } = req.body;
 
   try {
-
-    const numValue = Number(consumptionValue);
-    if ((consumptionValue === '' || consumptionValue == null) || isNaN(numValue)) {
-      res.status(400).json({ message: "Error 400: Consumption value is invalid or missing" });
-      return;
-    }
-
     const intId = parseInt(id, 10);
-    const numericConsumptionValue = parseFloat(consumptionValue);
 
     if (Number.isNaN(intId)) {
       res.status(400).json({
@@ -316,21 +309,56 @@ const checkPaidCurrentBalance = async (req: Request, res: Response, next: NextFu
       return;
     };
 
-    const results = await model.getMemberVoucherPaidCurrentBalance(intId, numericConsumptionValue);
+    const results = await model.getPurchaseDateOfMemberVoucherById(intId);
     if (results.success) {
-      req.body.current_balance = results.data;
-      console.log(req.body.current_balance);
-      next();
+      res.status(200).json({ message: "Get Purchase Date of Member Voucher By Id was successful.", data: results.data });
     } else {
       res.status(400).json({ message: results.message });
       return;
-    };
+    }
   } catch (error) {
-    console.error("Error getting paid current balance by Member Voucher Id:", error);
-    res.status(500).json({ message: "Internal server error" });
-    return;
-  };
-};
+    console.error("Error getting Purchase Date of Member Voucher:", error);
+    next(error);
+  }
+}
+
+// const checkPaidCurrentBalance = async (req: Request, res: Response, next: NextFunction): Promise<void> => {
+//   const { id } = req.params;
+//   const { consumptionValue } = req.body;
+
+//   try {
+
+//     const numValue = Number(consumptionValue);
+//     if ((consumptionValue === '' || consumptionValue == null) || isNaN(numValue)) {
+//       res.status(400).json({ message: "Error 400: Consumption value is invalid or missing" });
+//       return;
+//     }
+
+//     const intId = parseInt(id, 10);
+//     const numericConsumptionValue = parseFloat(consumptionValue);
+
+//     if (Number.isNaN(intId)) {
+//       res.status(400).json({
+//         message: "Error 400: Invalid ID: must be a valid number"
+//       });
+//       return;
+//     };
+
+//     const results = await model.getMemberVoucherPaidCurrentBalance(intId, numericConsumptionValue);
+//     if (results.success) {
+// req.body.current_balance = results.data;
+// console.log(req.body.current_balance);
+// next();
+//     } else {
+//       res.status(400).json({ message: results.message });
+//       return;
+//     };
+//   } catch (error) {
+//     console.error("Error getting paid current balance by Member Voucher Id:", error);
+//     res.status(500).json({ message: "Internal server error" });
+//     return;
+//   };
+// };
 
 const getMemberNameByMemberVoucherId = async (req: Request, res: Response, next: NextFunction): Promise<void> => {
   const { id } = req.params;
@@ -495,100 +523,29 @@ const deleteTransactionLogsByLogId = async (req: Request, res: Response, next: N
 };
 
 
-const createMemberVoucher = async (req: Request, res: Response, next: NextFunction): Promise<void> => {
+const createMemberVoucher = async (req: Request, res: Response): Promise<void> => {
   try {
-    const {
-      member_voucher_name,
-      voucher_template_id,
-      member_id,
-      employee_id,
-      default_total_price,
-      free_of_charge,
-      remarks,
-      services,
-      payments, // Added payments field
-      created_at,
-      updated_at,
-      is_bypass,
-      is_partial_payment
-    } = req.body;
+    console.log('Creating MV transaction:', req.body);
 
-    // Validate required fields
-    if (!member_voucher_name || !member_id || !employee_id || !default_total_price  || !Array.isArray(payments)) {
-      res.status(400).json({ message: 'Missing required fields or invalid data format. Required: member_voucher_name, member_id, employee_id, default_total_price, payments (array)' });
-      return;
-    }
+    // Call the model function
+    const result = await model.createMemberVoucher(req.body);
 
-    // Validate voucher_template_id is provided unless it's a bypass case
-    if (!is_bypass && !voucher_template_id) {
-      res.status(400).json({ message: 'voucher_template_id is required for non-bypass cases' });
-      return;
-    }
-
-    // Validate payment amounts sum matches expected total
-    const totalPaymentAmount = payments.reduce((sum, payment) => sum + payment.amount, 0);
-    const expectedTotal = parseFloat(default_total_price)
-    
-    // Allow for small floating point differences
-    if (Math.abs(totalPaymentAmount - expectedTotal) > 0.01) {
-      res.status(400).json({ 
-        message: `Payment amounts (${totalPaymentAmount}) do not match expected total (${expectedTotal})` 
-      });
-      return;
-    }
-
-    // Generate timestamps if not provided
-    const currentTimestamp = new Date().toISOString();
-    const finalCreatedAt = created_at || currentTimestamp;
-    const finalUpdatedAt = updated_at || currentTimestamp;
-
-    // Call the model function with all required parameters
-    const results = await model.createMemberVoucher(
-      member_voucher_name,
-      voucher_template_id || '0', // Default to '0' for bypass cases
-      member_id,
-      employee_id,
-      parseFloat(default_total_price),
-      parseFloat(free_of_charge) || 0,
-      remarks || '',
-      services,
-      payments, // Pass payments array to model
-      finalCreatedAt,
-      finalUpdatedAt,
-      Boolean(is_bypass),
-      Boolean(is_partial_payment)
-    );
+    console.log('MV transaction created successfully:', result);
 
     res.status(201).json({
       success: true,
-      message: 'Member voucher created successfully',
-      data: results
+      message: 'MV transaction created successfully',
+      data: result
     });
-  } catch (error) {
-    console.error('Error creating member voucher:', error);
-    
-    // Handle specific database errors
-    if (error instanceof Error) {
-      if (error.message.includes('Invalid member_id')) {
-        res.status(400).json({ success: false, message: 'Invalid member ID provided' });
-        return;
-      }
-      if (error.message.includes('Invalid employee_id')) {
-        res.status(400).json({ success: false, message: 'Invalid employee ID provided' });
-        return;
-      }
-      if (error.message.includes('Invalid voucher_template_id')) {
-        res.status(400).json({ success: false, message: 'Invalid voucher template ID provided' });
-        return;
-      }
-      
-      // Return the specific error message for other known errors
-      res.status(400).json({ success: false, message: error.message });
-      return;
-    }
-    
-    // Pass unknown errors to error handler middleware
-    next(error);
+
+  } catch (error: any) {
+    console.error('Error creating MV transaction:', error);
+
+    res.status(500).json({
+      success: false,
+      error: 'Failed to create MV transaction',
+      details: error.message
+    });
   }
 };
 
@@ -636,7 +593,8 @@ export default {
   getAllTransactionLogsOfMemberVoucherById,
   createTransactionLogsByMemberVoucherId,
   checkCurrentBalance,
-  checkPaidCurrentBalance,
+  // checkPaidCurrentBalance,
+  getMemberVoucherPurchaseDate,
   getMemberNameByMemberVoucherId,
   updateTransactionLogsAndCurrentBalanceByLogId,
   deleteTransactionLogsByLogId

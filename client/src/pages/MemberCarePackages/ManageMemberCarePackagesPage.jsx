@@ -25,8 +25,10 @@ import {
   Filter,
   AlertCircle,
   Package,
+  Loader2,
 } from 'lucide-react';
 import { useMemberCarePackageStore } from '@/stores/MemberCarePackage/useMcpPaginationStore';
+import { useMcpFormStore } from '@/stores/MemberCarePackage/useMcpFormStore';
 import { Card, CardContent, CardHeader, CardTitle, CardFooter } from '@/components/ui/card';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { AppSidebar } from '@/components/app-sidebar';
@@ -35,20 +37,12 @@ import { SidebarInset, SidebarProvider } from '@/components/ui/sidebar';
 import { ErrorState } from '@/components/ErrorState';
 import { LoadingState } from '@/components/LoadingState';
 import { Badge } from '@/components/ui/badge';
-import {
-  Dialog,
-  DialogContent,
-  DialogDescription,
-  DialogFooter,
-  DialogHeader,
-  DialogTitle,
-  DialogTrigger,
-} from '@/components/ui/dialog';
 import { Alert, AlertDescription } from '@/components/ui/alert';
 
 function ManageMemberCarePackageForm() {
   const { user } = useAuth();
   const navigate = useNavigate();
+  const { voidMemberCarePackage } = useMcpFormStore();
 
   const {
     carePackages,
@@ -72,14 +66,19 @@ function ManageMemberCarePackageForm() {
   const [inputSearchTerm, setInputSearchTerm] = useState(searchTerm);
   const [targetPageInput, setTargetPageInput] = useState('');
   const [actioningPackages, setActioningPackages] = useState(new Set());
-  const [selectedPackage, setSelectedPackage] = useState(null);
-  const [actionType, setActionType] = useState(null);
-  const [isDialogOpen, setIsDialogOpen] = useState(false);
+  const [notification, setNotification] = useState(null);
 
   useEffect(() => {
     // initialize with a default limit and empty search term if not already set
     initializePagination(currentLimit || 10, searchTerm || '');
   }, [initializePagination, currentLimit, searchTerm]);
+
+  useEffect(() => {
+    if (notification) {
+      const timer = setTimeout(() => setNotification(null), 5000);
+      return () => clearTimeout(timer);
+    }
+  }, [notification]);
 
   const handleSearchSubmit = (e) => {
     e.preventDefault();
@@ -143,49 +142,30 @@ function ManageMemberCarePackageForm() {
     navigate(`/mcp/${pkg.mcp_id}`);
   };
 
-  // to replace with actual consumption logic
   const handleConsume = (pkg) => {
-    setSelectedPackage(pkg);
-    setActionType('consume');
-    setIsDialogOpen(true);
+    navigate(`/mcp/${pkg.mcp_id}/consume`);
   };
 
-  // to replace with actual void logic
-  const handleVoid = (pkg) => {
-    setSelectedPackage(pkg);
-    setActionType('void');
-    setIsDialogOpen(true);
-  };
-
-  const executeAction = async () => {
-    if (!selectedPackage || !actionType) return;
-
-    const packageId = selectedPackage.mcp_id;
+  const handleVoid = async (pkg) => {
+    const packageId = pkg.mcp_id;
     setActioningPackages((prev) => new Set(prev).add(packageId));
 
     try {
-      if (actionType === 'consume') {
-        // navigate to consumption page
-        navigate(`/mcp/${packageId}/consume`);
-      } else if (actionType === 'void') {
-        // navigate to voiding logic
-        console.log(`Voiding package: ${packageId}`);
-
-        fetchMemberCarePackages();
-        alert(`Package "${selectedPackage.package_name}" has been voided successfully.`);
-      }
+      await voidMemberCarePackage(packageId);
+      await fetchMemberCarePackages();
+      setNotification({
+        type: 'success',
+        message: `Package "${pkg.package_name}" has been voided successfully.`,
+      });
     } catch (err) {
-      console.error(`Failed to ${actionType} package:`, err);
-      alert(`Failed to ${actionType} package: ${err.message}`);
+      console.error(`Failed to void package:`, err);
+      setNotification({ type: 'error', message: `Failed to void package: ${err.message}` });
     } finally {
       setActioningPackages((prev) => {
         const newSet = new Set(prev);
         newSet.delete(packageId);
         return newSet;
       });
-      setIsDialogOpen(false);
-      setSelectedPackage(null);
-      setActionType(null);
     }
   };
 
@@ -197,17 +177,19 @@ function ManageMemberCarePackageForm() {
         return { label: 'ENABLED', color: 'bg-slate-100 text-slate-700' };
       case 'DISABLED':
         return { label: 'Disabled', color: 'bg-gray-200 text-gray-600' };
+      case 'REFUNDED':
+        return { label: 'Refunded', color: 'bg-gray-200 text-gray-600' };
       default:
         return { label: pkg.status_name || 'Unknown', color: 'bg-gray-100 text-gray-700' };
     }
   };
 
   const canConsumePackage = (pkg) => {
-    return pkg.status_name?.toUpperCase() === 'ENABLED' && pkg.balance > 0;
+    return pkg.status?.toUpperCase() === 'ENABLED' && pkg.balance > 0;
   };
 
   const canVoidPackage = (pkg) => {
-    return pkg.status_name?.toUpperCase() === 'ENABLED';
+    return pkg.status?.toUpperCase() === 'ENABLED';
   };
 
   // role-based access control
@@ -248,6 +230,12 @@ function ManageMemberCarePackageForm() {
           <AppSidebar />
           <SidebarInset>
             <div className='container mx-auto p-4 space-y-6'>
+              {notification && (
+                <Alert variant={notification.type === 'error' ? 'destructive' : 'default'}>
+                  <AlertCircle className='h-4 w-4' />
+                  <AlertDescription>{notification.message}</AlertDescription>
+                </Alert>
+              )}
               <Card>
                 <CardHeader>
                   <CardTitle className='flex items-center gap-2'>
@@ -334,7 +322,11 @@ function ManageMemberCarePackageForm() {
                                           <DropdownMenuTrigger asChild>
                                             <Button variant='ghost' className='h-8 w-8 p-0' disabled={isActioning}>
                                               <span className='sr-only'>Open menu</span>
-                                              <MoreHorizontal className='h-4 w-4' />
+                                              {isActioning ? (
+                                                <Loader2 className='h-4 w-4 animate-spin' />
+                                              ) : (
+                                                <MoreHorizontal className='h-4 w-4' />
+                                              )}
                                             </Button>
                                           </DropdownMenuTrigger>
                                           <DropdownMenuContent align='end'>
@@ -487,52 +479,6 @@ function ManageMemberCarePackageForm() {
           </SidebarInset>
         </div>
       </SidebarProvider>
-
-      {/* to be replaced with consumption / void logic */}
-      <Dialog open={isDialogOpen} onOpenChange={setIsDialogOpen}>
-        <DialogContent>
-          <DialogHeader>
-            <DialogTitle>{actionType === 'consume' ? 'Consume Package Services' : 'Void Package'}</DialogTitle>
-            <DialogDescription>
-              {actionType === 'consume'
-                ? `Are you sure you want to proceed with consuming services from "${selectedPackage?.package_name}"? This will redirect you to the consumption page where you can select specific services to consume.`
-                : `Are you sure you want to void the package "${selectedPackage?.package_name}"? This action cannot be undone and will make the package unusable.`}
-            </DialogDescription>
-          </DialogHeader>
-
-          {selectedPackage && (
-            <div className='space-y-3'>
-              <Alert>
-                <AlertCircle className='h-4 w-4' />
-                <AlertDescription>
-                  <strong>Package Details:</strong>
-                  <br />
-                  ID: {selectedPackage.mcp_id}
-                  <br />
-                  Name: {selectedPackage.package_name}
-                  <br />
-                  Member: {selectedPackage.member_name}
-                  <br />
-                  Status: {selectedPackage.status_name}
-                  <br />
-                  Remaining Balance: ${selectedPackage.balance ? Number(selectedPackage.balance).toFixed(2) : '0.00'}
-                  <br />
-                  Total Services: {getTotalServicesQuantity(selectedPackage)}
-                </AlertDescription>
-              </Alert>
-            </div>
-          )}
-
-          <DialogFooter>
-            <Button variant='outline' onClick={() => setIsDialogOpen(false)}>
-              Cancel
-            </Button>
-            <Button onClick={executeAction} variant={actionType === 'void' ? 'destructive' : 'default'}>
-              {actionType === 'consume' ? 'Proceed to Consumption' : 'Void Package'}
-            </Button>
-          </DialogFooter>
-        </DialogContent>
-      </Dialog>
     </div>
   );
 }

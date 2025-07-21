@@ -1,9 +1,50 @@
 import { create } from 'zustand';
 import { devtools } from 'zustand/middleware';
+// import { format, parseISO } from 'date-fns';
 import api from '@/services/api';
 
 const calculateOverallPackagePrice = (services) =>
   services.reduce((total, service) => total + (service.finalPrice || 0) * (service.quantity || 0), 0);
+
+// Date utility functions
+// const toLocalDateTimeString = (dateValue) => {
+//   try {
+//     if (!dateValue) {
+//       dateValue = new Date();
+//     }
+
+//     const date = dateValue instanceof Date ? dateValue : new Date(dateValue);
+
+//     if (isNaN(date.getTime())) {
+//       return format(new Date(), "yyyy-MM-dd'T'HH:mm");
+//     }
+
+//     // Simple format for datetime-local input (YYYY-MM-DDTHH:MM)
+//     return format(date, "yyyy-MM-dd'T'HH:mm");
+//   } catch (error) {
+//     console.error('Error formatting date:', error);
+//     return format(new Date(), "yyyy-MM-dd'T'HH:mm");
+//   }
+// };
+
+// const fromLocalDateTimeString = (localDateTimeString) => {
+//   try {
+//     if (!localDateTimeString) {
+//       return new Date().toISOString();
+//     }
+
+//     const localDate = parseISO(localDateTimeString);
+
+//     if (isNaN(localDate.getTime())) {
+//       return new Date().toISOString();
+//     }
+
+//     return localDate.toISOString();
+//   } catch (error) {
+//     console.error('Error parsing date:', error);
+//     return new Date().toISOString();
+//   }
+// };
 
 export const useMcpFormStore = create(
   devtools((set, get) => ({
@@ -14,6 +55,8 @@ export const useMcpFormStore = create(
       package_remarks: '',
       package_price: 0, // SUM(service.finalPrice * service.quantity)
       services: [],
+      // created_at: new Date(),
+      // updated_at: new Date(),
     },
     serviceForm: {
       id: '',
@@ -26,12 +69,41 @@ export const useMcpFormStore = create(
     employeeOptions: [],
     serviceOptions: [],
     packageOptions: [],
+    memberCarePackageOptions: [],
     isCustomizable: true,
     isLoading: false,
     error: null,
     mcpCreationQueue: [],
+    mcpTransferQueue: [],
+    originalTemplateCustomizable: true, // New property for storing the original template's customizable setting
 
-    updateMainField: (field, value) =>
+    // toLocalDateTimeString,
+    // fromLocalDateTimeString,
+
+    setBypassMode: (isBypass) =>
+      set(
+        (state) => {
+          // When entering bypass mode, set isCustomizable to true
+          // When exiting bypass mode, restore the original template's customizable setting
+          // If no template is selected (mainFormData.template_package_id is empty), default to true
+          return {
+            isByPass: isBypass,
+            isCustomizable: isBypass || state.originalTemplateCustomizable,
+          };
+        },
+        false,
+        'setBypassMode'
+      ),
+
+    updateMainField: (field, value) => {
+      // Handle date fields specially
+      // if (field === 'created_at' || field === 'updated_at') {
+      //   // If it's a datetime-local string, convert it to ISO
+      //   if (typeof value === 'string' && value.includes('T')) {
+      //     value = fromLocalDateTimeString(value);
+      //   }
+      // }
+
       set(
         (state) => ({
           mainFormData: {
@@ -41,7 +113,35 @@ export const useMcpFormStore = create(
         }),
         false,
         `updateMainField/${field}`
-      ),
+      );
+    },
+
+    // Helper method to get formatted date for datetime-local inputs
+    // getFormattedDate: (field) => {
+    //   const dateValue = get().mainFormData[field];
+    //   return toLocalDateTimeString(dateValue);
+    // },
+
+    // Helper method to update date fields from datetime-local inputs
+    // updateDateField: (field, localDateTimeString) => {
+    //   try {
+    //     const isoString = fromLocalDateTimeString(localDateTimeString);
+    //     set(
+    //       (state) => ({
+    //         mainFormData: {
+    //           ...state.mainFormData,
+    //           [field]: isoString,
+    //           // Auto-update updated_at when created_at changes
+    //           ...(field === 'created_at' && { updated_at: isoString }),
+    //         },
+    //       }),
+    //       false,
+    //       `updateDateField/${field}`
+    //     );
+    //   } catch (error) {
+    //     console.error('Error updating date field:', error);
+    //   }
+    // },
 
     resetMainForm: () =>
       set(
@@ -51,8 +151,11 @@ export const useMcpFormStore = create(
             package_remarks: '',
             package_price: 0,
             services: [],
+            created_at: new Date().toISOString(),
+            updated_at: new Date().toISOString(),
           },
           isCustomizable: true, // Reset to default customizable state
+          isByPass: false,
           serviceForm: {
             id: '',
             name: '',
@@ -91,7 +194,11 @@ export const useMcpFormStore = create(
     // ==============================================================================================================
 
     updateServiceFormField: (field, value) => {
-      if (!get().isCustomizable && (field === 'price' || field === 'discount' || field === 'quantity')) {
+      if (
+        !get().isCustomizable &&
+        !get().isByPass && // Fixed: changed from isBypass to isByPass
+        (field === 'price' || field === 'discount' || field === 'quantity')
+      ) {
         console.warn('Package is not customizable. Cannot update service form field:', field);
         return;
       }
@@ -116,7 +223,7 @@ export const useMcpFormStore = create(
     },
 
     selectService: async (service) => {
-      if (!get().isCustomizable && get().mainFormData.package_name !== '') {
+      if (!get().isCustomizable && !get().isByPass && get().mainFormData.package_name !== '') {
         console.warn('Package is not customizable. Cannot select a new service.');
         return;
       }
@@ -151,16 +258,24 @@ export const useMcpFormStore = create(
     },
 
     addServiceToPackage: () => {
-      if (!get().isCustomizable) {
+      if (!get().isCustomizable && !get().isByPass) {
         console.warn('Package is not customizable. Cannot add service.');
         return;
       }
       const currentServiceForm = get().serviceForm;
+      const isBypass = get().isByPass; // Fixed: changed from isBypass to isByPass
 
-      if (!currentServiceForm.id || !currentServiceForm.name) {
-        console.warn('Cannot add an empty or incomplete service. Please select a service and specify details.');
+      if (!currentServiceForm.name) {
+        console.warn('Cannot add an empty or incomplete service. Please specify service name.');
         return;
       }
+
+      // In bypass mode, we don't need a service ID, but in normal mode we do
+      if (!isBypass && !currentServiceForm.id) {
+        console.warn('Cannot add service without selecting from existing services.');
+        return;
+      }
+
       if (currentServiceForm.quantity <= 0) {
         console.warn('Service quantity must be greater than 0.');
         return;
@@ -168,7 +283,12 @@ export const useMcpFormStore = create(
 
       set(
         (state) => {
-          const newServices = [...state.mainFormData.services, { ...currentServiceForm }];
+          const serviceToAdd = {
+            ...currentServiceForm,
+            id: state.isByPass ? null : currentServiceForm.id,
+          };
+
+          const newServices = [...state.mainFormData.services, serviceToAdd];
           const newPackagePrice = calculateOverallPackagePrice(newServices);
           return {
             mainFormData: {
@@ -301,19 +421,21 @@ export const useMcpFormStore = create(
           const serviceOption = currentServiceOptions.find((f) => f.id == s.service_id);
           const price = parseFloat(s.care_package_item_details_price) || 0;
           const discount = parseFloat(s.care_package_item_details_discount) || 1;
-          const originalPrice = discount !== 0 ? price / discount : price;
+          const finalPrice = discount !== 0 ? price * discount : price;
 
           return {
             id: s.service_id,
             name: serviceOption?.label || 'Unknown Service',
             quantity: parseInt(s.care_package_item_details_quantity, 10) || 1,
-            price: originalPrice,
+            price: price,
             discount: discount,
-            finalPrice: price,
+            finalPrice: finalPrice,
           };
         });
 
         const packagePrice = calculateOverallPackagePrice(newServices);
+
+        const isTemplateCustomizable = data.package?.care_package_customizable ?? true;
 
         set(
           {
@@ -324,7 +446,8 @@ export const useMcpFormStore = create(
               services: newServices,
               package_price: packagePrice,
             },
-            isCustomizable: data.package?.care_package_customizable ?? true,
+            isCustomizable: get().isByPass ? true : isTemplateCustomizable,
+            originalTemplateCustomizable: isTemplateCustomizable,
             serviceForm: {
               id: '',
               name: '',
@@ -366,6 +489,190 @@ export const useMcpFormStore = create(
       }
     },
 
+    fetchMemberCarePackageOptionsByMember: async (memberId) => {
+      set({ isLoading: true, error: null }, false, 'fetchMemberCarePackageOptions/pending');
+      try {
+        const response = await api('mcp/dropdown/' + memberId);
+
+        const formattedOptions = (response.data || [])
+          .filter((pkg) => pkg && pkg.id && pkg.package_name)
+          .map((pkg) => ({
+            value: pkg.id,
+            label: `${pkg.package_name} ($${Number(pkg.balance).toFixed(2)})`,
+            balance: Number(pkg.balance),
+          }));
+
+        set(
+          { memberCarePackageOptions: formattedOptions, isLoading: false },
+          false,
+          'fetchMemberCarePackageOptions/fulfilled'
+        );
+      } catch (error) {
+        const errorMessage = error.response?.data?.message || error.message || 'An unknown error occurred';
+        set({ error: errorMessage, isLoading: false }, false, 'fetchMemberCarePackageOptions/rejected');
+        console.error('Error fetching member care package options:', error);
+      }
+    },
+
+    voidMemberCarePackage: async (packageId) => {
+      set({ isLoading: true, error: null }, false, 'VoidMemberCarePackageOptions/pending');
+      try {
+        await api.delete('/mcp/void/' + packageId);
+
+        set({ isLoading: false }, false, 'voidMemberCarePackageOptions/fulfilled');
+      } catch (error) {
+        const errorMessage = error.response?.data?.message || error.message || 'An unknown error occurred';
+        set({ error: errorMessage, isLoading: false }, false, 'voidMemberCarePackageOptions/rejected');
+        console.error('Error voiding member care package options:', error);
+        throw error;
+      }
+    },
+
+    updateMemberCarePackageStatus: async (packageId, servicesPayload) => {
+      set({ isLoading: true, error: null }, false, 'updateMemberCarePackageStatus/pending');
+      try {
+        const response = await api.put('/mcp/u/s', {
+          id: packageId,
+          services: servicesPayload,
+        });
+        set({ isLoading: false }, false, 'updateMemberCarePackageStatus/fulfilled');
+        return response.data;
+      } catch (error) {
+        const errorMessage = error.response?.data?.message || error.message || 'An unknown error occurred';
+        set({ error: errorMessage, isLoading: false }, false, 'updateMemberCarePackageStatus/rejected');
+        console.error('Error updating member care package status:', error);
+        throw error;
+      }
+    },
+
+    addMcpToTransferQueue: (transferData) => {
+      const { mcp_id1, mcp_id2, newDestinationData, amount } = transferData;
+      const queue = get().mcpTransferQueue;
+      const memberCarePackageOptions = get().memberCarePackageOptions;
+
+      const sourcePackage = memberCarePackageOptions.find((opt) => opt.value === mcp_id1);
+      if (!sourcePackage) {
+        const errorMessage = `Source MCP with ID ${mcp_id1} not found in options.`;
+        set({ error: errorMessage });
+        return null;
+      }
+      const sourceBalance = sourcePackage.balance;
+
+      const alreadyQueuedAmount = queue
+        .filter((item) => item.mcp_id1 === mcp_id1)
+        .reduce((sum, item) => sum + item.amount, 0);
+
+      if (alreadyQueuedAmount + amount > sourceBalance) {
+        const remainingBalance = sourceBalance - alreadyQueuedAmount;
+        const errorMessage = `Transfer amount exceeds remaining balance for source MCP. Remaining: $${remainingBalance.toFixed(
+          2
+        )}.`;
+        set({ error: errorMessage });
+        return null;
+      }
+
+      const newItem = {
+        id: `transfer-${Date.now()}`,
+        mcp_id1,
+        mcp_id2,
+        newDestinationData,
+        amount,
+      };
+
+      set(
+        (state) => ({
+          mcpTransferQueue: [...state.mcpTransferQueue, newItem],
+          error: null,
+        }),
+        false,
+        'addMcpToTransferQueue'
+      );
+
+      console.log('In Queue', get().mcpTransferQueue);
+      return newItem;
+    },
+
+    removeMcpFromTransferQueue: (transferId) => {
+      set(
+        (state) => ({
+          mcpTransferQueue: state.mcpTransferQueue.filter((mcp) => mcp.id !== transferId),
+        }),
+        false,
+        `removeMcpFromTransferQueue/${transferId}`
+      );
+
+      console.log('In Queue', get().mcpTransferQueue);
+    },
+
+    processMcpTransferQueue: async (created_at) => {
+      const queue = get().mcpTransferQueue;
+      if (queue.length === 0) {
+        return { success: true, results: [], packages: [] };
+      }
+
+      set({ isLoading: true, error: null }, false, 'processMcpTransferQueue/pending');
+
+      try {
+        const newPackagesToCreate = queue
+          .filter((item) => item.newDestinationData)
+          .map((item) => ({ ...item.newDestinationData, tempId: item.id }));
+
+        let createdPackagesMap = {};
+
+        if (newPackagesToCreate.length > 0) {
+          // eslint-disable-next-line no-unused-vars
+          const creationPayload = newPackagesToCreate.map(({ tempId, ...rest }) => rest);
+          const creationResponse = await api.post('/mcp/create', {
+            packages: creationPayload,
+            created_at: created_at,
+            updated_at: created_at,
+          });
+
+          const createdPackages = creationResponse.data.createdPackages;
+          createdPackagesMap = newPackagesToCreate.reduce((acc, item, index) => {
+            if (createdPackages[index]?.memberCarePackageId) {
+              acc[item.tempId] = createdPackages[index].memberCarePackageId;
+            }
+            return acc;
+          }, {});
+        }
+
+        const transferPayload = queue.map((item) => {
+          const destinationId = item.newDestinationData ? createdPackagesMap[item.id] : item.mcp_id2;
+
+          if (!destinationId) {
+            throw new Error(`Could not resolve destination ID for transfer from ${item.mcp_id1}`);
+          }
+
+          return {
+            mcp_id1: item.mcp_id1,
+            mcp_id2: destinationId,
+            isNew: !!item.newDestinationData,
+            amount: item.amount,
+          };
+        });
+
+        console.log(transferPayload);
+
+        const transferResponse = await api.post('/mcp/transfer', {
+          packages: transferPayload,
+        });
+
+        set({ isLoading: false, mcpTransferQueue: [] }, false, 'processMcpTransferQueue/fulfilled');
+        return { success: true, results: transferResponse.data, packages: transferPayload };
+      } catch (error) {
+        const errorMessage =
+          error.response?.data?.message || error.message || 'An unknown error occurred during MCP transfer';
+        set({ error: errorMessage, isLoading: false }, false, 'processMcpTransferQueue/rejected');
+        console.error('Error processing MCP transfer queue:', error);
+        return { success: false, error: errorMessage };
+      }
+    },
+
+    clearMcpTransferQueue: () => {
+      set({ mcpTransferQueue: [] }, false, 'clearMcpTransferQueue');
+    },
+
     addMcpToCreationQueue: (packageData) => {
       set(
         (state) => ({
@@ -390,7 +697,7 @@ export const useMcpFormStore = create(
       console.log('In Queue', get().mcpCreationQueue);
     },
 
-    processMcpCreationQueue: async () => {
+    processMcpCreationQueue: async (created_at) => {
       const queue = get().mcpCreationQueue;
       if (queue.length === 0) {
         return { success: true, results: [] };
@@ -398,7 +705,11 @@ export const useMcpFormStore = create(
 
       set({ isLoading: true, error: null }, false, 'processMcpCreationQueue/pending');
       try {
-        const response = await api.post('/mcp/create', { packages: queue });
+        const response = await api.post('/mcp/create', {
+          packages: queue,
+          created_at: created_at,
+          updated_at: created_at,
+        });
         set({ isLoading: false, mcpCreationQueue: [] }, false, 'processMcpCreationQueue/fulfilled');
         return { success: true, results: response.data };
       } catch (error) {

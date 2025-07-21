@@ -4,7 +4,6 @@ import { getMemberOutstandingAmounts } from '../services/paymentService.js';
 import { getLastVisitedDatesForMembers } from '../services/getLastVisitedDatesForMember.js';
 import { format } from 'date-fns';
 
-
 const getAllMembers = async (
   offset: number,
   limit: number,
@@ -21,10 +20,7 @@ const getAllMembers = async (
     let idx = 1;
 
     filters.push(`m.created_at BETWEEN $${idx++} AND $${idx++}`);
-    values.push(
-      sessionStartDate_utc || '0001-01-01T00:00:00Z',
-      sessionEndDate_utc || '9999-12-31T23:59:59Z'
-    );
+    values.push(sessionStartDate_utc || '0001-01-01T00:00:00Z', sessionEndDate_utc || '9999-12-31T23:59:59Z');
 
     if (startDate_utc && endDate_utc) {
       filters.push(`m.created_at BETWEEN $${idx++} AND $${idx++}`);
@@ -32,11 +28,8 @@ const getAllMembers = async (
     }
 
     if (createdBy) {
-      const empResult = await pool().query(
-        `SELECT id FROM employees WHERE employee_name ILIKE $1`,
-        [`%${createdBy}%`]
-      );
-      const empIds = empResult.rows.map(row => row.id);
+      const empResult = await pool().query(`SELECT id FROM employees WHERE employee_name ILIKE $1`, [`%${createdBy}%`]);
+      const empIds = empResult.rows.map((row) => row.id);
 
       if (empIds.length > 0) {
         filters.push(`m.created_by = ANY($${idx++}::int[])`);
@@ -51,7 +44,6 @@ const getAllMembers = async (
       values.push(`%${search}%`);
       idx++;
     }
-
 
     const whereClause = filters.length > 0 ? `WHERE ${filters.join(' AND ')}` : '';
 
@@ -94,15 +86,9 @@ const getAllMembers = async (
       last_visit_date: lastVisitedMap[member.id]
         ? format(new Date(lastVisitedMap[member.id]), 'dd MMM yyyy, hh:mm a')
         : null,
-      created_at: member.created_at
-        ? format(new Date(member.created_at), 'dd MMM yyyy, hh:mm a')
-        : null,
-      updated_at: member.updated_at
-        ? format(new Date(member.updated_at), 'dd MMM yyyy, hh:mm a')
-        : null,
-      dob: member.dob
-        ? format(new Date(member.dob), 'dd MMM yyyy')
-        : null,
+      created_at: member.created_at ? format(new Date(member.created_at), 'dd MMM yyyy, hh:mm a') : null,
+      updated_at: member.updated_at ? format(new Date(member.updated_at), 'dd MMM yyyy, hh:mm a') : null,
+      dob: member.dob ? format(new Date(member.dob), 'dd MMM yyyy') : null,
     }));
 
     return {
@@ -110,7 +96,6 @@ const getAllMembers = async (
       totalPages,
       totalCount,
     };
-
   } catch (error) {
     console.error('Error fetching members:', error);
     throw new Error('Error fetching members');
@@ -127,6 +112,7 @@ const createMember = async ({
   address,
   nric,
   membership_type_id,
+  card_number,
   created_at,
   updated_at,
   created_by,
@@ -176,9 +162,9 @@ const createMember = async ({
     const insertMemberQuery = `
       INSERT INTO members (
         name, email, contact, dob, sex, remarks, address, nric,
-        membership_type_id, created_at, updated_at, created_by, user_auth_id
+        membership_type_id, card_number,created_at, updated_at, created_by, user_auth_id
       )
-      VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13)
+      VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14)
       RETURNING *;
     `;
     const memberValues = [
@@ -191,6 +177,7 @@ const createMember = async ({
       address,
       nric,
       membership_type_id,
+      card_number,
       created_at,
       updated_at,
       created_by,
@@ -236,6 +223,7 @@ const updateMember = async ({
   address,
   nric,
   membership_type_id,
+  card_number,
   updated_at,
 }: UpdateMemberInput) => {
   const client = await pool().connect();
@@ -291,24 +279,13 @@ const updateMember = async ({
         address = $7,
         nric = $8,
         membership_type_id = $9,
-        updated_at = $10
-      WHERE id = $11
+        card_number = $10,
+        updated_at = $11
+      WHERE id = $12
       RETURNING *;
     `;
 
-    const values = [
-      name,
-      email,
-      contact,
-      dob,
-      sex,
-      remarks,
-      address,
-      nric,
-      membership_type_id,
-      updated_at,
-      id,
-    ];
+    const values = [name, email, contact, dob, sex, remarks, address, nric, membership_type_id, card_number, updated_at, id];
 
     const memberResult = await client.query(updateMemberQuery, values);
 
@@ -325,51 +302,50 @@ const updateMember = async ({
 
 const deleteMember = async (memberId: number) => {
   const client = await pool().connect();
-  
+
   try {
     await client.query('BEGIN');
-    
+
     // Step 1: Get associated user_auth_id
     const getAuthIdQuery = `SELECT user_auth_id FROM members WHERE id = $1`;
     const { rows } = await client.query(getAuthIdQuery, [memberId]);
     if (rows.length === 0) throw new Error('Member not found');
     const userAuthId = rows[0].user_auth_id;
-    
+
     // Step 2: Check for existing sale transactions
     const transactionCheckQuery = `SELECT COUNT(*) as count FROM sale_transactions WHERE member_id = $1`;
     const transactionResult = await client.query(transactionCheckQuery, [memberId]);
     const transactionCount = parseInt(transactionResult.rows[0].count);
-    
+
     if (transactionCount > 0) {
       throw new Error(`Cannot delete member: ${transactionCount} sale transaction(s) exist for this member`);
     }
-    
+
     // Step 3: Delete from user_roles
     await client.query(`DELETE FROM user_to_role WHERE user_auth_id = $1`, [userAuthId]);
-    
+
     // Step 4: Delete from members
     await client.query(`DELETE FROM members WHERE id = $1`, [memberId]);
-    
+
     // Step 5: Delete from user_auth
     await client.query(`DELETE FROM user_auth WHERE id = $1`, [userAuthId]);
-    
+
     await client.query('COMMIT');
     return { success: true };
   } catch (error) {
     await client.query('ROLLBACK');
     console.error('Error deleting member:', error);
-    
+
     // Re-throw the error with original message if it's our custom validation error
     if (error instanceof Error && error.message.includes('Cannot delete member:')) {
       throw error;
     }
-    
+
     throw new Error('Could not delete member');
   } finally {
     client.release();
   }
 };
-
 
 const getMemberById = async (id: number, sessionStartDate_utc?: string, sessionEndDate_utc?: string) => {
   try {
@@ -386,7 +362,7 @@ const getMemberById = async (id: number, sessionStartDate_utc?: string, sessionE
     `;
     const sessionStart = sessionStartDate_utc || '0001-01-01T00:00:00Z';
     const sessionEnd = sessionEndDate_utc || '9999-12-31T23:59:59Z';
-    const result = await pool().query(query,  [id, sessionStart, sessionEnd]);
+    const result = await pool().query(query, [id, sessionStart, sessionEnd]);
 
     if (result.rows.length === 0) {
       throw new Error('Member not found');
@@ -396,15 +372,9 @@ const getMemberById = async (id: number, sessionStartDate_utc?: string, sessionE
 
     return {
       ...member,
-      created_at: member.created_at
-        ? format(new Date(member.created_at), 'dd MMM yyyy, hh:mm a')
-        : null,
-      updated_at: member.updated_at
-        ? format(new Date(member.updated_at), 'dd MMM yyyy, hh:mm a')
-        : null,
-      dob: member.dob
-        ? format(new Date(member.dob), 'dd MMM yyyy')
-        : null,
+      created_at: member.created_at ? format(new Date(member.created_at), 'dd MMM yyyy, hh:mm a') : null,
+      updated_at: member.updated_at ? format(new Date(member.updated_at), 'dd MMM yyyy, hh:mm a') : null,
+      dob: member.dob ? format(new Date(member.dob), 'dd MMM yyyy') : null,
     };
   } catch (error) {
     console.error('Error fetching member by ID:', error);
@@ -412,7 +382,11 @@ const getMemberById = async (id: number, sessionStartDate_utc?: string, sessionE
   }
 };
 
-const searchMemberByNameOrPhone = async (searchTerm: string, sessionStartDate_utc?: string, sessionEndDate_utc?: string) => {
+const searchMemberByNameOrPhone = async (
+  searchTerm: string,
+  sessionStartDate_utc?: string,
+  sessionEndDate_utc?: string
+) => {
   try {
     const query = `
       SELECT 
@@ -438,7 +412,7 @@ FROM members m
 LEFT JOIN membership_types mt ON m.membership_type_id::bigint = mt.id
 LEFT JOIN employees e ON m.created_by = e.id
 WHERE 
-  (m.name ILIKE $1 OR m.contact ILIKE $1)
+  (m.name ILIKE $1 OR m.contact ILIKE $1 OR m.card_number ILIKE $1)
   AND m.created_at BETWEEN $2 AND $3;
 
     `;
@@ -457,15 +431,9 @@ WHERE
       last_visit_date: lastVisitedMap[member.id]
         ? format(new Date(lastVisitedMap[member.id]), 'dd MMM yyyy, hh:mm a')
         : null,
-      created_at: member.created_at
-        ? format(new Date(member.created_at), 'dd MMM yyyy, hh:mm a')
-        : null,
-      updated_at: member.updated_at
-        ? format(new Date(member.updated_at), 'dd MMM yyyy, hh:mm a')
-        : null,
-      dob: member.dob
-        ? format(new Date(member.dob), 'dd MMM yyyy')
-        : null,
+      created_at: member.created_at ? format(new Date(member.created_at), 'dd MMM yyyy, hh:mm a') : null,
+      updated_at: member.updated_at ? format(new Date(member.updated_at), 'dd MMM yyyy, hh:mm a') : null,
+      dob: member.dob ? format(new Date(member.dob), 'dd MMM yyyy') : null,
     }));
 
     return {
@@ -487,11 +455,11 @@ const getMemberVouchers = async (
 ) => {
   try {
     const hasSearch = !!searchTerm;
-    
+
     // Default session date range if not provided
     const sessionStart = sessionStartDate_utc || '0001-01-01T00:00:00Z';
     const sessionEnd = sessionEndDate_utc || '9999-12-31T23:59:59Z';
-    
+
     // Build SQL dynamically with status = 'is_enabled' and session date filter
     const baseQuery = `
       SELECT *
@@ -519,7 +487,7 @@ const getMemberVouchers = async (
       AND status = 'is_enabled'
       ${hasSearch ? `AND member_voucher_name ILIKE $2` : ''};
     `;
-    
+
     const countValues = hasSearch
       ? [memberId, `%${searchTerm}%`, sessionStart, sessionEnd]
       : [memberId, sessionStart, sessionEnd];
@@ -532,7 +500,7 @@ const getMemberVouchers = async (
     const vouchersWithBalance = await Promise.all(
       result.rows.map(async (voucher) => {
         const balanceQuery = `
-          SELECT st.outstanding_total_payment_amount, mv.current_balance, mv.free_of_charge
+          SELECT st.outstanding_total_payment_amount, mv.current_balance
           FROM sale_transactions st
           JOIN sale_transaction_items sti ON st.id = sti.sale_transaction_id
           JOIN member_vouchers mv ON sti.member_voucher_id = mv.id
@@ -541,25 +509,25 @@ const getMemberVouchers = async (
           ORDER BY sti.sale_transaction_id DESC
           LIMIT 1;
         `;
-        
+
         const balanceResult = await pool().query(balanceQuery, [voucher.id, sessionStart, sessionEnd]);
-        
+
         let currentPaidBalance = 0;
         if (balanceResult.rows && balanceResult.rows.length > 0) {
           const current_balance = parseFloat(balanceResult.rows[0].current_balance);
           const outstanding_total_payment_amount = parseFloat(balanceResult.rows[0].outstanding_total_payment_amount);
-          const free_of_charge = parseFloat(balanceResult.rows[0].free_of_charge);
-          
+          // const free_of_charge = parseFloat(balanceResult.rows[0].free_of_charge);
+
           if (outstanding_total_payment_amount === 0) {
             currentPaidBalance = current_balance;
           } else {
-            currentPaidBalance = current_balance - outstanding_total_payment_amount - free_of_charge;
+            currentPaidBalance = current_balance - outstanding_total_payment_amount; //- free_of_charge;
           }
         }
-        
+
         return {
           ...voucher,
-          current_paid_balance: currentPaidBalance
+          current_paid_balance: currentPaidBalance,
         };
       })
     );
@@ -624,9 +592,7 @@ const getMemberCarePackages = async (
 
     const formatted = result.rows.map((row) => ({
       ...row,
-      created_at: row.created_at
-        ? format(new Date(row.created_at), 'dd MMM yyyy, hh:mm a')
-        : null,
+      created_at: row.created_at ? format(new Date(row.created_at), 'dd MMM yyyy, hh:mm a') : null,
     }));
 
     return {
@@ -640,7 +606,19 @@ const getMemberCarePackages = async (
   }
 };
 
-
+const getAllMembersForDropdown = async () => {
+  try {
+    const query = `
+      SELECT id, name, contact, card_number FROM members
+      ORDER BY name ASC
+    `;
+    const result = await pool().query(query);
+    return result.rows;
+  } catch (error) {
+    console.error('Error fetching member list:', error);
+    throw new Error('Error fetching member list');
+  }
+};
 
 export default {
   getAllMembers,
@@ -651,4 +629,5 @@ export default {
   searchMemberByNameOrPhone,
   getMemberVouchers,
   getMemberCarePackages,
+  getAllMembersForDropdown,
 };

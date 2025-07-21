@@ -4,11 +4,7 @@ import api from '@/services/api';
 import useServiceStore from './useServiceStore'; // Import the service store
 
 function emptyStringToNull(obj) {
-  return Object.fromEntries(
-    Object.entries(obj).map(([key, value]) =>
-      value === "" ? [key, null] : [key, value]
-    )
-  );
+  return Object.fromEntries(Object.entries(obj).map(([key, value]) => (value === '' ? [key, null] : [key, value])));
 }
 
 export const useVoucherTemplateFormStore = create(
@@ -38,7 +34,7 @@ export const useVoucherTemplateFormStore = create(
       set({
         serviceOptions: serviceState.services || [],
         servicesLoading: serviceState.loading,
-        servicesError: serviceState.error
+        servicesError: serviceState.error,
       });
     },
     // Service form for adding individual services to template
@@ -63,43 +59,44 @@ export const useVoucherTemplateFormStore = create(
     currentTemplateId: null,
     isEditMode: false,
 
-
     updateMainField: (field, value) =>
-      set((state) => {
-        const updatedForm = {
-          ...state.mainFormData,
-          [field]: value,
-        };
-
-        // Convert to numbers, defaulting to 0 for invalid values
-        let starting = Number(updatedForm.default_starting_balance) || 0;
-        let free = Number(updatedForm.default_free_of_charge) || 0;
-
-        if (field === 'default_starting_balance') {
-          starting = Number(value) || 0;
-        } else if (field === 'default_free_of_charge') {
-          free = Number(value) || 0;
-        }
-
-        // Validate: FOC must not exceed starting balance
-        if (free > starting) {
-          console.warn("Free of charge cannot exceed starting balance");
-
-          const fixedForm = {
-            ...updatedForm,
-            default_free_of_charge: 0, // Set to 0 instead of empty string
-            default_total_price: starting, // Keep as number
+      set(
+        (state) => {
+          const updatedForm = {
+            ...state.mainFormData,
+            [field]: value,
           };
-          return { mainFormData: fixedForm };
-        }
-        console.log(`Updating field ${field} with value:`, value);
-        console.log('Updated form data:', updatedForm);
-        // Calculate total price and keep as number
-        updatedForm.default_total_price = starting - free;
-        return { mainFormData: updatedForm };
-      }, false, `updateMainField/${field}`),
 
+          // Convert to numbers, defaulting to 0 for invalid values
+          let starting = Number(updatedForm.default_starting_balance) || 0;
+          let free = Number(updatedForm.default_free_of_charge) || 0;
 
+          if (field === 'default_starting_balance') {
+            starting = Number(value) || 0;
+          } else if (field === 'default_free_of_charge') {
+            free = Number(value) || 0;
+          }
+
+          // Validate: FOC must not exceed starting balance
+          if (free > starting) {
+            console.warn('Free of charge cannot exceed starting balance');
+
+            const fixedForm = {
+              ...updatedForm,
+              default_free_of_charge: 0, // Set to 0 instead of empty string
+              default_total_price: starting, // Keep as number
+            };
+            return { mainFormData: fixedForm };
+          }
+          console.log(`Updating field ${field} with value:`, value);
+          console.log('Updated form data:', updatedForm);
+          // Calculate total price and keep as number
+          updatedForm.default_total_price = starting - free;
+          return { mainFormData: updatedForm };
+        },
+        false,
+        `updateMainField/${field}`
+      ),
 
     // Load template data for editing
     loadTemplateForEdit: (templateData) => {
@@ -167,7 +164,7 @@ export const useVoucherTemplateFormStore = create(
 
           if (field === 'discount') {
             if (value > 1) {
-              console.warn("Discount cannot be more than 1");
+              console.warn('Discount cannot be more than 1');
               discount = 1;
             } else {
               discount = roundTo2Dp(value);
@@ -192,7 +189,6 @@ export const useVoucherTemplateFormStore = create(
         `updateServiceFormField/${field}`
       ),
 
-
     // Select service from dropdown and fetch its details
     selectService: async (serviceData) => {
       try {
@@ -208,27 +204,29 @@ export const useVoucherTemplateFormStore = create(
         const originalPrice = parseFloat(fullServiceData.service_price) || 0;
         const duration = parseInt(fullServiceData.service_duration) || 0;
 
-        set({
-          serviceForm: {
-            ...get().serviceForm,
-            id: fullServiceData.id,
-            service_id: fullServiceData.id,
-            service_name: fullServiceData.service_name,
-            original_price: originalPrice,
-            custom_price: originalPrice,
-            final_price: originalPrice,
-            duration: duration,
-            service_category_id: fullServiceData.service_category_id || '',
-            discount: 1,
+        set(
+          {
+            serviceForm: {
+              ...get().serviceForm,
+              id: fullServiceData.id,
+              service_id: fullServiceData.id,
+              service_name: fullServiceData.service_name,
+              original_price: originalPrice,
+              custom_price: originalPrice,
+              final_price: originalPrice,
+              duration: duration,
+              service_category_id: fullServiceData.service_category_id || '',
+              discount: 1,
+            },
           },
-        }, false, `selectService/${fullServiceData.id}`);
+          false,
+          `selectService/${fullServiceData.id}`
+        );
       } catch (error) {
         console.error('Error selecting service:', error);
         set({ error: 'Failed to load service details' }, false, 'selectService/error');
       }
-    }
-    ,
-
+    },
     // Reset service form
     resetServiceForm: () =>
       set(
@@ -270,7 +268,6 @@ export const useVoucherTemplateFormStore = create(
       );
 
       get().resetServiceForm();
-
     },
 
     // Remove service from template
@@ -282,7 +279,7 @@ export const useVoucherTemplateFormStore = create(
           return {
             mainFormData: {
               ...state.mainFormData,
-              details: newDetails
+              details: newDetails,
             },
           };
         },
@@ -301,7 +298,7 @@ export const useVoucherTemplateFormStore = create(
 
             // Recalculate final price for this service
             const service = newDetails[index];
-            service.final_price = service.custom_price * service.discount ;
+            service.final_price = service.custom_price * service.discount;
           }
 
           return {
@@ -319,7 +316,7 @@ export const useVoucherTemplateFormStore = create(
     // Get service options from service store
     getServiceOptions: () => {
       const serviceStore = useServiceStore.getState();
-      return serviceStore.services.map(service => ({
+      return serviceStore.services.map((service) => ({
         value: service.id,
         label: service.service_name,
         id: service.id,
@@ -371,11 +368,15 @@ export const useVoucherTemplateFormStore = create(
           ...cleanedData,
         };
 
-        set((state) => ({
-          mainFormData: {
-            ...state.mainFormData,
-          }
-        }), false, 'setCreatedAt');
+        set(
+          (state) => ({
+            mainFormData: {
+              ...state.mainFormData,
+            },
+          }),
+          false,
+          'setCreatedAt'
+        );
 
         const response = await api.post('/voucher-template', payload);
 
@@ -411,7 +412,7 @@ export const useVoucherTemplateFormStore = create(
         const payload = {
           ...cleanedData,
         };
-        
+
         const response = await api.put(`/voucher-template/${templateId}`, payload);
 
         set({ isUpdating: false }, false, 'updateVoucherTemplate/fulfilled');
@@ -442,36 +443,41 @@ export const useVoucherTemplateFormStore = create(
     clearError: () => set({ error: null }, false, 'clearError'),
 
     // Reset entire store
-    reset: () => set({
-      mainFormData: {
-        voucher_template_name: '',
-        default_starting_balance: 0,
-        default_free_of_charge: 0,
-        default_total_price: 0,
-        remarks: '',
-        status: 'is_enabled',
-        created_by: '',
-        last_updated_by: '', // Reset updated_by
-        created_at: null,
-        updated_at: null, // Reset updated_at
-        details: [],
-      },
-      serviceForm: {
-        id: '',
-        service_id: '',
-        service_name: '',
-        original_price: 0,
-        custom_price: 0,
-        discount: 1,
-        final_price: 0,
-        duration: 0,
-        service_category_id: '',
-      },
-      isCreating: false,
-      isUpdating: false,
-      error: null,
-      currentTemplateId: null,
-      isEditMode: false,
-    }, false, 'reset'),
+    reset: () =>
+      set(
+        {
+          mainFormData: {
+            voucher_template_name: '',
+            default_starting_balance: 0,
+            default_free_of_charge: 0,
+            default_total_price: 0,
+            remarks: '',
+            status: 'is_enabled',
+            created_by: '',
+            last_updated_by: '', // Reset updated_by
+            created_at: null,
+            updated_at: null, // Reset updated_at
+            details: [],
+          },
+          serviceForm: {
+            id: '',
+            service_id: '',
+            service_name: '',
+            original_price: 0,
+            custom_price: 0,
+            discount: 1,
+            final_price: 0,
+            duration: 0,
+            service_category_id: '',
+          },
+          isCreating: false,
+          isUpdating: false,
+          error: null,
+          currentTemplateId: null,
+          isEditMode: false,
+        },
+        false,
+        'reset'
+      ),
   }))
 );
