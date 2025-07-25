@@ -293,12 +293,6 @@ function RevenueReportPage() {
                   Error loading revenue data: {error}
                 </div>
               )}
-              <div className="mb-6 p-4 bg-gray-100 rounded-lg">
-                <div className="flex justify-between items-center">
-                  <span className="font-medium">Total Revenue Amount For {resultMonth}, {resultYear}</span>
-                  <span className="text-2xl font-bold">{((currentTotals.netSales || 0) - (currentTotals.refund || 0)).toFixed(2)} $</span>
-                </div>
-              </div>
               <div className="overflow-x-auto">
                 {loading ? (
                   <div className="flex justify-center items-center h-32">Loading revenue data...</div>
@@ -306,7 +300,7 @@ function RevenueReportPage() {
                   <table className="min-w-full border border-gray-200">
                     <thead>
                       <tr className="bg-gray-100">
-                        {['Day', 'Cash', 'Visa', 'PayNow', 'Nets', 'Total', 'VIP', 'Package', 'Net Sales', 'Refund'].map(header => (
+                        {['Day', 'Cash', 'Visa', 'PayNow', 'Nets', 'Total Income', 'GST','Total with GST', 'VIP', 'Package', 'Net Sales', 'Refund'].map(header => (
                           <th key={header} className="border border-gray-300 px-4 py-2">{header}</th>
                         ))}
                       </tr>
@@ -322,6 +316,8 @@ function RevenueReportPage() {
                               <td className="border border-gray-300 px-4 py-2 text-center">{formatAmount(row.payment)}</td>
                               <td className="border border-gray-300 px-4 py-2 text-center">{formatAmount(row.nets)}</td>
                               <td className="border border-gray-300 px-4 py-2 text-center">{formatAmount(row.total)}</td>
+                              <td className="border border-gray-300 px-4 py-2 text-center">{formatAmount(row.total * 0.09)}</td>
+                              <td className="border border-gray-300 px-4 py-2 text-center">{formatAmount(row.total * 1.09)}</td>
                               {/* <td className="border border-gray-300 px-4 py-2 text-center">{formatAmount(row.foc)}</td> */}
                               <td
                                 className="border border-gray-300 px-4 py-2 text-center relative"
@@ -349,6 +345,8 @@ function RevenueReportPage() {
                             <td className="border border-gray-300 px-4 py-2 text-center">{(currentTotals.payment || 0).toFixed(2)}</td>
                             <td className="border border-gray-300 px-4 py-2 text-center">{(currentTotals.nets || 0).toFixed(2)}</td>
                             <td className="border border-gray-300 px-4 py-2 text-center">{(currentTotals.total || 0).toFixed(2)}</td>
+                            <td className="border border-gray-300 px-4 py-2 text-center">{(currentTotals.total * 0.09 || 0).toFixed(2)}</td>
+                            <td className="border border-gray-300 px-4 py-2 text-center">{(currentTotals.total * 1.09 || 0).toFixed(2)}</td>
                             {/* <td className="border border-gray-300 px-4 py-2 text-center">{(currentTotals.foc || 0).toFixed(2)}</td> */}
                             <td
                               className="border border-gray-300 px-4 py-2 text-center relative"
