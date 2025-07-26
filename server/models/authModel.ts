@@ -1,6 +1,6 @@
 /* eslint-disable @typescript-eslint/no-explicit-any */
 import { pool, getProdPool as prodPool } from '../config/database.js';
-import { UserAuth } from '../types/model.types.js';
+import { NewUserData, UserWithRole } from '../types/model.types.js';
 import { PoolClient } from 'pg';
 import { CursorPayload, PaginatedOptions, PaginatedReturn } from '../types/common.types.js';
 import { encodeCursor } from '../utils/cursorUtils.js';
@@ -163,14 +163,6 @@ const checkUsernameExists = async (username: string) => {
 };
 
 
-interface NewUserData {
-  email: string;
-  username: string;
-  password_hash: string;
-  role_name: string;
-  created_at?: string;
-  updated_at?: string;
-}
 
 const createUserModel = async (data: NewUserData) => {
   const client = await pool().connect();
@@ -453,14 +445,6 @@ const getUserById = async (userId: string) => {
   }
 };
 
-interface UserWithRole {
-  id: string;
-  username: string;
-  email: string;
-  role_name: string;
-  created_at: string;
-  updated_at: string;
-}
 
 const getPaginatedUsers = async (
   limit: number,
