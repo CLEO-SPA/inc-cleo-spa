@@ -149,16 +149,19 @@ const updateUserPassword = async (email: string, password_hash: string, isInvite
 
 const checkUserEmailExists = async (email: string) => {
   try {
-    const query = `
-      SELECT id FROM users WHERE email = $1;
-    `;
-
+    const query = `SELECT id FROM users WHERE email = $1`;
     const { rowCount } = await pool().query(query, [email]);
-    return rowCount == null;
+    return (rowCount ?? 0) > 0; // returns true if email exists
   } catch (error) {
     throw error;
   }
 };
+
+const checkUsernameExists = async (username: string) => {
+  const result = await pool().query(`SELECT id FROM users WHERE username = $1`, [username]);
+  return result.rows.length > 0;
+};
+
 
 interface NewUserData {
   email: string;
@@ -710,4 +713,5 @@ export default {
   deleteUserModel,
   getUserById,
   getPaginatedUsers,
+  checkUsernameExists
 };

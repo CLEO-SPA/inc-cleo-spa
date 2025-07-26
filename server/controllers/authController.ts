@@ -9,7 +9,6 @@ import validator from 'validator';
 import bcrypt from 'bcryptjs';
 import { PaginatedOptions } from '../types/common.types.js';
 
-
 const login = async (req: Request, res: Response, next: NextFunction) => {
   if (res.locals.result) {
     const { rememberMe } = req.body;
@@ -323,47 +322,51 @@ interface NewUserData {
 
 const createAndInviteUser = async (req: Request, res: Response, next: NextFunction) => {
   try {
-    const { username = '', email = '', role_name = '', created_at = '', updated_at = '' } = req.body;
+    const { username = '', email = '', role_name = '', created_at, updated_at } = req.body;
 
     const user_email = email.trim();
     const user_name = username.trim();
     const role = role_name.trim();
 
-    const missing = !user_email || !user_name || !role;
-
-    if (missing) {
-      res.status(400).json({ message: 'All required fields must be non-blank.' });
-      return;
+    if (!user_email || !user_name || !role) {
+      return res.status(400).json({ message: 'All required fields must be non-blank.' });
     }
 
-    if (!validator.isEmail(email)) {
-      res.status(400).json({ message: 'Invalid email format.' });
-      return;
+    if (!validator.isEmail(user_email)) {
+      return res.status(400).json({ message: 'Invalid email format.' });
     }
 
-    if (await model.checkUserEmailExists(email)) {
-      res.status(409).json({ message: 'User email already in use.' });
-      return;
+    if (await model.checkUsernameExists(user_name)) {
+      return res.status(409).json({ message: 'Username already in use.' });
     }
+
+    if (await model.checkUserEmailExists(user_email)) {
+      return res.status(409).json({ message: 'User email already in use.' });
+    }
+
+    // Fix: assign valid ISO timestamps if blank
+    const now = new Date().toISOString();
+    const createdAt = created_at?.trim() || now;
+    const updatedAt = updated_at?.trim() || now;
 
     const randomPassword = crypto.randomBytes(8).toString('hex');
 
-    const results = await model.createUserModel({
-      username,
-      email,
+    const { userId } = await model.createUserModel({
+      username: user_name,
+      email: user_email,
       password_hash: randomPassword,
-      role_name,
-      created_at,
-      updated_at,
+      role_name: role,
+      created_at: createdAt,
+      updated_at: updatedAt,
     });
 
-    const token = jwt.sign({ email }, process.env.INV_JWT_SECRET as string, { expiresIn: '3d' });
-    const resetUrl = `${process.env.LOCAL_FRONTEND_URL}/reset-password?token=${token}`;
+    const token = jwt.sign({ userId, email: user_email }, process.env.INV_JWT_SECRET as string, { expiresIn: '3d' });
 
-    res.status(201).json({
+    const inviteLink = `${process.env.LOCAL_FRONTEND_URL}/reset-password?token=${token}`;
+
+    return res.status(201).json({
       message: 'User created successfully. Send the link below so they can set a password.',
-      resetUrl,
-      results,
+      inviteLink,
     });
   } catch (error) {
     console.error('Error in authController.createAndInviteUser', error);
@@ -582,5 +585,5 @@ export default {
   updateUser,
   deleteUser,
   getUsers,
-  getUserById
+  getUserById,
 };
