@@ -138,7 +138,7 @@ const useUsersStore = create(
       try {
         const response = await api.post('/auth/create', userData);
 
-        const inviteUrl = response.data.resetUrl;
+        const inviteUrl = response.data.inviteLink;
         set({
           success: response.message || 'User created successfully',
           invitationLink: inviteUrl,
