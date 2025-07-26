@@ -14,11 +14,8 @@ router.get('/get-member-details', dataExport.getMemberDetails);
 
 router.get('/get-minimum-time-since-used-member-voucher', dataExport.getUnusedVoucher);
 
-router.get('/get-minimum-time-since-used-member-care-package', dataExport.getUnusedCarePackage);
-
 // =========================
 // Private routes
 // =========================
-// router.use(isAuthenticated);
 
 export default router;

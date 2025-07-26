@@ -2,7 +2,6 @@ import { pool, getProdPool as prodPool } from '../config/database.js';
 import {
     DataToExportList,
     MemberDetailsData,
-    UnusedMemberCarePackageData,
     UnusedMemberVoucherData
 } from '../types/model.types.js';
 
@@ -80,44 +79,7 @@ const getUnusedMemberVoucher = async (timeInput: number): Promise<{ success: boo
     }
 };
 
-const getUnusedMemberCarePackage = async (timeInput: number): Promise<{ success: boolean, data?: DataToExportList<UnusedMemberCarePackageData>, message: string }> => {
-
-    const client = await pool().connect();
-    try {
-        const query = `
-        SELECT 
-            m.name as member_name, 
-            m.contact, 
-            m.email, 
-            mcp.package_name as package_name, 
-            EXTRACT(DAY FROM (CURRENT_DATE - mcp.created_at)) as days_since_use,
-            mcp.created_at
-        FROM members m
-        JOIN member_care_packages mcp ON m.id = mcp.member_id
-        WHERE EXTRACT(DAY FROM (CURRENT_DATE - mcp.created_at)) >= $1
-        ORDER BY mcp.created_at;
-    `;
-
-        const result = await client.query(query, [timeInput]);
-        const data = {
-            dataToExportList: result.rows
-        };
-
-        if (result.rows.length > 0) {
-            return { success: true, data: data, message: "Unused Member Care Package retrieve successfully." }
-        } else {
-            return { success: false, data: { dataToExportList: [] }, message: "There are no Unused Member Care Package records." }
-        }
-    } catch (error) {
-        console.error('Error fetching unused member care package:', error);
-        throw new Error('Failed to fetch unused member care package');
-    } finally {
-        client.release();
-    }
-};
-
 export default {
     getMemberDetails,
-    getUnusedMemberVoucher,
-    getUnusedMemberCarePackage
+    getUnusedMemberVoucher
 };

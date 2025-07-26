@@ -88,42 +88,6 @@ const useDataExportStore = create((set, get) => ({
 
     },
 
-    // fetchMinimumTimeSinceUsedOfMemberCarePackage: async (time) => {
-
-    //     if (get().loading) {
-    //         set({ error: true, errorMessage: "Another process is running." });
-    //         return;
-    //     }
-
-    //     const validation = validateTimeInput(time);
-    //     if (!validation.isValid) {
-    //         set({ error: true, errorMessage: validation.error });
-    //         return;
-    //     }
-
-    //     set({ loading: true, success: false, error: false })
-
-    //     try {
-    //         const response = await api.get(`/de/get-minimum-time-since-used-member-care-package?time=${time}`);
-    //         const dataToExport = response.data.data;
-
-    //         set({
-    //             loading: false,
-    //             success: true,
-    //             error: false,
-    //             errorMessage: null,
-    //             dataExportList: dataToExport
-    //         });
-
-    //         get().setSuccessWithTimeout();
-
-    //     } catch (error) {
-    //         const errorMessage = handleApiError(error);
-    //         set({ error: true, errorMessage: errorMessage, loading: false });
-    //     }
-
-    // },
-
     getDataToExport: async () => {
         const { selectedTable, timeInput } = get();
 
