@@ -379,7 +379,7 @@ const createAndInviteUser = async (req: Request, res: Response, next: NextFuncti
   }
 };
 
-const updateUser = async (req: Request, res: Response, next: NextFunction) => {
+const updateUser = async (req: Request, res: Response, next: NextFunction): Promise<void> => {
   try {
     const { id } = req.params;
     const { username, email, role_name, password } = req.body;
@@ -425,6 +425,24 @@ const updateUser = async (req: Request, res: Response, next: NextFunction) => {
       // Hash the password before updating
       const salt = await bcrypt.genSalt(10);
       updateData.password_hash = await bcrypt.hash(password, salt);
+    }
+
+    // Check if new username is already in use by someone else
+    if (username && username !== existingUser.username) {
+      const usernameInUse = await model.getAuthUser(username);
+      if (usernameInUse && usernameInUse.id !== id) {
+        res.status(409).json({ message: 'Username is already in use by another user' });
+        return;
+      }
+    }
+
+    // Check if new email is already in use by someone else
+    if (email && email !== existingUser.email) {
+      const emailInUse = await model.getAuthUser(email);
+      if (emailInUse && emailInUse.id !== id) {
+        res.status(409).json({ message: 'Email is already in use by another user' });
+        return;
+      }
     }
 
     const result = await model.updateUserModel(id, updateData);
