@@ -164,15 +164,28 @@ const verifyRefundableServices = async (req: Request, res: Response, next: NextF
 // Updated processPartialRefund controller
 const processPartialRefund = async (req: Request, res: Response, next: NextFunction) => {
   try {
-
     console.log('Incoming refund request:', JSON.stringify(req.body, null, 2));
-    const { mcpId, refundedBy, refundRemarks, refundDate, refundItems } = req.body;
+    const { 
+      mcpId, 
+      refundedBy, 
+      refundRemarks, 
+      refundDate, 
+      refundItems,
+      additionalBalanceRefund = 0
+    } = req.body;
 
     // Validate refundedBy exists and is a number
     if (!refundedBy || typeof refundedBy !== 'number') {
       return res.status(400).json({
         error: 'Valid refundedBy employee ID required',
         details: 'Please provide the employee/user ID performing the refund'
+      });
+    }
+
+    // Validate additionalBalanceRefund
+    if (additionalBalanceRefund < 0) {
+      return res.status(400).json({
+        error: 'Additional balance refund cannot be negative'
       });
     }
 
@@ -196,22 +209,15 @@ const processPartialRefund = async (req: Request, res: Response, next: NextFunct
       }>;
     };
 
-    // Validate refund items - now using detail_id instead of service_id
+    // Validate refund items
     if (!refundItems || !Array.isArray(refundItems)) {
       return res.status(400).json({ error: 'Invalid refund items format' });
     }
 
-    console.log('Package balance:', reqWithExtras.mcpData.balance);
-    console.log('Available services:', JSON.stringify(reqWithExtras.remainingServices, null, 2));
-    console.log('Requested refund items:', JSON.stringify(refundItems, null, 2));
-
-    // Map requested refund quantities to available services
+    // Calculate service-based refunds
     const refundDetails = reqWithExtras.remainingServices.map(service => {
       const refundItem = refundItems.find((item: any) => item.detail_id === Number(service.id));
       const refundQuantity = refundItem ? Math.min(refundItem.quantity, service.quantity) : 0;
-
-      console.log(`Service ${service.id} (${service.service_name}):`);
-      console.log(`- Available: ${service.quantity}, Requested: ${refundItem?.quantity || 0}, Allocated: ${refundQuantity}`);
 
       return {
         ...service,
@@ -220,21 +226,11 @@ const processPartialRefund = async (req: Request, res: Response, next: NextFunct
       };
     }).filter(service => service.refundQuantity > 0);
 
-    if (refundDetails.length === 0) {
-      return res.status(400).json({
-        error: 'No valid refund items',
-        details: 'All requested quantities are zero or exceed available quantities'
-      });
-    }
+    const serviceRefundAmount = refundDetails.reduce((sum, item) => sum + item.refundAmount, 0);
+    const totalRefundAmount = serviceRefundAmount + Number(additionalBalanceRefund);
 
-    const totalRefundAmount = refundDetails.reduce((sum, item) => sum + item.refundAmount, 0);
-    console.log('Calculated total refund amount:', totalRefundAmount);
-
-    // Check if refund amount exceeds package balance
+    // Check if total refund amount exceeds package balance
     if (totalRefundAmount > reqWithExtras.mcpData.balance) {
-      console.error('Refund amount exceeds balance');
-      console.log(`Balance: ${reqWithExtras.mcpData.balance}, Requested: ${totalRefundAmount}`);
-
       return res.status(400).json({
         error: 'Refund amount exceeds package balance',
         currentBalance: reqWithExtras.mcpData.balance,
@@ -242,10 +238,12 @@ const processPartialRefund = async (req: Request, res: Response, next: NextFunct
       });
     }
 
+    // Process the transaction
     const result = await model.processPartialRefundTransaction({
       mcpId,
       memberId: reqWithExtras.mcpData.member_id,
       refundDetails,
+      additionalBalanceRefund,
       refundedBy,
       refundRemarks,
       refundDate: processedRefundDate,
@@ -257,6 +255,7 @@ const processPartialRefund = async (req: Request, res: Response, next: NextFunct
       refundTransactionId: result.refundTransactionId,
       totalRefundAmount: result.totalRefund,
       refundedServices: result.refundedServices,
+      additionalBalanceRefund: result.additionalBalanceRefund,
       newPackageBalance: result.newPackageBalance,
       refundDate: processedRefundDate.toISOString(),
       receiptNo: result.receiptNo

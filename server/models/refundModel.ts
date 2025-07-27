@@ -683,7 +683,6 @@ const processFullRefundTransaction = async (params: {
   }
 };
 
-// Updated processPartialRefundTransaction
 const processPartialRefundTransaction = async (params: {
   mcpId: number;
   memberId: number;
@@ -695,6 +694,7 @@ const processPartialRefundTransaction = async (params: {
     refundQuantity: number;
     refundAmount: number;
   }>;
+  additionalBalanceRefund?: number;
   refundedBy: number;
   refundRemarks?: string;
   refundDate?: Date;
@@ -728,6 +728,20 @@ const processPartialRefundTransaction = async (params: {
     // Generate receipt number
     const receiptNo = await generateCreditNoteNumber(client);
 
+    // Get all services in the package to divide additional balance
+    const { rows: allServices } = await client.query(
+      `SELECT id, service_name, price, discount 
+       FROM member_care_package_details 
+       WHERE member_care_package_id = $1`,
+      [params.mcpId]
+    );
+    const serviceCount = allServices.length;
+
+    // Calculate additional balance per service
+    const additionalBalancePerService = params.additionalBalanceRefund 
+      ? params.additionalBalanceRefund / serviceCount 
+      : 0;
+
     // Create refund transaction
     const { rows: txRows } = await client.query(
       `INSERT INTO sale_transactions (
@@ -750,10 +764,11 @@ const processPartialRefundTransaction = async (params: {
     );
     const refundTxId = txRows[0].id;
 
-    // Create sale transaction items for each refunded service
+    // Process service quantity refunds if any
     for (const service of params.refundDetails) {
       if (service.refundQuantity <= 0) continue;
 
+      // Create item for the service quantity refund
       await client.query(
         `INSERT INTO sale_transaction_items (
           sale_transaction_id, service_name, member_care_package_id,
@@ -768,11 +783,11 @@ const processPartialRefundTransaction = async (params: {
           service.discount,
           service.refundQuantity,
           -service.refundAmount,
-          `Partial refund for ${service.refundQuantity} session(s) of ${service.service_name} - ${params.refundRemarks || 'No remarks provided'}`
+          `Quantity refund for ${service.refundQuantity} session(s) of ${service.service_name}`
         ]
       );
 
-      // Create transaction log for the refund (without service_id if it's null)
+      // Create transaction log for the service quantity refund
       await client.query(
         `INSERT INTO member_care_package_transaction_logs (
           type, description, transaction_date,
@@ -783,16 +798,62 @@ const processPartialRefundTransaction = async (params: {
           'REFUND', $1, $2, $3, $4, $5, $6, $7, $8
         )`,
         [
-          `Partial refund of ${service.refundQuantity} session(s) of ${service.service_name}`,
+          `Quantity refund of ${service.refundQuantity} session(s) of ${service.service_name}`,
           formattedRefundDate,
           -service.refundAmount,
           service.refundAmount,
           service.id,
           params.refundedBy,
-          null, // service_id can be null for bypass packages
+          null,
           formattedRefundDate
         ]
       );
+    }
+
+    // Process additional balance refund (split across all services)
+    if (params.additionalBalanceRefund && params.additionalBalanceRefund > 0) {
+      for (const service of allServices) {
+        // Create sale transaction item for balance portion
+        await client.query(
+          `INSERT INTO sale_transaction_items (
+            sale_transaction_id, service_name, member_care_package_id,
+            original_unit_price, custom_unit_price, discount_percentage, 
+            quantity, amount, item_type, remarks
+          ) VALUES ($1, $2, $3, $4, $4, $5, $6, $7, 'member care package', $8)`,
+          [
+            refundTxId,
+            service.service_name,
+            params.mcpId,
+            service.price,
+            service.discount,
+            1, // quantity
+            -additionalBalancePerService,
+            `Additional balance refund for ${service.service_name}`
+          ]
+        );
+
+        // Create transaction log for balance portion
+        await client.query(
+          `INSERT INTO member_care_package_transaction_logs (
+            type, description, transaction_date,
+            transaction_amount, amount_changed,
+            member_care_package_details_id, employee_id,
+            service_id, created_at
+          ) VALUES (
+            'REFUND', $1, $2, $3, $4, $5, $6, $7, $8
+          )`,
+          [
+            `Additional balance refund of $${additionalBalancePerService.toFixed(2)} for ${service.service_name}`,
+            formattedRefundDate,
+            -additionalBalancePerService,
+            additionalBalancePerService,
+            service.id,
+            params.refundedBy,
+            null,
+            formattedRefundDate
+          ]
+        );
+      }
     }
 
     // Create refund payment
@@ -805,14 +866,14 @@ const processPartialRefundTransaction = async (params: {
         refundPaymentMethodId,
         refundTxId,
         -params.totalRefundAmount,
-        params.refundRemarks || `Partial package refund (${params.refundDetails.length} services)`,
+        params.refundRemarks || `Partial package refund (${params.additionalBalanceRefund ? 'balance' : ''}${params.refundDetails.some(s => s.refundQuantity > 0) ? ' + services' : ''})`,
         params.refundedBy,
         params.refundedBy,
         formattedRefundDate
       ]
     );
 
-    // Update MCP balance only
+    // Update MCP balance
     const newBalance = currentBalance - params.totalRefundAmount;
     await client.query(
       `UPDATE member_care_packages
@@ -826,11 +887,12 @@ const processPartialRefundTransaction = async (params: {
     return {
       refundTransactionId: refundTxId,
       totalRefund: params.totalRefundAmount,
-      refundedServices: params.refundDetails.map(s => ({
+      refundedServices: params.refundDetails.filter(s => s.refundQuantity > 0).map(s => ({
         serviceName: s.service_name,
         quantity: s.refundQuantity,
         amount: s.refundAmount
       })),
+      additionalBalanceRefund: params.additionalBalanceRefund,
       newPackageBalance: newBalance,
       refundDate: refundDate.toISOString(),
       receiptNo

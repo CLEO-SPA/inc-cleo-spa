@@ -54,16 +54,33 @@ export default {
   },
 
   processPartialRefund: (data) => {
-  return api.post('api/refund/mcp/partial', {
-    mcpId: data.mcpId,
-    refundedBy: data.refundedBy,
+  // Prepare the payload exactly as backend expects
+  const payload = {
+    mcpId: Number(data.mcpId),
+    refundedBy: Number(data.refundedBy),
     refundRemarks: data.refundRemarks,
-    refundDate: data.refundDate ? data.refundDate.toISOString() : null,
-    refundItems: data.refundItems
-  }, {
-    withCredentials: true
+    refundDate: data.refundDate ? formatBackendDate(data.refundDate) : null,
+    refundItems: data.refundItems.map(item => ({
+      detail_id: Number(item.detail_id),
+      quantity: Number(item.quantity)
+    })),
+    additionalBalanceRefund: Number(data.additionalBalanceRefund) || 0
+  };
+
+  console.log('Sending refund payload:', payload); // Debug log
+
+  return api.post('api/refund/mcp/partial', payload, {
+    withCredentials: true,
+    headers: {
+      'Content-Type': 'application/json',
+      'Accept': 'application/json'
+    }
   }).catch(error => {
-    console.error('[PARTIAL REFUND FAILED]', error.response?.data || error.message);
+    console.error('[PARTIAL REFUND FAILED]', {
+      status: error.response?.status,
+      data: error.response?.data,
+      headers: error.response?.headers
+    });
     throw error;
   });
 }
