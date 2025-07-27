@@ -320,7 +320,7 @@ interface NewUserData {
   updated_at?: string;
 }
 
-const createAndInviteUser = async (req: Request, res: Response, next: NextFunction) => {
+const createAndInviteUser = async (req: Request, res: Response, next: NextFunction): Promise<void> => {
   try {
     const { username = '', email = '', role_name = '', created_at, updated_at } = req.body;
 
@@ -329,19 +329,22 @@ const createAndInviteUser = async (req: Request, res: Response, next: NextFuncti
     const role = role_name.trim();
 
     if (!user_email || !user_name || !role) {
-      return res.status(400).json({ message: 'All required fields must be non-blank.' });
+      res.status(400).json({ message: 'All required fields must be non-blank.' });
+      return;
     }
 
     if (!validator.isEmail(user_email)) {
-      return res.status(400).json({ message: 'Invalid email format.' });
+      res.status(400).json({ message: 'Invalid email format.' });
+      return;
     }
 
     if (await model.checkUsernameExists(user_name)) {
-      return res.status(409).json({ message: 'Username already in use.' });
+      res.status(409).json({ message: 'Username already in use.' });
+      return;
     }
 
     if (await model.checkUserEmailExists(user_email)) {
-      return res.status(409).json({ message: 'User email already in use.' });
+      res.status(409).json({ message: 'User email already in use.' });
     }
 
     // Fix: assign valid ISO timestamps if blank
@@ -364,10 +367,11 @@ const createAndInviteUser = async (req: Request, res: Response, next: NextFuncti
 
     const inviteLink = `${process.env.LOCAL_FRONTEND_URL}/reset-password?token=${token}`;
 
-    return res.status(201).json({
+    res.status(201).json({
       message: 'User created successfully. Send the link below so they can set a password.',
       inviteLink,
     });
+    return;
   } catch (error) {
     console.error('Error in authController.createAndInviteUser', error);
     next(error);
