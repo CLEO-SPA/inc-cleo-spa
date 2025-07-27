@@ -222,11 +222,11 @@ export default function ManageUsersPage() {
                                         <Edit className='mr-2 h-4 w-4' /> Edit
                                       </DropdownMenuItem>
                                     )}
-                                    {u.status_name !== 'VERIFIED' && (
+                                    {
                                       <DropdownMenuItem onClick={() => handleRegenerateInvite(u.email)}>
                                         <RefreshCw className='mr-2 h-4 w-4' /> Regenerate Invite
                                       </DropdownMenuItem>
-                                    )}
+                                    }
                                     {canDelete && (
                                       <>
                                         <DropdownMenuSeparator />

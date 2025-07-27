@@ -345,6 +345,7 @@ const createAndInviteUser = async (req: Request, res: Response, next: NextFuncti
 
     if (await model.checkUserEmailExists(user_email)) {
       res.status(409).json({ message: 'User email already in use.' });
+      return;
     }
 
     // Fix: assign valid ISO timestamps if blank
