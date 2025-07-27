@@ -45,6 +45,8 @@ router.get('/mcp-status/:id', controller.fetchMCPStatus);
 //Search for a member via name (searchbar)
 router.get('/members/search', controller.searchMembers);
 
+router.get('/members/list', controller.listMembers);
+
 //Get MCP info
 router.get('/members/get-mcps/:memberId', controller.getMemberCarePackages);
 

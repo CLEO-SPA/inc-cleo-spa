@@ -83,6 +83,11 @@ export default {
     });
     throw error;
   });
-}
+},
+
+// Add this new method
+listMembers: (page = 1, limit = 10) =>
+  api.get(`api/refund/members/list?page=${page}&limit=${limit}`)
+    .then(response => response.data),
 
 };

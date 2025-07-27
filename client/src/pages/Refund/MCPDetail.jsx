@@ -7,7 +7,9 @@ import { SiteHeader } from '@/components/site-header';
 import { SidebarInset, SidebarProvider } from '@/components/ui/sidebar';
 import EmployeeSelect from '@/components/ui/forms/EmployeeSelect';
 
-const DateTimePicker = ({ value, onChange, className }) => {
+const DateTimePicker = ({ value, onChange, className, packageCreatedAt }) => {
+  const [error, setError] = useState(null);
+
   const formatDateTimeLocal = (date) => {
     if (!date) return '';
     const d = new Date(date);
@@ -22,19 +24,33 @@ const DateTimePicker = ({ value, onChange, className }) => {
   const handleChange = (e) => {
     const dateTimeValue = e.target.value;
     if (dateTimeValue) {
-      onChange(new Date(dateTimeValue));
+      const newDate = new Date(dateTimeValue);
+
+      // Validate against package creation date
+      if (packageCreatedAt && newDate < packageCreatedAt) {
+        setError("Cannot be before package creation date");
+      } else {
+        setError(null);
+      }
+
+      onChange(newDate);
     } else {
       onChange(null);
     }
   };
 
   return (
-    <input
-      type="datetime-local"
-      value={formatDateTimeLocal(value)}
-      onChange={handleChange}
-      className={className}
-    />
+    <div>
+      <input
+        type="datetime-local"
+        value={formatDateTimeLocal(value)}
+        onChange={handleChange}
+        className={`${className} ${error ? 'border-red-500' : ''}`}
+      />
+      {error && (
+        <p className="mt-1 text-sm text-red-600">{error}</p>
+      )}
+    </div>
   );
 };
 
@@ -104,7 +120,7 @@ const RefundDetailsSection = ({
   refundButtonDisabled,
   isProcessing,
   maxAdditionalRefund,
-  handleQuantityChange
+  handleQuantityChange,
 }) => (
   <div className="lg:col-span-1">
     <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-6 sticky top-8">
@@ -254,7 +270,7 @@ const RefundDetailsSection = ({
               )}
 
               <div className="flex justify-between border-t pt-2 mt-2">
-                <span className="font-bold">Total Refund:</span>
+                <span className="font-bold">Total Refund Amount:</span>
                 <span className="font-bold">${totalRefundAmount.toFixed(2)}</span>
               </div>
             </div>
@@ -310,72 +326,72 @@ const ServiceDetailsSection = ({
       </div>
 
       <div className="p-6">
-  <div className="space-y-6">
-    {packageData?.services?.map((service) => {
-      const selectedService = selectedServices.find(s => s.detail_id === service.detail_id);
-      const maxAvailable = maxServiceQuantity(service);
+        <div className="space-y-6">
+          {packageData?.services?.map((service) => {
+            const selectedService = selectedServices.find(s => s.detail_id === service.detail_id);
+            const maxAvailable = maxServiceQuantity(service);
 
-      return (
-        <div key={`service-${service.detail_id}`} className="border border-gray-200 rounded-lg overflow-hidden">
-          <div className="bg-gray-50 px-6 py-4 border-b border-gray-200">
-            <div className="flex items-center justify-between">
-              <div>
-                <h3 className="text-lg font-semibold text-gray-900">{service.service_name}</h3>
-                {service.service_id && (
-                  <p className="text-sm text-gray-600">Service ID: {service.service_id}</p>
-                )}
-              </div>
-              {getStatusBadge(service)}
-            </div>
-          </div>
+            return (
+              <div key={`service-${service.detail_id}`} className="border border-gray-200 rounded-lg overflow-hidden">
+                <div className="bg-gray-50 px-6 py-4 border-b border-gray-200">
+                  <div className="flex items-center justify-between">
+                    <div>
+                      <h3 className="text-lg font-semibold text-gray-900">{service.service_name}</h3>
+                      {service.service_id && (
+                        <p className="text-sm text-gray-600">Service ID: {service.service_id}</p>
+                      )}
+                    </div>
+                    {getStatusBadge(service)}
+                  </div>
+                </div>
 
-          <div className="p-6">
-            <div className="grid grid-cols-4 gap-4 mb-6">
-              <div className="text-center p-2">
-                <div className="text-2xl font-bold text-blue-600">{service.totals.total}</div>
-                <div className="text-sm text-gray-600">Total</div>
-              </div>
-              <div className="text-center p-2">
-                <div className="text-2xl font-bold text-green-600">{service.totals.consumed}</div>
-                <div className="text-sm text-gray-600">Consumed</div>
-              </div>
-              <div className="text-center p-2">
-                <div className="text-2xl font-bold text-red-600">{service.totals.refunded}</div>
-                <div className="text-sm text-gray-600">Refunded</div>
-              </div>
-              <div className="text-center p-2">
-                <div className="text-2xl font-bold">${(service.totals.price).toFixed(2)}</div>
-                <div className="text-sm text-gray-600">Unit Price</div>
-              </div>
-            </div>
+                <div className="p-6">
+                  <div className="grid grid-cols-4 gap-4 mb-6">
+                    <div className="text-center p-2">
+                      <div className="text-2xl font-bold text-blue-600">{service.totals.total}</div>
+                      <div className="text-sm text-gray-600">Total</div>
+                    </div>
+                    <div className="text-center p-2">
+                      <div className="text-2xl font-bold text-green-600">{service.totals.consumed}</div>
+                      <div className="text-sm text-gray-600">Consumed</div>
+                    </div>
+                    <div className="text-center p-2">
+                      <div className="text-2xl font-bold text-red-600">{service.totals.refunded}</div>
+                      <div className="text-sm text-gray-600">Refunded</div>
+                    </div>
+                    <div className="text-center p-2">
+                      <div className="text-2xl font-bold">${(service.totals.price).toFixed(2)}</div>
+                      <div className="text-sm text-gray-600">Unit Price</div>
+                    </div>
+                  </div>
 
-            <div className="mt-4">
-              <label className="block text-sm font-medium text-gray-700 mb-2">
-                Quantity to Refund (Max: {maxAvailable})
-              </label>
-              <div className="flex items-center space-x-4">
-                <input
-                  type="number"
-                  min="0"
-                  max={maxAvailable}
-                  value={selectedService?.quantity || 0}
-                  onChange={(e) => handleQuantityChange(service.detail_id, e.target.value)}
-                  className="w-24 px-3 py-2 border border-gray-300 rounded-lg focus:ring-blue-500 focus:border-blue-500"
-                />
-                <span className="text-gray-600">
-                  × ${service.totals.price.toFixed(2)} =
-                  <span className="font-medium ml-1">
-                    ${((selectedService?.quantity || 0) * service.totals.price * (service.totals.discount || 1)).toFixed(2)}
-                  </span>
-                </span>
+                  <div className="mt-4">
+                    <label className="block text-sm font-medium text-gray-700 mb-2">
+                      Quantity to Refund (Max: {maxAvailable})
+                    </label>
+                    <div className="flex items-center space-x-4">
+                      <input
+                        type="number"
+                        min="0"
+                        max={maxAvailable}
+                        value={selectedService?.quantity || 0}
+                        onChange={(e) => handleQuantityChange(service.detail_id, e.target.value)}
+                        className="w-24 px-3 py-2 border border-gray-300 rounded-lg focus:ring-blue-500 focus:border-blue-500"
+                      />
+                      <span className="text-gray-600">
+                        × ${service.totals.price.toFixed(2)} =
+                        <span className="font-medium ml-1">
+                          ${((selectedService?.quantity || 0) * service.totals.price * (service.totals.discount || 1)).toFixed(2)}
+                        </span>
+                      </span>
+                    </div>
+                  </div>
+                </div>
               </div>
-            </div>
-          </div>
+            );
+          })}
         </div>
-      );
-    })}
-  </div>
-</div>
+      </div>
     </div>
   </div>
 );
@@ -488,12 +504,12 @@ const MCPDetail = () => {
 
   // Calculate max additional refund amount
   const maxAdditionalRefund = () => {
-  const servicesTotal = selectedServices.reduce(
-    (sum, service) => sum + service.amount,
-    0
-  );
-  return Math.max(0, packageData?.balance - servicesTotal) || 0;
-};
+    const servicesTotal = selectedServices.reduce(
+      (sum, service) => sum + service.amount,
+      0
+    );
+    return Math.max(0, packageData?.balance - servicesTotal) || 0;
+  };
 
   // Calculate max service quantity based on remaining balance and service availability
   const maxServiceQuantity = (service) => {
@@ -621,6 +637,15 @@ const MCPDetail = () => {
       return;
     }
 
+    // NEW VALIDATION: Check if refund date is before package creation date
+    if (useCustomDate && refundDate) {
+      const packageCreatedAt = new Date(packageData.created_at);
+      if (refundDate < packageCreatedAt) {
+        setError("The refund date cannot be before the member care package's creation date");
+        return;
+      }
+    }
+
     const refundItems = selectedServices.map(service => ({
       detail_id: Number(service.detail_id),
       quantity: service.quantity
@@ -687,39 +712,24 @@ const MCPDetail = () => {
   };
 
   const getStatusBadge = (service) => {
-    if (service.is_eligible_for_refund === 'refunded') {
-      return (
-        <span className="inline-flex flex-col items-start px-2.5 py-0.5 rounded-full text-xs font-medium bg-purple-100 text-purple-800">
-          <div className="flex items-center">
-            <CheckCircle className="w-3 h-3 mr-1" />
-            Refunded
-          </div>
-        </span>
-      );
-    }
-    if (service.totals.remaining === 0) {
-      return (
-        <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-gray-100 text-gray-800">
-          <Clock className="w-3 h-3 mr-1" />
-          Fully Consumed
-        </span>
-      );
-    }
-    if (service.is_eligible_for_refund == 'eligible') {
-      return (
-        <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-green-100 text-green-800">
-          <CheckCircle className="w-3 h-3 mr-1" />
-          Eligible for Refund
-        </span>
-      );
-    }
-    return (
-      <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-yellow-100 text-yellow-800">
-        <AlertCircle className="w-3 h-3 mr-1" />
-        Review Required
-      </span>
-    );
-  };
+  // Calculate initial max available when nothing else is selected
+  const initialMaxAvailable = Math.min(
+    service.totals.remaining,
+    Math.floor(packageData.balance / (service.totals.price * (service.totals.discount || 1)))
+  );
+
+  return initialMaxAvailable > 0 ? (
+    <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-green-100 text-green-800">
+      <CheckCircle className="w-3 h-3 mr-1" />
+      Eligible for Refund
+    </span>
+  ) : (
+    <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-yellow-100 text-yellow-800">
+      <AlertCircle className="w-3 h-3 mr-1" />
+      Ineligible for Refund
+    </span>
+  );
+};
 
   const refundButtonDisabled = isProcessing || !remarks.trim() || !handledById ||
     (additionalBalanceRefund <= 0 && selectedServices.every(s => s.quantity <= 0));

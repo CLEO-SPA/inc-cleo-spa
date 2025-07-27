@@ -332,7 +332,7 @@ const fetchMCPStatus = async (req: Request, res: Response, next: NextFunction) =
       return res.status(404).json({ error: 'Package not found' });
     }
 
-    const { package_id, package_name, balance } = results[0];
+    const { package_id, package_name, balance, created_at } = results[0];  // Add created_at here
     const hasRefundedService = results.some(s => parseInt(s.refunded) > 0);
     let refundDetails = null;
 
@@ -359,7 +359,7 @@ const fetchMCPStatus = async (req: Request, res: Response, next: NextFunction) =
       }
 
       return {
-        detail_id: s.detail_id,  // Add this line
+        detail_id: s.detail_id,
         service_id: s.service_id,
         service_name: s.service_name,
         totals: {
@@ -383,6 +383,7 @@ const fetchMCPStatus = async (req: Request, res: Response, next: NextFunction) =
       package_id,
       package_name,
       balance,
+      created_at, 
       services
     });
   } catch (error) {
@@ -404,6 +405,17 @@ const searchMembers = async (req: Request, res: Response, next: NextFunction) =>
     res.status(200).json(results);
   } catch (error) {
     console.error('searchMembers error:', error);
+    next(error);
+  }
+};
+
+const listMembers = async (req: Request, res: Response, next: NextFunction) => {
+  try {
+    const { page = 1, limit = 10 } = req.query;
+    const results = await model.listMembers(Number(page), Number(limit));
+    res.status(200).json(results);
+  } catch (error) {
+    console.error('listMembers error:', error);
     next(error);
   }
 };
@@ -566,4 +578,5 @@ export default {
   getMemberVoucherById: getMemberVoucherById as RequestHandler,
   getAllRefundRecords,
   getRefundRecordDetails: getRefundRecordDetails as RequestHandler,
+  listMembers: listMembers as RequestHandler
 };

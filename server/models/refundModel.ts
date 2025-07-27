@@ -945,6 +945,7 @@ const fetchMCPStatusById = async (packageId: number) => {
       mcp.id AS package_id,
       mcp.package_name,
       mcp.balance,
+      mcp.created_at, 
       mcpd.id AS id,  
       mcpd.id AS detail_id,
       mcpd.service_id,
@@ -1016,6 +1017,31 @@ const searchMembers = async (searchQuery: string) => {
   `;
   const { rows } = await pool().query(query, [`%${searchQuery}%`]);
   return rows;
+};
+
+const listMembers = async (page: number, limit: number) => {
+  const offset = (page - 1) * limit;
+  const query = `
+    SELECT 
+      m.id,
+      m.name, 
+      m.email,
+      m.contact AS phone,  
+      m.membership_type_id AS membership_status,
+      COUNT(*) OVER() AS total_count
+    FROM members m
+    WHERE m.membership_type_id IS NOT NULL
+    ORDER BY m.name ASC
+    LIMIT $1 OFFSET $2
+  `;
+  const { rows } = await pool().query(query, [limit, offset]);
+  return {
+    members: rows,
+    total: rows.length > 0 ? Number(rows[0].total_count) : 0,
+    page,
+    limit,
+    totalPages: Math.ceil((rows.length > 0 ? Number(rows[0].total_count) : 0) / limit)
+  };
 };
 
 const getMemberCarePackages = async (memberId: number) => {
@@ -1391,9 +1417,6 @@ const processRefundMemberVoucher = async (body: {
     client.release();
   }
 };
-
-
-
 
 // Generate a new credit note number based on the last one in the database
 // Format: CFS 001, CFS 002, etc.
@@ -1890,4 +1913,5 @@ export default {
   getAllRefundRecords,
   getRefundRecordDetails,
   getRefundDetailsForPackage,
+  listMembers
 };
