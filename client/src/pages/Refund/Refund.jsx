@@ -193,7 +193,7 @@ const RefundPage = () => {
                           </div>
                           <input
                             type="text"
-                            placeholder="Search members by name, email, phone, or ID..."
+                            placeholder="Search members by name, email, or phone number..."
                             value={searchQuery}
                             onChange={(e) => handleSearch(e.target.value)}
                             className="block w-full pl-10 pr-3 py-3 border border-slate-300 rounded-md leading-5 bg-white placeholder-slate-500 focus:outline-none focus:placeholder-slate-400 focus:ring-1 focus:ring-indigo-500 focus:border-indigo-500 text-sm"

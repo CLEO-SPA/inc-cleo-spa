@@ -156,40 +156,48 @@ const RefundDetailsSection = ({
         </div>
 
         <div>
-          <label htmlFor="additionalBalance" className="block text-sm font-medium text-gray-700 mb-2">
-            Balance Refund
-          </label>
-          <div className="relative rounded-md shadow-sm">
-            <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
-              <span className="text-gray-500 sm:text-sm">$</span>
-            </div>
-            <input
-              type="number"
-              id="additionalBalance"
-              min="0"
-              max={maxAdditionalRefund()}
-              step="0.01"
-              value={additionalBalanceRefund}
-              onChange={(e) => {
-                const value = e.target.value === '' ? 0 : parseFloat(e.target.value);
-                setAdditionalBalanceRefund(Math.min(
-                  isNaN(value) ? 0 : value,
-                  maxAdditionalRefund()
-                ));
-              }}
-              className="block w-full pl-7 pr-2.5 py-2 border border-gray-300 rounded-lg focus:ring-blue-500 focus:border-blue-500"
-              placeholder="0.00"
-            />
-            <div className="absolute inset-y-0 right-0 pr-7 flex items-center pointer-events-none">
-              <span className="text-gray-500 sm:text-sm">
-                Max: ${maxAdditionalRefund().toFixed(2)}
-              </span>
-            </div>
-          </div>
-          <p className="text-xs text-gray-500 mt-1">
-            Enter an amount to refund from remaining balance
-          </p>
-        </div>
+  <label htmlFor="additionalBalance" className="block text-sm font-medium text-gray-700 mb-2">
+    Balance Refund
+  </label>
+  <div className="flex items-center space-x-4">
+    <div className="relative rounded-md shadow-sm flex-1">
+      <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
+        <span className="text-gray-500 sm:text-sm">$</span>
+      </div>
+      <input
+        type="number"
+        id="additionalBalance"
+        min="0"
+        max={maxAdditionalRefund()}
+        step="0.01"
+        value={additionalBalanceRefund}
+        onChange={(e) => {
+          const value = e.target.value === '' ? 0 : parseFloat(e.target.value);
+          setAdditionalBalanceRefund(Math.min(
+            isNaN(value) ? 0 : value,
+            maxAdditionalRefund()
+          ));
+        }}
+        className="block w-full pl-7 pr-2 py-2 border border-gray-300 rounded-lg focus:ring-blue-500 focus:border-blue-500"
+        placeholder="0.00"
+      />
+      <div className="absolute inset-y-0 right-0 pr-6 flex items-center pointer-events-none">
+        <span className="text-gray-500 sm:text-sm">
+          Max: ${maxAdditionalRefund().toFixed(2)}
+        </span>
+      </div>
+    </div>
+    <button
+      onClick={() => setAdditionalBalanceRefund(maxAdditionalRefund())}
+      className="px-3 py-2 bg-green-600 text-white rounded-lg hover:bg-green-800 text-sm whitespace-nowrap"
+    >
+      Add All
+    </button>
+  </div>
+  <p className="text-xs text-gray-500 mt-1">
+    Enter an amount to refund from remaining balance
+  </p>
+</div>
 
         <div className="space-y-2">
           <div className="flex items-center">
@@ -253,7 +261,7 @@ const RefundDetailsSection = ({
               {additionalBalanceRefund > 0 && (
                 <div className="flex justify-between items-center p-2 bg-gray-50 rounded">
                   <div>
-                    <p className="font-medium">Additional Balance Refund</p>
+                    <p className="font-medium">Balance Refund</p>
                   </div>
                   <div className="flex items-center">
                     <span className="font-medium">
@@ -385,6 +393,12 @@ const ServiceDetailsSection = ({
                         </span>
                       </span>
                     </div>
+                    <button
+                        onClick={() => handleQuantityChange(service.detail_id, maxAvailable)}
+                        className="px-3 mt-4 py-2 bg-green-600 text-white rounded-lg hover:bg-green-800 text-sm"
+                      >
+                        Add All
+                      </button>
                   </div>
                 </div>
               </div>
@@ -671,6 +685,7 @@ const MCPDetail = () => {
 
     try {
       await api.processPartialRefund(requestBody);
+      console.log('Refund Request Body: ', requestBody);
       setSuccessMessage('Refund processed successfully!');
 
       setTimeout(async () => {
@@ -712,24 +727,24 @@ const MCPDetail = () => {
   };
 
   const getStatusBadge = (service) => {
-  // Calculate initial max available when nothing else is selected
-  const initialMaxAvailable = Math.min(
-    service.totals.remaining,
-    Math.floor(packageData.balance / (service.totals.price * (service.totals.discount || 1)))
-  );
+    // Calculate initial max available when nothing else is selected
+    const initialMaxAvailable = Math.min(
+      service.totals.remaining,
+      Math.floor(packageData.balance / (service.totals.price * (service.totals.discount || 1)))
+    );
 
-  return initialMaxAvailable > 0 ? (
-    <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-green-100 text-green-800">
-      <CheckCircle className="w-3 h-3 mr-1" />
-      Eligible for Refund
-    </span>
-  ) : (
-    <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-yellow-100 text-yellow-800">
-      <AlertCircle className="w-3 h-3 mr-1" />
-      Ineligible for Refund
-    </span>
-  );
-};
+    return initialMaxAvailable > 0 ? (
+      <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-green-100 text-green-800">
+        <CheckCircle className="w-3 h-3 mr-1" />
+        Eligible for Refund
+      </span>
+    ) : (
+      <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-yellow-100 text-yellow-800">
+        <AlertCircle className="w-3 h-3 mr-1" />
+        Ineligible for Refund
+      </span>
+    );
+  };
 
   const refundButtonDisabled = isProcessing || !remarks.trim() || !handledById ||
     (additionalBalanceRefund <= 0 && selectedServices.every(s => s.quantity <= 0));

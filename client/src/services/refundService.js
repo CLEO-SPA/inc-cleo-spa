@@ -59,7 +59,7 @@ export default {
     mcpId: Number(data.mcpId),
     refundedBy: Number(data.refundedBy),
     refundRemarks: data.refundRemarks,
-    refundDate: data.refundDate ? formatBackendDate(data.refundDate) : null,
+    refundDate: data.refundDate,
     refundItems: data.refundItems.map(item => ({
       detail_id: Number(item.detail_id),
       quantity: Number(item.quantity)
