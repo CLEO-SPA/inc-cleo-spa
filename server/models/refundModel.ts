@@ -738,8 +738,8 @@ const processPartialRefundTransaction = async (params: {
     const serviceCount = allServices.length;
 
     // Calculate additional balance per service
-    const additionalBalancePerService = params.additionalBalanceRefund 
-      ? params.additionalBalanceRefund / serviceCount 
+    const additionalBalancePerService = params.additionalBalanceRefund
+      ? params.additionalBalanceRefund / serviceCount
       : 0;
 
     // Create refund transaction
@@ -877,9 +877,10 @@ const processPartialRefundTransaction = async (params: {
     const newBalance = currentBalance - params.totalRefundAmount;
     await client.query(
       `UPDATE member_care_packages
-       SET balance = $1
-       WHERE id = $2`,
-      [newBalance.toFixed(2), params.mcpId]
+   SET balance = $1,
+       updated_at = $2
+   WHERE id = $3`,
+      [newBalance.toFixed(2), formattedRefundDate, params.mcpId]
     );
 
     await client.query('COMMIT');
@@ -1384,7 +1385,7 @@ const processRefundMemberVoucher = async (body: {
 
     // Handle process_payment flag updates
     await client.query(
-    `
+      `
       UPDATE sale_transactions
       SET process_payment = false
       WHERE id IN (
