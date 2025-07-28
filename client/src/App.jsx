@@ -105,6 +105,7 @@ import RefundVoucherForm from '@/pages/Refund/RefundVoucherForm';
 import CreditNotesPage from '@/pages/Refund/CreditNotesPage';
 import CreditNoteDetailsPage from '@/pages/Refund/CreditNoteDetailsPage';
 import CommissionSettingsManager from '@/pages/CommissionSettingManager';
+import ViewMonthlyEmployeeCommission from '@/pages/cm/ViewMonthlyEmployeeCommission';
 
 function App() {
   return (
@@ -262,6 +263,7 @@ function App() {
 
               {/* Commission Settings Manager */}
               <Route path="/admin/commission-settings" element={<CommissionSettingsManager />} />
+              <Route path="/cm/monthly-employee-commission" element={<ViewMonthlyEmployeeCommission />} />
 
               {/* 404 Page */}
               <Route path='*' element={<NotFoundPage />} />

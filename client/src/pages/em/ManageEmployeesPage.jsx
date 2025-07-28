@@ -8,7 +8,7 @@ import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { Alert, AlertDescription } from '@/components/ui/alert';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
-import { BadgeCheckIcon } from 'lucide-react';
+import { BadgeCheckIcon, Edit, Loader2, CheckCircle } from 'lucide-react';
 import {
   Pagination,
   PaginationContent,
@@ -17,13 +17,6 @@ import {
   PaginationNext,
   PaginationPrevious,
 } from '@/components/ui/pagination';
-import {
-  DropdownMenu,
-  DropdownMenuContent,
-  DropdownMenuItem,
-  DropdownMenuTrigger,
-} from '@/components/ui/dropdown-menu';
-import { MoreHorizontal, Edit, RefreshCw, Loader2, CheckCircle, Copy } from 'lucide-react';
 import useEmployeeStore from '@/stores/useEmployeeStore';
 
 export default function ManageEmployeePage() {
@@ -32,11 +25,9 @@ export default function ManageEmployeePage() {
     employees,
     pagination,
     isFetchingList: loading,
-    isRegenerating: regenerateLoading,
     error,
     success,
     fetchAllEmployees,
-    regenerateInviteLink,
     setCurrentPage,
     setPageSize,
     resetMessages,
@@ -44,20 +35,12 @@ export default function ManageEmployeePage() {
 
   const { currentPage, totalPages, totalCount, pageSize } = pagination;
 
-  const [copied, setCopied] = useState(false);
-
   useEffect(() => {
     fetchAllEmployees();
     return () => {
       resetMessages();
     };
   }, [fetchAllEmployees, resetMessages]);
-
-
-
-  const handleRegenerate = async (employee) => {
-    await regenerateInviteLink(employee);
-  };
 
   const navigateToEdit = (employee) => {
     navigate(`/employees/edit/${employee.id}`);
@@ -115,10 +98,9 @@ export default function ManageEmployeePage() {
                       onChange={(e) => setPageSize(parseInt(e.target.value))}
                       className='border rounded px-2 py-1 text-sm'
                     >
-                      <option value={5}>5</option>
-                      <option value={10}>10</option>
-                      <option value={20}>20</option>
-                      <option value={50}>50</option>
+                      {[5, 10, 20, 50].map((n) => (
+                        <option key={n} value={n}>{n}</option>
+                      ))}
                     </select>
                   </div>
                 </CardContent>
@@ -201,31 +183,23 @@ export default function ManageEmployeePage() {
                               <TableCell>{formatDate(employee.created_at)}</TableCell>
                               <TableCell>{formatDate(employee.updated_at)}</TableCell>
                               <TableCell className='text-right'>
-                                <DropdownMenu>
-                                  <DropdownMenuTrigger asChild>
-                                    <Button variant='ghost' className='h-8 w-8 p-0'>
-                                      <MoreHorizontal className='h-4 w-4' />
-                                    </Button>
-                                  </DropdownMenuTrigger>
-                                  <DropdownMenuContent align='end'>
-                                    <DropdownMenuItem onClick={() => navigateToEdit(employee)}>
-                                      <Edit className='mr-2 h-4 w-4' /> Edit
-                                    </DropdownMenuItem>
-
-                                    <DropdownMenuItem
-                                      onClick={() => handleRegenerate(employee)}
-                                      disabled={regenerateLoading === employee.id}
-                                    >
-                                      {regenerateLoading === employee.id ? (
-                                        <Loader2 className='mr-2 h-4 w-4 animate-spin' />
-                                      ) : (
-                                        <RefreshCw className='mr-2 h-4 w-4' />
-                                      )}
-                                      Regenerate Invite
-                                    </DropdownMenuItem>
-
-                                  </DropdownMenuContent>
-                                </DropdownMenu>
+                                <div className='flex justify-end gap-2'>
+                                  <Button
+                                    variant='outline'
+                                    size='sm'
+                                    onClick={() => navigateToEdit(employee)}
+                                  >
+                                    <Edit className='h-4 w-4 mr-1' />
+                                    Edit
+                                  </Button>
+                                  <Button
+                                    variant='secondary'
+                                    size='sm'
+                                    onClick={() => navigate(`/cm/monthly-employee-commission?employeeId=${employee.id}`)}
+                                  >
+                                    View Commission
+                                  </Button>
+                                </div>
                               </TableCell>
                             </TableRow>
                           ))}
