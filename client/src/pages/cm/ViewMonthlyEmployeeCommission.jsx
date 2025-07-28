@@ -101,7 +101,7 @@ export default function ViewMonthlyEmployeeCommission() {
                         <TableHead>Day</TableHead>
                         <TableHead>Service</TableHead>
                         <TableHead>Product</TableHead>
-                        <TableHead>Membership</TableHead>
+    
                         <TableHead>Package Sales</TableHead>
                         <TableHead>Performance Total</TableHead>
                         <TableHead>Commission Total</TableHead>
@@ -114,7 +114,6 @@ export default function ViewMonthlyEmployeeCommission() {
                           <TableCell>{row.day}</TableCell>
                           <TableCell>{row.service.toFixed(2)}</TableCell>
                           <TableCell>{row.product.toFixed(2)}</TableCell>
-                          <TableCell>{row.membership.toFixed(2)}</TableCell>
                           <TableCell>{row.packageSale.toFixed(2)}</TableCell>
                           <TableCell>{row.performanceTotal.toFixed(2)}</TableCell>
                           <TableCell>{row.commissionTotal.toFixed(2)}</TableCell>
