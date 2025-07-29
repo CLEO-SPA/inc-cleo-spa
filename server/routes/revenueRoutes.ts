@@ -19,7 +19,13 @@ router.get('/mrr/mcp', controller.getMCPMonthlyReport);
 router.get('/mrr/adhoc', controller.getAdHocMonthlyReport);
 router.get('/range', controller.getTransactionDateRange);
 
+router.get('/mrr/mv/updated', controller.getMVMonthlyReportUpdated);
+router.get('/mrr/mcp/updated', controller.getMCPMonthlyReportUpdated);
+router.get('/mrr/adhoc/updated', controller.getAdHocMonthlyReportUpdated);
+router.get('/mrr/mv/test', controller.getMonthlyIncomeTest);
+
 router.get('/dr/mv', controller.getMVDeferredRevenue);
 router.get('/dr/mcp', controller.getMCPDeferredRevenue);
 
 export default router;
+   
