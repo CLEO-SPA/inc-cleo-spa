@@ -23,7 +23,7 @@ import { Alert, AlertDescription } from '@/components/ui/alert';
 import {
   MoreHorizontal, Eye, Edit, Trash2, RefreshCw, Plus, Search, Clipboard,
 } from 'lucide-react';
-
+import { LinkIcon } from 'lucide-react';
 import useAuth from '@/hooks/useAuth';
 import useUsersStore from '@/stores/users/useUsersStore';
 
@@ -114,23 +114,28 @@ export default function ManageUsersPage() {
               )}
 
               {regeneratedUrl && (
-                <Alert>
-                  <AlertDescription className="flex flex-col gap-1 text-sm break-all">
-                    Invitation link regenerated:
-                    <a
-                      href={regeneratedUrl}
-                      target="_blank"
-                      rel="noopener noreferrer"
-                      className="text-blue-600 underline"
-                    >
-                      {regeneratedUrl}
-                    </a>
-                    <Button onClick={handleCopy} variant="outline" size="sm" className="w-fit">
-                      <Clipboard className="w-4 h-4 mr-1" /> Copy to Clipboard
+                <div className='space-y-6'>
+                  <div className='p-4 border rounded-md bg-muted'>
+                    <h3 className='text-lg font-semibold mb-2'>Invitation Link</h3>
+                    <div className='space-y-2 p-2 bg-white rounded-md'>
+                      <div className='flex items-start gap-2'>
+                        <LinkIcon className='h-4 w-4 text-muted-foreground mt-1' />
+                        <p className='text-sm break-words'>{regeneratedUrl}</p>
+                      </div>
+                      <Button variant='outline' size='sm' onClick={handleCopy}>
+                        <Clipboard className='h-4 w-4 mr-1' /> Copy
+                      </Button>
+                    </div>
+
+                  </div>
+                  <div className='flex justify-end'>
+                    <Button variant='ghost' onClick={() => setRegeneratedUrl('')}>
+                      Dismiss
                     </Button>
-                  </AlertDescription>
-                </Alert>
+                  </div>
+                </div>
               )}
+
 
               <Card>
                 <CardContent className='flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between'>
@@ -222,11 +227,11 @@ export default function ManageUsersPage() {
                                         <Edit className='mr-2 h-4 w-4' /> Edit
                                       </DropdownMenuItem>
                                     )}
-                                    {u.status_name !== 'VERIFIED' && (
+                                    {
                                       <DropdownMenuItem onClick={() => handleRegenerateInvite(u.email)}>
                                         <RefreshCw className='mr-2 h-4 w-4' /> Regenerate Invite
                                       </DropdownMenuItem>
-                                    )}
+                                    }
                                     {canDelete && (
                                       <>
                                         <DropdownMenuSeparator />
