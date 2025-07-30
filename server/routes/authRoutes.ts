@@ -37,6 +37,7 @@ router.post(
 router.post('/create', roleMiddleware.hasRole('super_admin'), authController.createAndInviteUser);
 router.put('/users/:id', authController.updateUser);
 router.delete('/users/:id', authController.deleteUser);
+router.get('/users/:id', authController.getUserById);
 
 router.get('/roles', employeeController.getAllRolesForDropdown);
 
