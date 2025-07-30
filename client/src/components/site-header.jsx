@@ -187,7 +187,9 @@ export function SiteHeader() {
   const SimulationAnnouncementBar = () => {
     if (!isSimulationActive) return null;
     return (
-      <div className='bg-yellow-400 border-b border-yellow-500 text-yellow-900 p-2 text-center text-xs sm:text-sm flex items-center justify-center sticky top-0 z-[60]'>
+      <div className='bg-yellow-400 border-b border-yellow-500 text-yellow-900 p-2 text-center text-xs sm:text-sm flex items-center justify-center fixed top-0 left-0 right-0 z-[60] h-9'>
+        {' '}
+        {/* Changed to fixed, added h-9 (36px) */}
         <AlertTriangle className='h-4 w-4 mr-1 sm:mr-2 shrink-0' />
         <span>
           System is in Simulation Mode. Date Range from{' '}
@@ -202,13 +204,13 @@ export function SiteHeader() {
     <>
       <SimulationAnnouncementBar />
       <header
-        className={`bg-background sticky z-50 flex w-full items-center border-b ${
-          isSimulationActive ? 'top-[36px]' : 'top-0'
-        }`}
+        className={`bg-background fixed left-0 right-0 z-50 flex items-center border-b ${
+          isSimulationActive ? 'top-9' : 'top-0' // Adjust top based on sim bar (36px = theme.spacing.9 usually)
+        } h-[var(--header-height)]`} // Assumes --header-height is defined by parent page
       >
-        {' '}
-        {/* Adjust 36px if announcement bar height changes */}
-        <div className='flex h-[var(--header-height)] w-full items-center gap-2 px-4'>
+        <div className='flex h-full w-full items-center gap-2 px-4'>
+          {' '}
+          {/* Ensure header content takes full width */}
           <Button className='h-8 w-8' variant='ghost' size='icon' onClick={toggleSidebar}>
             <SidebarIcon />
           </Button>
@@ -277,6 +279,9 @@ export function SiteHeader() {
                           {isLoadingSimulation ? 'Activating...' : 'Activate Simulation'}
                         </Button>
                       )}
+                      <Button variant='ghost' onClick={() => setIsSimPopoverOpen(false)} disabled={isLoadingSimulation}>
+                        Close
+                      </Button>
                     </div>
                   </div>
                 </PopoverContent>

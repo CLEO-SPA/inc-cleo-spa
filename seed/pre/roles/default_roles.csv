@@ -1,0 +1,5 @@
+id,role_name,description,created_at
+1,Super Admin,Auto created role for Super Admin,2025-05-26 16:54:25.128364+00
+2,member,Auto created role for member,2025-06-08 15:53:24.364061+00
+3,Data Admin,Auto created role for Data Admin,2025-05-26 16:54:25.128364+00
+5,staff,Auto created role for staff,2025-06-19 02:46:56.271627+00
