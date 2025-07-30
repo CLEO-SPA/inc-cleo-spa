@@ -6,10 +6,10 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import ServiceSelect from '@/components/ui/forms/ServiceSelect';
+import EmployeeSelect from '@/components/ui/forms/EmployeeSelect';
 import useTransferVoucherStore from '@/stores/useTransferVoucherStore';
 import useTransactionCartStore from '@/stores/useTransactionCartStore';
 import useSelectedMemberStore from '@/stores/useSelectedMemberStore';
-import useEmployeeStore from '@/stores/useEmployeeStore';
 
 const TransferVoucherForm = () => {
   const currentMember = useSelectedMemberStore((state) => state.currentMember);
@@ -36,17 +36,14 @@ const TransferVoucherForm = () => {
   } = useTransferVoucherStore();
 
   const { addCartItem } = useTransactionCartStore();
-  const { employees, fetchDropdownEmployees } = useEmployeeStore();
 
   const [customVoucherName, setCustomVoucherName] = useState('');
   const [hasCustomPrice, setHasCustomPrice] = useState(false);
   const [hasCustomFoc, setHasCustomFoc] = useState(false);
   const [createdBy, setCreatedBy] = useState('');
 
-
   const [remarks, setRemarks] = useState('');
   const [validationErrors, setValidationErrors] = useState({});
-
 
   // New state for service details when bypass is enabled
   const [serviceDetails, setServiceDetails] = useState([]);
@@ -55,7 +52,6 @@ const TransferVoucherForm = () => {
 
   useEffect(() => {
     fetchVoucherTemplates?.();
-    fetchDropdownEmployees?.();
   }, []);
 
   useEffect(() => {
@@ -76,12 +72,6 @@ const TransferVoucherForm = () => {
   }, [selectedVoucherName, voucherTemplates, bypassTemplate, hasCustomPrice, hasCustomFoc]);
 
   useEffect(() => {
-    if (!createdBy && employees?.length > 0) {
-      setCreatedBy(employees[0].id);
-    }
-  }, [employees]);
-
-  useEffect(() => {
     setHasCustomPrice(false);
     setHasCustomFoc(false);
     // Clear service details when toggling bypass
@@ -89,7 +79,6 @@ const TransferVoucherForm = () => {
       setServiceDetails([]);
     }
   }, [bypassTemplate]);
-
 
   const validateForm = () => {
     const errors = {};
@@ -113,7 +102,6 @@ const TransferVoucherForm = () => {
     } else if (parseFloat(foc) > parseFloat(price || '0')) {
       errors.foc = 'FOC cannot be greater than price';
     }
-
 
     if (parseFloat(foc || '0') > parseFloat(price || '0')) {
       errors.foc = 'FOC cannot be greater than price';
@@ -172,11 +160,10 @@ const TransferVoucherForm = () => {
       errors.createdBy = 'Created by is required';
     }
 
-
-
     setValidationErrors(errors);
     return Object.keys(errors).length === 0;
   };
+
   // Service details management functions
   const addServiceDetail = () => {
     const newDetail = {
@@ -337,13 +324,11 @@ const TransferVoucherForm = () => {
   const isBalanceGreater = totalOldBalance > Number(price);
 
   const handleAddToCart = () => {
-
     const isValid = validateForm();
     if (!isValid) {
       alert('Please fix the form errors before adding to cart.');
       return;
     }
-
 
     const voucherNameToUse = bypassTemplate ? customVoucherName : selectedVoucherName;
     if (!voucherNameToUse || !price) return;
@@ -373,6 +358,7 @@ const TransferVoucherForm = () => {
       setValidationErrors(newErrors);
     }
   };
+
   return (
     <div className='p-0'>
       {!selectedMember && (
@@ -410,9 +396,7 @@ const TransferVoucherForm = () => {
               onChange={(e) => {
                 setCustomVoucherName(e.target.value);
                 handleInputChange('voucherName');
-              }
-
-              }
+              }}
             />
           ) : (
             <select
@@ -421,8 +405,7 @@ const TransferVoucherForm = () => {
               onChange={(e) => {
                 setSelectedVoucherName(e.target.value);
                 handleInputChange('voucherName');
-              }
-              }
+              }}
             >
               <option value=''>Select a voucher template</option>
               {voucherTemplates.map((v) => (
@@ -452,7 +435,6 @@ const TransferVoucherForm = () => {
             {validationErrors.price && (
               <p className="text-red-600 text-sm mt-1">{validationErrors.price}</p>
             )}
-
           </div>
           <div className='flex flex-col items-center'>
             <Label className='text-sm font-medium text-gray-700 mb-1 whitespace-nowrap'>Bypass Template</Label>
@@ -463,8 +445,6 @@ const TransferVoucherForm = () => {
                 checked={bypassTemplate}
                 onChange={toggleBypassTemplate}
               />
-
-
               <div className='w-11 h-6 bg-gray-300 rounded-full peer peer-checked:bg-blue-500 relative'>
                 <div className='w-5 h-5 bg-white rounded-full absolute top-0.5 left-0.5 transition peer-checked:translate-x-5'></div>
               </div>
@@ -485,7 +465,6 @@ const TransferVoucherForm = () => {
           {validationErrors.foc && (
             <p className="text-red-600 text-sm mt-1">{validationErrors.foc}</p>
           )}
-
         </div>
         {parseFloat(foc || '0') > parseFloat(price || '0') && (
           <div className='mb-4 p-2 bg-red-100 text-red-700 rounded'>⚠️ FOC cannot be more than price.</div>
@@ -550,7 +529,6 @@ const TransferVoucherForm = () => {
                   updated[index] = e.target.value;
                   setOldVouchers(updated);
                   handleInputChange('oldVouchers');
-
                 }}
               >
                 <option value=''>Select old voucher</option>
@@ -578,7 +556,6 @@ const TransferVoucherForm = () => {
                 </button>
               )}
             </div>
-
           ))}
           {validationErrors.oldVouchers && (
             <p className='text-red-600 text-sm mt-1'>{validationErrors.oldVouchers}</p>
@@ -622,31 +599,19 @@ const TransferVoucherForm = () => {
           />
         </div>
 
-        {/* Created By */}
+        {/* Created By*/}
         <div className='mb-6'>
-          <Label className='text-sm font-medium text-gray-700 mb-1'>Created By</Label>
-          <select
-            className='w-full border px-3 py-2 rounded h-9 bg-white'
+          <EmployeeSelect
+            name='created_by'
+            label='Created By *'
             value={createdBy}
-            onChange={(e) => {
-              setCreatedBy(Number(e.target.value))
+            onChange={(employeeId) => {
+              setCreatedBy(employeeId);
               handleInputChange('createdBy');
-            }
-            }
-          >
-            {validationErrors.createdBy && (
-              <p className='text-red-600 text-sm mt-1'>{validationErrors.createdBy}</p>
-            )}
-
-            <option value=''>Select employee</option>
-            {employees?.map((emp) => (
-              <option key={emp.id} value={emp.id}>
-                {emp.employee_name}
-              </option>
-            ))}
-          </select>
+            }}
+            errors={{ created_by: validationErrors.createdBy }}
+          />
         </div>
-
 
         {/* Add to Cart Button */}
         <div className='mt-4 flex justify-end'>

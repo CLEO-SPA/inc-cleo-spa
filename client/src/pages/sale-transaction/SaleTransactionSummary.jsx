@@ -102,8 +102,8 @@ const SaleTransactionSummary = () => {
 
       initialPricing[item.id] = {
         originalPrice: originalPrice,
-        customPrice: 0,
-        discount: 0,
+        customPrice: originalPrice,
+        discount: 1,
         quantity: quantity,
         finalUnitPrice: originalPrice,
         totalLinePrice: originalPrice * quantity
