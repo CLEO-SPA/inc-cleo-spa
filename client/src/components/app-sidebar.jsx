@@ -302,7 +302,7 @@ export function AppSidebar({ className: propsClassName, ...props }) {
       if (userSection) {
         userSection.items.push({
           title: 'Create User',
-          url: '/users/c',
+          url: '/users/create',
         });
       }
 

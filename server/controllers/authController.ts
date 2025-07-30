@@ -320,57 +320,66 @@ interface NewUserData {
   updated_at?: string;
 }
 
-const createAndInviteUser = async (req: Request, res: Response, next: NextFunction) => {
+const createAndInviteUser = async (req: Request, res: Response, next: NextFunction): Promise<void> => {
   try {
-    const { username = '', email = '', role_name = '', created_at = '', updated_at = '' } = req.body;
+    const { username = '', email = '', role_name = '', created_at, updated_at } = req.body;
 
     const user_email = email.trim();
     const user_name = username.trim();
     const role = role_name.trim();
 
-    const missing = !user_email || !user_name || !role;
-
-    if (missing) {
+    if (!user_email || !user_name || !role) {
       res.status(400).json({ message: 'All required fields must be non-blank.' });
       return;
     }
 
-    if (!validator.isEmail(email)) {
+    if (!validator.isEmail(user_email)) {
       res.status(400).json({ message: 'Invalid email format.' });
       return;
     }
 
-    if (await model.checkUserEmailExists(email)) {
+    if (await model.checkUsernameExists(user_name)) {
+      res.status(409).json({ message: 'Username already in use.' });
+      return;
+    }
+
+    if (await model.checkUserEmailExists(user_email)) {
       res.status(409).json({ message: 'User email already in use.' });
       return;
     }
 
+    // Fix: assign valid ISO timestamps if blank
+    const now = new Date().toISOString();
+    const createdAt = created_at?.trim() || now;
+    const updatedAt = updated_at?.trim() || now;
+
     const randomPassword = crypto.randomBytes(8).toString('hex');
 
-    const results = await model.createUserModel({
-      username,
-      email,
+    const { userId } = await model.createUserModel({
+      username: user_name,
+      email: user_email,
       password_hash: randomPassword,
-      role_name,
-      created_at,
-      updated_at,
+      role_name: role,
+      created_at: createdAt,
+      updated_at: updatedAt,
     });
 
-    const token = jwt.sign({ email }, process.env.INV_JWT_SECRET as string, { expiresIn: '3d' });
-    const resetUrl = `${process.env.LOCAL_FRONTEND_URL}/reset-password?token=${token}`;
+    const token = jwt.sign({ userId, email: user_email }, process.env.INV_JWT_SECRET as string, { expiresIn: '3d' });
+
+    const inviteLink = `${process.env.LOCAL_FRONTEND_URL}/reset-password?token=${token}`;
 
     res.status(201).json({
       message: 'User created successfully. Send the link below so they can set a password.',
-      resetUrl,
-      results,
+      inviteLink,
     });
+    return;
   } catch (error) {
     console.error('Error in authController.createAndInviteUser', error);
     next(error);
   }
 };
 
-const updateUser = async (req: Request, res: Response, next: NextFunction) => {
+const updateUser = async (req: Request, res: Response, next: NextFunction): Promise<void> => {
   try {
     const { id } = req.params;
     const { username, email, role_name, password } = req.body;
@@ -416,6 +425,24 @@ const updateUser = async (req: Request, res: Response, next: NextFunction) => {
       // Hash the password before updating
       const salt = await bcrypt.genSalt(10);
       updateData.password_hash = await bcrypt.hash(password, salt);
+    }
+
+    // Check if new username is already in use by someone else
+    if (username && username !== existingUser.username) {
+      const usernameInUse = await model.getAuthUser(username);
+      if (usernameInUse && usernameInUse.id !== id) {
+        res.status(409).json({ message: 'Username is already in use by another user' });
+        return;
+      }
+    }
+
+    // Check if new email is already in use by someone else
+    if (email && email !== existingUser.email) {
+      const emailInUse = await model.getAuthUser(email);
+      if (emailInUse && emailInUse.id !== id) {
+        res.status(409).json({ message: 'Email is already in use by another user' });
+        return;
+      }
     }
 
     const result = await model.updateUserModel(id, updateData);
@@ -543,7 +570,28 @@ const getUsers = async (req: Request, res: Response, next: NextFunction): Promis
   }
 };
 
+const getUserById = async (req: Request, res: Response, next: NextFunction) => {
+  try {
+    const { id } = req.params;
 
+    if (!id) {
+      res.status(400).json({ message: 'User ID is required' });
+      return;
+    }
+
+    const user = await model.getUserById(id);
+
+    if (!user) {
+      res.status(404).json({ message: 'User not found' });
+      return;
+    }
+
+    res.status(200).json(user);
+  } catch (error) {
+    console.error('Error in getUserById controller:', error);
+    next(error); // or use res.status(500).json({ message: 'Internal server error' });
+  }
+};
 
 export default {
   isAuthenticated,
@@ -560,4 +608,5 @@ export default {
   updateUser,
   deleteUser,
   getUsers,
+  getUserById,
 };
