@@ -186,7 +186,7 @@ const ProcessPaymentSaleTransaction = () => {
                 methodId: '10',
                 methodName: `GST (${gstRate}%)`,
                 amount: newGSTAmount,
-                remark: `Dynamic GST at ${gstRate}%`,
+                remark: ` GST rate ${gstRate}%`,
                 isGST: true
             };
 

@@ -278,17 +278,17 @@ const data = {
   ],
 };
 
-export function AppSidebar({ className: propsClassName, ...props }) {
+export function AppSidebar({ ...props }) {
   const { user } = useAuth();
-  const { isSimulationActive } = useSimulationStore();
+  // const { isSimulationActive } = useSimulationStore();
 
-  const topClass = isSimulationActive
-    ? 'top-[calc(var(--header-height)+var(--sim-bar-height))]'
-    : 'top-[var(--header-height)]';
+  // const topClass = isSimulationActive
+  //   ? 'top-[calc(var(--header-height)+var(--sim-bar-height))]'
+  //   : 'top-[var(--header-height)]';
 
-  const heightClass = isSimulationActive
-    ? 'h-[calc(100svh-var(--header-height)-var(--sim-bar-height))]!'
-    : 'h-[calc(100svh-var(--header-height))]!';
+  // const heightClass = isSimulationActive
+  //   ? 'h-[calc(100svh-var(--header-height)-var(--sim-bar-height))]!'
+  //   : 'h-[calc(100svh-var(--header-height))]!';
 
   const dataForUser = React.useMemo(() => {
     const navData = {
@@ -302,7 +302,7 @@ export function AppSidebar({ className: propsClassName, ...props }) {
       if (userSection) {
         userSection.items.push({
           title: 'Create User',
-          url: '/users/create',
+          url: '/users/c',
         });
       }
 
@@ -318,7 +318,7 @@ export function AppSidebar({ className: propsClassName, ...props }) {
   }, [user]);
 
   return (
-    <Sidebar className={cn(topClass, heightClass, propsClassName)} {...props}>
+    <Sidebar className='top-(--header-height) h-[calc(100svh-var(--header-height))]!' {...props}>
       <SidebarHeader>
         <SidebarMenu>
           <SidebarMenuItem>
