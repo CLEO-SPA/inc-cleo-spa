@@ -125,6 +125,7 @@ const useEmployeeStore = create((set, get) => ({
     set({ isFetchingDropdown: true, error: null });
     try {
       const res = await api.get('/em/dropdown');
+      console.log(res);
       set({ dropdownEmployees: res.data, isFetchingDropdown: false });
     } catch (err) {
       set({
