@@ -3,7 +3,7 @@ const router = express.Router();
 
 import simulationMiddleware from '../middlewares/simulationMiddleware.js';
 
-// import superAdminRoutes from './superAdminRoutes.js';
+import superAdminRoutes from './superAdminRoutes.js';
 import authRoutes from './authRoutes.js';
 import sessionRoutes from './sessionRoutes.js';
 import translationRoutes from './translationRoutes.js';
@@ -28,12 +28,11 @@ import productRoutes from './productRoutes.js';
 import revenueRoutes from './revenueRoutes.js';
 import stRoutes from './stRoutes.js';
 
-
 router.use(simulationMiddleware);
 
 router.use('/auth', authRoutes);
 router.use('/session', sessionRoutes);
-router.use('/trans', translationRoutes)
+router.use('/trans', translationRoutes);
 
 router.use('/member', memberRoutes);
 router.use('/mv', memberVoucherRoutes);
@@ -52,7 +51,7 @@ router.use('/em', employeeRoutes);
 router.use('/et', timetableRoutes);
 router.use('/ab', appointmentRoutes);
 router.use('/rr', revenueRoutes);
-// router.use('/sa', superAdminRoutes);
+router.use('/sa', superAdminRoutes);
 router.use('/product', productRoutes);
 
 export default router;

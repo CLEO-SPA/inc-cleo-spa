@@ -1,0 +1,3 @@
+id,care_package_name,care_package_remarks,care_package_price,status,created_at,updated_at,care_package_customizable,created_by,last_updated_by
+36,REFRESHING CICA PACKAGE,Calming treatment using Cica to reduce redness and sensitivity. Not recommended for very dry or irritated skin.,348,ENABLED,2025-02-02 16:00:00+08:00,2025-02-02 16:00:00+08:00,true,1,1
+37,F SOFT + E HOT PACKAGE,Stimulates collagen while our marine algae eye treatment reduces puffiness for a completely refreshed look.,540,ENABLED,2025-02-03 16:00:00+08:00,2025-02-03 16:00:00+08:00,true,1,1

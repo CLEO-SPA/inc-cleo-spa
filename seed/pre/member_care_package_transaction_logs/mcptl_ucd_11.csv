@@ -1,0 +1,4 @@
+id,type,description,transaction_date,transaction_amount,amount_changed,created_at,member_care_package_details_id,employee_id,service_id
+50,PURCHASE,Refreshing Cica,2025-02-05T12:17:53+08:00,348,348,2025-02-05T12:17:53+08:00,26,1,124
+51,PURCHASE,Eye Hot Mask,2025-03-05T15:56:11+08:00,270,270,2025-03-05T15:56:11+08:00,27,1,9
+52,PURCHASE,Face Soft Mask,2025-03-05T15:56:11+08:00,270,270,2025-03-05T15:56:11+08:00,28,1,10
