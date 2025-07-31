@@ -241,8 +241,14 @@ class DeploymentApp:
             return
         
         try:
+            from .utils import get_resource_path, get_project_root
+            
+            # Get the project root directory
+            project_root = get_project_root()
+            
             # Update terraform.tfvars
-            terraform_dir = Path(__file__).parent.parent.parent / "terraform"
+            terraform_dir = project_root / "terraform"
+            terraform_dir.mkdir(exist_ok=True, parents=True)
             tfvars_path = terraform_dir / "terraform.tfvars"
             
             # Replace placeholders with actual values
@@ -274,7 +280,9 @@ project_name       = "{self.project_name.get()}"
                 f.write(tfvars_content)
                 
             # Create a .env file for AWS credentials
-            env_path = Path(__file__).parent.parent.parent / "scripts" / ".aws_credentials.env"
+            scripts_dir = project_root / "scripts"
+            scripts_dir.mkdir(exist_ok=True, parents=True)
+            env_path = scripts_dir / ".aws_credentials.env"
             with open(env_path, 'w') as f:
                 f.write(f"AWS_ACCESS_KEY_ID={self.aws_access_key.get()}\n")
                 f.write(f"AWS_SECRET_ACCESS_KEY={self.aws_secret_key.get()}\n")

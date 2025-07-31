@@ -205,3 +205,4 @@ ENV/
 .env/
 .python-version
 .ipynb_checkpoints
+*.template

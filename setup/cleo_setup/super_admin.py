@@ -56,24 +56,33 @@ def setup_super_admin_tab(parent, app):
     jwt_frame.pack(fill=tk.X, pady=5, padx=10)
     
     ttk.Label(jwt_frame, text="JWT Secret:").grid(row=0, column=0, sticky=tk.W, pady=5)
-    jwt_secret = tk.StringVar()
-    jwt_secret_entry = ttk.Entry(jwt_frame, textvariable=jwt_secret, width=50)
+    # Use the app's inv_jwt_secret directly for consistency
+    jwt_secret_entry = ttk.Entry(jwt_frame, textvariable=app.inv_jwt_secret, width=50)
     jwt_secret_entry.grid(row=0, column=1, sticky=tk.W, pady=5)
     
-    # Try to get JWT secret from terraform.tfvars
-    try:
-        terraform_path = Path(__file__).parent.parent.parent / "terraform" / "terraform.tfvars"
-        if terraform_path.exists():
-            with open(terraform_path, 'r') as f:
-                for line in f:
-                    if "inv_jwt_secret" in line:
-                        parts = line.strip().split('=')
-                        if len(parts) == 2:
-                            secret = parts[1].strip().strip('"')
-                            jwt_secret.set(secret)
-                            break
-    except Exception as e:
-        print(f"Error loading JWT secret from terraform.tfvars: {e}")
+    # Try to get JWT secret from terraform.tfvars if it's not already set
+    if not app.inv_jwt_secret.get():
+        try:
+            from .utils import get_resource_path, get_project_root
+            
+            # First check the terraform.tfvars in the project directory
+            terraform_path = get_project_root() / "terraform" / "terraform.tfvars"
+            
+            # If it doesn't exist, try the template
+            if not terraform_path.exists():
+                terraform_path = get_resource_path("terraform.tfvars.template")
+                
+            if terraform_path.exists():
+                with open(terraform_path, 'r') as f:
+                    for line in f:
+                        if "inv_jwt_secret" in line:
+                            parts = line.strip().split('=')
+                            if len(parts) == 2:
+                                secret = parts[1].strip().strip('"')
+                                app.inv_jwt_secret.set(secret)
+                                break
+        except Exception as e:
+            print(f"Error loading JWT secret from terraform.tfvars: {e}")
     
     # Credentials section
     creds_frame = ttk.LabelFrame(frame, text="Super Admin Credentials")
@@ -101,7 +110,7 @@ def setup_super_admin_tab(parent, app):
     submit_button = ttk.Button(
         frame, 
         text="Create Super Admin",
-        command=lambda: generate_and_send_jwt(app, server_url.get(), jwt_secret.get(), email.get(), password.get())
+        command=lambda: generate_and_send_jwt(app, server_url.get(), app.inv_jwt_secret.get(), email.get(), password.get())
     )
     submit_button.pack(pady=10)
     

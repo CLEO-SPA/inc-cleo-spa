@@ -5,7 +5,7 @@ import subprocess
 import threading
 from pathlib import Path
 import tkinter as tk
-from tkinter import ttk, scrolledtext, messagebox
+from tkinter import ttk, scrolledtext, messagebox, simpledialog
 
 def setup_local_dev_tab(app, parent):
     """Set up the local development tab UI."""
@@ -94,6 +94,12 @@ def setup_local_dev_tab(app, parent):
         command=lambda: run_docker_compose_command(app, "rebuild")
     ).pack(side=tk.LEFT, padx=5)
     
+    ttk.Button(
+        button_frame, 
+        text="Edit .env File", 
+        command=lambda: edit_env_file(app)
+    ).pack(side=tk.LEFT, padx=5)
+    
     # Add output console
     console_frame = ttk.LabelFrame(frame, text="Local Environment Console")
     console_frame.pack(fill=tk.BOTH, expand=True, pady=10)
@@ -105,8 +111,13 @@ def setup_local_dev_tab(app, parent):
 def update_docker_compose_config(app):
     """Update the Docker Compose configuration file with user settings."""
     try:
+        from .utils import get_resource_path, get_project_root
+        
+        # Get the project root directory
+        project_root = get_project_root()
+        
         # Get the path to compose.yml
-        compose_path = Path(__file__).parent.parent.parent / "compose.yml"
+        compose_path = project_root / "compose.yml"
         
         # Create a new compose file with updated values
         updated_content = f"""version: '3.8'
@@ -182,19 +193,58 @@ volumes:
         with open(compose_path, 'w') as f:
             f.write(updated_content)
             
-        # Create a .env file for the server if it doesn't exist
-        server_env_path = Path(__file__).parent.parent.parent / "server" / ".env"
+        # Create .env file for the server if it doesn't exist
+        server_env_path = project_root / "server" / ".env"
+        
+        # Ensure the server directory exists
+        server_dir = project_root / "server"
+        server_dir.mkdir(exist_ok=True, parents=True)
+        
         if not server_env_path.exists():
-            with open(server_env_path, 'w') as f:
-                f.write(f"""# Database URLs - local development
+            # Try to get the template
+            env_template_path = get_resource_path("server.env.template")
+            
+            if env_template_path.exists():
+                # Read the template
+                with open(env_template_path, 'r') as f:
+                    env_template = f.read()
+                
+                # Replace placeholders
+                env_content = env_template
+                env_content = env_content.replace("cleo_user", app.local_db_user.get())
+                env_content = env_content.replace("cleo_password", app.local_db_password.get())
+                env_content = env_content.replace("cleo_db", app.local_db_name.get())
+                env_content = env_content.replace("sim_db", app.local_sim_db_name.get())
+                env_content = env_content.replace("5432", app.db_port.get())
+                env_content = env_content.replace("5433", app.sim_db_port.get())
+                env_content = env_content.replace("5173", app.frontend_port.get())
+                env_content = env_content.replace("3000", app.backend_port.get())
+                
+                # Replace JWT secrets if available
+                if app.auth_jwt_secret.get():
+                    env_content = env_content.replace("local_development_auth_jwt_secret", app.auth_jwt_secret.get())
+                if app.inv_jwt_secret.get():
+                    env_content = env_content.replace("local_development_inv_jwt_secret", app.inv_jwt_secret.get())
+                if app.remember_token.get():
+                    env_content = env_content.replace("rmb-token", app.remember_token.get())
+                if app.session_secret.get():
+                    env_content = env_content.replace("local_development_session_secret", app.session_secret.get())
+                
+                # Write the .env file
+                with open(server_env_path, 'w') as f:
+                    f.write(env_content)
+            else:
+                # Create the .env file from scratch
+                with open(server_env_path, 'w') as f:
+                    f.write(f"""# Database URLs - local development
 PROD_DB_URL=postgresql://{app.local_db_user.get()}:{app.local_db_password.get()}@localhost:{app.db_port.get()}/{app.local_db_name.get()}
 SIM_DB_URL=postgresql://{app.local_db_user.get()}:{app.local_db_password.get()}@localhost:{app.sim_db_port.get()}/{app.local_sim_db_name.get()}
 
 # JWT secrets
-AUTH_JWT_SECRET=local_development_auth_jwt_secret
-INV_JWT_SECRET=local_development_inv_jwt_secret
-RMB_TOKEN=rmb-token
-SESSION_SECRET=local_development_session_secret
+AUTH_JWT_SECRET={app.auth_jwt_secret.get() or 'local_development_auth_jwt_secret'}
+INV_JWT_SECRET={app.inv_jwt_secret.get() or 'local_development_inv_jwt_secret'}
+RMB_TOKEN={app.remember_token.get() or 'rmb-token'}
+SESSION_SECRET={app.session_secret.get() or 'local_development_session_secret'}
 
 # CORS URLs
 LOCAL_FRONTEND_URL=http://localhost:{app.frontend_port.get()}
@@ -226,7 +276,9 @@ def run_docker_compose_command(app, command):
 
 def _run_docker_compose(app, command):
     """Execute Docker Compose commands."""
-    project_root = Path(__file__).parent.parent.parent
+    from .utils import get_project_root
+    
+    project_root = get_project_root()
     
     # Clear the console before running a new command
     app.local_console.config(state=tk.NORMAL)
@@ -295,3 +347,100 @@ def _run_docker_compose(app, command):
         app.log_local_message("\nOperation cancelled by user", "yellow")
     except Exception as e:
         app.log_local_message(f"Error: {str(e)}", "red")
+
+def edit_env_file(app):
+    """Edit environment variables in the .env file."""
+    try:
+        from .utils import get_project_root
+        
+        project_root = get_project_root()
+        server_env_path = project_root / "server" / ".env"
+        
+        # Check if the .env file exists
+        if not server_env_path.exists():
+            app.log_local_message("Creating new .env file...", "cyan")
+            update_docker_compose_config(app)
+        
+        # Read the current content
+        with open(server_env_path, 'r') as f:
+            current_content = f.read()
+        
+        # Create a dialog to edit the file
+        env_editor = tk.Toplevel(app.root)
+        env_editor.title("Edit Environment Variables")
+        env_editor.geometry("800x600")
+        
+        # Add explanation
+        ttk.Label(
+            env_editor,
+            text="Edit the environment variables below. These will be used by the local development environment.",
+            wraplength=780,
+            padding=10
+        ).pack(fill=tk.X)
+        
+        # Add text editor
+        text_editor = scrolledtext.ScrolledText(env_editor, wrap=tk.WORD, font=("Consolas", 10))
+        text_editor.pack(fill=tk.BOTH, expand=True, padx=10, pady=10)
+        text_editor.insert(tk.END, current_content)
+        
+        # Make sure INV_JWT_SECRET matches the one from the app
+        if app.inv_jwt_secret.get():
+            text = text_editor.get("1.0", tk.END)
+            lines = text.split('\n')
+            new_lines = []
+            for line in lines:
+                if line.startswith("INV_JWT_SECRET="):
+                    new_lines.append(f"INV_JWT_SECRET={app.inv_jwt_secret.get()}")
+                else:
+                    new_lines.append(line)
+            text_editor.delete("1.0", tk.END)
+            text_editor.insert("1.0", '\n'.join(new_lines))
+        
+        # Add buttons
+        button_frame = ttk.Frame(env_editor)
+        button_frame.pack(fill=tk.X, padx=10, pady=10)
+        
+        ttk.Button(
+            button_frame,
+            text="Save",
+            command=lambda: save_env_file(server_env_path, text_editor.get("1.0", tk.END), env_editor, app)
+        ).pack(side=tk.RIGHT, padx=5)
+        
+        ttk.Button(
+            button_frame,
+            text="Cancel",
+            command=env_editor.destroy
+        ).pack(side=tk.RIGHT, padx=5)
+        
+    except Exception as e:
+        messagebox.showerror("Error", f"Failed to edit environment file: {str(e)}")
+
+def save_env_file(file_path, content, dialog, app):
+    """Save the edited environment variables."""
+    try:
+        with open(file_path, 'w') as f:
+            f.write(content)
+        
+        app.log_local_message("Environment variables updated successfully.", "green")
+        dialog.destroy()
+        
+        # Update the JWT secrets in the app based on the new content
+        lines = content.split('\n')
+        for line in lines:
+            if line.startswith("AUTH_JWT_SECRET="):
+                value = line[len("AUTH_JWT_SECRET="):].strip()
+                app.auth_jwt_secret.set(value)
+            elif line.startswith("INV_JWT_SECRET="):
+                value = line[len("INV_JWT_SECRET="):].strip()
+                app.inv_jwt_secret.set(value)
+            elif line.startswith("RMB_TOKEN="):
+                value = line[len("RMB_TOKEN="):].strip()
+                app.remember_token.set(value)
+            elif line.startswith("SESSION_SECRET="):
+                value = line[len("SESSION_SECRET="):].strip()
+                app.session_secret.set(value)
+                
+        messagebox.showinfo("Success", "Environment variables saved successfully!")
+        
+    except Exception as e:
+        messagebox.showerror("Error", f"Failed to save environment file: {str(e)}")

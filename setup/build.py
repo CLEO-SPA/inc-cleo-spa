@@ -82,6 +82,138 @@ def copy_resources():
     resource_dir = Path("cleo_setup/resources")
     resource_dir.mkdir(exist_ok=True)
     
+    # Copy terraform.tfvars template
+    terraform_dir = resource_dir / "terraform"
+    terraform_dir.mkdir(exist_ok=True)
+    
+    src_terraform = Path("../terraform/terraform.tfvars")
+    dst_terraform = terraform_dir / "terraform.tfvars.template"
+    
+    if src_terraform.exists():
+        shutil.copy2(src_terraform, dst_terraform)
+        print(f"  Copied terraform.tfvars template to {dst_terraform}")
+    else:
+        print(f"  Warning: Could not find {src_terraform}")
+        # Create a basic template if the original doesn't exist
+        with open(dst_terraform, 'w') as f:
+            f.write("""aws_region         = "us-west-2"
+aws_account_id     = "123456789012"
+frontend_image_uri = "123456789012.dkr.ecr.us-west-2.amazonaws.com/cleo-spa-app-frontend:latest"
+backend_image_uri  = "123456789012.dkr.ecr.us-west-2.amazonaws.com/cleo-spa-app-backend:latest"
+secret_name        = "cleo-spa-db-credentials"
+jwt_secret_name    = "cleo-spa-jwt-secrets"
+
+# Database credentials
+db_password        = "REPLACE_WITH_SECURE_PASSWORD"
+
+# JWT secrets
+auth_jwt_secret    = "REPLACE_WITH_AUTH_JWT_SECRET"
+inv_jwt_secret     = "REPLACE_WITH_INV_JWT_SECRET"
+remember_token     = "REPLACE_WITH_REMEMBER_TOKEN" 
+session_secret     = "REPLACE_WITH_SESSION_SECRET"
+
+# Project settings
+project_name       = "cleo-spa-app"
+""")
+        print(f"  Created a basic terraform.tfvars.template")
+    
+    # Copy docker-compose.yml template
+    src_compose = Path("../compose.yml")
+    dst_compose = resource_dir / "compose.yml.template"
+    
+    if src_compose.exists():
+        shutil.copy2(src_compose, dst_compose)
+        print(f"  Copied compose.yml template to {dst_compose}")
+    else:
+        print(f"  Warning: Could not find {src_compose}")
+        # Create a basic template if the original doesn't exist
+        with open(dst_compose, 'w') as f:
+            f.write("""version: '3.8'
+services:
+  backend:
+    build: ./server
+    ports:
+      - '3000:3000'
+    depends_on:
+      db:
+        condition: service_healthy
+      db-sim:
+        condition: service_healthy
+    env_file:
+      - ./server/.env
+    environment:
+      PROD_DB_URL: postgresql://cleo_user:cleo_password@db/cleo_db
+      SIM_DB_URL: postgresql://cleo_user:cleo_password@db-sim/sim_db
+    volumes:
+      - ./server/.env:/usr/src/app/.env
+
+  frontend:
+    build:
+      context: ./client
+      args:
+        VITE_API_URL: /api
+    ports:
+      - '5173:80'
+    depends_on:
+      - backend
+
+  db:
+    image: postgres:latest
+    environment:
+      POSTGRES_DB: cleo_db
+      POSTGRES_USER: cleo_user
+      POSTGRES_PASSWORD: cleo_password
+    ports:
+      - 5432:5432
+    healthcheck:
+      test: ['CMD-SHELL', 'pg_isready -U cleo_user -d cleo_db']
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    volumes:
+      - db-data:/var/lib/postgresql/data
+
+  db-sim:
+    image: postgres:latest
+    environment:
+      POSTGRES_DB: sim_db
+      POSTGRES_USER: cleo_user
+      POSTGRES_PASSWORD: cleo_password
+    ports:
+      - 5433:5432
+    healthcheck:
+      test: ['CMD-SHELL', 'pg_isready -U cleo_user -d sim_db']
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    volumes:
+      - db-sim-data:/var/lib/postgresql/data
+
+volumes:
+  db-data:
+  db-sim-data:
+""")
+        print(f"  Created a basic compose.yml.template")
+    
+    # Create an env template for the server
+    env_template = resource_dir / "server.env.template"
+    with open(env_template, 'w') as f:
+        f.write("""# Database URLs - local development
+PROD_DB_URL=postgresql://cleo_user:cleo_password@localhost:5432/cleo_db
+SIM_DB_URL=postgresql://cleo_user:cleo_password@localhost:5433/sim_db
+
+# JWT secrets
+AUTH_JWT_SECRET=local_development_auth_jwt_secret
+INV_JWT_SECRET=local_development_inv_jwt_secret
+RMB_TOKEN=rmb-token
+SESSION_SECRET=local_development_session_secret
+
+# CORS URLs
+LOCAL_FRONTEND_URL=http://localhost:5173
+LOCAL_BACKEND_URL=http://localhost:3000
+""")
+    print(f"  Created server.env.template")
+    
     # Create or convert an appropriate icon file
     create_icon_file(resource_dir)
 
