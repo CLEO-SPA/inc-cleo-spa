@@ -98,11 +98,17 @@ jobs:
           echo "Building macOS executable version $VERSION"
           python build_github_actions.py --version $VERSION --platform macos
 
+      - name: Package macOS app into zip
+        working-directory: setup/dist
+        run: |
+          zip -r CLEO_SPA_SETUP_macOS.zip CLEO_SPA_SETUP.app
+          ls -la
+
       - name: Upload macOS artifact
         uses: actions/upload-artifact@v4
         with:
           name: cleo-setup-macos-${{ needs.determine-version.outputs.version }}
-          path: setup/dist/CLEO_SPA_SETUP.app/**/*
+          path: setup/dist/CLEO_SPA_SETUP_macOS.zip
           if-no-files-found: error
           retention-days: 30
 
@@ -176,8 +182,8 @@ jobs:
           echo "- Follow the on-screen instructions" >> release_notes.md
           echo "" >> release_notes.md
           echo "### macOS" >> release_notes.md
-          echo "- Download the macOS artifact" >> release_notes.md
-          echo "- Extract the .app file" >> release_notes.md
+          echo "- Download the CLEO_SPA_SETUP_macOS.zip file" >> release_notes.md
+          echo "- Unzip the archive to extract the .app file" >> release_notes.md
           echo "- Right-click and select \"Open\" to bypass Gatekeeper" >> release_notes.md
           echo "- Follow the on-screen instructions" >> release_notes.md
           echo "" >> release_notes.md
@@ -202,4 +208,4 @@ jobs:
           files: |
             ./artifacts/cleo-setup-windows-${{ needs.determine-version.outputs.version }}/CLEO_SPA_SETUP.exe
             ./artifacts/cleo-setup-linux-${{ needs.determine-version.outputs.version }}/CLEO_SPA_SETUP
-            ./artifacts/cleo-setup-macos-${{ needs.determine-version.outputs.version }}/**/*
+            ./artifacts/cleo-setup-macos-${{ needs.determine-version.outputs.version }}/CLEO_SPA_SETUP_macOS.zip
