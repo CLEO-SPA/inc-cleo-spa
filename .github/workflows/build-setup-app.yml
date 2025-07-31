@@ -127,7 +127,7 @@ jobs:
           python build_github_actions.py --version $env:VERSION --platform windows
 
       - name: Upload Windows artifact
-        uses: actions/upload-artifact@v3
+        uses: actions/upload-artifact@v4
         with:
           name: cleo-setup-windows-${{ needs.determine-version.outputs.version }}
           path: setup/dist/CLEO_SPA_SETUP.exe
@@ -164,7 +164,7 @@ jobs:
           python build_github_actions.py --version $VERSION --platform macos
 
       - name: Upload macOS artifact
-        uses: actions/upload-artifact@v3
+        uses: actions/upload-artifact@v4
         with:
           name: cleo-setup-macos-${{ needs.determine-version.outputs.version }}
           path: setup/dist/CLEO_SPA_SETUP.app
@@ -206,7 +206,7 @@ jobs:
           python build_github_actions.py --version $VERSION --platform linux
 
       - name: Upload Linux artifact
-        uses: actions/upload-artifact@v3
+        uses: actions/upload-artifact@v4
         with:
           name: cleo-setup-linux-${{ needs.determine-version.outputs.version }}
           path: setup/dist/CLEO_SPA_SETUP
@@ -221,7 +221,7 @@ jobs:
       contents: write
     steps:
       - name: Download all artifacts
-        uses: actions/download-artifact@v3
+        uses: actions/download-artifact@v4
         with:
           path: ./artifacts
 
