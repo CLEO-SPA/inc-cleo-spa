@@ -215,7 +215,7 @@ jobs:
 
   create-release:
     needs: [determine-version, build-windows, build-macos, build-linux]
-    if: startsWith(github.ref, 'refs/tags/')
+    if: startsWith(github.ref, 'refs/tags/') || github.event_name == 'workflow_dispatch'
     runs-on: ubuntu-latest
     permissions:
       contents: write
@@ -232,8 +232,9 @@ jobs:
         uses: softprops/action-gh-release@v1
         with:
           name: CLEO SPA Setup v${{ needs.determine-version.outputs.version }}
+          tag_name: ${{ github.event_name == 'workflow_dispatch' && format('setup-v{0}', needs.determine-version.outputs.version) || github.ref_name }}
           draft: false
-          prerelease: false
+          prerelease: ${{ github.event_name == 'workflow_dispatch' }}
           files: |
             ./artifacts/cleo-setup-windows-${{ needs.determine-version.outputs.version }}/CLEO_SPA_SETUP.exe
             ./artifacts/cleo-setup-linux-${{ needs.determine-version.outputs.version }}/CLEO_SPA_SETUP
