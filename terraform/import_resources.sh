@@ -21,8 +21,8 @@ terraform init
 
 # Remove any existing state for the resources that cause import conflicts
 echo "Removing any existing state entries for conflicting resources..."
-terraform state rm aws_secretsmanager_secret.db_creds 2>/dev/null || true
-terraform state rm aws_secretsmanager_secret.jwt_secrets 2>/dev/null || true
+terraform state rm aws_secretsmanager_secret.cleo-spa-db-credentials 2>/dev/null || true
+terraform state rm aws_secretsmanager_secret.cleo-spa-jwt-secrets 2>/dev/null || true
 
 # Import ECR repositories
 echo "Importing ECR repositories..."
@@ -50,11 +50,11 @@ fi
 
 # Try to import Secrets Manager secrets
 echo "Attempting to import Secrets Manager secrets..."
-if ! terraform import "aws_secretsmanager_secret.db_creds" "$project_name/db1" 2>/dev/null; then
+if ! terraform import "aws_secretsmanager_secret.db_creds" "$project_name/cleo-spa-db-credentials" 2>/dev/null; then
     echo "DB credentials secret import failed. You may need to create this resource."
 fi
 
-if ! terraform import "aws_secretsmanager_secret.jwt_secrets" "$project_name/jwt1" 2>/dev/null; then
+if ! terraform import "aws_secretsmanager_secret.jwt_secrets" "$project_name/cleo-spa-jwt-secrets" 2>/dev/null; then
     echo "JWT secret import failed. You may need to create this resource."
 fi
 

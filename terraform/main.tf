@@ -220,7 +220,7 @@ resource "aws_db_instance" "default" {
   username               = var.db_username
   password               = var.db_password
   db_subnet_group_name   = aws_db_subnet_group.default.name
-  vpc_security_group_ids = var.db_publicly_accessible ? [aws_security_group.rds_sg.id, aws_security_group.rds_public_sg.id] : [aws_security_group.rds_sg.id]
+  vpc_security_group_ids = var.db_publicly_accessible ? [aws_security_group.rds_sg.id, aws_security_group.rds_public_sg[0].id] : [aws_security_group.rds_sg.id]
   skip_final_snapshot    = var.db_skip_final_snapshot
   publicly_accessible    = var.db_publicly_accessible
   parameter_group_name   = aws_db_parameter_group.postgres_params.name
