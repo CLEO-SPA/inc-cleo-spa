@@ -164,36 +164,32 @@ jobs:
       - name: Generate release description
         id: release-description
         run: |
-          cat > release_notes.md << 'EOL'
-          # CLEO SPA Setup v${{ needs.determine-version.outputs.version }}
-
-          This release contains setup applications for Windows, macOS, and Linux.
-
-          ## Installation Instructions
-
-          ### Windows
-          - Download the CLEO_SPA_SETUP.exe file
-          - Double-click to run the installer
-          - Follow the on-screen instructions
-
-          ### macOS
-          - Download the macOS artifact
-          - Extract the .app file
-          - Right-click and select "Open" to bypass Gatekeeper
-          - Follow the on-screen instructions
-
-          ### Linux
-          - Download the Linux executable
-          - Make it executable: `chmod +x CLEO_SPA_SETUP`
-          - Run it: `./CLEO_SPA_SETUP`
-
-          ## Changes in this version
-          - Improved resource handling
-          - Added AWS CodeCommit deployment option
-          - Bug fixes and performance improvements
-          EOL
-
-          echo "description=$(cat release_notes.md)" >> $GITHUB_OUTPUT
+          echo "# CLEO SPA Setup v${{ needs.determine-version.outputs.version }}" > release_notes.md
+          echo "" >> release_notes.md
+          echo "This release contains setup applications for Windows, macOS, and Linux." >> release_notes.md
+          echo "" >> release_notes.md
+          echo "## Installation Instructions" >> release_notes.md
+          echo "" >> release_notes.md
+          echo "### Windows" >> release_notes.md
+          echo "- Download the CLEO_SPA_SETUP.exe file" >> release_notes.md
+          echo "- Double-click to run the installer" >> release_notes.md
+          echo "- Follow the on-screen instructions" >> release_notes.md
+          echo "" >> release_notes.md
+          echo "### macOS" >> release_notes.md
+          echo "- Download the macOS artifact" >> release_notes.md
+          echo "- Extract the .app file" >> release_notes.md
+          echo "- Right-click and select \"Open\" to bypass Gatekeeper" >> release_notes.md
+          echo "- Follow the on-screen instructions" >> release_notes.md
+          echo "" >> release_notes.md
+          echo "### Linux" >> release_notes.md
+          echo "- Download the Linux executable" >> release_notes.md
+          echo "- Make it executable: \`chmod +x CLEO_SPA_SETUP\`" >> release_notes.md
+          echo "- Run it: \`./CLEO_SPA_SETUP\`" >> release_notes.md
+          echo "" >> release_notes.md
+          echo "## Changes in this version" >> release_notes.md
+          echo "- Improved resource handling" >> release_notes.md
+          echo "- Added AWS CodeCommit deployment option" >> release_notes.md
+          echo "- Bug fixes and performance improvements" >> release_notes.md
 
       - name: Create Release
         uses: softprops/action-gh-release@v1
