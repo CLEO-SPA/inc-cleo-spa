@@ -1,141 +1,41 @@
-name: Build Setup App
+name: Build and Release Setup App
 
 on:
-  push:
-    branches: [master, feature/aws-hosting]
-    tags:
-      - 'setup-v*.*.*' # Setup app specific tags
-    paths:
-      - 'setup/**'
-      - '.github/workflows/build-setup-app.yml'
-  pull_request:
-    branches: [master]
-    paths:
-      - 'setup/**'
-  workflow_dispatch: # Allow manual triggering
+  workflow_dispatch: # Manual triggering only
     inputs:
       version:
-        description: 'Version number (e.g., 1.2.3)'
+        description: 'Version number (e.g., 1.0.0)'
         required: true
-        default: '0.0.0'
+        default: '1.0.0'
+      prerelease:
+        description: 'Mark as pre-release'
+        required: false
+        default: false
+        type: boolean
 
 jobs:
   determine-version:
     runs-on: ubuntu-latest
     outputs:
       version: ${{ steps.set-version.outputs.version }}
-      should_build: ${{ steps.check-build.outputs.should_build }}
-      tag_created: ${{ steps.create-tag.outputs.tag_created }}
-      tag_name: ${{ steps.create-tag.outputs.tag_name }}
+      tag_name: ${{ steps.set-version.outputs.tag_name }}
     steps:
       - name: Checkout repository
         uses: actions/checkout@v4
-        with:
-          fetch-depth: 0 # Fetch all history for all tags and branches
 
-      - name: Set up Python
-        uses: actions/setup-python@v4
-        with:
-          python-version: '3.10'
-
-      - name: Determine version
+      - name: Set version
         id: set-version
         run: |
-          # Check for manual trigger with version input
-          if [[ "${{ github.event_name }}" == "workflow_dispatch" ]]; then
-            VERSION="${{ github.event.inputs.version }}"
-          # Check for a tag push
-          elif [[ "${{ github.ref }}" == refs/tags/v* ]] || [[ "${{ github.ref }}" == refs/tags/setup-v* ]]; then
-            VERSION="${{ github.ref_name }}"
-            VERSION="${VERSION#v}"  # Remove 'v' prefix
-            VERSION="${VERSION#setup-v}"  # Remove 'setup-v' prefix
-          # Check if version file exists and read from it
-          elif [ -f "setup/version" ]; then
-            VERSION_TAG=$(cat setup/version)
-            VERSION="${VERSION_TAG#setup-v}"  # Remove 'setup-v' prefix to get just the version number
-            echo "Version read from file: $VERSION_TAG -> $VERSION"
-          else
-            # Generate version based on date and commit hash
-            DATE_VERSION=$(date +'%Y.%m.%d')
-            SHORT_SHA=$(echo ${{ github.sha }} | cut -c1-7)
-            VERSION="${DATE_VERSION}-${SHORT_SHA}"
-          fi
+          VERSION="${{ github.event.inputs.version }}"
+          TAG_NAME="setup-v${VERSION}"
 
           echo "version=${VERSION}" >> $GITHUB_OUTPUT
-          echo "Version set to: ${VERSION}"
-
-      - name: Check if setup files changed
-        id: check-build
-        run: |
-          # Only build if it's a tag, manual dispatch, or if setup files changed
-          if [[ "${{ github.ref }}" == refs/tags/v* ]] || [[ "${{ github.ref }}" == refs/tags/setup-v* ]] || [[ "${{ github.event_name }}" == "workflow_dispatch" ]]; then
-            echo "Tag push or manual dispatch - should build"
-            echo "should_build=true" >> $GITHUB_OUTPUT
-          else
-            # Check for a version.txt file
-            if [ -f "setup/version.txt" ]; then
-              CURRENT_VERSION=$(cat setup/version.txt)
-              # Only build if the version is different
-              if [ "$CURRENT_VERSION" != "${{ steps.set-version.outputs.version }}" ]; then
-                echo "Version changed - should build"
-                echo "should_build=true" >> $GITHUB_OUTPUT
-              else
-                # Get the last two commits
-                COMMITS=$(git log -2 --format="%H")
-                SHOULD_BUILD="false"
-                
-                # Check if any files in the setup directory changed
-                for COMMIT in $COMMITS; do
-                  CHANGED_FILES=$(git diff-tree --no-commit-id --name-only -r $COMMIT | grep "^setup/")
-                  if [[ ! -z "$CHANGED_FILES" ]]; then
-                    SHOULD_BUILD="true"
-                    break
-                  fi
-                done
-                
-                echo "should_build=${SHOULD_BUILD}" >> $GITHUB_OUTPUT
-                echo "Setup files changed: ${SHOULD_BUILD}"
-              fi
-            else
-              echo "No version.txt file - should build"
-              echo "should_build=true" >> $GITHUB_OUTPUT
-            fi
-          fi
-
-          # Save the version for future builds
-          echo "${{ steps.set-version.outputs.version }}" > setup/version.txt
-
-      - name: Create tag if building from version file
-        id: create-tag
-        run: |
-          # Only create tag if we're building from version file (not manual dispatch or existing tag)
-          if [ -f "setup/version" ] && [[ "${{ github.event_name }}" != "workflow_dispatch" ]] && [[ "${{ github.ref }}" != refs/tags/* ]]; then
-            VERSION_TAG=$(cat setup/version)
-            echo "Creating tag: $VERSION_TAG"
-            
-            # Check if tag already exists
-            if git rev-parse "$VERSION_TAG" >/dev/null 2>&1; then
-              echo "Tag $VERSION_TAG already exists, will use existing tag"
-              echo "tag_created=false" >> $GITHUB_OUTPUT
-              echo "tag_name=$VERSION_TAG" >> $GITHUB_OUTPUT
-            else
-              # Create and push the tag
-              git config user.name "github-actions[bot]"
-              git config user.email "github-actions[bot]@users.noreply.github.com"
-              git tag "$VERSION_TAG"
-              git push origin "$VERSION_TAG"
-              echo "Tag $VERSION_TAG created and pushed"
-              echo "tag_created=true" >> $GITHUB_OUTPUT
-              echo "tag_name=$VERSION_TAG" >> $GITHUB_OUTPUT
-            fi
-          else
-            echo "tag_created=false" >> $GITHUB_OUTPUT
-            echo "tag_name=" >> $GITHUB_OUTPUT
-          fi
+          echo "tag_name=${TAG_NAME}" >> $GITHUB_OUTPUT
+          echo "Version: ${VERSION}"
+          echo "Tag: ${TAG_NAME}"
 
   build-windows:
     needs: determine-version
-    if: needs.determine-version.outputs.should_build == 'true'
     runs-on: windows-latest
     steps:
       - name: Checkout repository
@@ -172,7 +72,6 @@ jobs:
 
   build-macos:
     needs: determine-version
-    if: needs.determine-version.outputs.should_build == 'true'
     runs-on: macos-latest
     steps:
       - name: Checkout repository
@@ -209,7 +108,6 @@ jobs:
 
   build-linux:
     needs: determine-version
-    if: needs.determine-version.outputs.should_build == 'true'
     runs-on: ubuntu-latest
     steps:
       - name: Checkout repository
@@ -251,7 +149,6 @@ jobs:
 
   create-release:
     needs: [determine-version, build-windows, build-macos, build-linux]
-    if: startsWith(github.ref, 'refs/tags/') || github.event_name == 'workflow_dispatch' || needs.determine-version.outputs.tag_created == 'true'
     runs-on: ubuntu-latest
     permissions:
       contents: write
@@ -268,10 +165,10 @@ jobs:
         uses: softprops/action-gh-release@v1
         with:
           name: CLEO SPA Setup v${{ needs.determine-version.outputs.version }}
-          tag_name: ${{ needs.determine-version.outputs.tag_name || github.ref_name }}
+          tag_name: ${{ needs.determine-version.outputs.tag_name }}
           draft: false
-          prerelease: ${{ github.event_name == 'workflow_dispatch' }}
+          prerelease: ${{ github.event.inputs.prerelease }}
           files: |
             ./artifacts/cleo-setup-windows-${{ needs.determine-version.outputs.version }}/CLEO_SPA_SETUP.exe
             ./artifacts/cleo-setup-linux-${{ needs.determine-version.outputs.version }}/CLEO_SPA_SETUP
-            ./artifacts/cleo-setup-macos-${{ needs.determine-version.outputs.version }}/CLEO_SPA_SETUP.app/**/*
+            ./artifacts/cleo-setup-macos-${{ needs.determine-version.outputs.version }}/CLEO_SPA_SETUP.app
