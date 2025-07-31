@@ -25,6 +25,8 @@ jobs:
     outputs:
       version: ${{ steps.set-version.outputs.version }}
       should_build: ${{ steps.check-build.outputs.should_build }}
+      tag_created: ${{ steps.create-tag.outputs.tag_created }}
+      tag_name: ${{ steps.create-tag.outputs.tag_name }}
     steps:
       - name: Checkout repository
         uses: actions/checkout@v4
@@ -47,6 +49,11 @@ jobs:
             VERSION="${{ github.ref_name }}"
             VERSION="${VERSION#v}"  # Remove 'v' prefix
             VERSION="${VERSION#setup-v}"  # Remove 'setup-v' prefix
+          # Check if version file exists and read from it
+          elif [ -f "setup/version" ]; then
+            VERSION_TAG=$(cat setup/version)
+            VERSION="${VERSION_TAG#setup-v}"  # Remove 'setup-v' prefix to get just the version number
+            echo "Version read from file: $VERSION_TAG -> $VERSION"
           else
             # Generate version based on date and commit hash
             DATE_VERSION=$(date +'%Y.%m.%d')
@@ -97,6 +104,34 @@ jobs:
 
           # Save the version for future builds
           echo "${{ steps.set-version.outputs.version }}" > setup/version.txt
+
+      - name: Create tag if building from version file
+        id: create-tag
+        run: |
+          # Only create tag if we're building from version file (not manual dispatch or existing tag)
+          if [ -f "setup/version" ] && [[ "${{ github.event_name }}" != "workflow_dispatch" ]] && [[ "${{ github.ref }}" != refs/tags/* ]]; then
+            VERSION_TAG=$(cat setup/version)
+            echo "Creating tag: $VERSION_TAG"
+            
+            # Check if tag already exists
+            if git rev-parse "$VERSION_TAG" >/dev/null 2>&1; then
+              echo "Tag $VERSION_TAG already exists, will use existing tag"
+              echo "tag_created=false" >> $GITHUB_OUTPUT
+              echo "tag_name=$VERSION_TAG" >> $GITHUB_OUTPUT
+            else
+              # Create and push the tag
+              git config user.name "github-actions[bot]"
+              git config user.email "github-actions[bot]@users.noreply.github.com"
+              git tag "$VERSION_TAG"
+              git push origin "$VERSION_TAG"
+              echo "Tag $VERSION_TAG created and pushed"
+              echo "tag_created=true" >> $GITHUB_OUTPUT
+              echo "tag_name=$VERSION_TAG" >> $GITHUB_OUTPUT
+            fi
+          else
+            echo "tag_created=false" >> $GITHUB_OUTPUT
+            echo "tag_name=" >> $GITHUB_OUTPUT
+          fi
 
   build-windows:
     needs: determine-version
@@ -216,7 +251,7 @@ jobs:
 
   create-release:
     needs: [determine-version, build-windows, build-macos, build-linux]
-    if: startsWith(github.ref, 'refs/tags/') || github.event_name == 'workflow_dispatch'
+    if: startsWith(github.ref, 'refs/tags/') || github.event_name == 'workflow_dispatch' || needs.determine-version.outputs.tag_created == 'true'
     runs-on: ubuntu-latest
     permissions:
       contents: write
@@ -233,7 +268,7 @@ jobs:
         uses: softprops/action-gh-release@v1
         with:
           name: CLEO SPA Setup v${{ needs.determine-version.outputs.version }}
-          tag_name: ${{ github.event_name == 'workflow_dispatch' && format('setup-v{0}', needs.determine-version.outputs.version) || github.ref_name }}
+          tag_name: ${{ needs.determine-version.outputs.tag_name || github.ref_name }}
           draft: false
           prerelease: ${{ github.event_name == 'workflow_dispatch' }}
           files: |
