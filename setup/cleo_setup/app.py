@@ -16,6 +16,7 @@ import string
 
 from .aws_deployment import run_terraform_command, extract_and_display_outputs
 from .local_development import setup_local_dev_tab, update_docker_compose_config, run_docker_compose_command
+from .super_admin import setup_super_admin_tab
 from .utils import check_docker, log_message
 
 
@@ -79,10 +80,12 @@ class DeploymentApp:
         credentials_frame = ttk.Frame(notebook)
         deployment_frame = ttk.Frame(notebook)
         local_dev_frame = ttk.Frame(notebook)
+        super_admin_frame = ttk.Frame(notebook)
         
         notebook.add(credentials_frame, text="AWS Configuration")
         notebook.add(deployment_frame, text="AWS Deployment")
         notebook.add(local_dev_frame, text="Local Development")
+        notebook.add(super_admin_frame, text="Super Admin Setup")
         
         # Setup credentials tab
         self.setup_credentials_tab(credentials_frame)
@@ -92,6 +95,9 @@ class DeploymentApp:
         
         # Setup local development tab
         setup_local_dev_tab(self, local_dev_frame)
+        
+        # Setup super admin tab
+        setup_super_admin_tab(super_admin_frame, self)
 
     def setup_credentials_tab(self, parent):
         """Set up the AWS credentials tab."""
@@ -290,7 +296,10 @@ project_name       = "{self.project_name.get()}"
     def log_local_message(self, message, color="white"):
         """Log a message to the local development console."""
         log_message(self.local_console, message, color)
-
+    
+    def log_su_message(self, message, color="white"):
+        """Log a message to the super admin setup console."""
+        log_message(self.su_console, message, color)
 
 def main():
     """

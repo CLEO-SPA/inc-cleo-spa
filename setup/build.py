@@ -19,6 +19,8 @@ def install_dependencies():
         # Install PyInstaller and project dependencies
         subprocess.check_call([sys.executable, "-m", "pip", "install", "--upgrade", "pyinstaller"])
         subprocess.check_call([sys.executable, "-m", "pip", "install", "--upgrade", "pillow"])
+        subprocess.check_call([sys.executable, "-m", "pip", "install", "--upgrade", "PyJWT"])
+        subprocess.check_call([sys.executable, "-m", "pip", "install", "--upgrade", "requests"])
         
         # Try to install cairosvg but don't fail if it doesn't work
         try:
@@ -370,6 +372,10 @@ def update_requirements():
                 new_reqs.append("pyinstaller>=6.3.0")
             if "pillow" not in requirements.lower():
                 new_reqs.append("pillow>=10.0.0")
+            if "pyjwt" not in requirements.lower():
+                new_reqs.append("PyJWT>=2.6.0")
+            if "requests" not in requirements.lower():
+                new_reqs.append("requests>=2.28.0")
             
             if new_reqs:
                 with open(req_file, "a") as f:
