@@ -4,7 +4,7 @@ on:
   push:
     branches: [master, feature/aws-hosting]
     tags:
-      - 'v*.*.*' # Semantic versioning tags
+      - 'setup-v*.*.*' # Setup app specific tags
     paths:
       - 'setup/**'
       - '.github/workflows/build-setup-app.yml'
@@ -43,9 +43,10 @@ jobs:
           if [[ "${{ github.event_name }}" == "workflow_dispatch" ]]; then
             VERSION="${{ github.event.inputs.version }}"
           # Check for a tag push
-          elif [[ "${{ github.ref }}" == refs/tags/v* ]]; then
+          elif [[ "${{ github.ref }}" == refs/tags/v* ]] || [[ "${{ github.ref }}" == refs/tags/setup-v* ]]; then
             VERSION="${{ github.ref_name }}"
             VERSION="${VERSION#v}"  # Remove 'v' prefix
+            VERSION="${VERSION#setup-v}"  # Remove 'setup-v' prefix
           else
             # Generate version based on date and commit hash
             DATE_VERSION=$(date +'%Y.%m.%d')
@@ -60,7 +61,7 @@ jobs:
         id: check-build
         run: |
           # Only build if it's a tag, manual dispatch, or if setup files changed
-          if [[ "${{ github.ref }}" == refs/tags/v* ]] || [[ "${{ github.event_name }}" == "workflow_dispatch" ]]; then
+          if [[ "${{ github.ref }}" == refs/tags/v* ]] || [[ "${{ github.ref }}" == refs/tags/setup-v* ]] || [[ "${{ github.event_name }}" == "workflow_dispatch" ]]; then
             echo "Tag push or manual dispatch - should build"
             echo "should_build=true" >> $GITHUB_OUTPUT
           else
