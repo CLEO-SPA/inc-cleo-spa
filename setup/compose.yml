@@ -1,0 +1,67 @@
+version: '3.8'
+services:
+  backend:
+    build: ./server
+    ports:
+      - '3000:3000'
+    depends_on:
+      db:
+        condition: service_healthy
+      db-sim:
+        condition: service_healthy
+    env_file:
+      - ./server/.env
+    environment:
+      # Override database URLs to use Docker service names
+      PROD_DB_URL: postgresql://user:password@db/my_db
+      SIM_DB_URL: postgresql://user:password@db-sim/sim_db
+      LOCAL_FRONTEND_URL: http://localhost:5173
+      LOCAL_BACKEND_URL: http://localhost:3000
+    volumes:
+      - ./server/.env:/usr/src/app/.env
+
+  frontend:
+    build:
+      context: ./client
+      args:
+        VITE_API_URL: /api
+    ports:
+      - '5173:80' # Map to default Vite port
+    depends_on:
+      - backend
+
+  db:
+    image: postgres:latest
+    environment:
+      POSTGRES_DB: my_db
+      POSTGRES_USER: user
+      POSTGRES_PASSWORD: password
+    ports:
+      - 5432:5432
+    healthcheck:
+      test: ['CMD-SHELL', 'pg_isready -U user -d my_db']
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    volumes:
+      - db-data:/var/lib/postgresql/data
+
+  db-sim:
+    image: postgres:latest
+    environment:
+      POSTGRES_DB: sim_db
+      POSTGRES_USER: user
+      POSTGRES_PASSWORD: password
+    ports:
+      - 5433:5432
+    healthcheck:
+      test: ['CMD-SHELL', 'pg_isready -U user -d sim_db']
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    volumes:
+      - db-sim-data:/var/lib/postgresql/data
+
+volumes:
+  db-data:
+  db-sim-data:
