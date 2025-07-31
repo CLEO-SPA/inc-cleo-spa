@@ -352,6 +352,7 @@ def create_executable():
         "--windowed",  # Don't show console window when running the app
         "--clean",  # Clean PyInstaller cache before building
         "--add-data=cleo_setup/resources;cleo_setup/resources",  # Include resources
+        "--noconsole",  # Disable console window
     ]
     
     # Add icon if available

@@ -331,6 +331,7 @@ def create_executable(platform):
     pyinstaller_args.extend([
         "--clean",  # Clean PyInstaller cache before building
         f"--add-data=cleo_setup/resources{separator}cleo_setup/resources",  # Include resources
+        "--noconsole" # Disable console window for GUI apps
     ])
     
     # Add icon if available
