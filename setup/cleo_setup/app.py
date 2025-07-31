@@ -14,7 +14,7 @@ from pathlib import Path
 import secrets
 import string
 
-from .aws_deployment import run_terraform_command, extract_and_display_outputs
+from .aws_deployment import run_terraform_command, extract_and_display_outputs, deploy_to_codecommit
 from .local_development import setup_local_dev_tab, update_docker_compose_config, run_docker_compose_command
 from .super_admin import setup_super_admin_tab
 from .utils import check_docker, log_message
@@ -193,6 +193,13 @@ class DeploymentApp:
             button_frame, 
             text="Destroy Infrastructure", 
             command=lambda: run_terraform_command(self, "destroy")
+        ).pack(side=tk.LEFT, padx=5)
+        
+        # Add CodeCommit deployment button
+        ttk.Button(
+            button_frame,
+            text="Deploy to CodeCommit",
+            command=lambda: deploy_to_codecommit(self)
         ).pack(side=tk.LEFT, padx=5)
         
         # Add output console

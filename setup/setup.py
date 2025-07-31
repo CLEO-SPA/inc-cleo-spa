@@ -13,6 +13,7 @@ setup(
         "python-dotenv>=1.0.0",  # For environment variables
         "requests>=2.25.0",  # For API requests
         "PyJWT>=2.0.0",  # For JWT token handling
+        "boto3>=1.28.0",  # For AWS integration (CodeCommit)
     ],
     entry_points={
         "console_scripts": [

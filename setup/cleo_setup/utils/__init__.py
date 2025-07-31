@@ -122,13 +122,11 @@ def get_project_root():
         # Running as script
         return Path(__file__).parent.parent.parent
 
-# Import database utilities
-from .database import (
-    get_db_path,
-    get_connection,
-    get_resource,
-    get_resource_content,
-    add_resource,
-    initialize_database,
-    get_version
-)
+def get_version():
+    """Get the version of the application."""
+    import importlib.metadata
+    try:
+        version = importlib.metadata.version("cleo-setup")
+        return version
+    except importlib.metadata.PackageNotFoundError:
+        return "0.0.0"

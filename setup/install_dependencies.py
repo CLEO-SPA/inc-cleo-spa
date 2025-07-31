@@ -23,6 +23,7 @@ def main():
         "pyjwt",        # For JWT token handling
         "requests",     # For API requests
         "tkinter",      # For GUI (usually comes with Python)
+        "boto3",       # For AWS integration (CodeCommit)
     ]
     
     for package in required_packages:

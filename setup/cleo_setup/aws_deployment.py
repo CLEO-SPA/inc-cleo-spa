@@ -4,9 +4,13 @@ AWS deployment functionality for CLEO SPA setup.
 import subprocess
 import threading
 import json
+import os
+import re
+import boto3
+from datetime import datetime
 from pathlib import Path
 import tkinter as tk
-from tkinter import messagebox
+from tkinter import messagebox, filedialog
 
 def run_terraform_command(app, command):
     """Run a Terraform command in a Docker container."""
@@ -139,3 +143,158 @@ def extract_and_display_outputs(app):
             
     except Exception as e:
         app.log_message(f"Error retrieving outputs: {str(e)}", "red")
+
+
+def deploy_to_codecommit(app, code_path=None):
+    """
+    Deploy application code to AWS CodeCommit repository.
+    
+    Args:
+        app: The DeploymentApp instance
+        code_path: Optional path to the code to deploy. If None, will prompt user to select.
+    """
+    # Check AWS credentials
+    env_path = Path(__file__).parent.parent.parent / "scripts" / ".aws_credentials.env"
+    if not env_path.exists():
+        messagebox.showerror(
+            "Missing Configuration", 
+            "AWS credentials not found. Please complete and save the configuration first."
+        )
+        return
+    
+    # If no code path provided, ask user to select a directory
+    if code_path is None:
+        code_path = filedialog.askdirectory(
+            title="Select Project Directory to Deploy",
+            initialdir=str(Path(__file__).parent.parent.parent)
+        )
+        
+        if not code_path:  # User cancelled
+            return
+    
+    # Start deployment in a separate thread
+    threading.Thread(
+        target=_run_codecommit_deployment, 
+        args=(app, code_path), 
+        daemon=True
+    ).start()
+
+
+def _run_codecommit_deployment(app, code_path):
+    """
+    Run the actual CodeCommit deployment process.
+    
+    Args:
+        app: The DeploymentApp instance
+        code_path: Path to the code directory to deploy
+    """
+    app.log_message("Starting AWS CodeCommit deployment...", "cyan")
+    app.log_message(f"Deploying code from: {code_path}", "cyan")
+    
+    try:
+        # Get AWS credentials from env file
+        project_root = Path(__file__).parent.parent.parent
+        env_path = project_root / "scripts" / ".aws_credentials.env"
+        
+        # Parse AWS credentials from the env file
+        aws_credentials = {}
+        with open(env_path, 'r') as f:
+            for line in f:
+                if '=' in line:
+                    key, value = line.strip().split('=', 1)
+                    aws_credentials[key] = value
+        
+        aws_access_key = aws_credentials.get('AWS_ACCESS_KEY_ID', '')
+        aws_secret_key = aws_credentials.get('AWS_SECRET_ACCESS_KEY', '')
+        aws_region = aws_credentials.get('AWS_REGION', 'ap-southeast-1')
+        
+        if not aws_access_key or not aws_secret_key:
+            app.log_message("Error: AWS credentials not found in environment file.", "red")
+            return
+        
+        # Create repo name from project name with timestamp to ensure uniqueness
+        timestamp = datetime.now().strftime("%Y%m%d%H%M%S")
+        repo_name = f"{app.project_name.get().lower()}-{timestamp}"
+        
+        # Clean repo name to meet AWS CodeCommit requirements
+        repo_name = re.sub(r'[^a-zA-Z0-9_-]', '-', repo_name)
+        
+        # Log what we're doing
+        app.log_message(f"Creating CodeCommit repository: {repo_name}", "cyan")
+        
+        # Create boto3 client
+        codecommit = boto3.client(
+            'codecommit',
+            aws_access_key_id=aws_access_key,
+            aws_secret_access_key=aws_secret_key,
+            region_name=aws_region
+        )
+        
+        # Create repository
+        response = codecommit.create_repository(
+            repositoryName=repo_name,
+            repositoryDescription=f'CLEO SPA application repository created on {datetime.now().strftime("%Y-%m-%d")}.'
+        )
+        
+        # Get clone URL
+        clone_url = response['repositoryMetadata']['cloneUrlHttp']
+        app.log_message(f"Repository created successfully!", "green")
+        app.log_message(f"Clone URL: {clone_url}", "cyan")
+        
+        # Initialize git repo, add files and push to CodeCommit
+        app.log_message("Preparing code for deployment...", "cyan")
+        
+        # Change to the code directory
+        os.chdir(code_path)
+        
+        # Commands to run
+        commands = [
+            ['git', 'init'],
+            ['git', 'add', '.'],
+            ['git', 'commit', '-m', 'Initial commit from CLEO SPA Setup tool'],
+            ['git', 'remote', 'add', 'origin', clone_url],
+            # We need to configure git credentials for AWS CodeCommit
+            ['git', 'config', '--local', 'credential.helper', '!aws codecommit credential-helper $@'],
+            ['git', 'config', '--local', 'credential.UseHttpPath', 'true'],
+            # Push to main branch
+            ['git', 'push', '-u', 'origin', 'master']
+        ]
+        
+        # Set environment variables for AWS CLI
+        env = os.environ.copy()
+        env['AWS_ACCESS_KEY_ID'] = aws_access_key
+        env['AWS_SECRET_ACCESS_KEY'] = aws_secret_key
+        env['AWS_DEFAULT_REGION'] = aws_region
+        
+        # Run git commands
+        for cmd in commands:
+            app.log_message(f"Running: {' '.join(cmd)}", "cyan")
+            try:
+                result = subprocess.run(
+                    cmd, 
+                    capture_output=True, 
+                    text=True,
+                    env=env,
+                    check=True
+                )
+                app.log_message(result.stdout, "white")
+            except subprocess.CalledProcessError as e:
+                app.log_message(f"Command failed: {e}", "red")
+                app.log_message(e.stderr, "red")
+                # If this is not the first command, continue anyway
+                if cmd != commands[0]:
+                    continue
+                else:
+                    raise
+        
+        # Display success message with clone URL
+        app.log_message("\n---- DEPLOYMENT SUCCESSFUL ----", "green")
+        app.log_message(f"Your code has been successfully deployed to AWS CodeCommit!", "green")
+        app.log_message(f"Repository Name: {repo_name}", "cyan")
+        app.log_message(f"Clone URL: {clone_url}", "cyan")
+        app.log_message("\nYou can now use this repository with AWS CodePipeline for CI/CD.", "cyan")
+        
+    except Exception as e:
+        app.log_message(f"Error during CodeCommit deployment: {str(e)}", "red")
+        import traceback
+        app.log_message(traceback.format_exc(), "red")

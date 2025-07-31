@@ -7,7 +7,6 @@ import os
 import sys
 import subprocess
 import shutil
-import sqlite3
 import argparse
 from pathlib import Path
 import importlib.metadata
@@ -106,66 +105,59 @@ def clean_build_directories():
             print(f"  Removed {dir_path}")
 
 def store_resources(version):
-    """Store resource files in the SQLite database."""
-    print("Storing resource files in SQLite database...")
+    """Copy resource files to the resources directory."""
+    print("Copying resource files to resources directory...")
     
-    try:
-        # Import database utility functions
-        from cleo_setup.utils.database import initialize_database, add_resource
-        
-        # Initialize the database
-        db_conn = initialize_database()
-        
-        # Store terraform.tfvars template
-        src_terraform = Path("../terraform/terraform.tfvars")
-        if src_terraform.exists():
-            with open(src_terraform, 'r', encoding='utf-8') as f:
-                content = f.read()
-                add_resource(db_conn, "terraform.tfvars", content, "template", version)
-                print("  Stored terraform.tfvars in resources database")
-        else:
-            print(f"  Warning: Could not find {src_terraform}")
-            fallback = generate_fallback_content("terraform.tfvars")
-            add_resource(db_conn, "terraform.tfvars", fallback, "template", version)
-            print("  Created fallback terraform.tfvars in resources database")
-        
-        # Store docker-compose.yml template
-        src_compose = Path("../compose.yml")
-        if src_compose.exists():
-            with open(src_compose, 'r', encoding='utf-8') as f:
-                content = f.read()
-                add_resource(db_conn, "compose.yml", content, "template", version)
-                print("  Stored compose.yml in resources database")
-        else:
-            print(f"  Warning: Could not find {src_compose}")
-            fallback = generate_fallback_content("compose.yml")
-            add_resource(db_conn, "compose.yml", fallback, "template", version)
-            print("  Created fallback compose.yml in resources database")
-        
-        # Store server.env template
-        server_env_content = generate_fallback_content("server.env")
-        add_resource(db_conn, "server.env", server_env_content, "template", version)
-        print("  Stored server.env in resources database")
-        
-        # Create a simple icon file based on platform
-        icon_path = create_icon_file(Path("cleo_setup/resources"))
-        if icon_path and icon_path.exists():
-            with open(icon_path, 'rb') as f:
-                icon_data = f.read()
-                # Store binary data as base64 string
-                import base64
-                icon_data_base64 = base64.b64encode(icon_data).decode('utf-8')
-                add_resource(db_conn, f"app_icon.{icon_path.suffix.lstrip('.')}", 
-                             icon_data_base64, "binary", version)
-                print(f"  Stored app icon in resources database")
-        
-        # Close database connection
-        db_conn.close()
-        print("  Resource storage complete")
-        
-    except Exception as e:
-        print(f"Error storing resources: {e}")
-        sys.exit(1)
+    # Create resources directory if it doesn't exist
+    resources_dir = Path("cleo_setup/resources")
+    resources_dir.mkdir(exist_ok=True, parents=True)
+    
+    # Copy terraform.tfvars template
+    src_terraform = Path("../terraform/terraform.tfvars")
+    if src_terraform.exists():
+        dest_terraform = resources_dir / "terraform.tfvars.template"
+        shutil.copy(src_terraform, dest_terraform)
+        print(f"  Copied {src_terraform} to {dest_terraform}")
+    else:
+        print(f"  Warning: Could not find {src_terraform}")
+        fallback = generate_fallback_content("terraform.tfvars")
+        dest_terraform = resources_dir / "terraform.tfvars.template"
+        with open(dest_terraform, 'w', encoding='utf-8') as f:
+            f.write(fallback)
+        print(f"  Created fallback {dest_terraform}")
+    
+    # Copy docker-compose.yml template
+    src_compose = Path("../compose.yml")
+    if src_compose.exists():
+        dest_compose = resources_dir / "compose.yml.template"
+        shutil.copy(src_compose, dest_compose)
+        print(f"  Copied {src_compose} to {dest_compose}")
+    else:
+        print(f"  Warning: Could not find {src_compose}")
+        fallback = generate_fallback_content("compose.yml")
+        dest_compose = resources_dir / "compose.yml.template"
+        with open(dest_compose, 'w', encoding='utf-8') as f:
+            f.write(fallback)
+        print(f"  Created fallback {dest_compose}")
+    
+    # Create server.env template
+    server_env_content = generate_fallback_content("server.env")
+    dest_server_env = resources_dir / "server.env.template"
+    with open(dest_server_env, 'w', encoding='utf-8') as f:
+        f.write(server_env_content)
+    print(f"  Created {dest_server_env}")
+    
+    # Create version.txt file
+    with open(resources_dir / "version.txt", 'w', encoding='utf-8') as f:
+        f.write(version)
+    print(f"  Created version.txt with version {version}")
+    
+    # Create or copy icon file
+    icon_path = create_icon_file(resources_dir)
+    if icon_path and icon_path.exists():
+        print(f"  Created app icon at {icon_path}")
+    
+    print("  Resource preparation complete")
 
 def generate_fallback_content(template_name):
     """Generate fallback content for templates."""

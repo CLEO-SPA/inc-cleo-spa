@@ -102,7 +102,7 @@ jobs:
         uses: actions/upload-artifact@v4
         with:
           name: cleo-setup-macos-${{ needs.determine-version.outputs.version }}
-          path: setup/dist/CLEO_SPA_SETUP.app
+          path: setup/dist/CLEO_SPA_SETUP.app/**/*
           if-no-files-found: error
           retention-days: 30
 
@@ -161,14 +161,49 @@ jobs:
       - name: List all artifacts
         run: find ./artifacts -type f | sort
 
+      - name: Generate release description
+        id: release-description
+        run: |
+          cat > release_notes.md << 'EOL'
+          # CLEO SPA Setup v${{ needs.determine-version.outputs.version }}
+
+          This release contains setup applications for Windows, macOS, and Linux.
+
+          ## Installation Instructions
+
+          ### Windows
+          - Download the CLEO_SPA_SETUP.exe file
+          - Double-click to run the installer
+          - Follow the on-screen instructions
+
+          ### macOS
+          - Download the macOS artifact
+          - Extract the .app file
+          - Right-click and select "Open" to bypass Gatekeeper
+          - Follow the on-screen instructions
+
+          ### Linux
+          - Download the Linux executable
+          - Make it executable: `chmod +x CLEO_SPA_SETUP`
+          - Run it: `./CLEO_SPA_SETUP`
+
+          ## Changes in this version
+          - Improved resource handling
+          - Added AWS CodeCommit deployment option
+          - Bug fixes and performance improvements
+          EOL
+
+          echo "description=$(cat release_notes.md)" >> $GITHUB_OUTPUT
+
       - name: Create Release
         uses: softprops/action-gh-release@v1
         with:
           name: CLEO SPA Setup v${{ needs.determine-version.outputs.version }}
           tag_name: ${{ needs.determine-version.outputs.tag_name }}
+          body_path: release_notes.md
           draft: false
           prerelease: ${{ github.event.inputs.prerelease }}
           files: |
             ./artifacts/cleo-setup-windows-${{ needs.determine-version.outputs.version }}/CLEO_SPA_SETUP.exe
             ./artifacts/cleo-setup-linux-${{ needs.determine-version.outputs.version }}/CLEO_SPA_SETUP
-            ./artifacts/cleo-setup-macos-${{ needs.determine-version.outputs.version }}/CLEO_SPA_SETUP.app
+            ./artifacts/cleo-setup-macos-${{ needs.determine-version.outputs.version }}/**/*
