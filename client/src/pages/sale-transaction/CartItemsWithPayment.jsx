@@ -380,7 +380,7 @@ const CartItemsWithPayment = ({
                 methodId: 10,
                 methodName: `GST (${gstRate}%)`,
                 amount: newGSTAmount,
-                remark: `Dynamic GST at ${gstRate}%`,
+                remark: ` GST rate ${gstRate}%`,
                 isGST: true
               };
               
@@ -489,7 +489,7 @@ const CartItemsWithPayment = ({
         methodId: 10,
         methodName: `GST (${gstRate}%)`,
         amount: roundTo2Decimals(gstAmount),
-        remark: isDynamicGST ? `Dynamic GST at ${gstRate}%` : `Auto-calculated GST at ${gstRate}%`,
+        remark: isDynamicGST ? `GST rate ${gstRate}%` : `Auto-GST rate ${gstRate}%`,
         isGST: true
       };
       
@@ -581,7 +581,7 @@ const CartItemsWithPayment = ({
             methodId: 10,
             methodName: `GST (${gstRate}%)`,
             amount: newGSTAmount,
-            remark: `Dynamic GST at ${gstRate}%`,
+            remark: ` GST rate ${gstRate}%`,
             isGST: true
           };
           

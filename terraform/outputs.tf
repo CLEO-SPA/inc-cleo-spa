@@ -60,3 +60,13 @@ output "application_url" {
   description = "The URL to access the application"
   value       = "http://${aws_instance.app_instance.public_dns}"
 }
+
+output "codecommit_clone_url_http" {
+  description = "The HTTP clone URL of the repository"
+  value       = aws_codecommit_repository.app_repo.clone_url_http
+}
+
+output "codecommit_clone_url_ssh" {
+  description = "The SSH clone URL of the repository"
+  value       = aws_codecommit_repository.app_repo.clone_url_ssh
+}
