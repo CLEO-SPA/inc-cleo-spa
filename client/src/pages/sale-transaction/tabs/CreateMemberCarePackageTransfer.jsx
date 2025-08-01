@@ -175,7 +175,7 @@ const CreateMemberCarePackageTransfer = () => {
     if (newItemInQueue) {
       const cartItem = {
         id: newItemInQueue.id,
-        type: 'transfer',
+        type: 'transferMCP',
         data: {
           name: `MCP Transfer`,
           amount: parseFloat(amount),

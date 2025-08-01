@@ -34,7 +34,7 @@ export default defineConfig([
       'no-console': 'off',
       'no-unused-expressions': 'off',
       'no-throw-literal': 'off',
-      '@typescript-eslint/no-explicit-any': 'warn',
+      '@typescript-eslint/no-explicit-any': 'off',
     },
   },
 ]);

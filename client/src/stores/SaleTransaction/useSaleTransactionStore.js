@@ -46,48 +46,48 @@ const useSaleTransactionStore = create(
       PENDING_PAYMENT_METHOD_ID: 7, // Based on your database structure
 
       // Helper function to calculate outstanding amount and add pending payment
-      addAutoPendingPayment: (totalAmount, existingPayments) => {
-        // Calculate total paid amount from existing payments
-        const totalPaid = existingPayments.reduce((sum, payment) => {
-          return sum + (payment.amount || 0);
-        }, 0);
+addAutoPendingPayment: (totalAmount, existingPayments) => {
+  const PENDING_PAYMENT_METHOD_ID = 7;
+  const GST_PAYMENT_METHOD_ID = 10;
 
-        // Calculate outstanding amount
-        const outstandingAmount = totalAmount - totalPaid;
+  // Separate payments by type (same as backend)
+  const pendingPayments = existingPayments.filter(
+    (payment) => payment.methodId === PENDING_PAYMENT_METHOD_ID
+  );
 
-        // Check if there's already a pending payment
-        const existingPendingPayment = existingPayments.find(
-          (payment) => payment.methodId === get().PENDING_PAYMENT_METHOD_ID
-        );
+  const gstPayments = existingPayments.filter(
+    (payment) => payment.methodId === GST_PAYMENT_METHOD_ID
+  );
 
-        let updatedPayments = [...existingPayments];
+  const actualPayments = existingPayments.filter(
+    (payment) => payment.methodId !== PENDING_PAYMENT_METHOD_ID &&
+              payment.methodId !== GST_PAYMENT_METHOD_ID
+  );
 
-        if (outstandingAmount > 0) {
-          if (existingPendingPayment) {
-            // Update existing pending payment amount
-            updatedPayments = updatedPayments.map((payment) =>
-              payment.methodId === get().PENDING_PAYMENT_METHOD_ID ? { ...payment, amount: outstandingAmount } : payment
-            );
-          } else {
-            // Add new pending payment
-            updatedPayments.push({
-              id: crypto.randomUUID(),
-              methodId: get().PENDING_PAYMENT_METHOD_ID,
-              methodName: 'Pending',
-              amount: outstandingAmount,
-              remark: 'Auto-generated pending payment for outstanding amount',
-              isAutoPending: true,
-            });
-          }
-        } else if (outstandingAmount <= 0 && existingPendingPayment) {
-          // Remove pending payment if outstanding amount is 0 or negative
-          updatedPayments = updatedPayments.filter(
-            (payment) => payment.methodId !== get().PENDING_PAYMENT_METHOD_ID || !payment.isAutoPending
-          );
-        }
+  // Calculate amounts (same logic as backend)
+  const totalActualPaymentAmount = actualPayments.reduce((sum, payment) => {
+    return sum + (payment.amount || 0);
+  }, 0);
 
-        return updatedPayments;
-      },
+  const totalGSTAmount = gstPayments.reduce((sum, payment) => {
+    return sum + (payment.amount || 0);
+  }, 0);
+
+  // IGNORE pending amount from frontend - calculate our own (same as backend)
+  const frontendPendingAmount = pendingPayments.reduce((sum, payment) => {
+    return sum + (payment.amount || 0);
+  }, 0);
+
+  // Calculate correct outstanding amount (backend authority) - same as backend
+  const outstandingAmount = Math.max(0, totalAmount - totalActualPaymentAmount);
+
+  let updatedPayments = existingPayments.filter(
+    (payment) => payment.methodId !== PENDING_PAYMENT_METHOD_ID
+  );
+
+  return updatedPayments;
+},
+
 
       // Update transaction details
       updateTransactionDetails: (details) => {
@@ -300,8 +300,9 @@ const useSaleTransactionStore = create(
               set((state) => ({
                 progress: {
                   ...state.progress,
-                  currentOperation: `Creating MCP transaction ${i + 1}/${processedTransactionData.mcpTransactions.length
-                    }...`,
+                  currentOperation: `Creating MCP transaction ${i + 1}/${
+                    processedTransactionData.mcpTransactions.length
+                  }...`,
                 },
               }));
 
@@ -328,7 +329,8 @@ const useSaleTransactionStore = create(
                 };
 
                 console.log(
-                  `📦 Creating MCP transaction with ID ${actualMcpId} for package: ${mcpData.item.data?.package_name || mcpData.item.data?.name
+                  `📦 Creating MCP transaction with ID ${actualMcpId} for package: ${
+                    mcpData.item.data?.package_name || mcpData.item.data?.name
                   }`
                 );
 
@@ -373,8 +375,9 @@ const useSaleTransactionStore = create(
               set((state) => ({
                 progress: {
                   ...state.progress,
-                  currentOperation: `Creating MV transaction ${i + 1}/${processedTransactionData.mvTransactions.length
-                    }...`,
+                  currentOperation: `Creating MV transaction ${i + 1}/${
+                    processedTransactionData.mvTransactions.length
+                  }...`,
                 },
               }));
 
@@ -436,8 +439,9 @@ const useSaleTransactionStore = create(
               set((state) => ({
                 progress: {
                   ...state.progress,
-                  currentOperation: `Creating MCP Transfer transaction ${i + 1}/${processedTransactionData.mcpTransferTransactions.length
-                    }...`,
+                  currentOperation: `Creating MCP Transfer transaction ${i + 1}/${
+                    processedTransactionData.mcpTransferTransactions.length
+                  }...`,
                 },
               }));
 
@@ -505,79 +509,82 @@ const useSaleTransactionStore = create(
           }
 
           // 5. Create individual MV Transfer transactions
-          if (processedTransactionData.mvTransferTransactions?.length > 0) {
-            const transferStore = useTransferVoucherStore.getState();
-            const transferFormData = transferStore.transferFormData;
+if (processedTransactionData.mvTransferTransactions?.length > 0) {
+  const transferStore = useTransferVoucherStore.getState();
+  const transferFormData = transferStore.transferFormData;
 
-            if (!transferFormData) {
-              throw new Error('No transfer data available in TransferVoucherStore');
-            }
+  if (!transferFormData) {
+    throw new Error('No transfer data available in TransferVoucherStore');
+  }
 
-            for (let i = 0; i < processedTransactionData.mvTransferTransactions.length; i++) {
-              const mvTransferData = processedTransactionData.mvTransferTransactions[i];
+  for (let i = 0; i < processedTransactionData.mvTransferTransactions.length; i++) {
+    const mvTransferData = processedTransactionData.mvTransferTransactions[i];
 
-              set((state) => ({
-                progress: {
-                  ...state.progress,
-                  currentOperation: `Creating MV Transfer transaction ${i + 1}/${processedTransactionData.mvTransferTransactions.length
-                    }...`,
-                },
-              }));
+    set((state) => ({
+      progress: {
+        ...state.progress,
+        currentOperation: `Creating MV Transfer transaction ${i + 1}/${
+          processedTransactionData.mvTransferTransactions.length
+        }...`,
+      },
+    }));
 
-              try {
-                const transferFormDataWithSaleTransactionDate = {
-                  ...transferFormData,
-                  created_at: transactionDetails.createdAt,  // ✅ Pass sale transaction date
-                };
+    try {
+    
+      const transferFormDataWithSaleTransactionDate = {
+        ...transferFormData,
+        created_at: transactionDetails.createdAt,  
+        updated_at: transactionDetails.updatedAt   
+      };
 
-                const response = await transferStore.submitTransfer(transferFormDataWithSaleTransactionDate);
+      const response = await transferStore.submitTransfer(transferFormDataWithSaleTransactionDate);
 
-                if (response.success && response.newVoucherId) {
-                  const newVoucherId = response.newVoucherId;
+      if (response.success && response.newVoucherId) {
+        const newVoucherId = response.newVoucherId;
 
-                  const mvTransferDataWithId = {
-                    ...mvTransferData,
-                    newVoucherId, // ✅ Attach new voucher ID at top-level
-                  };
+        const mvTransferDataWithId = {
+          ...mvTransferData,
+          newVoucherId, 
+        };
 
-                  const mvTransferTransaction = await get().createMvTransferTransaction(mvTransferDataWithId);
+        const mvTransferTransaction = await get().createMvTransferTransaction(mvTransferDataWithId);
 
-                  createdTransactions.push({
-                    type: 'mv-transfer',
-                    transaction: mvTransferTransaction,
-                    item: mvTransferData.item,
-                  });
+        createdTransactions.push({
+          type: 'mv-transfer',
+          transaction: mvTransferTransaction,
+          item: mvTransferData.item,
+        });
 
-                  set((state) => ({
-                    progress: {
-                      ...state.progress,
-                      completed: state.progress.completed + 1,
-                    },
-                  }));
-                } else {
-                  throw new Error(response.message || 'Unknown error during voucher transfer');
-                }
-              } catch (error) {
-                console.error('❌ MV Transfer transaction failed:', error);
-                failedTransactions.push({
-                  type: 'mv-transfer',
-                  error: error.message,
-                  data: mvTransferData,
-                });
+        set((state) => ({
+          progress: {
+            ...state.progress,
+            completed: state.progress.completed + 1,
+          },
+        }));
+      } else {
+        throw new Error(response.message || 'Unknown error during voucher transfer');
+      }
+    } catch (error) {
+      console.error('❌ MV Transfer transaction failed:', error);
+      failedTransactions.push({
+        type: 'mv-transfer',
+        error: error.message,
+        data: mvTransferData,
+      });
 
-                set((state) => ({
-                  progress: {
-                    ...state.progress,
-                    failed: state.progress.failed + 1,
-                  },
-                  errors: [
-                    ...state.errors,
-                    `MV Transfer (${mvTransferData.item.data?.description || 'Transfer'}): ${error.message}`,
-                  ],
-                }));
-              }
-            }
-          }
+      set((state) => ({
+        progress: {
+          ...state.progress,
+          failed: state.progress.failed + 1,
+        },
+        errors: [
+          ...state.errors,
+          `MV Transfer (${mvTransferData.item.data?.description || 'Transfer'}): ${error.message}`,
+        ],
+      }));
+    }
+  }
+}
 
           // Determine final state
           const hasFailures = failedTransactions.length > 0;
@@ -757,7 +764,6 @@ const useSaleTransactionStore = create(
           remarks: transactionDetails.transactionRemark,
           created_by: transactionDetails.createdBy,
           handled_by: transactionDetails.handledBy,
-          // ✅ NEW: Include creation date/time in payload
           created_at: transactionDetails.createdAt,
           updated_at: transactionDetails.updatedAt,
           item: {
@@ -794,7 +800,6 @@ const useSaleTransactionStore = create(
           remarks: transactionDetails.transactionRemark,
           created_by: transactionDetails.createdBy,
           handled_by: transactionDetails.handledBy,
-          // ✅ NEW: Include creation date/time in payload
           created_at: transactionDetails.createdAt,
           updated_at: transactionDetails.updatedAt,
           item: {
@@ -833,7 +838,6 @@ const useSaleTransactionStore = create(
           remarks: transactionDetails.transactionRemark,
           created_by: transactionDetails.createdBy,
           handled_by: transactionDetails.handledBy,
-          // ✅ NEW: Include creation date/time in payload
           created_at: transactionDetails.createdAt,
           updated_at: transactionDetails.updatedAt,
           item: {

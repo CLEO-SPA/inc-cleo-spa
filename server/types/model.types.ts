@@ -325,3 +325,29 @@ export interface VoucherTemplateDetail {
   final_price: number;
   duration: number;
 }
+
+export interface UserAuth {
+  id: string;
+  email: string;
+  password: string;
+  created_at: string;
+  updated_at: string;
+}
+
+export interface NewUserData {
+  email: string;
+  username: string;
+  password_hash: string;
+  role_name: string;
+  created_at?: string;
+  updated_at?: string;
+}
+
+export interface UserWithRole {
+  id: string;
+  username: string;
+  email: string;
+  role_name: string;
+  created_at: string;
+  updated_at: string;
+}
