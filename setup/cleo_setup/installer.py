@@ -283,8 +283,8 @@ class InstallerApp:
     
     def create_initial_config(self, install_path):
         """Create initial configuration files."""
-        # Create setup config to remember installation location
-        config_dir = install_path / ".cleo-setup"
+        # Store config in a fixed location in user's home directory
+        config_dir = Path.home() / ".cleo-spa"
         config_dir.mkdir(exist_ok=True)
         
         config_data = {
@@ -361,7 +361,20 @@ def check_installation():
     if env_path and Path(env_path).exists():
         return Path(env_path)
     
-    # Check common installation locations
+    # Check fixed config location first (primary method)
+    fixed_config_path = Path.home() / ".cleo-spa" / "config.json"
+    if fixed_config_path.exists():
+        try:
+            with open(fixed_config_path) as f:
+                config = json.load(f)
+            if config.get("setup_completed"):
+                install_path = Path(config.get("installation_path", ""))
+                if install_path.exists():
+                    return install_path
+        except (json.JSONDecodeError, KeyError, FileNotFoundError):
+            pass
+    
+    # Fallback: Check common installation locations for local config files
     possible_locations = [
         Path.home() / "CLEO-SPA",
         Path.home() / "Documents" / "CLEO-SPA",
