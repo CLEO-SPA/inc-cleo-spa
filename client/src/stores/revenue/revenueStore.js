@@ -1,6 +1,7 @@
 import { create } from 'zustand';
 import { persist } from 'zustand/middleware';
 import api from '@/services/api';
+
 const months = [
   'January', 'February', 'March', 'April', 'May', 'June',
   'July', 'August', 'September', 'October', 'November', 'December'
@@ -75,6 +76,11 @@ export const useRevenueReportStore = create(persist(
       mcp: null
     },
 
+    // Add new state for payment methods
+    paymentMethods: [],
+    paymentMethodsLoading: false,
+    paymentMethodsError: null,
+
     setMonth: (month) => set({ selectedMonth: month }),
     setYear: (year) => set({ selectedYear: year }),
     setReportData: (data) => set({ reportData: data }),
@@ -89,6 +95,26 @@ export const useRevenueReportStore = create(persist(
         set({ error: err.message || 'Failed to fetch earliest date' });
       } finally {
         set({ loading: false });
+      }
+    },
+
+    // Add new function to fetch payment methods
+    fetchPaymentMethods: async () => {
+      set({ paymentMethodsLoading: true, paymentMethodsError: null });
+      try {
+        const res = await api.get('/payment-method/visible');
+        const filteredPaymentMethods = res.data
+          .filter(method => method.is_enabled && method.is_income)
+          .map(method => ({
+            id: method.id,
+            payment_method_name: method.payment_method_name
+          }));
+        
+        set({ paymentMethods: filteredPaymentMethods });
+      } catch (err) {
+        set({ paymentMethodsError: err.message || 'Failed to fetch payment methods' });
+      } finally {
+        set({ paymentMethodsLoading: false });
       }
     },
 
@@ -167,7 +193,15 @@ export const useRevenueReportStore = create(persist(
       adhocData: state.adhocData,
       combinedData: state.combinedData,
       totals: state.totals,
-      deferredRevenue: state.deferredRevenue // Add deferred revenue to persisted state
+      deferredRevenue: state.deferredRevenue, // Add deferred revenue to persisted state
+      paymentMethods: state.paymentMethods // Add payment methods to persisted state
     })
   }
 ));
+
+// Auto-fetch payment methods when the store is created
+// This will run when the store is first initialized
+const store = useRevenueReportStore.getState();
+if (store.paymentMethods.length === 0) {
+  store.fetchPaymentMethods();
+}

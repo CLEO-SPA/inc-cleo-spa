@@ -32,6 +32,11 @@ function RevenueReportPage() {
     adhocData,
     combinedData,
     totals,
+    // Add payment methods from store
+    paymentMethods,
+    paymentMethodsLoading,
+    paymentMethodsError,
+    fetchPaymentMethods,
   } = useRevenueReportStore();
 
   const [tab, setTab] = useState('combined');
@@ -56,12 +61,32 @@ function RevenueReportPage() {
     }
   }, [tab, mvData, mcpData, adhocData, combinedData]);
 
+  // TEST: Console log payment methods data
+  useEffect(() => {
+    console.log('=== PAYMENT METHODS TEST ===');
+    console.log('Payment Methods:', paymentMethods);
+    console.log('Payment Methods Loading:', paymentMethodsLoading);
+    console.log('Payment Methods Error:', paymentMethodsError);
+    console.log('Payment Methods Count:', paymentMethods.length);
+    
+    if (paymentMethods.length > 0) {
+      console.log('First Payment Method:', paymentMethods[0]);
+      console.log('All Payment Method Names:', paymentMethods.map(pm => pm.payment_method_name));
+    }
+  }, [paymentMethods, paymentMethodsLoading, paymentMethodsError]);
+
   const currentTotals = useMemo(() => {
     return totals[tab] || {};
   }, [totals, tab]);
 
   const handleGetReport = () => {
     fetchRevenueData();
+  };
+
+  // TEST: Add a test function to manually refresh payment methods
+  const handleTestPaymentMethods = () => {
+    console.log('Testing payment methods refresh...');
+    fetchPaymentMethods();
   };
 
   const formatAmount = (val) => (val && val !== '0.00' ? parseFloatSafe(val).toFixed(2) : '');
@@ -228,14 +253,39 @@ function RevenueReportPage() {
             <div className="bg-white rounded-lg shadow-md p-6">
               <div className="flex items-center justify-between mb-6">
                 <h2 className="text-2xl font-bold">Revenue Report</h2>
-                <button
-                  onClick={handleDownloadExcel}
-                  className="bg-green-600 text-white p-3 rounded hover:bg-green-700 transition-colors"
-                  disabled={!reportData || reportData.length === 0}
-                  title="Download Excel Report"
-                >
-                  <Download className="w-5 h-5" />
-                </button>
+                <div className="flex space-x-2">
+                  {/* TEST: Add a test button for payment methods */}
+                  <button
+                    onClick={handleTestPaymentMethods}
+                    className="bg-blue-600 text-white px-4 py-2 rounded hover:bg-blue-700 transition-colors text-sm"
+                    disabled={paymentMethodsLoading}
+                  >
+                    {paymentMethodsLoading ? 'Loading...' : 'Test Payment Methods'}
+                  </button>
+                  <button
+                    onClick={handleDownloadExcel}
+                    className="bg-green-600 text-white p-3 rounded hover:bg-green-700 transition-colors"
+                    disabled={!reportData || reportData.length === 0}
+                    title="Download Excel Report"
+                  >
+                    <Download className="w-5 h-5" />
+                  </button>
+                </div>
+              </div>
+
+              {/* TEST: Display payment methods info */}
+              <div className="mb-4 p-3 bg-gray-100 rounded border">
+                <h4 className="font-semibold text-sm mb-2">Payment Methods Test Info:</h4>
+                <div className="text-xs space-y-1">
+                  <div>Count: {paymentMethods.length}</div>
+                  <div>Loading: {paymentMethodsLoading ? 'Yes' : 'No'}</div>
+                  <div>Error: {paymentMethodsError || 'None'}</div>
+                  {paymentMethods.length > 0 && (
+                    <div>
+                      Methods: {paymentMethods.map(pm => pm.payment_method_name).join(', ')}
+                    </div>
+                  )}
+                </div>
               </div>
 
               {/* Using the new MonthYearSelector component */}
