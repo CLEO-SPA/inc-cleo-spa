@@ -132,14 +132,6 @@ const createMember = async ({
       throw new Error('Email already exists');
     }
 
-    // Validation: Check if contact already exists
-    const contactCheckQuery = `
-      SELECT id FROM user_auth WHERE phone = $1;
-    `;
-    const contactResult = await client.query(contactCheckQuery, [contact]);
-    if (contactResult.rows.length > 0) {
-      throw new Error('Contact number already exists');
-    }
 
     // 1. Call the get_or_create_roles function
     const getRoleQuery = `
@@ -150,11 +142,11 @@ const createMember = async ({
 
     // 2. Insert into user_auth
     const insertUserAuthQuery = `
-      INSERT INTO user_auth (email, password, created_at, updated_at, phone)
-      VALUES ($1, $2, $3, $4, $5)
+      INSERT INTO user_auth (email, password, created_at, updated_at)
+      VALUES ($1, $2, $3, $4)
       RETURNING *;
     `;
-    const userAuthValues = [email, null, created_at, updated_at, contact];
+    const userAuthValues = [email, null, created_at, updated_at];
     const authResult = await client.query(insertUserAuthQuery, userAuthValues);
     const newAuth = authResult.rows[0];
 
@@ -249,20 +241,12 @@ const updateMember = async ({
       throw new Error('Email already exists');
     }
 
-    // Validation: Check if contact already exists (excluding current user)
-    const contactCheckQuery = `
-      SELECT id FROM user_auth WHERE phone = $1 AND id != $2;
-    `;
-    const contactResult = await client.query(contactCheckQuery, [contact, userAuthId]);
-    if (contactResult.rows.length > 0) {
-      throw new Error('Contact number already exists');
-    }
 
     // 2. Update user_auth with new email and phone
     const updateAuthQuery = `
       UPDATE user_auth
-      SET email = $1, phone = $2, updated_at = $3
-      WHERE id = $4;
+      SET email = $1, updated_at = $2
+      WHERE id = $3;
     `;
     await client.query(updateAuthQuery, [email, contact, updated_at, userAuthId]);
 
