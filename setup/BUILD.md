@@ -26,7 +26,9 @@ For each platform (Windows, macOS, and Linux), the workflow:
 
 ## Using the Build Script Manually
 
-You can also run the build script manually to create executables for your current platform:
+You can build the installer manually to create executables for your current platform:
+
+### Standard Installer Build (Recommended)
 
 ```bash
 # Navigate to the setup directory
@@ -35,9 +37,26 @@ cd setup
 # Install required dependencies
 pip install pyinstaller pillow
 
-# Run the build script
-python build_github_actions.py
+# Run the installer build script (bundles entire project)
+python build_installer.py
 ```
+
+### Development Build (For Testing)
+
+```bash
+# Navigate to the setup directory
+cd setup
+
+# Install required dependencies
+pip install pyinstaller pillow
+
+# Run the development build script
+python build.py
+```
+
+The **installer build** creates a self-contained executable that includes all project files and provides a proper installation interface. This is recommended for distribution to end users.
+
+The **development build** is lighter and suitable for testing during development.
 
 ## Cross-Platform Considerations
 

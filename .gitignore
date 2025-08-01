@@ -206,3 +206,4 @@ ENV/
 .python-version
 .ipynb_checkpoints
 *.template
+setup/**/project_files/

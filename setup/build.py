@@ -82,140 +82,70 @@ def copy_resources():
     resource_dir = Path("cleo_setup/resources")
     resource_dir.mkdir(exist_ok=True)
     
-    # Copy terraform.tfvars template
-    terraform_dir = resource_dir / "terraform"
-    terraform_dir.mkdir(exist_ok=True)
-    
-    src_terraform = Path("../terraform/terraform.tfvars")
-    dst_terraform = terraform_dir / "terraform.tfvars.template"
-    
-    if src_terraform.exists():
-        shutil.copy2(src_terraform, dst_terraform)
-        print(f"  Copied terraform.tfvars template to {dst_terraform}")
-    else:
-        print(f"  Warning: Could not find {src_terraform}")
-        # Create a basic template if the original doesn't exist
-        with open(dst_terraform, 'w') as f:
-            f.write("""aws_region         = "us-west-2"
-aws_account_id     = "123456789012"
-frontend_image_uri = "123456789012.dkr.ecr.us-west-2.amazonaws.com/cleo-spa-app-frontend:latest"
-backend_image_uri  = "123456789012.dkr.ecr.us-west-2.amazonaws.com/cleo-spa-app-backend:latest"
-secret_name        = "cleo-spa-db-credentials"
-jwt_secret_name    = "cleo-spa-jwt-secrets"
-
-# Database credentials
-db_password        = "REPLACE_WITH_SECURE_PASSWORD"
-
-# JWT secrets
-auth_jwt_secret    = "REPLACE_WITH_AUTH_JWT_SECRET"
-inv_jwt_secret     = "REPLACE_WITH_INV_JWT_SECRET"
-remember_token     = "REPLACE_WITH_REMEMBER_TOKEN" 
-session_secret     = "REPLACE_WITH_SESSION_SECRET"
-
-# Project settings
-project_name       = "cleo-spa-app"
-""")
-        print(f"  Created a basic terraform.tfvars.template")
-    
-    # Copy docker-compose.yml template
-    src_compose = Path("../compose.yml")
-    dst_compose = resource_dir / "compose.yml.template"
-    
-    if src_compose.exists():
-        shutil.copy2(src_compose, dst_compose)
-        print(f"  Copied compose.yml template to {dst_compose}")
-    else:
-        print(f"  Warning: Could not find {src_compose}")
-        # Create a basic template if the original doesn't exist
-        with open(dst_compose, 'w') as f:
-            f.write("""version: '3.8'
-services:
-  backend:
-    build: ./server
-    ports:
-      - '3000:3000'
-    depends_on:
-      db:
-        condition: service_healthy
-      db-sim:
-        condition: service_healthy
-    env_file:
-      - ./server/.env
-    environment:
-      PROD_DB_URL: postgresql://cleo_user:cleo_password@db/cleo_db
-      SIM_DB_URL: postgresql://cleo_user:cleo_password@db-sim/sim_db
-    volumes:
-      - ./server/.env:/usr/src/app/.env
-
-  frontend:
-    build:
-      context: ./client
-      args:
-        VITE_API_URL: /api
-    ports:
-      - '5173:80'
-    depends_on:
-      - backend
-
-  db:
-    image: postgres:latest
-    environment:
-      POSTGRES_DB: cleo_db
-      POSTGRES_USER: cleo_user
-      POSTGRES_PASSWORD: cleo_password
-    ports:
-      - 5432:5432
-    healthcheck:
-      test: ['CMD-SHELL', 'pg_isready -U cleo_user -d cleo_db']
-      interval: 10s
-      timeout: 5s
-      retries: 5
-    volumes:
-      - db-data:/var/lib/postgresql/data
-
-  db-sim:
-    image: postgres:latest
-    environment:
-      POSTGRES_DB: sim_db
-      POSTGRES_USER: cleo_user
-      POSTGRES_PASSWORD: cleo_password
-    ports:
-      - 5433:5432
-    healthcheck:
-      test: ['CMD-SHELL', 'pg_isready -U cleo_user -d sim_db']
-      interval: 10s
-      timeout: 5s
-      retries: 5
-    volumes:
-      - db-sim-data:/var/lib/postgresql/data
-
-volumes:
-  db-data:
-  db-sim-data:
-""")
-        print(f"  Created a basic compose.yml.template")
-    
-    # Create an env template for the server
-    env_template = resource_dir / "server.env.template"
-    with open(env_template, 'w') as f:
-        f.write("""# Database URLs - local development
-PROD_DB_URL=postgresql://cleo_user:cleo_password@localhost:5432/cleo_db
-SIM_DB_URL=postgresql://cleo_user:cleo_password@localhost:5433/sim_db
-
-# JWT secrets
-AUTH_JWT_SECRET=local_development_auth_jwt_secret
-INV_JWT_SECRET=local_development_inv_jwt_secret
-RMB_TOKEN=rmb-token
-SESSION_SECRET=local_development_session_secret
-
-# CORS URLs
-LOCAL_FRONTEND_URL=http://localhost:5173
-LOCAL_BACKEND_URL=http://localhost:3000
-""")
-    print(f"  Created server.env.template")
-    
     # Create or convert an appropriate icon file
     create_icon_file(resource_dir)
+    print("  Resource files prepared for bundling with project files")
+
+def bundle_project_files():
+    """Bundle all project files into the resources directory for extraction."""
+    print("Bundling entire project files for installer...")
+    
+    # Create project_files directory in resources
+    project_files_dir = Path("cleo_setup/resources/project_files")
+    project_files_dir.mkdir(exist_ok=True, parents=True)
+    
+    # Define what to copy from the parent project
+    project_root = Path("..")
+    
+    # Directories to copy entirely
+    directories_to_copy = [
+        "client",
+        "server", 
+        "terraform",
+        "seed",
+        "scripts"
+    ]
+    
+    # Individual files to copy
+    files_to_copy = [
+        "compose.yml",
+        "README.md"
+    ]
+    
+    # Copy directories
+    for dir_name in directories_to_copy:
+        source_dir = project_root / dir_name
+        target_dir = project_files_dir / dir_name
+        
+        if source_dir.exists():
+            print(f"  Bundling directory: {dir_name}")
+            # Remove existing directory if it exists
+            if target_dir.exists():
+                shutil.rmtree(target_dir)
+            
+            # Copy the entire directory
+            shutil.copytree(source_dir, target_dir, 
+                          ignore=shutil.ignore_patterns(
+                              '*.log', '__pycache__', '*.pyc', '.git*', 
+                              'node_modules', '**/node_modules', 'node_modules/**',
+                              'dist', 'build', '.env', '.env.local', '.env.production'
+                          ))
+        else:
+            print(f"  Warning: Directory not found: {dir_name}")
+    
+    # Copy individual files
+    for file_name in files_to_copy:
+        source_file = project_root / file_name
+        target_file = project_files_dir / file_name
+        
+        if source_file.exists():
+            print(f"  Bundling file: {file_name}")
+            shutil.copy2(source_file, target_file)
+        else:
+            print(f"  Warning: File not found: {file_name}")
+    
+    print(f"  Project files bundled in: {project_files_dir}")
+    return project_files_dir
 
 def create_icon_file(resource_dir):
     """Create an appropriate icon file for Windows executable."""
@@ -364,7 +294,7 @@ def create_executable():
         print("  No icon available, building without custom icon")
     
     # Add the entry point
-    pyinstaller_args.append("cleo_setup/__main__.py")
+    pyinstaller_args.append("main.py")  # Use main.py as entry point instead of __main__.py
     
     # Additional PyInstaller options to avoid DLL issues
     os.environ['PYTHONOPTIMIZE'] = '1'  # Set optimization level
@@ -475,6 +405,7 @@ if __name__ == "__main__":
         install_dependencies()
         clean_build_directories()
         copy_resources()
+        bundle_project_files()  # Bundle all project files
         create_executable()
         verify_executable()
         print("\nDone!")

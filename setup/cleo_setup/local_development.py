@@ -201,42 +201,9 @@ volumes:
         server_dir.mkdir(exist_ok=True, parents=True)
         
         if not server_env_path.exists():
-            # Try to get the template
-            env_template_path = get_resource_path("server.env.template")
-            
-            if env_template_path.exists():
-                # Read the template
-                with open(env_template_path, 'r') as f:
-                    env_template = f.read()
-                
-                # Replace placeholders
-                env_content = env_template
-                env_content = env_content.replace("cleo_user", app.local_db_user.get())
-                env_content = env_content.replace("cleo_password", app.local_db_password.get())
-                env_content = env_content.replace("cleo_db", app.local_db_name.get())
-                env_content = env_content.replace("sim_db", app.local_sim_db_name.get())
-                env_content = env_content.replace("5432", app.db_port.get())
-                env_content = env_content.replace("5433", app.sim_db_port.get())
-                env_content = env_content.replace("5173", app.frontend_port.get())
-                env_content = env_content.replace("3000", app.backend_port.get())
-                
-                # Replace JWT secrets if available
-                if app.auth_jwt_secret.get():
-                    env_content = env_content.replace("local_development_auth_jwt_secret", app.auth_jwt_secret.get())
-                if app.inv_jwt_secret.get():
-                    env_content = env_content.replace("local_development_inv_jwt_secret", app.inv_jwt_secret.get())
-                if app.remember_token.get():
-                    env_content = env_content.replace("rmb-token", app.remember_token.get())
-                if app.session_secret.get():
-                    env_content = env_content.replace("local_development_session_secret", app.session_secret.get())
-                
-                # Write the .env file
-                with open(server_env_path, 'w') as f:
-                    f.write(env_content)
-            else:
-                # Create the .env file from scratch
-                with open(server_env_path, 'w') as f:
-                    f.write(f"""# Database URLs - local development
+            # Create the .env file from scratch with current configuration
+            with open(server_env_path, 'w') as f:
+                f.write(f"""# Database URLs - local development
 PROD_DB_URL=postgresql://{app.local_db_user.get()}:{app.local_db_password.get()}@localhost:{app.db_port.get()}/{app.local_db_name.get()}
 SIM_DB_URL=postgresql://{app.local_db_user.get()}:{app.local_db_password.get()}@localhost:{app.sim_db_port.get()}/{app.local_sim_db_name.get()}
 

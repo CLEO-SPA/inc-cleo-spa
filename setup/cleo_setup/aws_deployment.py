@@ -42,13 +42,24 @@ def run_terraform_command(app, command):
 
 def _run_terraform_in_docker(app, command):
     """Execute Terraform commands inside a Docker container."""
+    from .utils import get_project_root
+    
     app.log_message(f"Starting Terraform {command} operation...", "cyan")
     app.log_message("This may take several minutes. Please be patient.", "cyan")
     
-    # Paths
-    project_root = Path(__file__).parent.parent.parent
+    # Use extracted project path
+    project_root = get_project_root()
     terraform_dir = project_root / "terraform"
-    env_path = project_root / "scripts" / ".aws_credentials.env"
+    
+    # Check if terraform directory exists
+    if not terraform_dir.exists():
+        app.log_message("Error: Terraform directory not found in extracted project files.", "red")
+        return
+    
+    # For now, we'll still use the scripts directory from the original location for AWS credentials
+    # This might need to be updated based on your specific setup
+    original_project_root = Path(__file__).parent.parent.parent
+    env_path = original_project_root / "scripts" / ".aws_credentials.env"
     
     # Create Docker command
     docker_cmd = [
@@ -105,9 +116,15 @@ def _run_terraform_in_docker(app, command):
 def extract_and_display_outputs(app):
     """Extract and display Terraform outputs after successful deployment."""
     try:
-        # Try to get the terraform outputs
-        terraform_dir = Path(__file__).parent.parent.parent / "terraform"
-        env_path = Path(__file__).parent.parent.parent / "scripts" / ".aws_credentials.env"
+        from .utils import get_project_root
+        
+        # Use extracted project path for terraform directory
+        project_root = get_project_root()
+        terraform_dir = project_root / "terraform"
+        
+        # For now, we'll still use the scripts directory from the original location for AWS credentials
+        original_project_root = Path(__file__).parent.parent.parent
+        env_path = original_project_root / "scripts" / ".aws_credentials.env"
         
         # Run terraform output -json
         docker_cmd = [

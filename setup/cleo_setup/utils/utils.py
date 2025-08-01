@@ -106,17 +106,41 @@ def get_resource_path(resource_name):
 def get_project_root():
     """
     Get the project root directory.
-    If running from exe, will create a temp directory for the project files.
+    First checks for installed project files, then falls back to development mode.
     
     Returns:
         Path object pointing to the project root
     """
+    # Check if we have an installed project path
+    project_path = os.environ.get('CLEO_SPA_PROJECT_PATH')
+    if project_path and Path(project_path).exists():
+        return Path(project_path)
+    
+    # Check for installation in common locations
+    possible_locations = [
+        Path.home() / "CLEO-SPA",
+        Path.home() / "Documents" / "CLEO-SPA",
+    ]
+    
+    if sys.platform == "win32":
+        possible_locations.append(Path("C:/Program Files/CLEO-SPA"))
+    elif sys.platform.startswith("linux"):
+        possible_locations.append(Path("/opt/cleo-spa"))
+    elif sys.platform == "darwin":
+        possible_locations.append(Path("/Applications/CLEO-SPA"))
+    
+    for location in possible_locations:
+        if location.exists():
+            config_file = location / ".cleo-setup" / "config.json"
+            if config_file.exists():
+                return location
+    
     if getattr(sys, 'frozen', False):
-        # Running as executable
+        # Running as executable but no installation found
         # Use a folder in the user's documents for the project files
         user_docs = Path.home() / "Documents" / "CLEO-SPA"
         user_docs.mkdir(exist_ok=True, parents=True)
         return user_docs
     else:
-        # Running as script
+        # Running as script - development mode
         return Path(__file__).parent.parent.parent

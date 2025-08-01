@@ -2,7 +2,7 @@
 
 
 a = Analysis(
-    ['cleo_setup\\__main__.py'],
+    ['main.py'],
     pathex=[],
     binaries=[],
     datas=[('cleo_setup/resources', 'cleo_setup/resources')],

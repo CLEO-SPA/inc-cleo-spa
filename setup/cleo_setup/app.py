@@ -254,9 +254,9 @@ class DeploymentApp:
             return
         
         try:
-            from .utils import get_resource_path, get_project_root
+            from .utils import get_project_root
             
-            # Get the project root directory
+            # Get the project root directory (now points to installed location)
             project_root = get_project_root()
             
             # Update terraform.tfvars
@@ -303,8 +303,8 @@ project_name       = "{self.project_name.get()}"
             
             messagebox.showinfo(
                 "Success", 
-                "Configuration has been saved successfully!\n"
-                "You can now proceed to the Deployment tab to deploy your application."
+                f"Configuration has been saved successfully to:\n{project_root}\n\n"
+                "You can now proceed with deployment."
             )
             
         except Exception as e:
