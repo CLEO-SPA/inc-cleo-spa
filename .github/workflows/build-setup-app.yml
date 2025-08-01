@@ -170,8 +170,6 @@ jobs:
       - name: Generate release description
         id: release-description
         run: |
-          echo "# CLEO SPA Setup v${{ needs.determine-version.outputs.version }}" > release_notes.md
-          echo "" >> release_notes.md
           echo "This release contains setup applications for Windows, macOS, and Linux." >> release_notes.md
           echo "" >> release_notes.md
           echo "## Installation Instructions" >> release_notes.md
@@ -191,11 +189,6 @@ jobs:
           echo "- Download the Linux executable" >> release_notes.md
           echo "- Make it executable: \`chmod +x CLEO_SPA_SETUP\`" >> release_notes.md
           echo "- Run it: \`./CLEO_SPA_SETUP\`" >> release_notes.md
-          echo "" >> release_notes.md
-          echo "## Changes in this version" >> release_notes.md
-          echo "- Improved resource handling" >> release_notes.md
-          echo "- Added AWS CodeCommit deployment option" >> release_notes.md
-          echo "- Bug fixes and performance improvements" >> release_notes.md
 
       - name: Create Release
         uses: softprops/action-gh-release@v1
