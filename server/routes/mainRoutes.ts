@@ -3,7 +3,7 @@ const router = express.Router();
 
 import simulationMiddleware from '../middlewares/simulationMiddleware.js';
 
-// import superAdminRoutes from './superAdminRoutes.js';
+import superAdminRoutes from './superAdminRoutes.js';
 import authRoutes from './authRoutes.js';
 import sessionRoutes from './sessionRoutes.js';
 import translationRoutes from './translationRoutes.js';
@@ -27,14 +27,12 @@ import appointmentRoutes from './appointmentRoutes.js';
 import productRoutes from './productRoutes.js';
 import revenueRoutes from './revenueRoutes.js';
 import stRoutes from './stRoutes.js';
-import voucherRoutes from './voucherRoute.js';
-
 
 router.use(simulationMiddleware);
 
 router.use('/auth', authRoutes);
 router.use('/session', sessionRoutes);
-router.use('/trans', translationRoutes)
+router.use('/trans', translationRoutes);
 
 router.use('/member', memberRoutes);
 router.use('/mv', memberVoucherRoutes);
@@ -48,13 +46,12 @@ router.use('/refund', refundRoutes);
 router.use('/position', positionRoutes);
 router.use('/de', dataExportRoutes);
 router.use('/payment-method', paymentMethodRoutes);
+router.use('/st', stRoutes);
 router.use('/em', employeeRoutes);
 router.use('/et', timetableRoutes);
 router.use('/ab', appointmentRoutes);
 router.use('/rr', revenueRoutes);
-router.use('/st', stRoutes);
-router.use('/voucher', voucherRoutes);
-// router.use('/sa', superAdminRoutes);
+router.use('/sa', superAdminRoutes);
 router.use('/product', productRoutes);
 
 export default router;
