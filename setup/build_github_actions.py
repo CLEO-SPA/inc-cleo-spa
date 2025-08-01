@@ -104,210 +104,201 @@ def clean_build_directories():
             shutil.rmtree(dir_path)
             print(f"  Removed {dir_path}")
 
-def store_resources(version):
-    """Copy resource files to the resources directory."""
-    print("Copying resource files to resources directory...")
+def copy_resources():
+    """Copy necessary resource files to be included in the executable."""
+    print("Copying resource files...")
     
-    # Create resources directory if it doesn't exist
-    resources_dir = Path("cleo_setup/resources")
-    resources_dir.mkdir(exist_ok=True, parents=True)
+    # Create a resources directory in the cleo_setup package if it doesn't exist
+    resource_dir = Path("cleo_setup/resources")
+    resource_dir.mkdir(exist_ok=True)
     
-    # Copy terraform.tfvars template
-    src_terraform = Path("../terraform/terraform.tfvars")
-    if src_terraform.exists():
-        dest_terraform = resources_dir / "terraform.tfvars.template"
-        shutil.copy(src_terraform, dest_terraform)
-        print(f"  Copied {src_terraform} to {dest_terraform}")
-    else:
-        print(f"  Warning: Could not find {src_terraform}")
-        fallback = generate_fallback_content("terraform.tfvars")
-        dest_terraform = resources_dir / "terraform.tfvars.template"
-        with open(dest_terraform, 'w', encoding='utf-8') as f:
-            f.write(fallback)
-        print(f"  Created fallback {dest_terraform}")
+    # Create or convert an appropriate icon file
+    create_icon_file(resource_dir)
+    print("  Resource files prepared for bundling with project files")
+
+def bundle_project_files():
+    """Bundle all project files into the resources directory for extraction."""
+    print("Bundling entire project files for installer...")
     
-    # Copy docker-compose.yml template
-    src_compose = Path("../compose.yml")
-    if src_compose.exists():
-        dest_compose = resources_dir / "compose.yml.template"
-        shutil.copy(src_compose, dest_compose)
-        print(f"  Copied {src_compose} to {dest_compose}")
-    else:
-        print(f"  Warning: Could not find {src_compose}")
-        fallback = generate_fallback_content("compose.yml")
-        dest_compose = resources_dir / "compose.yml.template"
-        with open(dest_compose, 'w', encoding='utf-8') as f:
-            f.write(fallback)
-        print(f"  Created fallback {dest_compose}")
+    # Create project_files directory in resources
+    project_files_dir = Path("cleo_setup/resources/project_files")
+    project_files_dir.mkdir(exist_ok=True, parents=True)
     
-    # Create server.env template
-    server_env_content = generate_fallback_content("server.env")
-    dest_server_env = resources_dir / "server.env.template"
-    with open(dest_server_env, 'w', encoding='utf-8') as f:
-        f.write(server_env_content)
-    print(f"  Created {dest_server_env}")
+    # Define what to copy from the parent project
+    project_root = Path("..")
     
-    # Create version.txt file
-    with open(resources_dir / "version.txt", 'w', encoding='utf-8') as f:
-        f.write(version)
-    print(f"  Created version.txt with version {version}")
+    # Directories to copy entirely
+    directories_to_copy = [
+        "client",
+        "server", 
+        "terraform",
+        "seed",
+        "scripts"
+    ]
     
-    # Create or copy icon file
-    icon_path = create_icon_file(resources_dir)
-    if icon_path and icon_path.exists():
-        print(f"  Created app icon at {icon_path}")
+    # Individual files to copy
+    files_to_copy = [
+        "compose.yml",
+        "README.md"
+    ]
     
-    print("  Resource preparation complete")
-
-def generate_fallback_content(template_name):
-    """Generate fallback content for templates."""
-    fallback_templates = {
-        "terraform.tfvars": """aws_region         = "us-west-2"
-aws_account_id     = "123456789012"
-frontend_image_uri = "123456789012.dkr.ecr.us-west-2.amazonaws.com/cleo-spa-app-frontend:latest"
-backend_image_uri  = "123456789012.dkr.ecr.us-west-2.amazonaws.com/cleo-spa-app-backend:latest"
-secret_name        = "cleo-spa-db-credentials"
-jwt_secret_name    = "cleo-spa-jwt-secrets"
-
-# Database credentials
-db_password        = "REPLACE_WITH_SECURE_PASSWORD"
-
-# JWT secrets
-auth_jwt_secret    = "REPLACE_WITH_AUTH_JWT_SECRET"
-inv_jwt_secret     = "REPLACE_WITH_INV_JWT_SECRET"
-remember_token     = "REPLACE_WITH_REMEMBER_TOKEN" 
-session_secret     = "REPLACE_WITH_SESSION_SECRET"
-
-# Project settings
-project_name       = "cleo-spa-app"
-""",
-        "compose.yml": """version: '3.8'
-services:
-  backend:
-    build: ./server
-    ports:
-      - '3000:3000'
-    depends_on:
-      db:
-        condition: service_healthy
-      db-sim:
-        condition: service_healthy
-    env_file:
-      - ./server/.env
-    environment:
-      PROD_DB_URL: postgresql://cleo_user:cleo_password@db/cleo_db
-      SIM_DB_URL: postgresql://cleo_user:cleo_password@db-sim/sim_db
-    volumes:
-      - ./server/.env:/usr/src/app/.env
-
-  frontend:
-    build:
-      context: ./client
-      args:
-        VITE_API_URL: /api
-    ports:
-      - '5173:80'
-    depends_on:
-      - backend
-
-  db:
-    image: postgres:latest
-    environment:
-      POSTGRES_DB: cleo_db
-      POSTGRES_USER: cleo_user
-      POSTGRES_PASSWORD: cleo_password
-    ports:
-      - 5432:5432
-    healthcheck:
-      test: ['CMD-SHELL', 'pg_isready -U cleo_user -d cleo_db']
-      interval: 10s
-      timeout: 5s
-      retries: 5
-    volumes:
-      - db-data:/var/lib/postgresql/data
-
-  db-sim:
-    image: postgres:latest
-    environment:
-      POSTGRES_DB: sim_db
-      POSTGRES_USER: cleo_user
-      POSTGRES_PASSWORD: cleo_password
-    ports:
-      - 5433:5432
-    healthcheck:
-      test: ['CMD-SHELL', 'pg_isready -U cleo_user -d sim_db']
-      interval: 10s
-      timeout: 5s
-      retries: 5
-    volumes:
-      - db-sim-data:/var/lib/postgresql/data
-
-volumes:
-  db-data:
-  db-sim-data:
-""",
-        "server.env": """# Database URLs - local development
-PROD_DB_URL=postgresql://cleo_user:cleo_password@localhost:5432/cleo_db
-SIM_DB_URL=postgresql://cleo_user:cleo_password@localhost:5433/sim_db
-
-# JWT secrets
-AUTH_JWT_SECRET=local_development_auth_jwt_secret
-INV_JWT_SECRET=local_development_inv_jwt_secret
-RMB_TOKEN=rmb-token
-SESSION_SECRET=local_development_session_secret
-
-# CORS URLs
-LOCAL_FRONTEND_URL=http://localhost:5173
-LOCAL_BACKEND_URL=http://localhost:3000
-"""
-    }
+    # Copy directories
+    for dir_name in directories_to_copy:
+        source_dir = project_root / dir_name
+        target_dir = project_files_dir / dir_name
+        
+        if source_dir.exists():
+            print(f"  Bundling directory: {dir_name}")
+            # Remove existing directory if it exists
+            if target_dir.exists():
+                shutil.rmtree(target_dir)
+            
+            # Copy the entire directory
+            shutil.copytree(source_dir, target_dir, 
+                          ignore=shutil.ignore_patterns(
+                              '*.log', '__pycache__', '*.pyc', '.git*', 
+                              'node_modules', '**/node_modules', 'node_modules/**',
+                              'dist', 'build', '.env', '.env.local', '.env.production'
+                          ))
+        else:
+            print(f"  Warning: Directory not found: {dir_name}")
     
-    return fallback_templates.get(template_name, "# Template content not available")
+    # Copy individual files
+    for file_name in files_to_copy:
+        source_file = project_root / file_name
+        target_file = project_files_dir / file_name
+        
+        if source_file.exists():
+            print(f"  Bundling file: {file_name}")
+            shutil.copy2(source_file, target_file)
+        else:
+            print(f"  Warning: File not found: {file_name}")
+    
+    print(f"  Project files bundled in: {project_files_dir}")
+    return project_files_dir
 
 def create_icon_file(resource_dir):
-    """Create a simple icon file based on platform."""
+    """Create an appropriate icon file for Windows executable."""
     try:
-        # Create a basic blue square icon for simplicity
-        icon_path = resource_dir / "app.ico" if sys.platform == "win32" else resource_dir / "app.png"
+        # Try to use the existing logo or create a basic icon
+        logo_path = Path("../client/public/vite.svg")
+        icon_path = resource_dir / "app.ico"
         
-        # Use Pillow to create a simple colored square
-        try:
-            from PIL import Image, ImageDraw
-            
-            # Create a simple colored square
-            img = Image.new('RGBA', (256, 256), color=(0, 120, 212, 255))
-            draw = ImageDraw.Draw(img)
-            # Add a simple pattern
-            draw.rectangle((50, 50, 206, 206), fill=(255, 255, 255, 255))
-            
-            # Save as appropriate format
-            img.save(icon_path)
+        if logo_path.exists():
+            print(f"  Found logo at {logo_path}")
+            # First, try to use Pillow for icon creation
+            try:
+                # Install Pillow if not available
+                try:
+                    subprocess.check_call([sys.executable, "-m", "pip", "install", "pillow"], 
+                                         stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
+                    from PIL import Image
+                    print("  Pillow installed successfully")
+                except:
+                    print("  Could not install or import Pillow")
+                    return create_simple_icon_with_code(icon_path)
                 
-            print(f"  Created a simple icon: {icon_path}")
-            return icon_path
-        except Exception as e:
-            print(f"  Error creating icon with Pillow: {e}")
-            
-            # If we can't use Pillow, create a very basic file
-            if sys.platform == "win32":
-                # For Windows, create a simple ICO file
-                with open(icon_path, 'wb') as f:
-                    # Very minimal ICO file
-                    f.write(bytes([0, 0, 1, 0, 1, 0, 16, 16, 0, 0, 1, 0, 32, 0, 68, 4, 0, 0, 22, 0, 0, 0]))
-                    # Simple color data
-                    f.write(bytes([0, 120, 212, 255]) * 256)
-            else:
-                # For other platforms, create a simple PNG-like file
-                with open(icon_path, 'wb') as f:
-                    # PNG signature and minimal data
-                    f.write(bytes([137, 80, 78, 71, 13, 10, 26, 10]))
-                    f.write(bytes([0, 0, 0, 0]))
+                # Try to install cairosvg for SVG conversion
+                try:
+                    subprocess.check_call([sys.executable, "-m", "pip", "install", "cairosvg"], 
+                                         stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
+                    import cairosvg
+                    print("  CairoSVG installed successfully")
                     
-            print(f"  Created a minimal icon placeholder: {icon_path}")
-            return icon_path
+                    # Convert SVG to PNG first
+                    temp_png = resource_dir / "temp_logo.png"
+                    cairosvg.svg2png(url=str(logo_path), write_to=str(temp_png), output_width=256, output_height=256)
+                    
+                    # Convert PNG to ICO
+                    img = Image.open(temp_png)
+                    img.save(icon_path)
+                    
+                    # Remove temporary PNG
+                    if temp_png.exists():
+                        temp_png.unlink()
+                    
+                    print(f"  Successfully converted SVG to ICO: {icon_path}")
+                    return icon_path
+                except:
+                    print("  Could not install or use CairoSVG, creating simple icon")
+                    return create_simple_icon_with_pillow(icon_path)
+            except:
+                print("  Error in icon conversion process, creating simple icon")
+                return create_simple_icon_with_code(icon_path)
+        else:
+            print("  Logo not found, creating a simple icon...")
+            return create_simple_icon_with_code(icon_path)
                 
     except Exception as e:
         print(f"  Error handling icon: {e}")
+        return None
+
+def create_simple_icon_with_pillow(icon_path):
+    """Create a simple icon using Pillow."""
+    try:
+        from PIL import Image, ImageDraw
+        
+        # Create a simple colored square
+        img = Image.new('RGBA', (256, 256), color=(0, 120, 212, 255))
+        draw = ImageDraw.Draw(img)
+        # Add a simple pattern
+        draw.rectangle((50, 50, 206, 206), fill=(255, 255, 255, 255))
+        img.save(icon_path)
+        print(f"  Created a simple icon with Pillow: {icon_path}")
+        return icon_path
+    except Exception as e:
+        print(f"  Error creating icon with Pillow: {e}")
+        return create_simple_icon_with_code(icon_path)
+
+def create_simple_icon_with_code(icon_path):
+    """Create a very basic .ico file manually if all else fails."""
+    try:
+        # Create a very basic 16x16 ICO file manually
+        # ICO format header plus a simple 16x16 bitmap
+        ico_data = bytes([
+            # ICO header (6 bytes)
+            0, 0,  # Reserved
+            1, 0,  # Type: 1 for ICO
+            1, 0,  # Number of images: 1
+            
+            # Directory entry (16 bytes)
+            16, 0,  # Width: 16 pixels
+            16, 0,  # Height: 16 pixels
+            0,      # Color palette: 0
+            0,      # Reserved
+            1, 0,   # Color planes: 1
+            32, 0,  # Bits per pixel: 32
+            40, 0, 0, 0,  # Size of bitmap data: 40 bytes
+            22, 0, 0, 0,  # Offset to bitmap data: 22 bytes
+            
+            # Bitmap data - simple blue square
+            40, 0, 0, 0,  # BITMAPINFOHEADER size: 40 bytes
+            16, 0, 0, 0,  # Width: 16 pixels
+            32, 0, 0, 0,  # Height: 32 pixels (16x2 for XOR and AND masks)
+            1, 0,         # Planes: 1
+            32, 0,        # Bits per pixel: 32
+            0, 0, 0, 0,   # Compression: 0 (none)
+            0, 4, 0, 0,   # Image size: 1024 bytes (16*16*4)
+            0, 0, 0, 0,   # X pixels per meter
+            0, 0, 0, 0,   # Y pixels per meter
+            0, 0, 0, 0,   # Colors used: 0
+            0, 0, 0, 0    # Important colors: 0
+        ])
+        
+        # Simple blue color for all pixels (repeated 16x16 times)
+        pixel_data = bytes([0, 120, 212, 255]) * 256  # BGRA format, 16x16 pixels
+        
+        # AND mask (all 0 for fully opaque) - 16x16 bits packed into bytes
+        and_mask = bytes([0] * 32)  # 16*16 bits / 8 = 32 bytes
+        
+        # Write the ICO file
+        with open(icon_path, 'wb') as f:
+            f.write(ico_data + pixel_data + and_mask)
+        
+        print(f"  Created a basic icon file manually: {icon_path}")
+        return icon_path
+    except Exception as e:
+        print(f"  Error creating basic icon file: {e}")
         return None
 
 def create_executable(platform):
@@ -338,15 +329,17 @@ def create_executable(platform):
     if sys.platform == "win32":
         icon_path = Path("cleo_setup/resources/app.ico")
         if icon_path.exists():
+            print(f"  Using icon: {icon_path}")
             pyinstaller_args.extend(["--icon", str(icon_path)])
+        else:
+            print("  No icon available, building without custom icon")
     else:
         icon_path = Path("cleo_setup/resources/app.png")
         if icon_path.exists() and sys.platform == "darwin":  # macOS
             pyinstaller_args.extend(["--icon", str(icon_path)])
     
-    # Add the entry point with correct path separator
-    main_path = "cleo_setup/__main__.py"
-    pyinstaller_args.append(main_path)
+    # Add the entry point
+    pyinstaller_args.append("main.py")  # Use main.py as entry point instead of __main__.py
     
     # Additional PyInstaller options to avoid DLL issues
     os.environ['PYTHONOPTIMIZE'] = '1'  # Set optimization level
@@ -361,6 +354,22 @@ def create_executable(platform):
         try:
             print("  Trying alternative PyInstaller invocation method...")
             subprocess.check_call([sys.executable, "-m", "pip", "install", "--upgrade", "pyinstaller"])
+            
+            # Try to install additional dependencies for icon handling
+            subprocess.check_call([sys.executable, "-m", "pip", "install", "pillow"])
+            try:
+                subprocess.check_call([sys.executable, "-m", "pip", "install", "cairosvg"])
+            except:
+                print("  Could not install cairosvg (optional)")
+            
+            # Run without icon if it was causing problems
+            if "--icon" in pyinstaller_args:
+                idx = pyinstaller_args.index("--icon")
+                if idx < len(pyinstaller_args) - 1:
+                    # Remove the icon and its path
+                    print("  Removing icon parameter which may be causing issues")
+                    pyinstaller_args.pop(idx)  # Remove --icon
+                    pyinstaller_args.pop(idx)  # Remove the path
             
             # Run using the Python executable directly
             final_cmd = [sys.executable, "-m", "PyInstaller"] + pyinstaller_args
@@ -407,6 +416,35 @@ def verify_executable(platform, version):
         print("\nBuild failed: Executable not found.")
         sys.exit(1)
 
+def update_requirements():
+    """Update requirements.txt to include build dependencies."""
+    try:
+        req_file = Path("requirements.txt")
+        if req_file.exists():
+            with open(req_file, "r") as f:
+                requirements = f.read()
+            
+            # Add necessary build dependencies if not already present
+            new_reqs = []
+            if "pyinstaller" not in requirements.lower():
+                new_reqs.append("pyinstaller>=6.3.0")
+            if "pillow" not in requirements.lower():
+                new_reqs.append("pillow>=10.0.0")
+            if "pyjwt" not in requirements.lower():
+                new_reqs.append("PyJWT>=2.6.0")
+            if "requests" not in requirements.lower():
+                new_reqs.append("requests>=2.28.0")
+            
+            if new_reqs:
+                with open(req_file, "a") as f:
+                    f.write("\n# Build dependencies\n")
+                    for req in new_reqs:
+                        f.write(f"{req}\n")
+                print(f"  Updated {req_file} with build dependencies")
+    except Exception as e:
+        print(f"  Warning: Could not update requirements.txt: {e}")
+        # Non-critical error, continue
+
 def main():
     """Main build function."""
     # Parse command line arguments
@@ -447,15 +485,28 @@ if __name__ == "__main__":
     resource_dir.mkdir(exist_ok=True, parents=True)
     
     try:
+        # Make sure requirements.txt includes necessary dependencies
+        update_requirements()
+        
         # Execute build steps
         install_dependencies()
         clean_build_directories()
-        store_resources(version)
+        copy_resources()
+        bundle_project_files()  # Bundle all project files
         create_executable(platform)
         verify_executable(platform, version)
         print("\nDone!")
     except Exception as e:
         print(f"\nBuild failed with error: {e}")
+        print("\nTroubleshooting tips:")
+        print("1. Make sure PyInstaller is properly installed:")
+        print("   pip install -U pyinstaller")
+        print("2. Install Pillow for icon handling:")
+        print("   pip install pillow")
+        print("3. Try running PyInstaller directly:")
+        print("   python -m PyInstaller --onefile --windowed main.py")
+        print("4. Check if all dependencies are installed:")
+        print("   pip install -r requirements.txt")
         sys.exit(1)
 
 if __name__ == "__main__":

@@ -14,7 +14,7 @@ import controller from '../controllers/memberVoucherController.js';
 // =========================
 router.use(isAuthenticated);
 
-router.post('/create',  controller.createMemberVoucher);
+router.post('/create', controller.createMemberVoucher);
 router.delete('/:id/rm', controller.removeMemberVoucher);
 
 router.get('/v', controller.getAllMemberVouchers);
@@ -37,5 +37,9 @@ router.post(
 router.put('/:id/t/update', controller.updateTransactionLogsAndCurrentBalanceByLogId);
 
 router.delete('/:id/t/:transaction_log_id/delete', controller.deleteTransactionLogsByLogId);
+
+router.get('/m', controller.getMemberVoucherDetailsHandler);
+router.post('/transfer', controller.transferVoucherDetailsHandler);
+
 
 export default router;
