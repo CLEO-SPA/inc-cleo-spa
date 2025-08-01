@@ -199,6 +199,56 @@ const TransferVoucherForm = () => {
     setValidationErrors(errors);
     return Object.keys(errors).length === 0;
   };
+
+  const getValidationErrorMessages = (errors) => {
+    const messages = [];
+
+    if (errors.voucherName) {
+      messages.push(`• ${errors.voucherName}`);
+    }
+
+    if (errors.price) {
+      messages.push(`• ${errors.price}`);
+    }
+
+    if (errors.foc) {
+      messages.push(`• ${errors.foc}`);
+    }
+
+    if (errors.oldVouchers) {
+      messages.push(`• ${errors.oldVouchers}`);
+    }
+
+    if (errors.serviceDetails) {
+      messages.push(`• ${errors.serviceDetails}`);
+    }
+
+    if (errors.serviceErrors) {
+      Object.keys(errors.serviceErrors).forEach(index => {
+        const serviceError = errors.serviceErrors[index];
+        const serviceNum = parseInt(index) + 1;
+
+        if (serviceError.name) {
+          messages.push(`• Service ${serviceNum}: ${serviceError.name}`);
+        }
+        if (serviceError.duration) {
+          messages.push(`• Service ${serviceNum}: ${serviceError.duration}`);
+        }
+        if (serviceError.price) {
+          messages.push(`• Service ${serviceNum}: ${serviceError.price}`);
+        }
+        if (serviceError.discount) {
+          messages.push(`• Service ${serviceNum}: ${serviceError.discount}`);
+        }
+      });
+    }
+
+    if (errors.createdBy) {
+      messages.push(`• ${errors.createdBy}`);
+    }
+
+    return messages;
+  };
   // Service details management functions
   const addServiceDetail = () => {
     const newDetail = {
@@ -221,24 +271,27 @@ const TransferVoucherForm = () => {
   };
 
   const updateServiceDetail = (id, field, value) => {
-    setServiceDetails(details =>
-      details.map(detail => {
-        if (detail.id === id) {
-          const updated = { ...detail, [field]: value };
+    const updateLogic = (detail) => {
+      if (detail.id === id) {
+        const updated = { ...detail, [field]: value };
 
-          // Recalculate final price when price or discount changes
-          if (field === 'price' || field === 'discount') {
-            const price = field === 'price' ? value : detail.price;
-            const discount = field === 'discount' ? value : detail.discount;
-            updated.final_price = price - (price * discount / 100);
-          }
-
-          return updated;
+        // Recalculate final price when price or discount changes
+        if (field === 'price' || field === 'discount') {
+          const price = field === 'price' ? value : detail.price;
+          const discount = field === 'discount' ? value : detail.discount;
+          updated.final_price = price - (price * discount / 100);
         }
-        return detail;
-      })
-    );
 
+        return updated;
+      }
+      return detail;
+    };
+
+    // Update both serviceDetails and displayServiceDetails with the same logic
+    setServiceDetails(details => details.map(updateLogic));
+    setDisplayServiceDetails(details => details.map(updateLogic));
+
+    // Clear validation errors (existing code)
     if (validationErrors.serviceErrors) {
       const serviceIndex = serviceDetails.findIndex(d => d.id === id);
       if (serviceIndex !== -1 && validationErrors.serviceErrors[serviceIndex]) {
@@ -369,7 +422,9 @@ const TransferVoucherForm = () => {
 
     const isValid = validateForm();
     if (!isValid) {
-      alert('Please fix the form errors before adding to cart.');
+      const errorMessages = getValidationErrorMessages(validationErrors);
+      const errorText = `Please fix the following errors:\n\n${errorMessages.join('\n')}`;
+      alert(errorText);
       return;
     }
 
