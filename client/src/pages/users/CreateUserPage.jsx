@@ -38,11 +38,10 @@ const userSchema = z.object({
 
 export default function CreateUserPage() {
   const navigate = useNavigate();
-  const { createUser } = useUsersStore();
+  const { createUser, error, clearError } = useUsersStore();
 
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [roles, setRoles] = useState([]);
-  const [error, setError] = useState('');
   const [success, setSuccess] = useState(false);
   const [inviteUrl, setInviteUrl] = useState('');
 
@@ -66,7 +65,7 @@ export default function CreateUserPage() {
     // Reset state on mount
     setSuccess(false);
     setInviteUrl('');
-    setError('');
+    clearError();
     reset();
 
     const fetchRoles = async () => {
@@ -74,7 +73,7 @@ export default function CreateUserPage() {
         const res = await api.get('/auth/roles');
         setRoles(res.data);
       } catch (err) {
-        setError('Failed to load roles. Please try again.');
+        console.error('Failed to fetch roles:', err);
       }
     };
     fetchRoles();
@@ -82,14 +81,13 @@ export default function CreateUserPage() {
 
   const onSubmit = async (data) => {
     setIsSubmitting(true);
-    setError('');
     try {
       const result = await createUser(data);
       setSuccess(true);
       setInviteUrl(result.inviteUrl); // ✅ must match returned key
       reset();
     } catch (err) {
-      setError(err.response?.data?.message || 'Failed to create user. Please try again.');
+      console.error('User creation error:', err);
     } finally {
       setIsSubmitting(false);
     }
