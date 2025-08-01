@@ -10,10 +10,58 @@ variable "project_name" {
   default     = "cleo-spa-app"
 }
 
+variable "db_storage" {
+  description = "Storage size for the RDS database in GB."
+  type        = number
+  default     = 10
+}
+
+variable "db_engine" {
+  description = "The database engine to use for the RDS instance."
+  type        = string
+  default     = "postgres"
+}
+
+variable "db_version" {
+  description = "The version of the database engine."
+  type        = string
+  default     = "postgres14"
+}
+
+variable "db_instance" {
+  description = "The instance type for the RDS database."
+  type        = string
+  default     = "db.t3.micro"
+}
+
+variable "db_name" {
+  description = "The name of the database to create."
+  type        = string
+  default     = "cleospa"
+}
+
+variable "db_username" {
+  description = "The master username for the RDS database."
+  type        = string
+  default     = "cleo_owner"
+}
+
 variable "db_password" {
   description = "Password for the RDS database master user."
   type        = string
   sensitive   = true
+}
+
+variable "db_skip_final_snapshot" {
+  description = "Whether to skip the final snapshot when deleting the RDS instance."
+  type        = bool
+  default     = true
+}
+
+variable "db_publicly_accessible" {
+  description = "Whether the RDS instance should be publicly accessible."
+  type        = bool
+  default     = false
 }
 
 variable "backend_image_uri" {
@@ -72,13 +120,13 @@ variable "aws_account_id" {
 variable "secret_name" {
   description = "The name of the secret containing the database credentials"
   type        = string
-  default     = "cleo-spa-app/db-credentials"
+  default     = "cleo-spa-app/cleo-spa-db-credentials"
 }
 
 variable "jwt_secret_name" {
   description = "The name of the secret containing JWT secrets"
   type        = string
-  default     = "cleo-spa-app/jwt-secrets"
+  default     = "cleo-spa-app/cleo-spa-jwt-secrets"
 }
 
 variable "key_name" {

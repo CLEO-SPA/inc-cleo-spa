@@ -34,14 +34,14 @@ BEGIN
 END;
 $$ LANGUAGE plpgsql;
 
-DROP TRIGGER system_parameters_notify ON system_parameters;
+-- DROP TRIGGER system_parameters_notify ON system_parameters;
 
 -- Attach to system_parameters
 CREATE TRIGGER system_parameters_notify
 AFTER INSERT OR UPDATE OR DELETE ON system_parameters
 FOR EACH ROW EXECUTE FUNCTION notify_data_change();
 
-DROP TRIGGER statuses_notify ON statuses;
+-- DROP TRIGGER statuses_notify ON statuses;
 
 CREATE TRIGGER statuses_notify
 AFTER INSERT OR UPDATE OR DELETE ON statuses

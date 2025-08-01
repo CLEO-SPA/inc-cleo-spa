@@ -76,99 +76,108 @@ class DeploymentApp:
         notebook = ttk.Notebook(self.root)
         notebook.pack(fill=tk.BOTH, expand=True, padx=10, pady=10)
         
-        # Add tabs
-        credentials_frame = ttk.Frame(notebook)
-        deployment_frame = ttk.Frame(notebook)
+        # Add tabs - Local Development first, then combined AWS tab
         local_dev_frame = ttk.Frame(notebook)
+        aws_frame = ttk.Frame(notebook)
         super_admin_frame = ttk.Frame(notebook)
         
-        notebook.add(credentials_frame, text="AWS Configuration")
-        notebook.add(deployment_frame, text="AWS Deployment")
         notebook.add(local_dev_frame, text="Local Development")
+        notebook.add(aws_frame, text="AWS Configuration & Deployment")
         notebook.add(super_admin_frame, text="Super Admin Setup")
         
-        # Setup credentials tab
-        self.setup_credentials_tab(credentials_frame)
-        
-        # Setup deployment tab
-        self.setup_deployment_tab(deployment_frame)
-        
-        # Setup local development tab
+        # Setup local development tab (first)
         setup_local_dev_tab(self, local_dev_frame)
+        
+        # Setup combined AWS tab (configuration and deployment)
+        self.setup_aws_tab(aws_frame)
         
         # Setup super admin tab
         setup_super_admin_tab(super_admin_frame, self)
 
-    def setup_credentials_tab(self, parent):
-        """Set up the AWS credentials tab."""
-        # Create a frame with padding
-        frame = ttk.Frame(parent, padding="10")
+    def setup_aws_tab(self, parent):
+        """Set up the combined AWS configuration and deployment tab."""
+        # Create a scrollable frame
+        canvas = tk.Canvas(parent)
+        scrollbar = ttk.Scrollbar(parent, orient="vertical", command=canvas.yview)
+        scrollable_frame = ttk.Frame(canvas)
+        
+        scrollable_frame.bind(
+            "<Configure>",
+            lambda e: canvas.configure(scrollregion=canvas.bbox("all"))
+        )
+        
+        canvas.create_window((0, 0), window=scrollable_frame, anchor="nw")
+        canvas.configure(yscrollcommand=scrollbar.set)
+        
+        # Create main container with padding
+        frame = ttk.Frame(scrollable_frame, padding="10")
         frame.pack(fill=tk.BOTH, expand=True)
         
         # AWS Credentials section
-        ttk.Label(frame, text="AWS Credentials", font=("Arial", 14, "bold")).grid(row=0, column=0, columnspan=2, sticky=tk.W, pady=(0, 10))
+        creds_frame = ttk.LabelFrame(frame, text="AWS Credentials", padding="10")
+        creds_frame.pack(fill=tk.X, pady=(0, 10))
         
-        ttk.Label(frame, text="AWS Access Key:").grid(row=1, column=0, sticky=tk.W, pady=5)
-        ttk.Entry(frame, textvariable=self.aws_access_key, width=50).grid(row=1, column=1, sticky=tk.W, pady=5)
+        ttk.Label(creds_frame, text="AWS Access Key:").grid(row=0, column=0, sticky=tk.W, pady=5)
+        ttk.Entry(creds_frame, textvariable=self.aws_access_key, width=50).grid(row=0, column=1, sticky=tk.W, pady=5, padx=(10, 0))
         
-        ttk.Label(frame, text="AWS Secret Key:").grid(row=2, column=0, sticky=tk.W, pady=5)
-        secret_entry = ttk.Entry(frame, textvariable=self.aws_secret_key, width=50, show="*")
-        secret_entry.grid(row=2, column=1, sticky=tk.W, pady=5)
+        ttk.Label(creds_frame, text="AWS Secret Key:").grid(row=1, column=0, sticky=tk.W, pady=5)
+        secret_entry = ttk.Entry(creds_frame, textvariable=self.aws_secret_key, width=50, show="*")
+        secret_entry.grid(row=1, column=1, sticky=tk.W, pady=5, padx=(10, 0))
         
-        ttk.Label(frame, text="AWS Region:").grid(row=3, column=0, sticky=tk.W, pady=5)
-        ttk.Entry(frame, textvariable=self.aws_region, width=50).grid(row=3, column=1, sticky=tk.W, pady=5)
+        ttk.Label(creds_frame, text="AWS Region:").grid(row=2, column=0, sticky=tk.W, pady=5)
+        ttk.Entry(creds_frame, textvariable=self.aws_region, width=50).grid(row=2, column=1, sticky=tk.W, pady=5, padx=(10, 0))
         
-        ttk.Label(frame, text="AWS Account ID:").grid(row=4, column=0, sticky=tk.W, pady=5)
-        ttk.Entry(frame, textvariable=self.aws_account_id, width=50).grid(row=4, column=1, sticky=tk.W, pady=5)
+        ttk.Label(creds_frame, text="AWS Account ID:").grid(row=3, column=0, sticky=tk.W, pady=5)
+        ttk.Entry(creds_frame, textvariable=self.aws_account_id, width=50).grid(row=3, column=1, sticky=tk.W, pady=5, padx=(10, 0))
         
-        # Database and JWT section
-        ttk.Label(frame, text="Database and JWT Configuration", font=("Arial", 14, "bold")).grid(row=5, column=0, columnspan=2, sticky=tk.W, pady=(20, 10))
+        # Database and JWT Configuration section
+        db_frame = ttk.LabelFrame(frame, text="Database and JWT Configuration", padding="10")
+        db_frame.pack(fill=tk.X, pady=(0, 10))
         
-        ttk.Label(frame, text="Database Password:").grid(row=6, column=0, sticky=tk.W, pady=5)
-        ttk.Entry(frame, textvariable=self.db_password, width=50, show="*").grid(row=6, column=1, sticky=tk.W, pady=5)
+        ttk.Label(db_frame, text="Database Password:").grid(row=0, column=0, sticky=tk.W, pady=5)
+        ttk.Entry(db_frame, textvariable=self.db_password, width=50, show="*").grid(row=0, column=1, sticky=tk.W, pady=5, padx=(10, 0))
         
-        ttk.Label(frame, text="Auth JWT Secret:").grid(row=7, column=0, sticky=tk.W, pady=5)
-        ttk.Entry(frame, textvariable=self.auth_jwt_secret, width=50).grid(row=7, column=1, sticky=tk.W, pady=5)
+        ttk.Label(db_frame, text="Auth JWT Secret:").grid(row=1, column=0, sticky=tk.W, pady=5)
+        ttk.Entry(db_frame, textvariable=self.auth_jwt_secret, width=50).grid(row=1, column=1, sticky=tk.W, pady=5, padx=(10, 0))
         
-        ttk.Label(frame, text="Inv JWT Secret:").grid(row=8, column=0, sticky=tk.W, pady=5)
-        ttk.Entry(frame, textvariable=self.inv_jwt_secret, width=50).grid(row=8, column=1, sticky=tk.W, pady=5)
+        ttk.Label(db_frame, text="Inv JWT Secret:").grid(row=2, column=0, sticky=tk.W, pady=5)
+        ttk.Entry(db_frame, textvariable=self.inv_jwt_secret, width=50).grid(row=2, column=1, sticky=tk.W, pady=5, padx=(10, 0))
         
-        ttk.Label(frame, text="Remember Token:").grid(row=9, column=0, sticky=tk.W, pady=5)
-        ttk.Entry(frame, textvariable=self.remember_token, width=50).grid(row=9, column=1, sticky=tk.W, pady=5)
+        ttk.Label(db_frame, text="Remember Token:").grid(row=3, column=0, sticky=tk.W, pady=5)
+        ttk.Entry(db_frame, textvariable=self.remember_token, width=50).grid(row=3, column=1, sticky=tk.W, pady=5, padx=(10, 0))
         
-        ttk.Label(frame, text="Session Secret:").grid(row=10, column=0, sticky=tk.W, pady=5)
-        ttk.Entry(frame, textvariable=self.session_secret, width=50).grid(row=10, column=1, sticky=tk.W, pady=5)
+        ttk.Label(db_frame, text="Session Secret:").grid(row=4, column=0, sticky=tk.W, pady=5)
+        ttk.Entry(db_frame, textvariable=self.session_secret, width=50).grid(row=4, column=1, sticky=tk.W, pady=5, padx=(10, 0))
         
-        # Project settings
-        ttk.Label(frame, text="Project Settings", font=("Arial", 14, "bold")).grid(row=11, column=0, columnspan=2, sticky=tk.W, pady=(20, 10))
+        # Project Settings section
+        project_frame = ttk.LabelFrame(frame, text="Project Settings", padding="10")
+        project_frame.pack(fill=tk.X, pady=(0, 10))
         
-        ttk.Label(frame, text="Project Name:").grid(row=12, column=0, sticky=tk.W, pady=5)
-        ttk.Entry(frame, textvariable=self.project_name, width=50).grid(row=12, column=1, sticky=tk.W, pady=5)
+        ttk.Label(project_frame, text="Project Name:").grid(row=0, column=0, sticky=tk.W, pady=5)
+        ttk.Entry(project_frame, textvariable=self.project_name, width=50).grid(row=0, column=1, sticky=tk.W, pady=5, padx=(10, 0))
         
-        # Generate random secrets button
-        ttk.Button(frame, text="Generate Random Secrets", command=self.generate_random_secrets).grid(row=13, column=0, pady=20)
+        # Configuration buttons
+        config_button_frame = ttk.Frame(project_frame)
+        config_button_frame.grid(row=1, column=0, columnspan=2, pady=10)
         
-        # Save configuration button
-        ttk.Button(frame, text="Save Configuration", command=self.save_configuration).grid(row=13, column=1, pady=20)
-
-    def setup_deployment_tab(self, parent):
-        """Set up the AWS deployment tab."""
-        # Create a frame with padding
-        frame = ttk.Frame(parent, padding="10")
-        frame.pack(fill=tk.BOTH, expand=True)
+        ttk.Button(config_button_frame, text="Generate Random Secrets", command=self.generate_random_secrets).pack(side=tk.LEFT, padx=5)
+        ttk.Button(config_button_frame, text="Save Configuration", command=self.save_configuration).pack(side=tk.LEFT, padx=5)
+        
+        # AWS Deployment section
+        deploy_frame = ttk.LabelFrame(frame, text="AWS Deployment", padding="10")
+        deploy_frame.pack(fill=tk.X, pady=(0, 10))
         
         # Add explanation text
         explanation = ttk.Label(
-            frame, 
-            text="This tool will deploy CLEO SPA to AWS using Terraform inside a Docker container.\n"
-                 "Make sure you have completed the AWS Configuration tab before proceeding.",
+            deploy_frame, 
+            text="Deploy CLEO SPA to AWS using Terraform. Make sure you have saved your AWS configuration before proceeding.",
             wraplength=850,
             justify=tk.LEFT
         )
         explanation.pack(fill=tk.X, pady=(0, 10))
         
         # Add action buttons
-        button_frame = ttk.Frame(frame)
+        button_frame = ttk.Frame(deploy_frame)
         button_frame.pack(fill=tk.X, pady=10)
         
         ttk.Button(
@@ -196,12 +205,16 @@ class DeploymentApp:
         ).pack(side=tk.LEFT, padx=5)
         
         # Add output console
-        console_frame = ttk.LabelFrame(frame, text="Deployment Console")
+        console_frame = ttk.LabelFrame(deploy_frame, text="Deployment Console")
         console_frame.pack(fill=tk.BOTH, expand=True, pady=10)
         
         self.console = scrolledtext.ScrolledText(console_frame, wrap=tk.WORD, bg="black", fg="white", font=("Consolas", 10))
         self.console.pack(fill=tk.BOTH, expand=True)
         self.console.config(state=tk.DISABLED)
+        
+        # Pack canvas and scrollbar
+        canvas.pack(side="left", fill="both", expand=True)
+        scrollbar.pack(side="right", fill="y")
 
     def generate_random_secrets(self):
         """Generate random secure secrets for JWT and database."""
@@ -241,9 +254,9 @@ class DeploymentApp:
             return
         
         try:
-            from .utils import get_resource_path, get_project_root
+            from .utils import get_project_root
             
-            # Get the project root directory
+            # Get the project root directory (now points to installed location)
             project_root = get_project_root()
             
             # Update terraform.tfvars
@@ -290,8 +303,8 @@ project_name       = "{self.project_name.get()}"
             
             messagebox.showinfo(
                 "Success", 
-                "Configuration has been saved successfully!\n"
-                "You can now proceed to the Deployment tab to deploy your application."
+                f"Configuration has been saved successfully to:\n{project_root}\n\n"
+                "You can now proceed with deployment."
             )
             
         except Exception as e:
