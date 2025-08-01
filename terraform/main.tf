@@ -12,15 +12,7 @@ terraform {
       source  = "hashicorp/local"
       version = "~> 2.4"
     }
-    null = {
-      source  = "hashicorp/null"
-      version = "~> 3.0"
-    }
   }
-  
-  # This allows Terraform to continue even if there are non-critical errors
-  # such as resources that already exist
-  required_version = ">= 0.13"
 }
 
 provider "aws" {
@@ -168,22 +160,10 @@ resource "aws_security_group" "rds_public_sg" {
 # 2. ECR Repositories
 resource "aws_ecr_repository" "backend" {
   name = "${var.project_name}-backend"
-
-  # This will prevent Terraform from failing if the repository already exists
-  lifecycle {
-    ignore_changes = [name]
-    prevent_destroy = true
-  }
 }
 
 resource "aws_ecr_repository" "frontend" {
   name = "${var.project_name}-frontend"
-
-  # This will prevent Terraform from failing if the repository already exists
-  lifecycle {
-    ignore_changes = [name]
-    prevent_destroy = true
-  }
 }
 
 # 3. RDS Database and Secrets Manager
@@ -193,12 +173,6 @@ resource "aws_db_subnet_group" "default" {
   
   tags = {
     Name = "${var.project_name}-db-subnet-group"
-  }
-
-  # This will prevent Terraform from failing if the subnet group already exists
-  lifecycle {
-    ignore_changes = [name, subnet_ids]
-    prevent_destroy = true
   }
 }
 
@@ -227,20 +201,10 @@ resource "aws_db_instance" "default" {
   
   # Ensure the DB accepts connections with SSL but doesn't require it
   iam_database_authentication_enabled = false
-  
-  lifecycle {
-    ignore_changes = [password, db_subnet_group_name]
-    prevent_destroy = true
-  }
 }
 
 resource "aws_secretsmanager_secret" "db_creds" {
   name = "${var.project_name}/${var.secret_name}"
-
-  lifecycle {
-    ignore_changes = [name]
-    prevent_destroy = true
-  }
 }
 
 resource "aws_secretsmanager_secret_version" "db_creds_version" {
@@ -256,11 +220,6 @@ resource "aws_secretsmanager_secret_version" "db_creds_version" {
 
 resource "aws_secretsmanager_secret" "jwt_secrets" {
   name = "${var.project_name}/${var.jwt_secret_name}"
-
-  lifecycle {
-    ignore_changes = [name]
-    prevent_destroy = true
-  }
 }
 
 resource "aws_secretsmanager_secret_version" "jwt_secrets_version" {
@@ -290,11 +249,6 @@ resource "aws_iam_role" "ec2_ecr_access_role" {
       },
     ]
   })
-
-  lifecycle {
-    ignore_changes = [name, assume_role_policy]
-    prevent_destroy = true
-  }
 }
 
 resource "aws_iam_role_policy" "ecr_access_policy" {
@@ -325,20 +279,11 @@ resource "aws_iam_role_policy" "ecr_access_policy" {
       }
     ]
   })
-  
-  lifecycle {
-    ignore_changes = [policy, role]
-  }
 }
 
 resource "aws_iam_instance_profile" "ec2_ecr_access_profile" {
   name = "${var.project_name}-ec2-ecr-access-profile"
   role = aws_iam_role.ec2_ecr_access_role.name
-  
-  lifecycle {
-    ignore_changes = [name, role]
-    prevent_destroy = true
-  }
 }
 
 # Generate a new key pair for EC2 access
@@ -350,11 +295,6 @@ resource "tls_private_key" "instance_key" {
 resource "aws_key_pair" "generated_key" {
   key_name   = "${var.project_name}-key"
   public_key = tls_private_key.instance_key.public_key_openssh
-
-  lifecycle {
-    ignore_changes = [key_name, public_key]
-    prevent_destroy = true
-  }
 }
 
 # Output the private key to a file (secure this appropriately)
