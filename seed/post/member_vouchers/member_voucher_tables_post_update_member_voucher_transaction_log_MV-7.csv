@@ -1,0 +1,10 @@
+
+UPDATE MEMBER VOUCHER
+id,current_balance
+35,2597
+
+Member Voucher Transaction Logs
+id,member_voucher_id,service_description,service_date,current_balance,amount_change,serviced_by,type,created_by,last_updated_by,created_at,updated_at
+93,35,5D,2025-03-26 12:30:00+08,2705.00,-108,14,CONSUMPTION,14,14,2025-03-28 12:30:00+08,2025-03-28 12:30:00+08
+94,35,FOC Touch up Lash,2025-03-27 12:30:00+08,2705.00,0,14,FOC,14,14,2025-03-28 12:30:00+08,2025-03-28 12:30:00+08
+95,35,5D 9,10,11,12,2025-03-28 12:30:00+08,2597.00,-108,14,CONSUMPTION,14,14,2025-03-28 12:30:00+08,2025-03-28 12:30:00+08

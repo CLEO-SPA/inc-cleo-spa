@@ -1,4 +1,3 @@
-// components/voucher/CreateMemberVoucherForm.jsx
 import { useEffect } from 'react';
 import { Input } from '@/components/ui/input';
 import { Button } from '@/components/ui/button';
@@ -41,7 +40,7 @@ const CreateMemberVoucherForm = () => {
 
   const { selectedMember } = useTransactionCartStore();
 
-  // Auto-set current datetime on component mount
+  // Set default datetime even though calendar component is removed
   useEffect(() => {
     if (!getFormValue('creation_datetime')) {
       setCurrentDateTime();
@@ -52,8 +51,23 @@ const CreateMemberVoucherForm = () => {
   const handleSubmit = (e) => {
     e.preventDefault();
 
-    if (submitForm()) {
+    // Debug: Log current form data and errors
+    console.log('Form submission attempt:');
+    console.log('Selected member:', selectedMember);
+    console.log('Form data:', formData);
+    console.log('Form errors:', formErrors);
+    console.log('Has form errors:', hasFormErrors());
+    console.log('Member voucher details:', memberVoucherDetails);
+
+    const submitResult = submitForm();
+    console.log('Submit result:', submitResult);
+
+    if (submitResult) {
       alert('Member voucher added to cart successfully!');
+    } else {
+      console.error('Submit failed - check validation errors above');
+      // Show a more helpful error message
+      alert('Form submission failed. Please check the console for details and ensure all required fields are filled.');
     }
   };
 
@@ -133,22 +147,7 @@ const CreateMemberVoucherForm = () => {
         {/* Additional Form Fields */}
         <Card>
           <CardContent className='space-y-4'>
-            <div className='grid grid-cols-1 md:grid-cols-2 lg:grid-cols-2 gap-4'>
-              <div className='space-y-1'>
-                <Label htmlFor='creation_datetime' className='text-sm font-medium text-gray-700'>
-                  Creation DateTime *
-                </Label>
-                <Input
-                  id='creation_datetime'
-                  type='datetime-local'
-                  value={getFormValue('creation_datetime') || ''}
-                  onChange={(e) => updateFormField('creation_datetime', e.target.value)}
-                  className={`h-9 ${getFormError('creation_datetime') ? 'border-red-500' : ''}`}
-                />
-                {getFormError('creation_datetime') && (
-                  <p className='text-red-500 text-xs'>{getFormError('creation_datetime')}</p>
-                )}
-              </div>
+            <div className='grid grid-cols-1 md:grid-cols-1 gap-4'>
               <div className='space-y-1'>
                 <EmployeeSelect
                   name='created_by'

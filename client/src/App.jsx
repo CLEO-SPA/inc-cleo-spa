@@ -1,5 +1,6 @@
 import { BrowserRouter as Router, Routes, Route } from 'react-router-dom';
 import { AuthProvider } from '@/context/AuthContext';
+import useAuth from '@/hooks/useAuth';
 import { DateRangeProvider } from '@/context/DateRangeContext';
 import { TranslationProvider } from '@/context/TranslationContext'; // from feature/chineseTranslation
 import ProtectedRoute from '@/components/ProtectedRoute';
@@ -12,6 +13,7 @@ import HomePage from '@/pages/HomePage';
 import LoginPage from '@/pages/LoginPage';
 import ResetPasswordPage from '@/pages/ResetPasswordPage';
 import NotFoundPage from '@/pages/404Page';
+import DataSeedingPage from '@/pages/DataSeedingPage';
 import DatabaseReportPage from '@/pages/DatabaseReportPage';
 
 // Member Management
@@ -105,18 +107,38 @@ import RefundVoucherForm from '@/pages/Refund/RefundVoucherForm';
 import CreditNotesPage from '@/pages/Refund/CreditNotesPage';
 import CreditNoteDetailsPage from '@/pages/Refund/CreditNoteDetailsPage';
 
+const SuperAdminRoute = ({ children }) => {
+  const { user } = useAuth();
+  if (user && user.role === 'super_admin') {
+    return children;
+  }
+  return <NotFoundPage />;
+};
+
+// Users
+import ManageUsersPage from '@/pages/users/ManageUsersPage';
+import CreateUserPage from '@/pages/users/CreateUserPage';
+import UpdateUserPage from '@/pages/users/UpdateUserPage';
+
 function App() {
   return (
-      <AuthProvider>
-        <ReloadTimerPopup />
-        <DateRangeProvider>
-    <TranslationProvider>
-
+    <AuthProvider>
+      <ReloadTimerPopup />
+      <DateRangeProvider>
+        <TranslationProvider>
           <Router>
             <Routes>
               <Route path='/' element={<ProtectedRoute />}>
                 {/* Home page */}
                 <Route index element={<HomePage />} />
+                <Route
+                  path='/seed'
+                  element={
+                    <SuperAdminRoute>
+                      <DataSeedingPage />
+                    </SuperAdminRoute>
+                  }
+                />
 
                 {/* appointments */}
                 <Route path='/appointments' element={<ManageAppointmentsPage />} />
@@ -203,13 +225,13 @@ function App() {
                 <Route path='/refunds' element={<RefundPage />} />
                 <Route path='/refunds/member/:memberId' element={<MemberPackagesList />} />
                 <Route path='/refunds/mcp/:packageId' element={<MCPDetail />} />
-                <Route path="/refunds/services/member/:id" element={<RefundServicesPage />} />
-                <Route path="/refunds/services/receipt/:no" element={<RefundServicesPage />} />
-                <Route path="/refunds/service/:saleTransactionItemId" element={<RefundServiceForm />} />
-                <Route path="/refunds/vouchers/member/:id" element={<RefundVouchersPage />} />
-                <Route path="/refunds/voucher/:voucherId" element={<RefundVoucherForm />} />
-                <Route path="/credit-notes" element={<CreditNotesPage />} />
-                <Route path="/credit-notes/:id" element={<CreditNoteDetailsPage />} />
+                <Route path='/refunds/services/member/:id' element={<RefundServicesPage />} />
+                <Route path='/refunds/services/receipt/:no' element={<RefundServicesPage />} />
+                <Route path='/refunds/service/:saleTransactionItemId' element={<RefundServiceForm />} />
+                <Route path='/refunds/vouchers/member/:id' element={<RefundVouchersPage />} />
+                <Route path='/refunds/voucher/:voucherId' element={<RefundVoucherForm />} />
+                <Route path='/credit-notes' element={<CreditNotesPage />} />
+                <Route path='/credit-notes/:id' element={<CreditNoteDetailsPage />} />
 
                 {/* Service Management */}
                 <Route path='/manage-service' element={<ManageServicePage />} />
@@ -253,6 +275,11 @@ function App() {
                 {/* Translations */}
                 <Route path='/translations' element={<ViewTranslations />} />
                 <Route path='/create-translation' element={<TranslationPage />} />
+
+                {/* Users */}
+                <Route path='/users' element={<ManageUsersPage />} />
+                <Route path='/users/create' element={<CreateUserPage />} />
+                <Route path='/users/edit/:id' element={<UpdateUserPage />} />
               </Route>
 
               {/* Public routes */}
@@ -264,10 +291,9 @@ function App() {
               <Route path='*' element={<NotFoundPage />} />
             </Routes>
           </Router>
-              </TranslationProvider>
-
-        </DateRangeProvider>
-      </AuthProvider>
+        </TranslationProvider>
+      </DateRangeProvider>
+    </AuthProvider>
   );
 }
 
