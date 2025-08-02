@@ -74,7 +74,7 @@ import EditEmployeePage from '@/pages/em/UpdateEmployeePage';
 import RevenueReportPage from '@/pages/revenue/RevenueReportPage';
 import DeferredRevenuePage from '@/pages/revenue/DeferredRevenuePage';
 // Employees
-import EmployeeTimetablePage from '@/pages/EmployeeTimetable/EmployeeTimetable';
+import EmployeeTimetablePage from '@/pages/EmployeeTimetable/EmployeeTimetablePage';
 
 // Employee Timetable Pages
 import CreateEmployeeTimetablePage from '@/pages/EmployeeTimetable/CreateEmployeeTimetablePage';
