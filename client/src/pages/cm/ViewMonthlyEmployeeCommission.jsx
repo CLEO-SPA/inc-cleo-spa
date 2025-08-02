@@ -1,5 +1,5 @@
 import React, { useEffect, useState } from 'react';
-import { useSearchParams } from 'react-router-dom';
+import { useSearchParams, useNavigate } from 'react-router-dom';
 import { AppSidebar } from '@/components/app-sidebar';
 import { SiteHeader } from '@/components/site-header';
 import { SidebarInset, SidebarProvider } from '@/components/ui/sidebar';
@@ -7,28 +7,24 @@ import { Card, CardHeader, CardTitle, CardContent } from '@/components/ui/card';
 import { Table, TableHeader, TableRow, TableHead, TableBody, TableCell } from '@/components/ui/table';
 import { Button } from '@/components/ui/button';
 
+// Dummy generator with performance and commission only
 const generateDummyBreakdown = (year, month) => {
   const days = new Date(year, month, 0).getDate();
   const data = [];
 
   for (let d = 1; d <= days; d++) {
-    const isActive = [5, 7, 8].includes(d);
-    const service = isActive ? 0 : 0;
-    const product = d === 7 ? 1500 : 0;
-    const membership = 0;
-    const packageSale = d === 8 ? 3000 : 0;
+    let performance_amount = 0;
 
-    const performanceTotal = service + product + membership + packageSale;
-    const commissionTotal = performanceTotal > 0 ? +(performanceTotal * 0.06).toFixed(2) : 0;
+    if ([5, 7, 8].includes(d)) {
+      performance_amount = d === 8 ? 3000 : 1500;
+    }
+
+    const commission_amount = performance_amount > 0 ? +(performance_amount * 0.06).toFixed(2) : 0;
 
     data.push({
       day: d,
-      service,
-      product,
-      membership,
-      packageSale,
-      performanceTotal,
-      commissionTotal,
+      performance_amount,
+      commission_amount,
     });
   }
 
@@ -37,9 +33,13 @@ const generateDummyBreakdown = (year, month) => {
 
 export default function ViewMonthlyEmployeeCommission() {
   const now = new Date();
+  const navigate = useNavigate();
   const [searchParams] = useSearchParams();
-  const employeeId = searchParams.get('employeeId') || 'EMP002';
+
+  const employeeId = searchParams.get('employeeId') || '14';
+  const employeeCode = 'EMP002';
   const employeeName = 'Tina';
+
   const [month, setMonth] = useState(now.getMonth() + 1);
   const [year, setYear] = useState(now.getFullYear());
   const [data, setData] = useState([]);
@@ -48,8 +48,8 @@ export default function ViewMonthlyEmployeeCommission() {
     setData(generateDummyBreakdown(year, month));
   }, [year, month]);
 
-  const totalPerformance = data.reduce((sum, row) => sum + row.performanceTotal, 0);
-  const totalCommission = data.reduce((sum, row) => sum + row.commissionTotal, 0);
+  const totalPerformance = data.reduce((sum, row) => sum + row.performance_amount, 0);
+  const totalCommission = data.reduce((sum, row) => sum + row.commission_amount, 0);
 
   return (
     <div className='[--header-height:calc(theme(spacing.14))]'>
@@ -61,32 +61,43 @@ export default function ViewMonthlyEmployeeCommission() {
             <div className='flex flex-col gap-4 p-4'>
               <Card>
                 <CardHeader>
-                  <CardTitle className='text-lg font-semibold'>Monthly Employee Sales Performance / Commission Report</CardTitle>
+                  <CardTitle className='text-lg font-semibold'>
+                    Monthly Employee Sales Performance / Commission Report
+                  </CardTitle>
                   <div className='mt-4 flex flex-wrap gap-4 text-sm'>
-                    <label>
-                      Select Month:
-                      <select value={month} onChange={(e) => setMonth(Number(e.target.value))} className='ml-2 border rounded px-2 py-1'>
+                    <div>
+                      <span>Select Month:</span>
+                      <select
+                        value={month}
+                        onChange={(e) => setMonth(Number(e.target.value))}
+                        className='ml-2 border rounded px-2 py-1'
+                      >
                         {Array.from({ length: 12 }, (_, i) => i + 1).map((m) => (
                           <option key={m} value={m}>
                             {new Date(0, m - 1).toLocaleString('default', { month: 'long' })}
                           </option>
                         ))}
                       </select>
-                    </label>
-                    <label>
-                      Select Year:
-                      <select value={year} onChange={(e) => setYear(Number(e.target.value))} className='ml-2 border rounded px-2 py-1'>
+                    </div>
+                    <div>
+                      <span>Select Year:</span>
+                      <select
+                        value={year}
+                        onChange={(e) => setYear(Number(e.target.value))}
+                        className='ml-2 border rounded px-2 py-1'
+                      >
                         {[2022, 2023, 2024, 2025].map((y) => (
                           <option key={y} value={y}>{y}</option>
                         ))}
                       </select>
-                    </label>
+                    </div>
                   </div>
                 </CardHeader>
 
                 <CardContent className='space-y-4 text-sm'>
                   <div className='grid grid-cols-2 md:grid-cols-3 gap-2'>
-                    <div><strong>Employee Code:</strong> {employeeId}</div>
+                    <div><strong>Employee ID:</strong> {employeeId}</div>
+                    <div><strong>Employee Code:</strong> {employeeCode}</div>
                     <div><strong>Employee Name:</strong> {employeeName}</div>
                     <div><strong>Month/Year:</strong> {String(month).padStart(2, '0')}/{year}</div>
                   </div>
@@ -99,26 +110,27 @@ export default function ViewMonthlyEmployeeCommission() {
                     <TableHeader>
                       <TableRow>
                         <TableHead>Day</TableHead>
-                        <TableHead>Service</TableHead>
-                        <TableHead>Product</TableHead>
-    
-                        <TableHead>Package Sales</TableHead>
-                        <TableHead>Performance Total</TableHead>
-                        <TableHead>Commission Total</TableHead>
+                        <TableHead>Performance Amount</TableHead>
+                        <TableHead>Commission Amount</TableHead>
                         <TableHead>Actions</TableHead>
                       </TableRow>
                     </TableHeader>
                     <TableBody>
                       {data.map((row) => (
-                        <TableRow key={row.day}>
+                        <TableRow key={row.day} className='hover:bg-muted'>
                           <TableCell>{row.day}</TableCell>
-                          <TableCell>{row.service.toFixed(2)}</TableCell>
-                          <TableCell>{row.product.toFixed(2)}</TableCell>
-                          <TableCell>{row.packageSale.toFixed(2)}</TableCell>
-                          <TableCell>{row.performanceTotal.toFixed(2)}</TableCell>
-                          <TableCell>{row.commissionTotal.toFixed(2)}</TableCell>
+                          <TableCell>${row.performance_amount.toFixed(2)}</TableCell>
+                          <TableCell>${row.commission_amount.toFixed(2)}</TableCell>
                           <TableCell>
-                            <Button size='sm' className='text-xs bg-blue-500 hover:bg-blue-600'>View Breakdown</Button>
+                            <Button
+                              size='sm'
+                              className='text-xs bg-blue-500 hover:bg-blue-600'
+                              onClick={() =>
+                                navigate(`/cm/daily-commission-breakdown?employeeId=${employeeId}&day=${row.day}`)
+                              }
+                            >
+                              View Breakdown
+                            </Button>
                           </TableCell>
                         </TableRow>
                       ))}
