@@ -610,7 +610,6 @@ const getMemberVoucherDetailsHandler = async (
   }
 };
 
-
 const transferVoucherDetailsHandler = async (
   req: Request,
   res: Response,
@@ -629,6 +628,7 @@ const transferVoucherDetailsHandler = async (
       created_at,
       remarks,
       top_up_balance,
+      service_details, // ✅ NEW: Extract service_details from request body
     }: {
       member_name: string;
       voucher_template_name: string;
@@ -645,6 +645,7 @@ const transferVoucherDetailsHandler = async (
       created_at: string;
       remarks: string;
       top_up_balance: number;
+      service_details?: any[]; // ✅ NEW: Define service_details type (adjust type as needed)
     } = req.body;
 
     // Validate input
@@ -657,6 +658,15 @@ const transferVoucherDetailsHandler = async (
       !Array.isArray(old_voucher_details)
     ) {
       res.status(400).json({ success: false, message: "Missing required fields." });
+      return;
+    }
+
+    // ✅ NEW: Validate service_details when bypass is enabled
+    if (is_bypass && (!service_details || !Array.isArray(service_details))) {
+      res.status(400).json({
+        success: false,
+        message: "Service details are required when bypass is enabled."
+      });
       return;
     }
 
@@ -679,7 +689,7 @@ const transferVoucherDetailsHandler = async (
       voucherTemplateId = templates[0].id;
     }
 
-    // Create new member voucher
+    // ✅ UPDATED: Create new member voucher with bypass and service_details
     const createdVoucher = await model.createMemberVoucherForTransfer(
       memberId,
       voucher_template_name,
@@ -688,7 +698,9 @@ const transferVoucherDetailsHandler = async (
       foc,
       remarks || "",
       created_by,
-      created_at
+      created_at, // ✅ FIXED: Use created_at from transaction details
+      is_bypass || false, // ✅ NEW: Pass is_bypass parameter
+      service_details || [] // ✅ NEW: Pass service_details parameter
     );
     const newVoucherId = Number(createdVoucher.id);
 
@@ -697,7 +709,6 @@ const transferVoucherDetailsHandler = async (
 
     for (const { voucher_id, member_voucher_name } of old_voucher_details) {
       const isFOCUsed = await model.checkIfFreeOfChargeIsUsedById(voucher_id);
-
 
       if (isFOCUsed) {
         await model.removeFOCFromVoucherById(voucher_id, created_by, created_at);

@@ -1468,8 +1468,9 @@ const createMemberVoucherForTransfer = async (
   foc: number,
   remarks: string,
   createdBy: number,
-  saleTransactionCreatedAt: string, // ✅ RENAMED: Now expects sale transaction's creation date
-  isBypass?: boolean // still accepted, but not used now
+  saleTransactionCreatedAt: string,
+  isBypass?: boolean,
+  serviceDetails?: any[] // ✅ NEW: Accept service details array
 ): Promise<MemberVouchers> => {
   try {
     // ✅ FIXED: Use sale transaction's creation date for all operations
@@ -1509,54 +1510,93 @@ const createMemberVoucherForTransfer = async (
       "is_enabled",
       remarks,
       createdBy || null,
-      createdAt,    // ✅ Uses sale transaction date
-      updatedAt     // ✅ Uses sale transaction date
+      createdAt,
+      updatedAt
     ];
 
     const result = await pool().query(insertVoucherQuery, voucherValues);
     const newVoucher: MemberVouchers = result.rows[0];
 
-    // 🔁 Always insert member_voucher_details based on template
-    const templateDetailsQuery = `
-      SELECT * FROM voucher_template_details
-      WHERE voucher_template_id = $1
-    `;
-    const templateDetailsResult = await pool().query(templateDetailsQuery, [voucherTemplateId]);
-    const templateDetails = templateDetailsResult.rows;
+    // ✅ NEW: Handle bypass vs template-based service details insertion
+    if (isBypass && serviceDetails && Array.isArray(serviceDetails)) {
+      // 🔄 BYPASS MODE: Insert manual service details
+      for (const serviceDetail of serviceDetails) {
+        const insertDetailQuery = `
+          INSERT INTO member_voucher_details (
+            member_voucher_id,
+            service_id,
+            service_name,
+            original_price,
+            custom_price,
+            discount,
+            final_price,
+            duration,
+            created_at,
+            updated_at,
+            service_category_id
+          ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11)
+        `;
 
-    for (const detail of templateDetails) {
-      const insertDetailQuery = `
-        INSERT INTO member_voucher_details (
-          member_voucher_id,
-          service_id,
-          service_name,
-          original_price,
-          custom_price,
-          discount,
-          final_price,
-          duration,
-          created_at,
-          updated_at,
-          service_category_id
-        ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11)
+        const insertDetailValues = [
+          newVoucher.id,                        // $1 member_voucher_id
+          0,                                    // $2 service_id (always 0 for manual)
+          serviceDetail.name, // $3 service_name
+          serviceDetail.price || 0,             // $4 original_price
+          serviceDetail.final_price || serviceDetail.price || 0, // $5 custom_price
+          serviceDetail.discount || 0,          // $6 discount
+          serviceDetail.final_price || serviceDetail.price || 0, // $7 final_price
+          serviceDetail.duration || 0,         // $8 duration
+          createdAt,                           // $9
+          updatedAt,                           // $10
+          0                                    // $11 service_category_id (always 0 for manual)
+        ];
+
+        console.log("Insert Manual Service Detail Values: ", insertDetailValues);
+        await pool().query(insertDetailQuery, insertDetailValues);
+      }
+    } else {
+      // 🔁 TEMPLATE MODE: Insert member_voucher_details based on template
+      const templateDetailsQuery = `
+        SELECT * FROM voucher_template_details
+        WHERE voucher_template_id = $1
       `;
+      const templateDetailsResult = await pool().query(templateDetailsQuery, [voucherTemplateId]);
+      const templateDetails = templateDetailsResult.rows;
 
-      const insertDetailValues = [
-        newVoucher.id,                   // $1 member_voucher_id
-        detail.service_id,              // $2
-        detail.service_name,            // $3
-        detail.original_price,          // $4
-        detail.custom_price,            // $5
-        detail.discount,                // $6
-        detail.final_price,             // $7
-        detail.duration,                // $8
-        createdAt,                      // $9 ✅ Uses sale transaction date
-        updatedAt,                      // $10 ✅ Uses sale transaction date
-        detail.service_category_id      // $11
-      ];
+      for (const detail of templateDetails) {
+        const insertDetailQuery = `
+          INSERT INTO member_voucher_details (
+            member_voucher_id,
+            service_id,
+            service_name,
+            original_price,
+            custom_price,
+            discount,
+            final_price,
+            duration,
+            created_at,
+            updated_at,
+            service_category_id
+          ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11)
+        `;
 
-      console.log("Insert Detail Values: ", insertDetailValues);
-      await pool().query(insertDetailQuery, insertDetailValues);
+        const insertDetailValues = [
+          newVoucher.id,                   // $1 member_voucher_id
+          detail.service_id,              // $2
+          detail.service_name,            // $3
+          detail.original_price,          // $4
+          detail.custom_price,            // $5
+          detail.discount,                // $6
+          detail.final_price,             // $7
+          detail.duration,                // $8
+          createdAt,                      // $9
+          updatedAt,                      // $10
+          detail.service_category_id      // $11
+        ];
+
+        console.log("Insert Template Detail Values: ", insertDetailValues);
+        await pool().query(insertDetailQuery, insertDetailValues);
+      }
     }
 
     return newVoucher;
@@ -1565,7 +1605,6 @@ const createMemberVoucherForTransfer = async (
     throw new Error("Failed to add member voucher");
   }
 };
-
 
 const getMemberVoucherWithDetails = async (name: string | null = null): Promise<any[]> => {
   try {
