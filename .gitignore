@@ -168,3 +168,7 @@ terraform/.aws/
 
 # AWS key
 terraform/*.pem
+
+# Seeding Files
+seed/seed_status.db
+seed/merged

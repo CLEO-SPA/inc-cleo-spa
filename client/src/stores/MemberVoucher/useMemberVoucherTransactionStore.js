@@ -19,10 +19,6 @@ const getInitialState = () => ({
     selectedTransactionLogId: -1,
     memberVoucherPurchasedAt: null,
 
-    // Employee Commission
-    selectedServiceId: null,
-    selectedServiceFinalPrice: 0,
-
     // Create and Update
     formData: [], // form Data is validate data while formFieldData is user input
     createFormFieldData: {
@@ -32,8 +28,7 @@ const getInitialState = () => ({
         time: '12:00',
         type: '',
         createdBy: '',
-        handledBy: '',
-        assignedEmployee: []
+        handledBy: ''
     },
     updateFormFieldData: {
         consumptionValue: '',
@@ -88,33 +83,12 @@ const useMemberVoucherTransactionStore = create((set, get) => ({
                 memberVoucherServiceList: data
             });
 
-            // Get service ID and final price from the service for Employee Commission Select
-            const service = data[0];
-            set({
-                selectedServiceId: service.id,
-                selectedServiceFinalPrice: parseFloat(service.final_price)
-            });
-
             get().setSuccessWithTimeout();
 
         } catch (error) {
             const errorMessage = handleApiError(error);
             set({ error: true, errorMessage: errorMessage, loading: false });
         };
-    },
-
-    setSelectedService: (serviceId, finalPrice) => {
-        set({
-            selectedServiceId: serviceId,
-            selectedServiceFinalPrice: finalPrice
-        });
-    },
-
-    clearSelectedService: () => {
-        set({
-            selectedServiceId: null,
-            selectedServiceFinalPrice: 0
-        });
     },
 
     fetchMemberNameByMemberVoucherId: async () => {
@@ -304,8 +278,7 @@ const useMemberVoucherTransactionStore = create((set, get) => ({
                     time: '12:00',
                     type: '',
                     createdBy: '',
-                    handledBy: '',
-                    assignedEmployee: []
+                    handledBy: ''
                 },
             });
 
@@ -468,15 +441,13 @@ const useMemberVoucherTransactionStore = create((set, get) => ({
                 ...formFieldData,
                 createdByWithName,
                 handledByWithName,
-                lastUpdatedByWithName,
-                assignedEmployee: formFieldData.assignedEmployee || []
+                lastUpdatedByWithName
             };
         } else {
             formFieldDataWithEmpName = {
                 ...formFieldData,
                 createdByWithName,
-                handledByWithName,
-                assignedEmployee: formFieldData.assignedEmployee || []
+                handledByWithName
             };
         }
 
@@ -563,8 +534,7 @@ const useMemberVoucherTransactionStore = create((set, get) => ({
                 time: '12:00',
                 type: '',
                 createdBy: '',
-                handledBy: '',
-                assignedEmployee: []
+                handledBy: ''
             }
         });
     },

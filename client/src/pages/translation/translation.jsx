@@ -38,8 +38,13 @@ const TranslationForm = () => {
     const handleSubmit = (event) => {
         event.preventDefault();
 
-        if (!english || !chinese) {
-            setError(t("Both English and Chinese fields are required.", "必须填写英文和中文字段"));
+        if (!english || !chinese || !meaningEnglish || !meaningChinese) {
+            setError(
+                t(
+                    "All fields are required: English, Chinese, Meaning in English, and Meaning in Chinese.",
+                    "所有字段均为必填：英文、中文、英文释义和中文释义。"
+                )
+            );
             setSuccess('');
             return;
         }
@@ -182,7 +187,7 @@ const TranslationForm = () => {
 
             {showConfirm && (
                 <div className="fixed inset-0 bg-black bg-opacity-40 flex items-center justify-center z-50 px-4">
-                    <div className="bg-white rounded-2xl shadow-2xl max-w-md w-full p-8">
+                    <div className="bg-white rounded-2xl shadow-2xl max-w-md w-full p-8 overflow-y-auto max-h-screen">
                         <h2 className="text-2xl font-bold text-blue-700 mb-4 text-center">
                             {t("Confirm Translation", "确认翻译")}
                         </h2>
