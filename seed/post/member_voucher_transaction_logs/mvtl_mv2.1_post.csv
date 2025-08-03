@@ -1,0 +1,2 @@
+id,member_voucher_id,service_description,service_date,current_balance,amount_change,serviced_by,type,created_by,updated_by,created_at,updated_at
+1,31,N.A,2025-02-01 11:00:00+00,1888.00,1888,14,PURCHASE,14,14,2025-02-01 11:00:00+00,2025-02-01 11:00:00+00
