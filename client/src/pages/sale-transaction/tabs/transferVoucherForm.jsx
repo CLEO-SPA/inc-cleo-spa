@@ -554,11 +554,9 @@ const TransferVoucherForm = () => {
                   const updated = [...oldVouchers];
                   updated[index] = e.target.value;
                   setOldVouchers(updated);
-
                   const displayUpdated = [...displayOldVouchers];
                   displayUpdated[index] = e.target.value;
                   setDisplayOldVouchers(displayUpdated);
-
                   handleInputChange('oldVouchers');
                 }}
               >
