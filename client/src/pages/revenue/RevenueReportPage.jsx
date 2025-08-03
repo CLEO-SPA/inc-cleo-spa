@@ -39,8 +39,10 @@ function RevenueReportPage() {
     fetchPaymentMethods,
   } = useRevenueReportStore();
 
+  // Fixed columns that come after payment methods
+  const fixedColumns = ['Total Income', 'GST', 'Total with GST', 'VIP', 'Package', 'Net Sales', 'Refund'];
+
   const [tab, setTab] = useState('combined');
-  const [hoveredRow, setHoveredRow] = useState(null);
 
   useEffect(() => {
     fetchEarliestDate();
@@ -68,18 +70,64 @@ function RevenueReportPage() {
     console.log('Payment Methods Loading:', paymentMethodsLoading);
     console.log('Payment Methods Error:', paymentMethodsError);
     console.log('Payment Methods Count:', paymentMethods.length);
-    
+
     if (paymentMethods.length > 0) {
       console.log('First Payment Method:', paymentMethods[0]);
       console.log('All Payment Method Names:', paymentMethods.map(pm => pm.payment_method_name));
     }
   }, [paymentMethods, paymentMethodsLoading, paymentMethodsError]);
 
+  // ========== DELETABLE AFTER TESTING: REPORT DATA TESTING ==========
+  useEffect(() => {
+    console.log('=== REPORT DATA TEST ===');
+    console.log('Report Data:', reportData);
+    console.log('Report Data Length:', reportData.length);
+    if (reportData.length > 0) {
+      console.log('First Row:', reportData[0]);
+      console.log('First Row Keys:', Object.keys(reportData[0]));
+      console.log('Sample Row Values:', {
+        day: reportData[0].day,
+        cash: reportData[0].cash,
+        visa: reportData[0].visa,
+        payment: reportData[0].payment,
+        nets: reportData[0].nets,
+        total: reportData[0].total,
+        gst: reportData[0].gst,
+        vip: reportData[0].vip,
+        package: reportData[0].package,
+        net_sales: reportData[0].net_sales,
+        refund: reportData[0].refund
+      });
+    }
+  }, [reportData]);
+  // ========== END DELETABLE SECTION ==========
+
   const currentTotals = useMemo(() => {
-    return totals[tab] || {};
+    const totalsData = totals[tab] || {};
+    
+    // ========== DELETABLE AFTER TESTING: TOTALS DATA TESTING ==========
+    console.log('=== TOTALS TEST ===');
+    console.log('Current Totals:', totalsData);
+    console.log('Totals Keys:', Object.keys(totalsData));
+    console.log('Sample Total Values:', {
+      cash: totalsData.cash,
+      visa: totalsData.visa,
+      payment: totalsData.payment,
+      nets: totalsData.nets,
+      total: totalsData.total,
+      gst: totalsData.gst,
+      vip: totalsData.vip,
+      package: totalsData.package,
+      net_sales: totalsData.net_sales,
+      refund: totalsData.refund
+    });
+    // ========== END DELETABLE SECTION ==========
+
+    return totalsData;
   }, [totals, tab]);
 
   const handleGetReport = () => {
+    fetchPaymentMethods();
     fetchRevenueData();
   };
 
@@ -121,7 +169,7 @@ function RevenueReportPage() {
       [title], // Title row
       [subtitle], // Subtitle row
       [], // Empty row
-      ['Day', 'Cash', 'Visa', 'PayNow', 'Nets', 'Total', 'FOC', 'VIP', 'Package', 'Net Sales', 'Refund'], // Header row
+      ['Day', 'Cash', 'Visa', 'PayNow', 'Nets', 'Total', 'VIP', 'Package', 'Net Sales', 'Refund'], // Header row
       ...reportData.map(row => [
         row.day,
         parseFloatSafe(row.cash).toFixed(2),
@@ -129,10 +177,9 @@ function RevenueReportPage() {
         parseFloatSafe(row.payment).toFixed(2),
         parseFloatSafe(row.nets).toFixed(2),
         parseFloatSafe(row.total).toFixed(2),
-        parseFloatSafe(row.foc).toFixed(2),
         parseFloatSafe(row.vip).toFixed(2),
         parseFloatSafe(row.package).toFixed(2),
-        parseFloatSafe(row.netSales).toFixed(2),
+        parseFloatSafe(row.net_sales).toFixed(2),
         parseFloatSafe(row.refund).toFixed(2)
       ]),
       // Total row
@@ -143,14 +190,13 @@ function RevenueReportPage() {
         (currentTotals.payment || 0).toFixed(2),
         (currentTotals.nets || 0).toFixed(2),
         (currentTotals.total || 0).toFixed(2),
-        (currentTotals.foc || 0).toFixed(2),
         (currentTotals.vip || 0).toFixed(2),
         (currentTotals.package || 0).toFixed(2),
-        (currentTotals.netSales || 0).toFixed(2),
+        (currentTotals.net_sales || 0).toFixed(2),
         (currentTotals.refund || 0).toFixed(2)
       ],
       [], // Empty row
-      [`Total Revenue Amount: ${((currentTotals.netSales || 0) - (currentTotals.refund || 0)).toFixed(2)} $`]
+      [`Total Revenue Amount: ${((currentTotals.net_sales || 0) - (currentTotals.refund || 0)).toFixed(2)} $`]
     ];
 
     // Create workbook and worksheet
@@ -165,7 +211,6 @@ function RevenueReportPage() {
       { wch: 10 }, // PayNow
       { wch: 10 }, // Nets
       { wch: 10 }, // Total
-      { wch: 10 }, // FOC
       { wch: 10 }, // VIP
       { wch: 10 }, // Package
       { wch: 12 }, // Net Sales
@@ -189,9 +234,9 @@ function RevenueReportPage() {
 
     // Merge cells for title and subtitle
     ws['!merges'] = [
-      { s: { r: 0, c: 0 }, e: { r: 0, c: 10 } }, // Title row
-      { s: { r: 1, c: 0 }, e: { r: 1, c: 10 } }, // Subtitle row
-      { s: { r: excelData.length - 1, c: 0 }, e: { r: excelData.length - 1, c: 10 } } // Total revenue row
+      { s: { r: 0, c: 0 }, e: { r: 0, c: 9 } }, // Title row
+      { s: { r: 1, c: 0 }, e: { r: 1, c: 9 } }, // Subtitle row
+      { s: { r: excelData.length - 1, c: 0 }, e: { r: excelData.length - 1, c: 9 } } // Total revenue row
     ];
 
     // Add worksheet to workbook
@@ -254,7 +299,7 @@ function RevenueReportPage() {
               <div className="flex items-center justify-between mb-6">
                 <h2 className="text-2xl font-bold">Revenue Report</h2>
                 <div className="flex space-x-2">
-                  {/* TEST: Add a test button for payment methods */}
+                  {/* ========== DELETABLE AFTER TESTING: TEST BUTTON ========== */}
                   <button
                     onClick={handleTestPaymentMethods}
                     className="bg-blue-600 text-white px-4 py-2 rounded hover:bg-blue-700 transition-colors text-sm"
@@ -262,6 +307,8 @@ function RevenueReportPage() {
                   >
                     {paymentMethodsLoading ? 'Loading...' : 'Test Payment Methods'}
                   </button>
+                  {/* ========== END DELETABLE SECTION ========== */}
+                  
                   <button
                     onClick={handleDownloadExcel}
                     className="bg-green-600 text-white p-3 rounded hover:bg-green-700 transition-colors"
@@ -273,7 +320,7 @@ function RevenueReportPage() {
                 </div>
               </div>
 
-              {/* TEST: Display payment methods info */}
+              {/* ========== DELETABLE AFTER TESTING: PAYMENT METHODS INFO DISPLAY ========== */}
               <div className="mb-4 p-3 bg-gray-100 rounded border">
                 <h4 className="font-semibold text-sm mb-2">Payment Methods Test Info:</h4>
                 <div className="text-xs space-y-1">
@@ -287,6 +334,7 @@ function RevenueReportPage() {
                   )}
                 </div>
               </div>
+              {/* ========== END DELETABLE SECTION ========== */}
 
               {/* Using the new MonthYearSelector component */}
               <MonthYearSelector
@@ -350,7 +398,18 @@ function RevenueReportPage() {
                   <table className="min-w-full border border-gray-200">
                     <thead>
                       <tr className="bg-gray-100">
-                        {['Day', 'Cash', 'Visa', 'PayNow', 'Nets', 'Total Income', 'GST','Total with GST', 'VIP', 'Package', 'Net Sales', 'Refund'].map(header => (
+                        {/* Day column */}
+                        <th className="border border-gray-300 px-4 py-2">Day</th>
+
+                        {/* Dynamic payment method columns */}
+                        {paymentMethods.map(method => (
+                          <th key={method.id} className="border border-gray-300 px-4 py-2">
+                            {method.payment_method_name}
+                          </th>
+                        ))}
+
+                        {/* Fixed columns */}
+                        {fixedColumns.map(header => (
                           <th key={header} className="border border-gray-300 px-4 py-2">{header}</th>
                         ))}
                       </tr>
@@ -358,68 +417,125 @@ function RevenueReportPage() {
                     <tbody>
                       {reportData.length > 0 ? (
                         <>
-                          {reportData.map((row, index) => (
-                            <tr key={row.day} className="hover:bg-gray-50">
-                              <td className="border border-gray-300 px-4 py-2 text-center">{row.day}</td>
-                              <td className="border border-gray-300 px-4 py-2 text-center">{formatAmount(row.cash)}</td>
-                              <td className="border border-gray-300 px-4 py-2 text-center">{formatAmount(row.visa)}</td>
-                              <td className="border border-gray-300 px-4 py-2 text-center">{formatAmount(row.payment)}</td>
-                              <td className="border border-gray-300 px-4 py-2 text-center">{formatAmount(row.nets)}</td>
-                              <td className="border border-gray-300 px-4 py-2 text-center">{formatAmount(row.total)}</td>
-                              <td className="border border-gray-300 px-4 py-2 text-center">{formatAmount(row.total * 0.09)}</td>
-                              <td className="border border-gray-300 px-4 py-2 text-center">{formatAmount(row.total * 1.09)}</td>
-                              {/* <td className="border border-gray-300 px-4 py-2 text-center">{formatAmount(row.foc)}</td> */}
-                              <td
-                                className="border border-gray-300 px-4 py-2 text-center relative"
-                                onMouseEnter={() => row.vip !== 0 && row.foc !== 0 && setHoveredRow(index)}
-                                onMouseLeave={() => setHoveredRow(null)}
-                              >
-                                <span className={hoveredRow === index ? 'text-blue-600' : ''}>
+                          {reportData.map((row, index) => {
+                            // ========== DELETABLE AFTER TESTING: INDIVIDUAL ROW DATA TESTING ==========
+                            if (index === 0) { // Only log first row to avoid spam
+                              console.log('=== ROW DATA TEST ===');
+                              console.log('Row:', row);
+                              console.log('Row Keys:', Object.keys(row));
+                              console.log('Row Values for Payment Methods:', {
+                                cash: row.cash,
+                                visa: row.visa,
+                                payment: row.payment,
+                                nets: row.nets
+                              });
+                            }
+                            // ========== END DELETABLE SECTION ==========
+
+                            return (
+                              <tr key={row.day} className="hover:bg-gray-50">
+                                {/* Day column */}
+                                <td className="border border-gray-300 px-4 py-2 text-center">{row.day}</td>
+
+                                {/* Dynamic payment method columns */}
+                                {paymentMethods.map(method => {
+                                  const key = method.payment_method_name.toLowerCase();
+                                  
+                                  // ========== DELETABLE AFTER TESTING: PAYMENT METHOD MAPPING TEST ==========
+                                  if (index === 0) { // Only log for first row
+                                    console.log(`=== PAYMENT METHOD MAPPING TEST ===`);
+                                    console.log(`Method Name: ${method.payment_method_name}`);
+                                    console.log(`Lowercase Key: ${key}`);
+                                    console.log(`Row Value for ${key}:`, row[key]);
+                                    console.log(`Current Totals Value for ${key}:`, currentTotals[key]);
+                                  }
+                                  // ========== END DELETABLE SECTION ==========
+
+                                  return (
+                                    <td key={method.id} className="border border-gray-300 px-4 py-2 text-center">
+                                      {formatAmount(row[key])}
+                                    </td>
+                                  );
+                                })}
+
+                                {/* Fixed columns */}
+                                <td className="border border-gray-300 px-4 py-2 text-center">{formatAmount(row.total)}</td>
+                                <td className="border border-gray-300 px-4 py-2 text-center">{formatAmount(row.gst)}</td>
+                                <td className="border border-gray-300 px-4 py-2 text-center">{formatAmount(row.total + row.gst)}</td>
+                                <td className="border border-gray-300 px-4 py-2 text-center">
                                   {formatAmount(row.vip)}
-                                </span>
-                                {hoveredRow === index && row.vip !== 0 && (
-                                  <div className="absolute z-10 bg-gray-100 p-2 border border-gray-300 rounded shadow-lg whitespace-nowrap top-full left-1/2 transform -translate-x-1/2">
-                                    {(row.foc + row.vip).toFixed(2)} - FOC {row.foc.toFixed(2)} = {formatAmount(row.vip)}
-                                  </div>
-                                )}
-                              </td>
-                              <td className="border border-gray-300 px-4 py-2 text-center">{formatAmount(row.package)}</td>
-                              <td className="border border-gray-300 px-4 py-2 text-center">{formatAmount(row.netSales)}</td>
-                              <td className="border border-gray-300 px-4 py-2 text-center">{formatAmount(row.refund)}</td>
-                            </tr>
-                          ))}
+                                </td>
+                                <td className="border border-gray-300 px-4 py-2 text-center">{formatAmount(row.package)}</td>
+                                <td className="border border-gray-300 px-4 py-2 text-center">{formatAmount(row.net_sales)}</td>
+                                <td className="border border-gray-300 px-4 py-2 text-center">{formatAmount(row.refund)}</td>
+                              </tr>
+                            );
+                          })}
+
+                          {/* Totals row */}
                           <tr className="bg-gray-200 font-semibold">
                             <td className="border border-gray-300 px-4 py-2 text-center">Total</td>
-                            <td className="border border-gray-300 px-4 py-2 text-center">{(currentTotals.cash || 0).toFixed(2)}</td>
-                            <td className="border border-gray-300 px-4 py-2 text-center">{(currentTotals.visa || 0).toFixed(2)}</td>
-                            <td className="border border-gray-300 px-4 py-2 text-center">{(currentTotals.payment || 0).toFixed(2)}</td>
-                            <td className="border border-gray-300 px-4 py-2 text-center">{(currentTotals.nets || 0).toFixed(2)}</td>
+
+                            {/* Dynamic payment method totals */}
+                            {paymentMethods.map(method => {
+                              const getTotalValue = (methodName) => {
+                                // ========== DELETABLE AFTER TESTING: TOTAL VALUE MAPPING TEST ==========
+                                console.log(`=== TOTAL VALUE MAPPING TEST ===`);
+                                console.log(`Method Name: ${methodName}`);
+                                console.log(`Lowercase: ${methodName.toLowerCase()}`);
+                                
+                                const lowerMethod = methodName.toLowerCase();
+                                let value = 0;
+                                
+                                switch (lowerMethod) {
+                                  case 'cash': 
+                                    value = currentTotals.cash || 0;
+                                    console.log(`Cash total: ${value}`);
+                                    break;
+                                  case 'nets': 
+                                    value = currentTotals.nets || 0;
+                                    console.log(`Nets total: ${value}`);
+                                    break;
+                                  case 'paynow': 
+                                    value = currentTotals.payment || 0;
+                                    console.log(`PayNow total: ${value}`);
+                                    break;
+                                  case 'visa': 
+                                    value = currentTotals.visa || 0;
+                                    console.log(`Visa total: ${value}`);
+                                    break;
+                                  default: 
+                                    value = 0;
+                                    console.log(`Unknown method, defaulting to 0`);
+                                    break;
+                                }
+                                console.log(`Final value: ${value}`);
+                                return value;
+                                // ========== END DELETABLE SECTION ==========
+                              };
+
+                              return (
+                                <td key={method.id} className="border border-gray-300 px-4 py-2 text-center">
+                                  {getTotalValue(method.payment_method_name).toFixed(2)}
+                                </td>
+                              );
+                            })}
+
+                            {/* Fixed totals columns */}
                             <td className="border border-gray-300 px-4 py-2 text-center">{(currentTotals.total || 0).toFixed(2)}</td>
-                            <td className="border border-gray-300 px-4 py-2 text-center">{(currentTotals.total * 0.09 || 0).toFixed(2)}</td>
-                            <td className="border border-gray-300 px-4 py-2 text-center">{(currentTotals.total * 1.09 || 0).toFixed(2)}</td>
-                            {/* <td className="border border-gray-300 px-4 py-2 text-center">{(currentTotals.foc || 0).toFixed(2)}</td> */}
-                            <td
-                              className="border border-gray-300 px-4 py-2 text-center relative"
-                              onMouseEnter={() => currentTotals.vip !== 0 && currentTotals.foc !== 0 && setHoveredRow("vip")}
-                              onMouseLeave={() => setHoveredRow(null)}
-                            >
-                              <span className={hoveredRow === "vip" ? 'text-blue-600' : ''}>
-                                {(currentTotals.vip || 0).toFixed(2)}
-                              </span>
-                              {hoveredRow === "vip" && currentTotals.vip !== 0 && (
-                                <div className="absolute z-10 bg-gray-100 p-2 border border-gray-300 rounded shadow-lg whitespace-nowrap bottom-full left-1/2 transform -translate-x-1/2">
-                                  {(currentTotals.foc + currentTotals.vip).toFixed(2)} - FOC {currentTotals.foc.toFixed(2)} = {currentTotals.vip.toFixed(2)}
-                                </div>
-                              )}
+                            <td className="border border-gray-300 px-4 py-2 text-center">{(currentTotals.gst || 0).toFixed(2)}</td>
+                            <td className="border border-gray-300 px-4 py-2 text-center">{(currentTotals.total + currentTotals.gst || 0).toFixed(2)}</td>
+                            <td className="border border-gray-300 px-4 py-2 text-center">
+                              {(currentTotals.vip || 0).toFixed(2)}
                             </td>
                             <td className="border border-gray-300 px-4 py-2 text-center">{(currentTotals.package || 0).toFixed(2)}</td>
-                            <td className="border border-gray-300 px-4 py-2 text-center">{(currentTotals.netSales || 0).toFixed(2)}</td>
+                            <td className="border border-gray-300 px-4 py-2 text-center">{(currentTotals.net_sales || 0).toFixed(2)}</td>
                             <td className="border border-gray-300 px-4 py-2 text-center">{(currentTotals.refund || 0).toFixed(2)}</td>
                           </tr>
                         </>
                       ) : (
                         <tr>
-                          <td colSpan="11" className="border border-gray-300 px-4 py-8 text-center text-gray-500">
+                          <td colSpan={1 + paymentMethods.length + fixedColumns.length} className="border border-gray-300 px-4 py-8 text-center text-gray-500">
                             No data available. Please select a month and year and click "Get Report".
                           </td>
                         </tr>
