@@ -27,7 +27,6 @@ import appointmentRoutes from './appointmentRoutes.js';
 import productRoutes from './productRoutes.js';
 import revenueRoutes from './revenueRoutes.js';
 import stRoutes from './stRoutes.js';
-import voucherRoutes from './voucherRoute.js';
 
 router.use(simulationMiddleware);
 
@@ -48,7 +47,6 @@ router.use('/position', positionRoutes);
 router.use('/de', dataExportRoutes);
 router.use('/payment-method', paymentMethodRoutes);
 router.use('/st', stRoutes);
-router.use('/voucher', voucherRoutes);
 router.use('/em', employeeRoutes);
 router.use('/et', timetableRoutes);
 router.use('/ab', appointmentRoutes);
