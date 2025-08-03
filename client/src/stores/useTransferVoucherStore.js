@@ -131,8 +131,10 @@ const useTransferVoucherStore = create((set, get) => ({
             created_by,
             updated_by,
             remarks,
-            top_up_balance
-
+            top_up_balance,
+            service_details, // ✅ Extract service_details from formData
+            created_at,      // ✅ NEW: Extract created_at from formData
+            updated_at       // ✅ NEW: Extract updated_at from formData
         } = formData;
 
         if (
@@ -162,6 +164,9 @@ const useTransferVoucherStore = create((set, get) => ({
             updated_by,
             remarks,
             top_up_balance, // ✅ Include top_up_balance in the payload
+            service_details: is_bypass ? (service_details || []) : [], // ✅ Include service_details when bypass is enabled
+            created_at,     // ✅ NEW: Include created_at in the payload
+            updated_at      // ✅ NEW: Include updated_at in the payload
         };
 
         const res = await api.post("/voucher/transfer", payload);

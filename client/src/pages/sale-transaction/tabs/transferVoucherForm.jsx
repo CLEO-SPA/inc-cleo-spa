@@ -1,10 +1,14 @@
 import React, { useEffect, useState } from 'react';
 import { IoAddOutline } from 'react-icons/io5';
 import { Card, CardContent } from '@/components/ui/card';
+import { Button } from '@/components/ui/button';
+import { Input } from '@/components/ui/input';
+import { Label } from '@/components/ui/label';
+import ServiceSelect from '@/components/ui/forms/ServiceSelect';
+import EmployeeSelect from '@/components/ui/forms/EmployeeSelect';
 import useTransferVoucherStore from '@/stores/useTransferVoucherStore';
 import useTransactionCartStore from '@/stores/useTransactionCartStore';
 import useSelectedMemberStore from '@/stores/useSelectedMemberStore';
-import useEmployeeStore from '@/stores/useEmployeeStore';
 
 const TransferVoucherForm = () => {
   const currentMember = useSelectedMemberStore((state) => state.currentMember);
@@ -37,13 +41,12 @@ const TransferVoucherForm = () => {
   const [hasCustomPrice, setHasCustomPrice] = useState(false);
   const [hasCustomFoc, setHasCustomFoc] = useState(false);
   const [createdBy, setCreatedBy] = useState('');
-  const [createdAt, setCreatedAt] = useState(() => {
-    const now = new Date();
-    now.setSeconds(0, 0); // truncate seconds/ms for input compatibility
-    return now.toISOString().slice(0, 16); // for datetime-local input
-  });
 
   const [remarks, setRemarks] = useState('');
+  const [validationErrors, setValidationErrors] = useState({});
+
+  // New state for service details when bypass is enabled
+  const [serviceDetails, setServiceDetails] = useState([]);
   const isFocGreaterThanPrice = parseFloat(foc || '0') > parseFloat(price || '0');
 
   useEffect(() => {
@@ -69,16 +72,176 @@ const TransferVoucherForm = () => {
   }, [selectedVoucherName, voucherTemplates, bypassTemplate, hasCustomPrice, hasCustomFoc]);
 
   useEffect(() => {
-    if (!createdBy && employees?.length > 0) {
-      setCreatedBy(employees[0].id);
-    }
-  }, [employees]);
-
-  useEffect(() => {
     setHasCustomPrice(false);
     setHasCustomFoc(false);
-    // clearCart(); // ❌ DO NOT clear cart anymore
+    // Clear service details when toggling bypass
+    if (!bypassTemplate) {
+      setServiceDetails([]);
+    }
   }, [bypassTemplate]);
+
+  const validateForm = () => {
+    const errors = {};
+
+    // Validate voucher name
+    const voucherNameToUse = bypassTemplate ? customVoucherName : selectedVoucherName;
+    if (!voucherNameToUse || voucherNameToUse.trim() === '') {
+      errors.voucherName = 'Voucher name is required';
+    }
+
+    // Validate price
+    if (!price || price === '' || parseFloat(price) <= 0) {
+      errors.price = 'Price must be greater than 0';
+    }
+
+    // Validate FOC
+    if (foc === '' || isNaN(parseFloat(foc))) {
+      errors.foc = 'FOC is required';
+    } else if (parseFloat(foc) < 0) {
+      errors.foc = 'FOC cannot be negative';
+    } else if (parseFloat(foc) > parseFloat(price || '0')) {
+      errors.foc = 'FOC cannot be greater than price';
+    }
+
+    if (parseFloat(foc || '0') > parseFloat(price || '0')) {
+      errors.foc = 'FOC cannot be greater than price';
+    }
+
+    // Validate old vouchers
+    if (oldVouchers.length === 0 || oldVouchers.every(v => !v || v.trim() === '')) {
+      errors.oldVouchers = 'At least one old voucher must be selected';
+    }
+
+    // Check for duplicate old vouchers
+    const nonEmptyOldVouchers = oldVouchers.filter(v => v && v.trim() !== '');
+    if (nonEmptyOldVouchers.length !== new Set(nonEmptyOldVouchers).size) {
+      errors.oldVouchers = 'Duplicate old vouchers are not allowed';
+    }
+
+    // Validate service details when bypass is enabled
+    if (bypassTemplate) {
+      if (serviceDetails.length === 0) {
+        errors.serviceDetails = 'At least one service detail must be added when bypass template is enabled';
+      } else {
+        // Validate each service detail
+        const serviceErrors = {};
+        serviceDetails.forEach((detail, index) => {
+          const detailErrors = {};
+
+          if (!detail.name || detail.name.trim() === '') {
+            detailErrors.name = 'Service name is required';
+          }
+
+          if (!detail.duration || detail.duration <= 0) {
+            detailErrors.duration = 'Duration must be greater than 0';
+          }
+
+          if (!detail.price || detail.price <= 0) {
+            detailErrors.price = 'Price must be greater than 0';
+          }
+
+          if (detail.discount < 0 || detail.discount > 100) {
+            detailErrors.discount = 'Discount must be between 0 and 100';
+          }
+
+          if (Object.keys(detailErrors).length > 0) {
+            serviceErrors[index] = detailErrors;
+          }
+        });
+
+        if (Object.keys(serviceErrors).length > 0) {
+          errors.serviceErrors = serviceErrors;
+        }
+      }
+    }
+
+    // Validate created by
+    if (!createdBy) {
+      errors.createdBy = 'Created by is required';
+    }
+
+    setValidationErrors(errors);
+    return Object.keys(errors).length === 0;
+  };
+
+  // Service details management functions
+  const addServiceDetail = () => {
+    const newDetail = {
+      id: Date.now(),
+      service_id: '',
+      name: '',
+      duration: '',
+      price: 0,
+      discount: 0,
+      final_price: 0,
+    };
+    setServiceDetails([...serviceDetails, newDetail]);
+
+    // Clear validation errors when adding new service
+    if (validationErrors.serviceDetails) {
+      const newErrors = { ...validationErrors };
+      delete newErrors.serviceDetails;
+      setValidationErrors(newErrors);
+    }
+  };
+
+  const updateServiceDetail = (id, field, value) => {
+    setServiceDetails(details =>
+      details.map(detail => {
+        if (detail.id === id) {
+          const updated = { ...detail, [field]: value };
+
+          // Recalculate final price when price or discount changes
+          if (field === 'price' || field === 'discount') {
+            const price = field === 'price' ? value : detail.price;
+            const discount = field === 'discount' ? value : detail.discount;
+            updated.final_price = price - (price * discount / 100);
+          }
+
+          return updated;
+        }
+        return detail;
+      })
+    );
+
+    if (validationErrors.serviceErrors) {
+      const serviceIndex = serviceDetails.findIndex(d => d.id === id);
+      if (serviceIndex !== -1 && validationErrors.serviceErrors[serviceIndex]) {
+        const newErrors = { ...validationErrors };
+        const newServiceErrors = { ...newErrors.serviceErrors };
+        delete newServiceErrors[serviceIndex][field];
+
+        if (Object.keys(newServiceErrors[serviceIndex]).length === 0) {
+          delete newServiceErrors[serviceIndex];
+        }
+
+        if (Object.keys(newServiceErrors).length === 0) {
+          delete newErrors.serviceErrors;
+        } else {
+          newErrors.serviceErrors = newServiceErrors;
+        }
+
+        setValidationErrors(newErrors);
+      }
+    }
+  };
+
+  const removeServiceDetail = (id) => {
+    setServiceDetails(details => details.filter(detail => detail.id !== id));
+  };
+
+  const handleServiceSelect = (detailId, serviceData) => {
+    updateServiceDetail(detailId, 'service_id', serviceData.id);
+    updateServiceDetail(detailId, 'name', serviceData.service_name);
+    updateServiceDetail(detailId, 'price', serviceData.price);
+    updateServiceDetail(detailId, 'duration', serviceData.duration);
+    // Recalculate final price
+    const detail = serviceDetails.find(d => d.id === detailId);
+    if (detail) {
+      const finalPrice = serviceData.price - (serviceData.price * (detail.discount || 0) / 100);
+      updateServiceDetail(detailId, 'final_price', finalPrice);
+    }
+  };
 
   // Calculate total old voucher balance excluding FOC amounts
   const totalOldBalance = oldVouchers.reduce((acc, voucherName) => {
@@ -163,6 +326,12 @@ const TransferVoucherForm = () => {
   const isBalanceGreater = totalOldBalance > Number(price);
 
   const handleAddToCart = () => {
+    const isValid = validateForm();
+    if (!isValid) {
+      alert('Please fix the form errors before adding to cart.');
+      return;
+    }
+
     const voucherNameToUse = bypassTemplate ? customVoucherName : selectedVoucherName;
     if (!voucherNameToUse || !price) return;
 
@@ -182,6 +351,14 @@ const TransferVoucherForm = () => {
     addCartItem(cartPayload);
   };
 
+  const handleInputChange = (field, value) => {
+    // Clear validation error when user starts typing
+    if (validationErrors[field]) {
+      const newErrors = { ...validationErrors };
+      delete newErrors[field];
+      setValidationErrors(newErrors);
+    }
+  };
   return (
     <div className='p-0'>
       {!selectedMember && (
@@ -216,13 +393,19 @@ const TransferVoucherForm = () => {
               className='w-full border px-3 py-2 rounded'
               placeholder='Enter custom voucher name'
               value={customVoucherName}
-              onChange={(e) => setCustomVoucherName(e.target.value)}
+              onChange={(e) => {
+                setCustomVoucherName(e.target.value);
+                handleInputChange('voucherName');
+              }}
             />
           ) : (
             <select
-              className='w-full border px-3 py-2 rounded'
+              className='w-full border px-3 py-2 rounded h-9 bg-white'
               value={selectedVoucherName}
-              onChange={(e) => setSelectedVoucherName(e.target.value)}
+              onChange={(e) => {
+                setSelectedVoucherName(e.target.value);
+                handleInputChange('voucherName');
+              }}
             >
               <option value=''>Select a voucher template</option>
               {voucherTemplates.map((v) => (
@@ -240,11 +423,14 @@ const TransferVoucherForm = () => {
             <label className='block font-medium mb-1'>Price of New Voucher</label>
             <input
               type='text'
-              className='w-full border px-3 py-2 rounded'
+              className='h-9 bg-white'
               value={price}
               onChange={(e) => handleDecimalInput(e, setPrice, setHasCustomPrice)}
               placeholder={bypassTemplate ? 'Enter price' : 'Auto-filled unless changed'}
             />
+            {validationErrors.price && (
+              <p className="text-red-600 text-sm mt-1">{validationErrors.price}</p>
+            )}
           </div>
           <div className='flex flex-col items-center'>
             <label className='text-sm font-medium mb-1 whitespace-nowrap'>Bypass Template</label>
@@ -267,16 +453,52 @@ const TransferVoucherForm = () => {
           <label className='block font-medium mb-1'>FOC</label>
           <input
             type='text'
-            className='w-full border px-3 py-2 rounded'
+            className='h-9 bg-white'
             value={foc}
             onChange={(e) => handleDecimalInput(e, setFoc, setHasCustomFoc, true)}
             placeholder={bypassTemplate ? 'Enter FOC' : 'Auto-filled unless changed'}
           />
+          {validationErrors.foc && (
+            <p className="text-red-600 text-sm mt-1">{validationErrors.foc}</p>
+          )}
         </div>
         {parseFloat(foc || '0') > parseFloat(price || '0') && (
           <div className='mb-4 p-2 bg-red-100 text-red-700 rounded'>⚠️ FOC cannot be more than price.</div>
         )}
 
+        {/* Service Details Section - Only show when bypass is enabled */}
+        {bypassTemplate && (
+          <div className='mb-6'>
+            <div className='flex items-center justify-between mb-3'>
+              <Label className='text-sm font-medium text-gray-700'>Service Details</Label>
+              <Button
+                type='button'
+                variant='outline'
+                size='sm'
+                onClick={addServiceDetail}
+                className='h-8'
+              >
+                <Plus className='h-4 w-4 mr-1' />
+                Add Details
+              </Button>
+            </div>
+
+            {serviceDetails.length > 0 && (
+              <div className='space-y-2'>
+                {serviceDetails.map((detail, index) => (
+                  <ServiceDetailRow
+                    key={detail.id}
+                    detail={detail}
+                    index={index}
+                    onUpdateDetail={updateServiceDetail}
+                    onRemoveDetail={removeServiceDetail}
+                    onServiceSelect={handleServiceSelect}
+                  />
+                ))}
+              </div>
+            )}
+          </div>
+        )}
         {/* Remarks */}
         <div className='mb-6'>
           <label className='block font-medium mb-1'>Remarks</label>
@@ -291,7 +513,7 @@ const TransferVoucherForm = () => {
 
         {/* Old Vouchers */}
         <div className='mb-6'>
-          <label className='block font-medium mb-1'>Old Voucher(s) [INCLUDE FOC]</label>
+          <Label className='text-sm font-medium text-gray-700 mb-1'>Old Voucher(s) [INCLUDE FOC]</Label>
           {oldVouchers.map((voucherName, index) => (
             <div key={index} className='mb-2 flex items-center gap-2'>
               <select
@@ -301,6 +523,7 @@ const TransferVoucherForm = () => {
                   const updated = [...oldVouchers];
                   updated[index] = e.target.value;
                   setOldVouchers(updated);
+                  handleInputChange('oldVouchers');
                 }}
               >
                 <option value=''>Select old voucher</option>
@@ -332,7 +555,9 @@ const TransferVoucherForm = () => {
           <button
             type='button'
             onClick={() => setOldVouchers([...oldVouchers, ''])}
-            className='mt-2 flex items-center gap-2 px-4 py-2 bg-blue-500 text-white rounded hover:bg-blue-600 transition'
+            variant='outline'
+            size='sm'
+            className='mt-2 h-9'
           >
             <IoAddOutline className='text-lg' />
             Add Another Old Voucher
@@ -372,26 +597,14 @@ const TransferVoucherForm = () => {
             ))}
           </select>
         </div>
-
-        {/* Created At */}
-        <div className='mb-6'>
-          <label className='block font-medium mb-1'>Created At</label>
-          <input
-            type='datetime-local'
-            className='w-full border px-3 py-2 rounded'
-            value={createdAt}
-            onChange={(e) => setCreatedAt(e.target.value)}
-          />
-        </div>
-
         {/* Add to Cart Button */}
         <div className='mt-4 flex justify-end'>
           <button
             onClick={handleAddToCart}
             disabled={isFocGreaterThanPrice}
-            className={`px-6 py-2 rounded transition ${
-              isFocGreaterThanPrice ? 'bg-gray-400 cursor-not-allowed' : 'bg-green-600 hover:bg-green-700 text-white'
-            }`}
+            className={`px-6 py-2 h-9 ${isFocGreaterThanPrice ? 'bg-gray-400 cursor-not-allowed' : 'bg-green-600 hover:bg-green-700 text-white'
+              }`}
+
           >
             Add to Cart
           </button>
