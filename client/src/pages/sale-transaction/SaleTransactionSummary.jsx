@@ -263,27 +263,27 @@ const SaleTransactionSummary = () => {
     }
 
     // Check Services & Products payment requirement
-    const servicesAndProducts = [
-      ...cartItems.filter(item => item.type === 'service'),
-      ...cartItems.filter(item => item.type === 'product')
-    ];
+    // const servicesAndProducts = [
+    //   ...cartItems.filter(item => item.type === 'service'),
+    //   ...cartItems.filter(item => item.type === 'product')
+    // ];
 
-    if (servicesAndProducts.length > 0) {
-      const sectionTotal = servicesAndProducts.reduce((total, item) => {
-        const pricing = getItemPricing(item.id);
-        return total + pricing.totalLinePrice;
-      }, 0);
+    // if (servicesAndProducts.length > 0) {
+    //   const sectionTotal = servicesAndProducts.reduce((total, item) => {
+    //     const pricing = getItemPricing(item.id);
+    //     return total + pricing.totalLinePrice;
+    //   }, 0);
 
-      const sectionPaymentTotal = sectionPayments['services-products']?.reduce((total, payment) =>
-        total + (payment.amount || 0), 0
-      ) || 0;
+    //   const sectionPaymentTotal = sectionPayments['services-products']?.reduce((total, payment) =>
+    //     total + (payment.amount || 0), 0
+    //   ) || 0;
 
-      const remainingAmount = sectionTotal - sectionPaymentTotal;
+    //   const remainingAmount = sectionTotal - sectionPaymentTotal;
 
-      if (Math.abs(remainingAmount) >= 0.01) { // Allow for small rounding differences
-        errors.push(`Services & Products section must be fully paid (remaining: ${formatCurrency(remainingAmount)})`);
-      }
-    }
+    //   if (Math.abs(remainingAmount) >= 0.01) { // Allow for small rounding differences
+    //     errors.push(`Services & Products section must be fully paid (remaining: ${formatCurrency(remainingAmount)})`);
+    //   }
+    // }
 
     return errors;
   };

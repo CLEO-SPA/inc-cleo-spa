@@ -40,8 +40,4 @@ router.put('/:id/t/update', controller.updateTransactionLogsAndCurrentBalanceByL
 
 router.delete('/:id/t/:transaction_log_id/delete', controller.deleteTransactionLogsByLogId);
 
-router.get('/m', controller.getMemberVoucherDetailsHandler);
-router.post('/transfer', controller.transferVoucherDetailsHandler);
-
-
 export default router;
