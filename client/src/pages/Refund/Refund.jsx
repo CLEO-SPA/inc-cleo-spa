@@ -150,7 +150,7 @@ const RefundPage = () => {
                 {/* Header */}
                 <div className="mb-8">
                   <h1 className='text-3xl font-semibold text-slate-900'>Refund Management</h1>
-                  <p className='mt-2 text-sm text-slate-600'>Manage client refunds and member transactions</p>
+                  <p className='mt-2 text-sm text-slate-600'>Manage client refund transactions for Member Care Packages, Services or Member Vouchers</p>
                 </div>
 
                 {/* Navigation Tabs */}
