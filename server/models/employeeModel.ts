@@ -898,6 +898,8 @@ const updateEmployee = async (data: UpdateEmployeeData) => {
     client.release();
   }
 };
+
+
 export default {
   checkEmployeeCodeExists,
   checkEmployeePhoneExists,

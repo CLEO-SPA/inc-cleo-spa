@@ -324,7 +324,12 @@ const getEmployeeMonthlyCommission = async (
 
     // Process results and populate daysArray
     result.rows.forEach((row: any) => {
-      const day = parseInt(row.commission_date.split('-')[2], 10) - 1; // Convert to 0-based index
+      // Handle commission_date as Date object (convert to YYYY-MM-DD string first)
+      const commissionDateStr = row.commission_date instanceof Date 
+        ? row.commission_date.toISOString().split('T')[0]  // Get YYYY-MM-DD part
+        : row.commission_date.toString();
+      
+      const day = parseInt(commissionDateStr.split('-')[2], 10) - 1; // Convert to 0-based index
       
       if (day >= 0 && day < daysInMonth) {
         const commissionAmount = parseFloat(row.total_commission || 0);
@@ -423,7 +428,7 @@ const getEmployeeCommissionBreakdown = async (
             LIMIT 1
           )
           WHEN ec.item_type = 'member_vouchers' THEN (
-            SELECT mv.member_vouchers_name 
+            SELECT mv.member_voucher_name 
             FROM member_vouchers mv 
             WHERE mv.id = ec.item_id::bigint
             LIMIT 1
@@ -473,8 +478,6 @@ const getEmployeeCommissionBreakdown = async (
     throw new Error('Failed to fetch employee commission breakdown from the database');
   }
 };
-
-
 
 /**
  * Future Enhancements:
