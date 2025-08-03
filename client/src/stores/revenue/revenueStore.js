@@ -136,9 +136,9 @@ export const useRevenueReportStore = create(persist(
       set({ loading: true, error: null });
       try {
         const [mvRes, mcpRes, adhocRes, mvDrRes, mcpDrRes] = await Promise.all([
-          api.get(`rr/mrr/mv/updated?year=${selectedYear}&month=${monthIndex}`),
-          api.get(`rr/mrr/mcp/updated?year=${selectedYear}&month=${monthIndex}`),
-          api.get(`rr/mrr/adhoc/updated?year=${selectedYear}&month=${monthIndex}`),
+          api.get(`rr/mrr/mv?year=${selectedYear}&month=${monthIndex}`),
+          api.get(`rr/mrr/mcp?year=${selectedYear}&month=${monthIndex}`),
+          api.get(`rr/mrr/adhoc?year=${selectedYear}&month=${monthIndex}`),
           api.get(`rr/dr/mv?year=${selectedYear}&month=${monthIndex}`),
           api.get(`rr/dr/mcp?year=${selectedYear}&month=${monthIndex}`),
         ]);
