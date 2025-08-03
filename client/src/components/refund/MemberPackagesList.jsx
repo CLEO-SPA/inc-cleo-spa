@@ -161,22 +161,13 @@ const MemberPackagesList = () => {
                     Refunded
                 </button>
             );
-        } else if (eligibility === 'eligible') {
+        } else {
             return (
                 <button
                     onClick={() => handleRefund(pkg.id)}
                     className="inline-flex items-center px-3 py-1.5 rounded-md text-xs font-medium bg-green-600 text-white border border-green-600 hover:bg-green-700 focus:outline-none focus:ring-2 focus:ring-green-500 focus:ring-offset-1 transition-colors shadow-sm"
                 >
                     Refund
-                </button>
-            );
-        } else {
-            return (
-                <button
-                    onClick={() => handleRefund(pkg.id)}
-                    className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium border bg-yellow-50 text-yellow-800 border-yellow-300 hover:bg-yellow-100 focus:outline-none focus:ring-2 focus:ring-yellow-400 focus:ring-offset-1 transition-colors shadow-sm"
-                >
-                    Ineligible
                 </button>
             );
         }
