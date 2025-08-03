@@ -58,12 +58,12 @@ function LoginPage() {
         <CardContent>
           <form onSubmit={handleSubmit} className='space-y-4'>
             <div className='space-y-2'>
-              <Label htmlFor='username'>Email or Username</Label>
+              <Label htmlFor='username'>Email or Mobile Number</Label>
               <Input
                 id='username'
                 name='username'
                 type='text'
-                placeholder='you@example.com or you_123'
+                placeholder='you@example.com or 87654321'
                 required
                 autoComplete='username'
                 autoFocus

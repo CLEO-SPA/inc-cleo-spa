@@ -53,7 +53,7 @@ services:
       POSTGRES_USER: user
       POSTGRES_PASSWORD: password
     ports:
-      - 5433:5432
+      - 5433:5432 # Different external port to avoid conflicts
     healthcheck:
       test: ['CMD-SHELL', 'pg_isready -U user -d sim_db']
       interval: 10s

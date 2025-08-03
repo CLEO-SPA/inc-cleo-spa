@@ -39,17 +39,14 @@ const MembershipTypePage = () => {
 
   // This is used to create the confirm pop-up body
   const confirmBody = (
-        <div>
-            {Object.entries(formData).filter(([key, value]) => {
-                return !['created_by', 'last_updated_by'].includes(key);
-            }).map(([key, value]) => (
-                <div key={key} className="flex justify-between border-b py-1">
-                    <span className="font-medium">{key.replace(/_/g, " ").replace(/^./, c => c.toUpperCase())}</span>
-                    <span>
-                        {value?.toString() ?? ''}</span>
-                </div>
-            ))}
+    <div>
+      {Object.entries(formData).map(([key, value]) => (
+        <div key={key} className="flex justify-between border-b py-1">
+          <span className="font-medium">{key}</span>
+          <span>{value ?? '—'}</span>
         </div>
+      ))}
+    </div>
   );
 
   return (

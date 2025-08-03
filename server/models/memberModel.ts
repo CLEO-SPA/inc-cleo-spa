@@ -125,20 +125,46 @@ const createMember = async ({
 
     // Validation: Check if email already exists
     const emailCheckQuery = `
-      SELECT id FROM members WHERE email = $1;
+      SELECT id FROM user_auth WHERE email = $1;
     `;
     const emailResult = await client.query(emailCheckQuery, [email]);
     if (emailResult.rows.length > 0) {
       throw new Error('Email already exists');
     }
-   
+
+    // Validation: Check if contact already exists
+    const contactCheckQuery = `
+      SELECT id FROM user_auth WHERE phone = $1;
+    `;
+    const contactResult = await client.query(contactCheckQuery, [contact]);
+    if (contactResult.rows.length > 0) {
+      throw new Error('Contact number already exists');
+    }
+
+    // 1. Call the get_or_create_roles function
+    const getRoleQuery = `
+      SELECT get_or_create_roles($1) AS role_id;
+    `;
+    const roleResult = await client.query(getRoleQuery, [role_name]);
+    const role_id = roleResult.rows[0].role_id;
+
+    // 2. Insert into user_auth
+    const insertUserAuthQuery = `
+      INSERT INTO user_auth (email, password, created_at, updated_at, phone)
+      VALUES ($1, $2, $3, $4, $5)
+      RETURNING *;
+    `;
+    const userAuthValues = [email, null, created_at, updated_at, contact];
+    const authResult = await client.query(insertUserAuthQuery, userAuthValues);
+    const newAuth = authResult.rows[0];
+
     // 3. Insert into members
     const insertMemberQuery = `
       INSERT INTO members (
         name, email, contact, dob, sex, remarks, address, nric,
-        membership_type_id, card_number,created_at, updated_at, created_by
+        membership_type_id, card_number,created_at, updated_at, created_by, user_auth_id
       )
-      VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13)
+      VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14)
       RETURNING *;
     `;
     const memberValues = [
@@ -154,16 +180,28 @@ const createMember = async ({
       card_number,
       created_at,
       updated_at,
-      created_by
-        ];
+      created_by,
+      newAuth.id,
+    ];
     const memberResult = await client.query(insertMemberQuery, memberValues);
     const newMember = memberResult.rows[0];
 
+    // 4. Insert into user_roles
+    const insertUserRoleQuery = `
+      INSERT INTO user_to_role (user_auth_id, role_id, created_at, updated_at)
+      VALUES ($1, $2, $3, $4)
+      RETURNING *;
+    `;
+    const roleValues = [newAuth.id, role_id, created_at, updated_at];
+    const userRoleResult = await client.query(insertUserRoleQuery, roleValues);
+    const newUserRole = userRoleResult.rows[0];
 
     await client.query('COMMIT');
 
     return {
       member: newMember,
+      auth: newAuth,
+      role: newUserRole,
     };
   } catch (error) {
     console.error('Error creating member:', error);
@@ -193,7 +231,40 @@ const updateMember = async ({
   try {
     await client.query('BEGIN');
 
+    const getAuthIdQuery = `SELECT user_auth_id FROM members WHERE id = $1;`;
+    const authIdResult = await client.query(getAuthIdQuery, [id]);
 
+    if (authIdResult.rows.length === 0) {
+      throw new Error(`Member with ID ${id} not found`);
+    }
+
+    const userAuthId = authIdResult.rows[0].user_auth_id;
+
+    // Validation: Check if email already exists (excluding current user)
+    const emailCheckQuery = `
+      SELECT id FROM user_auth WHERE email = $1 AND id != $2;
+    `;
+    const emailResult = await client.query(emailCheckQuery, [email, userAuthId]);
+    if (emailResult.rows.length > 0) {
+      throw new Error('Email already exists');
+    }
+
+    // Validation: Check if contact already exists (excluding current user)
+    const contactCheckQuery = `
+      SELECT id FROM user_auth WHERE phone = $1 AND id != $2;
+    `;
+    const contactResult = await client.query(contactCheckQuery, [contact, userAuthId]);
+    if (contactResult.rows.length > 0) {
+      throw new Error('Contact number already exists');
+    }
+
+    // 2. Update user_auth with new email and phone
+    const updateAuthQuery = `
+      UPDATE user_auth
+      SET email = $1, phone = $2, updated_at = $3
+      WHERE id = $4;
+    `;
+    await client.query(updateAuthQuery, [email, contact, updated_at, userAuthId]);
 
     // 3. Update the members table
     const updateMemberQuery = `
@@ -235,7 +306,11 @@ const deleteMember = async (memberId: number) => {
   try {
     await client.query('BEGIN');
 
-    
+    // Step 1: Get associated user_auth_id
+    const getAuthIdQuery = `SELECT user_auth_id FROM members WHERE id = $1`;
+    const { rows } = await client.query(getAuthIdQuery, [memberId]);
+    if (rows.length === 0) throw new Error('Member not found');
+    const userAuthId = rows[0].user_auth_id;
 
     // Step 2: Check for existing sale transactions
     const transactionCheckQuery = `SELECT COUNT(*) as count FROM sale_transactions WHERE member_id = $1`;
@@ -246,10 +321,14 @@ const deleteMember = async (memberId: number) => {
       throw new Error(`Cannot delete member: ${transactionCount} sale transaction(s) exist for this member`);
     }
 
+    // Step 3: Delete from user_roles
+    await client.query(`DELETE FROM user_to_role WHERE user_auth_id = $1`, [userAuthId]);
 
     // Step 4: Delete from members
     await client.query(`DELETE FROM members WHERE id = $1`, [memberId]);
 
+    // Step 5: Delete from user_auth
+    await client.query(`DELETE FROM user_auth WHERE id = $1`, [userAuthId]);
 
     await client.query('COMMIT');
     return { success: true };

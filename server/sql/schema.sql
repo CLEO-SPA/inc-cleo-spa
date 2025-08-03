@@ -80,10 +80,12 @@ CREATE TABLE "care_package_item_details" (
 -- CreateTable
 CREATE TABLE "employees" (
     "id" BIGSERIAL NOT NULL,
+    "user_auth_id" BIGINT NOT NULL,
     "employee_code" VARCHAR(50) NOT NULL,
     "employee_contact" VARCHAR(20) NOT NULL,
     "employee_email" VARCHAR(255) NOT NULL,
     "employee_is_active" BOOLEAN NOT NULL,
+    "verified_status_id" BIGINT NOT NULL,
     "employee_name" VARCHAR(100) NOT NULL,
     "created_at" TIMESTAMPTZ(6) NOT NULL,
     "updated_at" TIMESTAMPTZ(6) NOT NULL,
@@ -197,6 +199,7 @@ CREATE TABLE "members" (
     "created_at" TIMESTAMPTZ(6),
     "updated_at" TIMESTAMPTZ(6),
     "created_by" INTEGER,
+    "user_auth_id" BIGINT,
 
     CONSTRAINT "members_pkey" PRIMARY KEY ("id")
 );
@@ -220,12 +223,10 @@ CREATE TABLE "membership_accounts" (
 CREATE TABLE "membership_types" (
     "id" BIGSERIAL NOT NULL,
     "membership_type_name" VARCHAR(50) NOT NULL,
-    "default_percentage_discount_for_products" DECIMAL,
-    "default_percentage_discount_for_services" DECIMAL,
+    "default_discount_for_products" DECIMAL,
+    "default_discount_percentage_for_service" DECIMAL,
     "created_at" TIMESTAMPTZ(6),
     "updated_at" TIMESTAMPTZ(6),
-    "created_by" BIGINT NOT NULL,
-    "last_updated_by" BIGINT NOT NULL,
 
     CONSTRAINT "membership_types_pkey" PRIMARY KEY ("id")
 );
@@ -534,27 +535,41 @@ CREATE TABLE "system_parameters" (
 );
 
 -- CreateTable
-CREATE TABLE "users" (
-    "id" BIGSERIAL NOT NULL,
-    "username" VARCHAR(50) NOT NULL,
-    "email" VARCHAR(100) NOT NULL,
-    "created_at" TIMESTAMPTZ(6) NOT NULL,
-    "updated_at" TIMESTAMPTZ(6) NOT NULL,
-    "verified_status_id" BIGINT NOT NULL,
-    "user_auth_id" BIGINT NOT NULL,
-
-    CONSTRAINT "users_pkey" PRIMARY KEY ("id")
-);
-
--- CreateTable
 CREATE TABLE "user_auth" (
     "id" BIGSERIAL NOT NULL,
     "password" VARCHAR(72),
     "created_at" TIMESTAMPTZ(6) NOT NULL,
     "updated_at" TIMESTAMPTZ(6) NOT NULL,
     "email" VARCHAR(50),
+    "phone" VARCHAR(20),
 
     CONSTRAINT "user_auth_pkey" PRIMARY KEY ("id")
+);
+
+-- CreateTable
+CREATE TABLE "settings" (
+    "id" BIGSERIAL NOT NULL,
+    "type" VARCHAR(50) NOT NULL,
+    "key" VARCHAR(100) NOT NULL,
+    "value" TEXT NOT NULL,
+
+    CONSTRAINT "settings_pkey" PRIMARY KEY ("id")
+);
+
+-- CreateTable
+CREATE TABLE "employee_commissions" (
+    "id" BIGSERIAL NOT NULL,
+    "item_type" VARCHAR(100) NOT NULL,
+    "item_id" BIGINT NOT NULL,
+    "employee_id" BIGINT NOT NULL,
+    "performance_rate" DECIMAL(5,2) NOT NULL,
+    "performance_amount" DECIMAL(10,2) NOT NULL,
+    "commission_rate" DECIMAL(5,2) NOT NULL,
+    "commission_amount" DECIMAL(10,2) NOT NULL,
+    "remarks" TEXT,
+    "created_at" TIMESTAMPTZ(6) NOT NULL,
+
+    CONSTRAINT "employee_commissions_pkey" PRIMARY KEY ("id")
 );
 
 -- Foreign Keys for table "care_packages"
@@ -565,9 +580,9 @@ ALTER TABLE "care_packages" ADD CONSTRAINT "care_packages_last_updated_by_fkey" 
 ALTER TABLE "care_package_item_details" ADD CONSTRAINT "care_package_item_details_care_package_id_fkey" FOREIGN KEY ("care_package_id") REFERENCES "care_packages"("id") ON DELETE CASCADE ON UPDATE CASCADE;
 ALTER TABLE "care_package_item_details" ADD CONSTRAINT "care_package_item_details_service_id_fkey" FOREIGN KEY ("service_id") REFERENCES "services"("id") ON DELETE RESTRICT ON UPDATE CASCADE;
 
--- Foreign Keys for table "users"
-ALTER TABLE "users" ADD CONSTRAINT "users_user_auth_id_fkey" FOREIGN KEY ("user_auth_id") REFERENCES "user_auth"("id") ON DELETE CASCADE ON UPDATE CASCADE;
-ALTER TABLE "users" ADD CONSTRAINT "users_verified_status_id_fkey" FOREIGN KEY ("verified_status_id") REFERENCES "statuses"("id") ON DELETE RESTRICT ON UPDATE CASCADE;
+-- Foreign Keys for table "employees"
+ALTER TABLE "employees" ADD CONSTRAINT "employees_user_auth_id_fkey" FOREIGN KEY ("user_auth_id") REFERENCES "user_auth"("id") ON DELETE RESTRICT ON UPDATE CASCADE;
+ALTER TABLE "employees" ADD CONSTRAINT "verified_status_id_fkey" FOREIGN KEY ("verified_status_id") REFERENCES "statuses"("id") ON UPDATE CASCADE;
 
 --  Foreign Keys for table "employee_to_position"
 ALTER TABLE "employee_to_position" ADD CONSTRAINT "employee_to_position_employee_id_fkey" FOREIGN KEY ("employee_id") REFERENCES "employees"("id") ON DELETE CASCADE ON UPDATE CASCADE;
@@ -592,6 +607,9 @@ ALTER TABLE "member_care_package_details" ADD CONSTRAINT "member_care_package_de
 ALTER TABLE "member_care_package_transaction_logs" ADD CONSTRAINT "member_care_package_transaction_logs_employee_id_fkey" FOREIGN KEY ("employee_id") REFERENCES "employees"("id") ON DELETE RESTRICT ON UPDATE CASCADE;
 ALTER TABLE "member_care_package_transaction_logs" ADD CONSTRAINT "member_care_package_transaction_logs_member_care_package_d_fkey" FOREIGN KEY ("member_care_package_details_id") REFERENCES "member_care_package_details"("id") ON DELETE CASCADE ON UPDATE CASCADE;
 ALTER TABLE "member_care_package_transaction_logs" ADD CONSTRAINT "member_care_package_transaction_logs_service_id_fkey" FOREIGN KEY ("service_id") REFERENCES "services"("id") ON DELETE RESTRICT ON UPDATE CASCADE;
+
+-- Foreign Keys for table "members"
+ALTER TABLE "members" ADD CONSTRAINT "members_user_auth_id_fkey" FOREIGN KEY ("user_auth_id") REFERENCES "user_auth"("id") ON DELETE SET NULL ON UPDATE CASCADE;
 
 -- Foreign Keys for table "membership_accounts"
 ALTER TABLE "membership_accounts" ADD CONSTRAINT "membership_accounts_member_id_fkey" FOREIGN KEY ("member_id") REFERENCES "members"("id") ON DELETE CASCADE ON UPDATE CASCADE;
@@ -663,6 +681,9 @@ ALTER TABLE "voucher_template_details" ADD CONSTRAINT "voucher_template_details_
 ALTER TABLE "voucher_templates" ADD CONSTRAINT "voucher_templates_created_by_fkey" FOREIGN KEY ("created_by") REFERENCES "employees"("id") ON DELETE SET NULL ON UPDATE CASCADE;
 ALTER TABLE "voucher_templates" ADD CONSTRAINT "voucher_templates_last_updated_by_fkey" FOREIGN KEY ("last_updated_by") REFERENCES "employees"("id") ON DELETE SET NULL ON UPDATE CASCADE;
 
+-- Foreign Keys for table "employee_commissions"
+ALTER TABLE "employee_commissions" ADD CONSTRAINT "employee_commissions_employee_id_fkey" FOREIGN KEY ("employee_id") REFERENCES "employees"("id") ON DELETE CASCADE ON UPDATE CASCADE;
+
 -- Performance Indexes
 
 -- Unique indexes for lookup columns that should be unique
@@ -679,10 +700,13 @@ CREATE INDEX "fki_cs_service_service_category_id_fkey" ON "services"("service_ca
 CREATE INDEX "idx_care_packages_created_by" ON "care_packages"("created_by");
 CREATE INDEX "idx_care_package_item_details_care_package_id" ON "care_package_item_details"("care_package_id");
 CREATE INDEX "idx_care_package_item_details_service_id" ON "care_package_item_details"("service_id");
+CREATE INDEX "idx_employees_user_auth_id" ON "employees"("user_auth_id");
+CREATE INDEX "idx_employees_verified_status_id" ON "employees"("verified_status_id");
 CREATE INDEX "idx_member_care_packages_member_id" ON "member_care_packages"("member_id");
 CREATE INDEX "idx_member_care_packages_employee_id" ON "member_care_packages"("employee_id");
 CREATE INDEX "idx_member_care_package_details_mcp_id" ON "member_care_package_details"("member_care_package_id");
 CREATE INDEX "idx_mcp_transaction_logs_details_id" ON "member_care_package_transaction_logs"("member_care_package_details_id");
+CREATE INDEX "idx_members_user_auth_id" ON "members"("user_auth_id");
 CREATE INDEX "idx_members_membership_type_id" ON "members"("membership_type_id");
 CREATE INDEX "idx_membership_accounts_member_id" ON "membership_accounts"("member_id");
 CREATE INDEX "idx_membership_accounts_membership_type_id" ON "membership_accounts"("membership_type_id");

@@ -1,6 +1,5 @@
-import { useEffect } from 'react';
+import { useEffect, useState } from 'react';
 import { useForm, FormProvider, Controller } from 'react-hook-form';
-
 import { AppSidebar } from '@/components/app-sidebar';
 import { SiteHeader } from '@/components/site-header';
 import { SidebarInset, SidebarProvider } from '@/components/ui/sidebar';
@@ -9,60 +8,70 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Alert, AlertDescription } from '@/components/ui/alert';
-import { AlertCircle, CheckCircle, Loader2 } from 'lucide-react';
-import { Switch } from '@/components/ui/switch';
-
+import { AlertCircle, CheckCircle, Loader2, Copy } from 'lucide-react';
 import { DateTimeSelector } from '@/components/custom/DateTimeSelector';
 import PositionSelect from '@/components/ui/forms/PositionSelect';
-
+import { RoleSelect } from '@/components/ui/forms/RoleSelect';
 import useEmployeeStore from '@/stores/useEmployeeStore';
 
-/* --------------------- helper: local 10:00 string --------------------- */
+/* ------------------------------------------------ helper: local-datetime string */
 const todayAtTenString = () => {
   const d = new Date();
-  d.setHours(10, 0, 0, 0);
+  d.setHours(10, 0, 0, 0);                 // 10:00:00 local
   const pad = (n) => n.toString().padStart(2, '0');
   return `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}T${pad(d.getHours())}:${pad(d.getMinutes())}:${pad(d.getSeconds())}`;
 };
 
 export default function CreateEmployeePage() {
+  /* ----------------------------- Zustand store ----------------------------- */
   const {
-    createEmployee,
+    createAndInviteEmployee,
     isCreating: loading,
     error,
     success,
     resetMessages,
     employeeData,
+    inviteLink,
   } = useEmployeeStore();
 
+  /* ----------------------------- UI state --------------------------------- */
+  const [copied, setCopied] = useState(false);
+
+  /* ----------------------------- form setup ------------------------------- */
   const methods = useForm({
     defaultValues: {
       ...employeeData,
-      created_at: todayAtTenString(),
+      created_at: todayAtTenString(),     // <- string formatted for <input>
     },
   });
+  const { register, handleSubmit, control, formState: { errors }, reset } = methods;
 
-  const {
-    register,
-    handleSubmit,
-    control,
-    formState: { errors },
-    reset,
-  } = methods;
+  /* ----------------------------- lifecycle clean-ups ---------------------- */
+  useEffect(() => () => resetMessages(), [resetMessages]);
 
   useEffect(() => {
-    return () => resetMessages();
-  }, [resetMessages]);
+    if (!inviteLink) return;
+    navigator.clipboard.writeText(inviteLink);
+    setCopied(true);
+    const t = setTimeout(() => setCopied(false), 3000);
+    return () => clearTimeout(t);
+  }, [inviteLink]);
 
+  /* ----------------------------- submit ----------------------------------- */
   const onSubmit = async (data) => {
     try {
-      await createEmployee(data);
+      await createAndInviteEmployee({
+        ...data,
+        // If the backend wants an ISO date, convert:
+        // created_at: new Date(data.created_at).toISOString()
+      });
       reset({ ...employeeData, created_at: todayAtTenString() });
     } catch (err) {
       console.error(err);
     }
   };
 
+  /* ----------------------------- render ----------------------------------- */
   return (
     <div className='[--header-height:calc(theme(spacing.14))]'>
       <SidebarProvider className='flex flex-col'>
@@ -85,21 +94,36 @@ export default function CreateEmployeePage() {
                   <AlertDescription>{success}</AlertDescription>
                 </Alert>
               )}
+              {inviteLink && (
+                <Alert variant='success' className='mt-4'>
+                  <AlertDescription className='flex items-center justify-between'>
+                    <input
+                      readOnly
+                      value={inviteLink}
+                      className='flex-grow bg-transparent text-sm outline-none'
+                    />
+                    <Button variant='ghost' size='icon' onClick={() => {
+                      navigator.clipboard.writeText(inviteLink);
+                      setCopied(true);
+                    }}>
+                      {copied ? <CheckCircle className='h-4 w-4 text-green-600' /> : <Copy className='h-4 w-4' />}
+                    </Button>
+                  </AlertDescription>
+                </Alert>
+              )}
 
               {/* --------------------- FORM --------------------- */}
               <FormProvider {...methods}>
                 <form onSubmit={handleSubmit(onSubmit)} className='space-y-4'>
 
                   <Card>
-                    <CardHeader>
-                      <CardTitle>Employee Details</CardTitle>
-                    </CardHeader>
+                    <CardHeader><CardTitle>Employee Details</CardTitle></CardHeader>
                     <CardContent className='space-y-6'>
 
                       {/* Full Name */}
                       <div>
                         <Label htmlFor='employee_name'>Full Name *</Label>
-                        <Input id='employee_name' {...register('employee_name', { required: 'Full Name is required' })} />
+                        <Input id='employee_name' {...register('employee_name', { required: 'Full Name is required' })}/>
                         {errors.employee_name && (
                           <p className='text-red-500 text-xs mt-1'>{errors.employee_name.message}</p>
                         )}
@@ -108,7 +132,7 @@ export default function CreateEmployeePage() {
                       {/* Email */}
                       <div>
                         <Label htmlFor='employee_email'>Email *</Label>
-                        <Input id='employee_email' type='email' {...register('employee_email', { required: 'Email is required' })} />
+                        <Input id='employee_email' type='email' {...register('employee_email', { required: 'Email is required' })}/>
                         {errors.employee_email && (
                           <p className='text-red-500 text-xs mt-1'>{errors.employee_email.message}</p>
                         )}
@@ -117,7 +141,7 @@ export default function CreateEmployeePage() {
                       {/* Contact */}
                       <div>
                         <Label htmlFor='employee_contact'>Contact *</Label>
-                        <Input id='employee_contact' {...register('employee_contact', { required: 'Contact is required' })} />
+                        <Input id='employee_contact' {...register('employee_contact', { required: 'Contact is required' })}/>
                         {errors.employee_contact && (
                           <p className='text-red-500 text-xs mt-1'>{errors.employee_contact.message}</p>
                         )}
@@ -126,25 +150,14 @@ export default function CreateEmployeePage() {
                       {/* Employee Code */}
                       <div>
                         <Label htmlFor='employee_code'>Employee Code *</Label>
-                        <Input id='employee_code' {...register('employee_code', { required: 'Employee Code is required' })} />
+                        <Input id='employee_code' {...register('employee_code', { required: 'Employee Code is required' })}/>
                         {errors.employee_code && (
                           <p className='text-red-500 text-xs mt-1'>{errors.employee_code.message}</p>
                         )}
                       </div>
 
-                      <div className='flex items-center space-x-2'>
-                        <Controller
-                          name='employee_is_active'
-                          control={control}
-                          render={({ field }) => (
-                            <Switch checked={field.value} onCheckedChange={field.onChange} />
-                          )}
-                        />
-                        <Label htmlFor='employee_is_active'>Active</Label>
-                      </div>
-
-
-                      {/* Positions */}
+                      {/* Role & Positions */}
+                      <RoleSelect name='role_name' label='Role *' />
                       <div>
                         <Label className='mb-3 block'>Assign Positions</Label>
                         <PositionSelect name='position_ids' isMulti />
@@ -157,9 +170,10 @@ export default function CreateEmployeePage() {
                           name='created_at'
                           control={control}
                           rules={{ required: true }}
+                          defaultValue={todayAtTenString()}
                           render={({ field }) => (
                             <DateTimeSelector
-                              value={field.value}
+                              value={field.value}       /* string like "2025-06-28T10:00:00" */
                               onChange={field.onChange}
                             />
                           )}
@@ -174,13 +188,13 @@ export default function CreateEmployeePage() {
                     </CardContent>
                   </Card>
 
+                  {/* Submit */}
                   <Button type='submit' disabled={loading} className='w-full'>
-                    {loading ? (
-                      <Loader2 className='mr-2 h-4 w-4 animate-spin' />
-                    ) : (
-                      'Create Employee'
-                    )}
+                    {loading
+                      ? <Loader2 className='mr-2 h-4 w-4 animate-spin' />
+                      : 'Create & Invite Employee'}
                   </Button>
+
                 </form>
               </FormProvider>
             </div>

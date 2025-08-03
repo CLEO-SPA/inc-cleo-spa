@@ -1,4 +1,0 @@
-id,member_voucher_name,voucher_template_id,member_id,current_balance,starting_balance,free_of_charge,default_total_price,status,remarks,created_by,handed_by,last_updated_by,created_at,updated_at
-31,LASH,1,51,1888.00,1888.00,500.00,1388.00,disabled ,"1. Lash $108
-2. Touch up $25
-3. 1 FOC Touch up if customer comes back in 2 days",14,14,14,2025-02-01 12:00:00+08,2025-02-01 12:00:00+08

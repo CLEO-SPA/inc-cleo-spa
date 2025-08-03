@@ -16,9 +16,6 @@ export const validateNewMembershipTypeData = (obj) => {
             obj.default_percentage_discount_for_services > 100) {
             return { isValid: false, error: "Service discount must be between 0-100%" };
         };
-        if (!obj.created_by) {
-            return { isValid: false, error: "Created by is required" };
-        }
         return { isValid: true, error: "No Errors" };
     } catch (error) {
         return { isValid: false, error: handleSystemError(error) };

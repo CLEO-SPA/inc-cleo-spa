@@ -27,8 +27,6 @@ import {
   SidebarMenuItem,
 } from '@/components/ui/sidebar';
 import useAuth from '@/hooks/useAuth';
-import { useSimulationStore } from '@/stores/useSimulationStore';
-import { cn } from '@/lib/utils';
 
 const data = {
   navMain: [
@@ -40,12 +38,20 @@ const data = {
     },
     {
       title: 'Users',
-      url: '/users',
+      url: '#',
       icon: ShieldUser,
       items: [
         {
           title: 'View Users',
-          url: '/users',
+          url: '#',
+        },
+        {
+          title: 'Starred',
+          url: '#',
+        },
+        {
+          title: 'Settings',
+          url: '#',
         },
       ],
     },
@@ -110,7 +116,7 @@ const data = {
         {
           title: 'Manage Member Voucher',
           url: '/mv',
-        },
+        }
       ],
     },
     {
@@ -280,42 +286,6 @@ const data = {
 
 export function AppSidebar({ ...props }) {
   const { user } = useAuth();
-  // const { isSimulationActive } = useSimulationStore();
-
-  // const topClass = isSimulationActive
-  //   ? 'top-[calc(var(--header-height)+var(--sim-bar-height))]'
-  //   : 'top-[var(--header-height)]';
-
-  // const heightClass = isSimulationActive
-  //   ? 'h-[calc(100svh-var(--header-height)-var(--sim-bar-height))]!'
-  //   : 'h-[calc(100svh-var(--header-height))]!';
-
-  const dataForUser = React.useMemo(() => {
-    const navData = {
-      navMain: data.navMain.map((item) => ({
-        ...item,
-        items: item.items ? item.items.map((subItem) => ({ ...subItem })) : undefined,
-      })),
-    };
-    if (user && user.role === 'super_admin') {
-      const userSection = navData.navMain.find((item) => item.title === 'Users');
-      if (userSection) {
-        userSection.items.push({
-          title: 'Create User',
-          url: '/users/c',
-        });
-      }
-
-      const othersSection = navData.navMain.find((item) => item.title === 'Others');
-      if (othersSection) {
-        othersSection.items.push({
-          title: 'Data Seeding',
-          url: '/seed',
-        });
-      }
-    }
-    return navData;
-  }, [user]);
 
   return (
     <Sidebar className='top-(--header-height) h-[calc(100svh-var(--header-height))]!' {...props}>
@@ -337,7 +307,7 @@ export function AppSidebar({ ...props }) {
         </SidebarMenu>
       </SidebarHeader>
       <SidebarContent>
-        <NavMain items={dataForUser.navMain} />
+        <NavMain items={data.navMain} />
       </SidebarContent>
       <SidebarFooter>
         <NavUser user={user} />

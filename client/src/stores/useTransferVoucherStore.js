@@ -24,7 +24,7 @@ const useTransferVoucherStore = create((set, get) => ({
     // Fetch voucher templates
     fetchVoucherTemplates: async () => {
         try {
-            const res = await api.get("/voucher-template/vm");
+            const res = await api.get("/voucher/vm");
             if (res.status === 200) {
                 const sorted = res.data.data.sort((a, b) =>
                     a.voucher_template_name.localeCompare(b.voucher_template_name)
@@ -41,7 +41,7 @@ const useTransferVoucherStore = create((set, get) => ({
     fetchMemberVoucher: async (name) => {
         if (!name) return;
         try {
-            const res = await api.get(`/mv/m?name=${encodeURIComponent(name)}`);
+            const res = await api.get(`/voucher/m?name=${encodeURIComponent(name)}`);
             set({ memberVouchers: res.status === 200 ? res.data.data : [] });
         } catch (error) {
             console.error("Error fetching member vouchers:", error);
@@ -54,7 +54,7 @@ const useTransferVoucherStore = create((set, get) => ({
         set({ selectedVoucherName: selectedName });
 
         try {
-            const res = await api.get(`/voucher-template/details?name=${encodeURIComponent(selectedName)}`);
+            const res = await api.get(`/voucher?name=${encodeURIComponent(selectedName)}`);
             const vouchers = res.data.data;
             if (!vouchers || vouchers.length === 0) {
                 set({ selectedVoucher: null, price: "", foc: "" });
@@ -135,7 +135,6 @@ const useTransferVoucherStore = create((set, get) => ({
             service_details, // ✅ Extract service_details from formData
             created_at,      // ✅ NEW: Extract created_at from formData
             updated_at       // ✅ NEW: Extract updated_at from formData
-
         } = formData;
 
         if (
@@ -170,7 +169,7 @@ const useTransferVoucherStore = create((set, get) => ({
             updated_at      // ✅ NEW: Include updated_at in the payload
         };
 
-        const res = await api.post("/mv/transfer", payload);
+        const res = await api.post("/voucher/transfer", payload);
         return res.data;
     },
 

@@ -132,7 +132,7 @@ function prepareCpPaginationParams(
   effectiveLimit: number;
 } {
   let finalWhereClause = filterWhereClause;
-  let orderBy = 'ORDER BY cp.created_at DESC, cp.id DESC';
+  let orderBy = 'ORDER BY cp.created_at ASC, cp.id ASC';
   let cursorParams = [...filterParams];
   let effectiveLimit = page && page > 0 ? limit : limit + 1;
 

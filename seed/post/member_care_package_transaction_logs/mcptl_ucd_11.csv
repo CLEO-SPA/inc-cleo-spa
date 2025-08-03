@@ -1,2 +1,0 @@
-id,type,description,transaction_date,transaction_amount,amount_changed,created_at,member_care_package_details_id,employee_id,service_id
-53,CONSUMPTION,Refreshing Cica,2025-02-05T17:00:00+08:00,290,-58,2025-02-05T17:00:00+08:00,26,1,124

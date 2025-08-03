@@ -3,7 +3,7 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 
-import EmployeeSelect from '../ui/forms/EmployeeSelect';
+import ConfirmationPopUp from '../confirmationPopUp';
 import useMembershipTypeStore from '@/stores/useMembershipTypeStore';
 import ErrorAlert from '../ui/errorAlert';
 
@@ -13,7 +13,6 @@ const MembershipTypeCreateForm = () => {
         isCreating,
         error,
         errorMessage,
-        loading,
 
         clearError,
         setIsCreating,
@@ -107,11 +106,13 @@ const MembershipTypeCreateForm = () => {
                     </div>
 
                     <div>
-                        <EmployeeSelect
-                            label='Created By'
+                        <Label htmlFor="created_by" className="block mb-2">Created By</Label>
+                        <Input
+                            id="created_by"
+                            type="text"
                             value={createFormFieldData.created_by}
-                            onChange={(value) => handleInputChange('created_by', value)}
-                            disabled={loading}
+                            onChange={(e) => handleInputChange('created_by', e.target.value)}
+                            placeholder="Enter creator name"
                         />
                     </div>
 

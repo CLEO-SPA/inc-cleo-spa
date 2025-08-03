@@ -1,5 +1,6 @@
 import { Request, Response, NextFunction } from 'express';
 import model from '../models/positionModel.js';
+import { getCurrentSimStatus } from '../services/simulationService.js';
 import validator from 'validator';
 
 const createPosition = async (req: Request, res: Response, next: NextFunction): Promise<void> => {

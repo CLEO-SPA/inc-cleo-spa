@@ -2,7 +2,6 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 
-import EmployeeSelect from '../ui/forms/EmployeeSelect';
 import useMembershipTypeStore from '@/stores/useMembershipTypeStore';
 import ErrorAlert from '@/components/ui/errorAlert';
 
@@ -13,7 +12,6 @@ const MembershipTypeUpdateForm = () => {
         selectedMembershipTypeId,
         error,
         errorMessage,
-        loading,
 
         clearError,
         updateUpdateFormField,
@@ -76,6 +74,7 @@ const MembershipTypeUpdateForm = () => {
                     </button>
                 </div>
                 <div className="space-y-4">
+                    {console.log(updateFormFieldData)}
                     <div>
                         <Label htmlFor="membership_type_name" className="block mb-2">
                             Membership Type Name
@@ -113,19 +112,27 @@ const MembershipTypeUpdateForm = () => {
                         />
                     </div>
                     <div>
-                        <EmployeeSelect
-                            label='Created By'
+                        <Label htmlFor="created_by" className="block mb-2">
+                            Created By
+                        </Label>
+                        <Input
+                            id="created_by"
+                            type="text"
                             value={updateFormFieldData.created_by}
-                            onChange={(value) => handleInputChange('created_by', value)}
-                            disabled={loading}
+                            onChange={(e) => handleInputChange('created_by', e.target.value)}
+                            required
                         />
                     </div>
                     <div>
-                        <EmployeeSelect
-                            label='Last Updated By'
+                        <Label htmlFor="last_updated_by" className="block mb-2">
+                            Last Updated By
+                        </Label>
+                        <Input
+                            id="last_updated_by"
+                            type="text"
                             value={updateFormFieldData.last_updated_by}
-                            onChange={(value) => handleInputChange('last_updated_by', value)}
-                            disabled={loading}
+                            onChange={(e) => handleInputChange('last_updated_by', e.target.value)}
+                            required
                         />
                     </div>
                     <div className="flex gap-2 pt-4">

@@ -30,7 +30,6 @@ const addTransferMemberVoucherTransactionLog = async (
     }
     const memberVoucher = voucherResult.rows[0];
     const transferAmount = Number(memberVoucher.current_balance);
-    console.log("Transfer amount:", transferAmount);
 
     // Get the latest current_balance for the new voucher from transaction logs
     const getLatestBalanceQuery = `

@@ -1,3 +1,0 @@
-id,payment_method,sale_transaction_id,amount,remarks,created_by,created_at,updated_by,updated_at
-201,3,101,1388.00,,14,2025-02-01 12:00:00+08,14,2025-02-01 12:00:00+08
-202,6,101,500.00,,14,2025-02-01 12:00:00+08,14,2025-02-01 12:00:00+08

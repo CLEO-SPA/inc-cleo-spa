@@ -3,9 +3,6 @@ import model from '../models/memberVoucherModel.js';
 import { decodeCursor } from '../utils/cursorUtils.js';
 import { PaginatedOptions, CursorPayload } from '../types/common.types.js';
 import { MemberVoucherTransactionLogCreateData, MemberVoucherTransactionLogUpdateData } from '../types/model.types.js';
-import memberVoucherTransactionLogsModel from '../models/memberVoucherTransactionLogsModel.js';
-import voucherTemplateModel from '../models/voucherTemplateModel.js';
-import memberModel from '../models/memberModel.js';
 
 const getAllMemberVouchers = async (req: Request, res: Response, next: NextFunction): Promise<void> => {
   const { start_date_utc, end_date_utc } = req.session;
@@ -178,7 +175,8 @@ const createTransactionLogsByMemberVoucherId = async (req: Request, res: Respons
     type,
     createdBy,
     handledBy,
-    current_balance
+    current_balance,
+    assignedEmployee
   } = req.body;
 
   const {
@@ -252,7 +250,22 @@ const createTransactionLogsByMemberVoucherId = async (req: Request, res: Respons
 
     const results = await model.addTransactionLogsByMemberVoucherId(newMemberVoucherTransactionLogData);
     if (results.success) {
-      res.status(201).json({ message: results.message });
+      // res.status(201).json({ message: results.message });
+      res.locals.results = {
+        completed: [results.transactionLogId],
+        mvId: id,
+        success: true,
+        message: results.message,
+      }
+
+    if (assignedEmployee && Array.isArray(assignedEmployee) && assignedEmployee.length > 0) {
+        // Keep the original assignedEmployee in req.body for middleware
+        console.log('Commission data found for MV consumption:', assignedEmployee.length, 'employees');
+      } else {
+        console.log('No commission data found for MV consumption');
+    }
+    next();
+
     } else {
       res.status(400).json({ message: results.message });
       return;
@@ -526,7 +539,7 @@ const deleteTransactionLogsByLogId = async (req: Request, res: Response, next: N
 };
 
 
-const createMemberVoucher = async (req: Request, res: Response): Promise<void> => {
+const createMemberVoucher = async (req: Request, res: Response, next: NextFunction): Promise<void> => {
   try {
     console.log('Creating MV transaction:', req.body);
 
@@ -535,11 +548,13 @@ const createMemberVoucher = async (req: Request, res: Response): Promise<void> =
 
     console.log('MV transaction created successfully:', result);
 
-    res.status(201).json({
+    res.locals.data = {
       success: true,
       message: 'MV transaction created successfully',
-      data: result
-    });
+      data: result,
+    };
+
+    next();
 
   } catch (error: any) {
     console.error('Error creating MV transaction:', error);
@@ -586,6 +601,7 @@ const removeMemberVoucher = async (req: Request, res: Response, next: NextFuncti
     next(error); // Forward unexpected errors
   }
 };
+
 const getMemberVoucherDetailsHandler = async (
   req: Request,
   res: Response,
@@ -775,7 +791,5 @@ export default {
   getMemberVoucherPurchaseDate,
   getMemberNameByMemberVoucherId,
   updateTransactionLogsAndCurrentBalanceByLogId,
-  deleteTransactionLogsByLogId,
-  getMemberVoucherDetailsHandler,
-  transferVoucherDetailsHandler
+  deleteTransactionLogsByLogId
 }

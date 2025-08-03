@@ -23,8 +23,8 @@ export function EmployeeSelect({
   const control = controlProp || formContext?.control;
   const errors = errorsProp || formContext?.formState?.errors || {};
 
-const employees = useEmployeeStore((state) => state.dropdownEmployees);
- const loading = useEmployeeStore((state) => state.isFetchingDropdown); 
+  const employees = useEmployeeStore((state) => state.employees);
+  const loading = useEmployeeStore((state) => state.loading);
   const error = useEmployeeStore((state) => state.error);
   const fetchDropdownEmployees = useEmployeeStore((state) => state.fetchDropdownEmployees);
 

@@ -26,7 +26,7 @@ const useResetPasswordStore = create((set, get) => ({
 
     set({ isVerifying: true, error: '' });
     try {
-      await api.post(`/auth/verify?token=${token}`);
+      await api.post(`/em/verify?token=${token}`);
       set({ isTokenValid: true });
     } catch (err) {
       set({
@@ -57,7 +57,7 @@ const useResetPasswordStore = create((set, get) => ({
 
     set({ isSubmitting: true });
     try {
-      const response = await api.post(`/auth/invites?token=${token}`, {
+      const response = await api.post(`/em/invites?token=${token}`, {
         password: newPassword,
       });
 

@@ -159,7 +159,7 @@ function preparePaginationParams(
   effectiveLimit: number;
 } {
   let finalWhereClause = filterWhereClause;
-  let orderBy = 'ORDER BY mcp.created_at DESC, mcp.id DESC';
+  let orderBy = 'ORDER BY mcp.created_at ASC, mcp.id ASC';
   let cursorParams = [...filterParams];
   let effectiveLimit = page && page > 0 ? limit : limit + 1;
 
@@ -776,30 +776,33 @@ const createConsumption = async (
 
         // Update the local balance tracking
         currentBalance -= mcpDetailToConsume.price;
-        // console.log(currentBalance);
         baseLogRows[0].transaction_amount -= mcpDetailToConsume.price;
 
-        consumptionLogPromises.push(
-          client.query(i_mcptl_sql, [
-            'CONSUMPTION',
-            baseLogRows[0].description,
-            d.mcpd_date,
-            baseLogRows[0].transaction_amount,
-            -mcpDetailToConsume.price,
-            d.mcpd_id,
-            employee_id,
-            mcpDetailToConsume.service_id,
-            d.mcpd_date,
-          ])
-        );
+        // Execute the insert query and get the result
+        const insertResult = await client.query<{ id: string }>(i_mcptl_sql, [
+          'CONSUMPTION',
+          baseLogRows[0].description,
+          d.mcpd_date,
+          baseLogRows[0].transaction_amount,
+          -mcpDetailToConsume.price,
+          d.mcpd_id,
+          employee_id,
+          mcpDetailToConsume.service_id,
+          d.mcpd_date,
+        ]);
 
-        results.completed.push(d.mcpd_id);
+        if (insertResult.rows && insertResult.rows.length > 0) {
+          results.completed.push(insertResult.rows[0].id);
+        }
+
+        consumptionLogPromises.push(insertResult);
       }
 
       await Promise.all(consumptionLogPromises);
 
       mcp.package.balance = currentBalance;
     });
+
     await Promise.all(detailPromises);
     await client.query(u_mcp_sql, [mcp.package.balance, new Date().toUTCString(), mcp.package.id]);
 

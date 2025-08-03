@@ -1,7 +1,6 @@
 import express, { json, NextFunction, Request, Response, urlencoded } from 'express';
 import cors from 'cors';
 import session from 'express-session';
-import rateLimit from 'express-rate-limit';
 import cookieParser from 'cookie-parser';
 import mainRoutes from './routes/mainRoutes.js';
 import sessionStore from './store/sessionStore.js';
@@ -25,15 +24,9 @@ const corsOptions = {
   optionsSuccessStatus: 204,
 };
 
-const limiter = rateLimit({
-  windowMs: 15 * 60 * 1000,
-  max: 100,
-});
-
 app.use(json());
 app.use(urlencoded({ extended: true }));
 app.use(cors(corsOptions));
-app.use(limiter);
 app.use(cookieParser());
 
 app.use(
