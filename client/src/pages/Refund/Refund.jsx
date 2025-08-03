@@ -174,7 +174,7 @@ const RefundPage = () => {
                           : 'border-transparent text-slate-500 hover:text-slate-700 hover:border-slate-300'
                       }`}
                     >
-                      Receipt Lookup
+                      Search by Receipt
                     </button>
                   </nav>
                 </div>
@@ -390,8 +390,8 @@ const RefundPage = () => {
                   {activeTab === 'receipt' && (
                     <div className="p-6">
                       <div className="mb-4">
-                        <h3 className="text-lg font-medium text-slate-900">Receipt Lookup</h3>
-                        <p className="mt-1 text-sm text-slate-600">Search for transactions using receipt numbers</p>
+                        <h3 className="text-lg font-medium text-slate-900">Search by Receipt</h3>
+                        <p className="mt-1 text-sm text-slate-600">Search for refund transactions using receipt numbers</p>
                       </div>
                       <ReceiptSearch
                         onSearch={(receiptNo) => navigate(`/refunds/services/receipt/${receiptNo.trim()}`)}
