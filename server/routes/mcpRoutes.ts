@@ -3,7 +3,6 @@ const router = express.Router();
 
 import roleMiddleware from '../middlewares/roleMiddleware.js';
 import isAuthenticated from '../middlewares/authMiddleware.js';
-import commissionMiddleware from '../middlewares/commissionMiddleware.js';
 
 import controller from '../controllers/mcpController.js';
 
@@ -23,7 +22,7 @@ router.get('/dropdown/:memberId', controller.getMemberCarePackagesForDropdown);
 router.get('/pkg/:id', controller.getMemberCarePackageById);
 
 router.post('/create', controller.createMemberCarePackage);
-router.post('/consume', controller.createConsumption, commissionMiddleware.applyMcpCommission);
+router.post('/consume', controller.createConsumption);
 router.post('/transfer', controller.transferMemberCarePackage);
 
 router.put('/update', controller.updateMemberCarePackage);

@@ -26,9 +26,10 @@
     "express-session": "^1.18.1",
     "joi": "^17.13.3",
     "jsonwebtoken": "^9.0.2",
-    "nodemon": "^3.1.10",
+    "multer": "^2.0.1",
     "pg": "^8.14.1",
     "server": "file:",
+    "sqlite3": "^5.1.7",
     "validator": "^13.15.15"
   },
   "devDependencies": {
@@ -40,6 +41,7 @@
     "@types/express-session": "^1.18.1",
     "@types/http-errors": "^2.0.4",
     "@types/jsonwebtoken": "^9.0.9",
+    "@types/multer": "^1.4.13",
     "@types/node": "^22.15.26",
     "@types/pg": "^8.15.2",
     "@types/validator": "^13.15.1",

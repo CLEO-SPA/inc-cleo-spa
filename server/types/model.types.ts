@@ -326,14 +326,28 @@ export interface VoucherTemplateDetail {
   duration: number;
 }
 
-export interface EmployeeCommisions {
+export interface UserAuth {
   id: string;
-  item_type: 'member_vouchers' | 'member_care_packages' | 'products' | 'services';
-  item_id: string;
-  employee_id: string;
-  performance_rate: number;
-  performance_amount: number;
-  commission_rate: number;
-  commission_amount: number;
+  email: string;
+  password: string;
   created_at: string;
+  updated_at: string;
+}
+
+export interface NewUserData {
+  email: string;
+  username: string;
+  password_hash: string;
+  role_name: string;
+  created_at?: string;
+  updated_at?: string;
+}
+
+export interface UserWithRole {
+  id: string;
+  username: string;
+  email: string;
+  role_name: string;
+  created_at: string;
+  updated_at: string;
 }
