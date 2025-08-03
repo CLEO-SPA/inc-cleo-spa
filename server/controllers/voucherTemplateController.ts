@@ -1,5 +1,6 @@
 import { Request, Response, NextFunction } from 'express';
 import model from '../models/voucherTemplateModel.js';
+import memberVoucherModel from '../models/memberVoucherModel.js';
 
 // Get all voucher templates with filters and pagination
 const getAllVoucherTemplates = async (req: Request, res: Response, next: NextFunction) => {
@@ -43,7 +44,7 @@ const getAllVoucherTemplates = async (req: Request, res: Response, next: NextFun
   } catch (error) {
     console.error('Error in getAllVoucherTemplates:', error);
     next(error);
-}
+  }
 };
 // Create a new voucher template
 const createVoucherTemplate = async (req: Request, res: Response, next: NextFunction) => {
@@ -87,13 +88,13 @@ const deleteVoucherTemplate = async (req: Request, res: Response, next: NextFunc
 // Get a single voucher template by ID
 const getVoucherTemplateById = async (req: Request, res: Response, next: NextFunction): Promise<void> => {
   try {
-      const { start_date_utc, end_date_utc } = req.session;
-        const id = parseInt(req.params.id, 10);
+    const { start_date_utc, end_date_utc } = req.session;
+    const id = parseInt(req.params.id, 10);
 
-        if (isNaN(id)) {
-        res.status(400).json({ message: 'Invalid voucher template ID' });
-        return;
-        }
+    if (isNaN(id)) {
+      res.status(400).json({ message: 'Invalid voucher template ID' });
+      return;
+    }
 
     const voucherTemplate = await model.getVoucherTemplateById(id, start_date_utc!, end_date_utc!);
 
@@ -120,6 +121,48 @@ const getAllVoucherTemplatesForDropdown = async (req: Request, res: Response, ne
   }
 };
 
+const getVoucherTemplatesDetailsHandler = async (
+  req: Request,
+  res: Response,
+  next: NextFunction
+): Promise<void> => {
+  try {
+    console.log('Received query:', req.query);
+
+    const name = req.query.name;
+
+    const voucherName = name?.toString();
+
+    const templatesDetails = await model.getVoucherTemplatesDetails(voucherName);
+
+    res.status(200).json({ data: templatesDetails });
+  } catch (error) {
+    console.error("Error fetching voucher templates details:", error);
+    res.status(500).json({ error: "Failed to fetch voucher templates details" });
+  }
+};
+
+
+const getVoucherTemplateNamesHandler = async (
+  req: Request,
+  res: Response,
+  next: NextFunction
+): Promise<void> => {
+  try {
+    const names = await model.getAllVoucherTemplateNames();
+
+    res.status(200).json({
+      success: true,
+      data: names,
+    });
+  } catch (error) {
+    console.error("Error fetching voucher template names:", error);
+    res.status(500).json({
+      success: false,
+      message: "Failed to fetch voucher template names",
+    });
+  }
+};
 // Export all handlers in the same pattern
 export default {
   getAllVoucherTemplates,
@@ -127,5 +170,8 @@ export default {
   createVoucherTemplate,
   updateVoucherTemplate,
   deleteVoucherTemplate,
-  getAllVoucherTemplatesForDropdown
+  getAllVoucherTemplatesForDropdown,
+  getVoucherTemplatesDetailsHandler,
+  getVoucherTemplateNamesHandler
+
 };

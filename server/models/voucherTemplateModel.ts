@@ -5,6 +5,13 @@ import {
   UpdateVoucherTemplateInput
 } from '../types/voucherTemplate.types.js';
 
+import { VoucherTemplate, VoucherTemplateDetail, MemberName, MemberVouchers } from '../types/model.types.js';
+
+const normalizeBigInts = (data: any): any =>
+  JSON.parse(JSON.stringify(data, (_, value) =>
+    typeof value === "bigint" ? value.toString() : value
+  ));
+
 const getAllVoucherTemplates = async (
   offset: number,
   limit: number,
@@ -107,6 +114,44 @@ const getAllVoucherTemplates = async (
   } catch (error) {
     console.error('Error fetching voucher templates:', error);
     throw new Error('Error fetching voucher templates');
+  }
+};
+
+const getVoucherTemplatesDetails = async (name: string | null = null): Promise<any[]> => {
+  try {
+    const templatesQuery = name
+      ? `SELECT * FROM voucher_templates WHERE LOWER(voucher_template_name) = LOWER($1)`
+      : `SELECT * FROM voucher_templates`;
+
+    const templatesValues = name ? [name] : [];
+
+
+    const templatesResult = await pool().query(templatesQuery, templatesValues);
+    const templates: VoucherTemplate[] = templatesResult.rows;
+
+    const result = await Promise.all(
+      templates.map(async (template) => {
+        const detailQuery = `
+                    SELECT service_id, service_name, original_price, custom_price, discount, final_price, duration
+                    FROM voucher_template_details
+                    WHERE voucher_template_id = $1
+                `;
+        const detailValues = [template.id];
+        const detailsResult = await pool().query(detailQuery, detailValues);
+        const details: VoucherTemplateDetail[] = detailsResult.rows;
+
+        return {
+          ...template,
+          details,
+        };
+      })
+    );
+
+    console.log("Voucher Templates Details Result: ", result);
+    return normalizeBigInts(result);
+  } catch (error) {
+    console.error("Error fetching voucher templates:", error);
+    throw new Error("Failed to fetch voucher templates");
   }
 };
 
@@ -338,7 +383,7 @@ const deleteVoucherTemplate = async (templateId: string) => {
 
     // Step 2: Delete voucher template
     const deleteResult = await client.query(`DELETE FROM voucher_templates WHERE id = $1 RETURNING id`, [templateId]);
-    
+
     if (deleteResult.rows.length === 0) {
       throw new Error('Voucher template not found');
     }
@@ -437,6 +482,17 @@ const getAllVoucherTemplatesForDropdown = async (
     throw new Error('Error fetching all voucher templates for dropdown');
   }
 };
+const getAllVoucherTemplateNames = async (): Promise<any[]> => {
+  try {
+    const query = `SELECT * FROM voucher_templates ORDER BY id ASC`;
+    const result = await pool().query(query);
+    return normalizeBigInts(result.rows);
+  } catch (error) {
+    console.error("Error fetching voucher template names:", error);
+    throw new Error("Failed to fetch voucher template names");
+  }
+};
+
 
 
 export default {
@@ -445,5 +501,7 @@ export default {
   createVoucherTemplate,
   updateVoucherTemplate,
   deleteVoucherTemplate,
-  getAllVoucherTemplatesForDropdown
+  getAllVoucherTemplatesForDropdown,
+  getVoucherTemplatesDetails,
+  getAllVoucherTemplateNames
 };

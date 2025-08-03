@@ -129,7 +129,9 @@ resource "aws_security_group" "rds_sg" {
   }
 }
 
+# Security group for public RDS access (only created when db_publicly_accessible = true)
 resource "aws_security_group" "rds_public_sg" {
+  count       = var.db_publicly_accessible ? 1 : 0
   name        = "${var.project_name}-rds-public-sg"
   description = "Allow public access to RDS"
   vpc_id      = aws_vpc.main.id
@@ -176,7 +178,7 @@ resource "aws_db_subnet_group" "default" {
 
 resource "aws_db_parameter_group" "postgres_params" {
   name   = "${var.project_name}-postgres-params"
-  family = "postgres14"  # Use the appropriate version for your DB
+  family = "${var.db_version}"  # Use the appropriate version for your DB
 
   parameter {
     name  = "rds.force_ssl"
@@ -185,16 +187,16 @@ resource "aws_db_parameter_group" "postgres_params" {
 }
 
 resource "aws_db_instance" "default" {
-  allocated_storage      = 10
-  engine                 = "postgres"
-  instance_class         = "db.t3.micro"
-  db_name                = "cleospa"
-  username               = "cleo_owner"
+  allocated_storage      = var.db_storage
+  engine                 = var.db_engine
+  instance_class         = var.db_instance
+  db_name                = var.db_name
+  username               = var.db_username
   password               = var.db_password
   db_subnet_group_name   = aws_db_subnet_group.default.name
-  vpc_security_group_ids = [aws_security_group.rds_sg.id, aws_security_group.rds_public_sg.id]
-  skip_final_snapshot    = true
-  publicly_accessible    = true
+  vpc_security_group_ids = var.db_publicly_accessible ? [aws_security_group.rds_sg.id, aws_security_group.rds_public_sg[0].id] : [aws_security_group.rds_sg.id]
+  skip_final_snapshot    = var.db_skip_final_snapshot
+  publicly_accessible    = var.db_publicly_accessible
   parameter_group_name   = aws_db_parameter_group.postgres_params.name
   
   # Ensure the DB accepts connections with SSL but doesn't require it
@@ -202,7 +204,7 @@ resource "aws_db_instance" "default" {
 }
 
 resource "aws_secretsmanager_secret" "db_creds" {
-  name = "${var.project_name}/db1"
+  name = "${var.project_name}/${var.secret_name}"
 }
 
 resource "aws_secretsmanager_secret_version" "db_creds_version" {
@@ -217,7 +219,7 @@ resource "aws_secretsmanager_secret_version" "db_creds_version" {
 }
 
 resource "aws_secretsmanager_secret" "jwt_secrets" {
-  name = "${var.project_name}/jwt1"
+  name = "${var.project_name}/${var.jwt_secret_name}"
 }
 
 resource "aws_secretsmanager_secret_version" "jwt_secrets_version" {
