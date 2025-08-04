@@ -2,6 +2,22 @@
 import React from 'react';
 import { format } from 'date-fns';
 import { Button } from '@/components/ui/button';
+import { 
+  Table, 
+  TableBody, 
+  TableCell, 
+  TableHead, 
+  TableHeader, 
+  TableRow 
+} from '@/components/ui/table';
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuTrigger,
+} from '@/components/ui/dropdown-menu';
+import { Alert, AlertDescription } from '@/components/ui/alert';
+import { Loader2, AlertCircle, MoreHorizontal, Edit } from 'lucide-react';
 import useEmployeeTimetableStore from '@/stores/useEmployeeTimetableStore';
 import { useNavigate } from 'react-router-dom';
 import useAuth from '@/hooks/useAuth';
@@ -10,7 +26,8 @@ export default function TimetableCalendar() {
   const {
     currentMonth,
     timetableData = [], // ✅ Default to empty array
-    selectedEmployee
+    selectedEmployee,
+    loading
   } = useEmployeeTimetableStore();
   const navigate = useNavigate();
 
@@ -45,38 +62,68 @@ export default function TimetableCalendar() {
     return restDay;
   };
 
+  // ✅ NEW: Consistent loading state
+  if (loading.timetable) {
+    return (
+      <div className="flex items-center justify-center py-8">
+        <Loader2 className="h-6 w-6 animate-spin mr-2" />
+        <span className="text-sm text-muted-foreground">Loading timetable data...</span>
+      </div>
+    );
+  }
+
+  // ✅ NEW: Error state (if needed in future)
+  // if (error) {
+  //   return (
+  //     <Alert className="mb-4 border-red-200 bg-red-50">
+  //       <AlertCircle className="h-4 w-4 text-red-600" />
+  //       <AlertDescription className="text-red-800">{error}</AlertDescription>
+  //     </Alert>
+  //   );
+  // }
+
   return (
     <div className="overflow-x-auto">
-      <table className="w-full border-collapse border border-black">
+      {/* ✅ NEW: Standardized Table components */}
+      <Table className="w-full border-collapse border border-black">
         {/* Header */}
-        <thead>
-          <tr className="bg-blue-100">
-            <th className="border border-black px-2 py-1 text-left font-medium min-w-[100px]">
+        <TableHeader>
+          <TableRow className="bg-blue-100">
+            <TableHead className="border border-black px-2 py-1 text-left font-medium min-w-[100px]">
               Employee Name
-            </th>
+            </TableHead>
             {weekdays.map((day) => (
-              <th key={day} className="border border-black px-1 py-1 text-center font-medium min-w-[80px]">
+              <TableHead key={day} className="border border-black px-1 py-1 text-center font-medium min-w-[80px]">
                 {day}
-              </th>
+              </TableHead>
             ))}
-          </tr>
-        </thead>
+          </TableRow>
+        </TableHeader>
 
         {/* Body */}
-        <tbody>
+        <TableBody>
           {timetableData.length === 0 ? (
-            <tr>
-              <td colSpan={9} className="border border-black px-4 py-8 text-center text-gray-500">
-                No timetable data available for this month
-              </td>
-            </tr>
+            <TableRow>
+              <TableCell colSpan={8} className="border border-black px-4 py-8 text-center text-gray-500">
+                <div className="flex flex-col items-center gap-2">
+                  <AlertCircle className="h-8 w-8 text-gray-400" />
+                  <span>No timetable data available for this month</span>
+                  <span className="text-xs text-gray-400">
+                    {selectedEmployee 
+                      ? `No schedule found for ${selectedEmployee.employee_name}` 
+                      : 'Try adjusting your filters or select a different month'
+                    }
+                  </span>
+                </div>
+              </TableCell>
+            </TableRow>
           ) : (
             timetableData.map((employee) => (
-              <tr key={employee.employee_id}>
+              <TableRow key={employee.employee_id}>
                 {/* Employee Name */}
-                <td className="border border-black px-2 py-1 font-medium bg-gray-50">
+                <TableCell className="border border-black px-2 py-1 font-medium bg-gray-50">
                   {employee.employee_name}
-                </td>
+                </TableCell>
                 
                 {/* Days (Monday to Sunday) */}
                 {weekdays.map((day, index) => {
@@ -84,7 +131,7 @@ export default function TimetableCalendar() {
                   const restDay = getRestDayForDay(employee, dayNumber);
                   
                   return (
-                    <td 
+                    <TableCell 
                       key={day} 
                       className={`border border-black px-1 py-1 h-10 ${restDay ? 'bg-gray-300' : ''}`}
                     >
@@ -97,27 +144,42 @@ export default function TimetableCalendar() {
                           <div className="text-[10px] leading-tight">
                             End: {restDay.effective_enddate ? format(new Date(restDay.effective_enddate), 'dd MMM yyyy') : 'Ongoing'}
                           </div>
+                          
+                          {/* ✅ NEW: Consistent action button pattern */}
                           {canEdit && (
-                          <Button
-                            variant="outline"
-                            size="sm"
-                            className="mt-1 text-[10px] h-5 border-black text-black hover:bg-gray-200"
-                            onClick={() => navigate(`/et/update-employee-timetable/${restDay.timetable_id}`)}
-                          >
-                            Edit
-                          </Button>
+                            <div className="mt-1">
+                              <DropdownMenu>
+                                <DropdownMenuTrigger asChild>
+                                  <Button 
+                                    variant="ghost" 
+                                    size="sm" 
+                                    className="h-5 w-5 p-0 text-gray-600 hover:text-gray-800 hover:bg-gray-200"
+                                  >
+                                    <MoreHorizontal className="h-3 w-3" />
+                                  </Button>
+                                </DropdownMenuTrigger>
+                                <DropdownMenuContent align="start" className="text-sm">
+                                  <DropdownMenuItem 
+                                    onClick={() => navigate(`/et/update-employee-timetable/${restDay.timetable_id}`)}
+                                    className="cursor-pointer"
+                                  >
+                                    <Edit className="mr-2 h-3 w-3" />
+                                    Edit Schedule
+                                  </DropdownMenuItem>
+                                </DropdownMenuContent>
+                              </DropdownMenu>
+                            </div>
                           )}
                         </div>
                       )}
-                    </td>
+                    </TableCell>
                   );
                 })}
-                
-              </tr>
+              </TableRow>
             ))
           )}
-        </tbody>
-      </table>
+        </TableBody>
+      </Table>
     </div>
   );
 }

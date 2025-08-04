@@ -28,6 +28,7 @@ import productRoutes from './productRoutes.js';
 import revenueRoutes from './revenueRoutes.js';
 import stRoutes from './stRoutes.js';
 import voucherRoutes from './voucherRoute.js';
+import commissionRoutes from './commissionRoutes.js';
 
 router.use(simulationMiddleware);
 
@@ -55,5 +56,6 @@ router.use('/ab', appointmentRoutes);
 router.use('/rr', revenueRoutes);
 router.use('/sa', superAdminRoutes);
 router.use('/product', productRoutes);
+router.use('/com', commissionRoutes);
 
 export default router;

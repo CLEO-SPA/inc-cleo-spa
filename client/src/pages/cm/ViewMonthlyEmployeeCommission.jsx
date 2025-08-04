@@ -15,7 +15,7 @@ import useAuth from '@/hooks/useAuth';
 export default function ViewMonthlyEmployeeCommission() {
   const navigate = useNavigate();
   const [searchParams] = useSearchParams();
-  const { user } = useAuth();
+  // const { user } = useAuth();
   
   // Get employee ID from URL params
   const employeeId = searchParams.get('employeeId');

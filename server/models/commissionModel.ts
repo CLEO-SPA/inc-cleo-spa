@@ -277,6 +277,28 @@ const getEmployeeMonthlyCommission = async (
     console.log('start_date:', start_date.toISOString());
     console.log('end_date:', end_date.toISOString());
 
+    // Debug query to see the actual commission data and how dates are converted
+    const debugQuery = `
+      SELECT 
+        ec.id,
+        ec.created_at,
+        ec.created_at AT TIME ZONE 'Asia/Singapore' as created_at_sgt,
+        DATE(ec.created_at AT TIME ZONE 'Asia/Singapore') as commission_date_sgt,
+        ec.item_type,
+        ec.commission_amount
+      FROM employee_commissions ec
+      WHERE ec.employee_id = $1
+        AND ec.created_at >= $2::timestamptz
+        AND ec.created_at < $3::timestamptz
+      ORDER BY ec.created_at;
+    `;
+    
+    const debugResult = await pool().query(debugQuery, [employeeId, start_date.toISOString(), end_date.toISOString()]);
+    console.log('=== DEBUG: Raw commission records with timezone conversion ===');
+    debugResult.rows.forEach(row => {
+      console.log(`ID: ${row.id}, UTC: ${row.created_at.toISOString()}, SGT: ${row.created_at_sgt}, Date: ${row.commission_date_sgt}, Amount: ${row.commission_amount}`);
+    });
+
     // Get number of days in the month
     const daysInMonth = new Date(year, monthNum, 0).getDate();
 
@@ -324,10 +346,21 @@ const getEmployeeMonthlyCommission = async (
 
     // Process results and populate daysArray
     result.rows.forEach((row: any) => {
-      // Handle commission_date as Date object (convert to YYYY-MM-DD string first)
-      const commissionDateStr = row.commission_date instanceof Date 
-        ? row.commission_date.toISOString().split('T')[0]  // Get YYYY-MM-DD part
-        : row.commission_date.toString();
+      // Handle commission_date properly - it represents the Singapore date
+      // Use toDateString() to get the actual date without timezone issues
+      let commissionDateStr;
+      
+      if (row.commission_date instanceof Date) {
+        // Extract year, month, day from the date object to avoid timezone conversion issues
+        const year = row.commission_date.getFullYear();
+        const month = String(row.commission_date.getMonth() + 1).padStart(2, '0'); // getMonth() is 0-based
+        const day = String(row.commission_date.getDate()).padStart(2, '0');
+        commissionDateStr = `${year}-${month}-${day}`;
+      } else {
+        commissionDateStr = row.commission_date.toString();
+      }
+      
+      console.log(`Processing commission: SGT date = ${commissionDateStr}, item_type = ${row.item_type}, amount = ${row.total_commission}`);
       
       const day = parseInt(commissionDateStr.split('-')[2], 10) - 1; // Convert to 0-based index
       
@@ -394,14 +427,11 @@ const getEmployeeCommissionBreakdown = async (
     console.log('Employee ID:', employeeId);
     console.log('Date:', date);
 
-    // Create start and end of day in Singapore timezone
-    const startOfDay = new Date(`${date}T00:00:00+08:00`);
-    const endOfDay = new Date(`${date}T23:59:59+08:00`);
-
-    console.log('Start of day (SGT):', startOfDay.toISOString());
-    console.log('End of day (SGT):', endOfDay.toISOString());
+    console.log('Start of day (SGT):', `${date}T00:00:00+08:00`);
+    console.log('End of day (SGT):', `${date}T23:59:59+08:00`);
 
     // Query to get individual commission records for the specific date
+    // Use Singapore timezone in the WHERE clause to match the monthly query logic
     const query = `
       SELECT 
         ec.id,
@@ -443,15 +473,13 @@ const getEmployeeCommissionBreakdown = async (
         END as item_name
       FROM employee_commissions ec
       WHERE ec.employee_id = $1
-        AND ec.created_at >= $2::timestamptz
-        AND ec.created_at <= $3::timestamptz
+        AND DATE(ec.created_at AT TIME ZONE 'Asia/Singapore') = $2::date
       ORDER BY ec.created_at ASC;
     `;
 
     const queryParams = [
       employeeId,
-      startOfDay.toISOString(),
-      endOfDay.toISOString()
+      date  // Pass date as YYYY-MM-DD string directly
     ];
 
     const result = await pool().query(query, queryParams);
@@ -478,7 +506,6 @@ const getEmployeeCommissionBreakdown = async (
     throw new Error('Failed to fetch employee commission breakdown from the database');
   }
 };
-
 /**
  * Future Enhancements:
  * - Add validation to ensure item exists before creating commission records.

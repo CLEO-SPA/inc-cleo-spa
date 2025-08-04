@@ -115,6 +115,10 @@ const SuperAdminRoute = ({ children }) => {
   return <NotFoundPage />;
 };
 
+// Commission Management
+import ViewMonthlyEmployeeCommission from '@/pages/cm/ViewMonthlyEmployeeCommission';
+import CommissionBreakdownPage from '@/pages/cm/CommissionBreakdownPage';
+
 // Users
 import ManageUsersPage from '@/pages/users/ManageUsersPage';
 import CreateUserPage from '@/pages/users/CreateUserPage';
@@ -281,6 +285,10 @@ function App() {
                 <Route path='/users/create' element={<CreateUserPage />} />
                 <Route path='/users/edit/:id' element={<UpdateUserPage />} />
               </Route>
+
+                {/* Commission Management */}
+                <Route path="/cm/monthly-employee-commission" element={<ViewMonthlyEmployeeCommission />} />
+                <Route path="/cm/employee-commission-breakdown/:employeeId/:date" element={<CommissionBreakdownPage />} />
 
               {/* Public routes */}
               <Route path='/login' element={<LoginPage />} />
