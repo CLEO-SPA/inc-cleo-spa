@@ -13,7 +13,7 @@ import employeeController from '../controllers/employeeController.js';
 // =========================
 // Private routes
 // =========================
-router.use(isAuthenticated);
+// router.use(isAuthenticated);
 
 router.post('/create', roleMiddleware.hasRole(['super_admin', 'data_admin']), employeeController.createEmployee);
 
