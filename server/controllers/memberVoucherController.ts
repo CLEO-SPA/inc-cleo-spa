@@ -175,7 +175,8 @@ const createTransactionLogsByMemberVoucherId = async (req: Request, res: Respons
     type,
     createdBy,
     handledBy,
-    current_balance
+    current_balance,
+    assignedEmployee
   } = req.body;
 
   const {
@@ -249,7 +250,22 @@ const createTransactionLogsByMemberVoucherId = async (req: Request, res: Respons
 
     const results = await model.addTransactionLogsByMemberVoucherId(newMemberVoucherTransactionLogData);
     if (results.success) {
-      res.status(201).json({ message: results.message });
+      // res.status(201).json({ message: results.message });
+      res.locals.results = {
+        completed: [results.transactionLogId],
+        mvId: id,
+        success: true,
+        message: results.message,
+      }
+
+    if (assignedEmployee && Array.isArray(assignedEmployee) && assignedEmployee.length > 0) {
+        // Keep the original assignedEmployee in req.body for middleware
+        console.log('Commission data found for MV consumption:', assignedEmployee.length, 'employees');
+      } else {
+        console.log('No commission data found for MV consumption');
+    }
+    next();
+
     } else {
       res.status(400).json({ message: results.message });
       return;
@@ -523,7 +539,7 @@ const deleteTransactionLogsByLogId = async (req: Request, res: Response, next: N
 };
 
 
-const createMemberVoucher = async (req: Request, res: Response): Promise<void> => {
+const createMemberVoucher = async (req: Request, res: Response, next: NextFunction): Promise<void> => {
   try {
     console.log('Creating MV transaction:', req.body);
 
@@ -532,11 +548,13 @@ const createMemberVoucher = async (req: Request, res: Response): Promise<void> =
 
     console.log('MV transaction created successfully:', result);
 
-    res.status(201).json({
+    res.locals.data = {
       success: true,
       message: 'MV transaction created successfully',
-      data: result
-    });
+      data: result,
+    };
+
+    next();
 
   } catch (error: any) {
     console.error('Error creating MV transaction:', error);

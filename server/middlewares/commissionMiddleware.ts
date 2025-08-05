@@ -260,7 +260,7 @@ const applyMvCommission = async (req: Request, res: Response, next: NextFunction
       return;
     }
 
-    console.log('✅ Found commission data:', assignedEmployees.length, 'employees');
+    console.log('Found commission data:', assignedEmployees.length, 'employees');
 
     let itemIds: string[] = [];
     let sourceType: 'purchase' | 'consumption' = 'purchase';
@@ -270,17 +270,17 @@ const applyMvCommission = async (req: Request, res: Response, next: NextFunction
       const voucherId = res.locals.data.data.voucher_id || res.locals.data.data.id;
       itemIds = [voucherId.toString()];
       sourceType = 'purchase';
-      console.log('📦 Processing MV PURCHASE commission for voucher:', voucherId);
+      console.log('Processing MV PURCHASE commission for voucher:', voucherId);
     }
     // Case 2: MV Consumption (from memberVoucherController)
     else if (res.locals.results?.completed && Array.isArray(res.locals.results.completed)) {
       itemIds = res.locals.results.completed.map((id: any) => id.toString());
       sourceType = 'consumption';
-      console.log('🔥 Processing MV CONSUMPTION commission for transaction logs:', itemIds);
+      console.log('Processing MV CONSUMPTION commission for transaction logs:', itemIds);
     } else {
-      console.log('❌ Invalid commission context - no valid item IDs found');
-      console.log('🔍 Available res.locals.data keys:', Object.keys(res.locals.data || {}));
-      console.log('🔍 Available res.locals.results keys:', Object.keys(res.locals.results || {}));
+      console.log('Invalid commission context - no valid item IDs found');
+      console.log('Available res.locals.data keys:', Object.keys(res.locals.data || {}));
+      console.log('Available res.locals.results keys:', Object.keys(res.locals.results || {}));
       res.status(400).json({ success: false, message: 'Invalid or empty item data format' });
       return;
     }
