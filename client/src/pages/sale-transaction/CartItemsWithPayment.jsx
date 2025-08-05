@@ -29,6 +29,8 @@ const CartItemsWithPayment = ({
   const processedTransferSections = useRef(new Set());
   // Track which sections have had GST added
   const processedGSTSections = useRef(new Set());
+  // Track which sections have had Free added
+  const processedFreeSections = useRef(new Set());
 
   // State for GST rate
   const [gstRate, setGstRate] = useState(9); // Default to 9% if API fails
@@ -85,10 +87,75 @@ const CartItemsWithPayment = ({
     return roundTo2Decimals(amount * (gstRate / 100));
   };
 
-  // Helper function to get revenue-generating payment methods (excluding Transfer, Free, Pending, etc.)
+  // Get item pricing data
+  const getItemPricing = (itemId) => {
+    const pricing = itemPricing[itemId] || {
+      originalPrice: 0,
+      customPrice: 0,
+      discount: 1, // Default to 1 (100% of original price)
+      quantity: 1,
+      finalUnitPrice: 0,
+      totalLinePrice: 0
+    };
+
+    return {
+      originalPrice: roundTo2Decimals(pricing.originalPrice),
+      customPrice: roundTo2Decimals(pricing.customPrice),
+      discount: roundTo2Decimals(pricing.discount),
+      quantity: pricing.quantity,
+      finalUnitPrice: roundTo2Decimals(pricing.finalUnitPrice),
+      totalLinePrice: roundTo2Decimals(pricing.totalLinePrice)
+    };
+  };
+
+  // Helper function to calculate Free amount for specific items (NO circular dependency)
+  const calculateItemsFreeAmount = (items) => {
+    let totalFreeAmount = 0;
+
+    items.forEach(item => {
+      const pricing = getItemPricing(item.id);
+      
+      // Skip vouchers and transfers as they don't have discounts/custom pricing
+      if (item.type === 'member-voucher' || 
+          item.type === 'transferMCP' || 
+          item.type === 'transferMV') {
+        return;
+      }
+
+      let itemFreeAmount = 0;
+
+      if (pricing.customPrice > 0) {
+        // Custom price scenario: Free = (Original - Custom) * Quantity
+        // When custom price is used, discount should be 1 (100% of custom price)
+        const discountPerUnit = roundTo2Decimals(pricing.originalPrice - pricing.customPrice);
+        itemFreeAmount = roundTo2Decimals(discountPerUnit * pricing.quantity);
+      } else if (pricing.discount < 1 && pricing.discount >= 0) {
+        // Discount scenario: Free = Original * (1 - discount) * Quantity  
+        // When discount is used, custom price should be 0
+        const discountPerUnit = roundTo2Decimals(pricing.originalPrice * (1 - pricing.discount));
+        itemFreeAmount = roundTo2Decimals(discountPerUnit * pricing.quantity);
+      }
+
+      totalFreeAmount += itemFreeAmount;
+      
+      console.log(`Free calculation for item ${item.id}:`, {
+        originalPrice: pricing.originalPrice,
+        customPrice: pricing.customPrice,
+        discount: pricing.discount,
+        quantity: pricing.quantity,
+        scenario: pricing.customPrice > 0 ? 'Custom Price' : 'Discount Ratio',
+        itemFreeAmount,
+        totalFreeAmount
+      });
+    });
+
+    return roundTo2Decimals(totalFreeAmount);
+  };
+
+
   const getRevenuePaymentMethods = () => {
     // Fallback list of known revenue payment method IDs if dropdownPaymentMethods is not loaded
-    const knownRevenueMethodIds = [1, 2, 3, 4]; // Cash, NETS, PayNow, VISA based on project knowledge
+    const knownRevenueMethodIds = [1, 2, 3, 4]; 
     
     if (dropdownPaymentMethods.length === 0) {
       console.log('Using fallback revenue method IDs:', knownRevenueMethodIds);
@@ -128,21 +195,23 @@ const CartItemsWithPayment = ({
       dropdownPaymentMethods: dropdownPaymentMethods.slice(0, 3) // Show first 3 for debugging
     });
     
-    // Sum up only revenue-generating payments (excluding GST and non-revenue payments like Transfer)
+    // Sum up only revenue-generating payments (excluding GST, Free and non-revenue payments like Transfer)
     const revenuePaymentTotal = roundTo2Decimals(payments
       .filter(payment => {
         const isNotGST = payment.methodName !== `GST (${gstRate}%)`;
+        const isNotFree = payment.methodName !== 'Free';
         const isRevenueMethod = revenueMethodIds.includes(parseInt(payment.methodId));
         
         console.log('Payment filter check:', {
           payment: payment.methodName,
           methodId: payment.methodId,
           isNotGST,
+          isNotFree,
           isRevenueMethod,
-          included: isNotGST && isRevenueMethod
+          included: isNotGST && isNotFree && isRevenueMethod
         });
         
-        return isNotGST && isRevenueMethod;
+        return isNotGST && isNotFree && isRevenueMethod;
       })
       .reduce((total, payment) => total + payment.amount, 0));
     
@@ -172,13 +241,15 @@ const CartItemsWithPayment = ({
   const getPaymentSections = () => {
     const sections = [];
     
-    // Services + Products combined section (mandatory)
     const servicesAndProducts = [...groupedItems.Services, ...groupedItems.Products];
     if (servicesAndProducts.length > 0) {
       const combinedAmount = roundTo2Decimals(servicesAndProducts.reduce((total, item) => {
         const pricing = getItemPricing(item.id);
         return total + pricing.totalLinePrice;
       }, 0));
+      
+      // NO free amount calculation for services/products
+      const freeAmount = 0;
       
       // GST will be calculated dynamically based on payments
       const dynamicGST = calculateDynamicGST('services-products');
@@ -188,18 +259,21 @@ const CartItemsWithPayment = ({
         id: 'services-products',
         title: 'Services & Products (Required)',
         amount: combinedAmount,
+        freeAmount: freeAmount,
         gstAmount: dynamicGST,
         totalWithGST: totalWithGST,
         required: true,
         items: servicesAndProducts,
-        isDynamicGST: true
+        isDynamicGST: true,
+        hasFreeAmount: false // NO free amounts for services/products
       });
     }
 
-    // Individual sections for Packages
+    // Individual sections for Packages - WITH FREE AMOUNTS
     groupedItems.Packages.forEach(item => {
       const pricing = getItemPricing(item.id);
       const amount = roundTo2Decimals(pricing.totalLinePrice);
+      const freeAmount = calculateItemsFreeAmount([item], 'package'); // Pass section type
       const dynamicGST = calculateDynamicGST(`package-${item.id}`);
       const totalWithGST = roundTo2Decimals(amount + dynamicGST);
       
@@ -207,18 +281,21 @@ const CartItemsWithPayment = ({
         id: `package-${item.id}`,
         title: `Package: ${item.data?.name || 'Unnamed Package'}`,
         amount: amount,
+        freeAmount: freeAmount,
         gstAmount: dynamicGST,
         totalWithGST: totalWithGST,
         required: false,
         items: [item],
-        isDynamicGST: true
+        isDynamicGST: true,
+        hasFreeAmount: freeAmount > 0 // Only show free amounts if > 0
       });
     });
 
-    // Individual sections for Vouchers
+    // Individual sections for Vouchers - NO FREE AMOUNTS
     groupedItems.Vouchers.forEach(item => {
       const pricing = getItemPricing(item.id);
       const amount = roundTo2Decimals(pricing.totalLinePrice);
+      const freeAmount = 0; // NO free amounts for vouchers
       const dynamicGST = calculateDynamicGST(`voucher-${item.id}`);
       const totalWithGST = roundTo2Decimals(amount + dynamicGST);
       
@@ -226,18 +303,21 @@ const CartItemsWithPayment = ({
         id: `voucher-${item.id}`,
         title: `Voucher: ${item.data?.member_voucher_name || 'Unnamed Voucher'}`,
         amount: amount,
+        freeAmount: freeAmount,
         gstAmount: dynamicGST,
         totalWithGST: totalWithGST,
         required: false,
         items: [item],
-        isDynamicGST: true
+        isDynamicGST: true,
+        hasFreeAmount: false // NO free amounts for vouchers
       });
     });
 
-    // Individual sections for MCP Transfers - NO GST (non-revenue)
+    // Individual sections for MCP Transfers - NO FREE AMOUNTS
     groupedItems.TransferMCP.forEach(item => {
       const pricing = getItemPricing(item.id);
       const amount = roundTo2Decimals(pricing.totalLinePrice);
+      const freeAmount = 0; // NO free amounts for transfers
       const gstAmount = 0; // No GST for full transfers
       const totalWithGST = amount;
       
@@ -245,19 +325,22 @@ const CartItemsWithPayment = ({
         id: `transfer-mcp-${item.id}`,
         title: `MCP Transfer: ${item.data?.description || item.data?.name || 'MCP Balance Transfer'}`,
         amount: amount,
+        freeAmount: freeAmount,
         gstAmount: gstAmount,
         totalWithGST: totalWithGST,
         required: false,
         items: [item],
-        isTransfer: true
+        isTransfer: true,
+        hasFreeAmount: false // NO free amounts for transfers
       });
     });
 
-    // Individual sections for MV Transfers - Dynamic GST on revenue payments only
+    // Individual sections for MV Transfers - NO FREE AMOUNTS
     groupedItems.TransferMV.forEach(item => {
       const pricing = getItemPricing(item.id);
       const totalAmount = roundTo2Decimals(pricing.totalLinePrice);
       const transferAmount = roundTo2Decimals(item.data?.transferAmount || 0);
+      const freeAmount = 0; // NO free amounts for transfers
       
       // GST calculated dynamically based on actual revenue payments made
       const dynamicGST = calculateDynamicGST(`transfer-mv-${item.id}`);
@@ -268,12 +351,14 @@ const CartItemsWithPayment = ({
         title: `MV Transfer: ${item.data?.description || item.data?.name || 'Member Voucher Transfer'}`,
         amount: totalAmount,
         transferAmount: transferAmount,
+        freeAmount: freeAmount,
         gstAmount: dynamicGST,
         totalWithGST: totalWithGST,
         required: false,
         items: [item],
         isPartialTransfer: true,
-        isDynamicGST: true
+        isDynamicGST: true,
+        hasFreeAmount: false // NO free amounts for transfers
       });
     });
 
@@ -296,38 +381,17 @@ const CartItemsWithPayment = ({
       newPricing.quantity = Math.max(1, Math.floor(numValue));
     } else if (field === 'customPrice') {
       newPricing.customPrice = roundTo2Decimals(numValue);
-      newPricing.discount = 1;
+      newPricing.discount = 1; // Reset discount to 1 when custom price is used
       newPricing.finalUnitPrice = roundTo2Decimals(numValue);
     } else if (field === 'discount') {
       const discountValue = Math.max(0, Math.min(1, numValue)); 
       newPricing.discount = roundTo2Decimals(discountValue);
-      newPricing.customPrice = 0; 
+      newPricing.customPrice = 0; // Reset custom price when discount is used
       newPricing.finalUnitPrice = roundTo2Decimals(newPricing.originalPrice * discountValue);
     }
 
     newPricing.totalLinePrice = roundTo2Decimals(newPricing.finalUnitPrice * newPricing.quantity);
     return newPricing;
-  };
-
-  // Get item pricing data
-  const getItemPricing = (itemId) => {
-    const pricing = itemPricing[itemId] || {
-      originalPrice: 0,
-      customPrice: 0,
-      discount: 1,
-      quantity: 1,
-      finalUnitPrice: 0,
-      totalLinePrice: 0
-    };
-
-    return {
-      originalPrice: roundTo2Decimals(pricing.originalPrice),
-      customPrice: roundTo2Decimals(pricing.customPrice),
-      discount: roundTo2Decimals(pricing.discount),
-      quantity: pricing.quantity,
-      finalUnitPrice: roundTo2Decimals(pricing.finalUnitPrice),
-      totalLinePrice: roundTo2Decimals(pricing.totalLinePrice)
-    };
   };
 
   // Handle assigning employee to a cart item
@@ -365,6 +429,7 @@ const CartItemsWithPayment = ({
       
       // Small delay to ensure payment is added to state first
       setTimeout(() => {
+        const paymentSections = getPaymentSections();
         const section = paymentSections.find(s => s.id === sectionId);
         if (section?.isDynamicGST) {
           const newGSTAmount = calculateDynamicGST(sectionId);
@@ -401,11 +466,12 @@ const CartItemsWithPayment = ({
   // Update payment amount with smart limiting for dynamic GST
   const updatePaymentAmount = (sectionId, paymentId, amount) => {
     const numAmount = roundTo2Decimals(parseFloat(amount) || 0);
+    const paymentSections = getPaymentSections();
     const section = paymentSections.find(s => s.id === sectionId);
     const currentPayments = sectionPayments[sectionId] || [];
     
-    const otherNonGSTPaymentsTotal = roundTo2Decimals(currentPayments
-      .filter(p => p.id !== paymentId && p.methodName !== `GST (${gstRate}%)`)
+    const otherNonGSTNonFreePaymentsTotal = roundTo2Decimals(currentPayments
+      .filter(p => p.id !== paymentId && p.methodName !== `GST (${gstRate}%)` && p.methodName !== 'Free')
       .reduce((sum, p) => sum + p.amount, 0));
     
     let clampedAmount;
@@ -413,8 +479,8 @@ const CartItemsWithPayment = ({
     
     if (section?.isDynamicGST) {
       // For dynamic GST sections, limit to remaining section amount
-      // This prevents paying more than the actual invoice amount (excluding GST)
-      maxAllowed = roundTo2Decimals(section.amount - otherNonGSTPaymentsTotal);
+      // This prevents paying more than the actual invoice amount (excluding GST and Free)
+      maxAllowed = roundTo2Decimals(section.amount - otherNonGSTNonFreePaymentsTotal);
       clampedAmount = roundTo2Decimals(Math.min(numAmount, Math.max(0, maxAllowed)));
       
       if (numAmount > maxAllowed && maxAllowed >= 0) {
@@ -422,7 +488,7 @@ const CartItemsWithPayment = ({
       }
     } else {
       // For fixed GST sections, maintain original logic
-      maxAllowed = section ? roundTo2Decimals(section.amount - otherNonGSTPaymentsTotal) : numAmount;
+      maxAllowed = section ? roundTo2Decimals(section.amount - otherNonGSTNonFreePaymentsTotal) : numAmount;
       clampedAmount = roundTo2Decimals(Math.min(numAmount, Math.max(0, maxAllowed)));
       
       if (numAmount > maxAllowed && maxAllowed >= 0) {
@@ -438,11 +504,11 @@ const CartItemsWithPayment = ({
     onPaymentChange('updateRemark', sectionId, { paymentId, remark });
   };
 
-  // Get total payment for a section (excluding GST)
+  // Get total payment for a section (excluding GST and Free)
   const getSectionPaymentTotal = (sectionId) => {
     const payments = sectionPayments[sectionId] || [];
     return roundTo2Decimals(payments
-      .filter(payment => payment.methodName !== `GST (${gstRate}%)`)
+      .filter(payment => payment.methodName !== `GST (${gstRate}%)` && payment.methodName !== 'Free')
       .reduce((total, payment) => total + payment.amount, 0));
   };
 
@@ -463,6 +529,36 @@ const CartItemsWithPayment = ({
   };
 
   const paymentSections = getPaymentSections();
+
+  // Auto-add Free payment method for sections with discount/custom pricing (ONLY when needed)
+  const autoAddFreePayment = (sectionId, freeAmount) => {
+
+    if (freeAmount <= 0) return;
+    
+    if (processedFreeSections.current.has(sectionId)) {
+      return;
+    }
+
+    const existingPayments = sectionPayments[sectionId] || [];
+    const hasFreePayment = existingPayments.some(payment => payment.methodName === 'Free');
+    
+    // Only add if there's no existing Free payment and the amount is meaningful
+    if (!hasFreePayment && freeAmount > 0) {
+      const freePayment = {
+        id: crypto.randomUUID(),
+        methodId: 6, // Free payment method ID
+        methodName: 'Free',
+        amount: roundTo2Decimals(freeAmount),
+        remark: 'Auto-generated for discount/custom pricing',
+        isFree: true
+      };
+      
+      onPaymentChange('add', sectionId, freePayment);
+      processedFreeSections.current.add(sectionId);
+      
+      console.log(`Auto-added Free payment for ${sectionId} with amount: ${freeAmount}`);
+    }
+  };
 
   // Modified auto-add GST function to handle dynamic GST
   const autoAddGSTPayment = (sectionId, gstAmount, isTransfer = false, isPartialTransfer = false, isDynamicGST = false) => {
@@ -507,9 +603,11 @@ const CartItemsWithPayment = ({
     }
 
     const existingPayments = sectionPayments[sectionId] || [];
-    const hasNonGSTPayments = existingPayments.some(payment => payment.methodName !== `GST (${gstRate}%)`);
+    const hasNonGSTNonFreePayments = existingPayments.some(payment => 
+      payment.methodName !== `GST (${gstRate}%)` && payment.methodName !== 'Free'
+    );
     
-    if (!hasNonGSTPayments && transferAmount > 0) {
+    if (!hasNonGSTNonFreePayments && transferAmount > 0) {
       const transferPayment = {
         id: crypto.randomUUID(),
         methodId: 9,
@@ -525,7 +623,9 @@ const CartItemsWithPayment = ({
     }
   };
 
-  // Effect to auto-add GST payments for all sections (only after GST rate is loaded)
+
+
+  // Effect to auto-add GST payments for all sections 
   useEffect(() => {
     if (gstLoading) return;
 
@@ -591,6 +691,66 @@ const CartItemsWithPayment = ({
     });
   }, [sectionPayments, gstRate, gstLoading, dropdownPaymentMethods]); // Added dropdownPaymentMethods dependency
 
+  // Effect to update Free payments when pricing changes (ONLY FOR PACKAGES)
+  useEffect(() => {
+    if (gstLoading) return;
+
+    const paymentSections = getPaymentSections();
+    
+    paymentSections.forEach(section => {
+
+      if (!section.id.startsWith('package-')) {
+        return; 
+      }
+
+      const existingPayments = sectionPayments[section.id] || [];
+      const existingFreePayment = existingPayments.find(payment => payment.methodName === 'Free');
+      
+      const newFreeAmount = section.freeAmount;
+      
+      console.log('Free amount calculation for', section.id, {
+        existingFreePayment: existingFreePayment?.amount || 0,
+        newFreeAmount,
+        hasExistingFree: !!existingFreePayment,
+        isPackageSection: section.id.startsWith('package-')
+      });
+      
+      if (newFreeAmount > 0) {
+        // There should be free amount
+        if (existingFreePayment) {
+          // Update existing Free payment if amount changed
+          if (roundTo2Decimals(existingFreePayment.amount) !== newFreeAmount) {
+            console.log(`Updating Free amount for ${section.id} from ${existingFreePayment.amount} to ${newFreeAmount}`);
+            onPaymentChange('updateAmount', section.id, { 
+              paymentId: existingFreePayment.id, 
+              amount: newFreeAmount 
+            });
+          }
+        } else {
+          // Add new Free payment (only for package sections)
+          console.log(`Adding new Free payment for ${section.id} with amount: ${newFreeAmount}`);
+          
+          const freePayment = {
+            id: crypto.randomUUID(),
+            methodId: 6,
+            methodName: 'Free',
+            amount: newFreeAmount,
+            remark: 'Auto-generated for package discount/custom pricing',
+            isFree: true
+          };
+          
+          onPaymentChange('add', section.id, freePayment);
+        }
+      } else {
+        // No free amount needed, remove Free payment if exists
+        if (existingFreePayment && existingFreePayment.isFree) {
+          console.log(`Removing Free payment for ${section.id} as no longer needed`);
+          onPaymentChange('remove', section.id, existingFreePayment.id);
+        }
+      }
+    });
+  }, [itemPricing, cartItems, gstLoading]); // Trigger when pricing changes
+
   // Effect to auto-add transfer payments when transfer sections are created
   useEffect(() => {
     const paymentSections = getPaymentSections();
@@ -615,7 +775,7 @@ const CartItemsWithPayment = ({
         
         existingPayments.forEach(payment => {
           if ((payment.methodName === 'Transfer' || payment.methodId === 9) && 
-              payment.amount === 0 && !payment.isGST) {
+              payment.amount === 0 && !payment.isGST && !payment.isFree) {
                 
             let transferAmount;
             if (section.id.startsWith('transfer-mcp-')) {
@@ -678,6 +838,13 @@ const CartItemsWithPayment = ({
         processedGSTSections.current.delete(id);
       }
     });
+
+    const processedFreeIds = Array.from(processedFreeSections.current);
+    processedFreeIds.forEach(id => {
+      if (!currentSectionIds.includes(id)) {
+        processedFreeSections.current.delete(id);
+      }
+    });
   }, [cartItems]);
 
   // Show loading state if GST rate is still being fetched
@@ -708,6 +875,11 @@ const CartItemsWithPayment = ({
                 <div className="text-sm text-gray-500">Section Total</div>
                 <div className="text-lg font-bold">{formatCurrency(section.amount)}</div>
                 
+                {/* Show Free amount if applicable */}
+                {section.hasFreeAmount && section.freeAmount > 0 && (
+                  <div className="text-sm text-green-600">Free: {formatCurrency(section.freeAmount)}</div>
+                )}
+                
                 {/* Show breakdown for partial transfers */}
                 {section.isPartialTransfer && (
                   <div className="text-xs text-gray-600 mt-1">
@@ -734,6 +906,7 @@ const CartItemsWithPayment = ({
                     <th className="px-4 py-3 text-right text-xs font-medium text-gray-500 uppercase tracking-wider">Payment Ratio</th>
                     <th className="px-4 py-3 text-right text-xs font-medium text-gray-500 uppercase tracking-wider">Final Unit Price</th>
                     <th className="px-4 py-3 text-right text-xs font-medium text-gray-500 uppercase tracking-wider">Total Line Price</th>
+                    <th className="px-4 py-3 text-right text-xs font-medium text-gray-500 uppercase tracking-wider">Free Amount</th>
                     <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Assigned Employee</th>
                     <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Remarks</th>
                   </tr>
@@ -741,6 +914,25 @@ const CartItemsWithPayment = ({
                 <tbody>
                   {section.items.map((item) => {
                     const pricing = getItemPricing(item.id);
+                    
+                    // Calculate free amount for this specific item - 
+                    let itemFreeAmount = 0;
+                    if (item.type === 'package' && 
+                        item.type !== 'member-voucher' && 
+                        item.type !== 'transferMCP' && 
+                        item.type !== 'transferMV') {
+                      
+
+                      if (pricing.customPrice > 0 && pricing.customPrice < pricing.originalPrice) {
+                        // Custom price scenario: Free = (Original - Custom) * Quantity
+                        const discountPerUnit = roundTo2Decimals(pricing.originalPrice - pricing.customPrice);
+                        itemFreeAmount = roundTo2Decimals(discountPerUnit * pricing.quantity);
+                      } else if (pricing.discount < 1 && pricing.discount >= 0 && pricing.customPrice === 0) {
+                        // Discount scenario: Free = Original * (1 - discount) * Quantity
+                        const discountPerUnit = roundTo2Decimals(pricing.originalPrice * (1 - pricing.discount));
+                        itemFreeAmount = roundTo2Decimals(discountPerUnit * pricing.quantity);
+                      }
+                    }
                     
                     return (
                       <tr key={item.id} className="border-t border-gray-200 hover:bg-gray-50">
@@ -764,7 +956,9 @@ const CartItemsWithPayment = ({
                           )}
                         </td>
                         <td className="px-4 py-3 text-center">
-                          {item.type === 'member-voucher' ? (
+                          {(item.type === 'member-voucher' || 
+                            item.type === 'transferMCP' || 
+                            item.type === 'transferMV') ? (
                             <span className="text-gray-500">-</span>
                           ) : (
                             <input
@@ -780,7 +974,9 @@ const CartItemsWithPayment = ({
                           {formatCurrency(pricing.originalPrice)}
                         </td>
                         <td className="px-4 py-3 text-right">
-                          {item.type === 'member-voucher' ? (
+                          {(item.type === 'member-voucher' || 
+                            item.type === 'transferMCP' || 
+                            item.type === 'transferMV') ? (
                             <span className="text-gray-500">-</span>
                           ) : (
                             <input
@@ -795,7 +991,9 @@ const CartItemsWithPayment = ({
                           )}
                         </td>
                         <td className="px-4 py-3 text-right">
-                          {item.type === 'member-voucher' ? (
+                          {(item.type === 'member-voucher' || 
+                            item.type === 'transferMCP' || 
+                            item.type === 'transferMV') ? (
                             <span className="text-gray-500">-</span>
                           ) : (
                             <div className="flex items-center justify-end gap-1">
@@ -804,7 +1002,7 @@ const CartItemsWithPayment = ({
                                 min="0"
                                 max="1"
                                 step="0.01"
-                                value={pricing.discount || ''}
+                                value={pricing.discount === 0 ? '0' : (pricing.discount || '')}
                                 onChange={(e) => updateItemPricing(item.id, 'discount', e.target.value)}
                                 placeholder="1.00"
                                 className="w-16 p-1 border border-gray-300 rounded text-right text-sm"
@@ -820,6 +1018,15 @@ const CartItemsWithPayment = ({
                         </td>
                         <td className="px-4 py-3 text-right font-bold text-gray-900">
                           {formatCurrency(pricing.totalLinePrice)}
+                        </td>
+                        <td className="px-4 py-3 text-right">
+                          {itemFreeAmount > 0 ? (
+                            <span className="text-green-600 font-medium">
+                              {formatCurrency(itemFreeAmount)}
+                            </span>
+                          ) : (
+                            <span className="text-gray-400">-</span>
+                          )}
                         </td>
                         <td className="px-4 py-3">
                           <EmployeeSelect 
@@ -850,6 +1057,15 @@ const CartItemsWithPayment = ({
                   <tr>
                     <td colSpan={7} className="px-4 py-3 text-right font-medium">Section Total:</td>
                     <td className="px-4 py-3 text-right font-bold text-lg">{formatCurrency(section.amount)}</td>
+                    <td className="px-4 py-3 text-right">
+                      {section.freeAmount > 0 ? (
+                        <span className="text-green-600 font-bold text-lg">
+                          {formatCurrency(section.freeAmount)}
+                        </span>
+                      ) : (
+                        <span className="text-gray-400">-</span>
+                      )}
+                    </td>
                     <td></td>
                   </tr>
                 </tfoot>
@@ -892,26 +1108,40 @@ const CartItemsWithPayment = ({
                 <div className="space-y-3">
                   {sectionPayments[section.id].map((payment) => {
                     const isGST = payment.methodName === `GST (${gstRate}%)`;
+                    const isFree = payment.methodName === 'Free';
+                    const isAutoGeneratedFree = isFree && payment.isFree; // Only auto-generated Free payments are disabled
+                    const isManualFree = isFree && !payment.isFree; // Manually added Free payments are editable
                     
                     // Calculate proper max allowed for all payment types
-                    const otherNonGSTPaymentsTotal = roundTo2Decimals(sectionPayments[section.id]
-                      .filter(p => p.id !== payment.id && p.methodName !== `GST (${gstRate}%)`)
+                    const otherNonGSTNonFreePaymentsTotal = roundTo2Decimals(sectionPayments[section.id]
+                      .filter(p => p.id !== payment.id && p.methodName !== `GST (${gstRate}%)` && p.methodName !== 'Free')
                       .reduce((sum, p) => sum + p.amount, 0));
                     
                     let maxAllowed;
-                    if (isGST) {
-                      maxAllowed = roundTo2Decimals(payment.amount); // GST payments are auto-calculated
+                    if (isGST || isAutoGeneratedFree) {
+                      maxAllowed = roundTo2Decimals(payment.amount); 
                     } else {
-                      // Limit non-GST payments to remaining section amount
-                      maxAllowed = roundTo2Decimals(section.amount - otherNonGSTPaymentsTotal);
+
+                      maxAllowed = roundTo2Decimals(section.amount - otherNonGSTNonFreePaymentsTotal);
                     }
                     
                     return (
-                      <div key={payment.id} className={`flex items-center gap-3 p-3 rounded-md ${isGST ? 'bg-blue-50 border border-blue-200' : 'bg-gray-50'}`}>
+                      <div key={payment.id} className={`flex items-center gap-3 p-3 rounded-md ${
+                        isGST ? 'bg-blue-50 border border-blue-200' : 
+                        isAutoGeneratedFree ? 'bg-green-50 border border-green-200' : 
+                        isManualFree ? 'bg-green-50 border border-green-100' : 
+                        'bg-gray-50'
+                      }`}>
                         <div className="flex-shrink-0 w-32">
-                          <span className={`text-sm font-medium ${isGST ? 'text-blue-700' : ''}`}>
+                          <span className={`text-sm font-medium ${
+                            isGST ? 'text-blue-700' : 
+                            isAutoGeneratedFree ? 'text-green-700' : 
+                            isManualFree ? 'text-green-600' : ''
+                          }`}>
                             {payment.methodName}
                             {isGST && <span className="block text-xs text-blue-600">Auto-calculated</span>}
+                            {isAutoGeneratedFree && <span className="block text-xs text-green-600">Auto-calculated</span>}
+                            {isManualFree && <span className="block text-xs text-green-500">Manual entry</span>}
                           </span>
                         </div>
                         <div className="flex-1">
@@ -923,19 +1153,23 @@ const CartItemsWithPayment = ({
                             placeholder="Enter amount"
                             value={roundTo2Decimals(payment.amount) || ''}
                             onChange={(e) => updatePaymentAmount(section.id, payment.id, e.target.value)}
-                            disabled={isGST}
+                            disabled={isGST || isAutoGeneratedFree} // Only disable GST and auto-generated Free
                             className={`w-full p-2 border rounded-md text-sm ${
                               isGST 
                                 ? 'bg-blue-100 border-blue-300 text-blue-700 cursor-not-allowed' 
+                                : isAutoGeneratedFree
+                                ? 'bg-green-100 border-green-300 text-green-700 cursor-not-allowed'
+                                : isManualFree
+                                ? 'bg-white border-green-300 text-green-800' // Editable styling for manual Free
                                 : 'border-gray-300'
                             }`}
                           />
-                          {!isGST && maxAllowed < section.amount && maxAllowed >= 0 && (
+                          {!isGST && !isAutoGeneratedFree && maxAllowed < section.amount && maxAllowed >= 0 && (
                             <div className="text-xs text-gray-500 mt-1">
                               Max: {formatCurrency(maxAllowed)}
                             </div>
                           )}
-                          {!isGST && maxAllowed <= 0 && (
+                          {!isGST && !isAutoGeneratedFree && maxAllowed <= 0 && (
                             <div className="text-xs text-orange-500 mt-1">
                               Section fully paid
                             </div>
@@ -947,15 +1181,19 @@ const CartItemsWithPayment = ({
                             placeholder="Remark (optional)"
                             value={payment.remark}
                             onChange={(e) => updatePaymentRemark(section.id, payment.id, e.target.value)}
-                            disabled={isGST}
+                            disabled={isGST || isAutoGeneratedFree} // Only disable GST and auto-generated Free
                             className={`w-full p-2 border rounded-md text-sm ${
                               isGST 
                                 ? 'bg-blue-100 border-blue-300 text-blue-700 cursor-not-allowed' 
+                                : isAutoGeneratedFree
+                                ? 'bg-green-100 border-green-300 text-green-700 cursor-not-allowed'
+                                : isManualFree
+                                ? 'bg-white border-green-300 text-green-800' // Editable styling for manual Free
                                 : 'border-gray-300'
                             }`}
                           />
                         </div>
-                        {!isGST && (
+                        {!isGST && !isAutoGeneratedFree && (
                           <button
                             onClick={() => removePaymentMethod(section.id, payment.id)}
                             className="p-2 text-red-600 hover:bg-red-100 rounded-md"
@@ -968,6 +1206,16 @@ const CartItemsWithPayment = ({
                             <span className="text-blue-600 text-xs font-medium">GST</span>
                           </div>
                         )}
+                        {isAutoGeneratedFree && (
+                          <div className="p-2 w-8 h-8 flex items-center justify-center">
+                            <span className="text-green-600 text-xs font-medium">FREE</span>
+                          </div>
+                        )}
+                        {isManualFree && (
+                          <div className="p-2 w-8 h-8 flex items-center justify-center">
+                            <span className="text-green-500 text-xs font-medium">FREE</span>
+                          </div>
+                        )}
                       </div>
                     );
                   })}
@@ -978,11 +1226,19 @@ const CartItemsWithPayment = ({
               <div className="mt-4 pt-3 border-t">
                 <div className="space-y-2">
                   <div className="flex justify-between items-center">
-                    <span className="font-medium">Subtotal (excluding GST):</span>
+                    <span className="font-medium">Subtotal (excluding GST & Free):</span>
                     <span className="font-bold text-lg">
                       {formatCurrency(getSectionPaymentTotal(section.id))}
                     </span>
                   </div>
+                  {section.freeAmount > 0 && (
+                    <div className="flex justify-between items-center">
+                      <span className="font-medium">Free Amount:</span>
+                      <span className="font-bold text-lg text-green-600">
+                        {formatCurrency(section.freeAmount)}
+                      </span>
+                    </div>
+                  )}
                   <div className="flex justify-between items-center">
                     <span className="font-medium">GST ({gstRate}%):</span>
                     <span className="font-bold text-lg text-blue-600">
