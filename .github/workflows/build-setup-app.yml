@@ -1,0 +1,204 @@
+name: Build and Release Setup App
+
+on:
+  workflow_dispatch: # Manual triggering only
+    inputs:
+      version:
+        description: 'Version number (e.g., 1.0.0)'
+        required: true
+        default: '1.0.0'
+      prerelease:
+        description: 'Mark as pre-release'
+        required: false
+        default: false
+        type: boolean
+
+jobs:
+  determine-version:
+    runs-on: ubuntu-latest
+    outputs:
+      version: ${{ steps.set-version.outputs.version }}
+      tag_name: ${{ steps.set-version.outputs.tag_name }}
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Set version
+        id: set-version
+        run: |
+          VERSION="${{ github.event.inputs.version }}"
+          TAG_NAME="setup-v${VERSION}"
+
+          echo "version=${VERSION}" >> $GITHUB_OUTPUT
+          echo "tag_name=${TAG_NAME}" >> $GITHUB_OUTPUT
+          echo "Version: ${VERSION}"
+          echo "Tag: ${TAG_NAME}"
+
+  build-windows:
+    needs: determine-version
+    runs-on: windows-latest
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v4
+        with:
+          python-version: '3.10'
+          cache: 'pip'
+
+      - name: Install dependencies
+        working-directory: setup
+        run: |
+          python -m pip install --upgrade pip
+          pip install -e .
+          pip install pyinstaller pillow PyJWT requests
+
+      - name: Build executable
+        working-directory: setup
+        env:
+          VERSION: ${{ needs.determine-version.outputs.version }}
+        run: |
+          echo "Building Windows executable version $env:VERSION"
+          python build_github_actions.py --version $env:VERSION --platform windows
+
+      - name: Upload Windows artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: cleo-setup-windows-${{ needs.determine-version.outputs.version }}
+          path: setup/dist/CLEO_SPA_SETUP.exe
+          if-no-files-found: error
+          retention-days: 30
+
+  build-macos:
+    needs: determine-version
+    runs-on: macos-latest
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v4
+        with:
+          python-version: '3.10'
+          cache: 'pip'
+
+      - name: Install dependencies
+        working-directory: setup
+        run: |
+          python -m pip install --upgrade pip
+          pip install -e .
+          pip install pyinstaller pillow PyJWT requests
+
+      - name: Build executable
+        working-directory: setup
+        env:
+          VERSION: ${{ needs.determine-version.outputs.version }}
+        run: |
+          echo "Building macOS executable version $VERSION"
+          python build_github_actions.py --version $VERSION --platform macos
+
+      - name: Package macOS app into zip
+        working-directory: setup/dist
+        run: |
+          zip -r CLEO_SPA_SETUP_macOS.zip CLEO_SPA_SETUP.app
+          ls -la
+
+      - name: Upload macOS artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: cleo-setup-macos-${{ needs.determine-version.outputs.version }}
+          path: setup/dist/CLEO_SPA_SETUP_macOS.zip
+          if-no-files-found: error
+          retention-days: 30
+
+  build-linux:
+    needs: determine-version
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v4
+        with:
+          python-version: '3.10'
+          cache: 'pip'
+
+      - name: Install system dependencies
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y python3-tk python3-dev
+
+      - name: Install dependencies
+        working-directory: setup
+        run: |
+          python -m pip install --upgrade pip
+          pip install -e .
+          pip install pyinstaller pillow PyJWT requests
+
+      - name: Build executable
+        working-directory: setup
+        env:
+          VERSION: ${{ needs.determine-version.outputs.version }}
+        run: |
+          echo "Building Linux executable version $VERSION"
+          python build_github_actions.py --version $VERSION --platform linux
+
+      - name: Upload Linux artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: cleo-setup-linux-${{ needs.determine-version.outputs.version }}
+          path: setup/dist/CLEO_SPA_SETUP
+          if-no-files-found: error
+          retention-days: 30
+
+  create-release:
+    needs: [determine-version, build-windows, build-macos, build-linux]
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    steps:
+      - name: Download all artifacts
+        uses: actions/download-artifact@v4
+        with:
+          path: ./artifacts
+
+      - name: List all artifacts
+        run: find ./artifacts -type f | sort
+
+      - name: Generate release description
+        id: release-description
+        run: |
+          echo "This release contains setup applications for Windows, macOS, and Linux." >> release_notes.md
+          echo "" >> release_notes.md
+          echo "## Installation Instructions" >> release_notes.md
+          echo "" >> release_notes.md
+          echo "### Windows" >> release_notes.md
+          echo "- Download the CLEO_SPA_SETUP.exe file" >> release_notes.md
+          echo "- Double-click to run the installer" >> release_notes.md
+          echo "- Follow the on-screen instructions" >> release_notes.md
+          echo "" >> release_notes.md
+          echo "### macOS" >> release_notes.md
+          echo "- Download the CLEO_SPA_SETUP_macOS.zip file" >> release_notes.md
+          echo "- Unzip the archive to extract the .app file" >> release_notes.md
+          echo "- Right-click and select \"Open\" to bypass Gatekeeper" >> release_notes.md
+          echo "- Follow the on-screen instructions" >> release_notes.md
+          echo "" >> release_notes.md
+          echo "### Linux" >> release_notes.md
+          echo "- Download the Linux executable" >> release_notes.md
+          echo "- Make it executable: \`chmod +x CLEO_SPA_SETUP\`" >> release_notes.md
+          echo "- Run it: \`./CLEO_SPA_SETUP\`" >> release_notes.md
+
+      - name: Create Release
+        uses: softprops/action-gh-release@v1
+        with:
+          name: CLEO SPA Setup v${{ needs.determine-version.outputs.version }}
+          tag_name: ${{ needs.determine-version.outputs.tag_name }}
+          body_path: release_notes.md
+          draft: false
+          prerelease: ${{ github.event.inputs.prerelease }}
+          files: |
+            ./artifacts/cleo-setup-windows-${{ needs.determine-version.outputs.version }}/CLEO_SPA_SETUP.exe
+            ./artifacts/cleo-setup-linux-${{ needs.determine-version.outputs.version }}/CLEO_SPA_SETUP
+            ./artifacts/cleo-setup-macos-${{ needs.determine-version.outputs.version }}/CLEO_SPA_SETUP_macOS.zip
