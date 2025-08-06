@@ -366,4 +366,4 @@ AS $$
     GROUP BY payment_date_gmt8, pt.payment_method_id, pm.payment_method_name
 )
 ORDER BY payment_date_gmt8;
-$$;
+$$;`
