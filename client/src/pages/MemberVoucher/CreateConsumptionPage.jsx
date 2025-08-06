@@ -49,9 +49,12 @@ const CreateMemberVoucherConsumptionPage = () => {
                 <div key={key} className="flex justify-between border-b py-1">
                     <span className="font-medium">{key.replace(/([A-Z])/g, " $1").replace(/^./, c => c.toUpperCase())}</span>
                     <span>
-                        {value instanceof Date
-                            ? value.toLocaleString()
-                            : value?.toString() ?? ''}</span>
+                        {key === 'assignedEmployee' && Array.isArray(value)
+                            ? value.map(emp => emp.employeeName).join(', ')
+                            : value instanceof Date
+                                ? value.toLocaleString()
+                                : value?.toString() ?? ''}
+                    </span>
                 </div>
             ))}
         </div>
@@ -70,7 +73,7 @@ const CreateMemberVoucherConsumptionPage = () => {
                     <SidebarInset>
                         <div>
                             <div className='container mx-3'>
-                                <BackButtonHeader name={memberName?.name || 'Loading...'}/>
+                                <BackButtonHeader name={memberName?.name || 'Loading...'} />
                             </div>
                             <MemberVoucherServices />
                             {/* Error Alert */}

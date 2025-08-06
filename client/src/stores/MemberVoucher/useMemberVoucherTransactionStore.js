@@ -468,8 +468,7 @@ const useMemberVoucherTransactionStore = create((set, get) => ({
                 ...formFieldData,
                 createdByWithName,
                 handledByWithName,
-                lastUpdatedByWithName,
-                assignedEmployee: formFieldData.assignedEmployee || []
+                lastUpdatedByWithName
             };
         } else {
             formFieldDataWithEmpName = {
