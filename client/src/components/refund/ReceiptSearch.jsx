@@ -18,7 +18,7 @@ const ReceiptSearch = ({ onSearch }) => {
     <form onSubmit={handleSubmit} className="space-y-4">
       <div className="space-y-1">
         <label htmlFor="receipt" className="block text-sm font-medium text-gray-700">
-          Search Ad-hoc Service Transaction by Receipt No.
+          Search Ad-hoc Service Refund Transaction by Receipt No.
         </label>
         <div className="relative flex gap-2">
           <input
