@@ -106,9 +106,9 @@ const TranslationForm = () => {
     };
 
     const handleConfirm = async () => {
-        await addTranslation(fetchTranslations, t);
+        const success = await addTranslation(fetchTranslations, t);
         setShowConfirm(false);
-        if (!error) {
+        if (success) {
             navigate("/translations");
         }
     };

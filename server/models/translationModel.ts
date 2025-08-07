@@ -19,7 +19,7 @@ const addTranslation = async (
 ): Promise<Translation | { error: string }> => {
     try {
         const existingCheck = await pool().query(
-            "SELECT * FROM translations WHERE english = $1",
+            "SELECT * FROM translations WHERE LOWER(english) = LOWER($1)",
             [english]
         );
 
@@ -27,7 +27,7 @@ const addTranslation = async (
             return { error: `Translation for "${english}" already exists.` };
         }
 
-        const timestamp = createdAt ?? new Date().toISOString(); // fallback if not provided
+        const timestamp = createdAt ?? new Date().toISOString();
 
         const result = await pool().query(
             `INSERT INTO translations (
@@ -39,7 +39,7 @@ const addTranslation = async (
                 chinese,
                 meaningInEnglish,
                 meaningInChinese,
-                timestamp // used for both created_at and updated_at
+                timestamp
             ]
         );
 
