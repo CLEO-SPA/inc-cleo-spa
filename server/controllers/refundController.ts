@@ -93,7 +93,7 @@ const processRefundMemberVoucher = async (req: Request, res: Response, next: Nex
 
 ////////////////////////////////////////
 
-// Middleware: Ensure the MCP exists and hasn’t already been refunded
+// Middleware: Ensure the MCP exists
 const validateMCPExists = async (req: Request, res: Response, next: NextFunction) => {
   try {
     const { mcpId } = req.body;
@@ -101,12 +101,6 @@ const validateMCPExists = async (req: Request, res: Response, next: NextFunction
 
     if (!mcp) {
       res.status(404).json({ error: 'Member Care Package not found.' });
-      return;
-    }
-
-    // Changed from checking status_id to checking status directly
-    if (mcp.status === 'Refunded') {
-      res.status(400).json({ error: 'This Member Care Package has already been refunded.' });
       return;
     }
 
@@ -118,7 +112,7 @@ const validateMCPExists = async (req: Request, res: Response, next: NextFunction
   }
 };
 
-// Updated controller
+// Updated verifyRefundableServices middleware
 const verifyRefundableServices = async (req: Request, res: Response, next: NextFunction) => {
   try {
     const { mcpId } = req.body;
@@ -138,8 +132,8 @@ const verifyRefundableServices = async (req: Request, res: Response, next: NextF
       .map(service => ({
         ...service,
         refundableQuantity: Math.min(
-          service.purchased - service.consumed - service.refunded, // Actually paid and not consumed
-          service.remaining // And still remaining in the package
+          service.purchased - service.consumed - service.refunded,
+          service.remaining
         )
       }))
       .filter(service => service.refundableQuantity > 0);
@@ -151,20 +145,123 @@ const verifyRefundableServices = async (req: Request, res: Response, next: NextF
       });
     }
 
-    // Prepare data for the refund processor
     const refundableDetails = refundableServices.map(service => ({
-      id: service.detail_id || service.id, // Adjust based on your actual schema
-      service_id: service.service_id,
+      id: service.id, // detail_id from member_care_package_details
       service_name: service.service_name,
-      quantity: service.refundableQuantity, // Only the refundable amount
-      price: service.price, // You'll need to include this in your status query
-      discount: service.discount // You'll need to include this in your status query
+      price: service.price,
+      discount: service.discount,
+      quantity: service.refundableQuantity
     }));
 
     (req as any).remainingServices = refundableDetails;
     next();
   } catch (error) {
     console.error('verifyRefundableServices error:', error);
+    next(error);
+  }
+};
+
+// Updated processPartialRefund controller
+const processPartialRefund = async (req: Request, res: Response, next: NextFunction) => {
+  try {
+    console.log('Incoming refund request:', JSON.stringify(req.body, null, 2));
+    const { 
+      mcpId, 
+      refundedBy, 
+      refundRemarks, 
+      refundDate, 
+      refundItems,
+      additionalBalanceRefund = 0
+    } = req.body;
+
+    // Validate refundedBy exists and is a number
+    if (!refundedBy || typeof refundedBy !== 'number') {
+      return res.status(400).json({
+        error: 'Valid refundedBy employee ID required',
+        details: 'Please provide the employee/user ID performing the refund'
+      });
+    }
+
+    // Validate additionalBalanceRefund
+    if (additionalBalanceRefund < 0) {
+      return res.status(400).json({
+        error: 'Additional balance refund cannot be negative'
+      });
+    }
+
+    // Validate refundDate if provided
+    let processedRefundDate = new Date();
+    if (refundDate) {
+      processedRefundDate = new Date(refundDate);
+      if (isNaN(processedRefundDate.getTime())) {
+        return res.status(400).json({ error: 'Invalid refund date format' });
+      }
+    }
+
+    const reqWithExtras = req as Request & {
+      mcpData: { id: number; member_id: number; balance: number };
+      remainingServices: Array<{
+        id: number;
+        service_name: string;
+        quantity: number;
+        price: number;
+        discount: number;
+      }>;
+    };
+
+    // Validate refund items
+    if (!refundItems || !Array.isArray(refundItems)) {
+      return res.status(400).json({ error: 'Invalid refund items format' });
+    }
+
+    // Calculate service-based refunds
+    const refundDetails = reqWithExtras.remainingServices.map(service => {
+      const refundItem = refundItems.find((item: any) => item.detail_id === Number(service.id));
+      const refundQuantity = refundItem ? Math.min(refundItem.quantity, service.quantity) : 0;
+
+      return {
+        ...service,
+        refundQuantity,
+        refundAmount: refundQuantity * service.price * service.discount
+      };
+    }).filter(service => service.refundQuantity > 0);
+
+    const serviceRefundAmount = refundDetails.reduce((sum, item) => sum + item.refundAmount, 0);
+    const totalRefundAmount = serviceRefundAmount + Number(additionalBalanceRefund);
+
+    // Check if total refund amount exceeds package balance
+    if (totalRefundAmount > reqWithExtras.mcpData.balance) {
+      return res.status(400).json({
+        error: 'Refund amount exceeds package balance',
+        currentBalance: reqWithExtras.mcpData.balance,
+        requestedRefund: totalRefundAmount
+      });
+    }
+
+    // Process the transaction
+    const result = await model.processPartialRefundTransaction({
+      mcpId,
+      memberId: reqWithExtras.mcpData.member_id,
+      refundDetails,
+      additionalBalanceRefund,
+      refundedBy,
+      refundRemarks,
+      refundDate: processedRefundDate,
+      totalRefundAmount
+    });
+
+    res.status(201).json({
+      message: 'Partial refund processed successfully',
+      refundTransactionId: result.refundTransactionId,
+      totalRefundAmount: result.totalRefund,
+      refundedServices: result.refundedServices,
+      additionalBalanceRefund: result.additionalBalanceRefund,
+      newPackageBalance: result.newPackageBalance,
+      refundDate: processedRefundDate.toISOString(),
+      receiptNo: result.receiptNo
+    });
+  } catch (error) {
+    console.error('Partial refund processing error:', error);
     next(error);
   }
 };
@@ -230,18 +327,15 @@ const fetchMCPStatus = async (req: Request, res: Response, next: NextFunction) =
       return res.status(400).json({ error: 'Invalid ID' });
     }
 
-    // Get basic package status
     const results = await model.fetchMCPStatusById(id);
     if (!results?.length) {
       return res.status(404).json({ error: 'Package not found' });
     }
 
-    const { package_id, package_name, balance } = results[0];
-
-    // Check if any service was refunded
+    const { package_id, package_name, balance, created_at } = results[0];  // Add created_at here
     const hasRefundedService = results.some(s => parseInt(s.refunded) > 0);
     let refundDetails = null;
-    
+
     if (hasRefundedService) {
       refundDetails = await model.getRefundDetailsForPackage(id);
     }
@@ -251,7 +345,7 @@ const fetchMCPStatus = async (req: Request, res: Response, next: NextFunction) =
       const consumed = parseInt(s.consumed) || 0;
       const refunded = parseInt(s.refunded) || 0;
       const unpaid = parseInt(s.unpaid) || 0;
-      const price = parseFloat(s.discounted_price) || 0; // Use discounted_price here
+      const price = parseFloat(s.discounted_price) || 0;
       const remaining = parseInt(s.remaining) || 0;
       const total = parseInt(s.total_quantity) || 0;
 
@@ -265,11 +359,12 @@ const fetchMCPStatus = async (req: Request, res: Response, next: NextFunction) =
       }
 
       return {
+        detail_id: s.detail_id,
         service_id: s.service_id,
         service_name: s.service_name,
         totals: {
           total,
-          price, // This now contains the discounted price
+          price,
           purchased,
           consumed,
           refunded,
@@ -284,10 +379,11 @@ const fetchMCPStatus = async (req: Request, res: Response, next: NextFunction) =
       };
     });
 
-    res.status(200).json({ 
-      package_id, 
+    res.status(200).json({
+      package_id,
       package_name,
       balance,
+      created_at, 
       services
     });
   } catch (error) {
@@ -309,6 +405,17 @@ const searchMembers = async (req: Request, res: Response, next: NextFunction) =>
     res.status(200).json(results);
   } catch (error) {
     console.error('searchMembers error:', error);
+    next(error);
+  }
+};
+
+const listMembers = async (req: Request, res: Response, next: NextFunction) => {
+  try {
+    const { page = 1, limit = 10 } = req.query;
+    const results = await model.listMembers(Number(page), Number(limit));
+    res.status(200).json(results);
+  } catch (error) {
+    console.error('listMembers error:', error);
     next(error);
   }
 };
@@ -364,21 +471,21 @@ const getRefundDate = async (req: Request, res: Response) => {
   try {
     const { mcpId } = req.params;
     const refundDate = await model.getRefundDateByMcpId(mcpId);
-    
+
     if (!refundDate) {
-      return res.status(404).json({ 
-        error: 'Refund record not found for this MCP' 
+      return res.status(404).json({
+        error: 'Refund record not found for this MCP'
       });
     }
 
-    res.json({ 
-      refund_date: refundDate 
+    res.json({
+      refund_date: refundDate
     });
-    
+
   } catch (error) {
     console.error('Error fetching refund date:', error);
-    res.status(500).json({ 
-      error: 'Failed to retrieve refund date' 
+    res.status(500).json({
+      error: 'Failed to retrieve refund date'
     });
   }
 };
@@ -460,6 +567,7 @@ export default {
   validateMCPExists,
   verifyRefundableServices: verifyRefundableServices as RequestHandler,
   processFullRefund: processFullRefund as RequestHandler,
+  processPartialRefund: processPartialRefund as RequestHandler,
   fetchMCPStatus: fetchMCPStatus as RequestHandler,
   searchMembers: searchMembers as RequestHandler,
   getMemberCarePackages: getMemberCarePackages as RequestHandler,
@@ -470,4 +578,5 @@ export default {
   getMemberVoucherById: getMemberVoucherById as RequestHandler,
   getAllRefundRecords,
   getRefundRecordDetails: getRefundRecordDetails as RequestHandler,
+  listMembers: listMembers as RequestHandler
 };
