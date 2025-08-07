@@ -338,7 +338,7 @@ const CreditNoteDetailsPage = () => {
                                                                                                 </p>
                                                                                             </div>
                                                                                             <div className="space-y-1">
-                                                                                                <p className="text-sm font-medium text-gray-600">Quantity</p>
+                                                                                                <p className="text-sm font-medium text-gray-600">Total Quantity</p>
                                                                                                 <p className="text-lg font-semibold text-gray-900">{detail.quantity}</p>
                                                                                             </div>
                                                                                         </div>

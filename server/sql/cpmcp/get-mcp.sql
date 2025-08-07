@@ -33,8 +33,7 @@ BEGIN
                 'membership_type_id', m.membership_type_id,
                 'created_at', m.created_at,
                 'updated_at', m.updated_at,
-                'created_by', m.created_by,
-                'user_auth_id', m.user_auth_id
+                'created_by', m.created_by
             ),
             'details', COALESCE(
                 jsonb_agg(
@@ -93,7 +92,7 @@ BEGIN
         mcp.id,
         m.id,
         e.id;
-        -- m.name, m.email, m.contact, m.dob, m.sex, m.remarks, m.address, m.nric, m.membership_type_id, m.created_at, m.updated_at, m.created_by, m.user_auth_id;
+        -- m.name, m.email, m.contact, m.dob, m.sex, m.remarks, m.address, m.nric, m.membership_type_id, m.created_at, m.updated_at, m.created_by;
 
     RETURN result_json;
 END;

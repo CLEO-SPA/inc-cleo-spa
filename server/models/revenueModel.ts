@@ -116,7 +116,7 @@ const getMVDeferredRevenue = async () => {
   const client = await pool().connect();
   try {
     const result = await client.query(`
-      WITH net_sales AS (
+WITH net_sales AS (
     SELECT 
         TO_CHAR((mvtl.service_date AT TIME ZONE 'Asia/Singapore'), 'YYYY-MM') AS transaction_month,
         SUM(
@@ -151,9 +151,12 @@ income_data AS (
     FROM 
         payment_to_sale_transactions ptst
     JOIN 
+        payment_methods pm ON pm.id = ptst.payment_method_id
+    JOIN 
         sale_transaction_items sti ON sti.sale_transaction_id = ptst.sale_transaction_id
     WHERE 
-        ptst.payment_method_id IN (1, 2, 3, 4)
+        pm.is_enabled = true 
+        AND pm.is_income = true
         AND sti.item_type = 'member voucher'
     GROUP BY 
         TO_CHAR((ptst.created_at AT TIME ZONE 'Asia/Singapore'), 'YYYY-MM')
@@ -223,9 +226,12 @@ mcp_income AS (
     FROM 
         payment_to_sale_transactions ptst
     JOIN 
+        payment_methods pm ON pm.id = ptst.payment_method_id
+    JOIN 
         sale_transaction_items sti ON sti.sale_transaction_id = ptst.sale_transaction_id
     WHERE 
-        ptst.payment_method_id IN (1, 2, 3, 4)
+        pm.is_enabled = true 
+        AND pm.is_income = true
         AND sti.item_type = 'member care package'
     GROUP BY 
         TO_CHAR((ptst.created_at AT TIME ZONE 'Asia/Singapore'), 'YYYY-MM')
@@ -271,6 +277,7 @@ ORDER BY
     client.release();
   }
 };
+
 export default {
   getMVMonthlyReport,
   getMCPMonthlyReport,
