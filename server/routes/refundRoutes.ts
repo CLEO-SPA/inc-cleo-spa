@@ -12,7 +12,7 @@ import controller from '../controllers/refundController.js';
 // =========================
 // Private routes
 // =========================
-//router.use(isAuthenticated);
+router.use(isAuthenticated);
 
 // API: /api/refund/-
 // ------------------------------
