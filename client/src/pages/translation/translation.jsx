@@ -1,4 +1,4 @@
-import React from "react";
+import React, { useEffect } from "react";
 import { useNavigate } from "react-router-dom";
 
 import { useTranslation } from "@/context/TranslationContext";
@@ -34,6 +34,10 @@ const TranslationForm = () => {
     } = useTranslationStore();
 
     const { t, fetchTranslations } = useTranslation();
+    useEffect(() => {
+        setError('');
+        setSuccess('');
+    }, [setError, setSuccess]);
 
     const handleSubmit = (event) => {
         event.preventDefault();
