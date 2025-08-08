@@ -71,13 +71,7 @@ function RevenueReportPage() {
   // Helper function to get the correct property name for payment methods
   const getPaymentMethodKey = (methodName) => {
     const lowerMethod = methodName.toLowerCase();
-    // Map payment method names to the actual property names in your data
-    switch (lowerMethod) {
-      case 'paynow': 
-        return 'payment';
-      default: 
-        return lowerMethod;
-    }
+    return lowerMethod;
   };
 
   // Helper function to get total value for a payment method
