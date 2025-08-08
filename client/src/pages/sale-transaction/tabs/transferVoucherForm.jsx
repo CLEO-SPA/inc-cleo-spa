@@ -6,10 +6,12 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import ServiceSelect from '@/components/ui/forms/ServiceSelect';
-import EmployeeSelect from '@/components/ui/forms/EmployeeSelect';
 import useTransferVoucherStore from '@/stores/useTransferVoucherStore';
 import useTransactionCartStore from '@/stores/useTransactionCartStore';
 import useSelectedMemberStore from '@/stores/useSelectedMemberStore';
+import EmployeeSelect from '@/components/ui/forms/EmployeeSelect';
+
+
 
 const TransferVoucherForm = () => {
   const currentMember = useSelectedMemberStore((state) => state.currentMember);
@@ -42,8 +44,10 @@ const TransferVoucherForm = () => {
   const [hasCustomFoc, setHasCustomFoc] = useState(false);
   const [createdBy, setCreatedBy] = useState('');
 
+
   const [remarks, setRemarks] = useState('');
   const [validationErrors, setValidationErrors] = useState({});
+
 
   const [displayVoucherName, setDisplayVoucherName] = useState('');
   const [displayCustomVoucherName, setDisplayCustomVoucherName] = useState('');
@@ -85,6 +89,7 @@ const TransferVoucherForm = () => {
     }
   }, [selectedVoucherName, voucherTemplates, bypassTemplate, hasCustomPrice, hasCustomFoc]);
 
+
   useEffect(() => {
     setHasCustomPrice(false);
     setHasCustomFoc(false);
@@ -92,6 +97,7 @@ const TransferVoucherForm = () => {
     if (!bypassTemplate) {
       setServiceDetails([]);
       setDisplayServiceDetails([]); // Add this line
+
     }
   }, [bypassTemplate]);
   const clearForm = () => {
@@ -104,6 +110,8 @@ const TransferVoucherForm = () => {
     setDisplayRemarks('');
     setDisplayServiceDetails([]);
     setValidationErrors({});
+
+
   };
   const validateForm = () => {
     const errors = {};
@@ -128,17 +136,18 @@ const TransferVoucherForm = () => {
       errors.foc = 'FOC cannot be greater than price';
     }
 
+
     if (parseFloat(foc || '0') > parseFloat(price || '0')) {
       errors.foc = 'FOC cannot be greater than price';
     }
 
     // Validate old vouchers
-    if (oldVouchers.length === 0 || oldVouchers.every((v) => !v || v.trim() === '')) {
+    if (oldVouchers.length === 0 || oldVouchers.every(v => !v || v.trim() === '')) {
       errors.oldVouchers = 'At least one old voucher must be selected';
     }
 
     // Check for duplicate old vouchers
-    const nonEmptyOldVouchers = oldVouchers.filter((v) => v && v.trim() !== '');
+    const nonEmptyOldVouchers = oldVouchers.filter(v => v && v.trim() !== '');
     if (nonEmptyOldVouchers.length !== new Set(nonEmptyOldVouchers).size) {
       errors.oldVouchers = 'Duplicate old vouchers are not allowed';
     }
@@ -185,10 +194,61 @@ const TransferVoucherForm = () => {
       errors.createdBy = 'Created by is required';
     }
 
+
+
     setValidationErrors(errors);
     return Object.keys(errors).length === 0;
   };
 
+  const getValidationErrorMessages = (errors) => {
+    const messages = [];
+
+    if (errors.voucherName) {
+      messages.push(`• ${errors.voucherName}`);
+    }
+
+    if (errors.price) {
+      messages.push(`• ${errors.price}`);
+    }
+
+    if (errors.foc) {
+      messages.push(`• ${errors.foc}`);
+    }
+
+    if (errors.oldVouchers) {
+      messages.push(`• ${errors.oldVouchers}`);
+    }
+
+    if (errors.serviceDetails) {
+      messages.push(`• ${errors.serviceDetails}`);
+    }
+
+    if (errors.serviceErrors) {
+      Object.keys(errors.serviceErrors).forEach(index => {
+        const serviceError = errors.serviceErrors[index];
+        const serviceNum = parseInt(index) + 1;
+
+        if (serviceError.name) {
+          messages.push(`• Service ${serviceNum}: ${serviceError.name}`);
+        }
+        if (serviceError.duration) {
+          messages.push(`• Service ${serviceNum}: ${serviceError.duration}`);
+        }
+        if (serviceError.price) {
+          messages.push(`• Service ${serviceNum}: ${serviceError.price}`);
+        }
+        if (serviceError.discount) {
+          messages.push(`• Service ${serviceNum}: ${serviceError.discount}`);
+        }
+      });
+    }
+
+    if (errors.createdBy) {
+      messages.push(`• ${errors.createdBy}`);
+    }
+
+    return messages;
+  };
   // Service details management functions
   const addServiceDetail = () => {
     const newDetail = {
@@ -211,26 +271,29 @@ const TransferVoucherForm = () => {
   };
 
   const updateServiceDetail = (id, field, value) => {
-    setServiceDetails((details) =>
-      details.map((detail) => {
-        if (detail.id === id) {
-          const updated = { ...detail, [field]: value };
+    const updateLogic = (detail) => {
+      if (detail.id === id) {
+        const updated = { ...detail, [field]: value };
 
-          // Recalculate final price when price or discount changes
-          if (field === 'price' || field === 'discount') {
-            const price = field === 'price' ? value : detail.price;
-            const discount = field === 'discount' ? value : detail.discount;
-            updated.final_price = price - (price * discount) / 100;
-          }
-
-          return updated;
+        // Recalculate final price when price or discount changes
+        if (field === 'price' || field === 'discount') {
+          const price = field === 'price' ? value : detail.price;
+          const discount = field === 'discount' ? value : detail.discount;
+          updated.final_price = price - (price * discount / 100);
         }
-        return detail;
-      })
-    );
 
+        return updated;
+      }
+      return detail;
+    };
+
+    // Update both serviceDetails and displayServiceDetails with the same logic
+    setServiceDetails(details => details.map(updateLogic));
+    setDisplayServiceDetails(details => details.map(updateLogic));
+
+    // Clear validation errors (existing code)
     if (validationErrors.serviceErrors) {
-      const serviceIndex = serviceDetails.findIndex((d) => d.id === id);
+      const serviceIndex = serviceDetails.findIndex(d => d.id === id);
       if (serviceIndex !== -1 && validationErrors.serviceErrors[serviceIndex]) {
         const newErrors = { ...validationErrors };
         const newServiceErrors = { ...newErrors.serviceErrors };
@@ -252,8 +315,8 @@ const TransferVoucherForm = () => {
   };
 
   const removeServiceDetail = (id) => {
-    setServiceDetails((details) => details.filter((detail) => detail.id !== id));
-    setDisplayServiceDetails((details) => details.filter((detail) => detail.id !== id));
+    setServiceDetails(details => details.filter(detail => detail.id !== id));
+    setDisplayServiceDetails(details => details.filter(detail => detail.id !== id));
   };
 
   const handleServiceSelect = (detailId, serviceData) => {
@@ -262,9 +325,9 @@ const TransferVoucherForm = () => {
     updateServiceDetail(detailId, 'price', serviceData.price);
     updateServiceDetail(detailId, 'duration', serviceData.duration);
     // Recalculate final price
-    const detail = serviceDetails.find((d) => d.id === detailId);
+    const detail = serviceDetails.find(d => d.id === detailId);
     if (detail) {
-      const finalPrice = serviceData.price - (serviceData.price * (detail.discount || 0)) / 100;
+      const finalPrice = serviceData.price - (serviceData.price * (detail.discount || 0) / 100);
       updateServiceDetail(detailId, 'final_price', finalPrice);
     }
   };
@@ -351,6 +414,7 @@ const TransferVoucherForm = () => {
   const isBalanceGreater = totalOldBalance > Number(price);
 
   const handleAddToCart = () => {
+
     if (isBalanceGreater) {
       alert('Cannot add to cart: Total balance of old vouchers exceeds the price of the new voucher!');
       return;
@@ -358,9 +422,12 @@ const TransferVoucherForm = () => {
 
     const isValid = validateForm();
     if (!isValid) {
-      alert('Please fix the form errors before adding to cart.');
+      const errorMessages = getValidationErrorMessages(validationErrors);
+      const errorText = `Please fix the following errors:\n\n${errorMessages.join('\n')}`;
+      alert(errorText);
       return;
     }
+
 
     const voucherNameToUse = bypassTemplate ? customVoucherName : selectedVoucherName;
     if (!voucherNameToUse || !price) return;
@@ -381,6 +448,7 @@ const TransferVoucherForm = () => {
 
     addCartItem(cartPayload);
     clearForm();
+
   };
 
   const handleInputChange = (field, value) => {
@@ -391,7 +459,6 @@ const TransferVoucherForm = () => {
       setValidationErrors(newErrors);
     }
   };
-
   return (
     <div className='p-0'>
       {!selectedMember && (
@@ -430,7 +497,9 @@ const TransferVoucherForm = () => {
                 setCustomVoucherName(e.target.value);
                 setDisplayCustomVoucherName(e.target.value);
                 handleInputChange('voucherName');
-              }}
+              }
+
+              }
             />
           ) : (
             <select
@@ -451,7 +520,9 @@ const TransferVoucherForm = () => {
             </select>
           )}
 
-          {validationErrors.voucherName && <p className='text-red-600 text-sm mt-1'>{validationErrors.voucherName}</p>}
+          {validationErrors.voucherName && (
+            <p className='text-red-600 text-sm mt-1'>{validationErrors.voucherName}</p>
+          )}
         </div>
 
         {/* Price and Bypass */}
@@ -465,7 +536,10 @@ const TransferVoucherForm = () => {
               onChange={(e) => handleDecimalInput(e, setPrice, setDisplayPrice, setHasCustomPrice)}
               placeholder={bypassTemplate ? 'Enter price' : 'Auto-filled unless changed'}
             />
-            {validationErrors.price && <p className='text-red-600 text-sm mt-1'>{validationErrors.price}</p>}
+            {validationErrors.price && (
+              <p className="text-red-600 text-sm mt-1">{validationErrors.price}</p>
+            )}
+
           </div>
           <div className='flex flex-col items-center'>
             <Label className='text-sm font-medium text-gray-700 mb-1 whitespace-nowrap'>Bypass Template</Label>
@@ -476,6 +550,8 @@ const TransferVoucherForm = () => {
                 checked={bypassTemplate}
                 onChange={toggleBypassTemplate}
               />
+
+
               <div className='w-11 h-6 bg-gray-300 rounded-full peer peer-checked:bg-blue-500 relative'>
                 <div className='w-5 h-5 bg-white rounded-full absolute top-0.5 left-0.5 transition peer-checked:translate-x-5'></div>
               </div>
@@ -493,7 +569,10 @@ const TransferVoucherForm = () => {
             onChange={(e) => handleDecimalInput(e, setFoc, setDisplayFoc, setHasCustomFoc, true)}
             placeholder={bypassTemplate ? 'Enter FOC' : 'Auto-filled unless changed'}
           />
-          {validationErrors.foc && <p className='text-red-600 text-sm mt-1'>{validationErrors.foc}</p>}
+          {validationErrors.foc && (
+            <p className="text-red-600 text-sm mt-1">{validationErrors.foc}</p>
+          )}
+
         </div>
         {parseFloat(foc || '0') > parseFloat(price || '0') && (
           <div className='mb-4 p-2 bg-red-100 text-red-700 rounded'>⚠️ FOC cannot be more than price.</div>
@@ -504,7 +583,13 @@ const TransferVoucherForm = () => {
           <div className='mb-6'>
             <div className='flex items-center justify-between mb-3'>
               <Label className='text-sm font-medium text-gray-700'>Service Details</Label>
-              <Button type='button' variant='outline' size='sm' onClick={addServiceDetail} className='h-8'>
+              <Button
+                type='button'
+                variant='outline'
+                size='sm'
+                onClick={addServiceDetail}
+                className='h-8'
+              >
                 <Plus className='h-4 w-4 mr-1' />
                 Add Details
               </Button>
@@ -554,9 +639,11 @@ const TransferVoucherForm = () => {
                   const updated = [...oldVouchers];
                   updated[index] = e.target.value;
                   setOldVouchers(updated);
+
                   const displayUpdated = [...displayOldVouchers];
                   displayUpdated[index] = e.target.value;
                   setDisplayOldVouchers(displayUpdated);
+
                   handleInputChange('oldVouchers');
                 }}
               >
@@ -589,7 +676,9 @@ const TransferVoucherForm = () => {
               )}
             </div>
           ))}
-          {validationErrors.oldVouchers && <p className='text-red-600 text-sm mt-1'>{validationErrors.oldVouchers}</p>}
+          {validationErrors.oldVouchers && (
+            <p className='text-red-600 text-sm mt-1'>{validationErrors.oldVouchers}</p>
+          )}
           <Button
             type='button'
             onClick={() => {
@@ -608,7 +697,12 @@ const TransferVoucherForm = () => {
         {/* Totals */}
         <div className='mb-4'>
           <Label className='text-sm font-medium text-gray-700 mb-1'>Balance of Old Vouchers (Excluding FOC)</Label>
-          <Input type='text' className='h-9 bg-gray-100' value={totalOldBalance} readOnly />
+          <Input
+            type='text'
+            className='h-9 bg-gray-100'
+            value={totalOldBalance}
+            readOnly
+          />
         </div>
 
         {isBalanceGreater && (
@@ -619,7 +713,12 @@ const TransferVoucherForm = () => {
 
         <div className='mb-6'>
           <Label className='text-sm font-medium text-gray-700 mb-1'>To Be Topped Up</Label>
-          <Input type='text' className='h-9 bg-gray-100' value={topUpBalance} readOnly />
+          <Input
+            type='text'
+            className='h-9 bg-gray-100'
+            value={topUpBalance}
+            readOnly
+          />
         </div>
 
         {/* Created By*/}
@@ -636,16 +735,14 @@ const TransferVoucherForm = () => {
           />
         </div>
 
+
         {/* Add to Cart Button */}
         <div className='mt-4 flex justify-end'>
           <Button
             onClick={handleAddToCart}
             disabled={isFocGreaterThanPrice || isBalanceGreater}
-            className={`px-6 py-2 h-9 ${
-              isFocGreaterThanPrice || isBalanceGreater
-                ? 'bg-gray-400 cursor-not-allowed'
-                : 'bg-green-600 hover:bg-green-700 text-white'
-            }`}
+            className={`px-6 py-2 h-9 ${(isFocGreaterThanPrice || isBalanceGreater) ? 'bg-gray-400 cursor-not-allowed' : 'bg-green-600 hover:bg-green-700 text-white'
+              }`}
           >
             Add to Cart
           </Button>
@@ -709,7 +806,13 @@ const ServiceDetailRow = ({ detail, index, onUpdateDetail, onRemoveDetail, onSer
       </div>
       <div className='space-y-1'>
         <Label className='text-sm font-medium text-gray-700'>Final Price</Label>
-        <Input type='number' step='0.01' value={detail.final_price || 0} readOnly className='h-9 bg-gray-100' />
+        <Input
+          type='number'
+          step='0.01'
+          value={detail.final_price || 0}
+          readOnly
+          className='h-9 bg-gray-100'
+        />
       </div>
       <div className='flex items-end'>
         <Button

@@ -1,4 +1,4 @@
-import React from "react";
+import React, { useEffect } from "react";
 import { useNavigate } from "react-router-dom";
 
 import { useTranslation } from "@/context/TranslationContext";
@@ -7,6 +7,14 @@ import useTranslationStore from "@/stores/useTranslationStore";
 // Validation
 const isEnglishText = (text) => /^[A-Za-z\s.,!?'"()\-&$%#@*+<=>]*$/.test(text);
 const isChineseText = (text) => /^[\u4e00-\u9fff\s.,!?'"()\-&$%#@*+<=>]*$/.test(text);
+
+// Helper to get local datetime string for datetime-local input
+const getLocalDateTimeString = () => {
+    const now = new Date();
+    const offset = now.getTimezoneOffset(); // in minutes
+    const localTime = new Date(now.getTime() - offset * 60000);
+    return localTime.toISOString().slice(0, 16); // "YYYY-MM-DDTHH:mm"
+};
 
 const TranslationForm = () => {
     const navigate = useNavigate();
@@ -34,6 +42,16 @@ const TranslationForm = () => {
     } = useTranslationStore();
 
     const { t, fetchTranslations } = useTranslation();
+
+    useEffect(() => {
+        setError('');
+        setSuccess('');
+
+        // Auto-fill createdAt if not set
+        if (!createdAt) {
+            setCreatedAt(getLocalDateTimeString());
+        }
+    }, [setError, setSuccess, createdAt, setCreatedAt]);
 
     const handleSubmit = (event) => {
         event.preventDefault();
@@ -73,21 +91,24 @@ const TranslationForm = () => {
             return;
         }
 
+        const finalCreatedAt = createdAt || getLocalDateTimeString();
+        setCreatedAt(finalCreatedAt); // Optional: update store for consistency
+
         setConfirmTranslation({
             english,
             chinese,
             meaning_in_english: meaningEnglish,
             meaning_in_chinese: meaningChinese,
-            created_at: createdAt,
+            created_at: finalCreatedAt,
         });
 
         setShowConfirm(true);
     };
 
     const handleConfirm = async () => {
-        await addTranslation(fetchTranslations, t);
+        const success = await addTranslation(fetchTranslations, t);
         setShowConfirm(false);
-        if (!error) {
+        if (success) {
             navigate("/translations");
         }
     };
@@ -187,7 +208,7 @@ const TranslationForm = () => {
 
             {showConfirm && (
                 <div className="fixed inset-0 bg-black bg-opacity-40 flex items-center justify-center z-50 px-4">
-                    <div className="bg-white rounded-2xl shadow-2xl max-w-md w-full p-8 overflow-y-auto max-h-screen">
+                    <div className="bg-white rounded-2xl shadow-2xl max-w-md w-full p-8 overflow-y-auto max-h-[90vh]">
                         <h2 className="text-2xl font-bold text-blue-700 mb-4 text-center">
                             {t("Confirm Translation", "确认翻译")}
                         </h2>
