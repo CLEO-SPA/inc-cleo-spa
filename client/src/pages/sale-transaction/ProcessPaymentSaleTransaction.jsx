@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from 'react';
+import React, { useEffect } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import {
   ArrowLeft,
@@ -31,16 +31,11 @@ const ProcessPaymentSaleTransaction = () => {
   const { id } = useParams();
   const navigate = useNavigate();
 
-  // GST state
-  const [gstRate, setGstRate] = useState(9);
-  const [gstLoading, setGstLoading] = useState(true);
-  const [hasFetchedPaymentMethods, setHasFetchedPaymentMethods] = useState(false);
-
   // Payment method store
   const dropdownPaymentMethods = usePaymentMethodStore((state) => state.dropdownPaymentMethods);
   const fetchDropdownPaymentMethods = usePaymentMethodStore((state) => state.fetchDropdownPaymentMethods);
 
-  // Proceed payment store
+  // Proceed payment store - UPDATED to include transaction handler
   const {
     // State
     transaction,
@@ -50,9 +45,9 @@ const ProcessPaymentSaleTransaction = () => {
     newPayments,
     selectedPaymentMethod,
     paymentHandlerId,
-    transactionHandlerId,
+    transactionHandlerId, // NEW: Added transaction handler
     generalRemark,
-    createdAt,
+    createdAt, // RESTORED: Added creation date
     PENDING_PAYMENT_METHOD_ID,
 
     // Actions
@@ -64,9 +59,9 @@ const ProcessPaymentSaleTransaction = () => {
     setProcessing,
     setSelectedPaymentMethod,
     setPaymentHandlerId,
-    setTransactionHandlerId,
+    setTransactionHandlerId, // NEW: Added transaction handler setter
     setGeneralRemark,
-    setCreatedAt,
+    setCreatedAt, // RESTORED: Added creation date setter
     addPayment,
     removePayment,
     updatePaymentAmount,
@@ -82,167 +77,6 @@ const ProcessPaymentSaleTransaction = () => {
     // Utils
     reset,
   } = useProceedPaymentStore();
-
-  // Helper function to round to 2 decimal places
-  const roundTo2Decimals = (num) => {
-    return Math.round((num + Number.EPSILON) * 100) / 100;
-  };
-
-  // Helper function to calculate GST amount
-  const calculateGSTAmount = (amount) => {
-    return roundTo2Decimals(amount * (gstRate / 100));
-  };
-
-  // Helper function to get revenue-generating payment methods
-  const getRevenuePaymentMethods = () => {
-    const knownRevenueMethodIds = [1, 2, 3, 4]; // Cash, NETS, PayNow, VISA
-
-    if (dropdownPaymentMethods.length === 0) {
-      console.log('Using fallback revenue method IDs:', knownRevenueMethodIds);
-      return knownRevenueMethodIds;
-    }
-
-    const revenueIds = dropdownPaymentMethods
-      .filter((method) => {
-        const isRevenue =
-          method.is_revenue === true ||
-          method.is_revenue === 't' ||
-          method.is_revenue === 'true' ||
-          method.is_revenue === 1 ||
-          method.is_revenue === '1';
-        return isRevenue;
-      })
-      .map((method) => parseInt(method.id));
-
-    return revenueIds.length > 0 ? revenueIds : knownRevenueMethodIds;
-  };
-
-  // ✅ FIXED: Calculate payment amounts using CORRECT MCP backend logic
-  const getPaymentBreakdown = () => {
-    const GST_PAYMENT_METHOD_ID = 10;
-
-    // Separate payments by type (same as backend)
-    const actualPayments = newPayments.filter(
-      (payment) =>
-        payment.methodId !== PENDING_PAYMENT_METHOD_ID.toString() &&
-        payment.methodId !== GST_PAYMENT_METHOD_ID.toString()
-    );
-
-    const gstPayments = newPayments.filter((payment) => payment.methodId === GST_PAYMENT_METHOD_ID.toString());
-
-    // Calculate amounts (same logic as backend)
-    const totalActualPaymentAmount = roundTo2Decimals(
-      actualPayments.reduce((total, payment) => total + (parseFloat(payment.amount) || 0), 0)
-    );
-
-    const totalGSTAmount = roundTo2Decimals(
-      gstPayments.reduce((total, payment) => total + (parseFloat(payment.amount) || 0), 0)
-    );
-
-    // Calculate correct outstanding amount (backend authority) - same as backend
-    const outstandingReduction = totalActualPaymentAmount; // Only actual payments reduce outstanding
-    const newOutstandingAmount = Math.max(0, getOutstandingAmount() - outstandingReduction);
-
-    // Total paid amount = actual payments + GST (EXCLUDES pending) - same as backend
-    const totalPaidAmount = totalActualPaymentAmount + totalGSTAmount;
-
-    return {
-      actualPayments,
-      gstPayments,
-      totalActualPaymentAmount,
-      totalGSTAmount,
-      outstandingReduction,
-      newOutstandingAmount,
-      totalPaidAmount,
-      willCreatePending: newOutstandingAmount > 0,
-    };
-  };
-
-  // ✅ FIXED: Calculate dynamic GST based on actual payments only (not including existing GST)
-  const calculateDynamicGST = () => {
-    const revenueMethodIds = getRevenuePaymentMethods();
-    const GST_PAYMENT_METHOD_ID = 10;
-
-    // Sum up only revenue-generating actual payments (excluding GST payments)
-    const revenuePaymentTotal = roundTo2Decimals(
-      newPayments
-        .filter((payment) => {
-          const isNotGST = payment.methodId !== GST_PAYMENT_METHOD_ID.toString();
-          const isNotPending = payment.methodId !== PENDING_PAYMENT_METHOD_ID.toString();
-          const isRevenueMethod = revenueMethodIds.includes(parseInt(payment.methodId));
-          return isNotGST && isNotPending && isRevenueMethod;
-        })
-        .reduce((total, payment) => total + (parseFloat(payment.amount) || 0), 0)
-    );
-
-    return calculateGSTAmount(revenuePaymentTotal);
-  };
-
-  // Get current GST payment
-  const getCurrentGSTPayment = () => {
-    const GST_PAYMENT_METHOD_ID = 10;
-    return newPayments.find((payment) => payment.methodId === GST_PAYMENT_METHOD_ID.toString());
-  };
-
-  // Auto-add or update GST payment
-  const updateGSTPayment = () => {
-    const newGSTAmount = calculateDynamicGST();
-    const existingGSTPayment = getCurrentGSTPayment();
-
-    if (existingGSTPayment) {
-      // Update existing GST payment
-      if (roundTo2Decimals(existingGSTPayment.amount) !== newGSTAmount) {
-        console.log(`✅ Updating GST payment from ${existingGSTPayment.amount} to ${newGSTAmount}`);
-        updatePaymentAmount(existingGSTPayment.id, newGSTAmount);
-      }
-    } else if (newGSTAmount > 0) {
-      // Add new GST payment
-      const gstPayment = {
-        id: Date.now() + Math.random(), // Ensure unique ID
-        methodId: '10',
-        methodName: `GST (${gstRate}%)`,
-        amount: newGSTAmount,
-        remark: ` GST rate ${gstRate}%`,
-        isGST: true,
-      };
-
-      console.log('✅ Adding new GST payment:', gstPayment);
-      addPayment(gstPayment);
-    }
-  };
-
-  // Effect to fetch GST rate
-  useEffect(() => {
-    const fetchGSTRate = async () => {
-      try {
-        setGstLoading(true);
-        const response = await api.get('/payment-method/10');
-
-        if (response.data && response.data.percentage_rate) {
-          const rate = parseFloat(response.data.percentage_rate);
-          setGstRate(rate);
-          console.log(`GST rate fetched from API: ${rate}%`);
-        } else {
-          console.warn('GST rate not found in API response, using default 9%');
-          setGstRate(9);
-        }
-      } catch (error) {
-        console.error('Failed to fetch GST rate, using default 9%:', error);
-        setGstRate(9);
-      } finally {
-        setGstLoading(false);
-      }
-    };
-
-    fetchGSTRate();
-  }, []);
-
-  // Effect to update GST when payments change
-  useEffect(() => {
-    if (!gstLoading && dropdownPaymentMethods.length > 0) {
-      updateGSTPayment();
-    }
-  }, [newPayments, gstRate, gstLoading, dropdownPaymentMethods]);
 
   // Load data on component mount
   useEffect(() => {
@@ -261,7 +95,7 @@ const ProcessPaymentSaleTransaction = () => {
         }
 
         const transactionData = transactionResponse.data.data;
-        setTransaction(transactionData);
+        setTransaction(transactionData); // This will auto-set transaction handler in updated store
 
         console.log('✅ Transaction data loaded:', transactionData);
 
@@ -271,9 +105,8 @@ const ProcessPaymentSaleTransaction = () => {
         }
 
         // Load payment methods if not already loaded
-        if (dropdownPaymentMethods.length === 0 && !hasFetchedPaymentMethods) {
+        if (dropdownPaymentMethods.length === 0) {
           console.log('📄 Loading payment methods...');
-          setHasFetchedPaymentMethods(true);
           await fetchDropdownPaymentMethods();
         }
 
@@ -298,7 +131,6 @@ const ProcessPaymentSaleTransaction = () => {
   }, [
     id,
     dropdownPaymentMethods.length,
-    hasFetchedPaymentMethods,
     fetchDropdownPaymentMethods,
     setTransaction,
     setLoading,
@@ -307,7 +139,7 @@ const ProcessPaymentSaleTransaction = () => {
     reset,
   ]);
 
-  // Add new payment method with GST handling
+  // Add new payment method
   const handleAddPaymentMethod = () => {
     console.log('🎯 ADD PAYMENT METHOD CALLED');
 
@@ -320,14 +152,7 @@ const ProcessPaymentSaleTransaction = () => {
 
     // Don't allow manual addition of pending payment method
     if (selectedId === PENDING_PAYMENT_METHOD_ID.toString()) {
-      alert('Pending payment method is auto-managed by the system and cannot be added manually');
-      setSelectedPaymentMethod('');
-      return;
-    }
-
-    // Don't allow manual addition of GST payment method
-    if (selectedId === '10') {
-      alert('GST payment method is auto-calculated and cannot be added manually');
+      alert('Pending payment method is auto-managed and cannot be added manually');
       setSelectedPaymentMethod('');
       return;
     }
@@ -350,78 +175,30 @@ const ProcessPaymentSaleTransaction = () => {
 
     console.log('✅ Creating new payment:', newPayment);
     addPayment(newPayment);
-    setSelectedPaymentMethod('');
   };
 
-  // ✅ FIXED: Update payment amount with correct validation
+  // Update payment amount with validation
   const handleUpdatePaymentAmount = (paymentId, amount) => {
     const numAmount = parseFloat(amount) || 0;
-    const payment = newPayments.find((p) => p.id === paymentId);
 
-    // Don't allow manual editing of GST payments
-    if (payment?.isGST || payment?.methodName?.includes('GST')) {
-      console.warn('GST payments cannot be manually edited');
-      return;
-    }
-
-    // Calculate total of other actual payments (exclude GST and this payment)
-    const otherActualPaymentsTotal = newPayments
-      .filter(
-        (p) =>
-          p.id !== paymentId &&
-          !p.isGST &&
-          !p.methodName?.includes('GST') &&
-          p.methodId !== PENDING_PAYMENT_METHOD_ID.toString()
-      )
+    // Calculate total of other payments
+    const otherPaymentsTotal = newPayments
+      .filter((p) => p.id !== paymentId)
       .reduce((sum, p) => sum + (parseFloat(p.amount) || 0), 0);
 
-    // Calculate maximum allowed for this payment (only actual payments can reduce outstanding)
-    const maxAllowed = getOutstandingAmount() - otherActualPaymentsTotal;
+    // Calculate maximum allowed for this payment
+    const maxAllowed = getOutstandingAmount() - otherPaymentsTotal;
     const clampedAmount = Math.min(numAmount, Math.max(0, maxAllowed));
 
     // Show warning if amount was adjusted
     if (numAmount > maxAllowed && maxAllowed >= 0) {
-      console.warn(`⚠️ Payment amount adjusted from ${numAmount} to ${clampedAmount} (max outstanding reduction)`);
+      console.warn(`⚠️ Payment amount adjusted from ${numAmount} to ${clampedAmount}`);
     }
 
     updatePaymentAmount(paymentId, clampedAmount);
   };
 
-  // Remove payment method with GST handling
-  const handleRemovePayment = (paymentId) => {
-    const payment = newPayments.find((p) => p.id === paymentId);
-
-    // Don't allow removal of GST payments
-    if (payment?.isGST || payment?.methodName?.includes('GST')) {
-      alert('GST payments are auto-calculated and cannot be removed manually');
-      return;
-    }
-
-    console.log('🗑️ Removing payment:', paymentId);
-    removePayment(paymentId);
-  };
-
-  // ✅ FIXED: Get total revenue payments (excluding GST and pending)
-  const getRevenuePaymentsTotal = () => {
-    const revenueMethodIds = getRevenuePaymentMethods();
-    const GST_PAYMENT_METHOD_ID = 10;
-
-    return roundTo2Decimals(
-      newPayments
-        .filter((payment) => {
-          const isNotGST =
-            !payment.isGST &&
-            !payment.methodName?.includes('GST') &&
-            payment.methodId !== GST_PAYMENT_METHOD_ID.toString();
-          const isNotPending = payment.methodId !== PENDING_PAYMENT_METHOD_ID.toString();
-          const isRevenueMethod = revenueMethodIds.includes(parseInt(payment.methodId));
-          return isNotGST && isNotPending && isRevenueMethod;
-        })
-        .reduce((total, payment) => total + (parseFloat(payment.amount) || 0), 0)
-    );
-  };
-
-  // ✅ FIXED: Process payment without manual pending - let backend handle it
+  // Process payment - UPDATED TO USE NEW ENDPOINT
   const handleProcessPayment = async () => {
     const validation = isValidForProcessing();
 
@@ -433,14 +210,26 @@ const ProcessPaymentSaleTransaction = () => {
     try {
       setProcessing(true);
 
-      // ✅ FIXED: Send only actual and GST payments - NO manual pending payments
-      const paymentsToSend = newPayments.filter((payment) => payment.methodId !== PENDING_PAYMENT_METHOD_ID.toString());
+      // Prepare payments including auto-updated pending payment
+      const allPayments = [...newPayments];
+      const pendingAmount = getUpdatedPendingAmount();
 
-      console.log('✅ Processing payments (backend will handle pending):', paymentsToSend);
+      if (pendingAmount > 0) {
+        // Add/update pending payment
+        allPayments.push({
+          id: Date.now() + 1,
+          methodId: PENDING_PAYMENT_METHOD_ID,
+          methodName: 'Pending',
+          amount: pendingAmount,
+          remark: 'Auto-updated pending payment for remaining outstanding amount',
+        });
+      }
 
-      // Prepare payment data - let backend calculate and create pending payments
+      console.log('🔄 Processing payments:', allPayments);
+
+      // UPDATED: Prepare payment data in the format expected by processPartialPayment
       const paymentData = {
-        payments: paymentsToSend.map((payment) => ({
+        payments: allPayments.map((payment) => ({
           payment_method_id: parseInt(payment.methodId),
           amount: parseFloat(payment.amount),
           remarks: payment.remark || '',
@@ -448,13 +237,14 @@ const ProcessPaymentSaleTransaction = () => {
         })),
         general_remarks: generalRemark || '',
         receipt_number: receiptNumber || '',
-        transaction_handler_id: parseInt(transactionHandlerId),
-        payment_handler_id: parseInt(paymentHandlerId),
-        created_at: createdAt,
+        transaction_handler_id: parseInt(transactionHandlerId), // Use the selected transaction handler
+        payment_handler_id: parseInt(paymentHandlerId), // Use the selected payment handler
+        created_at: createdAt, // RESTORED: Include custom creation date
       };
 
-      console.log('📤 Sending payment data (no manual pending) to /st/pp/' + id + ':', paymentData);
+      console.log('📤 Sending payment data to /st/pp/' + id + ':', paymentData);
 
+      // UPDATED: Call the correct endpoint with transaction ID in the URL
       const response = await api.post(`/st/pp/${id}`, paymentData);
 
       if (!response.data.success) {
@@ -482,7 +272,7 @@ const ProcessPaymentSaleTransaction = () => {
   };
 
   // Loading state
-  if (loading || gstLoading) {
+  if (loading) {
     return (
       <div className='h-screen overflow-hidden [--header-height:calc(theme(spacing.14))]'>
         <SidebarProvider className='flex flex-col h-full'>
@@ -554,9 +344,6 @@ const ProcessPaymentSaleTransaction = () => {
     );
   }
 
-  // ✅ Get payment breakdown for display
-  const paymentBreakdown = getPaymentBreakdown();
-
   return (
     <div className='h-screen overflow-hidden [--header-height:calc(theme(spacing.14))]'>
       <SidebarProvider className='flex flex-col h-full'>
@@ -588,7 +375,7 @@ const ProcessPaymentSaleTransaction = () => {
                 </Badge>
               </div>
 
-              {/* Transaction Details */}
+              {/* Transaction Details - Full Width */}
               <Card>
                 <CardHeader>
                   <CardTitle className='flex items-center'>
@@ -646,7 +433,7 @@ const ProcessPaymentSaleTransaction = () => {
                 </CardContent>
               </Card>
 
-              {/* Payment Processing with Fixed GST Logic */}
+              {/* Payment Processing - Full Width */}
               <Card>
                 <CardHeader>
                   <CardTitle className='flex items-center'>
@@ -668,9 +455,9 @@ const ProcessPaymentSaleTransaction = () => {
                     />
                     <p className='text-xs text-gray-500 mt-1'>Custom receipt number (leave empty for original)</p>
                   </div>
-
                   {/* Handler Selection Grid */}
                   <div className='grid grid-cols-1 md:grid-cols-2 gap-6'>
+                    {/* Transaction Handler Selection */}
                     <div>
                       <Label>Transaction Handler</Label>
                       <EmployeeSelect
@@ -681,9 +468,12 @@ const ProcessPaymentSaleTransaction = () => {
                         }}
                         errors={{}}
                       />
-                      <p className='text-xs text-gray-500 mt-1'>Employee who will handle the new transaction</p>
+                      <p className='text-xs text-gray-500 mt-1'>
+                        Employee who will handle the new transaction (auto-filled from original transaction)
+                      </p>
                     </div>
 
+                    {/* Payment Handler Selection */}
                     <div>
                       <Label>Payment Handler</Label>
                       <EmployeeSelect
@@ -716,9 +506,6 @@ const ProcessPaymentSaleTransaction = () => {
                         <Plus className='h-4 w-4' />
                       </Button>
                     </div>
-                    <p className='text-xs text-gray-500 mt-1'>
-                      GST will be auto-calculated. Pending payments are handled by the system.
-                    </p>
                   </div>
 
                   {/* Payment Methods List */}
@@ -730,61 +517,42 @@ const ProcessPaymentSaleTransaction = () => {
                       </div>
                     ) : (
                       <div className='space-y-3'>
-                        {newPayments.map((payment) => {
-                          const isGST = payment.isGST || payment.methodName?.includes('GST');
-
-                          return (
-                            <div
-                              key={payment.id}
-                              className={`flex items-center gap-3 p-3 rounded-lg border ${
-                                isGST ? 'bg-blue-50 border-blue-200' : 'bg-gray-50'
-                              }`}
-                            >
-                              <div className='flex-shrink-0 w-32'>
-                                <span className={`text-sm font-medium ${isGST ? 'text-blue-700' : ''}`}>
-                                  {payment.methodName}
-                                  {isGST && <span className='block text-xs text-blue-600'>Auto-calculated</span>}
-                                </span>
-                                <div className='text-xs text-gray-500'>ID: {payment.methodId}</div>
-                              </div>
-                              <div className='flex-1'>
-                                <Input
-                                  type='number'
-                                  min='0'
-                                  step='0.01'
-                                  placeholder='Amount'
-                                  value={payment.amount || ''}
-                                  onChange={(e) => handleUpdatePaymentAmount(payment.id, e.target.value)}
-                                  disabled={isGST}
-                                  className={
-                                    isGST ? 'bg-blue-100 border-blue-300 text-blue-700 cursor-not-allowed' : ''
-                                  }
-                                />
-                              </div>
-                              <div className='flex-1'>
-                                <Input
-                                  type='text'
-                                  placeholder='Remark'
-                                  value={payment.remark}
-                                  onChange={(e) => updatePaymentRemark(payment.id, e.target.value)}
-                                  disabled={isGST}
-                                  className={
-                                    isGST ? 'bg-blue-100 border-blue-300 text-blue-700 cursor-not-allowed' : ''
-                                  }
-                                />
-                              </div>
-                              {!isGST ? (
-                                <Button variant='outline' size='sm' onClick={() => handleRemovePayment(payment.id)}>
-                                  <X className='h-4 w-4' />
-                                </Button>
-                              ) : (
-                                <div className='p-2 w-8 h-8 flex items-center justify-center'>
-                                  <span className='text-blue-600 text-xs font-medium'>GST</span>
-                                </div>
-                              )}
+                        {newPayments.map((payment) => (
+                          <div key={payment.id} className='flex items-center gap-3 p-3 bg-gray-50 rounded-lg border'>
+                            <div className='flex-shrink-0 w-24'>
+                              <span className='text-sm font-medium'>{payment.methodName}</span>
+                              <div className='text-xs text-gray-500'>ID: {payment.methodId}</div>
                             </div>
-                          );
-                        })}
+                            <div className='flex-1'>
+                              <Input
+                                type='number'
+                                min='0'
+                                step='0.01'
+                                placeholder='Amount'
+                                value={payment.amount || ''}
+                                onChange={(e) => handleUpdatePaymentAmount(payment.id, e.target.value)}
+                              />
+                            </div>
+                            <div className='flex-1'>
+                              <Input
+                                type='text'
+                                placeholder='Remark'
+                                value={payment.remark}
+                                onChange={(e) => updatePaymentRemark(payment.id, e.target.value)}
+                              />
+                            </div>
+                            <Button
+                              variant='outline'
+                              size='sm'
+                              onClick={() => {
+                                console.log('🗑️ Removing payment:', payment.id);
+                                removePayment(payment.id);
+                              }}
+                            >
+                              <X className='h-4 w-4' />
+                            </Button>
+                          </div>
+                        ))}
                       </div>
                     )}
                   </div>
@@ -824,12 +592,12 @@ const ProcessPaymentSaleTransaction = () => {
                 </CardContent>
               </Card>
 
-              {/* ✅ FIXED: Enhanced Payment Summary with Correct Backend Logic */}
+              {/* Payment Summary & Actions - Full Width */}
               <Card>
                 <CardHeader>
                   <CardTitle className='flex items-center'>
                     <DollarSign className='h-5 w-5 mr-2' />
-                    Payment Summary (Backend Logic Preview)
+                    Payment Summary
                   </CardTitle>
                 </CardHeader>
                 <CardContent>
@@ -840,56 +608,27 @@ const ProcessPaymentSaleTransaction = () => {
                         <span className='font-medium'>{formatCurrency(getOutstandingAmount())}</span>
                       </div>
                       <div className='flex justify-between'>
-                        <span className='text-gray-600'>Actual Payments:</span>
-                        <span className='font-medium text-green-600'>
-                          {formatCurrency(paymentBreakdown.totalActualPaymentAmount)}
-                        </span>
+                        <span className='text-gray-600'>New Payments Total:</span>
+                        <span className='font-medium text-green-600'>{formatCurrency(getNewPaymentsTotal())}</span>
                       </div>
-                      <div className='flex justify-between'>
-                        <span className='text-gray-600'>GST ({gstRate}%):</span>
-                        <span className='font-medium text-blue-600'>
-                          {formatCurrency(paymentBreakdown.totalGSTAmount)}
-                        </span>
-                      </div>
-                      {paymentBreakdown.totalGSTAmount > 0 && (
-                        <div className='text-xs text-gray-600 ml-4'>
-                          GST calculated on actual payments: {formatCurrency(paymentBreakdown.totalActualPaymentAmount)}
-                        </div>
-                      )}
                       <div className='flex justify-between border-t pt-2'>
-                        <span className='text-gray-600 font-medium'>Total Paid (Actual + GST):</span>
-                        <span className='font-bold text-green-600'>
-                          {formatCurrency(paymentBreakdown.totalPaidAmount)}
-                        </span>
-                      </div>
-                      <div className='flex justify-between'>
-                        <span className='text-gray-600 font-medium'>New Outstanding:</span>
+                        <span className='text-gray-600 font-medium'>Remaining Outstanding:</span>
                         <span
                           className={`font-bold ${
-                            paymentBreakdown.newOutstandingAmount > 0 ? 'text-orange-600' : 'text-green-600'
+                            getRemainingOutstanding() > 0 ? 'text-orange-600' : 'text-green-600'
                           }`}
                         >
-                          {formatCurrency(paymentBreakdown.newOutstandingAmount)}
+                          {formatCurrency(getRemainingOutstanding())}
                         </span>
                       </div>
-                      {paymentBreakdown.willCreatePending && (
-                        <div className='flex items-center gap-2 text-sm text-orange-600 bg-orange-50 p-2 rounded border border-orange-200'>
+                      {getRemainingOutstanding() > 0 && (
+                        <div className='flex items-center gap-2 text-sm text-orange-600'>
                           <AlertCircle className='h-4 w-4' />
                           <span>
-                            Backend will auto-create pending payment of{' '}
-                            {formatCurrency(paymentBreakdown.newOutstandingAmount)}
+                            A pending payment of {formatCurrency(getRemainingOutstanding())} will be auto-created
                           </span>
                         </div>
                       )}
-
-                      {/* ✅ NEW: Show calculation explanation */}
-                      <div className='mt-4 p-3 bg-gray-50 rounded border text-xs text-gray-600'>
-                        <div className='font-medium mb-2'>Calculation Logic (matches backend):</div>
-                        <div>• Only actual payments reduce outstanding amount</div>
-                        <div>• GST is added to total paid but doesn't reduce outstanding</div>
-                        <div>• Backend creates pending payment for remaining outstanding</div>
-                        <div>• Total paid = Actual + GST (excludes pending)</div>
-                      </div>
                     </div>
 
                     <div className='flex items-end justify-end'>

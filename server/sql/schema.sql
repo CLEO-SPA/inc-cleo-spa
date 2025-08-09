@@ -447,6 +447,7 @@ CREATE TABLE "sale_transactions" (
     "member_id" BIGINT,
     "total_paid_amount" DECIMAL,
     "outstanding_total_payment_amount" DECIMAL,
+    "gst_amount" DECIMAL(10,2),
     "sale_transaction_status" VARCHAR(25),
     "remarks" VARCHAR(500),
     "receipt_no" VARCHAR(80),

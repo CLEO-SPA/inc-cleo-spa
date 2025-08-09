@@ -43,12 +43,12 @@ export interface TransactionItem {
   remarks: string;
   amount: number;
   item_type: string;
-  
+
   // Enhanced voucher information
   member_voucher_name?: string;
   voucher_balance?: number;
   voucher_status?: 'is_enabled' | 'is_disabled' | 'expired';
-  
+
   // Enhanced care package information
   care_package_name?: string;
   care_package_balance?: number;
@@ -256,6 +256,7 @@ export interface SingleItemTransactionCreationResult {
   transfer_description?: string;
   items_count: number;
   payments_count: number;
+  mcpId?: string | number | null;
 }
 
 export interface PartialPaymentRequest {
@@ -290,8 +291,8 @@ export interface PartialPaymentResult {
 
 export interface ProcessPartialPaymentDataWithHandler extends ProcessPartialPaymentData {
   transaction_handler_id: number;
-  payment_handler_id: number,
-  receipt_number?: string
+  payment_handler_id: number;
+  receipt_number?: string;
   created_at?: string;
 }
 
@@ -523,4 +524,44 @@ export interface APIResponse<T> {
       per_page: number;
     };
   };
+}
+
+export interface GSTBreakdown {
+  inclusiveTotal: number; // Total amount customer pays (with GST)
+  exclusiveTotal: number; // Total amount excluding GST
+  gstTotal: number; // GST amount
+  gstRate: number; // GST rate percentage (e.g., 9)
+}
+
+// Updated TransactionRequestData interface
+export interface TransactionRequestData {
+  customer_type?: string;
+  member_id?: string | number;
+  receipt_number?: string;
+  remarks?: string;
+  created_by: number;
+  handled_by: number;
+  items: TransactionRequestItem[];
+  payments: PaymentMethodRequest[];
+  created_at?: string;
+  updated_at?: string;
+  gstBreakdown?: GSTBreakdown; // Add GST breakdown field
+}
+
+// Updated TransactionCreationResult interface
+export interface TransactionCreationResult {
+  id: number;
+  receipt_no: string;
+  customer_type: string;
+  member_id: string | number | null;
+  total_transaction_amount: number;
+  total_paid_amount: number;
+  outstanding_total_payment_amount: number;
+  transaction_status: 'FULL' | 'PARTIAL' | 'TRANSFER' | 'REFUND';
+  remarks: string;
+  created_by: number;
+  handled_by: number;
+  items_count: number;
+  payments_count: number;
+  createdItemIds: number[];
 }
