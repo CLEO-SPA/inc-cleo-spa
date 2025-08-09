@@ -30,7 +30,6 @@ const getAllPaymentMethods = async (req: Request, res: Response, next: NextFunct
 const getPaymentMethodsForPaymentPage = async (req: Request, res: Response) => {
   try {
     const methods = await model.getPaymentMethodsForPaymentPage();
-    console.log(methods);
 
     res.status(200).json(methods);
   } catch (error) {
