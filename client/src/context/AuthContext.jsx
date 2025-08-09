@@ -159,7 +159,7 @@ export const AuthProvider = ({ children }) => {
     return () => {
       closeSseConnection();
     };
-  }, [isAuthenticated, fetchStatuses]); // Fixed dependencies
+  }, [isAuthenticated]);
 
   // Effect for the countdown timer
   useEffect(() => {
