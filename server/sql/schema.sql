@@ -2,7 +2,7 @@
 DROP TABLE IF EXISTS "care_packages" CASCADE;
 DROP TABLE IF EXISTS "care_package_item_details" CASCADE;
 DROP TABLE IF EXISTS "employees" CASCADE;
-DROP TABLE IF EXISTS "refunds" CASCADE;
+DROP TABLE IF EXISTS "employee_commissions" CASCADE;
 DROP TABLE IF EXISTS "refund_items" CASCADE;
 DROP TABLE IF EXISTS "member_care_packages" CASCADE;
 DROP TABLE IF EXISTS "member_care_package_details" CASCADE;
@@ -34,6 +34,10 @@ DROP TABLE IF EXISTS "voucher_templates" CASCADE;
 DROP TABLE IF EXISTS "system_parameters" CASCADE;
 DROP TABLE IF EXISTS "sessions" CASCADE;
 DROP TABLE IF EXISTS "user_auth" CASCADE;
+DROP TABLE IF EXISTS "users" CASCADE;
+DROP TABLE IF EXISTS "settings" CASCADE;
+DROP TABLE IF EXISTS "stored_value_accounts" CASCADE;
+DROP TABLE IF EXISTS "stored_value_accounts_transaction_logs" CASCADE;
 
 -- Drop Enums
 DROP TYPE IF EXISTS "customer_type" CASCADE;
@@ -100,30 +104,6 @@ CREATE TABLE "employee_to_position" (
     "updated_at" TIMESTAMPTZ(6) NOT NULL,
 
     CONSTRAINT "employee_to_position_pkey" PRIMARY KEY ("id")
-);
-
--- CreateTable
-CREATE TABLE "refunds" (
-    "id" BIGSERIAL NOT NULL,
-    "invoice_id" BIGINT,
-    "refund_total_amount" DECIMAL(10,2),
-    "refund_remarks" TEXT,
-    "refund_date" TIMESTAMPTZ(6),
-    "employee_id" BIGINT,
-
-    CONSTRAINT "refunds_pkey" PRIMARY KEY ("id")
-);
-
--- CreateTable
-CREATE TABLE "refund_items" (
-    "id" BIGSERIAL NOT NULL,
-    "refund_id" BIGINT,
-    "invoice_item_id" BIGINT,
-    "refund_quantity" INTEGER,
-    "refund_item_amount" DECIMAL(10,2),
-    "refund_item_remarks" TEXT,
-
-    CONSTRAINT "refund_items_pkey" PRIMARY KEY ("id")
 );
 
 -- CreateTable
@@ -194,6 +174,7 @@ CREATE TABLE "members" (
     "address" VARCHAR(255),
     "nric" VARCHAR(9),
     "membership_type_id" INTEGER,
+    "card_number" VARCHAR(20),
     "created_at" TIMESTAMPTZ(6),
     "updated_at" TIMESTAMPTZ(6),
     "created_by" INTEGER,
@@ -235,9 +216,10 @@ CREATE TABLE "payment_methods" (
     "id" BIGINT NOT NULL,
     "payment_method_name" TEXT NOT NULL,
     "is_enabled" BOOLEAN NOT NULL,
-    "is_revenue" BOOLEAN NOT NULL,
+    "is_income" BOOLEAN NOT NULL,
     "show_on_payment_page" BOOLEAN NOT NULL DEFAULT true,
     "is_protected" BOOLEAN NOT NULL DEFAULT false,
+    "percentage_rate" DECIMAL(5,2),
     "created_at" TIMESTAMPTZ(6) NOT NULL,
     "updated_at" TIMESTAMPTZ(6) NOT NULL,
 
@@ -274,12 +256,14 @@ CREATE TABLE "products" (
     "product_description" VARCHAR(255),
     "product_sequence_no" INTEGER,
     "product_remarks" TEXT,
-    "product_default_price" DECIMAL(10,2),
-    "product_outlet_id" BIGINT NOT NULL,
-    "product_is_active" BOOLEAN DEFAULT true,
+    "product_unit_sale_price" DECIMAL(10,2) NOT NULL,
+    "product_unit_cost_price" DECIMAL(10,2) NOT NULL,
+    "product_is_enabled" BOOLEAN DEFAULT true,
     "created_at" TIMESTAMPTZ(6) DEFAULT CURRENT_TIMESTAMP,
     "updated_at" TIMESTAMPTZ(6) DEFAULT CURRENT_TIMESTAMP,
-    "product_category_id" BIGINT,
+    "product_category_id" BIGINT NOT NULL,
+    "created_by" BIGINT NOT NULL,
+    "updated_by" BIGINT NOT NULL,
 
     CONSTRAINT "products_pkey" PRIMARY KEY ("id")
 );
@@ -406,7 +390,7 @@ CREATE TABLE "member_vouchers" (
     "id" BIGINT NOT NULL,
     "member_vouchers_name" VARCHAR(100) NOT NULL,
     "voucher_template_id" INTEGER NOT NULL,
-    "members_id" INTEGER NOT NULL,
+    "member_id" INTEGER NOT NULL,
     "current_balance" DECIMAL(10,2),
     "starting_balance" DECIMAL(10,2),
     "free_of_charge" DECIMAL(10,2),
@@ -440,7 +424,7 @@ CREATE TABLE "payment_to_sale_transactions" (
 -- CreateTable
 CREATE TABLE "sale_transaction_items" (
     "id" INTEGER NOT NULL,
-    "sale_transactions_id" INTEGER,
+    "sale_transaction_id" INTEGER,
     "service_name" VARCHAR(255),
     "product_name" VARCHAR(255),
     "member_care_package_id" BIGINT,
@@ -557,6 +541,61 @@ CREATE TABLE "user_auth" (
     CONSTRAINT "user_auth_pkey" PRIMARY KEY ("id")
 );
 
+-- CreateTable
+CREATE TABLE "employee_commissions" (
+    "id" BIGSERIAL NOT NULL,
+    "item_type" VARCHAR(100) NOT NULL,
+    "item_id" BIGINT NOT NULL,
+    "employee_id" BIGINT NOT NULL,
+    "performance_rate" DECIMAL(5,2) NOT NULL,
+    "performance_amount" DECIMAL(10,2) NOT NULL,
+    "commission_rate" DECIMAL(5,2) NOT NULL,
+    "commission_amount" DECIMAL(10,2) NOT NULL,
+    "created_at" TIMESTAMPTZ(6) NOT NULL,
+    "remarks" TEXT,
+
+    CONSTRAINT "employee_commissions_pkey" PRIMARY KEY ("id")
+);
+
+-- CreateTable
+CREATE TABLE "settings" (
+    "id" BIGSERIAL NOT NULL,
+    "type" VARCHAR(50) NOT NULL,
+    "key" VARCHAR(100) NOT NULL,
+    "value" TEXT NOT NULL,
+
+    CONSTRAINT "settings_pkey" PRIMARY KEY ("id")
+);
+
+-- CreateTable
+CREATE TABLE "stored_value_accounts" (
+    "id" BIGSERIAL NOT NULL,
+    "member_id" BIGINT NOT NULL,
+    "stored_value" DECIMAL(10,2) NOT NULL DEFAULT 0.00,
+    "created_by" BIGINT NOT NULL,
+    "last_updated_by" BIGINT NOT NULL,
+    "created_at" TIMESTAMPTZ(6) NOT NULL,
+    "updated_at" TIMESTAMPTZ(6) NOT NULL,
+
+    CONSTRAINT "stored_value_accounts_pkey" PRIMARY KEY ("id")
+);
+
+-- CreateTable
+CREATE TABLE "stored_value_accounts_transaction_logs" (
+    "id" BIGSERIAL NOT NULL,
+    "stored_value_account_id" BIGINT NOT NULL,
+    "stored_value" DECIMAL(10,2) NOT NULL,
+    "amount_changed" DECIMAL(10,2) NOT NULL,
+    "transaction_date" TIMESTAMPTZ(6) NOT NULL,
+    "type" VARCHAR(50) NOT NULL,
+    "created_by" BIGINT NOT NULL,
+    "last_updated_by" BIGINT NOT NULL,
+    "created_at" TIMESTAMPTZ(6) NOT NULL,
+    "updated_at" TIMESTAMPTZ(6) NOT NULL,
+
+    CONSTRAINT "stored_value_accounts_transaction_logs_pkey" PRIMARY KEY ("id")
+);
+
 -- Foreign Keys for table "care_packages"
 ALTER TABLE "care_packages" ADD CONSTRAINT "care_packages_created_by_fkey" FOREIGN KEY ("created_by") REFERENCES "employees"("id") ON DELETE SET NULL ON UPDATE CASCADE;
 ALTER TABLE "care_packages" ADD CONSTRAINT "care_packages_last_updated_by_fkey" FOREIGN KEY ("last_updated_by") REFERENCES "employees"("id") ON DELETE SET NULL ON UPDATE CASCADE;
@@ -573,12 +612,6 @@ ALTER TABLE "users" ADD CONSTRAINT "users_verified_status_id_fkey" FOREIGN KEY (
 ALTER TABLE "employee_to_position" ADD CONSTRAINT "employee_to_position_employee_id_fkey" FOREIGN KEY ("employee_id") REFERENCES "employees"("id") ON DELETE CASCADE ON UPDATE CASCADE;
 ALTER TABLE "employee_to_position" ADD CONSTRAINT "employee_to_position_position_id_fkey" FOREIGN KEY ("position_id") REFERENCES "positions"("id") ON DELETE RESTRICT ON UPDATE CASCADE;
 ALTER TABLE "employee_to_position" ADD CONSTRAINT "employee_to_position_employee_id_position_id_key" UNIQUE ("employee_id", "position_id");
-
--- Foreign Keys for table "refunds"
-ALTER TABLE "refunds" ADD CONSTRAINT "fk_employee" FOREIGN KEY ("employee_id") REFERENCES "employees"("id") ON DELETE NO ACTION ON UPDATE NO ACTION;
-
--- Foreign Keys for table "refund_items"
-ALTER TABLE "refund_items" ADD CONSTRAINT "fk_refund_items_refund_id" FOREIGN KEY ("refund_id") REFERENCES "refunds"("id") ON DELETE NO ACTION ON UPDATE NO ACTION;
 
 -- Foreign Keys for table "member_care_packages"
 ALTER TABLE "member_care_packages" ADD CONSTRAINT "member_care_packages_employee_id_fkey" FOREIGN KEY ("employee_id") REFERENCES "employees"("id") ON DELETE RESTRICT ON UPDATE CASCADE;
@@ -603,6 +636,8 @@ ALTER TABLE "members" ADD CONSTRAINT "members_created_by_fkey" FOREIGN KEY ("cre
 
 -- Foreign Keys for table "products"
 ALTER TABLE "products" ADD CONSTRAINT "products_product_category_id_fkey" FOREIGN KEY ("product_category_id") REFERENCES "product_categories"("id") ON DELETE SET NULL ON UPDATE CASCADE;
+ALTER TABLE "products" ADD CONSTRAINT "products_created_by_fkey" FOREIGN KEY ("created_by") REFERENCES "employees"("id") ON DELETE SET NULL ON UPDATE CASCADE;
+ALTER TABLE "products" ADD CONSTRAINT "products_updated_by_fkey" FOREIGN KEY ("updated_by") REFERENCES "employees"("id") ON DELETE SET NULL ON UPDATE CASCADE;
 
 -- Foreign Keys for table "services"
 ALTER TABLE "services" ADD CONSTRAINT "services_service_category_id_fkey" FOREIGN KEY ("service_category_id") REFERENCES "service_categories"("id") ON DELETE RESTRICT ON UPDATE CASCADE;
@@ -663,6 +698,22 @@ ALTER TABLE "voucher_template_details" ADD CONSTRAINT "voucher_template_details_
 ALTER TABLE "voucher_templates" ADD CONSTRAINT "voucher_templates_created_by_fkey" FOREIGN KEY ("created_by") REFERENCES "employees"("id") ON DELETE SET NULL ON UPDATE CASCADE;
 ALTER TABLE "voucher_templates" ADD CONSTRAINT "voucher_templates_last_updated_by_fkey" FOREIGN KEY ("last_updated_by") REFERENCES "employees"("id") ON DELETE SET NULL ON UPDATE CASCADE;
 
+-- Foreign Keys for table "employee_commissions"
+ALTER TABLE "employee_commissions" ADD CONSTRAINT "employee_commissions_employee_id_fkey" FOREIGN KEY ("employee_id") REFERENCES "employees"("id") ON DELETE CASCADE ON UPDATE CASCADE;
+
+-- Foreign Keys for table "settings"
+ALTER TABLE "settings" ADD CONSTRAINT "settings_type_key" UNIQUE ("type", "key");
+
+-- Foreign Keys for table "stored_value_accounts"
+ALTER TABLE "stored_value_accounts" ADD CONSTRAINT "stored_value_accounts_member_id_fkey" FOREIGN KEY ("member_id") REFERENCES "members"("id") ON DELETE CASCADE ON UPDATE CASCADE;
+ALTER TABLE "stored_value_accounts" ADD CONSTRAINT "stored_value_accounts_created_by_fkey" FOREIGN KEY ("created_by") REFERENCES "employees"("id") ON DELETE SET NULL ON UPDATE CASCADE;
+ALTER TABLE "stored_value_accounts" ADD CONSTRAINT "stored_value_accounts_last_updated_by_fkey" FOREIGN KEY ("last_updated_by") REFERENCES "employees"("id") ON DELETE SET NULL ON UPDATE CASCADE;
+
+-- Foreign Keys for table "stored_value_accounts_transaction_logs"
+ALTER TABLE "stored_value_accounts_transaction_logs" ADD CONSTRAINT "stored_value_accounts_transaction_logs_stored_value_account_id_fkey" FOREIGN KEY ("stored_value_account_id") REFERENCES "stored_value_accounts"("id") ON DELETE CASCADE ON UPDATE CASCADE;
+ALTER TABLE "stored_value_accounts_transaction_logs" ADD CONSTRAINT "stored_value_accounts_transaction_logs_created_by_fkey" FOREIGN KEY ("created_by") REFERENCES "employees"("id") ON DELETE SET NULL ON UPDATE CASCADE;
+ALTER TABLE "stored_value_accounts_transaction_logs" ADD CONSTRAINT "stored_value_accounts_transaction_logs_last_updated_by_fkey" FOREIGN KEY ("last_updated_by") REFERENCES "employees"("id") ON DELETE SET NULL ON UPDATE CASCADE;
+
 -- Performance Indexes
 
 -- Unique indexes for lookup columns that should be unique
@@ -673,6 +724,13 @@ CREATE UNIQUE INDEX "members_email_key" ON "members"("email");
 CREATE UNIQUE INDEX "members_nric_key" ON "members"("nric");
 CREATE UNIQUE INDEX "roles_role_name_key" ON "roles"("role_name");
 CREATE UNIQUE INDEX "positions_position_name_key" ON "positions"("position_name");
+CREATE UNIQUE INDEX "product_categories_product_category_name_key" ON "product_categories"("product_category_name");
+CREATE UNIQUE INDEX "membership_types_membership_type_name_key" ON "membership_types"("membership_type_name");
+CREATE UNIQUE INDEX "services_service_name_key" ON "services"("service_name");
+CREATE UNIQUE INDEX "service_categories_service_category_name_key" ON "service_categories"("service_category_name");
+CREATE UNIQUE INDEX "voucher_templates_voucher_template_name_key" ON "voucher_templates"("voucher_template_name");
+CREATE UNIQUE INDEX "voucher_template_details_service_id_voucher_template_id_key" ON "voucher_template_details"("service_id", "voucher_template_id");
+CREATE UNIQUE INDEX "user_auth_email_key" ON "user_auth"("email");
 
 -- Indexes on Foreign Keys and other searchable columns
 CREATE INDEX "fki_cs_service_service_category_id_fkey" ON "services"("service_category_id");
@@ -705,3 +763,12 @@ CREATE INDEX "idx_sale_transactions_handled_by" ON "sale_transactions"("handled_
 CREATE INDEX "idx_sale_transactions_created_at" ON "sale_transactions"("created_at");
 CREATE INDEX "idx_timetables_employee_id" ON "timetables"("employee_id");
 CREATE INDEX "idx_voucher_template_details_template_id" ON "voucher_template_details"("voucher_template_id");
+CREATE INDEX "idx_voucher_template_details_service_id" ON "voucher_template_details"("service_id");
+CREATE INDEX "idx_voucher_template_details_service_category_id" ON "voucher_template_details"("service_category_id");
+CREATE INDEX "idx_employee_commissions_employee_id" ON "employee_commissions"("employee_id");
+CREATE INDEX "idx_stored_value_accounts_member_id" ON "stored_value_accounts"("member_id");
+CREATE INDEX "idx_stored_value_accounts_created_by" ON "stored_value_accounts"("created_by");
+CREATE INDEX "idx_stored_value_accounts_last_updated_by" ON "stored_value_accounts"("last_updated_by");
+CREATE INDEX "idx_stored_value_accounts_transaction_logs_account_id" ON "stored_value_accounts_transaction_logs"("stored_value_account_id");
+CREATE INDEX "idx_stored_value_accounts_transaction_logs_created_by" ON "stored_value_accounts_transaction_logs"("created_by");
+CREATE INDEX "idx_stored_value_accounts_transaction_logs_updated_by" ON "stored_value_accounts_transaction_logs"("last_updated_by");
