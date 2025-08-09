@@ -1,5 +1,5 @@
 // services/paymentService.ts
-import { pool, getProdPool as prodPool } from '../config/database.js';
+import { query as dbQuery, queryOnPool } from '../config/database.js';
 
 export const getMemberOutstandingAmounts = async (): Promise<Record<number, number>> => {
   const query = `
@@ -51,7 +51,7 @@ FROM latest_chain_status
 GROUP BY member_id;
   `;
 
-  const result = await pool().query(query);
+  const result = await dbQuery(query);
   const map: Record<number, number> = {};
 
   for (const row of result.rows) {

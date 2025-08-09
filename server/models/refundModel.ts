@@ -1,4 +1,4 @@
-import { pool } from '../config/database.js';
+import { pool, query as dbQuery, queryOnPool } from '../config/database.js';
 
 const getAllRefundSaleTransactionRecords = async (start_date_utc?: string, end_date_utc?: string) => {
   let query = `
@@ -31,7 +31,7 @@ const getAllRefundSaleTransactionRecords = async (start_date_utc?: string, end_d
 
   query += ` ORDER BY st.created_at DESC`;
 
-  const result = await pool().query(query, values);
+  const result = await dbQuery(query, values);
   return result.rows;
 };
 
@@ -75,7 +75,7 @@ const getSaleTransactionItemById = async (itemId: number) => {
     LIMIT 1;
   `;
 
-  const result = await pool().query(query, [itemId]);
+  const result = await dbQuery(query, [itemId]);
   return result.rows[0]; // Fixed typo here (Rows -> rows)
 };
 
@@ -149,7 +149,7 @@ const getServiceTransactionsForRefund = async (
   }
 
   // Get total count (before pagination)
-  const countResult = await pool().query(
+  const countResult = await dbQuery(
     `SELECT COUNT(DISTINCT st.id) AS total ${baseQuery}`,
     values
   );
@@ -191,7 +191,7 @@ const getServiceTransactionsForRefund = async (
     values.push(offset);
   }
 
-  const result = await pool().query(dataQuery, values);
+  const result = await dbQuery(dataQuery, values);
 
   type SaleTransactionItem = {
     sale_transaction_id: number;
@@ -474,7 +474,7 @@ const processRefundService = async (body: {
 /////////////////////
 
 /* const getStatusId = async (statusName: string) => {
-  const { rows } = await pool().query(
+  const { rows } = await dbQuery(
     `SELECT id FROM statuses WHERE status_name = $1`,
     [statusName]
   );
@@ -482,7 +482,7 @@ const processRefundService = async (body: {
 }; */
 
 const getMCPById = async (mcpId: number) => {
-  const { rows } = await pool().query(
+  const { rows } = await dbQuery(
     `SELECT id, member_id, balance, status 
      FROM member_care_packages 
      WHERE id = $1`,
@@ -492,7 +492,7 @@ const getMCPById = async (mcpId: number) => {
 };
 
 const getRemainingServices = async (mcpId: number) => {
-  const { rows } = await pool().query(
+  const { rows } = await dbQuery(
     `SELECT 
        id, service_id, service_name,
        quantity, price, discount
@@ -975,7 +975,7 @@ const fetchMCPStatusById = async (packageId: number) => {
     WHERE mcp.id = $1;
   `;
 
-  const { rows } = await pool().query(query, [packageId]);
+  const { rows } = await dbQuery(query, [packageId]);
   return rows;
 };
 
@@ -993,7 +993,7 @@ const getRefundDetailsForPackage = async (packageId: number) => {
     LIMIT 1
   `;
 
-  const { rows } = await pool().query(query, [packageId]);
+  const { rows } = await dbQuery(query, [packageId]);
   return rows[0] || null;
 };
 
@@ -1016,7 +1016,7 @@ const searchMembers = async (searchQuery: string) => {
       )
     LIMIT 20
   `;
-  const { rows } = await pool().query(query, [`%${searchQuery}%`]);
+  const { rows } = await dbQuery(query, [`%${searchQuery}%`]);
   return rows;
 };
 
@@ -1035,7 +1035,7 @@ const listMembers = async (page: number, limit: number) => {
     ORDER BY m.name ASC
     LIMIT $1 OFFSET $2
   `;
-  const { rows } = await pool().query(query, [limit, offset]);
+  const { rows } = await dbQuery(query, [limit, offset]);
   return {
     members: rows,
     total: rows.length > 0 ? Number(rows[0].total_count) : 0,
@@ -1089,7 +1089,7 @@ const getMemberCarePackages = async (memberId: number) => {
     ORDER BY mcp.created_at DESC
   `;
 
-  const { rows } = await pool().query(query, [memberId]);
+  const { rows } = await dbQuery(query, [memberId]);
   return rows;
 };
 
@@ -1141,7 +1141,7 @@ const searchMemberCarePackages = async (searchQuery: string, memberId: number | 
   `;
 
   const values = memberId ? [`%${searchQuery}%`, memberId] : [`%${searchQuery}%`];
-  const { rows } = await pool().query(query, values);
+  const { rows } = await dbQuery(query, values);
   return rows;
 };
 
@@ -1162,7 +1162,7 @@ const getRefundDateByMcpId = async (mcpId: string) => {
     LIMIT 1;
   `;
 
-  const { rows } = await pool().query(query, [mcpId]);
+  const { rows } = await dbQuery(query, [mcpId]);
   return rows[0]?.refund_date || null;
 };
 

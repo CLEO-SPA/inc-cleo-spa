@@ -15,7 +15,7 @@ BEGIN
                 'created_at', cp.created_at,
                 'updated_at', cp.updated_at,
                 'care_package_customizable', cp.care_package_customizable,
-                'status_id', cp.status_id,
+                'status', cp.status,
                 'created_by', cp.created_by,
                 'last_updated_by', cp.last_updated_by
             ),

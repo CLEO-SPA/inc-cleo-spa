@@ -1,4 +1,4 @@
-DROP FUNCTION get_services_with_pagination(integer,integer,text,bigint,boolean) IF EXISTS;
+-- DROP FUNCTION get_services_with_pagination(integer,integer,text,bigint,boolean) IF EXISTS;
 
 CREATE OR REPLACE FUNCTION get_services_with_pagination(
     p_page INT DEFAULT 1,

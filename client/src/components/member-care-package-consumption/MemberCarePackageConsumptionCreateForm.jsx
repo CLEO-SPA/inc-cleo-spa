@@ -6,22 +6,23 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Loader2 } from 'lucide-react';
-import EmployeeSelect from '@/components/ui/forms/EmployeeSelect';
+import EmployeeCommissionSelect from '@/components/ui/forms/EmployeeCommissionSelect';
 
 const MemberCarePackageConsumptionCreateForm = () => {
   const {
     detailForm,
-    formData,
     currentPackageInfo,
     isLoading,
     isSubmitting,
     selectServiceToConsume,
     updateDetailFormField,
-    updateMainField,
     confirmConsumption,
-    // Add the date utility functions
     getFormattedDate,
     updateDateField,
+    selectedServiceId,
+    selectedServiceFinalPrice,
+    setEmployeeCommissionAssignments,
+    employeeCommissionAssignments,
   } = useConsumptionStore();
 
   const consumableServices = currentPackageInfo?.details?.filter((d) => d.remaining_quantity > 0) || [];
@@ -54,6 +55,19 @@ const MemberCarePackageConsumptionCreateForm = () => {
     e.preventDefault();
     confirmConsumption();
   };
+
+  // Handle employee commission assignments with memoization to prevent loops
+  const handleAssignmentsChange = React.useCallback(
+    (itemId, assignments) => {
+      if (Array.isArray(assignments)) {
+        setEmployeeCommissionAssignments(itemId, assignments);
+      }
+    },
+    [setEmployeeCommissionAssignments]
+  );
+
+  // Check if we have employee assignments for the selected service
+  const hasEmployeeAssignments = selectedServiceId && employeeCommissionAssignments[selectedServiceId]?.length > 0;
 
   return (
     <Card className='m-4'>
@@ -137,12 +151,22 @@ const MemberCarePackageConsumptionCreateForm = () => {
             </>
           )}
 
-          <EmployeeSelect
-            label='Handled By *'
-            value={formData.employee_id}
-            onChange={(value) => updateMainField('employee_id', value)}
-            disabled={isLoading || isSubmitting}
-          />
+          {selectedServiceId && (
+            <div>
+              <EmployeeCommissionSelect
+                itemId={selectedServiceId}
+                itemType={'package'}
+                totalPrice={selectedServiceFinalPrice}
+                onAssignmentsChange={handleAssignmentsChange}
+                formatCurrency={(value) => `$${value.toFixed(2)}`}
+                disabled={isLoading || isSubmitting}
+              />
+              {/* Add helper text to guide users */}
+              <p className='text-xs text-blue-600 mt-1'>
+                Please assign at least one employee who performed this service.
+              </p>
+            </div>
+          )}
 
           <Button
             type='submit'
@@ -151,7 +175,7 @@ const MemberCarePackageConsumptionCreateForm = () => {
               isLoading ||
               isSubmitting ||
               !detailForm.mcpd_id ||
-              !formData.employee_id ||
+              !hasEmployeeAssignments || // Check for employee assignments instead of employee_id
               effectiveMaxQuantity === 0 ||
               parseInt(detailForm.mcpd_quantity, 10) >= 0
             }

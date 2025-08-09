@@ -136,30 +136,51 @@ $$;
 CREATE OR REPLACE FUNCTION get_mv_income_by_month(target_year INT, target_month INT)
 RETURNS TABLE (
     payment_date_gmt8 TEXT,
-    cash NUMERIC(10,2),
-    nets NUMERIC(10,2),
-    paynow NUMERIC(10,2),
-    visa_mastercard NUMERIC(10,2)
+    payment_method_id INT,
+    payment_method_name TEXT,
+    amount NUMERIC(10,2),
+    is_gst BOOLEAN
 )
 LANGUAGE SQL
 AS $$
-SELECT 
-    TO_CHAR(DATE_TRUNC('day', ptst.created_at AT TIME ZONE 'Asia/Singapore'), 'YYYY-MM-DD') AS payment_date_gmt8,
+(
+    -- Income recognised payment methods
+    SELECT 
+        TO_CHAR(DATE_TRUNC('day', ptst.created_at AT TIME ZONE 'Asia/Singapore'), 'YYYY-MM-DD') AS payment_date_gmt8,
+        ptst.payment_method_id,
+        pm.payment_method_name,
+        SUM(ABS(ptst.amount))::NUMERIC(10,2) AS amount,
+        FALSE AS is_gst
+    FROM payment_to_sale_transactions ptst
+    JOIN payment_methods pm ON pm.id = ptst.payment_method_id
+    JOIN sale_transaction_items sti ON sti.sale_transaction_id = ptst.sale_transaction_id
+    WHERE 
+        pm.is_enabled = true 
+        AND pm.is_income = true
+        AND sti.item_type = 'member voucher'
+        AND EXTRACT(YEAR FROM ptst.created_at AT TIME ZONE 'Asia/Singapore') = target_year
+        AND EXTRACT(MONTH FROM ptst.created_at AT TIME ZONE 'Asia/Singapore') = target_month
+    GROUP BY payment_date_gmt8, ptst.payment_method_id, pm.payment_method_name
 
-    SUM(CASE WHEN ptst.payment_method_id = 1 THEN ABS(ptst.amount) ELSE 0 END)::NUMERIC(10,2) AS total_payment_1,
-    SUM(CASE WHEN ptst.payment_method_id = 2 THEN ABS(ptst.amount) ELSE 0 END)::NUMERIC(10,2) AS total_payment_2,
-    SUM(CASE WHEN ptst.payment_method_id = 3 THEN ABS(ptst.amount) ELSE 0 END)::NUMERIC(10,2) AS total_payment_3,
-    SUM(CASE WHEN ptst.payment_method_id = 4 THEN ABS(ptst.amount) ELSE 0 END)::NUMERIC(10,2) AS total_payment_4
+    UNION ALL
 
-FROM payment_to_sale_transactions ptst
-JOIN sale_transaction_items sti
-  ON sti.sale_transaction_id = ptst.sale_transaction_id
-WHERE ptst.payment_method_id IN (1,2,3,4)
-  AND sti.item_type = 'member voucher'
-  AND EXTRACT(YEAR FROM ptst.created_at AT TIME ZONE 'Asia/Singapore') = target_year
-  AND EXTRACT(MONTH FROM ptst.created_at AT TIME ZONE 'Asia/Singapore') = target_month
-
-GROUP BY payment_date_gmt8
+    -- GST
+    SELECT 
+        TO_CHAR(DATE_TRUNC('day', ptst.created_at AT TIME ZONE 'Asia/Singapore'), 'YYYY-MM-DD') AS payment_date_gmt8,
+        ptst.payment_method_id,
+        pm.payment_method_name,
+        SUM(ABS(ptst.amount))::NUMERIC(10,2) AS amount,
+        TRUE AS is_gst
+    FROM payment_to_sale_transactions ptst
+    JOIN payment_methods pm ON pm.id = ptst.payment_method_id
+    JOIN sale_transaction_items sti ON sti.sale_transaction_id = ptst.sale_transaction_id
+    WHERE 
+        pm.id = 10  -- payment method id for GST
+        AND sti.item_type = 'member voucher'
+        AND EXTRACT(YEAR FROM ptst.created_at AT TIME ZONE 'Asia/Singapore') = target_year
+        AND EXTRACT(MONTH FROM ptst.created_at AT TIME ZONE 'Asia/Singapore') = target_month
+    GROUP BY payment_date_gmt8, ptst.payment_method_id, pm.payment_method_name
+)
 ORDER BY payment_date_gmt8;
 $$;
 
@@ -197,30 +218,51 @@ $$;
 CREATE OR REPLACE FUNCTION get_mcp_income_by_month(target_year INT, target_month INT)
 RETURNS TABLE (
     payment_date_gmt8 TEXT,
-    cash NUMERIC(10,2),
-    nets NUMERIC(10,2),
-    paynow NUMERIC(10,2),
-    visa_mastercard NUMERIC(10,2)
+    payment_method_id INT,
+    payment_method_name TEXT,
+    amount NUMERIC(10,2),
+    is_gst BOOLEAN
 )
 LANGUAGE SQL
 AS $$
-SELECT 
-    TO_CHAR(DATE_TRUNC('day', ptst.created_at AT TIME ZONE 'Asia/Singapore'), 'YYYY-MM-DD') AS payment_date_gmt8,
+(
+    -- Income recognised payment methods
+    SELECT 
+        TO_CHAR(DATE_TRUNC('day', ptst.created_at AT TIME ZONE 'Asia/Singapore'), 'YYYY-MM-DD') AS payment_date_gmt8,
+        ptst.payment_method_id,
+        pm.payment_method_name,
+        SUM(ABS(ptst.amount))::NUMERIC(10,2) AS amount,
+        FALSE AS is_gst
+    FROM payment_to_sale_transactions ptst
+    JOIN payment_methods pm ON pm.id = ptst.payment_method_id
+    JOIN sale_transaction_items sti ON sti.sale_transaction_id = ptst.sale_transaction_id
+    WHERE 
+        pm.is_enabled = true 
+        AND pm.is_income = true
+        AND sti.item_type = 'member care package'
+        AND EXTRACT(YEAR FROM ptst.created_at AT TIME ZONE 'Asia/Singapore') = target_year
+        AND EXTRACT(MONTH FROM ptst.created_at AT TIME ZONE 'Asia/Singapore') = target_month
+    GROUP BY payment_date_gmt8, ptst.payment_method_id, pm.payment_method_name
 
-    SUM(CASE WHEN ptst.payment_method_id = 1 THEN ABS(ptst.amount) ELSE 0 END)::NUMERIC(10,2) AS total_payment_1,
-    SUM(CASE WHEN ptst.payment_method_id = 2 THEN ABS(ptst.amount) ELSE 0 END)::NUMERIC(10,2) AS total_payment_2,
-    SUM(CASE WHEN ptst.payment_method_id = 3 THEN ABS(ptst.amount) ELSE 0 END)::NUMERIC(10,2) AS total_payment_3,
-    SUM(CASE WHEN ptst.payment_method_id = 4 THEN ABS(ptst.amount) ELSE 0 END)::NUMERIC(10,2) AS total_payment_4
+    UNION ALL
 
-FROM payment_to_sale_transactions ptst
-JOIN sale_transaction_items sti
-  ON sti.sale_transaction_id = ptst.sale_transaction_id
-WHERE ptst.payment_method_id IN (1,2,3,4)
-  AND sti.item_type = 'member care package'
-  AND EXTRACT(YEAR FROM ptst.created_at AT TIME ZONE 'Asia/Singapore') = target_year
-  AND EXTRACT(MONTH FROM ptst.created_at AT TIME ZONE 'Asia/Singapore') = target_month
-
-GROUP BY payment_date_gmt8
+    -- GST
+    SELECT 
+        TO_CHAR(DATE_TRUNC('day', ptst.created_at AT TIME ZONE 'Asia/Singapore'), 'YYYY-MM-DD') AS payment_date_gmt8,
+        ptst.payment_method_id,
+        pm.payment_method_name,
+        SUM(ABS(ptst.amount))::NUMERIC(10,2) AS amount,
+        TRUE AS is_gst
+    FROM payment_to_sale_transactions ptst
+    JOIN payment_methods pm ON pm.id = ptst.payment_method_id
+    JOIN sale_transaction_items sti ON sti.sale_transaction_id = ptst.sale_transaction_id
+    WHERE 
+        pm.id = 10  -- payment method id for GST
+        AND sti.item_type = 'member care package'
+        AND EXTRACT(YEAR FROM ptst.created_at AT TIME ZONE 'Asia/Singapore') = target_year
+        AND EXTRACT(MONTH FROM ptst.created_at AT TIME ZONE 'Asia/Singapore') = target_month
+    GROUP BY payment_date_gmt8, ptst.payment_method_id, pm.payment_method_name
+)
 ORDER BY payment_date_gmt8;
 $$;
 
@@ -273,35 +315,55 @@ $$;
 CREATE OR REPLACE FUNCTION get_adhoc_income_by_month(target_year INT, target_month INT)
 RETURNS TABLE (
     payment_date_gmt8 TEXT,
-    cash NUMERIC(10,2),
-    nets NUMERIC(10,2),
-    paynow NUMERIC(10,2),
-    visa_mastercard NUMERIC(10,2)
+    payment_method_id INT,
+    payment_method_name TEXT,
+    amount NUMERIC(10,2),
+    is_gst BOOLEAN
 )
 LANGUAGE SQL
 AS $$
-SELECT 
-    TO_CHAR(DATE_TRUNC('day', payment_date), 'YYYY-MM-DD') AS payment_date_gmt8,
-    SUM(cash) AS cash,
-    SUM(nets) AS nets,
-    SUM(paynow) AS paynow,
-    SUM(visa_mastercard) AS visa_mastercard
-FROM (
+(
+    -- Deduplicated ad-hoc income (service + product)
     SELECT 
-        ptst.created_at AT TIME ZONE 'Asia/Singapore' AS payment_date,
-        CASE WHEN ptst.payment_method_id = 1 THEN ABS(ptst.amount) ELSE 0 END::NUMERIC(10,2) AS cash,
-        CASE WHEN ptst.payment_method_id = 2 THEN ABS(ptst.amount) ELSE 0 END::NUMERIC(10,2) AS nets,
-        CASE WHEN ptst.payment_method_id = 3 THEN ABS(ptst.amount) ELSE 0 END::NUMERIC(10,2) AS paynow,
-        CASE WHEN ptst.payment_method_id = 4 THEN ABS(ptst.amount) ELSE 0 END::NUMERIC(10,2) AS visa_mastercard
-    FROM payment_to_sale_transactions ptst
-    JOIN sale_transaction_items sti
-      ON sti.sale_transaction_id = ptst.sale_transaction_id
-    WHERE ptst.payment_method_id IN (1,2,3,4)
-      AND sti.item_type IN ('service', 'product')
-      AND EXTRACT(YEAR FROM ptst.created_at AT TIME ZONE 'Asia/Singapore') = target_year
-      AND EXTRACT(MONTH FROM ptst.created_at AT TIME ZONE 'Asia/Singapore') = target_month
-    GROUP BY ptst.id, ptst.created_at, ptst.payment_method_id, ptst.amount
-) AS daily_payments
-GROUP BY payment_date_gmt8
+        TO_CHAR(DATE_TRUNC('day', pt.created_at AT TIME ZONE 'Asia/Singapore'), 'YYYY-MM-DD') AS payment_date_gmt8,
+        pt.payment_method_id,
+        pm.payment_method_name,
+        SUM(ABS(pt.amount))::NUMERIC(10,2) AS amount,
+        FALSE AS is_gst
+    FROM (
+        SELECT DISTINCT ptst.id, ptst.created_at, ptst.payment_method_id, ptst.amount
+        FROM payment_to_sale_transactions ptst
+        JOIN sale_transaction_items sti ON sti.sale_transaction_id = ptst.sale_transaction_id
+        WHERE sti.item_type IN ('service', 'product')
+          AND EXTRACT(YEAR FROM ptst.created_at AT TIME ZONE 'Asia/Singapore') = target_year
+          AND EXTRACT(MONTH FROM ptst.created_at AT TIME ZONE 'Asia/Singapore') = target_month
+    ) pt
+    JOIN payment_methods pm ON pm.id = pt.payment_method_id
+    WHERE 
+        pm.is_enabled = true 
+        AND pm.is_income = true
+    GROUP BY payment_date_gmt8, pt.payment_method_id, pm.payment_method_name
+
+    UNION ALL
+
+    -- Deduplicated GST for ad-hoc
+    SELECT 
+        TO_CHAR(DATE_TRUNC('day', pt.created_at AT TIME ZONE 'Asia/Singapore'), 'YYYY-MM-DD') AS payment_date_gmt8,
+        pt.payment_method_id,
+        pm.payment_method_name,
+        SUM(ABS(pt.amount))::NUMERIC(10,2) AS amount,
+        TRUE AS is_gst
+    FROM (
+        SELECT DISTINCT ptst.id, ptst.created_at, ptst.payment_method_id, ptst.amount
+        FROM payment_to_sale_transactions ptst
+        JOIN sale_transaction_items sti ON sti.sale_transaction_id = ptst.sale_transaction_id
+        WHERE sti.item_type IN ('service', 'product')
+          AND ptst.payment_method_id = 10
+          AND EXTRACT(YEAR FROM ptst.created_at AT TIME ZONE 'Asia/Singapore') = target_year
+          AND EXTRACT(MONTH FROM ptst.created_at AT TIME ZONE 'Asia/Singapore') = target_month
+    ) pt
+    JOIN payment_methods pm ON pm.id = pt.payment_method_id
+    GROUP BY payment_date_gmt8, pt.payment_method_id, pm.payment_method_name
+)
 ORDER BY payment_date_gmt8;
 $$;

@@ -156,4 +156,4 @@ BEGIN
 END;
 $$ LANGUAGE plpgsql;
 
-SELECT * FROM get_sales_history_for_each_service(124, 2025, 2);
+-- SELECT * FROM get_sales_history_for_each_service(124, 2025, 2);

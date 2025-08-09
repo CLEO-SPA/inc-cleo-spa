@@ -1,4 +1,4 @@
-import { pool } from '../config/database.js';
+import { pool, query as dbQuery } from '../config/database.js';
 import { CreateTimetableInput, UpdateTimetableInput, DetailedTimetable } from '../types/timetable.types.js';
 
 export interface RestDay {
@@ -22,12 +22,12 @@ export interface PaginatedTimetableResponse {
     per_page: number;
     total_employees: number;
     total_pages: number;
-  }
+  };
 }
 
 export interface MonthDateRange {
   start_date: Date;
-  end_date: Date; 
+  end_date: Date;
 }
 
 /**
@@ -53,7 +53,7 @@ const getCurrentAndUpcomingTimetables = async (
     `;
 
     const currentValues = [employeeId, currentDate];
-    const currentResult = await pool().query(currentQuery, currentValues);
+    const currentResult = await dbQuery(currentQuery, currentValues);
 
     // Query for upcoming timetables
     const upcomingQuery = `
@@ -64,7 +64,7 @@ const getCurrentAndUpcomingTimetables = async (
       ORDER BY effective_startdate ASC
     `;
     const upcomingValues = [employeeId, currentDate];
-    const upcomingResult = await pool().query(upcomingQuery, upcomingValues);
+    const upcomingResult = await dbQuery(upcomingQuery, upcomingValues);
 
     return {
       current: currentResult.rows,
@@ -99,15 +99,7 @@ const createEmployeeTimetable = async (input: CreateTimetableInput) => {
         $4::TIMESTAMPTZ, $5::TIMESTAMPTZ,
         $6::BIGINT, $7::TIMESTAMPTZ
       );`,
-      [
-        employee_id,
-        current_date,
-        rest_day_number,
-        effective_start_date,
-        effective_end_date,
-        created_by,
-        created_at,
-      ]
+      [employee_id, current_date, rest_day_number, effective_start_date, effective_end_date, created_by, created_at]
     );
 
     return result.rows[0];
@@ -123,7 +115,7 @@ const createEmployeeTimetable = async (input: CreateTimetableInput) => {
 const isValidMonthFormat = (month: string): boolean => {
   const monthRegex = /^\d{4}-(0[1-9]|1[0-2])$/;
   return monthRegex.test(month);
-}
+};
 
 /**
  * Utility function
@@ -132,8 +124,8 @@ const isValidMonthFormat = (month: string): boolean => {
 const getMonthDateRange = (monthInput: string): MonthDateRange => {
   const start_date = new Date(`${monthInput}-01T00:00:00Z`);
   const end_date = new Date(start_date.getFullYear(), start_date.getMonth() + 1, 0, 23, 59, 59, 999);
-  return {start_date, end_date};
-}
+  return { start_date, end_date };
+};
 
 /**
  * Get paginated list of employees' timetables for a specific month
@@ -166,7 +158,7 @@ const getMonthDateRange = (monthInput: string): MonthDateRange => {
 //         WHERE e.employee_is_active = true
 //         ${positionId ? 'AND e.position_id = $3' : ''}
 //       )
-//       SELECT 
+//       SELECT
 //         fe.employee_id,
 //         fe.employee_name,
 //         tc.total,
@@ -203,7 +195,7 @@ const getMonthDateRange = (monthInput: string): MonthDateRange => {
 //     const employeeMap = new Map<number, EmployeeTimetable>();
 //     let totalEmployees = 0;
 //     /**
-//      * Incase if there is any error, check here 
+//      * Incase if there is any error, check here
 //      */
 //     if (result.rows.length === 0) {
 //       // If no employees found, return empty data with pagination
@@ -218,9 +210,9 @@ const getMonthDateRange = (monthInput: string): MonthDateRange => {
 //       totalEmployees = parseInt(countResult.rows[0].total, 10);
 //     } else {
 //       result.rows.forEach((row: { total: number; employee_id: number; employee_name: string; restday_number: number; restday_name: string; effective_startdate: any; effective_enddate: any; }) => {
-//         console.log('Row total value:', row.total, typeof row.total); 
+//         console.log('Row total value:', row.total, typeof row.total);
 //         totalEmployees = row.total;
-        
+
 //         if (!employeeMap.has(row.employee_id)) {
 //           employeeMap.set(row.employee_id, {
 //             employee_id: row.employee_id,
@@ -257,7 +249,7 @@ const getMonthDateRange = (monthInput: string): MonthDateRange => {
 //     throw new Error('Failed to fetch timetable data from the database');
 //   }
 // }
-const getActiveRestDays = async(
+const getActiveRestDays = async (
   month: string,
   page: number = 1,
   limit: number = 20,
@@ -269,7 +261,7 @@ const getActiveRestDays = async(
     }
     const { start_date, end_date } = getMonthDateRange(month);
     const offset = (page - 1) * limit;
-    
+
     const query = `
       WITH filtered_employees AS (
         SELECT DISTINCT e.id AS employee_id, e.employee_name AS employee_name
@@ -322,12 +314,12 @@ const getActiveRestDays = async(
       queryParams = [limit, offset, end_date.toISOString(), start_date.toISOString()];
     }
 
-    const result = await pool().query(query, queryParams);
+    const result = await dbQuery(query, queryParams);
 
     // Group results by employee
     const employeeMap = new Map<number, EmployeeTimetable>();
     let totalEmployees = 0;
-    
+
     if (result.rows.length === 0) {
       // If no employees found, return empty data with pagination
       const countQuery = `
@@ -338,31 +330,42 @@ const getActiveRestDays = async(
         ${positionId ? 'AND etp.position_id = $1' : ''}
       `;
       const countParams = positionId ? [positionId] : [];
-      const countResult = await pool().query(countQuery, countParams);
+      const countResult = await dbQuery(countQuery, countParams);
       totalEmployees = parseInt(countResult.rows[0].total, 10);
     } else {
-      result.rows.forEach((row: { total: number; employee_id: number; employee_name: string; timetable_id: number, restday_number: number; restday_name: string; effective_startdate: any; effective_enddate: any; }) => {
-        console.log('Row total value:', row.total, typeof row.total); 
-        totalEmployees = row.total;
-        
-        if (!employeeMap.has(row.employee_id)) {
-          employeeMap.set(row.employee_id, {
-            employee_id: row.employee_id,
-            employee_name: row.employee_name,
-            rest_days: []
-          });
-        }
+      result.rows.forEach(
+        (row: {
+          total: number;
+          employee_id: number;
+          employee_name: string;
+          timetable_id: number;
+          restday_number: number;
+          restday_name: string;
+          effective_startdate: any;
+          effective_enddate: any;
+        }) => {
+          console.log('Row total value:', row.total, typeof row.total);
+          totalEmployees = row.total;
 
-        if (row.restday_number) {
-          employeeMap.get(row.employee_id)!.rest_days.push({
-            timetable_id: row.timetable_id,
-            restday_number: row.restday_number,
-            restday_name: row.restday_name,
-            effective_startdate: row.effective_startdate,
-            effective_enddate: row.effective_enddate
-          });
+          if (!employeeMap.has(row.employee_id)) {
+            employeeMap.set(row.employee_id, {
+              employee_id: row.employee_id,
+              employee_name: row.employee_name,
+              rest_days: [],
+            });
+          }
+
+          if (row.restday_number) {
+            employeeMap.get(row.employee_id)!.rest_days.push({
+              timetable_id: row.timetable_id,
+              restday_number: row.restday_number,
+              restday_name: row.restday_name,
+              effective_startdate: row.effective_startdate,
+              effective_enddate: row.effective_enddate,
+            });
+          }
         }
-      });
+      );
     }
 
     const data = Array.from(employeeMap.values());
@@ -374,35 +377,32 @@ const getActiveRestDays = async(
         current_page: page,
         per_page: limit,
         total_employees: totalEmployees,
-        total_pages: totalPages
-      }
+        total_pages: totalPages,
+      },
     };
   } catch (error) {
     console.error('Database Error in getActiveRestDays:', error);
     throw new Error('Failed to fetch timetable data from the database');
   }
-}
+};
 
 /**
  * Get specific employee's timetable for a specific month
  */
-const getActiveRestDaysByEmployee = async (
-  employeeId: number,
-  month: string
-): Promise<EmployeeTimetable | null> => {
-  try{
-    if(!isValidMonthFormat(month)) {
+const getActiveRestDaysByEmployee = async (employeeId: number, month: string): Promise<EmployeeTimetable | null> => {
+  try {
+    if (!isValidMonthFormat(month)) {
       throw new Error('Invalid month format. Use YYYY-MM format.');
     }
-    
+
     const { start_date, end_date } = getMonthDateRange(month);
-    
+
     console.log('=== DEBUG TIMETABLE QUERY ===');
     console.log('Employee ID:', employeeId);
     console.log('Month:', month);
     console.log('start_date:', start_date.toISOString());
     console.log('end_date:', end_date.toISOString());
-    
+
     // ✅ FIXED QUERY - Show ALL rest days that overlap with the month
     const query = `
       SELECT 
@@ -431,26 +431,26 @@ const getActiveRestDaysByEmployee = async (
       WHERE e.id = $1 AND e.employee_is_active = true
       ORDER BY t.effective_startdate;
     `;
-    
+
     const queryParams = [employeeId, end_date.toISOString(), start_date.toISOString()];
     const result = await pool().query(query, queryParams);
     console.log('Raw SQL result rows:', JSON.stringify(result.rows, null, 2));
-    
+
     // Debug each row's date logic
     // result.rows.forEach((row, index) => {
     //   if (row.restday_number) {
     //     const effectiveStart = new Date(row.effective_startdate);
     //     const effectiveEnd = row.effective_enddate ? new Date(row.effective_enddate) : null;
-        
+
     //     console.log(`\n--- Row ${index + 1} Analysis ---`);
     //     console.log('restday_number:', row.restday_number);
     //     console.log('effective_startdate:', effectiveStart.toISOString());
     //     console.log('effective_enddate:', effectiveEnd ? effectiveEnd.toISOString() : 'NULL (ongoing)');
-        
+
     //     // Check overlap logic
     //     const startsBeforeMonthEnd = effectiveStart <= end_date;
     //     const endsAfterMonthStart = !effectiveEnd || effectiveEnd >= start_date;
-        
+
     //     console.log('Starts before month end:', `${effectiveStart.toISOString()} <= ${end_date.toISOString()}`, '=', startsBeforeMonthEnd);
     //     console.log('Ends after month start:', effectiveEnd ? `${effectiveEnd.toISOString()} >= ${start_date.toISOString()}` : 'NULL (ongoing)', '=', endsAfterMonthStart);
     //     console.log('Overlaps with month:', startsBeforeMonthEnd && endsAfterMonthStart);
@@ -464,25 +464,33 @@ const getActiveRestDaysByEmployee = async (
 
     const employee = result.rows[0];
     const restDays = result.rows
-      .filter((row: { restday_number: number; }) => row.restday_number) // Only rows with rest days
-      .map((row: { restday_number: any; restday_name: any; timetable_id: number; effective_startdate: any; effective_enddate: any; }) => ({
-        timetable_id: row.timetable_id,
-        restday_number: row.restday_number,
-        restday_name: row.restday_name,
-        effective_startdate: row.effective_startdate,
-        effective_enddate: row.effective_enddate
-      }));
+      .filter((row: { restday_number: number }) => row.restday_number) // Only rows with rest days
+      .map(
+        (row: {
+          restday_number: any;
+          restday_name: any;
+          timetable_id: number;
+          effective_startdate: any;
+          effective_enddate: any;
+        }) => ({
+          timetable_id: row.timetable_id,
+          restday_number: row.restday_number,
+          restday_name: row.restday_name,
+          effective_startdate: row.effective_startdate,
+          effective_enddate: row.effective_enddate,
+        })
+      );
 
     return {
       employee_id: employee.employee_id,
       employee_name: employee.employee_name,
-      rest_days: restDays
+      rest_days: restDays,
     };
   } catch (error) {
     console.error('Database Error in getActiveRestDaysByEmployee:', error);
     throw new Error('Failed to fetch employee timetable data from the database');
   }
-}
+};
 
 /**
  * Get timetable for a specific position for a specific month
@@ -495,13 +503,13 @@ const getActiveRestDaysByPosition = async (
 ): Promise<PaginatedTimetableResponse> => {
   // Reuse the getActiveRestDays function with positionId filter
   return getActiveRestDays(month, page, limit, positionId);
-}
+};
 
 /**
  * GET /api/et/:timetableId
  * This endpoint retrieves the timetable by timetable ID
  */
-const getTimetableById =  async (timetableId: number): Promise<DetailedTimetable | null> => {
+const getTimetableById = async (timetableId: number): Promise<DetailedTimetable | null> => {
   const query = `
     SELECT 
     t.id,
@@ -513,7 +521,7 @@ const getTimetableById =  async (timetableId: number): Promise<DetailedTimetable
     FROM timetables t
     JOIN employees e ON e.id = t.employee_id 
     WHERE t.id = $1
-  `
+  `;
   try {
     const result = await pool().query(query, [timetableId]);
     return result.rows.length > 0 ? result.rows[0] : null;
@@ -521,7 +529,7 @@ const getTimetableById =  async (timetableId: number): Promise<DetailedTimetable
     console.error('Error in timetableModel.getTimetableById: ', error);
     throw new Error('Failed to fetch timetable details from database');
   }
-}
+};
 
 /**
  * PUT /api/et/update-employee-timetable/:timetableId
@@ -546,15 +554,7 @@ const updateEmployeeTimetable = async (input: UpdateTimetableInput) => {
         $4::TIMESTAMPTZ, $5::TIMESTAMPTZ,
         $6::BIGINT, $7::TIMESTAMPTZ
       );`,
-      [
-        timetable_id,
-        current_date,
-        rest_day_number,
-        effective_start_date,
-        effective_end_date,
-        updated_by,
-        updated_at,
-      ]
+      [timetable_id, current_date, rest_day_number, effective_start_date, effective_end_date, updated_by, updated_at]
     );
 
     return result.rows[0];
@@ -562,8 +562,6 @@ const updateEmployeeTimetable = async (input: UpdateTimetableInput) => {
     client.release();
   }
 };
-
-
 
 export default {
   getCurrentAndUpcomingTimetables,

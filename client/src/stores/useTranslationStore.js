@@ -77,9 +77,13 @@ const useTranslationStore = create((set, get) => ({
                     createdAt: '',
                 });
                 await fetchTranslations();
+                return true;  // success
+
             }
+            return false;  // fallback false if unexpected status
+
         } catch (error) {
-            if (error.response?.status === 400) {
+            if (error.response?.status === 409) {
                 set({ error: t('Translation already exists', '翻译已存在'), success: '' });
             } else {
                 set({
@@ -87,6 +91,8 @@ const useTranslationStore = create((set, get) => ({
                     success: '',
                 });
             }
+            return false;  // failure
+
         }
     },
 

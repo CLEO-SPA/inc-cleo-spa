@@ -8,7 +8,7 @@ import { SidebarInset, SidebarProvider } from '@/components/ui/sidebar';
 
 const TranslationPage = () => {
     return (
-        <div className='h-screen overflow-hidden [--header-height:calc(theme(spacing.14))]'>
+        <div className='h-screen overflow-y-auto [--header-height:calc(theme(spacing.14))]'>
             <SidebarProvider className='flex flex-col h-full'>
                 <SiteHeader />
                 <TranslationProvider>

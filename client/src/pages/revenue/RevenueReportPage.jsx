@@ -32,10 +32,17 @@ function RevenueReportPage() {
     adhocData,
     combinedData,
     totals,
+    // Add payment methods from store
+    paymentMethods,
+    paymentMethodsLoading,
+    paymentMethodsError,
+    fetchPaymentMethods,
   } = useRevenueReportStore();
 
+  // Fixed columns that come after payment methods
+  const fixedColumns = ['Total Income', 'GST', 'Total with GST', 'VIP', 'Package', 'Net Sales', 'Refund'];
+
   const [tab, setTab] = useState('combined');
-  const [hoveredRow, setHoveredRow] = useState(null);
 
   useEffect(() => {
     fetchEarliestDate();
@@ -57,10 +64,24 @@ function RevenueReportPage() {
   }, [tab, mvData, mcpData, adhocData, combinedData]);
 
   const currentTotals = useMemo(() => {
-    return totals[tab] || {};
+    const totalsData = totals[tab] || {};
+    return totalsData;
   }, [totals, tab]);
 
+  // Helper function to get the correct property name for payment methods
+  const getPaymentMethodKey = (methodName) => {
+    const lowerMethod = methodName.toLowerCase();
+    return lowerMethod;
+  };
+
+  // Helper function to get total value for a payment method
+  const getTotalValue = (methodName) => {
+    const key = getPaymentMethodKey(methodName);
+    return currentTotals[key] || 0;
+  };
+
   const handleGetReport = () => {
+    fetchPaymentMethods();
     fetchRevenueData();
   };
 
@@ -91,56 +112,63 @@ function RevenueReportPage() {
     const title = `${tabLabels[tab]} Monthly Revenue Report of ${resultMonth} ${resultYear}`;
     const subtitle = `Downloaded at ${downloadDateStr}`;
 
+    // Create dynamic headers array
+    const headers = [
+      'Day',
+      ...paymentMethods.map(method => method.payment_method_name),
+      ...fixedColumns
+    ];
+
     // Prepare data for Excel
     const excelData = [
       [title], // Title row
       [subtitle], // Subtitle row
       [], // Empty row
-      ['Day', 'Cash', 'Visa', 'PayNow', 'Nets', 'Total', 'FOC', 'VIP', 'Package', 'Net Sales', 'Refund'], // Header row
+      headers, // Dynamic header row
       ...reportData.map(row => [
         row.day,
-        parseFloatSafe(row.cash).toFixed(2),
-        parseFloatSafe(row.visa).toFixed(2),
-        parseFloatSafe(row.payment).toFixed(2),
-        parseFloatSafe(row.nets).toFixed(2),
+        // Dynamic payment method columns
+        ...paymentMethods.map(method => {
+          const key = getPaymentMethodKey(method.payment_method_name);
+          return parseFloatSafe(row[key]).toFixed(2);
+        }),
+        // Fixed columns
         parseFloatSafe(row.total).toFixed(2),
-        parseFloatSafe(row.foc).toFixed(2),
+        parseFloatSafe(row.gst).toFixed(2),
+        parseFloatSafe(row.total + row.gst).toFixed(2),
         parseFloatSafe(row.vip).toFixed(2),
         parseFloatSafe(row.package).toFixed(2),
-        parseFloatSafe(row.netSales).toFixed(2),
+        parseFloatSafe(row.net_sales).toFixed(2),
         parseFloatSafe(row.refund).toFixed(2)
       ]),
-      // Total row
+      // Dynamic total row
       [
         'Total',
-        (currentTotals.cash || 0).toFixed(2),
-        (currentTotals.visa || 0).toFixed(2),
-        (currentTotals.payment || 0).toFixed(2),
-        (currentTotals.nets || 0).toFixed(2),
+        // Dynamic payment method totals
+        ...paymentMethods.map(method => getTotalValue(method.payment_method_name).toFixed(2)),
+        // Fixed totals
         (currentTotals.total || 0).toFixed(2),
-        (currentTotals.foc || 0).toFixed(2),
+        (currentTotals.gst || 0).toFixed(2),
+        (currentTotals.total + currentTotals.gst || 0).toFixed(2),
         (currentTotals.vip || 0).toFixed(2),
         (currentTotals.package || 0).toFixed(2),
-        (currentTotals.netSales || 0).toFixed(2),
+        (currentTotals.net_sales || 0).toFixed(2),
         (currentTotals.refund || 0).toFixed(2)
       ],
-      [], // Empty row
-      [`Total Revenue Amount: ${((currentTotals.netSales || 0) - (currentTotals.refund || 0)).toFixed(2)} $`]
     ];
 
     // Create workbook and worksheet
     const wb = XLSX.utils.book_new();
     const ws = XLSX.utils.aoa_to_sheet(excelData);
 
-    // Set column widths
+    // Set dynamic column widths
+    const totalColumns = 1 + paymentMethods.length + fixedColumns.length;
     const colWidths = [
       { wch: 5 },  // Day
-      { wch: 10 }, // Cash
-      { wch: 10 }, // Visa
-      { wch: 10 }, // PayNow
-      { wch: 10 }, // Nets
-      { wch: 10 }, // Total
-      { wch: 10 }, // FOC
+      ...paymentMethods.map(() => ({ wch: 10 })), // Payment methods
+      { wch: 10 }, // Total Income
+      { wch: 10 }, // GST
+      { wch: 12 }, // Total with GST
       { wch: 10 }, // VIP
       { wch: 10 }, // Package
       { wch: 12 }, // Net Sales
@@ -164,9 +192,8 @@ function RevenueReportPage() {
 
     // Merge cells for title and subtitle
     ws['!merges'] = [
-      { s: { r: 0, c: 0 }, e: { r: 0, c: 10 } }, // Title row
-      { s: { r: 1, c: 0 }, e: { r: 1, c: 10 } }, // Subtitle row
-      { s: { r: excelData.length - 1, c: 0 }, e: { r: excelData.length - 1, c: 10 } } // Total revenue row
+      { s: { r: 0, c: 0 }, e: { r: 0, c: totalColumns - 1 } }, // Title row
+      { s: { r: 1, c: 0 }, e: { r: 1, c: totalColumns - 1 } }, // Subtitle row
     ];
 
     // Add worksheet to workbook
@@ -219,23 +246,25 @@ function RevenueReportPage() {
   }
 
   return (
-    <div className='[--header-height:calc(theme(spacing.14))]'>
-      <SidebarProvider className='flex flex-col'>
+    <div className='[--header-height:calc(theme(spacing.14))] h-screen overflow-hidden'>
+      <SidebarProvider className='flex flex-col h-full'>
         <SiteHeader />
-        <div className='flex flex-1'>
+        <div className='flex flex-1 min-h-0'>
           <AppSidebar />
-          <SidebarInset>
-            <div className="bg-white rounded-lg shadow-md p-6">
+          <SidebarInset className="flex flex-col min-w-0 flex-1">
+            <div className="bg-white rounded-lg shadow-md p-6 flex flex-col h-full min-h-0">
               <div className="flex items-center justify-between mb-6">
                 <h2 className="text-2xl font-bold">Revenue Report</h2>
-                <button
-                  onClick={handleDownloadExcel}
-                  className="bg-green-600 text-white p-3 rounded hover:bg-green-700 transition-colors"
-                  disabled={!reportData || reportData.length === 0}
-                  title="Download Excel Report"
-                >
-                  <Download className="w-5 h-5" />
-                </button>
+                <div className="flex space-x-2">
+                  <button
+                    onClick={handleDownloadExcel}
+                    className="bg-green-600 text-white p-3 rounded hover:bg-green-700 transition-colors"
+                    disabled={!reportData || reportData.length === 0}
+                    title="Download Excel Report"
+                  >
+                    <Download className="w-5 h-5" />
+                  </button>
+                </div>
               </div>
 
               {/* Using the new MonthYearSelector component */}
@@ -289,96 +318,130 @@ function RevenueReportPage() {
               </div>
 
               {error && (
-                <div className="mb-4 p-4 bg-red-100 border border-red-400 text-red-700 rounded">
+                <div className="mb-4 p-4 bg-red-100 border border-red-400 text-red-700 rounded flex-shrink-0">
                   Error loading revenue data: {error}
                 </div>
               )}
-              <div className="mb-6 p-4 bg-gray-100 rounded-lg">
-                <div className="flex justify-between items-center">
-                  <span className="font-medium">Total Revenue Amount For {resultMonth}, {resultYear}</span>
-                  <span className="text-2xl font-bold">{((currentTotals.netSales || 0) - (currentTotals.refund || 0)).toFixed(2)} $</span>
-                </div>
-              </div>
-              <div className="overflow-x-auto">
-                {loading ? (
-                  <div className="flex justify-center items-center h-32">Loading revenue data...</div>
-                ) : (
-                  <table className="min-w-full border border-gray-200">
-                    <thead>
-                      <tr className="bg-gray-100">
-                        {['Day', 'Cash', 'Visa', 'PayNow', 'Nets', 'Total', 'VIP', 'Package', 'Net Sales', 'Refund'].map(header => (
-                          <th key={header} className="border border-gray-300 px-4 py-2">{header}</th>
-                        ))}
-                      </tr>
-                    </thead>
-                    <tbody>
-                      {reportData.length > 0 ? (
-                        <>
-                          {reportData.map((row, index) => (
-                            <tr key={row.day} className="hover:bg-gray-50">
-                              <td className="border border-gray-300 px-4 py-2 text-center">{row.day}</td>
-                              <td className="border border-gray-300 px-4 py-2 text-center">{formatAmount(row.cash)}</td>
-                              <td className="border border-gray-300 px-4 py-2 text-center">{formatAmount(row.visa)}</td>
-                              <td className="border border-gray-300 px-4 py-2 text-center">{formatAmount(row.payment)}</td>
-                              <td className="border border-gray-300 px-4 py-2 text-center">{formatAmount(row.nets)}</td>
-                              <td className="border border-gray-300 px-4 py-2 text-center">{formatAmount(row.total)}</td>
-                              {/* <td className="border border-gray-300 px-4 py-2 text-center">{formatAmount(row.foc)}</td> */}
-                              <td
-                                className="border border-gray-300 px-4 py-2 text-center relative"
-                                onMouseEnter={() => row.vip !== 0 && row.foc !== 0 && setHoveredRow(index)}
-                                onMouseLeave={() => setHoveredRow(null)}
-                              >
-                                <span className={hoveredRow === index ? 'text-blue-600' : ''}>
-                                  {formatAmount(row.vip)}
-                                </span>
-                                {hoveredRow === index && row.vip !== 0 && (
-                                  <div className="absolute z-10 bg-gray-100 p-2 border border-gray-300 rounded shadow-lg whitespace-nowrap top-full left-1/2 transform -translate-x-1/2">
-                                    {(row.foc + row.vip).toFixed(2)} - FOC {row.foc.toFixed(2)} = {formatAmount(row.vip)}
-                                  </div>
-                                )}
-                              </td>
-                              <td className="border border-gray-300 px-4 py-2 text-center">{formatAmount(row.package)}</td>
-                              <td className="border border-gray-300 px-4 py-2 text-center">{formatAmount(row.netSales)}</td>
-                              <td className="border border-gray-300 px-4 py-2 text-center">{formatAmount(row.refund)}</td>
-                            </tr>
+              
+              <div className="flex-1 min-h-0 overflow-hidden">
+                <div className="h-full overflow-auto">
+                  {loading ? (
+                    <div className="flex justify-center items-center h-32">Loading revenue data...</div>
+                  ) : (
+                    <table className="min-w-full border border-gray-200">
+                      <thead className="sticky top-0 bg-white z-10">
+                        <tr className="bg-gray-100">
+                          {/* Day column */}
+                          <th className="border border-gray-300 px-4 py-2 sticky left-0 bg-gray-100 z-20 min-w-[60px]">Day</th>
+
+                          {/* Dynamic payment method columns */}
+                          {paymentMethods.map(method => (
+                            <th key={method.id} className="border border-gray-300 px-4 py-2 whitespace-nowrap min-w-[100px]">
+                              {method.payment_method_name}
+                            </th>
                           ))}
-                          <tr className="bg-gray-200 font-semibold">
-                            <td className="border border-gray-300 px-4 py-2 text-center">Total</td>
-                            <td className="border border-gray-300 px-4 py-2 text-center">{(currentTotals.cash || 0).toFixed(2)}</td>
-                            <td className="border border-gray-300 px-4 py-2 text-center">{(currentTotals.visa || 0).toFixed(2)}</td>
-                            <td className="border border-gray-300 px-4 py-2 text-center">{(currentTotals.payment || 0).toFixed(2)}</td>
-                            <td className="border border-gray-300 px-4 py-2 text-center">{(currentTotals.nets || 0).toFixed(2)}</td>
-                            <td className="border border-gray-300 px-4 py-2 text-center">{(currentTotals.total || 0).toFixed(2)}</td>
-                            {/* <td className="border border-gray-300 px-4 py-2 text-center">{(currentTotals.foc || 0).toFixed(2)}</td> */}
-                            <td
-                              className="border border-gray-300 px-4 py-2 text-center relative"
-                              onMouseEnter={() => currentTotals.vip !== 0 && currentTotals.foc !== 0 && setHoveredRow("vip")}
-                              onMouseLeave={() => setHoveredRow(null)}
-                            >
-                              <span className={hoveredRow === "vip" ? 'text-blue-600' : ''}>
-                                {(currentTotals.vip || 0).toFixed(2)}
-                              </span>
-                              {hoveredRow === "vip" && currentTotals.vip !== 0 && (
-                                <div className="absolute z-10 bg-gray-100 p-2 border border-gray-300 rounded shadow-lg whitespace-nowrap bottom-full left-1/2 transform -translate-x-1/2">
-                                  {(currentTotals.foc + currentTotals.vip).toFixed(2)} - FOC {currentTotals.foc.toFixed(2)} = {currentTotals.vip.toFixed(2)}
-                                </div>
-                              )}
-                            </td>
-                            <td className="border border-gray-300 px-4 py-2 text-center">{(currentTotals.package || 0).toFixed(2)}</td>
-                            <td className="border border-gray-300 px-4 py-2 text-center">{(currentTotals.netSales || 0).toFixed(2)}</td>
-                            <td className="border border-gray-300 px-4 py-2 text-center">{(currentTotals.refund || 0).toFixed(2)}</td>
-                          </tr>
-                        </>
-                      ) : (
-                        <tr>
-                          <td colSpan="11" className="border border-gray-300 px-4 py-8 text-center text-gray-500">
-                            No data available. Please select a month and year and click "Get Report".
-                          </td>
+
+                          {/* Fixed columns */}
+                          {fixedColumns.map(header => (
+                            <th key={header} className="border border-gray-300 px-4 py-2 whitespace-nowrap min-w-[100px]">{header}</th>
+                          ))}
                         </tr>
-                      )}
-                    </tbody>
-                  </table>
-                )}
+                      </thead>
+                      <tbody>
+                        {reportData.length > 0 ? (
+                          <>
+                            {reportData.map((row, index) => {
+                              return (
+                                <tr key={row.day} className="hover:bg-gray-50">
+                                  {/* Day column - sticky */}
+                                  <td className="border border-gray-300 px-4 py-2 text-center sticky left-0 bg-white z-10 font-medium">{row.day}</td>
+
+                                  {/* Dynamic payment method columns */}
+                                  {paymentMethods.map(method => {
+                                    const key = getPaymentMethodKey(method.payment_method_name);
+                                    return (
+                                      <td key={method.id} className="border border-gray-300 px-4 py-2 text-center whitespace-nowrap">
+                                        {formatAmount(row[key])}
+                                      </td>
+                                    );
+                                  })}
+
+                                  {/* Fixed columns */}
+                                  <td className="border border-gray-300 px-4 py-2 text-center whitespace-nowrap">{formatAmount(row.total)}</td>
+                                  <td className="border border-gray-300 px-4 py-2 text-center whitespace-nowrap">{formatAmount(row.gst)}</td>
+                                  <td className="border border-gray-300 px-4 py-2 text-center whitespace-nowrap">{formatAmount(row.total + row.gst)}</td>
+                                  <td className="border border-gray-300 px-4 py-2 text-center whitespace-nowrap">
+                                    {formatAmount(row.vip)}
+                                  </td>
+                                  <td className="border border-gray-300 px-4 py-2 text-center whitespace-nowrap">{formatAmount(row.package)}</td>
+                                  <td className="border border-gray-300 px-4 py-2 text-center whitespace-nowrap">{formatAmount(row.net_sales)}</td>
+                                  <td className="border border-gray-300 px-4 py-2 text-center whitespace-nowrap">{formatAmount(row.refund)}</td>
+                                </tr>
+                              );
+                            })}
+
+                            {/* Dynamic Totals row */}
+                            <tr className="bg-gray-200 font-semibold sticky bottom-0 z-20">
+                              <td className="border border-gray-300 px-4 py-2 text-center sticky left-0 bg-gray-200 z-30">Total</td>
+
+                              {/* Dynamic payment method totals */}
+                              {paymentMethods.map((method, index) => (
+                                <td key={method.id} className="border border-gray-300 px-4 py-2 text-center whitespace-nowrap bg-gray-200">
+                                  <div className="flex flex-col">
+                                    <span>{getTotalValue(method.payment_method_name).toFixed(2)}</span>
+                                  </div>
+                                </td>
+                              ))}
+
+                              {/* Fixed totals columns */}
+                              <td className="border border-gray-300 px-4 py-2 text-center whitespace-nowrap bg-gray-200">
+                                <div className="flex flex-col">
+                                  <span>{(currentTotals.total || 0).toFixed(2)}</span>
+                                </div>
+                              </td>
+                              <td className="border border-gray-300 px-4 py-2 text-center whitespace-nowrap bg-gray-200">
+                                <div className="flex flex-col">
+                                  <span>{(currentTotals.gst || 0).toFixed(2)}</span>
+                                </div>
+                              </td>
+                              <td className="border border-gray-300 px-4 py-2 text-center whitespace-nowrap bg-gray-200">
+                                <div className="flex flex-col">
+                                  <span>{(currentTotals.total + currentTotals.gst || 0).toFixed(2)}</span>
+                                </div>
+                              </td>
+                              <td className="border border-gray-300 px-4 py-2 text-center whitespace-nowrap bg-gray-200">
+                                <div className="flex flex-col">
+                                  <span>{(currentTotals.vip || 0).toFixed(2)}</span>
+                                </div>
+                              </td>
+                              <td className="border border-gray-300 px-4 py-2 text-center whitespace-nowrap bg-gray-200">
+                                <div className="flex flex-col">
+                                  <span>{(currentTotals.package || 0).toFixed(2)}</span>
+                                </div>
+                              </td>
+                              <td className="border border-gray-300 px-4 py-2 text-center whitespace-nowrap bg-gray-200">
+                                <div className="flex flex-col">
+                                  <span>{(currentTotals.net_sales || 0).toFixed(2)}</span>
+                                </div>
+                              </td>
+                              <td className="border border-gray-300 px-4 py-2 text-center whitespace-nowrap bg-gray-200">
+                                <div className="flex flex-col">
+                                  <span>{(currentTotals.refund || 0).toFixed(2)}</span>
+                                </div>
+                              </td>
+                            </tr>
+                          </>
+                        ) : (
+                          <tr>
+                            <td colSpan={1 + paymentMethods.length + fixedColumns.length} className="border border-gray-300 px-4 py-8 text-center text-gray-500">
+                              No data available. Please select a month and year and click "Get Report".
+                            </td>
+                          </tr>
+                        )}
+                      </tbody>
+                    </table>
+                  )}
+                </div>
               </div>
             </div>
           </SidebarInset>

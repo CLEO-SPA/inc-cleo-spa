@@ -1,8 +1,8 @@
-import { setSimulation, getProdPool } from '../config/database.js';
+import { setSimulation, queryOnPool, getProdPool } from '../config/database.js';
 import { SystemParameters } from '../types/model.types.js';
 
 const SYSTEM_PARAMS_ID = parseInt(process.env.SYSTEM_PARAMS_ID as string, 10) || 1;
-const CACHE_TTL_MS = parseInt(process.env.CACHE_TTL_MS as string, 10) || 5000; // cache lifetime 5 seconds
+const CACHE_TTL_MS = parseInt(process.env.CACHE_TTL_MS as string, 10) || 300000; // Increased cache lifetime to 5 minutes
 
 interface SystemParametersCache {
   data: SystemParameters | null;
@@ -19,7 +19,7 @@ let SysParamsCache: SystemParametersCache = {
 async function fetchSysParamsFromDB(): Promise<SystemParameters | null> {
   const pool = getProdPool();
   try {
-    const result = await pool.query<SystemParameters>('SELECT * FROM system_parameters WHERE id = $1', [
+    const result = await queryOnPool<SystemParameters>(pool, 'SELECT * FROM system_parameters WHERE id = $1', [
       SYSTEM_PARAMS_ID,
     ]);
 
@@ -61,7 +61,11 @@ export async function checkAndUpdateSimState(): Promise<SimState> {
   const now = Date.now();
 
   if (SysParamsCache.data !== null && now - SysParamsCache.lastFetched < CACHE_TTL_MS) {
-    console.log('CACHE: Serving system parameters from cache.');
+    // Reduce log noise - only log cache hits occasionally
+    if (Math.random() < 0.1) {
+      // Log 10% of cache hits
+      console.log('CACHE: Serving system parameters from cache.');
+    }
     return {
       isActive: SysParamsCache.isActiveSimulation,
       params: SysParamsCache.data,

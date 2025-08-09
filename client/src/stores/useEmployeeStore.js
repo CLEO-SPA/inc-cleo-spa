@@ -77,10 +77,7 @@ const useEmployeeStore = create((set, get) => ({
     } catch (err) {
       set({
         isFetchingOne: false,
-        error:
-          err?.response?.data?.message ||
-          err.message ||
-          'Failed to fetch employee details',
+        error: err?.response?.data?.message || err.message || 'Failed to fetch employee details',
       });
     }
   },
@@ -112,10 +109,7 @@ const useEmployeeStore = create((set, get) => ({
       });
     } catch (err) {
       set({
-        error:
-          err?.response?.data?.message ||
-          err.message ||
-          'Failed to fetch employees',
+        error: err?.response?.data?.message || err.message || 'Failed to fetch employees',
         isFetchingList: false,
       });
     }
@@ -131,10 +125,7 @@ const useEmployeeStore = create((set, get) => ({
       set({
         dropdownEmployees: [],
         isFetchingDropdown: false,
-        error:
-          err?.response?.data?.message ||
-          err.message ||
-          'Failed to fetch employees',
+        error: err?.response?.data?.message || err.message || 'Failed to fetch employees',
       });
     }
   },
@@ -154,8 +145,7 @@ const useEmployeeStore = create((set, get) => ({
       });
       get().fetchAllEmployees();
     } catch (err) {
-      const msg =
-        err?.response?.data?.message || 'Failed to create employee';
+      const msg = err?.response?.data?.message || 'Failed to create employee';
       set({ isCreating: false, error: msg });
       throw new Error(msg);
     }
@@ -174,10 +164,7 @@ const useEmployeeStore = create((set, get) => ({
     } catch (err) {
       set({
         isUpdating: null,
-        error:
-          err?.response?.data?.message ||
-          err.message ||
-          'Failed to update employee',
+        error: err?.response?.data?.message || err.message || 'Failed to update employee',
       });
     }
   },
@@ -195,16 +182,30 @@ const useEmployeeStore = create((set, get) => ({
       set({
         employeeName: null,
         isFetchingName: false,
-        error:
-          err?.response?.data?.message ||
-          err.message ||
-          'Failed to fetch employee',
+        error: err?.response?.data?.message || err.message || 'Failed to fetch employee',
       });
-      throw new Error(
-        err?.response?.data?.message ||
-        err.message ||
-        'Failed to fetch employee'
-      );
+      throw new Error(err?.response?.data?.message || err.message || 'Failed to fetch employee');
+    }
+  },
+
+  fetchCommissionSettings: async () => {
+    set({ isFetching: true, error: false, errorMessage: null });
+
+    try {
+      const response = await api.get('/com/commissionSettings');
+      set({
+        commissionSettings: response.data,
+        isFetchingCommissionSettings: false,
+        error: false,
+        errorMessage: null,
+      });
+    } catch (error) {
+      set({
+        commissionSettings: [],
+        isFetchingCommissionSettings: false,
+        error: true,
+        errorMessage: error.response?.data?.message || error.message || 'Failed to fetch commission settings',
+      });
     }
   },
 }));

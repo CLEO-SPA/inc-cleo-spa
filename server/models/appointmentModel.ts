@@ -1,5 +1,5 @@
 /* eslint-disable @typescript-eslint/no-explicit-any */
-import { pool } from '../config/database.js';
+import { query as dbQuery } from '../config/database.js';
 import { format } from 'date-fns';
 
 /**
@@ -76,7 +76,7 @@ const getAllAppointments = async (
       LIMIT $1 OFFSET $2
     `;
 
-    const result = await pool().query(query, values);
+    const result = await dbQuery(query, values);
 
     // --- REBUILD COUNT QUERY WITH REINDEXED PARAMS ---
     const countFilters: string[] = [];
@@ -110,7 +110,7 @@ const getAllAppointments = async (
 
     const countWhere = countFilters.length ? `WHERE ${countFilters.join(' AND ')}` : '';
     const totalQuery = `SELECT COUNT(*) FROM appointments a ${countWhere}`;
-    const totalResult = await pool().query(totalQuery, countValues);
+    const totalResult = await dbQuery(totalQuery, countValues);
 
     const totalPages = Math.ceil(Number(totalResult.rows[0].count) / limit);
 
@@ -145,7 +145,7 @@ const getAppointmentsByDate = async (appointmentDate: Date | string) => {
       ORDER BY a.start_time ASC
     `;
     const values = [appointmentDate];
-    const result = await pool().query(query, values);
+    const result = await dbQuery(query, values);
 
     return {
       appointments: result.rows,
@@ -178,7 +178,7 @@ const getAppointmentById = async (id: number) => {
       WHERE a.id = $1;
     `;
 
-    const result = await pool().query(query, [id]);
+    const result = await dbQuery(query, [id]);
 
     if (result.rows.length === 0) {
       return null;
@@ -215,7 +215,7 @@ const validateEmployeeIsActive = async (employeeId: number): Promise<boolean> =>
     `;
 
     const values = [employeeId];
-    const result = await pool().query(query, values);
+    const result = await dbQuery(query, values);
 
     // Check if employee exists and is active
     if (result.rows.length === 0) {
@@ -239,7 +239,7 @@ const validateMemberIsActive = async (memberId: number): Promise<boolean> => {
     `;
 
     const values = [memberId];
-    const result = await pool().query(query, values);
+    const result = await dbQuery(query, values);
 
     // Check if member exists
     const row = result.rows[0];
@@ -267,7 +267,7 @@ const checkRestdayConflict = async (employeeId: number | null, appointmentDate: 
   try {
     const query = `SELECT check_restday_conflict($1, $2) AS warning`;
     const values = [employeeId, appointmentDate];
-    const { rows } = await pool().query(query, values);
+    const { rows } = await dbQuery(query, values);
     // rows[0].warning will be either the warning string or null
     return rows[0].warning;
   } catch (error) {
@@ -288,7 +288,7 @@ const createAppointment = async (
     const query = `CALL create_appointment_ab($1, $2::jsonb, $3, $4)`;
     const values = [memberId, JSON.stringify(appointments), createdBy, createdAt];
     console.log('Creating appointment with values:', values);
-    await pool().query(query, values);
+    await dbQuery(query, values);
   } catch (error: any) {
     console.error('Error in createAppointment:', error);
     // Rethrow preserving code and message
@@ -319,7 +319,7 @@ export const updateAppointment = async (
     // Stored procedure expects JSON array with each object including id
     const query = `CALL update_appointment_ab($1, $2::jsonb, $3, $4)`;
     const values = [memberId, JSON.stringify(appointments), updatedBy, updatedAt];
-    await pool().query(query, values);
+    await dbQuery(query, values);
   } catch (error: any) {
     console.error('Error in updateAppointment:', error);
     // Rethrow preserving code and message
@@ -342,7 +342,7 @@ const getMaxDurationFromStartTimes = async (
   try {
     const query = `SELECT * FROM get_max_duration_from_start_time($1, $2, $3)`;
     const values = [date, employeeId, excludeAppointmentId];
-    const result = await pool().query(query, values);
+    const result = await dbQuery(query, values);
     return result.rows;
   } catch (error) {
     console.error('Error fetching max durations:', error);
@@ -360,7 +360,7 @@ const getEndTimesForStartTime = async (
   try {
     const query = `SELECT * FROM get_available_end_times_for_start($1, $2, $3, $4)`;
     const values = [date, startTime, employeeId, excludeAppointmentId];
-    const result = await pool().query(query, values);
+    const result = await dbQuery(query, values);
     return result.rows;
   } catch (error) {
     console.error('Error fetching end times for start time:', error);
@@ -375,7 +375,7 @@ const getAppointmentCountByDate = async (date: string): Promise<number> => {
       SELECT COUNT(*) FROM appointments
       WHERE appointment_date = $1
     `;
-    const result = await pool().query(query, [date]);
+    const result = await dbQuery(query, [date]);
     return parseInt(result.rows[0].count, 10);
   } catch (error) {
     console.error('Error getting appointment count by date:', error);
@@ -394,5 +394,5 @@ export default {
   updateAppointment,
   getEndTimesForStartTime,
   getMaxDurationFromStartTimes,
-  getAppointmentCountByDate
+  getAppointmentCountByDate,
 };

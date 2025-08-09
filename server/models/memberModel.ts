@@ -1,4 +1,4 @@
-import { pool, getProdPool as prodPool } from '../config/database.js';
+import { pool, query as dbQuery } from '../config/database.js';
 import { CreateMemberInput, UpdateMemberInput } from '../types/member.types.js';
 import { getMemberOutstandingAmounts } from '../services/paymentService.js';
 import { getLastVisitedDatesForMembers } from '../services/getLastVisitedDatesForMember.js';
@@ -28,7 +28,7 @@ const getAllMembers = async (
     }
 
     if (createdBy) {
-      const empResult = await pool().query(`SELECT id FROM employees WHERE employee_name ILIKE $1`, [`%${createdBy}%`]);
+      const empResult = await dbQuery(`SELECT id FROM employees WHERE employee_name ILIKE $1`, [`%${createdBy}%`]);
       const empIds = empResult.rows.map((row) => row.id);
 
       if (empIds.length > 0) {
@@ -61,7 +61,7 @@ const getAllMembers = async (
     values.push(limit, offset);
     const query = `${baseQuery} ORDER BY m.id ASC LIMIT $${idx++} OFFSET $${idx++};`;
 
-    const result = await pool().query(query, values);
+    const result = await dbQuery(query, values);
 
     // Count query
     const countValues = values.slice(0, -2);
@@ -72,7 +72,7 @@ const getAllMembers = async (
       LEFT JOIN employees e ON m.created_by = e.id
       ${whereClause};
     `;
-    const totalResult = await pool().query(totalQuery, countValues);
+    const totalResult = await dbQuery(totalQuery, countValues);
     const totalCount = Number(totalResult.rows[0].count);
     const totalPages = Math.ceil(totalCount / limit);
 
@@ -131,7 +131,7 @@ const createMember = async ({
     if (emailResult.rows.length > 0) {
       throw new Error('Email already exists');
     }
-   
+
     // 3. Insert into members
     const insertMemberQuery = `
       INSERT INTO members (
@@ -154,11 +154,10 @@ const createMember = async ({
       card_number,
       created_at,
       updated_at,
-      created_by
-        ];
+      created_by,
+    ];
     const memberResult = await client.query(insertMemberQuery, memberValues);
     const newMember = memberResult.rows[0];
-
 
     await client.query('COMMIT');
 
@@ -193,8 +192,6 @@ const updateMember = async ({
   try {
     await client.query('BEGIN');
 
-
-
     // 3. Update the members table
     const updateMemberQuery = `
       UPDATE members
@@ -214,7 +211,20 @@ const updateMember = async ({
       RETURNING *;
     `;
 
-    const values = [name, email, contact, dob, sex, remarks, address, nric, membership_type_id, card_number, updated_at, id];
+    const values = [
+      name,
+      email,
+      contact,
+      dob,
+      sex,
+      remarks,
+      address,
+      nric,
+      membership_type_id,
+      card_number,
+      updated_at,
+      id,
+    ];
 
     const memberResult = await client.query(updateMemberQuery, values);
 
@@ -235,8 +245,6 @@ const deleteMember = async (memberId: number) => {
   try {
     await client.query('BEGIN');
 
-    
-
     // Step 2: Check for existing sale transactions
     const transactionCheckQuery = `SELECT COUNT(*) as count FROM sale_transactions WHERE member_id = $1`;
     const transactionResult = await client.query(transactionCheckQuery, [memberId]);
@@ -246,10 +254,8 @@ const deleteMember = async (memberId: number) => {
       throw new Error(`Cannot delete member: ${transactionCount} sale transaction(s) exist for this member`);
     }
 
-
     // Step 4: Delete from members
     await client.query(`DELETE FROM members WHERE id = $1`, [memberId]);
-
 
     await client.query('COMMIT');
     return { success: true };

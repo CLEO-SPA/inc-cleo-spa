@@ -1,13 +1,8 @@
-import { pool } from '../config/database.js';
+import { pool, query as dbQuery, queryOnPool } from '../config/database.js';
 import { CreatePaymentMethodInput, UpdatePaymentMethodInput } from '../types/paymentMethod.types.js';
 
-
 // Fetch all payment methods with pagination and optional search
-const getAllPaymentMethods = async (
-  offset: number,
-  limit: number,
-  search?: string
-) => {
+const getAllPaymentMethods = async (offset: number, limit: number, search?: string) => {
   try {
     const filters: string[] = [];
     const values: any[] = [];
@@ -28,14 +23,14 @@ const getAllPaymentMethods = async (
       LIMIT $${idx++} OFFSET $${idx++};
     `;
     values.push(limit, offset);
-    const result = await pool().query(query, values);
+    const result = await dbQuery(query, values);
 
     const countQuery = `
       SELECT COUNT(*)
       FROM payment_methods
       ${whereClause};
     `;
-    const countResult = await pool().query(countQuery, values.slice(0, -2));
+    const countResult = await dbQuery(countQuery, values.slice(0, -2));
     const totalPages = Math.ceil(Number(countResult.rows[0].count) / limit);
 
     return {
@@ -50,21 +45,13 @@ const getAllPaymentMethods = async (
 
 // Create a new payment method
 const createPaymentMethod = async (input: CreatePaymentMethodInput) => {
-  const {
-    payment_method_name,
-    is_enabled,
-    is_income,
-    show_on_payment_page,
-    created_at,
-    updated_at,
-  } = input;
+  const { payment_method_name, is_enabled, is_income, show_on_payment_page, created_at, updated_at } = input;
 
   try {
     // Check if name already exists
-    const existing = await pool().query(
-      `SELECT id FROM payment_methods WHERE LOWER(payment_method_name) = LOWER($1);`,
-      [payment_method_name]
-    );
+    const existing = await dbQuery(`SELECT id FROM payment_methods WHERE LOWER(payment_method_name) = LOWER($1);`, [
+      payment_method_name,
+    ]);
     if (existing.rows.length > 0) {
       throw new Error('Another payment method with this name already exists');
     }
@@ -76,15 +63,8 @@ const createPaymentMethod = async (input: CreatePaymentMethodInput) => {
       ) VALUES ($1, $2, $3, $4, $5, $6)
       RETURNING *;
     `;
-    const values = [
-      payment_method_name,
-      is_enabled,
-      is_income,
-      show_on_payment_page,
-      created_at,
-      updated_at,
-    ];
-    const result = await pool().query(query, values);
+    const values = [payment_method_name, is_enabled, is_income, show_on_payment_page, created_at, updated_at];
+    const result = await dbQuery(query, values);
     return result.rows[0];
   } catch (error) {
     console.error('Error creating payment method:', error);
@@ -110,7 +90,7 @@ const updatePaymentMethod = async (input: UpdatePaymentMethodInput) => {
 
   try {
     // Step 1: Fetch current payment method
-    const existingMethod = await pool().query(
+    const existingMethod = await dbQuery(
       `SELECT payment_method_name, is_protected, LOWER(payment_method_name) as lower_name FROM payment_methods WHERE id = $1;`,
       [id]
     );
@@ -122,13 +102,11 @@ const updatePaymentMethod = async (input: UpdatePaymentMethodInput) => {
     const currentMethod = existingMethod.rows[0];
 
     // Step 2: Check if it's protected
-    const isGstMethod = currentMethod.lower_name === 'gst' || 
-                        currentMethod.lower_name.includes('gst');
+    const isGstMethod = currentMethod.lower_name === 'gst' || currentMethod.lower_name.includes('gst');
 
     if (currentMethod.is_protected) {
       // Special case: GST is protected but can have percentage_rate edited
       if (isGstMethod) {
-
         // Update only percentage_rate for GST
         const gstQuery = `
           UPDATE payment_methods
@@ -140,12 +118,12 @@ const updatePaymentMethod = async (input: UpdatePaymentMethodInput) => {
         `;
 
         const gstValues = [
-          percentage_rate,  // $1
-          updated_at,       // $2
-          id               // $3
+          percentage_rate, // $1
+          updated_at, // $2
+          id, // $3
         ];
 
-        const result = await pool().query(gstQuery, gstValues);
+        const result = await dbQuery(gstQuery, gstValues);
         return result.rows[0];
       } else {
         // All other protected methods cannot be modified at all
@@ -154,7 +132,7 @@ const updatePaymentMethod = async (input: UpdatePaymentMethodInput) => {
     }
 
     // Step 3: For non-protected methods, check for duplicate name (excluding current id)
-    const duplicateCheck = await pool().query(
+    const duplicateCheck = await dbQuery(
       `SELECT id FROM payment_methods WHERE LOWER(payment_method_name) = LOWER($1) AND id != $2;`,
       [payment_method_name, id]
     );
@@ -179,17 +157,17 @@ const updatePaymentMethod = async (input: UpdatePaymentMethodInput) => {
     `;
 
     const values = [
-      payment_method_name,  // $1
-      is_enabled,           // $2
-      is_income,           // $3
+      payment_method_name, // $1
+      is_enabled, // $2
+      is_income, // $3
       show_on_payment_page, // $4
-      percentage_rate,      // $5
-      updated_at,           // $6
-      created_at,           // $7
-      id                    // $8
+      percentage_rate, // $5
+      updated_at, // $6
+      created_at, // $7
+      id, // $8
     ];
 
-    const result = await pool().query(query, values);
+    const result = await dbQuery(query, values);
     return result.rows[0];
   } catch (error) {
     console.error('Error updating payment method:', error);
@@ -200,14 +178,10 @@ const updatePaymentMethod = async (input: UpdatePaymentMethodInput) => {
   }
 };
 
-
 const deletePaymentMethod = async (id: number) => {
   try {
     // Step 1: Fetch the payment method
-    const result = await pool().query(
-      `SELECT is_protected FROM payment_methods WHERE id = $1`,
-      [id]
-    );
+    const result = await dbQuery(`SELECT is_protected FROM payment_methods WHERE id = $1`, [id]);
 
     if (result.rows.length === 0) {
       return {
@@ -225,7 +199,7 @@ const deletePaymentMethod = async (id: number) => {
     }
 
     // Step 3: Check for usage in transactions
-    const checkResult = await pool().query(
+    const checkResult = await dbQuery(
       `SELECT COUNT(*) AS count FROM payment_to_sale_transactions WHERE payment_method_id = $1`,
       [id]
     );
@@ -240,7 +214,7 @@ const deletePaymentMethod = async (id: number) => {
     }
 
     // Step 4: Proceed with deletion
-    await pool().query(`DELETE FROM payment_methods WHERE id = $1`, [id]);
+    await dbQuery(`DELETE FROM payment_methods WHERE id = $1`, [id]);
 
     return { success: true };
   } catch (error) {
@@ -252,8 +226,6 @@ const deletePaymentMethod = async (id: number) => {
   }
 };
 
-
-
 const getPaymentMethodsForPaymentPage = async () => {
   try {
     const query = `
@@ -263,8 +235,8 @@ const getPaymentMethodsForPaymentPage = async () => {
       AND is_enabled = true
       ORDER BY id ASC;
     `;
-    const result = await pool().query(query);
-    return result.rows;
+    const { rows } = await dbQuery(query);
+    return rows;
   } catch (error) {
     console.error('Error fetching payment methods for payment page:', error);
     throw new Error('Could not fetch visible payment methods');
@@ -274,7 +246,7 @@ const getPaymentMethodsForPaymentPage = async () => {
 const getPaymentMethodById = async (id: number) => {
   try {
     const query = `SELECT * FROM payment_methods WHERE id = $1`;
-    const result = await pool().query(query, [id]);
+    const result = await dbQuery(query, [id]);
 
     return result.rows[0]; // or `null` if not found
   } catch (error) {
@@ -283,13 +255,11 @@ const getPaymentMethodById = async (id: number) => {
   }
 };
 
-
-
 export default {
   getAllPaymentMethods,
   createPaymentMethod,
   updatePaymentMethod,
   deletePaymentMethod,
   getPaymentMethodsForPaymentPage,
-  getPaymentMethodById
+  getPaymentMethodById,
 };

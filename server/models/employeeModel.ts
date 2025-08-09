@@ -1,4 +1,4 @@
-import { pool } from '../config/database.js';
+import { pool, query as dbQuery, queryOnPool } from '../config/database.js';
 import { CreateEmployeeData, UpdateEmployeeData } from '../types/employee.types.js';
 import validator from 'validator';
 
@@ -32,7 +32,7 @@ const checkEmployeeCodeExists = async (employee_code: string) => {
   try {
     const query = `SELECT * FROM employees WHERE employee_code = $1`;
     const values = [employee_code];
-    const result = await pool().query(query, values);
+    const result = await dbQuery(query, values);
 
     return result.rows.length > 0;
   } catch (error) {
@@ -50,7 +50,7 @@ const checkEmployeeEmailExists = async (employee_email: string) => {
     const query = `SELECT 1 FROM employees WHERE employee_email = $1`;
     const values = [employee_email.trim().toLowerCase()];
 
-    const result = await pool().query(query, values);
+    const result = await dbQuery(query, values);
     return (result.rowCount ?? 0) > 0; // true if at least one match
   } catch (error) {
     console.error('Error checking employee email existence:', error);
@@ -67,7 +67,7 @@ const checkEmployeePhoneExists = async (employee_contact: string) => {
     const query = `SELECT 1 FROM employees WHERE employee_contact = $1`;
     const values = [employee_contact.trim()];
 
-    const result = await pool().query(query, values);
+    const result = await dbQuery(query, values);
     if (result.rowCount === null) {
       throw new Error('Unexpected result format from database');
     }
@@ -102,7 +102,7 @@ const getAllEmployees = async (
       LIMIT $3 OFFSET $4
     `;
     const idValues = search ? [startDate_utc, endDate_utc, limit, offset, search] : [startDate_utc, endDate_utc, limit, offset];
-    const idResult = await pool().query(idQuery, idValues);
+    const idResult = await dbQuery(idQuery, idValues);
     const employeeIds: number[] = idResult.rows.map((row) => row.id);
 
     if (employeeIds.length === 0) {
@@ -132,7 +132,7 @@ const getAllEmployees = async (
       WHERE e.id = ANY($1)
       ORDER BY e.id ASC
     `;
-    const dataResult = await pool().query(dataQuery, [employeeIds]);
+    const dataResult = await dbQuery(dataQuery, [employeeIds]);
 
     // Step 3: Group employee rows
     const groupedMap: Record<number, any> = {};
@@ -176,7 +176,7 @@ const getAllEmployees = async (
       )` : ''}
     `;
     const totalValues = search ? [startDate_utc, endDate_utc, search] : [startDate_utc, endDate_utc];
-    const totalResult = await pool().query(totalQuery, totalValues);
+    const totalResult = await dbQuery(totalQuery, totalValues);
     const totalCount = Number(totalResult.rows[0].count);
     const totalPages = Math.ceil(totalCount / limit);
 
@@ -263,7 +263,7 @@ export const getEmployeeIdByUserAuthId = async (id: string) => {
 //     WHERE employee_is_active = true
 //     ORDER BY employee_name ASC`;
 //   try {
-//     const result = await pool().query(query);
+//     const result = await dbQuery(query);
 //     return result.rows.map((row: any) => ({
 //       id: row.id,
 //       employee_name: row.employee_name,
@@ -289,7 +289,7 @@ const getBasicEmployeeDetails = async (): Promise<Employee[]> => {
     ORDER BY e.employee_name ASC`;
 
   try {
-    const result = await pool().query(query);
+    const result = await dbQuery(query);
 
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     return result.rows.map((row: any) => ({
@@ -318,7 +318,7 @@ const getAllActivePositions = async (): Promise<EmployeePosition[]> => {
     WHERE p.position_is_active = true 
     ORDER BY position_name ASC`;
   try {
-    const result = await pool().query(query);
+    const result = await dbQuery(query);
     return result.rows.map((row: any) => ({
       id: row.id,
       position_name: row.position_name,
@@ -349,7 +349,7 @@ const getAllActivePositions = async (): Promise<EmployeePosition[]> => {
 //     WHERE e.id = $1 AND e.employee_is_active = true
 //   `
 //   try {
-//     const result = await pool().query(query, [employeeId]);
+//     const result = await dbQuery(query, [employeeId]);
 //     return result.rows.length > 0 ? result.rows[0] : null;
 //   } catch (error) {
 //     console.error('Database error in getEmployeeById: ', error);
@@ -378,7 +378,7 @@ const getEmployeeById = async (employeeId: number): Promise<DetailedEmployee | n
   `;
 
   try {
-    const result = await pool().query(query, [employeeId]);
+    const result = await dbQuery(query, [employeeId]);
     if (result.rows.length === 0) return null;
 
     const row = result.rows[0];
@@ -411,7 +411,7 @@ const employeeExists = async (employeeId: number): Promise<boolean> => {
     WHERE id = $1 AND employee_is_active = true
   `;
   try {
-    const result = await pool().query(query, [employeeId]);
+    const result = await dbQuery(query, [employeeId]);
     return result.rows.length > 0;
   } catch (error) {
     console.error('Database error in employeeExists: ', error);
@@ -432,7 +432,7 @@ const getEmployeeNameByEmployeeById = async (employeeId: number): Promise<Detail
     WHERE id = $1
   `;
   try {
-    const result = await pool().query(query, [employeeId]);
+    const result = await dbQuery(query, [employeeId]);
     return result.rows.length > 0 ? result.rows[0] : null;
   } catch (error) {
     console.error('Database error in getEmployeeById: ', error);
@@ -449,7 +449,7 @@ const getEmployeeNameByEmployeeById = async (employeeId: number): Promise<Detail
 //     WHERE employee_is_active = true
 //     ORDER BY employee_name ASC`;
 //   try {
-//     const result = await pool().query(query);
+//     const result = await dbQuery(query);
 //     return result.rows.map((row: any) => ({
 //       id: row.id,
 //       employee_name: row.employee_name,
@@ -468,7 +468,7 @@ const getAllEmployeesForDropdown = async () => {
       WHERE employee_is_active = true
       ORDER BY employee_name ASC
     `;
-    const result = await pool().query(query);
+    const result = await dbQuery(query);
     return result.rows;
   } catch (error) {
     console.error('Error fetching employee list:', error);
@@ -482,7 +482,7 @@ const getAllRolesForDropdown = async () => {
       SELECT id, role_name FROM roles
       ORDER BY role_name ASC
     `;
-    const result = await pool().query(query);
+    const result = await dbQuery(query);
     return result.rows;
   } catch (error) {
     console.error('Error fetching role list:', error);
@@ -514,7 +514,7 @@ const getAllRolesForDropdown = async () => {
 //     LEFT JOIN positions            p ON p.id          = ep.position_id
 //     WHERE e.id = $1
 //   `;
-//   const { rows, rowCount } = await pool().query(query, [employee_id]);
+//   const { rows, rowCount } = await dbQuery(query, [employee_id]);
 
 //   if (!rowCount) return null;
 
