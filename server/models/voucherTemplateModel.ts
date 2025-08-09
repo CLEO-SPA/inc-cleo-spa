@@ -1,21 +1,16 @@
-import { pool } from '../config/database.js';
+import { pool, query as dbQuery } from '../config/database.js';
 import { format } from 'date-fns';
-import {
-  CreateVoucherTemplateInput,
-  UpdateVoucherTemplateInput
-} from '../types/voucherTemplate.types.js';
+import { CreateVoucherTemplateInput, UpdateVoucherTemplateInput } from '../types/voucherTemplate.types.js';
 
 import { VoucherTemplate, VoucherTemplateDetail, MemberName, MemberVouchers } from '../types/model.types.js';
 
 const normalizeBigInts = (data: any): any =>
-  JSON.parse(JSON.stringify(data, (_, value) =>
-    typeof value === "bigint" ? value.toString() : value
-  ));
+  JSON.parse(JSON.stringify(data, (_, value) => (typeof value === 'bigint' ? value.toString() : value)));
 
 const getAllVoucherTemplates = async (
   offset: number,
   limit: number,
-  startDate_utc?: string,        // query-level filter
+  startDate_utc?: string, // query-level filter
   endDate_utc?: string,
   createdBy?: string,
   search?: string,
@@ -30,10 +25,7 @@ const getAllVoucherTemplates = async (
 
     // Always apply session-based simulation range
     filters.push(`vt.created_at BETWEEN $${idx++} AND $${idx++}`);
-    values.push(
-      sessionStartDate_utc || '0001-01-01T00:00:00Z',
-      sessionEndDate_utc || '9999-12-31T23:59:59Z'
-    );
+    values.push(sessionStartDate_utc || '0001-01-01T00:00:00Z', sessionEndDate_utc || '9999-12-31T23:59:59Z');
 
     // Apply additional filter only if query range is specified
     if (startDate_utc && endDate_utc) {
@@ -42,11 +34,8 @@ const getAllVoucherTemplates = async (
     }
 
     if (createdBy) {
-      const empResult = await pool().query(
-        `SELECT id FROM employees WHERE employee_name ILIKE $1`,
-        [`%${createdBy}%`]
-      );
-      const empIds = empResult.rows.map(row => row.id);
+      const empResult = await dbQuery(`SELECT id FROM employees WHERE employee_name ILIKE $1`, [`%${createdBy}%`]);
+      const empIds = empResult.rows.map((row: any) => row.id);
 
       if (empIds.length > 0) {
         filters.push(`vt.created_by = ANY($${idx++}::int[])`);
@@ -83,7 +72,7 @@ const getAllVoucherTemplates = async (
     values.push(limit, offset);
     const query = `${baseQuery} ORDER BY vt.id ASC LIMIT $${idx++} OFFSET $${idx++};`;
 
-    const result = await pool().query(query, values);
+    const result = await dbQuery(query, values);
 
     // Count query uses same where clause (exclude limit/offset)
     const countValues = values.slice(0, -2);
@@ -94,17 +83,13 @@ const getAllVoucherTemplates = async (
       LEFT JOIN employees e2 ON vt.last_updated_by = e2.id
       ${whereClause};
     `;
-    const totalResult = await pool().query(totalQuery, countValues);
+    const totalResult = await dbQuery(totalQuery, countValues);
     const totalPages = Math.ceil(Number(totalResult.rows[0].count) / limit);
 
     const enrichedVoucherTemplates = result.rows.map((template: any) => ({
       ...template,
-      created_at: template.created_at
-        ? format(new Date(template.created_at), 'dd MMM yyyy, hh:mm a')
-        : null,
-      updated_at: template.updated_at
-        ? format(new Date(template.updated_at), 'dd MMM yyyy, hh:mm a')
-        : null,
+      created_at: template.created_at ? format(new Date(template.created_at), 'dd MMM yyyy, hh:mm a') : null,
+      updated_at: template.updated_at ? format(new Date(template.updated_at), 'dd MMM yyyy, hh:mm a') : null,
     }));
 
     return {
@@ -125,8 +110,7 @@ const getVoucherTemplatesDetails = async (name: string | null = null): Promise<a
 
     const templatesValues = name ? [name] : [];
 
-
-    const templatesResult = await pool().query(templatesQuery, templatesValues);
+    const templatesResult = await dbQuery(templatesQuery, templatesValues);
     const templates: VoucherTemplate[] = templatesResult.rows;
 
     const result = await Promise.all(
@@ -137,7 +121,7 @@ const getVoucherTemplatesDetails = async (name: string | null = null): Promise<a
                     WHERE voucher_template_id = $1
                 `;
         const detailValues = [template.id];
-        const detailsResult = await pool().query(detailQuery, detailValues);
+        const detailsResult = await dbQuery(detailQuery, detailValues);
         const details: VoucherTemplateDetail[] = detailsResult.rows;
 
         return {
@@ -147,11 +131,11 @@ const getVoucherTemplatesDetails = async (name: string | null = null): Promise<a
       })
     );
 
-    console.log("Voucher Templates Details Result: ", result);
+    console.log('Voucher Templates Details Result: ', result);
     return normalizeBigInts(result);
   } catch (error) {
-    console.error("Error fetching voucher templates:", error);
-    throw new Error("Failed to fetch voucher templates");
+    console.error('Error fetching voucher templates:', error);
+    throw new Error('Failed to fetch voucher templates');
   }
 };
 
@@ -165,7 +149,7 @@ const createVoucherTemplate = async ({
   created_by,
   created_at,
   updated_at,
-  details = []
+  details = [],
 }: CreateVoucherTemplateInput) => {
   const client = await pool().connect();
 
@@ -250,7 +234,7 @@ const updateVoucherTemplate = async ({
   last_updated_by,
   created_at,
   updated_at,
-  details
+  details,
 }: UpdateVoucherTemplateInput) => {
   const client = await pool().connect();
 
@@ -416,7 +400,7 @@ const getVoucherTemplateById = async (id: number, sessionStartDate_utc?: string,
     const sessionStart = sessionStartDate_utc || '0001-01-01T00:00:00Z';
     const sessionEnd = sessionEndDate_utc || '9999-12-31T23:59:59Z';
 
-    const templateResult = await pool().query(templateQuery, [id, sessionStart, sessionEnd]);
+    const templateResult = await dbQuery(templateQuery, [id, sessionStart, sessionEnd]);
 
     if (templateResult.rows.length === 0) {
       throw new Error('Voucher template not found or out of session range');
@@ -436,16 +420,12 @@ const getVoucherTemplateById = async (id: number, sessionStartDate_utc?: string,
       ORDER BY vtd.id;
     `;
 
-    const detailsResult = await pool().query(detailsQuery, [id]);
+    const detailsResult = await dbQuery(detailsQuery, [id]);
 
     return {
       ...template,
-      created_at: template.created_at
-        ? format(new Date(template.created_at), 'dd MMM yyyy, hh:mm a')
-        : null,
-      updated_at: template.updated_at
-        ? format(new Date(template.updated_at), 'dd MMM yyyy, hh:mm a')
-        : null,
+      created_at: template.created_at ? format(new Date(template.created_at), 'dd MMM yyyy, hh:mm a') : null,
+      updated_at: template.updated_at ? format(new Date(template.updated_at), 'dd MMM yyyy, hh:mm a') : null,
       details: detailsResult.rows,
     };
   } catch (error) {
@@ -454,11 +434,7 @@ const getVoucherTemplateById = async (id: number, sessionStartDate_utc?: string,
   }
 };
 
-
-const getAllVoucherTemplatesForDropdown = async (
-  sessionStartDate_utc?: string,
-  sessionEndDate_utc?: string
-) => {
+const getAllVoucherTemplatesForDropdown = async (sessionStartDate_utc?: string, sessionEndDate_utc?: string) => {
   try {
     const sessionStart = sessionStartDate_utc || '0001-01-01T00:00:00Z';
     const sessionEnd = sessionEndDate_utc || '9999-12-31T23:59:59Z';
@@ -474,7 +450,7 @@ const getAllVoucherTemplatesForDropdown = async (
       ORDER BY voucher_template_name;
     `;
 
-    const result = await pool().query(query, [sessionStart, sessionEnd]);
+    const result = await dbQuery(query, [sessionStart, sessionEnd]);
 
     return result.rows;
   } catch (error) {
@@ -485,15 +461,13 @@ const getAllVoucherTemplatesForDropdown = async (
 const getAllVoucherTemplateNames = async (): Promise<any[]> => {
   try {
     const query = `SELECT * FROM voucher_templates ORDER BY id ASC`;
-    const result = await pool().query(query);
+    const result = await dbQuery(query);
     return normalizeBigInts(result.rows);
   } catch (error) {
-    console.error("Error fetching voucher template names:", error);
-    throw new Error("Failed to fetch voucher template names");
+    console.error('Error fetching voucher template names:', error);
+    throw new Error('Failed to fetch voucher template names');
   }
 };
-
-
 
 export default {
   getAllVoucherTemplates,
@@ -503,5 +477,5 @@ export default {
   deleteVoucherTemplate,
   getAllVoucherTemplatesForDropdown,
   getVoucherTemplatesDetails,
-  getAllVoucherTemplateNames
+  getAllVoucherTemplateNames,
 };

@@ -1,6 +1,6 @@
 /* eslint-disable @typescript-eslint/no-explicit-any */
 import { PoolClient } from 'pg';
-import { pool } from '../config/database.js';
+import { pool, query as dbQuery, queryOnPool } from '../config/database.js';
 import { CursorPayload, FieldMapping, PaginatedOptions, PaginatedReturn } from '../types/common.types.js';
 import { CarePackageItemDetails, CarePackages, Employees } from '../types/model.types.js';
 import { encodeCursor } from '../utils/cursorUtils.js';
@@ -238,7 +238,7 @@ const getCarePackagesForDropdown = async (): Promise<CarePackages[]> => {
       ORDER BY cp.created_at DESC;
     `;
 
-    const { rows } = await pool().query(sql);
+    const { rows } = await dbQuery(sql);
 
     return rows;
   } catch (error) {

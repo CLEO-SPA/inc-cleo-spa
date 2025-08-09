@@ -1,4 +1,4 @@
-import { pool } from '../config/database.js';
+import { pool, query as dbQuery, queryOnPool } from '../config/database.js';
 
 const getMVMonthlyReport = async (year: number, month: number) => {
   const client = await pool().connect();

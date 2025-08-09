@@ -1,4 +1,4 @@
-import { pool, getProdPool as prodPool } from '../config/database.js';
+import { pool, getProdPool as prodPool, query as dbQuery, queryOnPool } from '../config/database.js';
 
 export const getLastVisitedDatesForMembers = async (): Promise<Record<number, string>> => {
   const query = `
@@ -45,7 +45,7 @@ export const getLastVisitedDatesForMembers = async (): Promise<Record<number, st
   FROM unified_dates;
 `;
 
-  const result = await pool().query(query);
+  const result = await dbQuery(query);
   const map: Record<number, string> = {};
 
   for (const row of result.rows) {

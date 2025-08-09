@@ -1,25 +1,30 @@
-import { pool } from '../config/database.js';
+import { pool, query as dbQuery } from '../config/database.js';
 import { PaginatedOptions, PaginatedReturn } from '../types/common.types.js';
-import { MemberVouchers, MemberVoucherServices, MemberVoucherTransactionLogs, MemberVoucherTransactionLogCreateData, MemberName, MemberVoucherTransactionLogUpdateData, Employees } from '../types/model.types.js';
+import {
+  MemberVouchers,
+  MemberVoucherServices,
+  MemberVoucherTransactionLogs,
+  MemberVoucherTransactionLogCreateData,
+  MemberName,
+  MemberVoucherTransactionLogUpdateData,
+  Employees,
+} from '../types/model.types.js';
 import { encodeCursor } from '../utils/cursorUtils.js';
 import {
   PaymentMethodRequest,
   SingleItemTransactionCreationResult,
-  SingleItemTransactionRequestData
+  SingleItemTransactionRequestData,
 } from '../types/SaleTransactionTypes.js';
 
-
 const normalizeBigInts = (data: any): any =>
-  JSON.parse(JSON.stringify(data, (_, value) =>
-    typeof value === "bigint" ? value.toString() : value
-  ));
+  JSON.parse(JSON.stringify(data, (_, value) => (typeof value === 'bigint' ? value.toString() : value)));
 
 const getPaginatedVouchers = async (
   limit: number,
   options: PaginatedOptions = {},
   start_date_utc: string | undefined | null,
   end_date_utc: string
-): Promise<{ success: boolean, data: PaginatedReturn<MemberVouchers> | [], message: string }> => {
+): Promise<{ success: boolean; data: PaginatedReturn<MemberVouchers> | []; message: string }> => {
   const { after, before, page, searchTerm } = options;
 
   const params = [
@@ -49,7 +54,7 @@ const getPaginatedVouchers = async (
   `;
 
   try {
-    const { rows: resultRows } = await pool().query(sqlFunctionQuery, params);
+    const { rows: resultRows } = await dbQuery(sqlFunctionQuery, params);
 
     if (!resultRows[0] || !resultRows[0].result) {
       const errorMessage = 'Error 400: Invalid response from SQL function get_voucher_paginated_json';
@@ -104,10 +109,7 @@ const getPaginatedVouchers = async (
     if (vouchers.length > 0) {
       // Ensure created_at is a Date object if needed by encodeCursor, SQL returns ISO strings
       startCursor = encodeCursor(new Date(vouchers[0].created_at), vouchers[0].id);
-      endCursor = encodeCursor(
-        new Date(vouchers[vouchers.length - 1].created_at),
-        vouchers[vouchers.length - 1].id
-      );
+      endCursor = encodeCursor(new Date(vouchers[vouchers.length - 1].created_at), vouchers[vouchers.length - 1].id);
     }
 
     const data = {
@@ -121,13 +123,13 @@ const getPaginatedVouchers = async (
       },
     };
 
-    return { success: true, data: data, message: "Successfully retrieved paginated vouchers." };
+    return { success: true, data: data, message: 'Successfully retrieved paginated vouchers.' };
   } catch (error) {
     console.error('Error retrieving paginated vouchers:', error);
 
     console.error('Full error details:', {
       error: error instanceof Error ? error.message : 'Unknown error',
-      stack: error instanceof Error ? error.stack : undefined
+      stack: error instanceof Error ? error.stack : undefined,
     });
 
     // Return user-friendly message but also throw for critical errors
@@ -136,13 +138,15 @@ const getPaginatedVouchers = async (
       throw new Error('Database connection failed. Please try again later.');
     }
 
-    return { success: false, data: [], message: "Failed to retrieve paginated vouchers due to database error." };
+    return { success: false, data: [], message: 'Failed to retrieve paginated vouchers due to database error.' };
   }
 };
 
-const getServicesOfMemberVoucherById = async (id: number): Promise<{ success: boolean, data: MemberVoucherServices[] | [], message: string }> => {
+const getServicesOfMemberVoucherById = async (
+  id: number
+): Promise<{ success: boolean; data: MemberVoucherServices[] | []; message: string }> => {
   if (!Number(id)) {
-    return { success: false, data: [], message: "id must be an integer" };
+    return { success: false, data: [], message: 'id must be an integer' };
   }
 
   const client = await pool().connect();
@@ -157,16 +161,16 @@ const getServicesOfMemberVoucherById = async (id: number): Promise<{ success: bo
     const results = await client.query(query, [id]);
 
     if (results.rows.length > 0) {
-      return { success: true, data: results.rows, message: "Get Services of Member Voucher By Id was successful" };
+      return { success: true, data: results.rows, message: 'Get Services of Member Voucher By Id was successful' };
     } else {
-      return { success: false, data: [], message: "Error 400: The input Id of Member Voucher does not exist" };
+      return { success: false, data: [], message: 'Error 400: The input Id of Member Voucher does not exist' };
     }
   } catch (error) {
     console.error('Error retrieving services of member voucher:', error);
 
     console.error('Full error details:', {
       error: error instanceof Error ? error.message : 'Unknown error',
-      stack: error instanceof Error ? error.stack : undefined
+      stack: error instanceof Error ? error.stack : undefined,
     });
 
     // Return user-friendly message but also throw for critical errors
@@ -175,13 +179,19 @@ const getServicesOfMemberVoucherById = async (id: number): Promise<{ success: bo
       throw new Error('Database connection failed. Please try again later.');
     }
 
-    return { success: false, data: [], message: "Failed to retrieve services of member voucher due to database error." };
+    return {
+      success: false,
+      data: [],
+      message: 'Failed to retrieve services of member voucher due to database error.',
+    };
   }
 };
 
-const getPurchaseDateOfMemberVoucherById = async (id: number): Promise<{ success: boolean, data?: Date, message?: string }> => {
+const getPurchaseDateOfMemberVoucherById = async (
+  id: number
+): Promise<{ success: boolean; data?: Date; message?: string }> => {
   if (!Number(id)) {
-    return { success: false, message: "id must be an integer" };
+    return { success: false, message: 'id must be an integer' };
   }
 
   const client = await pool().connect();
@@ -196,20 +206,24 @@ const getPurchaseDateOfMemberVoucherById = async (id: number): Promise<{ success
 
     const results = await client.query(query, [id]);
 
-    console.log("Purchase Date: ");
+    console.log('Purchase Date: ');
     console.log(results.rows[0].service_date);
 
     if (results.rows.length > 0) {
-      return { success: true, data: results.rows[0].service_date, message: "Get Purchase Date of Member Voucher By Id was successful" };
+      return {
+        success: true,
+        data: results.rows[0].service_date,
+        message: 'Get Purchase Date of Member Voucher By Id was successful',
+      };
     } else {
-      return { success: false, message: "Error 400: The input Id of Member Voucher does not exist" };
+      return { success: false, message: 'Error 400: The input Id of Member Voucher does not exist' };
     }
   } catch (error) {
     console.error('Error retrieving Purchase Date of member voucher:', error);
 
     console.error('Full error details:', {
       error: error instanceof Error ? error.message : 'Unknown error',
-      stack: error instanceof Error ? error.stack : undefined
+      stack: error instanceof Error ? error.stack : undefined,
     });
 
     // Return user-friendly message but also throw for critical errors
@@ -218,7 +232,7 @@ const getPurchaseDateOfMemberVoucherById = async (id: number): Promise<{ success
       throw new Error('Database connection failed. Please try again later.');
     }
 
-    return { success: false, message: "Failed to retrieve Purchase Date of member voucher due to database error." };
+    return { success: false, message: 'Failed to retrieve Purchase Date of member voucher due to database error.' };
   }
 };
 
@@ -228,7 +242,7 @@ const getPaginatedMemberVoucherTransactionLogs = async (
   options: PaginatedOptions = {},
   start_date_utc: string | undefined | null,
   end_date_utc: string
-): Promise<{ success: boolean, data: PaginatedReturn<MemberVoucherTransactionLogs> | [], message: string }> => {
+): Promise<{ success: boolean; data: PaginatedReturn<MemberVoucherTransactionLogs> | []; message: string }> => {
   const { after, before, page } = options;
 
   const params = [
@@ -240,7 +254,7 @@ const getPaginatedMemberVoucherTransactionLogs = async (
     before ? before.createdAt : null,
     before ? before.id : null,
     page && page > 0 ? page : null,
-    id
+    id,
   ];
 
   const sqlFunctionQuery = `
@@ -258,17 +272,19 @@ const getPaginatedMemberVoucherTransactionLogs = async (
   `;
 
   try {
-    const { rows: resultRows } = await pool().query(sqlFunctionQuery, params);
+    const { rows: resultRows } = await dbQuery(sqlFunctionQuery, params);
 
     if (!resultRows[0] || !resultRows[0].result) {
-      const errorMessage = 'Error 400: Invalid response from SQL function get_member_voucher_transaction_logs_paginated_json';
+      const errorMessage =
+        'Error 400: Invalid response from SQL function get_member_voucher_transaction_logs_paginated_json';
       return { success: false, data: [], message: errorMessage };
     }
 
     const result = resultRows[0].result;
 
     if (result.error) {
-      const errorMessage = 'Error 400: Error reported by SQL function get_member_voucher_transaction_logs_paginated_json:' + result.error;
+      const errorMessage =
+        'Error 400: Error reported by SQL function get_member_voucher_transaction_logs_paginated_json:' + result.error;
       return { success: false, data: [], message: errorMessage };
     }
 
@@ -330,13 +346,13 @@ const getPaginatedMemberVoucherTransactionLogs = async (
       },
     };
 
-    return { success: true, data: data, message: "Successfully retrieved paginated transaction logs." }
+    return { success: true, data: data, message: 'Successfully retrieved paginated transaction logs.' };
   } catch (error) {
     console.error('Error retrieving paginated transaction logs:', error);
 
     console.error('Full error details:', {
       error: error instanceof Error ? error.message : 'Unknown error',
-      stack: error instanceof Error ? error.stack : undefined
+      stack: error instanceof Error ? error.stack : undefined,
     });
 
     // Return user-friendly message but also throw for critical errors
@@ -345,22 +361,18 @@ const getPaginatedMemberVoucherTransactionLogs = async (
       throw new Error('Database connection failed. Please try again later.');
     }
 
-    return { success: false, data: [], message: "Failed to retrieve paginated transaction logs due to database error." };
+    return {
+      success: false,
+      data: [],
+      message: 'Failed to retrieve paginated transaction logs due to database error.',
+    };
   }
 };
 
-const addTransactionLogsByMemberVoucherId = async (data: MemberVoucherTransactionLogCreateData): Promise<{ success: boolean, message: string }> => {
-  const {
-    id,
-    consumptionValue,
-    remarks,
-    date,
-    time,
-    type,
-    createdBy,
-    handledBy,
-    current_balance
-  } = data;
+const addTransactionLogsByMemberVoucherId = async (
+  data: MemberVoucherTransactionLogCreateData
+): Promise<{ success: boolean; message: string }> => {
+  const { id, consumptionValue, remarks, date, time, type, createdBy, handledBy, current_balance } = data;
 
   console.log(current_balance);
 
@@ -368,7 +380,7 @@ const addTransactionLogsByMemberVoucherId = async (data: MemberVoucherTransactio
 
   const negConsumptionValue = -consumptionValue;
 
-  console.log("consumptionValue: " + negConsumptionValue);
+  console.log('consumptionValue: ' + negConsumptionValue);
 
   const service_date = new Date(`${date}T${time}`);
 
@@ -381,7 +393,6 @@ const addTransactionLogsByMemberVoucherId = async (data: MemberVoucherTransactio
   const client = await pool().connect();
 
   try {
-
     const insertQuery = `
         INSERT INTO member_voucher_transaction_logs (
           member_voucher_id, service_description, service_date, current_balance, amount_change, serviced_by, type, created_by, last_updated_by, created_at, updated_at)
@@ -399,7 +410,7 @@ const addTransactionLogsByMemberVoucherId = async (data: MemberVoucherTransactio
       createdBy,
       last_updated_by,
       created_at,
-      updated_at
+      updated_at,
     ];
     await client.query('BEGIN');
 
@@ -411,10 +422,7 @@ const addTransactionLogsByMemberVoucherId = async (data: MemberVoucherTransactio
     WHERE id = $2
   `;
 
-    const updateValues = [
-      currentBalanceAfterDeduction,
-      id
-    ];
+    const updateValues = [currentBalanceAfterDeduction, id];
 
     const updateResult = await client.query(updateQuery, updateValues);
 
@@ -423,7 +431,7 @@ const addTransactionLogsByMemberVoucherId = async (data: MemberVoucherTransactio
 
       return {
         success: true,
-        message: "Member Voucher transaction log created and balance updated successfully.",
+        message: 'Member Voucher transaction log created and balance updated successfully.',
       };
     } else {
       // Rollback if any operation failed
@@ -431,10 +439,9 @@ const addTransactionLogsByMemberVoucherId = async (data: MemberVoucherTransactio
 
       return {
         success: false,
-        message: "Transaction failed - no rows affected in one or more operations."
+        message: 'Transaction failed - no rows affected in one or more operations.',
       };
     }
-
   } catch (error) {
     // Rollback on any error
     try {
@@ -447,29 +454,31 @@ const addTransactionLogsByMemberVoucherId = async (data: MemberVoucherTransactio
 
     console.error('Full error details:', {
       error: error instanceof Error ? error.message : 'Unknown error',
-      stack: error instanceof Error ? error.stack : undefined
+      stack: error instanceof Error ? error.stack : undefined,
     });
 
     // Return user-friendly message but also throw for critical errors
     if (error instanceof Error && error.message.includes('connection')) {
       throw new Error('Database connection failed. Please try again later.');
-    };
+    }
 
-    return { success: false, message: "Failed to create Transaction Log by Member Voucher Id due to database error." };
-
+    return { success: false, message: 'Failed to create Transaction Log by Member Voucher Id due to database error.' };
   } finally {
     client.release();
   }
 };
 
-const getMemberVoucherCurrentBalance = async (id: number, consumptionValue: number): Promise<{ success: boolean, data?: number, message?: string }> => {
+const getMemberVoucherCurrentBalance = async (
+  id: number,
+  consumptionValue: number
+): Promise<{ success: boolean; data?: number; message?: string }> => {
   if (!Number(id)) {
-    return { success: false, message: "Error 400: id must be an integer" };
-  };
+    return { success: false, message: 'Error 400: id must be an integer' };
+  }
 
   if (isNaN(Number(consumptionValue))) {
-    return { success: false, message: "Error 400: consumption value must be an integer" };
-  };
+    return { success: false, message: 'Error 400: consumption value must be an integer' };
+  }
 
   const client = await pool().connect();
   try {
@@ -484,13 +493,13 @@ const getMemberVoucherCurrentBalance = async (id: number, consumptionValue: numb
     const current_balance = results.rows[0].current_balance;
 
     if (Number.isNaN(Number(current_balance))) {
-      return { success: false, message: "Error 400: This Member Voucher does not exist" };
+      return { success: false, message: 'Error 400: This Member Voucher does not exist' };
     }
 
     const balanceAfterDeduction = parseFloat(current_balance) - consumptionValue;
 
     if (balanceAfterDeduction < 0) {
-      return { success: false, message: "Error 400: The Consumption Value is greater than the Current balance." };
+      return { success: false, message: 'Error 400: The Consumption Value is greater than the Current balance.' };
     } else {
       return { success: true, data: current_balance };
     }
@@ -499,7 +508,7 @@ const getMemberVoucherCurrentBalance = async (id: number, consumptionValue: numb
 
     console.error('Full error details:', {
       error: error instanceof Error ? error.message : 'Unknown error',
-      stack: error instanceof Error ? error.stack : undefined
+      stack: error instanceof Error ? error.stack : undefined,
     });
 
     // Return user-friendly message but also throw for critical errors
@@ -508,7 +517,7 @@ const getMemberVoucherCurrentBalance = async (id: number, consumptionValue: numb
       throw new Error('Database connection failed. Please try again later.');
     }
 
-    return { success: false, message: "Failed to current balance by Member Voucher Id due to database error." };
+    return { success: false, message: 'Failed to current balance by Member Voucher Id due to database error.' };
   }
 };
 
@@ -573,9 +582,11 @@ const getMemberVoucherCurrentBalance = async (id: number, consumptionValue: numb
 //   }
 // };
 
-const getMemberNameByMemberVoucherId = async (id: number): Promise<{ success: boolean, data: MemberName | null, message: string }> => {
+const getMemberNameByMemberVoucherId = async (
+  id: number
+): Promise<{ success: boolean; data: MemberName | null; message: string }> => {
   if (!Number(id)) {
-    return { success: false, data: null, message: "Error 400: id must be an integer" };
+    return { success: false, data: null, message: 'Error 400: id must be an integer' };
   }
 
   const client = await pool().connect();
@@ -591,16 +602,16 @@ const getMemberNameByMemberVoucherId = async (id: number): Promise<{ success: bo
     const results = await client.query(query, [id]);
 
     if (results.rows.length > 0) {
-      return { success: true, data: results.rows[0], message: "Get Member Name By Member Voucher Id was successful" };
+      return { success: true, data: results.rows[0], message: 'Get Member Name By Member Voucher Id was successful' };
     } else {
-      return { success: false, data: null, message: "Error 400: The input Id of Member Voucher does not exist" };
+      return { success: false, data: null, message: 'Error 400: The input Id of Member Voucher does not exist' };
     }
   } catch (error) {
     console.error('Error retrieving Member Name By Member Voucher Id:', error);
 
     console.error('Full error details:', {
       error: error instanceof Error ? error.message : 'Unknown error',
-      stack: error instanceof Error ? error.stack : undefined
+      stack: error instanceof Error ? error.stack : undefined,
     });
 
     // Return user-friendly message but also throw for critical errors
@@ -609,11 +620,13 @@ const getMemberNameByMemberVoucherId = async (id: number): Promise<{ success: bo
       throw new Error('Database connection failed. Please try again later.');
     }
 
-    return { success: false, data: null, message: "Failed to Member Name By Member Voucher Id due to database error." };
+    return { success: false, data: null, message: 'Failed to Member Name By Member Voucher Id due to database error.' };
   }
 };
 
-const setTransactionLogsAndCurrentBalanceByLogId = async (data: MemberVoucherTransactionLogUpdateData): Promise<{ success: boolean, message: string }> => {
+const setTransactionLogsAndCurrentBalanceByLogId = async (
+  data: MemberVoucherTransactionLogUpdateData
+): Promise<{ success: boolean; message: string }> => {
   const {
     member_voucher_id,
     transaction_log_id,
@@ -624,7 +637,7 @@ const setTransactionLogsAndCurrentBalanceByLogId = async (data: MemberVoucherTra
     type,
     createdBy,
     handledBy,
-    lastUpdatedBy
+    lastUpdatedBy,
   } = data;
 
   const service_date = new Date(`${date}T${time}`);
@@ -641,9 +654,7 @@ const setTransactionLogsAndCurrentBalanceByLogId = async (data: MemberVoucherTra
         WHERE id = $1;
     `;
 
-    const getAmountChangeValue = [
-      transaction_log_id
-    ];
+    const getAmountChangeValue = [transaction_log_id];
 
     const updateMemberVoucherQuery = `
         UPDATE member_vouchers
@@ -679,40 +690,47 @@ const setTransactionLogsAndCurrentBalanceByLogId = async (data: MemberVoucherTra
       createdBy,
       lastUpdatedBy,
       updated_at,
-      transaction_log_id
+      transaction_log_id,
     ];
 
     await client.query('BEGIN');
 
     const getAmountChangeResult = await client.query(getAmountChangeQuery, getAmountChangeValue);
 
-    console.log("getAmountChangeResult.rows[0].amount_change: " + getAmountChangeResult.rows[0].amount_change);
+    console.log('getAmountChangeResult.rows[0].amount_change: ' + getAmountChangeResult.rows[0].amount_change);
 
     const updateMemberVoucherValues = [
       getAmountChangeResult.rows[0].amount_change,
       consumptionValue,
-      member_voucher_id
+      member_voucher_id,
     ];
 
     const updateCurrentBalanceOfTransactionLogsValue = [
       getAmountChangeResult.rows[0].amount_change,
       consumptionValue,
       transaction_log_id,
-      member_voucher_id
+      member_voucher_id,
     ];
 
     const updateMemberVoucherResults = await client.query(updateMemberVoucherQuery, updateMemberVoucherValues);
 
-    const updateTransactionLogsResults = await client.query(updateCurrentBalanceOfTransactionLogsQuery, updateCurrentBalanceOfTransactionLogsValue);
+    const updateTransactionLogsResults = await client.query(
+      updateCurrentBalanceOfTransactionLogsQuery,
+      updateCurrentBalanceOfTransactionLogsValue
+    );
 
     const updateTransactionLogByIdResults = await client.query(updateTransactionLogQuery, updateTransactionLogValue);
 
-    if ((updateMemberVoucherResults.rowCount ?? 0) > 0 && (updateTransactionLogsResults.rowCount ?? 0) > 0 && (updateTransactionLogByIdResults.rowCount ?? 0) > 0) {
+    if (
+      (updateMemberVoucherResults.rowCount ?? 0) > 0 &&
+      (updateTransactionLogsResults.rowCount ?? 0) > 0 &&
+      (updateTransactionLogByIdResults.rowCount ?? 0) > 0
+    ) {
       await client.query('COMMIT');
 
       return {
         success: true,
-        message: "Member Voucher transaction log and Member Voucher balance has been updated successfully.",
+        message: 'Member Voucher transaction log and Member Voucher balance has been updated successfully.',
       };
     } else {
       // Rollback if any operation failed
@@ -720,10 +738,9 @@ const setTransactionLogsAndCurrentBalanceByLogId = async (data: MemberVoucherTra
 
       return {
         success: false,
-        message: "Transaction failed - no rows affected in one or more operations."
+        message: 'Transaction failed - no rows affected in one or more operations.',
       };
     }
-
   } catch (error) {
     // Rollback on any error
     try {
@@ -732,27 +749,35 @@ const setTransactionLogsAndCurrentBalanceByLogId = async (data: MemberVoucherTra
       console.error('Error during rollback:', rollbackError);
     }
 
-    console.error('Error updating Member Voucher transaction log and Member Voucher balance by Transation Log Id:', error);
+    console.error(
+      'Error updating Member Voucher transaction log and Member Voucher balance by Transation Log Id:',
+      error
+    );
 
     console.error('Full error details:', {
       error: error instanceof Error ? error.message : 'Unknown error',
-      stack: error instanceof Error ? error.stack : undefined
+      stack: error instanceof Error ? error.stack : undefined,
     });
 
     // Return user-friendly message but also throw for critical errors
     if (error instanceof Error && error.message.includes('connection')) {
       throw new Error('Database connection failed. Please try again later.');
+    }
+
+    return {
+      success: false,
+      message:
+        'Failed to update Member Voucher transaction log and Member Voucher balance Transation Log Id due to database error.',
     };
-
-    return { success: false, message: "Failed to update Member Voucher transaction log and Member Voucher balance Transation Log Id due to database error." };
-
   } finally {
     client.release();
   }
 };
 
-const deleteTransactionLogsAndCurrentBalanceByLogId = async (transaction_log_id: number, member_voucher_id: number): Promise<{ success: boolean, message: string }> => {
-
+const deleteTransactionLogsAndCurrentBalanceByLogId = async (
+  transaction_log_id: number,
+  member_voucher_id: number
+): Promise<{ success: boolean; message: string }> => {
   const client = await pool().connect();
 
   try {
@@ -763,9 +788,7 @@ const deleteTransactionLogsAndCurrentBalanceByLogId = async (transaction_log_id:
         WHERE id >= $1;
     `;
 
-    const getSumOfAmountChangeValue = [
-      transaction_log_id
-    ];
+    const getSumOfAmountChangeValue = [transaction_log_id];
 
     const updateMemberVoucherQuery = `
         UPDATE member_vouchers
@@ -782,27 +805,26 @@ const deleteTransactionLogsAndCurrentBalanceByLogId = async (transaction_log_id:
 
     const getAmountChangeResult = await client.query(getSumOfAmountChangeQuery, getSumOfAmountChangeValue);
 
-    console.log("getAmountChangeResult.rows[0].sum: " + getAmountChangeResult.rows[0].sum);
+    console.log('getAmountChangeResult.rows[0].sum: ' + getAmountChangeResult.rows[0].sum);
 
-    const updateMemberVoucherValues = [
-      getAmountChangeResult.rows[0].sum,
-      member_voucher_id
-    ];
+    const updateMemberVoucherValues = [getAmountChangeResult.rows[0].sum, member_voucher_id];
 
-    const deleteTransactionLogAndSubsequentLogsByIdValue = [
-      transaction_log_id
-    ];
+    const deleteTransactionLogAndSubsequentLogsByIdValue = [transaction_log_id];
 
     const updateMemberVoucherResults = await client.query(updateMemberVoucherQuery, updateMemberVoucherValues);
 
-    const deleteTransactionLogsResults = await client.query(deleteTransactionLogAndSubsequentLogsByIdQuery, deleteTransactionLogAndSubsequentLogsByIdValue);
+    const deleteTransactionLogsResults = await client.query(
+      deleteTransactionLogAndSubsequentLogsByIdQuery,
+      deleteTransactionLogAndSubsequentLogsByIdValue
+    );
 
     if ((updateMemberVoucherResults.rowCount ?? 0) > 0 && (deleteTransactionLogsResults.rowCount ?? 0) > 0) {
       await client.query('COMMIT');
 
       return {
         success: true,
-        message: "The Member Voucher transaction log and Member Voucher balance has been respectively deleted and updated successfully.",
+        message:
+          'The Member Voucher transaction log and Member Voucher balance has been respectively deleted and updated successfully.',
       };
     } else {
       // Rollback if any operation failed
@@ -810,10 +832,9 @@ const deleteTransactionLogsAndCurrentBalanceByLogId = async (transaction_log_id:
 
       return {
         success: false,
-        message: "Transaction failed - no rows affected in one or more operations."
+        message: 'Transaction failed - no rows affected in one or more operations.',
       };
     }
-
   } catch (error) {
     // Rollback on any error
     try {
@@ -826,16 +847,18 @@ const deleteTransactionLogsAndCurrentBalanceByLogId = async (transaction_log_id:
 
     console.error('Full error details:', {
       error: error instanceof Error ? error.message : 'Unknown error',
-      stack: error instanceof Error ? error.stack : undefined
+      stack: error instanceof Error ? error.stack : undefined,
     });
 
     // Return user-friendly message but also throw for critical errors
     if (error instanceof Error && error.message.includes('connection')) {
       throw new Error('Database connection failed. Please try again later.');
+    }
+
+    return {
+      success: false,
+      message: 'Failed to deleting Member Voucher transaction log by Transation Log Id due to database error.',
     };
-
-    return { success: false, message: "Failed to deleting Member Voucher transaction log by Transation Log Id due to database error." };
-
   } finally {
     client.release();
   }
@@ -859,7 +882,7 @@ const createMemberVoucher = async (
       receipt_number,
       remarks,
       created_at,
-      updated_at
+      updated_at,
     } = transactionData;
 
     // Early validation
@@ -919,17 +942,11 @@ const createMemberVoucher = async (
 
     console.log('✅ MV Sale Transaction Using custom date/time:', {
       created_at: customCreatedAt.toISOString(),
-      updated_at: customUpdatedAt.toISOString()
+      updated_at: customUpdatedAt.toISOString(),
     });
 
     // Extract item data
-    const {
-      assignedEmployee,
-      data,
-      pricing,
-      remarks: itemRemarks,
-      type
-    } = item;
+    const { assignedEmployee, data, pricing, remarks: itemRemarks, type } = item;
 
     if (!data) {
       throw new Error('item.data is required for member voucher');
@@ -948,7 +965,7 @@ const createMemberVoucher = async (
       starting_balance,
       status = 'active', // Default status
       total_price,
-      voucher_template_id
+      voucher_template_id,
     } = data;
 
     // Validate required voucher data
@@ -959,12 +976,14 @@ const createMemberVoucher = async (
     // FIXED: Better default calculation
     const default_total_price = selected_template?.default_total_price
       ? Number(selected_template.default_total_price)
-      : (total_price ? Number(total_price) : 0);
+      : total_price
+      ? Number(total_price)
+      : 0;
 
     const is_bypass = bypass_template === true;
 
-    const createdAt = customCreatedAt;   // Use sale transaction date
-    const updatedAt = customUpdatedAt;   // Use sale transaction date
+    const createdAt = customCreatedAt; // Use sale transaction date
+    const updatedAt = customUpdatedAt; // Use sale transaction date
 
     const employee_id = assignedEmployee ? Number(assignedEmployee) : Number(created_by);
 
@@ -977,9 +996,7 @@ const createMemberVoucher = async (
 
     // FIXED: Only validate voucher template if not bypassing AND template ID exists
     if (!is_bypass && voucher_template_id && voucher_template_id !== '0') {
-      validationPromises.push(
-        client.query('SELECT id FROM voucher_templates WHERE id = $1', [voucher_template_id])
-      );
+      validationPromises.push(client.query('SELECT id FROM voucher_templates WHERE id = $1', [voucher_template_id]));
     }
 
     const results = await Promise.all(validationPromises);
@@ -1010,17 +1027,15 @@ const createMemberVoucher = async (
     const GST_PAYMENT_METHOD_ID = 10;
 
     // Separate payments by type (same as MCP)
-    const pendingPayments = payments.filter((payment: PaymentMethodRequest) =>
-      payment.methodId === PENDING_PAYMENT_METHOD_ID
+    const pendingPayments = payments.filter(
+      (payment: PaymentMethodRequest) => payment.methodId === PENDING_PAYMENT_METHOD_ID
     );
 
-    const gstPayments = payments.filter((payment: PaymentMethodRequest) =>
-      payment.methodId === GST_PAYMENT_METHOD_ID
-    );
+    const gstPayments = payments.filter((payment: PaymentMethodRequest) => payment.methodId === GST_PAYMENT_METHOD_ID);
 
-    const actualPayments = payments.filter((payment: PaymentMethodRequest) =>
-      payment.methodId !== PENDING_PAYMENT_METHOD_ID &&
-      payment.methodId !== GST_PAYMENT_METHOD_ID
+    const actualPayments = payments.filter(
+      (payment: PaymentMethodRequest) =>
+        payment.methodId !== PENDING_PAYMENT_METHOD_ID && payment.methodId !== GST_PAYMENT_METHOD_ID
     );
 
     // Calculate amounts (same logic as MCP)
@@ -1054,7 +1069,7 @@ const createMemberVoucher = async (
       outstandingAmount: `${outstandingAmount} (backend calculated - USED)`,
       totalPaidAmount: `${totalPaidAmount} (actual + GST, excludes pending)`,
       transactionStatus,
-      note: 'Backend ignores frontend pending amount and calculates its own'
+      note: 'Backend ignores frontend pending amount and calculates its own',
     });
 
     // ✅ FIXED: Use correct payment logic for voucher balance calculation
@@ -1077,7 +1092,7 @@ const createMemberVoucher = async (
 
     const { rows: mvRows } = await client.query<{ id: string }>(i_mv_sql, [
       member_voucher_name,
-      is_bypass ? 0 : (voucher_template_id || 0),
+      is_bypass ? 0 : voucher_template_id || 0,
       member_id,
       final_current_balance,
       final_starting_balance,
@@ -1089,33 +1104,29 @@ const createMemberVoucher = async (
       employee_id,
       employee_id,
       createdAt,
-      updatedAt
+      updatedAt,
     ]);
 
     const memberVoucherId = Number(mvRows[0].id);
 
     // FIXED: Better service mapping with validation
-    const services = member_voucher_details.map((detail: {
-      service_id?: number;
-      name?: string;
-      price?: number;
-      custom_price?: number;
-      duration?: number;
-    }) => {
-      if (!detail.service_id && !is_bypass) {
-        throw new Error('service_id is required for each voucher detail when not bypassing template');
-      }
+    const services = member_voucher_details.map(
+      (detail: { service_id?: number; name?: string; price?: number; custom_price?: number; duration?: number }) => {
+        if (!detail.service_id && !is_bypass) {
+          throw new Error('service_id is required for each voucher detail when not bypassing template');
+        }
 
-      return {
-        id: detail.service_id || 0,
-        name: detail.name || 'Unknown Service',
-        original_price: Number(detail.price || 0),
-        custom_price: Number(detail.custom_price ?? detail.price ?? 0),
-        discount: Number(detail.price ?? 0) - Number(detail.custom_price ?? detail.price ?? 0),
-        final_price: Number(detail.custom_price ?? detail.price ?? 0),
-        duration: Number(detail.duration || 0)
-      };
-    });
+        return {
+          id: detail.service_id || 0,
+          name: detail.name || 'Unknown Service',
+          original_price: Number(detail.price || 0),
+          custom_price: Number(detail.custom_price ?? detail.price ?? 0),
+          discount: Number(detail.price ?? 0) - Number(detail.custom_price ?? detail.price ?? 0),
+          final_price: Number(detail.custom_price ?? detail.price ?? 0),
+          duration: Number(detail.duration || 0),
+        };
+      }
+    );
 
     // ✅ Insert voucher details using sale transaction dates
     if (services.length > 0) {
@@ -1127,27 +1138,28 @@ const createMemberVoucher = async (
       `;
 
       await Promise.all(
-        services.map((service: {
-          id: number;
-          name: string;
-          original_price: number;
-          custom_price: number;
-          discount: number;
-          final_price: number;
-          duration: number;
-        }) =>
-          client.query(i_mvd_sql, [
-            memberVoucherId,
-            is_bypass ? 0 : service.id,
-            service.name,
-            service.original_price,
-            service.custom_price,
-            service.discount,
-            service.final_price,
-            service.duration,
-            createdAt,
-            updatedAt
-          ])
+        services.map(
+          (service: {
+            id: number;
+            name: string;
+            original_price: number;
+            custom_price: number;
+            discount: number;
+            final_price: number;
+            duration: number;
+          }) =>
+            client.query(i_mvd_sql, [
+              memberVoucherId,
+              is_bypass ? 0 : service.id,
+              service.name,
+              service.original_price,
+              service.custom_price,
+              service.discount,
+              service.final_price,
+              service.duration,
+              createdAt,
+              updatedAt,
+            ])
         )
       );
     }
@@ -1172,7 +1184,7 @@ const createMemberVoucher = async (
       employee_id,
       employee_id,
       createdAt,
-      updatedAt
+      updatedAt,
     ]);
 
     // ✅ FOC transaction using sale transaction dates
@@ -1189,8 +1201,8 @@ const createMemberVoucher = async (
 
       await client.query(updateVoucherSql, [
         newCurrentBalance,
-        updatedAt,  // ✅ Now uses sale transaction date
-        memberVoucherId
+        updatedAt, // ✅ Now uses sale transaction date
+        memberVoucherId,
       ]);
 
       // Insert FOC transaction log
@@ -1198,21 +1210,21 @@ const createMemberVoucher = async (
         memberVoucherId,
         'Free of Charge Addition',
         createdAt,
-        newCurrentBalance,    // Updated balance after FOC
-        free_of_charge,       // FOC amount as amount_change
+        newCurrentBalance, // Updated balance after FOC
+        free_of_charge, // FOC amount as amount_change
         employee_id,
         'ADD FOC',
         employee_id,
         employee_id,
         createdAt,
-        updatedAt
+        updatedAt,
       ]);
 
       console.log('FOC transaction added:', {
         memberVoucherId,
         focAmount: free_of_charge,
         newCurrentBalance,
-        transactionType: 'ADD FOC'
+        transactionType: 'ADD FOC',
       });
     }
 
@@ -1257,7 +1269,7 @@ const createMemberVoucher = async (
       handled_by,
       created_by,
       createdAt,
-      updatedAt
+      updatedAt,
     ];
 
     const transactionResult = await client.query(transactionQuery, transactionParams);
@@ -1310,7 +1322,7 @@ const createMemberVoucher = async (
       if (payment.methodId === PENDING_PAYMENT_METHOD_ID) {
         console.log('Skipping frontend pending payment:', {
           amount: payment.amount,
-          note: 'Backend will create correct pending payment'
+          note: 'Backend will create correct pending payment',
         });
         continue;
       }
@@ -1335,8 +1347,8 @@ const createMemberVoucher = async (
           payment.amount,
           payment.remark || '',
           created_by,
-          createdAt,  // ✅ Now uses sale transaction date
-          updatedAt   // ✅ Now uses sale transaction date
+          createdAt, // ✅ Now uses sale transaction date
+          updatedAt, // ✅ Now uses sale transaction date
         ];
 
         console.log('MV Payment Query:', paymentQuery);
@@ -1346,7 +1358,7 @@ const createMemberVoucher = async (
         console.log('Created MV payment with ID:', paymentResult.rows[0].id, {
           methodId: payment.methodId,
           amount: payment.amount,
-          isGST: payment.methodId === GST_PAYMENT_METHOD_ID
+          isGST: payment.methodId === GST_PAYMENT_METHOD_ID,
         });
       }
     }
@@ -1373,14 +1385,14 @@ const createMemberVoucher = async (
         'Backend calculated pending payment',
         handled_by,
         createdAt,
-        updatedAt
+        updatedAt,
       ];
 
       const pendingResult = await client.query(pendingPaymentQuery, pendingPaymentParams);
       console.log('Created correct pending payment with ID:', pendingResult.rows[0].id, {
         methodId: PENDING_PAYMENT_METHOD_ID,
         amount: outstandingAmount,
-        note: 'Backend calculated - ignores frontend pending'
+        note: 'Backend calculated - ignores frontend pending',
       });
     }
 
@@ -1403,9 +1415,8 @@ const createMemberVoucher = async (
       voucher_id: memberVoucherId,
       voucher_name: member_voucher_name,
       items_count: 1,
-      payments_count: payments.filter((p: PaymentMethodRequest) => p.amount > 0).length
+      payments_count: payments.filter((p: PaymentMethodRequest) => p.amount > 0).length,
     };
-
   } catch (error) {
     await client.query('ROLLBACK');
     console.error('Error creating MV sale transaction:', error);
@@ -1414,7 +1425,6 @@ const createMemberVoucher = async (
     client.release();
   }
 };
-
 
 /**
  * Soft Delete (status changed to DISABLED)
@@ -1507,14 +1517,14 @@ const createMemberVoucherForTransfer = async (
       totalBalance,
       foc,
       price,
-      "is_enabled",
+      'is_enabled',
       remarks,
       createdBy || null,
       createdAt,
-      updatedAt
+      updatedAt,
     ];
 
-    const result = await pool().query(insertVoucherQuery, voucherValues);
+    const result = await dbQuery(insertVoucherQuery, voucherValues);
     const newVoucher: MemberVouchers = result.rows[0];
 
     // ✅ NEW: Handle bypass vs template-based service details insertion
@@ -1538,21 +1548,21 @@ const createMemberVoucherForTransfer = async (
         `;
 
         const insertDetailValues = [
-          newVoucher.id,                        // $1 member_voucher_id
-          0,                                    // $2 service_id (always 0 for manual)
+          newVoucher.id, // $1 member_voucher_id
+          0, // $2 service_id (always 0 for manual)
           serviceDetail.name, // $3 service_name
-          serviceDetail.price || 0,             // $4 original_price
+          serviceDetail.price || 0, // $4 original_price
           serviceDetail.final_price || serviceDetail.price || 0, // $5 custom_price
-          serviceDetail.discount || 0,          // $6 discount
+          serviceDetail.discount || 0, // $6 discount
           serviceDetail.final_price || serviceDetail.price || 0, // $7 final_price
-          serviceDetail.duration || 0,         // $8 duration
-          createdAt,                           // $9
-          updatedAt,                           // $10
-          0                                    // $11 service_category_id (always 0 for manual)
+          serviceDetail.duration || 0, // $8 duration
+          createdAt, // $9
+          updatedAt, // $10
+          0, // $11 service_category_id (always 0 for manual)
         ];
 
-        console.log("Insert Manual Service Detail Values: ", insertDetailValues);
-        await pool().query(insertDetailQuery, insertDetailValues);
+        console.log('Insert Manual Service Detail Values: ', insertDetailValues);
+        await dbQuery(insertDetailQuery, insertDetailValues);
       }
     } else {
       // 🔁 TEMPLATE MODE: Insert member_voucher_details based on template
@@ -1560,7 +1570,7 @@ const createMemberVoucherForTransfer = async (
         SELECT * FROM voucher_template_details
         WHERE voucher_template_id = $1
       `;
-      const templateDetailsResult = await pool().query(templateDetailsQuery, [voucherTemplateId]);
+      const templateDetailsResult = await dbQuery(templateDetailsQuery, [voucherTemplateId]);
       const templateDetails = templateDetailsResult.rows;
 
       for (const detail of templateDetails) {
@@ -1581,35 +1591,35 @@ const createMemberVoucherForTransfer = async (
         `;
 
         const insertDetailValues = [
-          newVoucher.id,                   // $1 member_voucher_id
-          detail.service_id,              // $2
-          detail.service_name,            // $3
-          detail.original_price,          // $4
-          detail.custom_price,            // $5
-          detail.discount,                // $6
-          detail.final_price,             // $7
-          detail.duration,                // $8
-          createdAt,                      // $9
-          updatedAt,                      // $10
-          detail.service_category_id      // $11
+          newVoucher.id, // $1 member_voucher_id
+          detail.service_id, // $2
+          detail.service_name, // $3
+          detail.original_price, // $4
+          detail.custom_price, // $5
+          detail.discount, // $6
+          detail.final_price, // $7
+          detail.duration, // $8
+          createdAt, // $9
+          updatedAt, // $10
+          detail.service_category_id, // $11
         ];
 
-        console.log("Insert Template Detail Values: ", insertDetailValues);
-        await pool().query(insertDetailQuery, insertDetailValues);
+        console.log('Insert Template Detail Values: ', insertDetailValues);
+        await dbQuery(insertDetailQuery, insertDetailValues);
       }
     }
 
     return newVoucher;
   } catch (error) {
-    console.error("Error adding member voucher ", error);
-    throw new Error("Failed to add member voucher");
+    console.error('Error adding member voucher ', error);
+    throw new Error('Failed to add member voucher');
   }
 };
 
 const getMemberVoucherWithDetails = async (name: string | null = null): Promise<any[]> => {
   try {
     if (!name) {
-      throw new Error("Member name is required");
+      throw new Error('Member name is required');
     }
 
     const memberQuery = `
@@ -1618,7 +1628,7 @@ const getMemberVoucherWithDetails = async (name: string | null = null): Promise<
   WHERE LOWER(name) LIKE LOWER($1) 
   LIMIT 1
 `;
-    const memberResult = await pool().query(memberQuery, [`%${name}%`]);
+    const memberResult = await dbQuery(memberQuery, [`%${name}%`]);
     const member: MemberName = memberResult.rows[0];
 
     if (!member) {
@@ -1633,7 +1643,7 @@ const getMemberVoucherWithDetails = async (name: string | null = null): Promise<
 `;
     // const vouchersQuery = `SELECT * FROM member_vouchers WHERE member_id = $1`;
 
-    const vouchersResult = await pool().query(vouchersQuery, [member.id]);
+    const vouchersResult = await dbQuery(vouchersQuery, [member.id]);
     const vouchers: MemberVouchers[] = vouchersResult.rows;
 
     const result = await Promise.all(
@@ -1644,7 +1654,7 @@ const getMemberVoucherWithDetails = async (name: string | null = null): Promise<
           WHERE member_voucher_id = $1
         `;
         const detailValues = [voucher.id];
-        const detailsResult = await pool().query(detailQuery, detailValues);
+        const detailsResult = await dbQuery(detailQuery, detailValues);
 
         return {
           ...voucher,
@@ -1655,14 +1665,12 @@ const getMemberVoucherWithDetails = async (name: string | null = null): Promise<
 
     return normalizeBigInts(result);
   } catch (error) {
-    console.error("Error fetching member voucher:", error);
-    throw new Error("Failed to fetch member voucher");
+    console.error('Error fetching member voucher:', error);
+    throw new Error('Failed to fetch member voucher');
   }
 };
 
-const checkIfFreeOfChargeIsUsedById = async (
-  voucher_id: number
-): Promise<boolean> => {
+const checkIfFreeOfChargeIsUsedById = async (voucher_id: number): Promise<boolean> => {
   try {
     const query = `
       SELECT current_balance, free_of_charge
@@ -1670,7 +1678,7 @@ const checkIfFreeOfChargeIsUsedById = async (
       WHERE id = $1
     `;
     const values = [voucher_id];
-    const result = await pool().query(query, values);
+    const result = await dbQuery(query, values);
 
     if (result.rows.length === 0) {
       throw new Error('Voucher not found');
@@ -1679,11 +1687,10 @@ const checkIfFreeOfChargeIsUsedById = async (
     const { current_balance, free_of_charge } = result.rows[0];
     return Number(current_balance) > Number(free_of_charge);
   } catch (error) {
-    console.error("Error checking FOC usage by ID:", error);
-    throw new Error("Failed to check free of charge usage by ID");
+    console.error('Error checking FOC usage by ID:', error);
+    throw new Error('Failed to check free of charge usage by ID');
   }
 };
-
 
 const removeFOCFromVoucherById = async (
   voucher_id: number,
@@ -1696,10 +1703,10 @@ const removeFOCFromVoucherById = async (
       FROM member_vouchers
       WHERE id = $1
     `;
-    const fetchResult = await pool().query(fetchQuery, [voucher_id]);
+    const fetchResult = await dbQuery(fetchQuery, [voucher_id]);
 
     if (fetchResult.rows.length === 0) {
-      throw new Error("Voucher not found.");
+      throw new Error('Voucher not found.');
     }
 
     const { current_balance, free_of_charge } = fetchResult.rows[0];
@@ -1712,7 +1719,7 @@ const removeFOCFromVoucherById = async (
       SET current_balance = $1, updated_at = $2
       WHERE id = $3
     `;
-    await pool().query(updateQuery, [newBalance, created_at, voucher_id]);
+    await dbQuery(updateQuery, [newBalance, created_at, voucher_id]);
 
     const insertLogQuery = `
       INSERT INTO member_voucher_transaction_logs (
@@ -1730,22 +1737,15 @@ const removeFOCFromVoucherById = async (
         $1, 'Remove Free Of Charge', $2, $3, $4, $5, 'Remove OF FOC', $5, $2, $2
       )
     `;
-    const insertValues = [
-      voucher_id,
-      created_at,
-      newBalance,
-      -focNum,
-      created_by
-    ];
-    await pool().query(insertLogQuery, insertValues);
+    const insertValues = [voucher_id, created_at, newBalance, -focNum, created_by];
+    await dbQuery(insertLogQuery, insertValues);
 
     return { voucher_id, newBalance };
   } catch (error) {
-    console.error("Error removing FOC by ID:", error);
-    throw new Error("Failed to remove FOC by voucher ID.");
+    console.error('Error removing FOC by ID:', error);
+    throw new Error('Failed to remove FOC by voucher ID.');
   }
 };
-
 
 const setMemberVoucherBalanceAfterTransferById = async (
   voucher_id: number,
@@ -1758,10 +1758,10 @@ const setMemberVoucherBalanceAfterTransferById = async (
       FROM member_vouchers
       WHERE id = $1
     `;
-    const result = await pool().query(selectQuery, [voucher_id]);
+    const result = await dbQuery(selectQuery, [voucher_id]);
 
     if (result.rows.length === 0) {
-      throw new Error("Voucher not found.");
+      throw new Error('Voucher not found.');
     }
 
     const newBalance = 0;
@@ -1771,19 +1771,16 @@ const setMemberVoucherBalanceAfterTransferById = async (
       SET current_balance = $1, updated_at = $2, status = 'disabled'
       WHERE id = $3
     `;
-    await pool().query(updateQuery, [newBalance, created_at, voucher_id]);
+    await dbQuery(updateQuery, [newBalance, created_at, voucher_id]);
 
     return { voucher_id, newBalance };
   } catch (error) {
-    console.error("Error updating voucher balance by ID:", error);
-    throw new Error("Failed to update voucher balance by ID");
+    console.error('Error updating voucher balance by ID:', error);
+    throw new Error('Failed to update voucher balance by ID');
   }
 };
 
-
-const getMemberVoucherCurrentBalanceById = async (
-  voucher_id: number
-): Promise<number> => {
+const getMemberVoucherCurrentBalanceById = async (voucher_id: number): Promise<number> => {
   try {
     const query = `
       SELECT current_balance
@@ -1791,7 +1788,7 @@ const getMemberVoucherCurrentBalanceById = async (
       WHERE id = $1
       LIMIT 1
     `;
-    const result = await pool().query(query, [voucher_id]);
+    const result = await dbQuery(query, [voucher_id]);
 
     if (result.rows.length === 0) {
       throw new Error('Voucher not found');
@@ -1799,12 +1796,10 @@ const getMemberVoucherCurrentBalanceById = async (
 
     return Number(result.rows[0].current_balance);
   } catch (error) {
-    console.error("❌ Error getting current balance by ID:", error);
-    throw new Error("Failed to get current balance by ID");
+    console.error('❌ Error getting current balance by ID:', error);
+    throw new Error('Failed to get current balance by ID');
   }
 };
-
-
 
 export default {
   getPaginatedVouchers,
@@ -1824,5 +1819,5 @@ export default {
   checkIfFreeOfChargeIsUsedById,
   removeFOCFromVoucherById,
   setMemberVoucherBalanceAfterTransferById,
-  getMemberVoucherCurrentBalanceById
-}
+  getMemberVoucherCurrentBalanceById,
+};

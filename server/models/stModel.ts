@@ -1,4 +1,4 @@
-import { pool } from '../config/database.js';
+import { pool, query as dbQuery, queryOnPool } from '../config/database.js';
 import {
   Member,
   Payment,
@@ -148,7 +148,7 @@ const getSalesTransactionList = async (
 
     console.log('Count query:', countQuery);
 
-    const countResult = await pool().query(countQuery, queryParams);
+    const countResult = await dbQuery(countQuery, queryParams);
     const totalItems = parseInt(countResult.rows[0].total);
 
     // Calculate pagination
@@ -192,7 +192,7 @@ const getSalesTransactionList = async (
     `;
 
     const mainQueryParams = [...queryParams, limit, offset];
-    const salesTransactions = await pool().query(mainQuery, mainQueryParams);
+    const salesTransactions = await dbQuery(mainQuery, mainQueryParams);
 
     const transactionIds = salesTransactions.rows.map((row: any) => row.id);
     let paymentData: any[] = [];
@@ -208,7 +208,7 @@ const getSalesTransactionList = async (
         WHERE ptst.sale_transaction_id = ANY($1)
       `;
 
-      const paymentResult = await pool().query(paymentQuery, [transactionIds]);
+      const paymentResult = await dbQuery(paymentQuery, [transactionIds]);
       paymentData = paymentResult.rows;
     }
 
@@ -298,7 +298,7 @@ const getSalesTransactionById = async (id: string): Promise<SalesTransactionDeta
       WHERE st.id = $1
     `;
 
-    const transactionResult = await pool().query(transactionQuery, [id]);
+    const transactionResult = await dbQuery(transactionQuery, [id]);
 
     if (transactionResult.rows.length === 0) {
       return null;
@@ -336,7 +336,7 @@ const getSalesTransactionById = async (id: string): Promise<SalesTransactionDeta
       ORDER BY sti.id
     `;
 
-    const itemsResult = await pool().query(itemsQuery, [id]);
+    const itemsResult = await dbQuery(itemsQuery, [id]);
 
     // Get payment information
     const paymentsQuery = `
@@ -361,7 +361,7 @@ const getSalesTransactionById = async (id: string): Promise<SalesTransactionDeta
       ORDER BY ptst.created_at
     `;
 
-    const paymentsResult = await pool().query(paymentsQuery, [id]);
+    const paymentsResult = await dbQuery(paymentsQuery, [id]);
 
     // Transform the transaction data
     const totalAmount = parseFloat(transaction.total_paid_amount || 0) +
@@ -510,7 +510,7 @@ const searchServices = async (
 
     query += ` LIMIT 10`;
 
-    const result = await pool().query(query, params);
+    const result = await dbQuery(query, params);
 
     return result.rows.map((service: any) => ({
       id: `S${service.id}`,
@@ -575,7 +575,7 @@ const searchProducts = async (searchQuery: string): Promise<Product[]> => {
 
     query += ` LIMIT 10`;
 
-    const result = await pool().query(query, params);
+    const result = await dbQuery(query, params);
 
     return result.rows.map((product: any) => ({
       id: `P${product.id}`,

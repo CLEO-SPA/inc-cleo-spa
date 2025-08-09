@@ -1,6 +1,6 @@
 import { PoolClient, Notification } from 'pg';
 import { Request, Response } from 'express';
-import { getProdPool } from '../config/database.js';
+import { getProdPool as prodPool } from '../config/database.js';
 
 // Interface for an SSE client
 interface SseClient {
@@ -71,7 +71,7 @@ function broadcastMessage(data: object, eventName: string = 'message'): void {
  */
 async function setupPgListener(): Promise<void> {
   try {
-    const pool = getProdPool();
+    const pool = prodPool();
     if (pgListenerClient) {
       console.log('PostgreSQL listener already connected or attempting to connect. Skipping setup.');
       return;

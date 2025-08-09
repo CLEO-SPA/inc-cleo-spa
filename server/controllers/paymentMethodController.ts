@@ -30,6 +30,8 @@ const getAllPaymentMethods = async (req: Request, res: Response, next: NextFunct
 const getPaymentMethodsForPaymentPage = async (req: Request, res: Response) => {
   try {
     const methods = await model.getPaymentMethodsForPaymentPage();
+    console.log(methods);
+
     res.status(200).json(methods);
   } catch (error) {
     console.error('Error in getPaymentMethodsForPaymentPage:', error);
@@ -61,7 +63,6 @@ const getPaymentMethodById = async (req: Request, res: Response): Promise<void> 
   }
 };
 
-
 // Create a new payment method
 const createPaymentMethod = async (req: Request, res: Response) => {
   try {
@@ -81,12 +82,12 @@ const createPaymentMethod = async (req: Request, res: Response) => {
 const updatePaymentMethod = async (req: Request, res: Response) => {
   try {
     const { id } = req.params;
-    
+
     const updatedMethod = await model.updatePaymentMethod({
       ...req.body,
       id: Number(id),
     });
-    
+
     res.status(200).json(updatedMethod);
   } catch (error) {
     console.error('Error in updatePaymentMethod:', error);
@@ -114,7 +115,6 @@ const deletePaymentMethod = async (req: Request, res: Response) => {
     res.status(500).json({ message: 'Internal server error while deleting payment method' });
   }
 };
-
 
 // Export all handlers
 export default {
