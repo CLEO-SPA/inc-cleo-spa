@@ -134,12 +134,16 @@ export default function MemberSelectorPanel() {
     return displayText;
   };
 
+  // State to prevent infinite loops
+  const [hasFetchedMembers, setHasFetchedMembers] = useState(false);
+
   // load dropdown members on component mount
   useEffect(() => {
-    if (dropdownMembers.length === 0 && !dropdownLoading) {
+    if (dropdownMembers.length === 0 && !dropdownLoading && !hasFetchedMembers) {
+      setHasFetchedMembers(true);
       fetchDropdownMembers();
     }
-  }, [dropdownMembers.length, dropdownLoading, fetchDropdownMembers]);
+  }, [dropdownMembers.length, dropdownLoading, hasFetchedMembers, fetchDropdownMembers]);
 
   // handle search input changes without losing focus
   const handleSearchChange = useCallback(
@@ -205,7 +209,6 @@ export default function MemberSelectorPanel() {
       console.error('Member selection failed:', error);
     }
   };
-
 
   // Updated handlers that show confirmation dialog
   const handleVoucherCancel = (voucher) => {
@@ -286,29 +289,29 @@ export default function MemberSelectorPanel() {
   }, [location.pathname]);
 
   // Legacy search handler (kept for backward compatibility)
-const handleSearch = async () => {
-  // Use actualSearchTerm if available (from dropdown selection), otherwise use searchInput
-  const searchTerm = actualSearchTerm || searchInput;
-  
-  if (!searchTerm.trim()) return;
+  const handleSearch = async () => {
+    // Use actualSearchTerm if available (from dropdown selection), otherwise use searchInput
+    const searchTerm = actualSearchTerm || searchInput;
 
-  try {
-    const foundMember = await searchMember(searchTerm);
-    
-    if (foundMember) {
-      setSelectedMember(foundMember);
-      setNotFound(false);
-      if (foundMember.total_amount_owed > 0) {
-        setTimeout(() => setShowOwedDialog(true), 200);
+    if (!searchTerm.trim()) return;
+
+    try {
+      const foundMember = await searchMember(searchTerm);
+
+      if (foundMember) {
+        setSelectedMember(foundMember);
+        setNotFound(false);
+        if (foundMember.total_amount_owed > 0) {
+          setTimeout(() => setShowOwedDialog(true), 200);
+        }
+      } else {
+        setNotFound(true);
       }
-    } else {
+    } catch (error) {
+      console.error('Search failed:', error);
       setNotFound(true);
     }
-  } catch (error) {
-    console.error('Search failed:', error);
-    setNotFound(true);
-  }
-};
+  };
 
   // debounced search handlers
   const handlePackagesSearch = useCallback(
@@ -359,7 +362,7 @@ const handleSearch = async () => {
   };
 
   const handleMcpRefund = (mcpId) => {
-    navigate(`/refunds/mcp/${mcpId}`)
+    navigate(`/refunds/mcp/${mcpId}`);
   };
 
   const handleMcpConsume = (mcpId) => {
@@ -367,7 +370,7 @@ const handleSearch = async () => {
   };
 
   const handleVoucherRefund = (voucherId) => {
-    navigate(`/refunds/voucher/${voucherId}`)
+    navigate(`/refunds/voucher/${voucherId}`);
   };
 
   const handleVoucherConsume = (voucherId) => {
@@ -571,8 +574,9 @@ const handleSearch = async () => {
               autoComplete='off'
             />
             <ChevronDown
-              className={`absolute right-2 top-1/2 transform -translate-y-1/2 text-gray-400 h-3.5 w-3.5 transition-transform cursor-pointer ${isDropdownOpen ? 'rotate-180' : ''
-                }`}
+              className={`absolute right-2 top-1/2 transform -translate-y-1/2 text-gray-400 h-3.5 w-3.5 transition-transform cursor-pointer ${
+                isDropdownOpen ? 'rotate-180' : ''
+              }`}
               onClick={() => setIsDropdownOpen(!isDropdownOpen)}
             />
 
@@ -669,8 +673,9 @@ const handleSearch = async () => {
                       <span>Packages</span>
                       {packageCount > 0 && (
                         <div
-                          className={`rounded-full w-4 h-4 flex items-center justify-center text-xs font-medium ${isActive ? 'bg-white text-gray-800' : 'bg-gray-800 text-white'
-                            }`}
+                          className={`rounded-full w-4 h-4 flex items-center justify-center text-xs font-medium ${
+                            isActive ? 'bg-white text-gray-800' : 'bg-gray-800 text-white'
+                          }`}
                         >
                           {packageCount}
                         </div>
@@ -684,8 +689,9 @@ const handleSearch = async () => {
                       <span>Vouchers</span>
                       {voucherCount > 0 && (
                         <div
-                          className={`rounded-full w-4 h-4 flex items-center justify-center text-xs font-medium ${isActive ? 'bg-white text-gray-800' : 'bg-gray-800 text-white'
-                            }`}
+                          className={`rounded-full w-4 h-4 flex items-center justify-center text-xs font-medium ${
+                            isActive ? 'bg-white text-gray-800' : 'bg-gray-800 text-white'
+                          }`}
                         >
                           {voucherCount}
                         </div>
@@ -719,8 +725,8 @@ const handleSearch = async () => {
             {memberSearchLoading
               ? 'Searching for member...'
               : notFound
-                ? 'No matching member found.'
-                : 'Please search and select a member first.'}
+              ? 'No matching member found.'
+              : 'Please search and select a member first.'}
           </div>
         ) : (
           <>
