@@ -58,7 +58,8 @@ function RevenueMonthYearSelector({
       <select 
         value={selectedMonth} 
         onChange={(e) => onMonthChange(e.target.value)} 
-        className="border border-gray-300 rounded px-3 py-2"
+        className="border border-gray-300 rounded pl-3 py-2 pr-12 appearance-none"
+        style={{ backgroundImage: "url('data:image/svg+xml;base64,PHN2ZyB3aWR0aD0iMTIiIGhlaWdodD0iOCIgdmlld0JveD0iMCAwIDEyIDgiIGZpbGw9Im5vbmUiIHhtbG5zPSJodHRwOi8vd3d3LnczLm9yZy8yMDAwL3N2ZyI+PHBhdGggZD0iTTEwIDJMNiA2TDIgMiIgc3Ryb2tlPSIjNjk3MDc4IiBzdHJva2Utd2lkdGg9IjEuNSIgc3Ryb2tlLWxpbmVjYXA9InJvdW5kIiBzdHJva2UtbGluZWpvaW49InJvdW5kIi8+PC9zdmc+')", backgroundRepeat: "no-repeat", backgroundPosition: "right 12px center", backgroundSize: "12px 8px" }}
       >
         {getAvailableMonths().map(month => (
           <option key={month} value={month}>{month}</option>
@@ -68,7 +69,8 @@ function RevenueMonthYearSelector({
       <select 
         value={selectedYear} 
         onChange={(e) => onYearChange(e.target.value)} 
-        className="border border-gray-300 rounded px-3 py-2"
+        className="border border-gray-300 rounded pl-3 py-2 pr-12 appearance-none"
+        style={{ backgroundImage: "url('data:image/svg+xml;base64,PHN2ZyB3aWR0aD0iMTIiIGhlaWdodD0iOCIgdmlld0JveD0iMCAwIDEyIDgiIGZpbGw9Im5vbmUiIHhtbG5zPSJodHRwOi8vd3d3LnczLm9yZy8yMDAwL3N2ZyI+PHBhdGggZD0iTTEwIDJMNiA2TDIgMiIgc3Ryb2tlPSIjNjk3MDc4IiBzdHJva2Utd2lkdGg9IjEuNSIgc3Ryb2tlLWxpbmVjYXA9InJvdW5kIiBzdHJva2UtbGluZWpvaW49InJvdW5kIi8+PC9zdmc+')", backgroundRepeat: "no-repeat", backgroundPosition: "right 12px center", backgroundSize: "12px 8px" }}
       >
         {generateYears().map(year => (
           <option key={year} value={year}>{year}</option>

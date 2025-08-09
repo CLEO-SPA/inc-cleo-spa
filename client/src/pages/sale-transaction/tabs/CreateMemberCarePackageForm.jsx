@@ -45,11 +45,34 @@ const CreateMemberCarePackageForm = () => {
   const [bypassPackage, setBypassPackage] = useState(false);
   const [selectedPackageId, setSelectedPackageId] = useState(null);
 
+  // Initialize data on component mount
   useEffect(() => {
-    fetchEmployeeOptions();
-    fetchServiceOptions();
-    fetchCarePackageOptions();
-  }, [fetchEmployeeOptions, fetchServiceOptions, fetchCarePackageOptions]);
+    const initializeData = async () => {
+      // Only fetch if the options arrays are empty to prevent unnecessary API calls
+      const promises = [];
+
+      if (employeeOptions.length === 0) {
+        promises.push(fetchEmployeeOptions());
+      }
+      if (serviceOptions.length === 0) {
+        promises.push(fetchServiceOptions());
+      }
+      if (packageOptions.length === 0) {
+        promises.push(fetchCarePackageOptions());
+      }
+
+      if (promises.length > 0) {
+        try {
+          await Promise.all(promises);
+        } catch (error) {
+          console.error('Error initializing form data:', error);
+        }
+      }
+    };
+
+    initializeData();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []); // Only run once on mount
 
   useEffect(() => {
     if (!mainFormData.package_name) {

@@ -1,6 +1,7 @@
 import express, { json, NextFunction, Request, Response, urlencoded } from 'express';
 import cors from 'cors';
 import session from 'express-session';
+import rateLimit from 'express-rate-limit';
 import cookieParser from 'cookie-parser';
 import mainRoutes from './routes/mainRoutes.js';
 import sessionStore from './store/sessionStore.js';
@@ -24,9 +25,18 @@ const corsOptions = {
   optionsSuccessStatus: 204,
 };
 
+const limiter = rateLimit({
+  windowMs: 15 * 60 * 1000, // 15 minutes
+  max: process.env.NODE_ENV === 'production' ? 100 : 1000, // Much more lenient for development
+  standardHeaders: true, // Return rate limit info in the `RateLimit-*` headers
+  legacyHeaders: false, // Disable the `X-RateLimit-*` headers
+  message: 'Too many requests from this IP, please try again later.',
+});
+
 app.use(json());
 app.use(urlencoded({ extended: true }));
 app.use(cors(corsOptions));
+app.use(limiter);
 app.use(cookieParser());
 
 app.use(

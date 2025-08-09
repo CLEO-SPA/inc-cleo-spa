@@ -61,7 +61,11 @@ const addTranslationHandler = async (req: Request, res: Response): Promise<void>
         );
 
         if ("error" in newTranslation) {
-            res.status(400).json({ error: newTranslation.error });
+            if (newTranslation.error.toLowerCase().includes("already exists")) {
+                res.status(409).json({ error: newTranslation.error }); // Conflict
+            } else {
+                res.status(400).json({ error: newTranslation.error });
+            }
             return;
         }
 

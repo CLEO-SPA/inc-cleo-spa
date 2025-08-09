@@ -1,6 +1,6 @@
 /* eslint-disable @typescript-eslint/no-explicit-any */
 import { PoolClient } from 'pg';
-import { pool } from '../config/database.js';
+import { pool, query as dbQuery, queryOnPool } from '../config/database.js';
 import { CursorPayload, FieldMapping, PaginatedOptions, PaginatedReturn } from '../types/common.types.js';
 import {
   Employees,
@@ -386,7 +386,7 @@ const getMemberCarePackagesForDropdown = async (memberId: string) => {
           mcp.created_at DESC;
     `;
 
-    const { rows } = await pool().query(sql, [memberId]);
+    const { rows } = await dbQuery(sql, [memberId]);
 
     return rows;
   } catch (error) {
@@ -1259,8 +1259,8 @@ const emulateMemberCarePackage = async (method: string, payload: Partial<emulate
         throw new Error(`Member care package with id ${payload.id} not found for deletion.`);
       }
 
-      const { rows: mcpd } = await pool().query(mcpdSql, [mcp[0].id]);
-      const { rows: mcptl } = await pool().query(mcptlSql, [mcpd[0].id]);
+      const { rows: mcpd } = await dbQuery(mcpdSql, [mcp[0].id]);
+      const { rows: mcptl } = await dbQuery(mcptlSql, [mcpd[0].id]);
 
       return {
         old: {

@@ -1,5 +1,6 @@
 import { BrowserRouter as Router, Routes, Route } from 'react-router-dom';
 import { AuthProvider } from '@/context/AuthContext';
+import useAuth from '@/hooks/useAuth';
 import { DateRangeProvider } from '@/context/DateRangeContext';
 import { TranslationProvider } from '@/context/TranslationContext'; // from feature/chineseTranslation
 import ProtectedRoute from '@/components/ProtectedRoute';
@@ -12,6 +13,7 @@ import HomePage from '@/pages/HomePage';
 import LoginPage from '@/pages/LoginPage';
 import ResetPasswordPage from '@/pages/ResetPasswordPage';
 import NotFoundPage from '@/pages/404Page';
+import DataSeedingPage from '@/pages/DataSeedingPage';
 import DatabaseReportPage from '@/pages/DatabaseReportPage';
 
 // Member Management
@@ -74,7 +76,7 @@ import EditEmployeePage from '@/pages/em/UpdateEmployeePage';
 import RevenueReportPage from '@/pages/revenue/RevenueReportPage';
 import DeferredRevenuePage from '@/pages/revenue/DeferredRevenuePage';
 // Employees
-import EmployeeTimetablePage from '@/pages/EmployeeTimetable/EmployeeTimetablePage';
+import EmployeeTimetablePage from '@/pages/EmployeeTimetable/EmployeeTimetable';
 
 // Employee Timetable Pages
 import CreateEmployeeTimetablePage from '@/pages/EmployeeTimetable/CreateEmployeeTimetablePage';
@@ -104,9 +106,19 @@ import RefundVouchersPage from '@/pages/Refund/RefundVouchersPage';
 import RefundVoucherForm from '@/pages/Refund/RefundVoucherForm';
 import CreditNotesPage from '@/pages/Refund/CreditNotesPage';
 import CreditNoteDetailsPage from '@/pages/Refund/CreditNoteDetailsPage';
-import CommissionSettingsManager from '@/pages/CommissionSettingManager';
-import ViewMonthlyEmployeeCommission from '@/pages/cm/ViewMonthlyEmployeeCommission';
-import ViewDailyCommissionBreakdownPage from '@/pages/cm/CommissionBreakdownPage';
+
+const SuperAdminRoute = ({ children }) => {
+  const { user } = useAuth();
+  if (user && user.role === 'super_admin') {
+    return children;
+  }
+  return <NotFoundPage />;
+};
+
+// Users
+import ManageUsersPage from '@/pages/users/ManageUsersPage';
+import CreateUserPage from '@/pages/users/CreateUserPage';
+import UpdateUserPage from '@/pages/users/UpdateUserPage';
 
 function App() {
   return (
@@ -119,6 +131,14 @@ function App() {
               <Route path='/' element={<ProtectedRoute />}>
                 {/* Home page */}
                 <Route index element={<HomePage />} />
+                <Route
+                  path='/seed'
+                  element={
+                    <SuperAdminRoute>
+                      <DataSeedingPage />
+                    </SuperAdminRoute>
+                  }
+                />
 
                 {/* appointments */}
                 <Route path='/appointments' element={<ManageAppointmentsPage />} />
@@ -205,13 +225,13 @@ function App() {
                 <Route path='/refunds' element={<RefundPage />} />
                 <Route path='/refunds/member/:memberId' element={<MemberPackagesList />} />
                 <Route path='/refunds/mcp/:packageId' element={<MCPDetail />} />
-                <Route path="/refunds/services/member/:id" element={<RefundServicesPage />} />
-                <Route path="/refunds/services/receipt/:no" element={<RefundServicesPage />} />
-                <Route path="/refunds/service/:saleTransactionItemId" element={<RefundServiceForm />} />
-                <Route path="/refunds/vouchers/member/:id" element={<RefundVouchersPage />} />
-                <Route path="/refunds/voucher/:voucherId" element={<RefundVoucherForm />} />
-                <Route path="/credit-notes" element={<CreditNotesPage />} />
-                <Route path="/credit-notes/:id" element={<CreditNoteDetailsPage />} />
+                <Route path='/refunds/services/member/:id' element={<RefundServicesPage />} />
+                <Route path='/refunds/services/receipt/:no' element={<RefundServicesPage />} />
+                <Route path='/refunds/service/:saleTransactionItemId' element={<RefundServiceForm />} />
+                <Route path='/refunds/vouchers/member/:id' element={<RefundVouchersPage />} />
+                <Route path='/refunds/voucher/:voucherId' element={<RefundVoucherForm />} />
+                <Route path='/credit-notes' element={<CreditNotesPage />} />
+                <Route path='/credit-notes/:id' element={<CreditNoteDetailsPage />} />
 
                 {/* Service Management */}
                 <Route path='/manage-service' element={<ManageServicePage />} />
@@ -255,6 +275,11 @@ function App() {
                 {/* Translations */}
                 <Route path='/translations' element={<ViewTranslations />} />
                 <Route path='/create-translation' element={<TranslationPage />} />
+
+                {/* Users */}
+                <Route path='/users' element={<ManageUsersPage />} />
+                <Route path='/users/create' element={<CreateUserPage />} />
+                <Route path='/users/edit/:id' element={<UpdateUserPage />} />
               </Route>
 
               {/* Public routes */}
@@ -262,10 +287,6 @@ function App() {
               <Route path='/invites' element={<ResetPasswordPage />} />
               <Route path='/reset-password' element={<ResetPasswordPage />} />
 
-              {/* Commission Settings Manager */}
-              <Route path="/admin/commission-settings" element={<CommissionSettingsManager />} />
-              <Route path="/cm/monthly-employee-commission" element={<ViewMonthlyEmployeeCommission />} />
-              <Route path="/cm/employee-commission-breakdown/:employeeId/:date" element={<ViewDailyCommissionBreakdownPage />} />
               {/* 404 Page */}
               <Route path='*' element={<NotFoundPage />} />
             </Routes>

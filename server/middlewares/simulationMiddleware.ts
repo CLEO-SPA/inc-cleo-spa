@@ -3,14 +3,22 @@ import { checkAndUpdateSimState, getCurrentSimStatus } from '../services/simulat
 
 const simulationMiddleware = async (req: Request, res: Response, next: NextFunction): Promise<void> => {
   try {
-    await checkAndUpdateSimState();
-
+    // Only check simulation state very occasionally to reduce DB load
+    // Check every 100th request or if we don't have any data yet
     const simStatus = getCurrentSimStatus();
+    const shouldUpdate = Math.random() < 0.01 || simStatus.lastFetchedTimestamp === 0;
 
-    req.is_simulation = simStatus.isActive;
-    res.setHeader('X-Simulation-Mode', simStatus.isActive ? 'true' : 'false');
+    if (shouldUpdate) {
+      await checkAndUpdateSimState();
+    }
 
-    if (simStatus.isActive) {
+    // Use cached status for all requests
+    const currentStatus = getCurrentSimStatus();
+
+    req.is_simulation = currentStatus.isActive;
+    res.setHeader('X-Simulation-Mode', currentStatus.isActive ? 'true' : 'false');
+
+    if (currentStatus.isActive) {
       res.locals.simMsg = 'System is in simulation mode.';
       console.log(`Request to ${req.originalUrl} is in SIMULATION MODE.`);
 
@@ -18,8 +26,8 @@ const simulationMiddleware = async (req: Request, res: Response, next: NextFunct
       if (
         req.session.start_date_utc &&
         req.session.end_date_utc &&
-        simStatus.params?.start_date_utc &&
-        simStatus.params?.end_date_utc
+        currentStatus.params?.start_date_utc &&
+        currentStatus.params?.end_date_utc
       ) {
         // if (
         //   new Date(simStatus.params?.end_date_utc as string) == new Date(simStatus.params?.start_date_utc as string)

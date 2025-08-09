@@ -32,11 +32,20 @@ router.get('/service-item/:id', controller.getSaleTransactionItemById);
 //Process a refund for member care packages
 router.post('/mcp', controller.validateMCPExists, controller.verifyRefundableServices, controller.processFullRefund);
 
+// Process a partial refund for member care packages
+router.post('/mcp/partial',
+  controller.validateMCPExists,
+  controller.verifyRefundableServices,
+  controller.processPartialRefund
+);
+
 //Return the info for member care package services
 router.get('/mcp-status/:id', controller.fetchMCPStatus);
 
 //Search for a member via name (searchbar)
 router.get('/members/search', controller.searchMembers);
+
+router.get('/members/list', controller.listMembers);
 
 //Get MCP info
 router.get('/members/get-mcps/:memberId', controller.getMemberCarePackages);

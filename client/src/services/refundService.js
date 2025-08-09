@@ -51,5 +51,43 @@ export default {
       console.error('[REFUND FAILED]', error.response?.data || error.message);
       throw error;
     });
-  }
+  },
+
+  processPartialRefund: (data) => {
+  // Prepare the payload exactly as backend expects
+  const payload = {
+    mcpId: Number(data.mcpId),
+    refundedBy: Number(data.refundedBy),
+    refundRemarks: data.refundRemarks,
+    refundDate: data.refundDate,
+    refundItems: data.refundItems.map(item => ({
+      detail_id: Number(item.detail_id),
+      quantity: Number(item.quantity)
+    })),
+    additionalBalanceRefund: Number(data.additionalBalanceRefund) || 0
+  };
+
+  console.log('Sending refund payload:', payload); // Debug log
+
+  return api.post('api/refund/mcp/partial', payload, {
+    withCredentials: true,
+    headers: {
+      'Content-Type': 'application/json',
+      'Accept': 'application/json'
+    }
+  }).catch(error => {
+    console.error('[PARTIAL REFUND FAILED]', {
+      status: error.response?.status,
+      data: error.response?.data,
+      headers: error.response?.headers
+    });
+    throw error;
+  });
+},
+
+// Add this new method
+listMembers: (page = 1, limit = 10) =>
+  api.get(`api/refund/members/list?page=${page}&limit=${limit}`)
+    .then(response => response.data),
+
 };

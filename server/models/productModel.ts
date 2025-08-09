@@ -1,5 +1,5 @@
 import { get } from 'http';
-import { pool, getProdPool as prodPool } from '../config/database.js';
+import { pool, getProdPool as prodPool, query as dbQuery, queryOnPool } from '../config/database.js';
 import { createProductInput, updateProductInput } from '../types/product.type.js';
 
 // get products with pagination and filter
@@ -20,7 +20,7 @@ const getProductsPaginationFilter = async (
       $5::BOOLEAN
       );`;
     const params = [page, limit, search, category, status];
-    const result = await prodPool().query(query, params);
+    const result = await queryOnPool(prodPool(), query, params);
     return result.rows;
   } catch (error) {
     console.error('Error in getProductsPaginationFilter:', error);
@@ -55,7 +55,7 @@ const getTotalCount = async (search?: string | null, category?: number | null, s
     }
 
     const result =
-      search || category || status !== null ? await prodPool().query(query, params) : await prodPool().query(query);
+      search || category || status !== null ? await queryOnPool(prodPool(), query, params) : await queryOnPool(prodPool(), query);
     if (result.rows.length === 0) {
       return 0; // No products found
     }
@@ -75,7 +75,7 @@ const getProductById = async (id: number) => {
         FROM public.products
         WHERE id = $1; 
     `;
-    const result = await pool().query(query, [id]); // Added id parameter to query
+    const result = await dbQuery(query, [id]); // Added id parameter to query
     return result.rows[0];
   } catch (error) {
     console.error('Error fetching product by id:', error);
@@ -93,7 +93,7 @@ const getProductByName = async (product_name: string) => {
         FROM products AS s
         WHERE s.product_name = $1; 
     `;
-    const result = await pool().query(query, [product_name]); // Added string parameter to query
+    const result = await dbQuery(query, [product_name]); // Added string parameter to query
     return result.rows[0];
   } catch (error) {
     console.error('Error fetching product by name:', error);
@@ -109,7 +109,7 @@ const getProductByCategory = async (product_category_id: number) => {
     WHERE product_category_id = $1
     AND product_is_enabled = true
     ORDER BY product_sequence_no ASC;`;
-    const result = await pool().query(query, [product_category_id]);
+    const result = await dbQuery(query, [product_category_id]);
     return result.rows;
   } catch (error) {
     console.error('Error fetching products:', error);
@@ -125,7 +125,7 @@ const getProductSequenceNo = async (product_category_id: number) => {
     SELECT COUNT(*) + 1 AS seq_no FROM products
     WHERE product_category_id = $1
     AND product_is_enabled = true;`;
-    const result = await pool().query(query, [product_category_id]);
+    const result = await dbQuery(query, [product_category_id]);
     return result.rows[0].seq_no;
   } catch (error) {
     console.error('Error fetching product sequence no:', error);
@@ -182,7 +182,7 @@ const createProduct = async ({
       created_by,
       updated_by,
     ];
-    const result = await pool().query(query, params);
+    const result = await dbQuery(query, params);
     return result.rows;
   } catch (error) {
     console.error('Error creating new product:', error);
@@ -265,7 +265,7 @@ const updateProduct = async ({
     RETURNING *`;
     params.push(id || 0);
 
-    const result = await prodPool().query(query, params);
+    const result = await queryOnPool(prodPool(), query, params);
     return result.rows;
   } catch (error) {
     console.error('Error updating product:', error);
@@ -282,7 +282,7 @@ const reorderProducts = async (products: { id: number; product_sequence_no: numb
     WHERE id = $2`;
     for (const product of products) {
       const params = [product.product_sequence_no, product.id];
-      await prodPool().query(query, params);
+      await queryOnPool(prodPool(), query, params);
     }
     return { success: true, updatedCount: products.length };
   } catch (error) {
@@ -326,7 +326,7 @@ const changeProductStatus = async (updateData: {
       WHERE id = $5
       RETURNING *`;
 
-    const result = await pool().query(query, params);
+    const result = await dbQuery(query, params);
     return result.rows[0];
   } catch (error) {
     console.error('Error changing product status:', error);
@@ -346,7 +346,7 @@ const getProductCategories = async () => {
       GROUP BY pc.id
       ORDER BY pc.product_category_sequence_no;
     `;
-    const result = await pool().query(query);
+    const result = await dbQuery(query);
     return result.rows;
   } catch (error) {
     console.error('Error fetching product categories:', error);
@@ -363,7 +363,7 @@ const getProductCategoryById = async (id: number) => {
         FROM product_categories
         WHERE id = $1; 
     `;
-    const result = await pool().query(query, [id]);
+    const result = await dbQuery(query, [id]);
     return result.rows[0];
   } catch (error) {
     console.error('Error fetching product category by id:', error);
@@ -375,7 +375,7 @@ const getProductCategoryById = async (id: number) => {
 const createProductCategory = async (name: string) => {
   try {
     const query = `SELECT * FROM create_product_category($1)`;
-    const result = await pool().query(query, [name]);
+    const result = await dbQuery(query, [name]);
     return result.rows;
   } catch (error) {
     console.error('Error creating product category:', error);
@@ -391,7 +391,7 @@ const createProductCategory = async (name: string) => {
 // update product category by id
 const updateProductCategory = async (id: number, name: string) => {
   try {
-    const result = await prodPool().query('SELECT * FROM update_product_category($1, $2)', [id, name]);
+    const result = await queryOnPool(prodPool(), 'SELECT * FROM update_product_category($1, $2)', [id, name]);
     return result.rows;
   } catch (error) {
     console.error('Error updating product category:', error);
@@ -438,7 +438,7 @@ const reorderProductCategory = async (categories: { id: number; product_category
 const getSalesHistoryByProductId = async (id: number, month: number, year: number) => {
   try {
     const salesQuery = `SELECT * FROM get_sales_history_for_each_product($1, $2, $3);`;
-    const result = await pool().query(salesQuery, [id, year, month]);
+    const result = await dbQuery(salesQuery, [id, year, month]);
 
     return result.rows;
   } catch (error) {
@@ -463,7 +463,7 @@ const getProductCategoriesCount = async (search: string | null) => {
       query += ` WHERE ` + conditions.join(' AND ');
     }
 
-    const result = await pool().query(query, params);
+    const result = await dbQuery(query, params);
     return result.rows[0].total_count;
   } catch (error) {
     console.error('Error in getProductCategoriesCount:', error);
@@ -499,7 +499,7 @@ const getProductCategoriesPaginationFilter = async (
       LIMIT $1 OFFSET $2;
     `;
 
-    const result = await pool().query(query, params);
+    const result = await dbQuery(query, params);
     return result.rows;
   } catch (error) {
     console.error('Error in getProductCategoriesPaginationFilter:', error);

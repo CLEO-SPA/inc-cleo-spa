@@ -1,23 +1,17 @@
-import { Controller, useFormContext } from "react-hook-form";
-import { useEffect, useState } from "react";
-import {
-  Select,
-  SelectTrigger,
-  SelectValue,
-  SelectContent,
-  SelectItem,
-} from "@/components/ui/select";
-import { Label } from "@/components/ui/label";
-import { Input } from "@/components/ui/input";
-import useVoucherTemplateStore from "@/stores/useVoucherTemplateStore";
-import { cn } from "@/lib/utils";
+import { Controller, useFormContext } from 'react-hook-form';
+import { useEffect, useState } from 'react';
+import { Select, SelectTrigger, SelectValue, SelectContent, SelectItem } from '@/components/ui/select';
+import { Label } from '@/components/ui/label';
+import { Input } from '@/components/ui/input';
+import useVoucherTemplateStore from '@/stores/useVoucherTemplateStore';
+import { cn } from '@/lib/utils';
 
 export function VoucherTemplateSelect({
-  name = "id",
-  label = "Voucher Template *",
+  name = 'id',
+  label = 'Voucher Template *',
   disabled: customDisabled = false,
   onSelectFullDetails,
-  className = "",
+  className = '',
   value,
   onChange,
   error,
@@ -37,19 +31,21 @@ export function VoucherTemplateSelect({
   const getVoucherTemplateDetails = useVoucherTemplateStore((state) => state.getVoucherTemplateDetails);
   const isVoucherTemplateDetailsLoading = useVoucherTemplateStore((state) => state.isVoucherTemplateDetailsLoading);
 
-  const [searchTerm, setSearchTerm] = useState("");
+  const [searchTerm, setSearchTerm] = useState('');
   const [isOpen, setIsOpen] = useState(false);
   const [selectedTemplateLoading, setSelectedTemplateLoading] = useState(false);
+  const [hasFetched, setHasFetched] = useState(false); // Add flag to prevent infinite loops
 
   const filteredTemplates = voucherTemplates.filter((tpl) =>
     tpl.voucher_template_name.toLowerCase().includes(searchTerm.toLowerCase())
   );
 
   useEffect(() => {
-    if (voucherTemplates.length === 0 && !loading) {
+    if (voucherTemplates.length === 0 && !loading && !hasFetched) {
+      setHasFetched(true);
       fetchDropdownVoucherTemplates();
     }
-  }, [voucherTemplates.length, loading, fetchDropdownVoucherTemplates]);
+  }, [voucherTemplates.length, loading, hasFetched, fetchDropdownVoucherTemplates]);
 
   const handleTemplateSelect = async (templateId) => {
     try {
@@ -64,7 +60,7 @@ export function VoucherTemplateSelect({
         onSelectFullDetails(templateDetails);
       }
     } catch (err) {
-      console.error("Failed to fetch voucher template details:", err);
+      console.error('Failed to fetch voucher template details:', err);
     } finally {
       setSelectedTemplateLoading(false);
     }
@@ -75,8 +71,8 @@ export function VoucherTemplateSelect({
   // If we have form context, use Controller
   if (control) {
     return (
-      <div className={cn("space-y-2", className)}>
-        <Label htmlFor={name} className="text-sm font-medium text-gray-700">
+      <div className={cn('space-y-2', className)}>
+        <Label htmlFor={name} className='text-sm font-medium text-gray-700'>
           {label}
         </Label>
 
@@ -84,69 +80,60 @@ export function VoucherTemplateSelect({
           name={name}
           control={control}
           render={({ field }) => (
-            <div className="relative">
+            <div className='relative'>
               <Select
                 disabled={isDisabled}
-                value={field.value?.toString() || ""}
+                value={field.value?.toString() || ''}
                 onValueChange={(val) => {
                   const templateId = Number(val);
                   field.onChange(templateId);
                   setIsOpen(false);
-                  setSearchTerm("");
+                  setSearchTerm('');
                   handleTemplateSelect(templateId);
                 }}
                 open={isOpen}
                 onOpenChange={setIsOpen}
               >
-                <SelectTrigger
-                  className={cn(
-                    "w-full",
-                    errors[name] ? "border-red-500" : ""
-                  )}
-                >
+                <SelectTrigger className={cn('w-full', errors[name] ? 'border-red-500' : '')}>
                   <SelectValue
                     placeholder={
                       loading
-                        ? "Loading templates..."
+                        ? 'Loading templates...'
                         : selectedTemplateLoading
-                          ? "Loading template details..."
-                          : storeError
-                            ? "Error loading templates"
-                            : "Select voucher template"
+                        ? 'Loading template details...'
+                        : storeError
+                        ? 'Error loading templates'
+                        : 'Select voucher template'
                     }
                   />
                 </SelectTrigger>
 
                 <SelectContent>
-                  <div className="p-2 border-b">
+                  <div className='p-2 border-b'>
                     <Input
-                      placeholder="Search templates..."
+                      placeholder='Search templates...'
                       value={searchTerm}
                       onChange={(e) => setSearchTerm(e.target.value)}
-                      className="h-8"
+                      className='h-8'
                     />
                   </div>
 
-                  <div className="max-h-48 overflow-y-auto">
+                  <div className='max-h-48 overflow-y-auto'>
                     {filteredTemplates.length > 0 ? (
                       filteredTemplates.map((tpl) => (
                         <SelectItem key={tpl.id} value={tpl.id.toString()}>
-                          <div className="flex items-center justify-between w-full">
+                          <div className='flex items-center justify-between w-full'>
                             <span>{tpl.voucher_template_name}</span>
                             {isVoucherTemplateDetailsLoading(tpl.id) && (
-                              <span className="text-xs text-gray-500 ml-2">Loading...</span>
+                              <span className='text-xs text-gray-500 ml-2'>Loading...</span>
                             )}
                           </div>
                         </SelectItem>
                       ))
                     ) : searchTerm ? (
-                      <div className="p-2 text-sm text-gray-500">
-                        No templates found matching "{searchTerm}"
-                      </div>
+                      <div className='p-2 text-sm text-gray-500'>No templates found matching "{searchTerm}"</div>
                     ) : (
-                      <div className="p-2 text-sm text-gray-500">
-                        No voucher templates available
-                      </div>
+                      <div className='p-2 text-sm text-gray-500'>No voucher templates available</div>
                     )}
                   </div>
                 </SelectContent>
@@ -155,104 +142,83 @@ export function VoucherTemplateSelect({
           )}
         />
 
-        {errors[name] && (
-          <p className="text-red-500 text-xs">{errors[name].message}</p>
-        )}
-        {storeError && (
-          <p className="text-red-500 text-xs">Failed to load templates: {storeError}</p>
-        )}
-        {detailsError && (
-          <p className="text-red-500 text-xs">Failed to load template details: {detailsError}</p>
-        )}
+        {errors[name] && <p className='text-red-500 text-xs'>{errors[name].message}</p>}
+        {storeError && <p className='text-red-500 text-xs'>Failed to load templates: {storeError}</p>}
+        {detailsError && <p className='text-red-500 text-xs'>Failed to load template details: {detailsError}</p>}
       </div>
     );
   }
 
   // If no form context, use direct props
   return (
-    <div className={cn("space-y-2", className)}>
-      <Label htmlFor={name} className="text-sm font-medium text-gray-700">
+    <div className={cn('space-y-2', className)}>
+      <Label htmlFor={name} className='text-sm font-medium text-gray-700'>
         {label}
       </Label>
 
-      <div className="relative">
+      <div className='relative'>
         <Select
           disabled={isDisabled}
-          value={value?.toString() || ""}
+          value={value?.toString() || ''}
           onValueChange={(val) => {
             const templateId = Number(val);
             if (onChange) onChange(templateId);
             setIsOpen(false);
-            setSearchTerm("");
+            setSearchTerm('');
             handleTemplateSelect(templateId);
           }}
           open={isOpen}
           onOpenChange={setIsOpen}
         >
-          <SelectTrigger
-            className={cn(
-              "w-full",
-              error ? "border-red-500" : ""
-            )}
-          >
+          <SelectTrigger className={cn('w-full', error ? 'border-red-500' : '')}>
             <SelectValue
               placeholder={
                 loading
-                  ? "Loading templates..."
+                  ? 'Loading templates...'
                   : selectedTemplateLoading
-                    ? "Loading template details..."
-                    : storeError
-                      ? "Error loading templates"
-                      : "Select voucher template"
+                  ? 'Loading template details...'
+                  : storeError
+                  ? 'Error loading templates'
+                  : 'Select voucher template'
               }
             />
           </SelectTrigger>
 
           <SelectContent>
-            <div className="p-2 border-b">
+            <div className='p-2 border-b'>
               <Input
-                placeholder="Search templates..."
+                placeholder='Search templates...'
                 value={searchTerm}
                 onChange={(e) => setSearchTerm(e.target.value)}
-                className="h-8"
+                className='h-8'
               />
             </div>
 
-            <div className="max-h-48 overflow-y-auto">
+            <div className='max-h-48 overflow-y-auto'>
               {filteredTemplates.length > 0 ? (
                 filteredTemplates.map((tpl) => (
                   <SelectItem key={tpl.id} value={tpl.id.toString()}>
-                    <div className="flex items-center justify-between w-full">
+                    <div className='flex items-center justify-between w-full'>
                       <span>{tpl.voucher_template_name}</span>
                       {isVoucherTemplateDetailsLoading(tpl.id) && (
-                        <span className="text-xs text-gray-500 ml-2">Loading...</span>
+                        <span className='text-xs text-gray-500 ml-2'>Loading...</span>
                       )}
                     </div>
                   </SelectItem>
                 ))
               ) : searchTerm ? (
-                <div className="p-2 text-sm text-gray-500">
-                  No templates found matching "{searchTerm}"
-                </div>
+                <div className='p-2 text-sm text-gray-500'>No templates found matching "{searchTerm}"</div>
               ) : (
-                <div className="p-2 text-sm text-gray-500">
-                  No voucher templates available
-                </div>
+                <div className='p-2 text-sm text-gray-500'>No voucher templates available</div>
               )}
             </div>
           </SelectContent>
         </Select>
       </div>
 
-      {error && (
-        <p className="text-red-500 text-xs">{error}</p>
-      )}
-      {storeError && (
-        <p className="text-red-500 text-xs">Failed to load templates: {storeError}</p>
-      )}
-      {detailsError && (
-        <p className="text-red-500 text-xs">Failed to load template details: {detailsError}</p>
-      )}
+      {error && <p className='text-red-500 text-xs'>{error}</p>}
+      {storeError && <p className='text-red-500 text-xs'>Failed to load templates: {storeError}</p>}
+      {detailsError && <p className='text-red-500 text-xs'>Failed to load template details: {detailsError}</p>}
     </div>
   );
 }

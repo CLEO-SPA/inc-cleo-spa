@@ -2,6 +2,7 @@ import express from 'express';
 const router = express.Router();
 
 import simulationMiddleware from '../middlewares/simulationMiddleware.js';
+import { checkDatabaseHealth } from '../config/database.js';
 
 // import superAdminRoutes from './superAdminRoutes.js';
 import authRoutes from './authRoutes.js';
@@ -36,6 +37,21 @@ router.use(simulationMiddleware);
 router.use('/auth', authRoutes);
 router.use('/session', sessionRoutes);
 router.use('/trans', translationRoutes);
+
+// Health check endpoint
+router.get('/health/db', async (req, res) => {
+  try {
+    const healthStatus = await checkDatabaseHealth();
+    const statusCode = healthStatus.status === 'healthy' ? 200 : 503;
+    res.status(statusCode).json(healthStatus);
+  } catch (error) {
+    res.status(503).json({
+      status: 'unhealthy',
+      message: error instanceof Error ? error.message : 'Unknown error',
+      timestamp: new Date().toISOString(),
+    });
+  }
+});
 
 router.use('/member', memberRoutes);
 router.use('/mv', memberVoucherRoutes);

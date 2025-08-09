@@ -1,4 +1,4 @@
-import { pool } from '../config/database.js';
+import { pool, query as dbQuery, queryOnPool } from '../config/database.js';
 
 const getAllRefundSaleTransactionRecords = async (start_date_utc?: string, end_date_utc?: string) => {
   let query = `
@@ -31,7 +31,7 @@ const getAllRefundSaleTransactionRecords = async (start_date_utc?: string, end_d
 
   query += ` ORDER BY st.created_at DESC`;
 
-  const result = await pool().query(query, values);
+  const result = await dbQuery(query, values);
   return result.rows;
 };
 
@@ -75,7 +75,7 @@ const getSaleTransactionItemById = async (itemId: number) => {
     LIMIT 1;
   `;
 
-  const result = await pool().query(query, [itemId]);
+  const result = await dbQuery(query, [itemId]);
   return result.rows[0]; // Fixed typo here (Rows -> rows)
 };
 
@@ -149,7 +149,7 @@ const getServiceTransactionsForRefund = async (
   }
 
   // Get total count (before pagination)
-  const countResult = await pool().query(
+  const countResult = await dbQuery(
     `SELECT COUNT(DISTINCT st.id) AS total ${baseQuery}`,
     values
   );
@@ -191,7 +191,7 @@ const getServiceTransactionsForRefund = async (
     values.push(offset);
   }
 
-  const result = await pool().query(dataQuery, values);
+  const result = await dbQuery(dataQuery, values);
 
   type SaleTransactionItem = {
     sale_transaction_id: number;
@@ -474,7 +474,7 @@ const processRefundService = async (body: {
 /////////////////////
 
 /* const getStatusId = async (statusName: string) => {
-  const { rows } = await pool().query(
+  const { rows } = await dbQuery(
     `SELECT id FROM statuses WHERE status_name = $1`,
     [statusName]
   );
@@ -482,8 +482,8 @@ const processRefundService = async (body: {
 }; */
 
 const getMCPById = async (mcpId: number) => {
-  const { rows } = await pool().query(
-    `SELECT id, member_id, status 
+  const { rows } = await dbQuery(
+    `SELECT id, member_id, balance, status 
      FROM member_care_packages 
      WHERE id = $1`,
     [mcpId]
@@ -492,7 +492,7 @@ const getMCPById = async (mcpId: number) => {
 };
 
 const getRemainingServices = async (mcpId: number) => {
-  const { rows } = await pool().query(
+  const { rows } = await dbQuery(
     `SELECT 
        id, service_id, service_name,
        quantity, price, discount
@@ -683,6 +683,230 @@ const processFullRefundTransaction = async (params: {
   }
 };
 
+const processPartialRefundTransaction = async (params: {
+  mcpId: number;
+  memberId: number;
+  refundDetails: Array<{
+    id: number;
+    service_name: string;
+    price: number;
+    discount: number;
+    refundQuantity: number;
+    refundAmount: number;
+  }>;
+  additionalBalanceRefund?: number;
+  refundedBy: number;
+  refundRemarks?: string;
+  refundDate?: Date;
+  totalRefundAmount: number;
+}) => {
+  const client = await pool().connect();
+  try {
+    await client.query('BEGIN');
+
+    // Get current package details with FOR UPDATE to lock the row
+    const { rows: packageRows } = await client.query(
+      `SELECT balance FROM member_care_packages WHERE id = $1 FOR UPDATE`,
+      [params.mcpId]
+    );
+    const currentBalance = parseFloat(packageRows[0].balance);
+
+    // Format the refund date (use current date if not provided)
+    const refundDate = params.refundDate || new Date();
+    const formattedRefundDate = refundDate.toISOString();
+
+    // Look up Refund payment method
+    const { rows: paymentMethodRows } = await client.query(
+      `SELECT id FROM payment_methods WHERE payment_method_name = 'Refund' LIMIT 1`
+    );
+    const refundPaymentMethodId = paymentMethodRows[0]?.id;
+
+    if (!refundPaymentMethodId) {
+      throw new Error('Refund payment method not found in database');
+    }
+
+    // Generate receipt number
+    const receiptNo = await generateCreditNoteNumber(client);
+
+    // Get all services in the package to divide additional balance
+    const { rows: allServices } = await client.query(
+      `SELECT id, service_name, price, discount 
+       FROM member_care_package_details 
+       WHERE member_care_package_id = $1`,
+      [params.mcpId]
+    );
+    const serviceCount = allServices.length;
+
+    // Calculate additional balance per service
+    const additionalBalancePerService = params.additionalBalanceRefund
+      ? params.additionalBalanceRefund / serviceCount
+      : 0;
+
+    // Create refund transaction
+    const { rows: txRows } = await client.query(
+      `INSERT INTO sale_transactions (
+        customer_type, member_id, total_paid_amount, 
+        outstanding_total_payment_amount, sale_transaction_status,
+        remarks, receipt_no, handled_by, created_by, created_at, updated_at
+      ) VALUES (
+        'MEMBER', $1, $2, 0, 'REFUND',
+        $3, $4, $5, $6, $7, $7
+      ) RETURNING id`,
+      [
+        params.memberId,
+        (-params.totalRefundAmount).toFixed(2),
+        params.refundRemarks || 'Partial package refund',
+        receiptNo,
+        params.refundedBy,
+        params.refundedBy,
+        formattedRefundDate
+      ]
+    );
+    const refundTxId = txRows[0].id;
+
+    // Process service quantity refunds if any
+    for (const service of params.refundDetails) {
+      if (service.refundQuantity <= 0) continue;
+
+      // Create item for the service quantity refund
+      await client.query(
+        `INSERT INTO sale_transaction_items (
+          sale_transaction_id, service_name, member_care_package_id,
+          original_unit_price, custom_unit_price, discount_percentage, 
+          quantity, amount, item_type, remarks
+        ) VALUES ($1, $2, $3, $4, $4, $5, $6, $7, 'member care package', $8)`,
+        [
+          refundTxId,
+          service.service_name,
+          params.mcpId,
+          service.price,
+          service.discount,
+          service.refundQuantity,
+          -service.refundAmount,
+          `Quantity refund for ${service.refundQuantity} session(s) of ${service.service_name}`
+        ]
+      );
+
+      // Create transaction log for the service quantity refund
+      await client.query(
+        `INSERT INTO member_care_package_transaction_logs (
+          type, description, transaction_date,
+          transaction_amount, amount_changed,
+          member_care_package_details_id, employee_id,
+          service_id, created_at
+        ) VALUES (
+          'REFUND', $1, $2, $3, $4, $5, $6, $7, $8
+        )`,
+        [
+          `Quantity refund of ${service.refundQuantity} session(s) of ${service.service_name}`,
+          formattedRefundDate,
+          -service.refundAmount,
+          service.refundAmount,
+          service.id,
+          params.refundedBy,
+          null,
+          formattedRefundDate
+        ]
+      );
+    }
+
+    // Process additional balance refund (split across all services)
+    if (params.additionalBalanceRefund && params.additionalBalanceRefund > 0) {
+      for (const service of allServices) {
+        // Create sale transaction item for balance portion
+        await client.query(
+          `INSERT INTO sale_transaction_items (
+            sale_transaction_id, service_name, member_care_package_id,
+            original_unit_price, custom_unit_price, discount_percentage, 
+            quantity, amount, item_type, remarks
+          ) VALUES ($1, $2, $3, $4, $4, $5, $6, $7, 'member care package', $8)`,
+          [
+            refundTxId,
+            service.service_name,
+            params.mcpId,
+            service.price,
+            service.discount,
+            1, // quantity
+            -additionalBalancePerService,
+            `Additional balance refund for ${service.service_name}`
+          ]
+        );
+
+        // Create transaction log for balance portion
+        await client.query(
+          `INSERT INTO member_care_package_transaction_logs (
+            type, description, transaction_date,
+            transaction_amount, amount_changed,
+            member_care_package_details_id, employee_id,
+            service_id, created_at
+          ) VALUES (
+            'REFUND', $1, $2, $3, $4, $5, $6, $7, $8
+          )`,
+          [
+            `Additional balance refund of $${additionalBalancePerService.toFixed(2)} for ${service.service_name}`,
+            formattedRefundDate,
+            -additionalBalancePerService,
+            additionalBalancePerService,
+            service.id,
+            params.refundedBy,
+            null,
+            formattedRefundDate
+          ]
+        );
+      }
+    }
+
+    // Create refund payment
+    await client.query(
+      `INSERT INTO payment_to_sale_transactions (
+        payment_method_id, sale_transaction_id, amount,
+        remarks, created_by, updated_by, created_at, updated_at
+      ) VALUES ($1, $2, $3, $4, $5, $6, $7, $7)`,
+      [
+        refundPaymentMethodId,
+        refundTxId,
+        -params.totalRefundAmount,
+        params.refundRemarks || `Partial package refund (${params.additionalBalanceRefund ? 'balance' : ''}${params.refundDetails.some(s => s.refundQuantity > 0) ? ' + services' : ''})`,
+        params.refundedBy,
+        params.refundedBy,
+        formattedRefundDate
+      ]
+    );
+
+    // Update MCP balance
+    const newBalance = currentBalance - params.totalRefundAmount;
+    await client.query(
+      `UPDATE member_care_packages
+   SET balance = $1,
+       updated_at = $2
+   WHERE id = $3`,
+      [newBalance.toFixed(2), formattedRefundDate, params.mcpId]
+    );
+
+    await client.query('COMMIT');
+
+    return {
+      refundTransactionId: refundTxId,
+      totalRefund: params.totalRefundAmount,
+      refundedServices: params.refundDetails.filter(s => s.refundQuantity > 0).map(s => ({
+        serviceName: s.service_name,
+        quantity: s.refundQuantity,
+        amount: s.refundAmount
+      })),
+      additionalBalanceRefund: params.additionalBalanceRefund,
+      newPackageBalance: newBalance,
+      refundDate: refundDate.toISOString(),
+      receiptNo
+    };
+  } catch (error) {
+    await client.query('ROLLBACK');
+    console.error('Partial refund processing failed:', error);
+    throw error;
+  } finally {
+    client.release();
+  }
+};
+
 const fetchMCPStatusById = async (packageId: number) => {
   const query = `
     WITH purchase_totals AS (
@@ -722,21 +946,22 @@ const fetchMCPStatusById = async (packageId: number) => {
       mcp.id AS package_id,
       mcp.package_name,
       mcp.balance,
-      mcpd.id,
+      mcp.created_at, 
+      mcpd.id AS id,  
+      mcpd.id AS detail_id,
       mcpd.service_id,
       mcpd.service_name,
       mcpd.price,
       mcpd.discount,
       mcpd.price * mcpd.discount AS discounted_price,
       mcpd.quantity AS total_quantity,
-      mcpd.quantity AS original_quantity,  
       FLOOR(COALESCE(pt.purchased_quantity, 0)) AS purchased,
       COALESCE(ct.consumed, 0) AS consumed,
       FLOOR(COALESCE(rt.refunded_quantity, 0)) AS refunded,
-      CASE 
-        WHEN COALESCE(rt.refunded_quantity, 0) > 0 THEN 0
-        ELSE (FLOOR(COALESCE(pt.purchased_quantity, 0)) - COALESCE(ct.consumed, 0))
-      END AS remaining,
+      GREATEST(
+        mcpd.quantity - FLOOR(COALESCE(rt.refunded_quantity, 0)) - COALESCE(ct.consumed, 0),
+        0
+      ) AS remaining,
       GREATEST(mcpd.quantity - FLOOR(COALESCE(pt.purchased_quantity, 0)), 0) AS unpaid
     FROM member_care_packages mcp
     JOIN member_care_package_details mcpd 
@@ -750,7 +975,7 @@ const fetchMCPStatusById = async (packageId: number) => {
     WHERE mcp.id = $1;
   `;
 
-  const { rows } = await pool().query(query, [packageId]);
+  const { rows } = await dbQuery(query, [packageId]);
   return rows;
 };
 
@@ -768,7 +993,7 @@ const getRefundDetailsForPackage = async (packageId: number) => {
     LIMIT 1
   `;
 
-  const { rows } = await pool().query(query, [packageId]);
+  const { rows } = await dbQuery(query, [packageId]);
   return rows[0] || null;
 };
 
@@ -791,8 +1016,33 @@ const searchMembers = async (searchQuery: string) => {
       )
     LIMIT 20
   `;
-  const { rows } = await pool().query(query, [`%${searchQuery}%`]);
+  const { rows } = await dbQuery(query, [`%${searchQuery}%`]);
   return rows;
+};
+
+const listMembers = async (page: number, limit: number) => {
+  const offset = (page - 1) * limit;
+  const query = `
+    SELECT 
+      m.id,
+      m.name, 
+      m.email,
+      m.contact AS phone,  
+      m.membership_type_id AS membership_status,
+      COUNT(*) OVER() AS total_count
+    FROM members m
+    WHERE m.membership_type_id IS NOT NULL
+    ORDER BY m.name ASC
+    LIMIT $1 OFFSET $2
+  `;
+  const { rows } = await dbQuery(query, [limit, offset]);
+  return {
+    members: rows,
+    total: rows.length > 0 ? Number(rows[0].total_count) : 0,
+    page,
+    limit,
+    totalPages: Math.ceil((rows.length > 0 ? Number(rows[0].total_count) : 0) / limit)
+  };
 };
 
 const getMemberCarePackages = async (memberId: number) => {
@@ -839,7 +1089,7 @@ const getMemberCarePackages = async (memberId: number) => {
     ORDER BY mcp.created_at DESC
   `;
 
-  const { rows } = await pool().query(query, [memberId]);
+  const { rows } = await dbQuery(query, [memberId]);
   return rows;
 };
 
@@ -891,7 +1141,7 @@ const searchMemberCarePackages = async (searchQuery: string, memberId: number | 
   `;
 
   const values = memberId ? [`%${searchQuery}%`, memberId] : [`%${searchQuery}%`];
-  const { rows } = await pool().query(query, values);
+  const { rows } = await dbQuery(query, values);
   return rows;
 };
 
@@ -912,7 +1162,7 @@ const getRefundDateByMcpId = async (mcpId: string) => {
     LIMIT 1;
   `;
 
-  const { rows } = await pool().query(query, [mcpId]);
+  const { rows } = await dbQuery(query, [mcpId]);
   return rows[0]?.refund_date || null;
 };
 
@@ -1135,7 +1385,7 @@ const processRefundMemberVoucher = async (body: {
 
     // Handle process_payment flag updates
     await client.query(
-    `
+      `
       UPDATE sale_transactions
       SET process_payment = false
       WHERE id IN (
@@ -1168,9 +1418,6 @@ const processRefundMemberVoucher = async (body: {
     client.release();
   }
 };
-
-
-
 
 // Generate a new credit note number based on the last one in the database
 // Format: CFS 001, CFS 002, etc.
@@ -1657,6 +1904,7 @@ export default {
   getRemainingServices,
   //getStatusId,
   processFullRefundTransaction,
+  processPartialRefundTransaction,
   fetchMCPStatusById,
   searchMembers,
   getMemberCarePackages,
@@ -1666,4 +1914,5 @@ export default {
   getAllRefundRecords,
   getRefundRecordDetails,
   getRefundDetailsForPackage,
+  listMembers
 };
