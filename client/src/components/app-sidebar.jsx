@@ -27,14 +27,12 @@ import {
   SidebarMenuItem,
 } from '@/components/ui/sidebar';
 import useAuth from '@/hooks/useAuth';
-import { useSimulationStore } from '@/stores/useSimulationStore';
-import { cn } from '@/lib/utils';
 
 const data = {
   navMain: [
     {
       title: 'Dashboard',
-      url: '#',
+      url: '/',
       icon: LayoutDashboard,
       isActive: true,
     },
