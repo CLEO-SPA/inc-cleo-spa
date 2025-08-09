@@ -22,7 +22,6 @@ router.get('/products', controller.searchProducts);
 // router.all('/e', roleMiddleware.hasRole(['data_admin', 'super_admin']), controller.emulateCarePackage);
 router.post('/services-products', controller.createServicesProductsTransaction, commissionMiddleware.applyServicesProductsCommission);
 router.post('/mcp', controller.createMcpTransaction, commissionMiddleware.applyMcpCommission);
-router.post('/mv', controller.createMvTransaction, commissionMiddleware.applyMvCommission);
 router.post('/mcp-transfer', controller.createMcpTransferTransaction);
 router.post('/mv-transfer', controller.createMvTransferTransaction);
 router.post('/pp/:id', controller.processPartialPayment);

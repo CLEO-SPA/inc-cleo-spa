@@ -600,7 +600,6 @@ const createServicesProductsTransaction = async (
   try {
     await client.query('BEGIN');
 
-    // Extract data from request
     const {
       customer_type,
       member_id,
@@ -612,9 +611,12 @@ const createServicesProductsTransaction = async (
       payments,
       created_at,
       updated_at,
+      gstBreakdown,
     } = transactionData;
 
-    // Validate required fields
+    // Add debug logging
+    console.log('📥 Received GST Breakdown:', gstBreakdown);
+
     if (!created_by) {
       throw new Error('created_by is required');
     }
@@ -630,6 +632,7 @@ const createServicesProductsTransaction = async (
     if (!payments || !Array.isArray(payments) || payments.length === 0) {
       throw new Error('payments array is required and cannot be empty');
     }
+
     let customCreatedAt = null;
     let customUpdatedAt = null;
 
@@ -661,22 +664,36 @@ const createServicesProductsTransaction = async (
       customUpdatedAt = customCreatedAt;
     }
 
-    // Calculate totals from items
-    const totalTransactionAmount: number = items.reduce((total: number, item: TransactionRequestItem) => {
-      return total + (item.pricing?.totalLinePrice || 0);
-    }, 0);
+    let totalTransactionAmount: number;
+    let totalGSTAmount: number;
 
-    // Calculate total paid amount from payments
+    if (gstBreakdown) {
+      totalTransactionAmount = gstBreakdown.inclusiveTotal || 0;
+      totalGSTAmount = gstBreakdown.gstTotal || 0;
+      console.log('✅ Using GST breakdown from frontend:', {
+        inclusive: totalTransactionAmount,
+        gst: totalGSTAmount
+      });
+    } else {
+      const exclusiveTotal = items.reduce((total: number, item: TransactionRequestItem) => {
+        return total + (item.pricing?.totalLinePrice || 0);
+      }, 0);
+      totalGSTAmount = exclusiveTotal * 0.09;
+      totalTransactionAmount = exclusiveTotal + totalGSTAmount;
+      console.log('⚠️ No GST breakdown provided, calculated:', {
+        exclusive: exclusiveTotal,
+        gst: totalGSTAmount,
+        inclusive: totalTransactionAmount
+      });
+    }
+
     const totalPaidAmount: number = payments.reduce((total: number, payment: PaymentMethodRequest) => {
       return total + (payment.amount || 0);
     }, 0);
 
     const outstandingAmount: number = totalTransactionAmount - totalPaidAmount;
-
-    // Determine transaction status
     const transactionStatus: 'FULL' | 'PARTIAL' = outstandingAmount <= 0 ? 'FULL' : 'PARTIAL';
 
-    // Generate receipt number if not provided
     let finalReceiptNo: string = receipt_number || '';
     if (!finalReceiptNo) {
       const receiptResult = await client.query(
@@ -686,6 +703,7 @@ const createServicesProductsTransaction = async (
       finalReceiptNo = `ST${receiptResult.rows[0].next_number.toString().padStart(6, '0')}`;
     }
 
+    // ✅ UPDATED: Include gst_amount in the INSERT query
     const transactionQuery: string = `
       INSERT INTO sale_transactions (
         customer_type,
@@ -699,27 +717,29 @@ const createServicesProductsTransaction = async (
         handled_by,
         created_by,
         created_at,
-        updated_at
-      ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12)
+        updated_at,
+        gst_amount
+      ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13)
       RETURNING id
     `;
 
+    // ✅ UPDATED: Include totalGSTAmount as parameter 13
     const transactionParams: (string | number | boolean | null | Date)[] = [
       customer_type?.toUpperCase() || 'MEMBER',
       member_id || null,
-      totalPaidAmount,
-      outstandingAmount,
+      totalTransactionAmount,        // Use inclusive amount as total_paid_amount
+      outstandingAmount,             // This will be 0 if fully paid
       transactionStatus,
       finalReceiptNo,
       remarks || '',
-      false, // process_payment always false for services/products transactions
+      false,
       handled_by,
       created_by,
       customCreatedAt,
       customUpdatedAt,
+      totalGSTAmount,                // ✅ NEW: GST amount parameter
     ];
 
-    console.log('Services/Products Transaction Query:', transactionQuery);
     console.log('Services/Products Transaction Params:', transactionParams);
 
     const transactionResult = await client.query(transactionQuery, transactionParams);
@@ -728,7 +748,7 @@ const createServicesProductsTransaction = async (
     console.log('Created sale transaction with ID:', saleTransactionId);
 
     const createdItemIds: number[] = [];
-    // Insert sale transaction items
+
     for (const item of items) {
       const itemQuery: string = `
         INSERT INTO sale_transaction_items (
@@ -776,8 +796,8 @@ const createServicesProductsTransaction = async (
         saleTransactionId,
         serviceName,
         productName,
-        null, // member_care_package_id - always null for services/products
-        null, // member_voucher_id - always null for services/products
+        null,
+        null,
         pricing.originalPrice || 0,
         pricing.customPrice || 0,
         pricing.discount || 0,
@@ -795,6 +815,7 @@ const createServicesProductsTransaction = async (
       console.log('Created sale transaction item with ID:', saleTransactionItemId);
     }
 
+    // Insert customer payments
     for (const payment of payments) {
       if (payment.amount > 0) {
         const paymentQuery: string = `
@@ -805,8 +826,9 @@ const createServicesProductsTransaction = async (
             remarks,
             created_by,
             created_at,
+            updated_by,
             updated_at
-          ) VALUES ($1, $2, $3, $4, $5, $6, $7)
+          ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8)
           RETURNING id
         `;
 
@@ -817,6 +839,7 @@ const createServicesProductsTransaction = async (
           payment.remark || '',
           handled_by,
           customCreatedAt,
+          handled_by,       // updated_by
           customUpdatedAt,
         ];
 
@@ -825,10 +848,13 @@ const createServicesProductsTransaction = async (
       }
     }
 
+    // ✅ REMOVED: No longer creating GST payment record
+    // GST amount is now stored directly in sale_transactions.gst_amount column
+    console.log('🏛️ GST amount stored in sale_transactions.gst_amount:', totalGSTAmount);
+
     await client.query('COMMIT');
     console.log('Services/Products Transaction committed successfully');
 
-    // Return the created transaction data
     return {
       id: saleTransactionId,
       receipt_no: finalReceiptNo,
@@ -853,6 +879,7 @@ const createServicesProductsTransaction = async (
     client.release();
   }
 };
+
 
 const createMcpTransaction = async (
   transactionData: SingleItemTransactionRequestData
@@ -1148,274 +1175,9 @@ const createMcpTransaction = async (
   }
 };
 
-const createMvTransaction = async (
-  transactionData: SingleItemTransactionRequestData
-): Promise<SingleItemTransactionCreationResult> => {
-  const client = await pool().connect();
 
-  try {
-    await client.query('BEGIN');
 
-    const {
-      customer_type,
-      member_id,
-      receipt_number,
-      remarks,
-      created_by,
-      handled_by,
-      item,
-      payments,
-      created_at,
-      updated_at,
-    } = transactionData;
 
-    // Validate required fields
-    if (!created_by) {
-      throw new Error('created_by is required');
-    }
-
-    if (!handled_by) {
-      throw new Error('handled_by is required');
-    }
-
-    if (!item || item.type !== 'member-voucher') {
-      throw new Error('item is required and must be of type "member-voucher"');
-    }
-
-    if (!payments || !Array.isArray(payments) || payments.length === 0) {
-      throw new Error('payments array is required and cannot be empty');
-    }
-
-    let customCreatedAt = null;
-    let customUpdatedAt = null;
-
-    if (created_at) {
-      try {
-        customCreatedAt = new Date(created_at);
-        if (isNaN(customCreatedAt.getTime())) {
-          console.warn('Invalid created_at format, using current time:', created_at);
-          customCreatedAt = new Date();
-        }
-      } catch (error) {
-        console.warn('Error parsing created_at, using current time:', error);
-        customCreatedAt = new Date();
-      }
-    } else {
-      customCreatedAt = new Date();
-    }
-
-    if (updated_at) {
-      try {
-        customUpdatedAt = new Date(updated_at);
-        if (isNaN(customUpdatedAt.getTime())) {
-          console.warn('Invalid updated_at format, using created_at time:', updated_at);
-          customUpdatedAt = customCreatedAt;
-        }
-      } catch (error) {
-        console.warn('Error parsing updated_at, using created_at time:', error);
-        customUpdatedAt = customCreatedAt;
-      }
-    } else {
-      customUpdatedAt = customCreatedAt;
-    }
-
-    const mvId = item.data?.member_voucher_id || item.data?.id;
-
-    if (!mvId) {
-      throw new Error('member_voucher_id is required in item data');
-    }
-
-    const mvValidationQuery = `
-      SELECT id, member_voucher_name 
-      FROM member_vouchers 
-      WHERE id = $1
-    `;
-
-    const mvValidationResult = await client.query(mvValidationQuery, [mvId]);
-
-    if (mvValidationResult.rows.length === 0) {
-      throw new Error(`Member Voucher with ID ${mvId} not found`);
-    }
-
-    const mvRecord = mvValidationResult.rows[0];
-    console.log('✅ Validated MV exists:', {
-      mvId: mvId,
-      voucherName: mvRecord.member_voucher_name,
-    });
-
-    const totalTransactionAmount: number = item.pricing?.totalLinePrice || 0;
-
-    const PENDING_PAYMENT_METHOD_ID = 7;
-
-    const pendingPayments = payments.filter(
-      (payment: PaymentMethodRequest) => payment.methodId === PENDING_PAYMENT_METHOD_ID
-    );
-
-    const nonPendingPayments = payments.filter(
-      (payment: PaymentMethodRequest) => payment.methodId !== PENDING_PAYMENT_METHOD_ID
-    );
-
-    const totalPaidAmount: number = nonPendingPayments.reduce((total: number, payment: PaymentMethodRequest) => {
-      return total + (payment.amount || 0);
-    }, 0);
-
-    const outstandingAmount: number = pendingPayments.reduce((total: number, payment: PaymentMethodRequest) => {
-      return total + (payment.amount || 0);
-    }, 0);
-
-    const transactionStatus: 'FULL' | 'PARTIAL' = outstandingAmount <= 0 ? 'FULL' : 'PARTIAL';
-    const processPayment: boolean = outstandingAmount > 0;
-
-    const calculatedTotal = totalPaidAmount + outstandingAmount;
-    if (Math.abs(calculatedTotal - totalTransactionAmount) > 0.01) {
-      console.warn('Payment total mismatch:', {
-        totalTransactionAmount,
-        totalPaidAmount,
-        outstandingAmount,
-        calculatedTotal,
-      });
-    }
-
-    let finalReceiptNo: string = receipt_number || '';
-    if (!finalReceiptNo) {
-      const receiptResult = await client.query(
-        'SELECT COALESCE(MAX(CAST(SUBSTRING(receipt_no FROM 3) AS INTEGER)), 0) + 1 as next_number FROM sale_transactions WHERE receipt_no LIKE $1',
-        [`ST%`]
-      );
-      finalReceiptNo = `ST${receiptResult.rows[0].next_number.toString().padStart(6, '0')}`;
-    }
-    const transactionQuery: string = `
-      INSERT INTO sale_transactions (
-        customer_type,
-        member_id,
-        total_paid_amount,
-        outstanding_total_payment_amount,
-        sale_transaction_status,
-        receipt_no,
-        remarks,
-        process_payment,
-        handled_by,
-        created_by,
-        created_at,
-        updated_at
-      ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12)
-      RETURNING id
-    `;
-
-    const transactionParams: (string | number | boolean | null | Date)[] = [
-      customer_type?.toUpperCase() || 'MEMBER',
-      member_id || null,
-      totalPaidAmount,
-      outstandingAmount,
-      transactionStatus,
-      finalReceiptNo,
-      remarks || '',
-      processPayment,
-      handled_by,
-      created_by,
-      customCreatedAt, // ✅ Use custom created_at instead of NOW()
-      customUpdatedAt, // ✅ Use custom updated_at instead of NOW()
-    ];
-
-    const transactionResult = await client.query(transactionQuery, transactionParams);
-    const saleTransactionId: number = transactionResult.rows[0].id;
-
-    // Insert voucher item with actual MV ID
-    const itemQuery: string = `
-      INSERT INTO sale_transaction_items (
-        sale_transaction_id,
-        service_name,
-        product_name,
-        member_care_package_id,
-        member_voucher_id,
-        original_unit_price,
-        custom_unit_price,
-        discount_percentage,
-        quantity,
-        amount,
-        item_type,
-        remarks
-      ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12)
-      RETURNING id
-    `;
-
-    const itemParams: (string | number | null)[] = [
-      saleTransactionId,
-      null, // service_name
-      null, // product_name
-      null, // member_care_package_id
-      mvId,
-      item.pricing?.originalPrice || 0,
-      item.pricing?.customPrice || 0,
-      item.pricing?.discount || 0,
-      item.pricing?.quantity || 1,
-      item.pricing?.totalLinePrice || 0,
-      'member voucher',
-      item.remarks || '',
-    ];
-
-    const itemResult = await client.query(itemQuery, itemParams);
-    const saleTransactionItemId: number = itemResult.rows[0].id;
-
-    for (const payment of payments) {
-      if (payment.amount > 0) {
-        const paymentQuery: string = `
-          INSERT INTO payment_to_sale_transactions (
-            sale_transaction_id,
-            payment_method_id,
-            amount,
-            remarks,
-            created_by,
-            created_at,
-            updated_at
-          ) VALUES ($1, $2, $3, $4, $5, $6, $7)
-          RETURNING id
-        `;
-
-        const paymentParams: (number | string | Date)[] = [
-          saleTransactionId,
-          payment.methodId,
-          payment.amount,
-          payment.remark || '',
-          handled_by,
-          customCreatedAt,
-          customUpdatedAt,
-        ];
-
-        const paymentResult = await client.query(paymentQuery, paymentParams);
-        console.log('Created MV payment with ID:', paymentResult.rows[0].id);
-      }
-    }
-
-    await client.query('COMMIT');
-    console.log('MV Transaction committed successfully');
-
-    // Return the created transaction data
-    return {
-      id: saleTransactionId,
-      receipt_no: finalReceiptNo,
-      customer_type: customer_type?.toUpperCase() || 'MEMBER',
-      member_id: member_id ? member_id.toString() : null,
-      total_transaction_amount: totalTransactionAmount,
-      total_paid_amount: totalPaidAmount,
-      outstanding_total_payment_amount: outstandingAmount,
-      transaction_status: transactionStatus,
-      remarks: remarks || '',
-      created_by,
-      handled_by,
-      voucher_id: mvId,
-      voucher_name: mvRecord.member_voucher_name,
-      items_count: 1,
-      payments_count: payments.filter((p: PaymentMethodRequest) => p.amount > 0).length,
-    };
-  } catch (error) {
-    await client.query('ROLLBACK');
-    console.error('Error creating MV sale transaction:', error);
-    throw error;
-  } finally {
-    client.release();
-  }
-};
 
 const createMcpTransferTransaction = async (
   transactionData: SingleItemTransactionRequestData
@@ -2366,7 +2128,6 @@ export default {
   searchProducts,
   createServicesProductsTransaction,
   createMcpTransaction,
-  createMvTransaction,
   createMcpTransferTransaction,
   createMvTransferTransaction,
   processPartialPayment,

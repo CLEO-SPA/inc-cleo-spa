@@ -8,7 +8,6 @@ import usePaymentMethodStore from '@/stores/usePaymentMethodStore';
 import useEmployeeStore from '@/stores/useEmployeeStore';
 import api from '@/services/api';
 
-
 const CartItemsWithPayment = ({
   cartItems,
   onPricingChange,
@@ -29,8 +28,6 @@ const CartItemsWithPayment = ({
 
   // Track which transfer sections have been processed to prevent duplicates
   const processedTransferSections = useRef(new Set());
-  // Track which sections have had GST added
-  const processedGSTSections = useRef(new Set());
 
   // State for GST rate
   const [gstRate, setGstRate] = useState(9); // Default to 9% if API fails
@@ -89,108 +86,26 @@ const CartItemsWithPayment = ({
     }
   }, [dropdownPaymentMethods.length, loading, fetchDropdownPaymentMethods]);
 
-  // Debug: Log payment methods when they change
-  useEffect(() => {
-    console.log('Payment methods from store:', dropdownPaymentMethods);
-    if (dropdownPaymentMethods.length > 0) {
-      console.log('Sample payment method structure:', dropdownPaymentMethods[0]);
-    }
-  }, [dropdownPaymentMethods]);
-
   // Helper function to round to 2 decimal places
   const roundTo2Decimals = (num) => {
     return Math.round((num + Number.EPSILON) * 100) / 100;
   };
 
-  // Helper function to calculate GST amount
-  const calculateGSTAmount = (amount) => {
-    return roundTo2Decimals(amount * (gstRate / 100));
+  // ✅ FIXED: Helper function to calculate GST amount from GST-exclusive price
+  const calculateGSTFromExclusive = (exclusiveAmount) => {
+    // GST = exclusive amount * (rate / 100)
+    return roundTo2Decimals(exclusiveAmount * (gstRate / 100));
   };
 
-  // Helper function to get revenue-generating payment methods (excluding Transfer, Free, Pending, etc.)
-  const getRevenuePaymentMethods = () => {
-    // Fallback list of known revenue payment method IDs if dropdownPaymentMethods is not loaded
-    const knownRevenueMethodIds = [1, 2, 3, 4]; // Cash, NETS, PayNow, VISA based on project knowledge
-    
-    if (dropdownPaymentMethods.length === 0) {
-      console.log('Using fallback revenue method IDs:', knownRevenueMethodIds);
-      return knownRevenueMethodIds;
-    }
-    
-    const revenueIds = dropdownPaymentMethods.filter(method => {
-      // Handle different possible formats for is_revenue
-      const isRevenue = method.is_revenue === true || 
-                       method.is_revenue === 't' || 
-                       method.is_revenue === 'true' || 
-                       method.is_revenue === 1 ||
-                       method.is_revenue === '1';
-      
-      console.log('Payment method revenue check:', {
-        id: method.id,
-        name: method.payment_method_name,
-        is_revenue: method.is_revenue,
-        isRevenue
-      });
-      
-      return isRevenue;
-    }).map(method => parseInt(method.id));
-    
-    console.log('Revenue payment method IDs:', revenueIds);
-    return revenueIds.length > 0 ? revenueIds : knownRevenueMethodIds;
-  };
-
-  // Calculate GST based on actual revenue payments made
-  const calculateDynamicGST = (sectionId) => {
-    const payments = sectionPayments[sectionId] || [];
-    const revenueMethodIds = getRevenuePaymentMethods();
-    
-    console.log('calculateDynamicGST for', sectionId, {
-      payments,
-      revenueMethodIds,
-      dropdownPaymentMethods: dropdownPaymentMethods.slice(0, 3) // Show first 3 for debugging
-    });
-    
-    // Sum up only revenue-generating payments (excluding GST and non-revenue payments like Transfer)
-    const revenuePaymentTotal = roundTo2Decimals(payments
-      .filter(payment => {
-        const isNotGST = payment.methodName !== `GST (${gstRate}%)`;
-        const isRevenueMethod = revenueMethodIds.includes(parseInt(payment.methodId));
-        
-        console.log('Payment filter check:', {
-          payment: payment.methodName,
-          methodId: payment.methodId,
-          isNotGST,
-          isRevenueMethod,
-          included: isNotGST && isRevenueMethod
-        });
-        
-        return isNotGST && isRevenueMethod;
-      })
-      .reduce((total, payment) => total + payment.amount, 0));
-    
-    const gstAmount = calculateGSTAmount(revenuePaymentTotal);
-    
-    console.log('Dynamic GST calculation result:', {
-      sectionId,
-      revenuePaymentTotal,
-      gstRate,
-      gstAmount
-    });
-    
-    return gstAmount;
+  // ✅ FIXED: Helper function to calculate GST-inclusive amount from GST-exclusive price
+  const calculateInclusiveFromExclusive = (exclusiveAmount) => {
+    // Inclusive = exclusive amount + GST
+    const gstAmount = calculateGSTFromExclusive(exclusiveAmount);
+    return roundTo2Decimals(exclusiveAmount + gstAmount);
   };
 
   // Group items by type and create sections
   const groupedItems = {
-    // Services: cartItems.filter((item) => item.type === 'service'),
-    // Products: cartItems.filter((item) => item.type === 'product'),
-    // Packages: cartItems.filter((item) => item.type === 'package'),
-    // Vouchers: cartItems.filter((item) => item.type === 'member-voucher'),
-    // TransferMCP: cartItems.filter(
-    //   (item) => item.type === 'transferMCP' || (item.type === 'transfer' && item.data?.queueItem?.mcp_id1)
-    // ),
-    // TransferMV: cartItems.filter((item) => item.type === 'transferMV'),
-
     'Services': cartItems.filter(item => item.type === 'service'),
     'Products': cartItems.filter(item => item.type === 'product'),
     'Packages': cartItems.filter(item => item.type === 'package'),
@@ -199,69 +114,88 @@ const CartItemsWithPayment = ({
     'TransferMV': cartItems.filter(item => item.type === 'transferMV'),
   };
 
-  // Create payment sections based on cart items
+  // ✅ FIXED: Create payment sections with correct GST logic
   const getPaymentSections = () => {
     const sections = [];
 
     // Services + Products combined section (mandatory)
     const servicesAndProducts = [...groupedItems.Services, ...groupedItems.Products];
     if (servicesAndProducts.length > 0) {
-      const combinedAmount = roundTo2Decimals(servicesAndProducts.reduce((total, item) => {
+      // ✅ FIX: Treat totalLinePrice as EXCLUSIVE amount
+      const totalExclusiveAmount = roundTo2Decimals(servicesAndProducts.reduce((total, item) => {
         const pricing = getItemPricing(item.id);
-        return total + pricing.totalLinePrice;
+        return total + pricing.totalLinePrice; // This is exclusive amount (e.g., $128)
       }, 0));
       
-      // GST will be calculated dynamically based on payments
-      const dynamicGST = calculateDynamicGST('services-products');
-      const totalWithGST = roundTo2Decimals(combinedAmount + dynamicGST);
+      // ✅ FIX: Calculate GST on the exclusive amount
+      const gstAmount = calculateGSTFromExclusive(totalExclusiveAmount); // $128 × 9% = $11.52
+      const inclusiveAmount = totalExclusiveAmount + gstAmount; // $128 + $11.52 = $139.52
       
       sections.push({
         id: 'services-products',
         title: 'Services & Products (Required)',
-        amount: combinedAmount,
-        gstAmount: dynamicGST,
-        totalWithGST: totalWithGST,
+        inclusiveAmount: inclusiveAmount,        // $139.52 (what customer pays)
+        exclusiveAmount: totalExclusiveAmount,   // $128.00 (item price without GST)
+        gstAmount: gstAmount,                    // $11.52 (GST amount)
         required: true,
         items: servicesAndProducts,
-        isDynamicGST: true
+        // Add GST breakdown for backend
+        gstBreakdown: {
+          inclusiveTotal: inclusiveAmount,       // $139.52
+          exclusiveTotal: totalExclusiveAmount,  // $128.00
+          gstTotal: gstAmount,                   // $11.52
+          gstRate: gstRate                       // 9
+        }
       });
     }
 
     // Individual sections for Packages
     groupedItems.Packages.forEach((item) => {
       const pricing = getItemPricing(item.id);
-      const amount = roundTo2Decimals(pricing.totalLinePrice);
-      const dynamicGST = calculateDynamicGST(`package-${item.id}`);
-      const totalWithGST = roundTo2Decimals(amount + dynamicGST);
+      const exclusiveAmount = roundTo2Decimals(pricing.totalLinePrice); // Treat as exclusive
+      const gstAmount = calculateGSTFromExclusive(exclusiveAmount);
+      const inclusiveAmount = exclusiveAmount + gstAmount;
       
       sections.push({
         id: `package-${item.id}`,
         title: `Package: ${item.data?.name || 'Unnamed Package'}`,
-        amount: amount,
-        gstAmount: dynamicGST,
-        totalWithGST: totalWithGST,
+        inclusiveAmount: inclusiveAmount,     // Customer pays this
+        exclusiveAmount: exclusiveAmount,     // Base package price
+        gstAmount: gstAmount,                 // GST added
         required: false,
         items: [item],
-        isDynamicGST: true
+        // Add GST breakdown for backend
+        gstBreakdown: {
+          inclusiveTotal: inclusiveAmount,
+          exclusiveTotal: exclusiveAmount,
+          gstTotal: gstAmount,
+          gstRate: gstRate
+        }
       });
     });
 
     // Individual sections for Vouchers
     groupedItems.Vouchers.forEach((item) => {
       const pricing = getItemPricing(item.id);
-      const amount = roundTo2Decimals(pricing.totalLinePrice);
-      const dynamicGST = calculateDynamicGST(`voucher-${item.id}`);
-      const totalWithGST = roundTo2Decimals(amount + dynamicGST);
+      const exclusiveAmount = roundTo2Decimals(pricing.totalLinePrice); // Treat as exclusive
+      const gstAmount = calculateGSTFromExclusive(exclusiveAmount);
+      const inclusiveAmount = exclusiveAmount + gstAmount;
       
       sections.push({
         id: `voucher-${item.id}`,
         title: `Voucher: ${item.data?.member_voucher_name || 'Unnamed Voucher'}`,
-        amount: amount,
-        gstAmount: dynamicGST,
-        totalWithGST: totalWithGST,
+        inclusiveAmount: inclusiveAmount,
+        exclusiveAmount: exclusiveAmount,
+        gstAmount: gstAmount,
         required: false,
         items: [item],
-        isDynamicGST: true
+        // Add GST breakdown for backend
+        gstBreakdown: {
+          inclusiveTotal: inclusiveAmount,
+          exclusiveTotal: exclusiveAmount,
+          gstTotal: gstAmount,
+          gstRate: gstRate
+        }
       });
     });
 
@@ -269,42 +203,51 @@ const CartItemsWithPayment = ({
     groupedItems.TransferMCP.forEach(item => {
       const pricing = getItemPricing(item.id);
       const amount = roundTo2Decimals(pricing.totalLinePrice);
-      const gstAmount = 0; // No GST for full transfers
-      const totalWithGST = amount;
       
       sections.push({
         id: `transfer-mcp-${item.id}`,
         title: `MCP Transfer: ${item.data?.description || item.data?.name || 'MCP Balance Transfer'}`,
-        amount: amount,
-        gstAmount: gstAmount,
-        totalWithGST: totalWithGST,
+        inclusiveAmount: amount,
+        exclusiveAmount: amount, // No GST for transfers
+        gstAmount: 0,
         required: false,
         items: [item],
-        isTransfer: true
+        isTransfer: true,
+        gstBreakdown: {
+          inclusiveTotal: amount,
+          exclusiveTotal: amount,
+          gstTotal: 0,
+          gstRate: 0
+        }
       });
     });
 
-    // Individual sections for MV Transfers - Dynamic GST on revenue payments only
+    // Individual sections for MV Transfers - Include GST
     groupedItems.TransferMV.forEach(item => {
       const pricing = getItemPricing(item.id);
-      const totalAmount = roundTo2Decimals(pricing.totalLinePrice);
+      const totalExclusiveAmount = roundTo2Decimals(pricing.totalLinePrice);
       const transferAmount = roundTo2Decimals(item.data?.transferAmount || 0);
       
-      // GST calculated dynamically based on actual revenue payments made
-      const dynamicGST = calculateDynamicGST(`transfer-mv-${item.id}`);
-      const totalWithGST = roundTo2Decimals(totalAmount + dynamicGST);
+      const gstAmount = calculateGSTFromExclusive(totalExclusiveAmount);
+      const inclusiveAmount = totalExclusiveAmount + gstAmount;
       
       sections.push({
         id: `transfer-mv-${item.id}`,
         title: `MV Transfer: ${item.data?.description || item.data?.name || 'Member Voucher Transfer'}`,
-        amount: totalAmount,
+        inclusiveAmount: inclusiveAmount,
+        exclusiveAmount: totalExclusiveAmount,
+        gstAmount: gstAmount,
         transferAmount: transferAmount,
-        gstAmount: dynamicGST,
-        totalWithGST: totalWithGST,
         required: false,
         items: [item],
         isPartialTransfer: true,
-        isDynamicGST: true
+        // Add GST breakdown for backend
+        gstBreakdown: {
+          inclusiveTotal: inclusiveAmount,
+          exclusiveTotal: totalExclusiveAmount,
+          gstTotal: gstAmount,
+          gstRate: gstRate
+        }
       });
     });
 
@@ -322,6 +265,7 @@ const CartItemsWithPayment = ({
     if (currentAssignments.length > 0) {
       const updatedAssignments = currentAssignments.map((assignment) => {
         const updatedAssignment = { ...assignment };
+        // ✅ Commission calculated on exclusive amount (totalLinePrice)
         const perfAmt = (newPricing.totalLinePrice * assignment.performanceRate) / 100;
         updatedAssignment.performanceAmount = perfAmt;
         const commRate = parseFloat(assignment.commissionRate) || 0;
@@ -350,6 +294,7 @@ const CartItemsWithPayment = ({
       newPricing.finalUnitPrice = roundTo2Decimals(newPricing.originalPrice * discountValue);
     }
 
+    // ✅ totalLinePrice remains as exclusive amount
     newPricing.totalLinePrice = roundTo2Decimals(newPricing.finalUnitPrice * newPricing.quantity);
     return newPricing;
   };
@@ -408,13 +353,14 @@ const CartItemsWithPayment = ({
       rawRate = commissionSettings[commissionKey]
         // only if commissionKey is missing, use overall default
         || commissionSettings['default']
-        // if that’s missing, use our literal
+        // if that's missing, use our literal
         || rawRate;
     }
 
     const defaultCommRate = parseFloat(rawRate);
     console.log('Selected commission rate:', defaultCommRate, 'for item type:', item.type);
 
+    // ✅ Commission calculated on exclusive amount (totalLinePrice)
     const perfAmt = (pricing.totalLinePrice * defaultPerfRate) / 100;
     const commAmt = (perfAmt * defaultCommRate) / 100;
     const newAssignment = {
@@ -633,40 +579,6 @@ const CartItemsWithPayment = ({
 
     onPaymentChange('add', sectionId, newPayment);
     onSelectedPaymentMethodChange(sectionId, '');
-    
-    // Force GST calculation for dynamic GST sections when revenue payment is added
-    const revenueMethodIds = getRevenuePaymentMethods();
-    if (revenueMethodIds.includes(parseInt(methodId))) {
-      console.log('Revenue payment method added, forcing GST calculation for', sectionId);
-      
-      // Small delay to ensure payment is added to state first
-      setTimeout(() => {
-        const section = paymentSections.find(s => s.id === sectionId);
-        if (section?.isDynamicGST) {
-          const newGSTAmount = calculateDynamicGST(sectionId);
-          console.log('Forced GST calculation result:', newGSTAmount);
-          
-          if (newGSTAmount > 0) {
-            const existingPayments = sectionPayments[sectionId] || [];
-            const existingGSTPayment = existingPayments.find(payment => payment.methodName === `GST (${gstRate}%)`);
-            
-            if (!existingGSTPayment) {
-              const gstPayment = {
-                id: crypto.randomUUID(),
-                methodId: 10,
-                methodName: `GST (${gstRate}%)`,
-                amount: newGSTAmount,
-                remark: ` GST rate ${gstRate}%`,
-                isGST: true
-              };
-              
-              onPaymentChange('add', sectionId, gstPayment);
-              console.log('Force-added GST payment');
-            }
-          }
-        }
-      }, 100);
-    }
   };
 
   // Remove payment method from section
@@ -674,36 +586,22 @@ const CartItemsWithPayment = ({
     onPaymentChange('remove', sectionId, paymentId);
   };
 
-  // Update payment amount with smart limiting for dynamic GST
+  // Update payment amount
   const updatePaymentAmount = (sectionId, paymentId, amount) => {
     const numAmount = roundTo2Decimals(parseFloat(amount) || 0);
     const section = paymentSections.find(s => s.id === sectionId);
     const currentPayments = sectionPayments[sectionId] || [];
     
-    const otherNonGSTPaymentsTotal = roundTo2Decimals(currentPayments
-      .filter(p => p.id !== paymentId && p.methodName !== `GST (${gstRate}%)`)
+    const otherPaymentsTotal = roundTo2Decimals(currentPayments
+      .filter(p => p.id !== paymentId)
       .reduce((sum, p) => sum + p.amount, 0));
     
-    let clampedAmount;
-    let maxAllowed;
+    // ✅ Limit payment to remaining section amount (inclusive of GST)
+    const maxAllowed = section ? roundTo2Decimals(section.inclusiveAmount - otherPaymentsTotal) : numAmount;
+    const clampedAmount = roundTo2Decimals(Math.min(numAmount, Math.max(0, maxAllowed)));
     
-    if (section?.isDynamicGST) {
-      // For dynamic GST sections, limit to remaining section amount
-      // This prevents paying more than the actual invoice amount (excluding GST)
-      maxAllowed = roundTo2Decimals(section.amount - otherNonGSTPaymentsTotal);
-      clampedAmount = roundTo2Decimals(Math.min(numAmount, Math.max(0, maxAllowed)));
-      
-      if (numAmount > maxAllowed && maxAllowed >= 0) {
-        console.warn(`Payment amount limited from ${numAmount} to ${clampedAmount} for dynamic GST section ${sectionId}`);
-      }
-    } else {
-      // For fixed GST sections, maintain original logic
-      maxAllowed = section ? roundTo2Decimals(section.amount - otherNonGSTPaymentsTotal) : numAmount;
-      clampedAmount = roundTo2Decimals(Math.min(numAmount, Math.max(0, maxAllowed)));
-      
-      if (numAmount > maxAllowed && maxAllowed >= 0) {
-        console.warn(`Payment amount adjusted from ${numAmount} to ${clampedAmount} for section ${sectionId}`);
-      }
+    if (numAmount > maxAllowed && maxAllowed >= 0) {
+      console.warn(`Payment amount limited from ${numAmount} to ${clampedAmount} for section ${sectionId}`);
     }
 
     onPaymentChange('updateAmount', sectionId, { paymentId, amount: clampedAmount });
@@ -714,16 +612,8 @@ const CartItemsWithPayment = ({
     onPaymentChange('updateRemark', sectionId, { paymentId, remark });
   };
 
-  // Get total payment for a section (excluding GST)
+  // Get total payment for a section
   const getSectionPaymentTotal = (sectionId) => {
-    const payments = sectionPayments[sectionId] || [];
-    return roundTo2Decimals(payments
-      .filter(payment => payment.methodName !== `GST (${gstRate}%)`)
-      .reduce((total, payment) => total + payment.amount, 0));
-  };
-
-  // Get total payment including GST for a section
-  const getSectionTotalWithGST = (sectionId) => {
     const payments = sectionPayments[sectionId] || [];
     return roundTo2Decimals(payments.reduce((total, payment) => total + payment.amount, 0));
   };
@@ -740,52 +630,16 @@ const CartItemsWithPayment = ({
 
   const paymentSections = getPaymentSections();
 
-  // Modified auto-add GST function to handle dynamic GST
-  const autoAddGSTPayment = (sectionId, gstAmount, isTransfer = false, isPartialTransfer = false, isDynamicGST = false) => {
-    // Skip GST for full transfer sections only
-    if (isTransfer && !isPartialTransfer) {
-      return;
-    }
-
-    // For dynamic GST sections, don't auto-add GST at the beginning
-    if (isDynamicGST && gstAmount === 0) {
-      return;
-    }
-
-    if (processedGSTSections.current.has(sectionId)) {
-      return;
-    }
-
-    const existingPayments = sectionPayments[sectionId] || [];
-    const hasGSTPayment = existingPayments.some(payment => payment.methodName === `GST (${gstRate}%)`);
-    
-    if (!hasGSTPayment && gstAmount > 0) {
-      const gstPayment = {
-        id: crypto.randomUUID(),
-        methodId: 10,
-        methodName: `GST (${gstRate}%)`,
-        amount: roundTo2Decimals(gstAmount),
-        remark: isDynamicGST ? `GST rate ${gstRate}%` : `Auto-GST rate ${gstRate}%`,
-        isGST: true
-      };
-      
-      onPaymentChange('add', sectionId, gstPayment);
-      processedGSTSections.current.add(sectionId);
-      
-      console.log(`Auto-added GST payment for ${sectionId} with amount: ${gstAmount} at ${gstRate}%`);
-    }
-  };
-
-  // Auto-add transfer payment method for transfer sections
+  // Auto-add transfer payments when transfer sections are created
   const autoAddTransferPayment = (sectionId, transferAmount, isPartialTransfer = false) => {
     if (processedTransferSections.current.has(sectionId)) {
       return;
     }
 
     const existingPayments = sectionPayments[sectionId] || [];
-    const hasNonGSTPayments = existingPayments.some(payment => payment.methodName !== `GST (${gstRate}%)`);
+    const hasPayments = existingPayments.length > 0;
     
-    if (!hasNonGSTPayments && transferAmount > 0) {
+    if (!hasPayments && transferAmount > 0) {
       const transferPayment = {
         id: crypto.randomUUID(),
         methodId: 9,
@@ -801,141 +655,19 @@ const CartItemsWithPayment = ({
     }
   };
 
-  // Effect to auto-add GST payments for all sections (only after GST rate is loaded)
-  useEffect(() => {
-    if (gstLoading) return;
-
-    const paymentSections = getPaymentSections();
-    
-    paymentSections.forEach(section => {
-      autoAddGSTPayment(section.id, section.gstAmount, section.isTransfer, section.isPartialTransfer, section.isDynamicGST);
-    });
-  }, [cartItems, itemPricing, gstRate, gstLoading]);
-
-  // New effect to handle dynamic GST calculation when payments change
-  useEffect(() => {
-    if (gstLoading) return;
-
-    console.log('Dynamic GST effect triggered', {
-      gstLoading,
-      sectionPayments,
-      dropdownPaymentMethods: dropdownPaymentMethods.length
-    });
-
-    const paymentSections = getPaymentSections();
-    
-    paymentSections.forEach(section => {
-      if (section.isDynamicGST) {
-        console.log('Processing dynamic GST for section:', section.id);
-        
-        const existingPayments = sectionPayments[section.id] || [];
-        const existingGSTPayment = existingPayments.find(payment => payment.methodName === `GST (${gstRate}%)`);
-        
-        const newGSTAmount = section.gstAmount;
-        
-        console.log('GST calculation for', section.id, {
-          existingGSTPayment: existingGSTPayment?.amount || 0,
-          newGSTAmount,
-          hasExistingGST: !!existingGSTPayment
-        });
-        
-        if (existingGSTPayment) {
-          // Update existing GST payment
-          if (roundTo2Decimals(existingGSTPayment.amount) !== newGSTAmount) {
-            console.log(`Updating dynamic GST for ${section.id} from ${existingGSTPayment.amount} to ${newGSTAmount}`);
-            onPaymentChange('updateAmount', section.id, { 
-              paymentId: existingGSTPayment.id, 
-              amount: newGSTAmount 
-            });
-          }
-        } else if (newGSTAmount > 0) {
-          // Add new GST payment if revenue payments exist
-          console.log(`Adding new dynamic GST for ${section.id} with amount: ${newGSTAmount}`);
-          
-          const gstPayment = {
-            id: crypto.randomUUID(),
-            methodId: 10,
-            methodName: `GST (${gstRate}%)`,
-            amount: newGSTAmount,
-            remark: ` GST rate ${gstRate}%`,
-            isGST: true
-          };
-          
-          onPaymentChange('add', section.id, gstPayment);
-        }
-      }
-    });
-  }, [sectionPayments, gstRate, gstLoading, dropdownPaymentMethods]); // Added dropdownPaymentMethods dependency
-
   // Effect to auto-add transfer payments when transfer sections are created
   useEffect(() => {
     const paymentSections = getPaymentSections();
     
     paymentSections.forEach(section => {
       if (section.id.startsWith('transfer-mcp-')) {
-        autoAddTransferPayment(section.id, section.amount, false);
+        autoAddTransferPayment(section.id, section.inclusiveAmount, false);
       } else if (section.id.startsWith('transfer-mv-')) {
         const transferAmount = section.transferAmount || 0;
         autoAddTransferPayment(section.id, transferAmount, section.isPartialTransfer);
       }
     });
   }, [cartItems, itemPricing]);
-
-  // Separate effect to ensure transfer payments have the correct amount
-  useEffect(() => {
-    const paymentSections = getPaymentSections();
-
-    paymentSections.forEach((section) => {
-      if (section.id.startsWith('transfer-mcp-') || section.id.startsWith('transfer-mv-')) {
-        const existingPayments = sectionPayments[section.id] || [];
-        
-        existingPayments.forEach(payment => {
-          if ((payment.methodName === 'Transfer' || payment.methodId === 9) && 
-              payment.amount === 0 && !payment.isGST) {
-                
-            let transferAmount;
-            if (section.id.startsWith('transfer-mcp-')) {
-              transferAmount = section.amount;
-            } else if (section.id.startsWith('transfer-mv-')) {
-              transferAmount = section.transferAmount || section.items[0].data.transferAmount;
-            }
-            
-            const roundedTransferAmount = roundTo2Decimals(transferAmount);
-            console.log(`Updating transfer payment amount for ${section.id} to ${roundedTransferAmount}`);
-            onPaymentChange('updateAmount', section.id, { 
-              paymentId: payment.id, 
-              amount: roundedTransferAmount 
-            });
-          }
-        });
-      }
-    });
-  }, [sectionPayments, cartItems, itemPricing]);
-
-  // Effect to update GST amounts when section amounts change
-  useEffect(() => {
-    if (gstLoading) return;
-
-    const paymentSections = getPaymentSections();
-    
-    paymentSections.forEach(section => {
-      if (section.isTransfer && !section.isPartialTransfer) {
-        return;
-      }
-
-      const existingPayments = sectionPayments[section.id] || [];
-      
-      existingPayments.forEach(payment => {
-        if (payment.methodName === `GST (${gstRate}%)` && roundTo2Decimals(payment.amount) !== section.gstAmount) {
-          console.log(`Updating GST payment amount for ${section.id} to ${section.gstAmount} at ${gstRate}%`);
-          onPaymentChange('updateAmount', section.id, { 
-            paymentId: payment.id, 
-            amount: section.gstAmount 
-          });
-        }
-      });
-    });
-  }, [sectionPayments, cartItems, itemPricing, gstRate, gstLoading]);
 
   // Reset processed sections when cart items change significantly
   useEffect(() => {
@@ -945,13 +677,6 @@ const CartItemsWithPayment = ({
     processedTransferIds.forEach(id => {
       if (!currentSectionIds.includes(id)) {
         processedTransferSections.current.delete(id);
-      }
-    });
-
-    const processedGSTIds = Array.from(processedGSTSections.current);
-    processedGSTIds.forEach(id => {
-      if (!currentSectionIds.includes(id)) {
-        processedGSTSections.current.delete(id);
       }
     });
   }, [cartItems]);
@@ -979,19 +704,26 @@ const CartItemsWithPayment = ({
                 )}
               </CardTitle>
               <div className="text-right">
-                <div className="text-sm text-gray-500">Section Total</div>
-                <div className="text-lg font-bold">{formatCurrency(section.amount)}</div>
+                {/* ✅ FIXED: Clear display of total customer pays */}
+                <div className="text-sm text-gray-500">Customer Total</div>
+                <div className="text-lg font-bold text-green-600">{formatCurrency(section.inclusiveAmount)}</div>
                 
                 {/* Show breakdown for partial transfers */}
                 {section.isPartialTransfer && (
                   <div className="text-xs text-gray-600 mt-1">
                     <div>Transfer: {formatCurrency(section.transferAmount)}</div>
-                    <div>Remaining: {formatCurrency(section.remainingAmount)}</div>
+                    <div>Remaining: {formatCurrency(section.inclusiveAmount - section.transferAmount)}</div>
                   </div>
                 )}
                 
-                <div className="text-sm text-gray-500">GST ({gstRate}%): {formatCurrency(section.gstAmount)}</div>
-                <div className="text-lg font-bold text-blue-600">Total with GST: {formatCurrency(section.totalWithGST)}</div>
+                {/* ✅ FIXED: Show clear breakdown - item price + GST = customer total */}
+                <div className="text-xs text-gray-500 mt-1">
+                  <div>Item price (excl. GST): {formatCurrency(section.exclusiveAmount)}</div>
+                  <div>GST ({gstRate}%): + {formatCurrency(section.gstAmount)}</div>
+                  <div className="border-t border-gray-300 pt-1 font-medium text-green-600">
+                    = Customer pays: {formatCurrency(section.inclusiveAmount)}
+                  </div>
+                </div>
               </div>
             </div>
           </CardHeader>
@@ -1008,19 +740,19 @@ const CartItemsWithPayment = ({
                       Qty
                     </th>
                     <th className='px-4 py-3 text-right text-xs font-medium text-gray-500 uppercase tracking-wider'>
-                      Original Price
+                      Original Price (excl. GST)
                     </th>
                     <th className='px-4 py-3 text-right text-xs font-medium text-gray-500 uppercase tracking-wider'>
-                      Custom Price
+                      Custom Price (excl. GST)
                     </th>
                     <th className='px-4 py-3 text-right text-xs font-medium text-gray-500 uppercase tracking-wider'>
                       Payment Ratio
                     </th>
                     <th className='px-4 py-3 text-right text-xs font-medium text-gray-500 uppercase tracking-wider'>
-                      Final Unit Price
+                      Final Unit Price (excl. GST)
                     </th>
                     <th className='px-4 py-3 text-right text-xs font-medium text-gray-500 uppercase tracking-wider'>
-                      Total Line Price
+                      Total Line Price (excl. GST)
                     </th>
                     <th className='px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider'>
                       Employee Commission
@@ -1059,6 +791,14 @@ const CartItemsWithPayment = ({
                             {item.type === 'transferMV' && item.data?.transferAmount && (
                               <div className="text-xs text-orange-600 mt-1">
                                 Transfer Amount: {formatCurrency(item.data.transferAmount)}
+                              </div>
+                            )}
+                            {/* ✅ FIXED: Show GST calculation for this item */}
+                            {item.type !== 'transferMCP' && pricing.totalLinePrice > 0 && (
+                              <div className="text-xs text-green-600 mt-1 font-medium">
+                                {formatCurrency(pricing.totalLinePrice)} + GST ({gstRate}%): {formatCurrency(calculateGSTFromExclusive(pricing.totalLinePrice))}
+                                <br />
+                                <span className="font-bold">Customer pays: {formatCurrency(calculateInclusiveFromExclusive(pricing.totalLinePrice))}</span>
                               </div>
                             )}
                           </td>
@@ -1119,6 +859,12 @@ const CartItemsWithPayment = ({
                           </td>
                           <td className="px-4 py-3 text-right font-bold text-gray-900">
                             {formatCurrency(pricing.totalLinePrice)}
+                            {/* ✅ Show customer total for this line */}
+                            {item.type !== 'transferMCP' && pricing.totalLinePrice > 0 && (
+                              <div className="text-xs text-green-600 font-normal">
+                                Cust. total: {formatCurrency(calculateInclusiveFromExclusive(pricing.totalLinePrice))}
+                              </div>
+                            )}
                           </td>
                           <td className="px-4 py-3">
                             {/* Add Employee Section */}
@@ -1190,10 +936,13 @@ const CartItemsWithPayment = ({
 
                                   <div>
                                     <label className='block text-xs font-medium text-gray-700 mb-1'>
-                                      Performance Amount
+                                      Performance Amount (excl. GST)
                                     </label>
                                     <div className='w-full p-2 bg-gray-100 border border-gray-300 rounded text-sm'>
                                       {formatCurrency(assignment.performanceAmount)}
+                                    </div>
+                                    <div className='text-xs text-gray-500 mt-1'>
+                                      Based on: {formatCurrency(pricing.totalLinePrice)} (excl. GST)
                                     </div>
                                   </div>
 
@@ -1246,10 +995,18 @@ const CartItemsWithPayment = ({
                 </tbody>
                 <tfoot className='bg-gray-50'>
                   <tr>
-                    <td colSpan={7} className='px-4 py-3 text-right font-medium'>
-                      Section Total:
+                    <td colSpan={6} className='px-4 py-3 text-right font-medium'>
+                      Section Total (excl. GST):
                     </td>
-                    <td className='px-4 py-3 text-right font-bold text-lg'>{formatCurrency(section.amount)}</td>
+                    <td className='px-4 py-3 text-right font-bold text-lg'>{formatCurrency(section.exclusiveAmount)}</td>
+                    <td className='px-4 py-3'></td>
+                  </tr>
+                  <tr className='bg-green-50'>
+                    <td colSpan={6} className='px-4 py-3 text-right font-medium text-green-700'>
+                      Customer Pays (incl. GST):
+                    </td>
+                    <td className='px-4 py-3 text-right font-bold text-lg text-green-700'>{formatCurrency(section.inclusiveAmount)}</td>
+                    <td className='px-4 py-3'></td>
                   </tr>
                 </tfoot>
               </table>
@@ -1290,27 +1047,18 @@ const CartItemsWithPayment = ({
               {sectionPayments[section.id] && sectionPayments[section.id].length > 0 && (
                 <div className='space-y-3'>
                   {sectionPayments[section.id].map((payment) => {
-                    const isGST = payment.methodName === `GST (${gstRate}%)`;
-                    
-                    // Calculate proper max allowed for all payment types
-                    const otherNonGSTPaymentsTotal = roundTo2Decimals(sectionPayments[section.id]
-                      .filter(p => p.id !== payment.id && p.methodName !== `GST (${gstRate}%)`)
+                    const currentPayments = sectionPayments[section.id] || [];
+                    const otherPaymentsTotal = roundTo2Decimals(currentPayments
+                      .filter(p => p.id !== payment.id)
                       .reduce((sum, p) => sum + p.amount, 0));
                     
-                    let maxAllowed;
-                    if (isGST) {
-                      maxAllowed = roundTo2Decimals(payment.amount); // GST payments are auto-calculated
-                    } else {
-                      // Limit non-GST payments to remaining section amount
-                      maxAllowed = roundTo2Decimals(section.amount - otherNonGSTPaymentsTotal);
-                    }
+                    const maxAllowed = roundTo2Decimals(section.inclusiveAmount - otherPaymentsTotal);
                     
                     return (
-                      <div key={payment.id} className={`flex items-center gap-3 p-3 rounded-md ${isGST ? 'bg-blue-50 border border-blue-200' : 'bg-gray-50'}`}>
+                      <div key={payment.id} className="flex items-center gap-3 p-3 rounded-md bg-gray-50">
                         <div className="flex-shrink-0 w-32">
-                          <span className={`text-sm font-medium ${isGST ? 'text-blue-700' : ''}`}>
+                          <span className="text-sm font-medium">
                             {payment.methodName}
-                            {isGST && <span className="block text-xs text-blue-600">Auto-calculated</span>}
                           </span>
                         </div>
                         <div className='flex-1'>
@@ -1322,19 +1070,14 @@ const CartItemsWithPayment = ({
                             placeholder="Enter amount"
                             value={roundTo2Decimals(payment.amount) || ''}
                             onChange={(e) => updatePaymentAmount(section.id, payment.id, e.target.value)}
-                            disabled={isGST}
-                            className={`w-full p-2 border rounded-md text-sm ${
-                              isGST 
-                                ? 'bg-blue-100 border-blue-300 text-blue-700 cursor-not-allowed' 
-                                : 'border-gray-300'
-                            }`}
+                            className="w-full p-2 border border-gray-300 rounded-md text-sm"
                           />
-                          {!isGST && maxAllowed < section.amount && maxAllowed >= 0 && (
+                          {maxAllowed < section.inclusiveAmount && maxAllowed >= 0 && (
                             <div className="text-xs text-gray-500 mt-1">
                               Max: {formatCurrency(maxAllowed)}
                             </div>
                           )}
-                          {!isGST && maxAllowed <= 0 && (
+                          {maxAllowed <= 0 && (
                             <div className="text-xs text-orange-500 mt-1">
                               Section fully paid
                             </div>
@@ -1346,27 +1089,15 @@ const CartItemsWithPayment = ({
                             placeholder='Remark (optional)'
                             value={payment.remark}
                             onChange={(e) => updatePaymentRemark(section.id, payment.id, e.target.value)}
-                            disabled={isGST}
-                            className={`w-full p-2 border rounded-md text-sm ${
-                              isGST 
-                                ? 'bg-blue-100 border-blue-300 text-blue-700 cursor-not-allowed' 
-                                : 'border-gray-300'
-                            }`}
+                            className="w-full p-2 border border-gray-300 rounded-md text-sm"
                           />
                         </div>
-                        {!isGST && (
-                          <button
-                            onClick={() => removePaymentMethod(section.id, payment.id)}
-                            className="p-2 text-red-600 hover:bg-red-100 rounded-md"
-                          >
-                            <X className="h-4 w-4" />
-                          </button>
-                        )}
-                        {isGST && (
-                          <div className="p-2 w-8 h-8 flex items-center justify-center">
-                            <span className="text-blue-600 text-xs font-medium">GST</span>
-                          </div>
-                        )}
+                        <button
+                          onClick={() => removePaymentMethod(section.id, payment.id)}
+                          className="p-2 text-red-600 hover:bg-red-100 rounded-md"
+                        >
+                          <X className="h-4 w-4" />
+                        </button>
                       </div>
                     );
                   })}
@@ -1377,38 +1108,51 @@ const CartItemsWithPayment = ({
               <div className="mt-4 pt-3 border-t">
                 <div className="space-y-2">
                   <div className="flex justify-between items-center">
-                    <span className="font-medium">Subtotal (excluding GST):</span>
-                    <span className="font-bold text-lg">
+                    <span className="font-medium">Total Payment Made:</span>
+                    <span className="font-bold text-lg text-green-600">
                       {formatCurrency(getSectionPaymentTotal(section.id))}
                     </span>
                   </div>
                   <div className="flex justify-between items-center">
-                    <span className="font-medium">GST ({gstRate}%):</span>
-                    <span className="font-bold text-lg text-blue-600">
-                      {formatCurrency(section.gstAmount)}
+                    <span className="text-sm text-gray-500">Customer should pay (incl. GST):</span>
+                    <span className="text-sm font-medium">
+                      {formatCurrency(section.inclusiveAmount)}
                     </span>
                   </div>
-                  {/* Show GST breakdown for dynamic GST */}
-                  {section.isDynamicGST && section.gstAmount > 0 && (
-                    <div className="text-xs text-gray-600 ml-4">
-                      GST calculated on revenue payments: {formatCurrency(getSectionPaymentTotal(section.id))}
-                    </div>
-                  )}
-                  <div className="flex justify-between items-center border-t pt-2">
-                    <span className="font-bold">Total Payment:</span>
-                    <span className="font-bold text-xl text-green-600">
-                      {formatCurrency(getSectionTotalWithGST(section.id))}
-                    </span>
-                  </div>
-                  <div className="flex justify-between items-center mt-1">
+                  <div className="flex justify-between items-center">
                     <span className="text-sm text-gray-500">Remaining to pay:</span>
                     <span className={`text-sm font-medium ${
-                      roundTo2Decimals(section.amount - getSectionPaymentTotal(section.id)) === 0 
+                      roundTo2Decimals(section.inclusiveAmount - getSectionPaymentTotal(section.id)) === 0 
                         ? 'text-green-600' 
                         : 'text-red-600'
                     }`}>
-                      {formatCurrency(section.amount - getSectionPaymentTotal(section.id))}
+                      {formatCurrency(section.inclusiveAmount - getSectionPaymentTotal(section.id))}
                     </span>
+                  </div>
+                  
+                  {/* ✅ FIXED: GST Information Panel */}
+                  <div className="mt-3 p-3 bg-blue-50 border border-blue-200 rounded-md">
+                    <div className="text-sm font-medium text-blue-800 mb-2">Transaction Breakdown</div>
+                    <div className="grid grid-cols-3 gap-4 text-sm">
+                      <div>
+                        <span className="text-blue-600">Item price (excl. GST):</span>
+                        <div className="font-medium">{formatCurrency(section.exclusiveAmount)}</div>
+                      </div>
+                      <div>
+                        <span className="text-blue-600">GST ({gstRate}%):</span>
+                        <div className="font-medium">+ {formatCurrency(section.gstAmount)}</div>
+                      </div>
+                      <div>
+                        <span className="text-blue-600">Customer pays:</span>
+                        <div className="font-bold text-green-600">{formatCurrency(section.inclusiveAmount)}</div>
+                      </div>
+                    </div>
+                    <div className="mt-2 pt-2 border-t border-blue-200 text-xs text-blue-600">
+                      <strong>Formula:</strong> {formatCurrency(section.exclusiveAmount)} + {formatCurrency(section.gstAmount)} = {formatCurrency(section.inclusiveAmount)}
+                    </div>
+                    <div className="mt-1 text-xs text-blue-600">
+                      <strong>Backend total_transaction_amount:</strong> {formatCurrency(section.inclusiveAmount)} (includes GST)
+                    </div>
                   </div>
                 </div>
               </div>

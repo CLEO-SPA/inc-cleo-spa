@@ -189,32 +189,7 @@ const createMcpTransaction = async (req: Request, res: Response, next: NextFunct
   }
 };
 
-const createMvTransaction = async (req: Request, res: Response, next: NextFunction): Promise<void> => {
-  try {
-    console.log('Creating MV transaction:', req.body);
 
-    // Call the model function
-    const result = await model.createMvTransaction(req.body);
-
-    console.log('MV transaction created successfully:', result);
-
-    res.locals.data = {
-      success: true,
-      message: 'MV transaction created successfully',
-      data: result,
-    };
-
-    next();
-  } catch (error: any) {
-    console.error('Error creating MV transaction:', error);
-
-    res.status(500).json({
-      success: false,
-      error: 'Failed to create MV transaction',
-      details: error.message,
-    });
-  }
-};
 
 const createMcpTransferTransaction = async (req: Request, res: Response): Promise<void> => {
   try {
@@ -324,7 +299,6 @@ export default {
   searchProducts,
   createServicesProductsTransaction,
   createMcpTransaction,
-  createMvTransaction,
   createMcpTransferTransaction,
   createMvTransferTransaction,
   processPartialPayment,

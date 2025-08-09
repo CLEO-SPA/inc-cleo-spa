@@ -45,10 +45,15 @@ const useSaleTransactionStore = create(
       // Constants
       PENDING_PAYMENT_METHOD_ID: 7, // Based on your database structure
 
-      // Helper function to calculate outstanding amount and add pending payment
+      // ✅ FIXED: Helper function to calculate outstanding amount and add pending payment
+      // This matches the backend logic exactly
       addAutoPendingPayment: (totalAmount, existingPayments) => {
-        // Calculate total paid amount from existing payments
+        // Calculate total paid amount from existing payments (excluding pending payments)
         const totalPaid = existingPayments.reduce((sum, payment) => {
+          // Only count actual payments, not pending ones (methodId 7)
+          if (payment.methodId === get().PENDING_PAYMENT_METHOD_ID) {
+            return sum; // Don't include pending payments in total paid calculation
+          }
           return sum + (payment.amount || 0);
         }, 0);
 
@@ -66,7 +71,9 @@ const useSaleTransactionStore = create(
           if (existingPendingPayment) {
             // Update existing pending payment amount
             updatedPayments = updatedPayments.map((payment) =>
-              payment.methodId === get().PENDING_PAYMENT_METHOD_ID ? { ...payment, amount: outstandingAmount } : payment
+              payment.methodId === get().PENDING_PAYMENT_METHOD_ID 
+                ? { ...payment, amount: outstandingAmount } 
+                : payment
             );
           } else {
             // Add new pending payment
@@ -87,6 +94,18 @@ const useSaleTransactionStore = create(
         }
 
         return updatedPayments;
+      },
+
+      // ✅ NEW: Helper function to calculate GST breakdown from inclusive amount
+      calculateGSTBreakdown: (inclusiveAmount, gstRate = 9) => {
+        const exclusive = inclusiveAmount / (1 + gstRate / 100);
+        const gst = inclusiveAmount - exclusive;
+        return {
+          inclusive: Math.round(inclusiveAmount * 100) / 100,
+          exclusive: Math.round(exclusive * 100) / 100,
+          gst: Math.round(gst * 100) / 100,
+          gstRate: gstRate
+        };
       },
 
       // Update transaction details
@@ -169,6 +188,151 @@ const useSaleTransactionStore = create(
             customerType: member ? 'MEMBER' : 'WALK_IN',
           },
         }));
+      },
+
+      // ✅ NEW: Process cart data with GST calculations for backend
+      processCartDataForBackend: (cartItems, itemPricing, sectionPayments, gstRate = 9) => {
+        console.log('🔄 Processing cart data with GST calculations...');
+        
+        const processedData = {
+          servicesProducts: null,
+          mcpTransactions: [],
+          mvTransactions: [],
+          mcpTransferTransactions: [],
+          mvTransferTransactions: []
+        };
+
+        // Group items by type
+        const groupedItems = {
+          Services: cartItems.filter(item => item.type === 'service'),
+          Products: cartItems.filter(item => item.type === 'product'),
+          Packages: cartItems.filter(item => item.type === 'package'),
+          Vouchers: cartItems.filter(item => item.type === 'member-voucher'),
+          TransferMCP: cartItems.filter(item => item.type === 'transferMCP'),
+          TransferMV: cartItems.filter(item => item.type === 'transferMV'),
+        };
+
+        // Process Services + Products
+        const servicesAndProducts = [...groupedItems.Services, ...groupedItems.Products];
+        if (servicesAndProducts.length > 0) {
+          const sectionPaymentsData = sectionPayments['services-products'] || [];
+          
+          // Calculate total GST breakdown
+          const totalInclusive = servicesAndProducts.reduce((sum, item) => {
+            return sum + (itemPricing[item.id]?.totalLinePrice || 0);
+          }, 0);
+          const gstBreakdown = get().calculateGSTBreakdown(totalInclusive, gstRate);
+          
+          processedData.servicesProducts = {
+            items: servicesAndProducts.map(item => ({
+              ...item,
+              pricing: {
+                ...itemPricing[item.id],
+                // Add GST breakdown for each item
+                gstBreakdown: get().calculateGSTBreakdown(itemPricing[item.id]?.totalLinePrice || 0, gstRate)
+              }
+            })),
+            payments: sectionPaymentsData,
+            // Add section-level GST breakdown
+            gstBreakdown: gstBreakdown
+          };
+        }
+
+        // Process Packages (individual transactions)
+        groupedItems.Packages.forEach(item => {
+          const sectionId = `package-${item.id}`;
+          const sectionPaymentsData = sectionPayments[sectionId] || [];
+          
+          const inclusive = itemPricing[item.id]?.totalLinePrice || 0;
+          const gstBreakdown = get().calculateGSTBreakdown(inclusive, gstRate);
+          
+          processedData.mcpTransactions.push({
+            item: {
+              ...item,
+              pricing: {
+                ...itemPricing[item.id],
+                gstBreakdown: gstBreakdown
+              }
+            },
+            payments: sectionPaymentsData,
+            gstBreakdown: gstBreakdown
+          });
+        });
+
+        // Process Vouchers (individual transactions)
+        groupedItems.Vouchers.forEach(item => {
+          const sectionId = `voucher-${item.id}`;
+          const sectionPaymentsData = sectionPayments[sectionId] || [];
+          
+          const inclusive = itemPricing[item.id]?.totalLinePrice || 0;
+          const gstBreakdown = get().calculateGSTBreakdown(inclusive, gstRate);
+          
+          processedData.mvTransactions.push({
+            item: {
+              ...item,
+              pricing: {
+                ...itemPricing[item.id],
+                gstBreakdown: gstBreakdown
+              }
+            },
+            payments: sectionPaymentsData,
+            gstBreakdown: gstBreakdown
+          });
+        });
+
+        // Process MCP Transfers (no GST)
+        groupedItems.TransferMCP.forEach(item => {
+          const sectionId = `transfer-mcp-${item.id}`;
+          const sectionPaymentsData = sectionPayments[sectionId] || [];
+          
+          const amount = itemPricing[item.id]?.totalLinePrice || 0;
+          
+          processedData.mcpTransferTransactions.push({
+            item: {
+              ...item,
+              pricing: {
+                ...itemPricing[item.id],
+                gstBreakdown: {
+                  inclusive: amount,
+                  exclusive: amount,
+                  gst: 0,
+                  gstRate: 0
+                }
+              }
+            },
+            payments: sectionPaymentsData,
+            gstBreakdown: {
+              inclusive: amount,
+              exclusive: amount,
+              gst: 0,
+              gstRate: 0
+            }
+          });
+        });
+
+        // Process MV Transfers (with GST)
+        groupedItems.TransferMV.forEach(item => {
+          const sectionId = `transfer-mv-${item.id}`;
+          const sectionPaymentsData = sectionPayments[sectionId] || [];
+          
+          const inclusive = itemPricing[item.id]?.totalLinePrice || 0;
+          const gstBreakdown = get().calculateGSTBreakdown(inclusive, gstRate);
+          
+          processedData.mvTransferTransactions.push({
+            item: {
+              ...item,
+              pricing: {
+                ...itemPricing[item.id],
+                gstBreakdown: gstBreakdown
+              }
+            },
+            payments: sectionPaymentsData,
+            gstBreakdown: gstBreakdown
+          });
+        });
+
+        console.log('✅ Processed cart data with GST:', processedData);
+        return processedData;
       },
 
       // Main orchestration function
@@ -530,7 +694,14 @@ const useSaleTransactionStore = create(
               }));
 
               try {
-                const response = await transferStore.submitTransfer(transferFormData);
+                // ✅ Include creation date/time in transfer data
+                const transferFormDataWithSaleTransactionDate = {
+                  ...transferFormData,
+                  created_at: transactionDetails.createdAt,  
+                  updated_at: transactionDetails.updatedAt   
+                };
+
+                const response = await transferStore.submitTransfer(transferFormDataWithSaleTransactionDate);
 
                 if (response.success && response.newVoucherId) {
                   const newVoucherId = response.newVoucherId;
@@ -707,44 +878,123 @@ const useSaleTransactionStore = create(
         return processedData;
       },
 
-      // ✅ UPDATED: Create Services + Products transaction with creation date/time
-      createServicesProductsTransaction: async (servicesProductsData) => {
-        console.log('🛍️ Creating Services + Products transaction...');
+      // ✅ UPDATED: Create Services + Products transaction with GST breakdown
+createServicesProductsTransaction: async (servicesProductsData) => {
+  console.log('🛍️ Creating Services + Products transaction...');
+  
+  // ✅ NEW: Detailed frontend data logging BEFORE processing
+  console.log('🔍 FRONTEND -> BACKEND: Raw servicesProductsData received:', {
+    itemsCount: servicesProductsData.items?.length || 0,
+    paymentsCount: servicesProductsData.payments?.length || 0,
+    hasGstBreakdown: !!servicesProductsData.gstBreakdown,
+    gstBreakdown: servicesProductsData.gstBreakdown
+  });
 
-        const { transactionDetails } = get();
+  // ✅ NEW: Log each item in detail
+  console.log('📝 FRONTEND -> BACKEND: Individual Items Analysis:');
+  servicesProductsData.items?.forEach((item, index) => {
+    console.log(`   Item ${index + 1}:`, {
+      type: item.type,
+      name: item.data?.name || 'Unknown',
+      originalPrice: item.pricing?.originalPrice,
+      finalPrice: item.pricing?.totalLinePrice,
+      quantity: item.pricing?.quantity,
+      discount: item.pricing?.discount,
+      customPrice: item.pricing?.customPrice,
+      assignedEmployee: item.assignedEmployee || item.employee_id,
+      hasRemarks: !!item.remarks,
+      gstBreakdown: item.pricing?.gstBreakdown
+    });
+  });
 
-        const payload = {
-          customer_type: transactionDetails.customerType,
-          member_id: transactionDetails.memberId,
-          receipt_number: transactionDetails.receiptNumber,
-          remarks: transactionDetails.transactionRemark,
-          created_by: transactionDetails.createdBy,
-          handled_by: transactionDetails.handledBy,
-          // ✅ NEW: Include creation date/time in payload
-          created_at: transactionDetails.createdAt,
-          updated_at: transactionDetails.updatedAt,
-          items: servicesProductsData.items.map((item) => ({
-            type: item.type,
-            data: item.data,
-            pricing: item.pricing,
-            assignedEmployee: item.assignedEmployee || item.employee_id,
-            remarks: item.remarks || '',
-          })),
-          payments: servicesProductsData.payments || [],
-        };
+  // ✅ NEW: Log payments in detail
+  console.log('💳 FRONTEND -> BACKEND: Payments Analysis:');
+  servicesProductsData.payments?.forEach((payment, index) => {
+    console.log(`   Payment ${index + 1}:`, {
+      methodId: payment.methodId,
+      methodName: payment.methodName,
+      amount: payment.amount,
+      hasRemark: !!payment.remark,
+      isAutoPending: payment.isAutoPending
+    });
+  });
 
-        console.log('📤 Services/Products payload with creation date:', payload);
+  const { transactionDetails } = get();
 
-        const response = await api.post('/st/services-products', payload);
-
-        if (!response.data?.success) {
-          throw new Error(response.data?.message || 'Failed to create services/products transaction');
+  const payload = {
+    customer_type: transactionDetails.customerType,
+    member_id: transactionDetails.memberId,
+    receipt_number: transactionDetails.receiptNumber,
+    remarks: transactionDetails.transactionRemark,
+    created_by: transactionDetails.createdBy,
+    handled_by: transactionDetails.handledBy,
+    created_at: transactionDetails.createdAt,
+    updated_at: transactionDetails.updatedAt,
+    
+    // ✅ CRITICAL: Include GST breakdown in payload
+    gstBreakdown: servicesProductsData.gstBreakdown,
+    
+    items: servicesProductsData.items.map((item, index) => {
+      const mappedItem = {
+        type: item.type,
+        data: item.data,
+        pricing: item.pricing,
+        assignedEmployee: item.assignedEmployee || item.employee_id,
+        remarks: item.remarks || ''
+      };
+      
+      // ✅ NEW: Log each mapped item
+      console.log(`🔄 FRONTEND -> BACKEND: Mapping Item ${index + 1}:`, {
+        original: {
+          type: item.type,
+          name: item.data?.name,
+          pricingKeys: Object.keys(item.pricing || {}),
+          employeeAssignment: item.assignedEmployee || item.employee_id
+        },
+        mapped: {
+          type: mappedItem.type,
+          name: mappedItem.data?.name,
+          pricingKeys: Object.keys(mappedItem.pricing || {}),
+          employeeAssignment: mappedItem.assignedEmployee
         }
+      });
+      
+      return mappedItem;
+    }),
+    payments: servicesProductsData.payments || []
+  };
 
-        return response.data.data;
-      },
+  // ✅ ENHANCED: Comprehensive payload logging
+  console.log('📤 FRONTEND -> BACKEND: Final Payload Summary:', {
+    transactionDetails: {
+      customerType: payload.customer_type,
+      memberId: payload.member_id,
+      receiptNumber: payload.receipt_number,
+      createdBy: payload.created_by,
+      handledBy: payload.handled_by,
+      createdAt: payload.created_at,
+      updatedAt: payload.updated_at
+    },
+    gstBreakdown: payload.gstBreakdown,
+    itemsCount: payload.items.length,
+    paymentsCount: payload.payments.length,
+    totalItemAmount: payload.items.reduce((sum, item) => sum + (item.pricing?.totalLinePrice || 0), 0),
+    totalPaymentAmount: payload.payments.reduce((sum, payment) => sum + (payment.amount || 0), 0)
+  });
 
-      // ✅ UPDATED: Create individual MCP transaction with creation date/time
+  // ✅ NEW: Log complete payload (be careful in production)
+  console.log('📋 FRONTEND -> BACKEND: Complete Payload Details:', JSON.stringify(payload, null, 2));
+
+  const response = await api.post('/st/services-products', payload);
+
+  if (!response.data?.success) {
+    throw new Error(response.data?.message || 'Failed to create services/products transaction');
+  }
+
+  return response.data.data;
+},
+
+      // ✅ UPDATED: Create individual MCP transaction with creation date/time and GST
       createMcpTransaction: async (mcpData) => {
         console.log('📦 Creating MCP transaction...');
 
@@ -757,7 +1007,6 @@ const useSaleTransactionStore = create(
           remarks: transactionDetails.transactionRemark,
           created_by: transactionDetails.createdBy,
           handled_by: transactionDetails.handledBy,
-          // ✅ NEW: Include creation date/time in payload
           created_at: transactionDetails.createdAt,
           updated_at: transactionDetails.updatedAt,
           item: {
@@ -768,9 +1017,11 @@ const useSaleTransactionStore = create(
             remarks: mcpData.item.remarks || '',
           },
           payments: mcpData.payments || [],
+          // ✅ NEW: Include GST breakdown
+          gstBreakdown: mcpData.gstBreakdown,
         };
 
-        console.log('📤 MCP payload with creation date:', payload);
+        console.log('📤 MCP payload with GST breakdown:', payload);
 
         const response = await api.post('/st/mcp', payload);
 
@@ -781,7 +1032,7 @@ const useSaleTransactionStore = create(
         return response.data.data;
       },
 
-      // ✅ UPDATED: Create individual MV transaction with creation date/time
+      // ✅ UPDATED: Create individual MV transaction with creation date/time and GST
       createMvTransaction: async (mvData) => {
         console.log('🎟️ Creating MV transaction...');
 
@@ -794,7 +1045,6 @@ const useSaleTransactionStore = create(
           remarks: transactionDetails.transactionRemark,
           created_by: transactionDetails.createdBy,
           handled_by: transactionDetails.handledBy,
-          // ✅ NEW: Include creation date/time in payload
           created_at: transactionDetails.createdAt,
           updated_at: transactionDetails.updatedAt,
           item: {
@@ -805,9 +1055,11 @@ const useSaleTransactionStore = create(
             remarks: mvData.item.remarks || '',
           },
           payments: mvData.payments || [],
+          // ✅ NEW: Include GST breakdown
+          gstBreakdown: mvData.gstBreakdown,
         };
 
-        console.log('📤 MV payload with creation date:', payload);
+        console.log('📤 MV payload with GST breakdown:', payload);
 
         const response = await api.post('/mv/create', payload);
         const mvId = response.data.data.voucher_id;
@@ -833,7 +1085,6 @@ const useSaleTransactionStore = create(
           remarks: transactionDetails.transactionRemark,
           created_by: transactionDetails.createdBy,
           handled_by: transactionDetails.handledBy,
-          // ✅ NEW: Include creation date/time in payload
           created_at: transactionDetails.createdAt,
           updated_at: transactionDetails.updatedAt,
           item: {
@@ -844,9 +1095,11 @@ const useSaleTransactionStore = create(
             remarks: mcpTransferData.item.remarks || '',
           },
           payments: mcpTransferData.payments || [],
+          // ✅ NEW: Include GST breakdown (no GST for MCP transfers)
+          gstBreakdown: mcpTransferData.gstBreakdown,
         };
 
-        console.log('📤 MCP Transfer payload with creation date:', payload);
+        console.log('📤 MCP Transfer payload:', payload);
 
         const response = await api.post('/st/mcp-transfer', payload);
 
@@ -857,7 +1110,7 @@ const useSaleTransactionStore = create(
         return response.data.data;
       },
 
-      // ✅ UPDATED: Create individual MV Transfer transaction with creation date/time
+      // ✅ UPDATED: Create individual MV Transfer transaction with creation date/time and GST
       createMvTransferTransaction: async (mvTransferData) => {
         console.log('🔄 Creating MV Transfer transaction...');
 
@@ -882,9 +1135,11 @@ const useSaleTransactionStore = create(
           },
           payments: mvTransferData.payments || [],
           newVoucherId: mvTransferData.newVoucherId, // ✅ Include in payload
+          // ✅ NEW: Include GST breakdown
+          gstBreakdown: mvTransferData.gstBreakdown,
         };
 
-        console.log('📤 MV Transfer payload with creation date:', payload);
+        console.log('📤 MV Transfer payload with GST breakdown:', payload);
 
         const response = await api.post('/st/mv-transfer', payload);
 

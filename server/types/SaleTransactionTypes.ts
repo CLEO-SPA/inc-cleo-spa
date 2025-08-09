@@ -523,4 +523,43 @@ export interface APIResponse<T> {
       per_page: number;
     };
   };
+}// Add GST Breakdown interface
+export interface GSTBreakdown {
+  inclusiveTotal: number;   // Total amount customer pays (with GST)
+  exclusiveTotal: number;   // Total amount excluding GST
+  gstTotal: number;         // GST amount
+  gstRate: number;          // GST rate percentage (e.g., 9)
+}
+
+// Updated TransactionRequestData interface
+export interface TransactionRequestData {
+  customer_type?: string;
+  member_id?: string | number;
+  receipt_number?: string;
+  remarks?: string;
+  created_by: number;
+  handled_by: number;
+  items: TransactionRequestItem[];
+  payments: PaymentMethodRequest[];
+  created_at?: string;
+  updated_at?: string;
+  gstBreakdown?: GSTBreakdown;  // Add GST breakdown field
+}
+
+// Updated TransactionCreationResult interface
+export interface TransactionCreationResult {
+  id: number;
+  receipt_no: string;
+  customer_type: string;
+  member_id: string | number | null;
+  total_transaction_amount: number;
+  total_paid_amount: number;
+  outstanding_total_payment_amount: number;
+  transaction_status: 'FULL' | 'PARTIAL' | 'TRANSFER' | 'REFUND';
+  remarks: string;
+  created_by: number;
+  handled_by: number;
+  items_count: number;
+  payments_count: number;
+  createdItemIds: number[];
 }
