@@ -672,7 +672,7 @@ const createServicesProductsTransaction = async (
       totalGSTAmount = gstBreakdown.gstTotal || 0;
       console.log('✅ Using GST breakdown from frontend:', {
         inclusive: totalTransactionAmount,
-        gst: totalGSTAmount
+        gst: totalGSTAmount,
       });
     } else {
       const exclusiveTotal = items.reduce((total: number, item: TransactionRequestItem) => {
@@ -683,7 +683,7 @@ const createServicesProductsTransaction = async (
       console.log('⚠️ No GST breakdown provided, calculated:', {
         exclusive: exclusiveTotal,
         gst: totalGSTAmount,
-        inclusive: totalTransactionAmount
+        inclusive: totalTransactionAmount,
       });
     }
 
@@ -727,8 +727,8 @@ const createServicesProductsTransaction = async (
     const transactionParams: (string | number | boolean | null | Date)[] = [
       customer_type?.toUpperCase() || 'MEMBER',
       member_id || null,
-      totalTransactionAmount,        // Use inclusive amount as total_paid_amount
-      outstandingAmount,             // This will be 0 if fully paid
+      totalTransactionAmount, // Use inclusive amount as total_paid_amount
+      outstandingAmount, // This will be 0 if fully paid
       transactionStatus,
       finalReceiptNo,
       remarks || '',
@@ -737,7 +737,7 @@ const createServicesProductsTransaction = async (
       created_by,
       customCreatedAt,
       customUpdatedAt,
-      totalGSTAmount,                // ✅ NEW: GST amount parameter
+      totalGSTAmount, // ✅ NEW: GST amount parameter
     ];
 
     console.log('Services/Products Transaction Params:', transactionParams);
@@ -839,7 +839,7 @@ const createServicesProductsTransaction = async (
           payment.remark || '',
           handled_by,
           customCreatedAt,
-          handled_by,       // updated_by
+          handled_by, // updated_by
           customUpdatedAt,
         ];
 
@@ -869,7 +869,7 @@ const createServicesProductsTransaction = async (
       handled_by,
       items_count: items.length,
       payments_count: payments.filter((p: PaymentMethodRequest) => p.amount > 0).length,
-      createdItemIds
+      createdItemIds,
     };
   } catch (error) {
     await client.query('ROLLBACK');
@@ -879,7 +879,6 @@ const createServicesProductsTransaction = async (
     client.release();
   }
 };
-
 
 const createMcpTransaction = async (
   transactionData: SingleItemTransactionRequestData
@@ -1174,10 +1173,6 @@ const createMcpTransaction = async (
     client.release();
   }
 };
-
-
-
-
 
 const createMcpTransferTransaction = async (
   transactionData: SingleItemTransactionRequestData

@@ -3,6 +3,9 @@ import model from '../models/memberVoucherModel.js';
 import { decodeCursor } from '../utils/cursorUtils.js';
 import { PaginatedOptions, CursorPayload } from '../types/common.types.js';
 import { MemberVoucherTransactionLogCreateData, MemberVoucherTransactionLogUpdateData } from '../types/model.types.js';
+import memberVoucherTransactionLogsModel from '../models/memberVoucherTransactionLogsModel.js';
+import voucherTemplateModel from '../models/voucherTemplateModel.js';
+import memberModel from '../models/memberModel.js';
 
 const getAllMemberVouchers = async (req: Request, res: Response, next: NextFunction): Promise<void> => {
   const { start_date_utc, end_date_utc } = req.session;
@@ -175,8 +178,7 @@ const createTransactionLogsByMemberVoucherId = async (req: Request, res: Respons
     type,
     createdBy,
     handledBy,
-    current_balance,
-    assignedEmployee
+    current_balance
   } = req.body;
 
   const {
@@ -250,22 +252,7 @@ const createTransactionLogsByMemberVoucherId = async (req: Request, res: Respons
 
     const results = await model.addTransactionLogsByMemberVoucherId(newMemberVoucherTransactionLogData);
     if (results.success) {
-      // res.status(201).json({ message: results.message });
-      res.locals.results = {
-        completed: [results.transactionLogId],
-        mvId: id,
-        success: true,
-        message: results.message,
-      }
-
-    if (assignedEmployee && Array.isArray(assignedEmployee) && assignedEmployee.length > 0) {
-        // Keep the original assignedEmployee in req.body for middleware
-        console.log('Commission data found for MV consumption:', assignedEmployee.length, 'employees');
-      } else {
-        console.log('No commission data found for MV consumption');
-    }
-    next();
-
+      res.status(201).json({ message: results.message });
     } else {
       res.status(400).json({ message: results.message });
       return;
@@ -539,7 +526,7 @@ const deleteTransactionLogsByLogId = async (req: Request, res: Response, next: N
 };
 
 
-const createMemberVoucher = async (req: Request, res: Response, next: NextFunction): Promise<void> => {
+const createMemberVoucher = async (req: Request, res: Response): Promise<void> => {
   try {
     console.log('Creating MV transaction:', req.body);
 
@@ -548,13 +535,11 @@ const createMemberVoucher = async (req: Request, res: Response, next: NextFuncti
 
     console.log('MV transaction created successfully:', result);
 
-    res.locals.data = {
+    res.status(201).json({
       success: true,
       message: 'MV transaction created successfully',
-      data: result,
-    };
-
-    next();
+      data: result
+    });
 
   } catch (error: any) {
     console.error('Error creating MV transaction:', error);
@@ -601,6 +586,181 @@ const removeMemberVoucher = async (req: Request, res: Response, next: NextFuncti
     next(error); // Forward unexpected errors
   }
 };
+const getMemberVoucherDetailsHandler = async (
+  req: Request,
+  res: Response,
+  next: NextFunction
+): Promise<void> => {
+  try {
+    const rawName = req.query.name;
+
+    // Validate presence but preserve original formatting
+    if (typeof rawName !== 'string') {
+      res.status(400).json({ error: 'Member name must be a string.' });
+      return;
+    }
+
+    const name = rawName; // No trimming applied
+
+    const templatesDetails = await model.getMemberVoucherWithDetails(name);
+    res.status(200).json({ data: templatesDetails });
+  } catch (error) {
+    console.error("Error fetching member voucher details:", error);
+    res.status(500).json({ error: "Failed to fetch member voucher details" });
+  }
+};
+
+const transferVoucherDetailsHandler = async (
+  req: Request,
+  res: Response,
+  next: NextFunction
+): Promise<void> => {
+  try {
+    const {
+      member_name,
+      voucher_template_name,
+      price,
+      foc,
+      old_voucher_names,
+      old_voucher_details,
+      is_bypass,
+      created_by,
+      created_at,
+      remarks,
+      top_up_balance,
+      service_details, // ✅ NEW: Extract service_details from request body
+    }: {
+      member_name: string;
+      voucher_template_name: string;
+      price: number;
+      foc: number;
+      old_voucher_names: string[];
+      old_voucher_details: {
+        voucher_id: number;
+        member_voucher_name: string;
+        balance_to_transfer: number;
+      }[];
+      is_bypass?: boolean;
+      created_by: number;
+      created_at: string;
+      remarks: string;
+      top_up_balance: number;
+      service_details?: any[]; // ✅ NEW: Define service_details type (adjust type as needed)
+    } = req.body;
+
+    // Validate input
+    if (
+      !member_name ||
+      !voucher_template_name ||
+      price == null ||
+      foc == null ||
+      !Array.isArray(old_voucher_names) ||
+      !Array.isArray(old_voucher_details)
+    ) {
+      res.status(400).json({ success: false, message: "Missing required fields." });
+      return;
+    }
+
+    // ✅ NEW: Validate service_details when bypass is enabled
+    if (is_bypass && (!service_details || !Array.isArray(service_details))) {
+      res.status(400).json({
+        success: false,
+        message: "Service details are required when bypass is enabled."
+      });
+      return;
+    }
+
+    // Lookup member
+    const members = await memberModel.searchMemberByNameOrPhone(member_name);
+    if (!members || members.members.length === 0) {
+      res.status(404).json({ success: false, message: "Member not found" });
+      return;
+    }
+    const memberId = members.members[0].id;
+
+    // Lookup template
+    let voucherTemplateId = 0;
+    if (!is_bypass) {
+      const templates = await voucherTemplateModel.getVoucherTemplatesDetails(voucher_template_name);
+      if (!templates || templates.length === 0) {
+        res.status(404).json({ success: false, message: "Voucher template not found" });
+        return;
+      }
+      voucherTemplateId = templates[0].id;
+    }
+
+    // ✅ UPDATED: Create new member voucher with bypass and service_details
+    const createdVoucher = await model.createMemberVoucherForTransfer(
+      memberId,
+      voucher_template_name,
+      voucherTemplateId,
+      price,
+      foc,
+      remarks || "",
+      created_by,
+      created_at, // ✅ FIXED: Use created_at from transaction details
+      is_bypass || false, // ✅ NEW: Pass is_bypass parameter
+      service_details || [] // ✅ NEW: Pass service_details parameter
+    );
+    const newVoucherId = Number(createdVoucher.id);
+
+    // Sum actual current balances from DB
+    let totalActualTransferredBalance = 0;
+
+    for (const { voucher_id, member_voucher_name } of old_voucher_details) {
+      const isFOCUsed = await model.checkIfFreeOfChargeIsUsedById(voucher_id);
+
+      if (isFOCUsed) {
+        await model.removeFOCFromVoucherById(voucher_id, created_by, created_at);
+      }
+
+      const currentBalance = await model.getMemberVoucherCurrentBalanceById(voucher_id);
+
+      console.log("Current balance for voucher ID", voucher_id, "is", currentBalance);
+      await memberVoucherTransactionLogsModel.addTransferMemberVoucherTransactionLog(
+        memberId,
+        newVoucherId,
+        member_voucher_name,
+        voucher_template_name,
+        created_by,
+        created_by,
+        created_at,
+      );
+
+      await model.setMemberVoucherBalanceAfterTransferById(
+        voucher_id,
+        currentBalance,
+        created_at
+      );
+
+      totalActualTransferredBalance += currentBalance;
+    }
+
+    // Add Top-Up + FOC logs
+    await memberVoucherTransactionLogsModel.addPaymentFOCMemberVoucherTransactionLogs(
+      newVoucherId,
+      voucher_template_name,
+      foc,
+      created_by,
+      created_by,
+      created_at,
+      top_up_balance,
+      totalActualTransferredBalance
+    );
+
+    res.status(200).json({
+      success: true,
+      message: "Voucher transfer processed and new voucher created successfully",
+      newVoucherId,
+    });
+  } catch (error: any) {
+    res.status(500).json({
+      success: false,
+      error: 'Failed to create MV Transfer transaction',
+      details: error?.message || 'Unknown error'
+    });
+  }
+};
 
 
 export default {
@@ -615,5 +775,7 @@ export default {
   getMemberVoucherPurchaseDate,
   getMemberNameByMemberVoucherId,
   updateTransactionLogsAndCurrentBalanceByLogId,
-  deleteTransactionLogsByLogId
+  deleteTransactionLogsByLogId,
+  getMemberVoucherDetailsHandler,
+  transferVoucherDetailsHandler
 }

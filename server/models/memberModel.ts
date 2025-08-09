@@ -125,7 +125,7 @@ const createMember = async ({
 
     // Validation: Check if email already exists
     const emailCheckQuery = `
-      SELECT id FROM user_auth WHERE email = $1;
+      SELECT id FROM members WHERE email = $1;
     `;
     const emailResult = await client.query(emailCheckQuery, [email]);
     if (emailResult.rows.length > 0) {
@@ -136,9 +136,9 @@ const createMember = async ({
     const insertMemberQuery = `
       INSERT INTO members (
         name, email, contact, dob, sex, remarks, address, nric,
-        membership_type_id, card_number,created_at, updated_at, created_by, user_auth_id
+        membership_type_id, card_number,created_at, updated_at, created_by
       )
-      VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14)
+      VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13)
       RETURNING *;
     `;
     const memberValues = [

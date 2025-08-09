@@ -4,7 +4,6 @@ const router = express.Router();
 import isAuthenticated from '../middlewares/authMiddleware.js';
 
 import controller from '../controllers/memberVoucherController.js';
-import commissionMiddleware from '../middlewares/commissionMiddleware.js';
 
 // =========================
 // Public routes
@@ -15,7 +14,7 @@ import commissionMiddleware from '../middlewares/commissionMiddleware.js';
 // =========================
 router.use(isAuthenticated);
 
-router.post('/create',  controller.createMemberVoucher, commissionMiddleware.applyMvCommission);
+router.post('/create', controller.createMemberVoucher);
 router.delete('/:id/rm', controller.removeMemberVoucher);
 
 router.get('/v', controller.getAllMemberVouchers);
@@ -32,12 +31,15 @@ router.post(
   '/:id/t/create',
   controller.checkCurrentBalance,
   // controller.checkPaidCurrentBalance,
-  controller.createTransactionLogsByMemberVoucherId,
-  commissionMiddleware.applyMvCommission
+  controller.createTransactionLogsByMemberVoucherId
 );
 
 router.put('/:id/t/update', controller.updateTransactionLogsAndCurrentBalanceByLogId);
 
 router.delete('/:id/t/:transaction_log_id/delete', controller.deleteTransactionLogsByLogId);
+
+router.get('/m', controller.getMemberVoucherDetailsHandler);
+router.post('/transfer', controller.transferVoucherDetailsHandler);
+
 
 export default router;

@@ -4,7 +4,7 @@ const router = express.Router();
 import simulationMiddleware from '../middlewares/simulationMiddleware.js';
 import { checkDatabaseHealth } from '../config/database.js';
 
-// import superAdminRoutes from './superAdminRoutes.js';
+import superAdminRoutes from './superAdminRoutes.js';
 import authRoutes from './authRoutes.js';
 import sessionRoutes from './sessionRoutes.js';
 import translationRoutes from './translationRoutes.js';
@@ -28,9 +28,7 @@ import appointmentRoutes from './appointmentRoutes.js';
 import productRoutes from './productRoutes.js';
 import revenueRoutes from './revenueRoutes.js';
 import stRoutes from './stRoutes.js';
-import voucherRoutes from './voucherRoute.js';
-
-import commisionRoutes from './commisionRoutes.js';
+import commisionRoutes from './commissionRoutes.js';
 
 router.use(simulationMiddleware);
 
@@ -65,13 +63,12 @@ router.use('/refund', refundRoutes);
 router.use('/position', positionRoutes);
 router.use('/de', dataExportRoutes);
 router.use('/payment-method', paymentMethodRoutes);
+router.use('/st', stRoutes);
 router.use('/em', employeeRoutes);
 router.use('/et', timetableRoutes);
 router.use('/ab', appointmentRoutes);
 router.use('/rr', revenueRoutes);
-router.use('/st', stRoutes);
-router.use('/voucher', voucherRoutes);
-// router.use('/sa', superAdminRoutes);
+router.use('/sa', superAdminRoutes);
 router.use('/product', productRoutes);
 router.use('/com', commisionRoutes);
 

@@ -215,7 +215,7 @@ export default function ManageEmployeePage() {
                                   <Button
                                     variant="secondary"
                                     size="sm"
-                                    onClick={() => navigate(`/cm/monthly-employee-commission?employeeId=${employee.id}&employeeName=${employee.employee_name}`)}
+                                    onClick={() => navigate(`/employees/${employee.id}/commissions`)}
                                   >
                                     Commission
                                   </Button>

@@ -13,14 +13,18 @@ import controller from '../controllers/stController.js';
 // =========================
 // Private routes
 // =========================
-// router.use(isAuthenticated);
+router.use(isAuthenticated);
 
 router.get('/list', controller.getSalesTransactionList);
 router.get('/list/:id', controller.getSalesTransactionById);
 router.get('/services', controller.searchServices);
 router.get('/products', controller.searchProducts);
 // router.all('/e', roleMiddleware.hasRole(['data_admin', 'super_admin']), controller.emulateCarePackage);
-router.post('/services-products', controller.createServicesProductsTransaction, commissionMiddleware.applyServicesProductsCommission);
+router.post(
+  '/services-products',
+  controller.createServicesProductsTransaction,
+  commissionMiddleware.applyServicesProductsCommission
+);
 router.post('/mcp', controller.createMcpTransaction, commissionMiddleware.applyMcpCommission);
 router.post('/mcp-transfer', controller.createMcpTransferTransaction);
 router.post('/mv-transfer', controller.createMvTransferTransaction);
