@@ -132,7 +132,6 @@ export const AuthProvider = ({ children }) => {
         }
         // Optionally, you might want to implement a retry mechanism here.
       };
-      setSseEventSource(eventSource);
     };
 
     const closeSseConnection = () => {
@@ -160,7 +159,7 @@ export const AuthProvider = ({ children }) => {
     return () => {
       closeSseConnection();
     };
-  }, [isAuthenticated]); // Re-run when isAuthenticated changes
+  }, [isAuthenticated, fetchStatuses]); // Fixed dependencies
 
   // Effect for the countdown timer
   useEffect(() => {

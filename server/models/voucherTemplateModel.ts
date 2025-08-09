@@ -450,9 +450,9 @@ const getAllVoucherTemplatesForDropdown = async (sessionStartDate_utc?: string, 
       ORDER BY voucher_template_name;
     `;
 
-    const result = await dbQuery(query, [sessionStart, sessionEnd]);
+    const { rows } = await dbQuery(query, [sessionStart, sessionEnd]);
 
-    return result.rows;
+    return rows;
   } catch (error) {
     console.error('Error fetching all voucher templates for dropdown:', error);
     throw new Error('Error fetching all voucher templates for dropdown');
