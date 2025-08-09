@@ -70,11 +70,36 @@ function createNamedPool(dbConfig: any, poolName: string, filter: string[] = [])
 
   const pool = new pg.Pool({
     ...dbConfig,
-    max: dbConfig.maxConnections || 10,
+    max: dbConfig.maxConnections || 20,
+    min: 2, // Keep minimum connections open
+    // Connection timeout settings
+    connectionTimeoutMillis: 30000, // 30 seconds to establish connection
+    idleTimeoutMillis: 180000, // 3 minutes idle timeout (reduced from 5 minutes)
+    // Statement timeout (optional)
+    statement_timeout: 60000, // 60 seconds for queries
+    // Keep connections alive
+    keepAlive: true,
+    keepAliveInitialDelayMillis: 10000,
+    // Connection acquisition timeout
+    acquireTimeoutMillis: 60000,
   });
 
   pool.on('error', (err: Error) => {
-    console.error(`${poolName} | Actual Pool Idle client error:`, err.message, err.stack);
+    console.error(`${poolName} | Pool Error:`, err.message);
+  });
+
+  // Only log significant connection events, not every acquire
+  pool.on('connect', (_client) => {
+    console.log(`${poolName} | New client connected - Total: ${pool.totalCount}, Idle: ${pool.idleCount}`);
+  });
+
+  // Remove the noisy 'acquire' event logging since it's too verbose
+  // pool.on('acquire', (_client) => {
+  //   console.log(`${poolName} | Client acquired from pool`);
+  // });
+
+  pool.on('remove', (_client) => {
+    console.log(`${poolName} | Client removed - Total: ${pool.totalCount}, Idle: ${pool.idleCount}`);
   });
 
   // Attach to proxy
@@ -113,6 +138,33 @@ export function getSimPool(): pg.Pool {
   return simPool;
 }
 
+// Safe query function that ensures proper connection management
+export async function query<T extends pg.QueryResultRow = any>(
+  text: string,
+  params?: any[]
+): Promise<pg.QueryResult<T>> {
+  const client = await pool().connect();
+  try {
+    return await client.query<T>(text, params);
+  } finally {
+    client.release();
+  }
+}
+
+// Safe query function for a specific pool
+export async function queryOnPool<T extends pg.QueryResultRow = any>(
+  poolInstance: pg.Pool,
+  text: string,
+  params?: any[]
+): Promise<pg.QueryResult<T>> {
+  const client = await poolInstance.connect();
+  try {
+    return await client.query<T>(text, params);
+  } finally {
+    client.release();
+  }
+}
+
 // generalised function for simple statements that changes the database
 export async function withTransaction<T>(callback: (client: pg.PoolClient) => Promise<T>): Promise<T> {
   const client = await pool().connect();
@@ -122,9 +174,91 @@ export async function withTransaction<T>(callback: (client: pg.PoolClient) => Pr
     await client.query('COMMIT');
     return result;
   } catch (error) {
-    await client.query('ROLLBACK');
+    try {
+      await client.query('ROLLBACK');
+    } catch (rollbackError) {
+      console.error('Error during rollback:', rollbackError instanceof Error ? rollbackError.message : rollbackError);
+    }
     throw error;
   } finally {
+    // Always release the client back to the pool
     client.release();
+  }
+}
+
+// Health check function to test database connectivity
+export async function checkDatabaseHealth(): Promise<{ status: string; message: string; timestamp: string }> {
+  try {
+    const client = await pool().connect();
+    try {
+      const result = await client.query('SELECT NOW() as current_time, version() as db_version');
+      const currentTime = result.rows[0].current_time;
+      const dbVersion = result.rows[0].db_version;
+
+      return {
+        status: 'healthy',
+        message: `Database connection successful. Current time: ${currentTime}. Version: ${dbVersion
+          .split(' ')
+          .slice(0, 2)
+          .join(' ')}`,
+        timestamp: new Date().toISOString(),
+      };
+    } finally {
+      client.release();
+    }
+  } catch (error) {
+    return {
+      status: 'unhealthy',
+      message: error instanceof Error ? error.message : 'Unknown database error',
+      timestamp: new Date().toISOString(),
+    };
+  }
+}
+
+// Monitor pool health and log statistics
+export function logPoolStats(): void {
+  const prod = getProdPool();
+  const sim = getSimPool();
+
+  console.log(
+    `🔍 Pool Stats - PROD: ${prod.totalCount}/${prod.options.max} total, ${prod.idleCount} idle, ${prod.waitingCount} waiting`
+  );
+  console.log(
+    `🔍 Pool Stats - SIM: ${sim.totalCount}/${sim.options.max} total, ${sim.idleCount} idle, ${sim.waitingCount} waiting`
+  );
+}
+
+// Cleanup function to properly close all connections
+export async function closeAllPools(): Promise<void> {
+  console.log('🔄 Closing all database pools...');
+  try {
+    await Promise.all([prodPool.end(), simPool.end()]);
+    console.log('✅ All database pools closed successfully');
+  } catch (error) {
+    console.error('❌ Error closing database pools:', error);
+  }
+}
+
+// Set up periodic pool monitoring (every 30 seconds)
+let poolMonitorInterval: NodeJS.Timeout | null = null;
+
+export function startPoolMonitoring(): void {
+  if (poolMonitorInterval) return;
+
+  poolMonitorInterval = setInterval(() => {
+    const prod = getProdPool();
+    const sim = getSimPool();
+
+    // Only log if there are significant numbers of connections
+    if (prod.totalCount > 5 || prod.waitingCount > 0 || sim.totalCount > 5 || sim.waitingCount > 0) {
+      logPoolStats();
+    }
+  }, 30000);
+}
+
+export function stopPoolMonitoring(): void {
+  if (poolMonitorInterval) {
+    clearInterval(poolMonitorInterval);
+    poolMonitorInterval = null;
   }
 }

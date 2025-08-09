@@ -17,6 +17,9 @@ interface DbChangePayload {
 
 let sseClients: SseClient[] = [];
 let pgListenerClient: PoolClient | null = null;
+let reconnectAttempts = 0;
+const MAX_RECONNECT_ATTEMPTS = 10;
+const BASE_RECONNECT_DELAY = 1000; // 1 second
 
 /**
  * Add an SSE client to the list.
@@ -73,7 +76,9 @@ async function setupPgListener(): Promise<void> {
       console.log('PostgreSQL listener already connected or attempting to connect. Skipping setup.');
       return;
     }
+
     pgListenerClient = await pool.connect();
+    reconnectAttempts = 0; // Reset attempts on successful connection
 
     console.log(`PostgreSQL Listener: Connected`);
 
@@ -104,8 +109,19 @@ async function setupPgListener(): Promise<void> {
         pgListenerClient.release(true);
       }
       pgListenerClient = null;
-      console.log('Retrying PostgreSQL listener setup in 5 seconds...');
-      setTimeout(setupPgListener, 5000);
+
+      if (reconnectAttempts < MAX_RECONNECT_ATTEMPTS) {
+        const delay = BASE_RECONNECT_DELAY * Math.pow(2, reconnectAttempts);
+        console.log(
+          `Retrying PostgreSQL listener setup in ${delay}ms (attempt ${
+            reconnectAttempts + 1
+          }/${MAX_RECONNECT_ATTEMPTS})...`
+        );
+        reconnectAttempts++;
+        setTimeout(setupPgListener, delay);
+      } else {
+        console.error('Max reconnection attempts reached. PostgreSQL listener will not be retried automatically.');
+      }
     });
 
     // Handle connection end
@@ -114,8 +130,19 @@ async function setupPgListener(): Promise<void> {
       if (pgListenerClient) {
       }
       pgListenerClient = null;
-      console.log('Retrying PostgreSQL listener setup in 5 seconds...');
-      setTimeout(setupPgListener, 5000);
+
+      if (reconnectAttempts < MAX_RECONNECT_ATTEMPTS) {
+        const delay = BASE_RECONNECT_DELAY * Math.pow(2, reconnectAttempts);
+        console.log(
+          `Retrying PostgreSQL listener setup in ${delay}ms (attempt ${
+            reconnectAttempts + 1
+          }/${MAX_RECONNECT_ATTEMPTS})...`
+        );
+        reconnectAttempts++;
+        setTimeout(setupPgListener, delay);
+      } else {
+        console.error('Max reconnection attempts reached. PostgreSQL listener will not be retried automatically.');
+      }
     });
 
     await pgListenerClient.query('LISTEN db_changes');
@@ -126,8 +153,19 @@ async function setupPgListener(): Promise<void> {
       pgListenerClient.release(setupErr instanceof Error ? setupErr : undefined);
     }
     pgListenerClient = null;
-    console.log('Retrying PostgreSQL listener setup in 5 seconds...');
-    setTimeout(setupPgListener, 5000);
+
+    if (reconnectAttempts < MAX_RECONNECT_ATTEMPTS) {
+      const delay = BASE_RECONNECT_DELAY * Math.pow(2, reconnectAttempts);
+      console.log(
+        `Retrying PostgreSQL listener setup in ${delay}ms (attempt ${
+          reconnectAttempts + 1
+        }/${MAX_RECONNECT_ATTEMPTS})...`
+      );
+      reconnectAttempts++;
+      setTimeout(setupPgListener, delay);
+    } else {
+      console.error('Max reconnection attempts reached. PostgreSQL listener will not be retried automatically.');
+    }
   }
 }
 
