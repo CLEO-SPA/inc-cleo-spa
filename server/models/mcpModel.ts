@@ -759,6 +759,7 @@ const createConsumption = async (mcp_id: string, mcp_details: mcpConsumptionDeta
 
       // Create a local tracking variable for the remaining balance
       let currentBalance = mcp.package.balance;
+      mcpDetailToConsume.price *= mcpDetailToConsume.discount;
       const consumptionLogPromises = [];
 
       for (let i = 0; i < d.mcpd_quantity; i++) {

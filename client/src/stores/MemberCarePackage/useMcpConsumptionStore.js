@@ -185,14 +185,18 @@ export const useConsumptionStore = create(
         console.log(rawData);
 
         // Calculate remaining_quantity for each detail
-        const processedDetails = rawData.details.map((detail) => {
+        const processedDetails = rawData.details.map((detail, index) => {
           const consumedQuantity =
             rawData.transactionLogs?.filter(
               (log) => log.type === 'CONSUMPTION' && log.member_care_package_details_id === detail.id
             ).length || 0;
 
+          // For bypass packages where service_id is null, assign a mock ID
+          const serviceId = detail.service_id !== null ? detail.service_id : `bypass_${detail.id || index + 1}`;
+
           return {
             ...detail,
+            service_id: serviceId,
             remaining_quantity: detail.quantity - consumedQuantity,
           };
         });
@@ -331,6 +335,34 @@ export const useConsumptionStore = create(
           }
         }
       }
+
+      // Revert mock service IDs back to null for bypass packages before staging
+      set(
+        (state) => {
+          if (state.currentPackageInfo?.details) {
+            const revertedDetails = state.currentPackageInfo.details.map((detail) => ({
+              ...detail,
+              // Revert bypass mock IDs back to null
+              service_id:
+                typeof detail.service_id === 'string' && detail.service_id.startsWith('bypass_')
+                  ? null
+                  : detail.service_id,
+            }));
+
+            return {
+              currentPackageInfo: {
+                ...state.currentPackageInfo,
+                details: revertedDetails,
+              },
+            };
+          }
+          return {};
+        },
+        false,
+        'revertMockServiceIds'
+      );
+
+      console.log(get().detailForm, get().currentPackageInfo);
 
       // Stage the service details for submission
       get().addServiceToMcpDetails();

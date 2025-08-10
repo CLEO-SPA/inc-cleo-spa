@@ -68,6 +68,7 @@ const MemberCarePackageConsumptionCreateForm = () => {
 
   // Check if we have employee assignments for the selected service
   const hasEmployeeAssignments = selectedServiceId && employeeCommissionAssignments[selectedServiceId]?.length > 0;
+  // console.log(hasEmployeeAssignments, selectedServiceId);
 
   return (
     <Card className='m-4'>
