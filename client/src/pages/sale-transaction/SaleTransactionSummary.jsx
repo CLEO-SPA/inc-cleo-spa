@@ -859,7 +859,7 @@ const getValidationErrors = () => {
                       <p className="text-sm text-gray-500 mt-1">Add some items to continue</p>
                       <Button
                         className="mt-4"
-                        onClick={() => navigate('/sal')}
+                        onClick={() => navigate('/sale-transaction')}
                         disabled={isCreating}
                       >
                         Add Items
