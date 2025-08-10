@@ -887,6 +887,11 @@ const createMemberVoucher = async (
       updated_at         // ✅ NEW: Add custom date support
     } = transactionData;
 
+    // ✅ ADD: Helper function to round to 2 decimal places
+    const roundTo2Decimals = (num: number): number => {
+      return Math.round((num + Number.EPSILON) * 100) / 100;
+    };
+
     // Early validation
     if (!created_by) {
       throw new Error('created_by is required');
@@ -923,8 +928,6 @@ const createMemberVoucher = async (
         console.warn('Error parsing created_at, using current time:', error);
         customCreatedAt = new Date();
       }
-    } else {
-      customCreatedAt = new Date();
     }
 
     if (updated_at) {
@@ -965,13 +968,13 @@ const createMemberVoucher = async (
       created_at: voucher_created_at,
       created_by: item_created_by,
       creation_datetime,
-      free_of_charge = 0, // Default to 0
-      member_voucher_details = [], // Default to empty array
+      free_of_charge = 0,
+      member_voucher_details = [],
       member_voucher_name,
       remarks: voucherRemarks,
       selected_template,
       starting_balance,
-      status = 'active', // Default status
+      status = 'active',
       total_price,
       voucher_template_id
     } = data;
@@ -1014,7 +1017,7 @@ const createMemberVoucher = async (
 
     // Database validations
     let validationPromises = [
-      client.query('SELECT id FROM members WHERE id = $1', [member_id]),
+      client.query('SELECT id FROM members WHERE id = $1', [parsedMemberId]),
       client.query('SELECT id FROM employees WHERE id = $1', [employee_id]),
       client.query<{ id: string }>('SELECT get_or_create_status($1) as id', ['is_enabled']),
     ];
@@ -1031,7 +1034,7 @@ const createMemberVoucher = async (
 
     // FIXED: Proper validation checking
     if (memberResult.rows.length === 0) {
-      throw new Error(`Member with ID ${member_id} not found`);
+      throw new Error(`Member with ID ${parsedMemberId} not found`);
     }
 
     if (employeeResult.rows.length === 0) {
@@ -1043,8 +1046,8 @@ const createMemberVoucher = async (
     }
 
     // FIXED: Check voucher template validation if applicable
-    if (!is_bypass && voucher_template_id && voucher_template_id !== '0' && results[3]?.rows.length === 0) {
-      throw new Error(`Voucher template with ID ${voucher_template_id} not found`);
+    if (!is_bypass && parsedVoucherTemplateId && parsedVoucherTemplateId !== 0 && results[3]?.rows.length === 0) {
+      throw new Error(`Voucher template with ID ${parsedVoucherTemplateId} not found`);
     }
 
     // FIXED: Payment calculations using correct logic
@@ -1085,7 +1088,7 @@ const createMemberVoucher = async (
       member_id,
       final_current_balance,
       final_starting_balance,
-      free_of_charge,
+      parsedFreeOfCharge,
       default_total_price,
       status,
       voucherRemarks || itemRemarks || '',
@@ -1096,7 +1099,7 @@ const createMemberVoucher = async (
       updatedAt       // Voucher update date
     ]);
 
-    const memberVoucherId = Number(mvRows[0].id);
+    const memberVoucherId = parseInt(mvRows[0].id);
 
     // FIXED: Better service mapping with validation
     const services = member_voucher_details.map((detail: {
@@ -1240,7 +1243,7 @@ const createMemberVoucher = async (
       
       console.log('FOC transaction added:', {
         memberVoucherId,
-        focAmount: free_of_charge,
+        focAmount: parsedFreeOfCharge,
         newCurrentBalance,
         transactionType: 'ADD FOC'
       });
@@ -1268,11 +1271,13 @@ const createMemberVoucher = async (
         handled_by,
         created_by,
         created_at,
-        updated_at
-      ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12)
+        updated_at,
+        gst_amount
+      ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13)
       RETURNING id
     `;
 
+    // ✅ UPDATED: Include totalGSTAmount as parameter 13
     const transactionParams: (string | number | boolean | null | Date)[] = [
       customer_type?.toUpperCase() || 'MEMBER',
       member_id || null,
@@ -1282,14 +1287,16 @@ const createMemberVoucher = async (
       finalReceiptNo,
       remarks || '',
       processPayment,
-      handled_by,
-      created_by,
+      parsedHandledBy,
+      parsedCreatedBy,
       createdAt,
       updatedAt
     ];
 
     const transactionResult = await client.query(transactionQuery, transactionParams);
     const saleTransactionId: number = transactionResult.rows[0].id;
+
+    console.log('🏛️ MV GST amount stored in sale_transactions.gst_amount:', totalGSTAmount);
 
     const itemQuery: string = `
       INSERT INTO sale_transaction_items (
@@ -1315,17 +1322,14 @@ const createMemberVoucher = async (
       null, // product_name
       null, // member_care_package_id
       memberVoucherId, // Use actual voucher ID
-      pricing?.originalPrice || 0,
-      pricing?.customPrice || 0,
-      pricing?.discount || 0,
+      roundTo2Decimals(pricing?.originalPrice || 0),
+      roundTo2Decimals(pricing?.customPrice || 0),
+      roundTo2Decimals(pricing?.discount || 0),
       pricing?.quantity || 1,
-      pricing?.totalLinePrice || 0,
+      roundTo2Decimals(pricing?.totalLinePrice || 0),
       'member voucher',
       item.remarks || '',
     ];
-
-    console.log('MV Item Query:', itemQuery);
-    console.log('MV Item Params:', itemParams);
 
     const itemResult = await client.query(itemQuery, itemParams);
     const saleTransactionItemId: number = itemResult.rows[0].id;
@@ -1343,23 +1347,21 @@ const createMemberVoucher = async (
             remarks,
             created_by,
             created_at,
+            updated_by,
             updated_at
-          ) VALUES ($1, $2, $3, $4, $5, $6, $7)
+          ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8)
           RETURNING id
         `;
 
         const paymentParams: (number | string | Date)[] = [
           saleTransactionId,
           payment.methodId,
-          payment.amount,
+          roundTo2Decimals(payment.amount), // ✅ Round payment amounts
           payment.remark || '',
           created_by,
           createdAt,
           updatedAt
         ];
-
-        console.log('MV Payment Query:', paymentQuery);
-        console.log('MV Payment Params:', paymentParams);
 
         const paymentResult = await client.query(paymentQuery, paymentParams);
         console.log('Created MV payment with ID:', paymentResult.rows[0].id);
@@ -1374,14 +1376,16 @@ const createMemberVoucher = async (
       id: saleTransactionId,
       receipt_no: finalReceiptNo,
       customer_type: customer_type?.toUpperCase() || 'MEMBER',
-      member_id: member_id ? member_id.toString() : null,
+      member_id: parsedMemberId.toString(),
       total_transaction_amount: totalTransactionAmount,
+      total_paid_amount: totalPaidAmount,
+      outstanding_total_payment_amount: outstandingAmount,
       total_paid_amount: totalPaidAmount,
       outstanding_total_payment_amount: outstandingAmount,
       transaction_status: transactionStatus,
       remarks: remarks || '',
-      created_by,
-      handled_by,
+      created_by: parsedCreatedBy,
+      handled_by: parsedHandledBy,
       voucher_id: memberVoucherId,
       voucher_name: member_voucher_name,
       items_count: 1,

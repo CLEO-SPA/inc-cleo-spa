@@ -35,7 +35,7 @@ const ProcessPaymentSaleTransaction = () => {
   const dropdownPaymentMethods = usePaymentMethodStore((state) => state.dropdownPaymentMethods);
   const fetchDropdownPaymentMethods = usePaymentMethodStore((state) => state.fetchDropdownPaymentMethods);
 
-  // Proceed payment store - UPDATED to include transaction handler
+  // Proceed payment store
   const {
     // State
     transaction,
@@ -45,9 +45,9 @@ const ProcessPaymentSaleTransaction = () => {
     newPayments,
     selectedPaymentMethod,
     paymentHandlerId,
-    transactionHandlerId, // NEW: Added transaction handler
+    transactionHandlerId,
     generalRemark,
-    createdAt, // RESTORED: Added creation date
+    createdAt,
     PENDING_PAYMENT_METHOD_ID,
 
     // Actions
@@ -59,9 +59,9 @@ const ProcessPaymentSaleTransaction = () => {
     setProcessing,
     setSelectedPaymentMethod,
     setPaymentHandlerId,
-    setTransactionHandlerId, // NEW: Added transaction handler setter
+    setTransactionHandlerId,
     setGeneralRemark,
-    setCreatedAt, // RESTORED: Added creation date setter
+    setCreatedAt,
     addPayment,
     removePayment,
     updatePaymentAmount,
@@ -95,7 +95,7 @@ const ProcessPaymentSaleTransaction = () => {
         }
 
         const transactionData = transactionResponse.data.data;
-        setTransaction(transactionData); // This will auto-set transaction handler in updated store
+        setTransaction(transactionData);
 
         console.log('✅ Transaction data loaded:', transactionData);
 
@@ -198,7 +198,7 @@ const ProcessPaymentSaleTransaction = () => {
     updatePaymentAmount(paymentId, clampedAmount);
   };
 
-  // Process payment - UPDATED TO USE NEW ENDPOINT
+  // Process payment
   const handleProcessPayment = async () => {
     const validation = isValidForProcessing();
 
@@ -227,7 +227,7 @@ const ProcessPaymentSaleTransaction = () => {
 
       console.log('🔄 Processing payments:', allPayments);
 
-      // UPDATED: Prepare payment data in the format expected by processPartialPayment
+      // Prepare payment data in the format expected by processPartialPayment
       const paymentData = {
         payments: allPayments.map((payment) => ({
           payment_method_id: parseInt(payment.methodId),
@@ -237,14 +237,14 @@ const ProcessPaymentSaleTransaction = () => {
         })),
         general_remarks: generalRemark || '',
         receipt_number: receiptNumber || '',
-        transaction_handler_id: parseInt(transactionHandlerId), // Use the selected transaction handler
-        payment_handler_id: parseInt(paymentHandlerId), // Use the selected payment handler
-        created_at: createdAt, // RESTORED: Include custom creation date
+        transaction_handler_id: parseInt(transactionHandlerId),
+        payment_handler_id: parseInt(paymentHandlerId),
+        created_at: createdAt,
       };
 
       console.log('📤 Sending payment data to /st/pp/' + id + ':', paymentData);
 
-      // UPDATED: Call the correct endpoint with transaction ID in the URL
+      // Call the correct endpoint with transaction ID in the URL
       const response = await api.post(`/st/pp/${id}`, paymentData);
 
       if (!response.data.success) {
@@ -375,7 +375,7 @@ const ProcessPaymentSaleTransaction = () => {
                 </Badge>
               </div>
 
-              {/* Transaction Details - Full Width */}
+              {/* Transaction Details */}
               <Card>
                 <CardHeader>
                   <CardTitle className='flex items-center'>
@@ -433,7 +433,7 @@ const ProcessPaymentSaleTransaction = () => {
                 </CardContent>
               </Card>
 
-              {/* Payment Processing - Full Width */}
+              {/* Payment Processing */}
               <Card>
                 <CardHeader>
                   <CardTitle className='flex items-center'>
@@ -455,6 +455,7 @@ const ProcessPaymentSaleTransaction = () => {
                     />
                     <p className='text-xs text-gray-500 mt-1'>Custom receipt number (leave empty for original)</p>
                   </div>
+
                   {/* Handler Selection Grid */}
                   <div className='grid grid-cols-1 md:grid-cols-2 gap-6'>
                     {/* Transaction Handler Selection */}
@@ -592,7 +593,7 @@ const ProcessPaymentSaleTransaction = () => {
                 </CardContent>
               </Card>
 
-              {/* Payment Summary & Actions - Full Width */}
+              {/* Payment Summary & Actions */}
               <Card>
                 <CardHeader>
                   <CardTitle className='flex items-center'>

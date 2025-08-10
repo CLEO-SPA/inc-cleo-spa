@@ -32,15 +32,12 @@ router.post(
   '/:id/t/create',
   controller.checkCurrentBalance,
   // controller.checkPaidCurrentBalance,
-  controller.createTransactionLogsByMemberVoucherId
+  controller.createTransactionLogsByMemberVoucherId,
+  commissionMiddleware.applyMvCommission
 );
 
 router.put('/:id/t/update', controller.updateTransactionLogsAndCurrentBalanceByLogId);
 
 router.delete('/:id/t/:transaction_log_id/delete', controller.deleteTransactionLogsByLogId);
-
-router.get('/m', controller.getMemberVoucherDetailsHandler);
-router.post('/transfer', controller.transferVoucherDetailsHandler);
-
 
 export default router;
