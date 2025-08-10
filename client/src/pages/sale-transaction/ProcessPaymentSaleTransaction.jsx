@@ -1,4 +1,4 @@
-import React, { useEffect } from 'react';
+import React, { useEffect, useState } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import {
   ArrowLeft,
@@ -78,6 +78,9 @@ const ProcessPaymentSaleTransaction = () => {
     reset,
   } = useProceedPaymentStore();
 
+  // State to prevent infinite loading of payment methods
+  const [hasFetchedPaymentMethods, setHasFetchedPaymentMethods] = useState(false);
+
   // Load data on component mount
   useEffect(() => {
     const fetchData = async () => {
@@ -105,8 +108,9 @@ const ProcessPaymentSaleTransaction = () => {
         }
 
         // Load payment methods if not already loaded
-        if (dropdownPaymentMethods.length === 0) {
+        if (dropdownPaymentMethods.length === 0 && !hasFetchedPaymentMethods) {
           console.log('📄 Loading payment methods...');
+          setHasFetchedPaymentMethods(true);
           await fetchDropdownPaymentMethods();
         }
 
@@ -131,6 +135,7 @@ const ProcessPaymentSaleTransaction = () => {
   }, [
     id,
     dropdownPaymentMethods.length,
+    hasFetchedPaymentMethods,
     fetchDropdownPaymentMethods,
     setTransaction,
     setLoading,
