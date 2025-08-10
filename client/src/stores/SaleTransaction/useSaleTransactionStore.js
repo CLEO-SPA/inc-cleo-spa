@@ -19,7 +19,7 @@ const getInitialState = () => ({
     currentOperation: '',
   },
 
-  // ✅ UPDATED: General transaction details with creation date/time fields
+  // General transaction details with creation date/time fields
   transactionDetails: {
     receiptNumber: '',
     transactionRemark: '',
@@ -27,83 +27,96 @@ const getInitialState = () => ({
     handledBy: null,
     memberId: null,
     customerType: 'MEMBER',
-    // ✅ NEW: Add creation date/time fields
-    createdAt: new Date().toISOString().slice(0, 16), // Default to current datetime
-    updatedAt: new Date().toISOString().slice(0, 16), // Default to current datetime
+    createdAt: new Date().toISOString().slice(0, 16),
+    updatedAt: new Date().toISOString().slice(0, 16),
   },
 
   // Error handling
   errors: [],
   lastError: null,
 });
-
+const roundTo2Decimals = (num) => {
+  return Math.round((num + Number.EPSILON) * 100) / 100;
+};
 const useSaleTransactionStore = create(
   devtools(
     (set, get) => ({
       ...getInitialState(),
 
       // Constants
-      PENDING_PAYMENT_METHOD_ID: 7, // Based on your database structure
+      PENDING_PAYMENT_METHOD_ID: 7,
 
-      // ✅ FIXED: Helper function to calculate outstanding amount and add pending payment
-      // This matches the backend logic exactly
+      // Helper function to calculate outstanding amount and add pending payment
+      // Uses INCLUSIVE amounts (with GST)
       addAutoPendingPayment: (totalAmount, existingPayments) => {
-        // Calculate total paid amount from existing payments (excluding pending payments)
-        const totalPaid = existingPayments.reduce((sum, payment) => {
-          // Only count actual payments, not pending ones (methodId 7)
-          if (payment.methodId === get().PENDING_PAYMENT_METHOD_ID) {
-            return sum; // Don't include pending payments in total paid calculation
-          }
-          return sum + (payment.amount || 0);
-        }, 0);
+  // Calculate total paid amount from existing payments (excluding pending payments)
+  const totalPaid = existingPayments.reduce((sum, payment) => {
+    // Only count actual payments, not pending ones (methodId 7)
+    if (payment.methodId === get().PENDING_PAYMENT_METHOD_ID) {
+      return sum; // Don't include pending payments in total paid calculation
+    }
+    return sum + (payment.amount || 0);
+  }, 0);
 
-        // Calculate outstanding amount
-        const outstandingAmount = totalAmount - totalPaid;
+  // Calculate outstanding amount based on INCLUSIVE total
+  const outstandingAmount = roundTo2Decimals(totalAmount - totalPaid);
 
-        // Check if there's already a pending payment
-        const existingPendingPayment = existingPayments.find(
-          (payment) => payment.methodId === get().PENDING_PAYMENT_METHOD_ID
-        );
+  // Check if there's already a pending payment
+  const existingPendingPayment = existingPayments.find(
+    (payment) => payment.methodId === get().PENDING_PAYMENT_METHOD_ID
+  );
 
-        let updatedPayments = [...existingPayments];
+  let updatedPayments = [...existingPayments];
 
-        if (outstandingAmount > 0) {
-          if (existingPendingPayment) {
-            // Update existing pending payment amount
-            updatedPayments = updatedPayments.map((payment) =>
-              payment.methodId === get().PENDING_PAYMENT_METHOD_ID 
-                ? { ...payment, amount: outstandingAmount } 
-                : payment
-            );
-          } else {
-            // Add new pending payment
-            updatedPayments.push({
-              id: crypto.randomUUID(),
-              methodId: get().PENDING_PAYMENT_METHOD_ID,
-              methodName: 'Pending',
-              amount: outstandingAmount,
-              remark: 'Auto-generated pending payment for outstanding amount',
-              isAutoPending: true,
-            });
-          }
-        } else if (outstandingAmount <= 0 && existingPendingPayment) {
-          // Remove pending payment if outstanding amount is 0 or negative
-          updatedPayments = updatedPayments.filter(
-            (payment) => payment.methodId !== get().PENDING_PAYMENT_METHOD_ID || !payment.isAutoPending
-          );
-        }
+  if (outstandingAmount > 0.01) {
+    if (existingPendingPayment) {
+      // Update existing pending payment amount
+      updatedPayments = updatedPayments.map((payment) =>
+        payment.methodId === get().PENDING_PAYMENT_METHOD_ID 
+          ? { ...payment, amount: outstandingAmount }
+          : payment
+      );
+    } else {
+      // Add new pending payment
+      updatedPayments.push({
+        id: crypto.randomUUID(),
+        methodId: get().PENDING_PAYMENT_METHOD_ID,
+        methodName: 'Pending',
+        amount: outstandingAmount,
+        remark: 'Auto-generated pending payment for outstanding amount',
+        isAutoPending: true,
+      });
+    }
+  } else if (outstandingAmount <= 0.01 && existingPendingPayment) {
+    // Remove pending payment if outstanding amount is 0 or negative
+    updatedPayments = updatedPayments.filter(
+      (payment) => payment.methodId !== get().PENDING_PAYMENT_METHOD_ID || !payment.isAutoPending
+    );
+  }
 
-        return updatedPayments;
-      },
+  return updatedPayments;
+},
 
-      // ✅ NEW: Helper function to calculate GST breakdown from inclusive amount
+      // Helper function to calculate GST breakdown from inclusive amount
       calculateGSTBreakdown: (inclusiveAmount, gstRate = 9) => {
         const exclusive = inclusiveAmount / (1 + gstRate / 100);
         const gst = inclusiveAmount - exclusive;
         return {
-          inclusive: Math.round(inclusiveAmount * 100) / 100,
-          exclusive: Math.round(exclusive * 100) / 100,
-          gst: Math.round(gst * 100) / 100,
+          inclusive: roundTo2Decimals(inclusiveAmount),
+          exclusive: roundTo2Decimals(exclusive),
+          gst: roundTo2Decimals(gst),
+          gstRate: gstRate
+        };
+      },
+
+      // Helper function to calculate GST from exclusive amount
+      calculateGSTFromExclusive: (exclusiveAmount, gstRate = 9) => {
+        const gstAmount = exclusiveAmount * (gstRate / 100);
+        const inclusiveAmount = exclusiveAmount + gstAmount;
+        return {
+          exclusive: roundTo2Decimals(exclusiveAmount),
+          gst: roundTo2Decimals(gstAmount),
+          inclusive: roundTo2Decimals(inclusiveAmount),
           gstRate: gstRate
         };
       },
@@ -118,18 +131,18 @@ const useSaleTransactionStore = create(
         }));
       },
 
-      // ✅ NEW: Set creation date/time
+      // Set creation date/time
       setCreatedAt: (createdAt) => {
         set((state) => ({
           transactionDetails: {
             ...state.transactionDetails,
             createdAt,
-            updatedAt: createdAt, // Update both when created_at changes
+            updatedAt: createdAt,
           },
         }));
       },
 
-      // ✅ NEW: Set updated date/time
+      // Set updated date/time
       setUpdatedAt: (updatedAt) => {
         set((state) => ({
           transactionDetails: {
@@ -190,10 +203,8 @@ const useSaleTransactionStore = create(
         }));
       },
 
-      // ✅ NEW: Process cart data with GST calculations for backend
+      // Process cart data with correct GST calculations for backend
       processCartDataForBackend: (cartItems, itemPricing, sectionPayments, gstRate = 9) => {
-        console.log('🔄 Processing cart data with GST calculations...');
-        
         const processedData = {
           servicesProducts: null,
           mcpTransactions: [],
@@ -217,55 +228,63 @@ const useSaleTransactionStore = create(
         if (servicesAndProducts.length > 0) {
           const sectionPaymentsData = sectionPayments['services-products'] || [];
           
-          // Calculate total GST breakdown
-          const totalInclusive = servicesAndProducts.reduce((sum, item) => {
+          // Calculate total exclusive amount
+          const totalExclusive = servicesAndProducts.reduce((sum, item) => {
             return sum + (itemPricing[item.id]?.totalLinePrice || 0);
           }, 0);
-          const gstBreakdown = get().calculateGSTBreakdown(totalInclusive, gstRate);
+          
+          // Calculate GST breakdown
+          const gstBreakdown = get().calculateGSTFromExclusive(totalExclusive, gstRate);
+          
+          // Use INCLUSIVE amount for pending payment calculation
+          const updatedPayments = get().addAutoPendingPayment(gstBreakdown.inclusive, sectionPaymentsData);
           
           processedData.servicesProducts = {
             items: servicesAndProducts.map(item => ({
               ...item,
               pricing: {
                 ...itemPricing[item.id],
-                // Add GST breakdown for each item
-                gstBreakdown: get().calculateGSTBreakdown(itemPricing[item.id]?.totalLinePrice || 0, gstRate)
+                gstBreakdown: get().calculateGSTFromExclusive(itemPricing[item.id]?.totalLinePrice || 0, gstRate)
               }
             })),
-            payments: sectionPaymentsData,
-            // Add section-level GST breakdown
+            payments: updatedPayments,
             gstBreakdown: gstBreakdown
           };
         }
 
-        // Process Packages (individual transactions)
-        groupedItems.Packages.forEach(item => {
-          const sectionId = `package-${item.id}`;
-          const sectionPaymentsData = sectionPayments[sectionId] || [];
-          
-          const inclusive = itemPricing[item.id]?.totalLinePrice || 0;
-          const gstBreakdown = get().calculateGSTBreakdown(inclusive, gstRate);
-          
-          processedData.mcpTransactions.push({
-            item: {
-              ...item,
-              pricing: {
-                ...itemPricing[item.id],
-                gstBreakdown: gstBreakdown
-              }
-            },
-            payments: sectionPaymentsData,
-            gstBreakdown: gstBreakdown
-          });
-        });
+        // ✅ FIXED: Process Packages with INCLUSIVE amounts for pending calculation
+  groupedItems.Packages.forEach(item => {
+  const sectionId = `package-${item.id}`;
+  const sectionPaymentsData = sectionPayments[sectionId] || [];
+  
+  const exclusiveAmount = itemPricing[item.id]?.totalLinePrice || 0;
+  const gstBreakdown = get().calculateGSTFromExclusive(exclusiveAmount, gstRate);
+  
+  // Use INCLUSIVE amount for pending payment calculation
+  const updatedPayments = get().addAutoPendingPayment(gstBreakdown.inclusive, sectionPaymentsData);
+  
+  processedData.mcpTransactions.push({
+    item: {
+      ...item,
+      pricing: {
+        ...itemPricing[item.id],
+        gstBreakdown: gstBreakdown
+      }
+    },
+    payments: updatedPayments,
+    gstBreakdown: gstBreakdown
+  });
+});
 
-        // Process Vouchers (individual transactions)
+        // ✅ FIXED: Process Vouchers with INCLUSIVE amounts for pending calculation
         groupedItems.Vouchers.forEach(item => {
           const sectionId = `voucher-${item.id}`;
           const sectionPaymentsData = sectionPayments[sectionId] || [];
+          const exclusiveAmount = itemPricing[item.id]?.totalLinePrice || 0;
+          const gstBreakdown = get().calculateGSTFromExclusive(exclusiveAmount, gstRate);
           
-          const inclusive = itemPricing[item.id]?.totalLinePrice || 0;
-          const gstBreakdown = get().calculateGSTBreakdown(inclusive, gstRate);
+          // Use INCLUSIVE amount for pending payment calculation
+          const updatedPayments = get().addAutoPendingPayment(gstBreakdown.inclusive, sectionPaymentsData);
           
           processedData.mvTransactions.push({
             item: {
@@ -275,7 +294,7 @@ const useSaleTransactionStore = create(
                 gstBreakdown: gstBreakdown
               }
             },
-            payments: sectionPaymentsData,
+            payments: updatedPayments,
             gstBreakdown: gstBreakdown
           });
         });
@@ -315,8 +334,11 @@ const useSaleTransactionStore = create(
           const sectionId = `transfer-mv-${item.id}`;
           const sectionPaymentsData = sectionPayments[sectionId] || [];
           
-          const inclusive = itemPricing[item.id]?.totalLinePrice || 0;
-          const gstBreakdown = get().calculateGSTBreakdown(inclusive, gstRate);
+          const exclusiveAmount = itemPricing[item.id]?.totalLinePrice || 0;
+          const gstBreakdown = get().calculateGSTFromExclusive(exclusiveAmount, gstRate);
+          
+          // ✅ CRITICAL: Use INCLUSIVE amount for pending payment calculation
+          const updatedPayments = get().addAutoPendingPayment(gstBreakdown.inclusive, sectionPaymentsData);
           
           processedData.mvTransferTransactions.push({
             item: {
@@ -326,12 +348,11 @@ const useSaleTransactionStore = create(
                 gstBreakdown: gstBreakdown
               }
             },
-            payments: sectionPaymentsData,
+            payments: updatedPayments,
             gstBreakdown: gstBreakdown
           });
         });
 
-        console.log('✅ Processed cart data with GST:', processedData);
         return processedData;
       },
 
@@ -357,12 +378,11 @@ const useSaleTransactionStore = create(
             throw new Error('Transaction handler (handled_by) is required');
           }
 
-          // ✅ NEW: Validate creation date/time
           if (!transactionDetails.createdAt) {
             throw new Error('Creation date & time is required');
           }
 
-          // Process transaction data and auto-add pending payments for MCP and MV
+          // ✅ FIXED: Process transaction data with correct pending payments
           const processedTransactionData = get().processTransactionDataWithPending(transactionData);
 
           // Calculate total number of transactions to create
@@ -373,15 +393,7 @@ const useSaleTransactionStore = create(
           const mvTransferCount = processedTransactionData.mvTransferTransactions?.length || 0;
           const totalTransactions = servicesProductsCount + mcpCount + mvCount + mcpTransferCount + mvTransferCount;
 
-          console.log('📊 Transaction Summary:', {
-            servicesProducts: servicesProductsCount,
-            mcpTransactions: mcpCount,
-            mvTransactions: mvCount,
-            mcpTransferTransactions: mcpTransferCount,
-            mvTransferTransactions: mvTransferCount,
-            total: totalTransactions,
-            transactionDetails,
-          });
+
 
           set({
             currentStep: 'creating',
@@ -423,7 +435,6 @@ const useSaleTransactionStore = create(
                 },
               }));
             } catch (error) {
-              console.error('❌ Services/Products transaction failed:', error);
               failedTransactions.push({
                 type: 'services-products',
                 error: error.message,
@@ -447,9 +458,7 @@ const useSaleTransactionStore = create(
             try {
               const mcpFormStore = useMcpFormStore.getState();
               mcpCreationResult = await mcpFormStore.processMcpCreationQueue(get().transactionDetails.createdAt);
-              console.log('✅ MCP creation queue processed successfully:', mcpCreationResult);
             } catch (error) {
-              console.error('❌ MCP creation queue processing failed:', error);
               set((state) => ({
                 errors: [...state.errors, `MCP Creation Queue: ${error.message}`],
               }));
@@ -492,11 +501,7 @@ const useSaleTransactionStore = create(
                   },
                 };
 
-                console.log(
-                  `📦 Creating MCP transaction with ID ${actualMcpId} for package: ${
-                    mcpData.item.data?.package_name || mcpData.item.data?.name
-                  }`
-                );
+
 
                 const mcpTransaction = await get().createMcpTransaction(updatedMcpData);
 
@@ -513,7 +518,6 @@ const useSaleTransactionStore = create(
                   },
                 }));
               } catch (error) {
-                console.error('❌ MCP transaction failed:', error);
                 failedTransactions.push({
                   type: 'mcp',
                   error: error.message,
@@ -632,9 +636,7 @@ const useSaleTransactionStore = create(
                   },
                 };
 
-                console.log(
-                  `🔄 Creating MCP Transfer transaction from ${correspondingTransfer.mcp_id1} to ${correspondingTransfer.mcp_id2} (Amount: $${correspondingTransfer.amount})`
-                );
+
 
                 const mcpTransferTransaction = await get().createMcpTransferTransaction(updatedMcpTransferData);
 
@@ -694,7 +696,6 @@ const useSaleTransactionStore = create(
               }));
 
               try {
-                // ✅ Include creation date/time in transfer data
                 const transferFormDataWithSaleTransactionDate = {
                   ...transferFormData,
                   created_at: transactionDetails.createdAt,  
@@ -708,7 +709,7 @@ const useSaleTransactionStore = create(
 
                   const mvTransferDataWithId = {
                     ...mvTransferData,
-                    newVoucherId, // ✅ Attach new voucher ID at top-level
+                    newVoucherId,
                   };
 
                   const mvTransferTransaction = await get().createMvTransferTransaction(mvTransferDataWithId);
@@ -793,70 +794,71 @@ const useSaleTransactionStore = create(
         }
       },
 
-      // Process transaction data and auto-add pending payments for MCP and MV
+      // Process transaction data with correct pending payments
       processTransactionDataWithPending: (transactionData) => {
-        console.log('🔄 Processing transaction data with auto-pending payments...');
-
         const processedData = { ...transactionData };
 
         // Process MCP transactions
-        if (processedData.mcpTransactions?.length > 0) {
-          processedData.mcpTransactions = processedData.mcpTransactions.map((mcpData) => {
-            const totalAmount = mcpData.item.pricing?.totalLinePrice || 0;
-            const existingPayments = mcpData.payments || [];
+if (processedData.mcpTransactions?.length > 0) {
+  processedData.mcpTransactions = processedData.mcpTransactions.map((mcpData) => {
+    const gstBreakdown = mcpData.gstBreakdown;
+    const existingPayments = mcpData.payments || [];
 
-            // Add auto-pending payment
-            const updatedPayments = get().addAutoPendingPayment(totalAmount, existingPayments);
+    // Calculate inclusive amount if gstBreakdown is missing
+    let totalAmount;
+    if (gstBreakdown?.inclusive) {
+      totalAmount = gstBreakdown.inclusive;
+    } else {
+      // Calculate GST breakdown if missing
+      const exclusiveAmount = mcpData.item.pricing?.totalLinePrice || 0;
+      const calculatedGstBreakdown = get().calculateGSTFromExclusive(exclusiveAmount, 9);
+      totalAmount = calculatedGstBreakdown.inclusive;
+    }
 
-            console.log('📦 MCP Auto-Pending:', {
-              itemName: mcpData.item.data?.name || mcpData.item.data?.package_name,
-              totalAmount,
-              existingPayments: existingPayments.length,
-              updatedPayments: updatedPayments.length,
-              pendingAmount: updatedPayments.find((p) => p.isAutoPending)?.amount || 0,
-            });
+    // ✅ FIXED: Use INCLUSIVE amount for pending calculation
+    const updatedPayments = get().addAutoPendingPayment(totalAmount, existingPayments);
 
-            return {
-              ...mcpData,
-              payments: updatedPayments,
-            };
-          });
-        }
+
+
+    return {
+      ...mcpData,
+      payments: updatedPayments,
+    };
+  });
+}
 
         // Process MV transactions
-        if (processedData.mvTransactions?.length > 0) {
-          processedData.mvTransactions = processedData.mvTransactions.map((mvData) => {
-            const totalAmount = mvData.item.pricing?.totalLinePrice || 0;
-            const existingPayments = mvData.payments || [];
+if (processedData.mvTransactions?.length > 0) {
+  processedData.mvTransactions = processedData.mvTransactions.map((mvData) => {
+    const gstBreakdown = mvData.gstBreakdown;
+    const existingPayments = mvData.payments || [];
 
-            // Add auto-pending payment
-            const updatedPayments = get().addAutoPendingPayment(totalAmount, existingPayments);
+    // ✅ FIXED: Calculate inclusive amount if gstBreakdown is missing
+    let totalAmount;
+    if (gstBreakdown?.inclusive) {
+      totalAmount = gstBreakdown.inclusive;
+    } else {
+      // Calculate GST breakdown if missing
+      const exclusiveAmount = mvData.item.pricing?.totalLinePrice || 0;
+      const calculatedGstBreakdown = get().calculateGSTFromExclusive(exclusiveAmount, 9);
+      totalAmount = calculatedGstBreakdown.inclusive;
+    }
 
-            console.log('🎟️ MV Auto-Pending:', {
-              itemName: mvData.item.data?.member_voucher_name,
-              totalAmount,
-              existingPayments: existingPayments.length,
-              updatedPayments: updatedPayments.length,
-              pendingAmount: updatedPayments.find((p) => p.isAutoPending)?.amount || 0,
-            });
+    // ✅ FIXED: Use INCLUSIVE amount for pending calculation
+    const updatedPayments = get().addAutoPendingPayment(totalAmount, existingPayments);
 
-            return {
-              ...mvData,
-              payments: updatedPayments,
-            };
-          });
-        }
+
+
+    return {
+      ...mvData,
+      payments: updatedPayments,
+    };
+  });
+}
 
         // Process MCP Transfer transactions (no auto-pending needed, transfers are fully paid)
         if (processedData.mcpTransferTransactions?.length > 0) {
           processedData.mcpTransferTransactions = processedData.mcpTransferTransactions.map((mcpTransferData) => {
-            console.log('🔄 MCP Transfer Processing:', {
-              itemName: mcpTransferData.item.data?.description || 'Transfer',
-              totalAmount: mcpTransferData.item.pricing?.totalLinePrice || 0,
-              existingPayments: mcpTransferData.payments?.length || 0,
-              note: 'No auto-pending needed for transfers',
-            });
-
             return mcpTransferData; // No changes needed for transfer transactions
           });
         }
@@ -864,13 +866,6 @@ const useSaleTransactionStore = create(
         // Process MV Transfer transactions (no auto-pending needed, transfers are fully paid)
         if (processedData.mvTransferTransactions?.length > 0) {
           processedData.mvTransferTransactions = processedData.mvTransferTransactions.map((mvTransferData) => {
-            console.log('🔄 MV Transfer Processing:', {
-              itemName: mvTransferData.item.data?.description || 'Transfer',
-              totalAmount: mvTransferData.item.pricing?.totalLinePrice || 0,
-              existingPayments: mvTransferData.payments?.length || 0,
-              note: 'No auto-pending needed for transfers',
-            });
-
             return mvTransferData; // No changes needed for transfer transactions
           });
         }
@@ -879,125 +874,54 @@ const useSaleTransactionStore = create(
       },
 
       // ✅ UPDATED: Create Services + Products transaction with GST breakdown
-createServicesProductsTransaction: async (servicesProductsData) => {
-  console.log('🛍️ Creating Services + Products transaction...');
-  
-  // ✅ NEW: Detailed frontend data logging BEFORE processing
-  console.log('🔍 FRONTEND -> BACKEND: Raw servicesProductsData received:', {
-    itemsCount: servicesProductsData.items?.length || 0,
-    paymentsCount: servicesProductsData.payments?.length || 0,
-    hasGstBreakdown: !!servicesProductsData.gstBreakdown,
-    gstBreakdown: servicesProductsData.gstBreakdown
-  });
+      createServicesProductsTransaction: async (servicesProductsData) => {
 
-  // ✅ NEW: Log each item in detail
-  console.log('📝 FRONTEND -> BACKEND: Individual Items Analysis:');
-  servicesProductsData.items?.forEach((item, index) => {
-    console.log(`   Item ${index + 1}:`, {
-      type: item.type,
-      name: item.data?.name || 'Unknown',
-      originalPrice: item.pricing?.originalPrice,
-      finalPrice: item.pricing?.totalLinePrice,
-      quantity: item.pricing?.quantity,
-      discount: item.pricing?.discount,
-      customPrice: item.pricing?.customPrice,
-      assignedEmployee: item.assignedEmployee || item.employee_id,
-      hasRemarks: !!item.remarks,
-      gstBreakdown: item.pricing?.gstBreakdown
-    });
-  });
 
-  // ✅ NEW: Log payments in detail
-  console.log('💳 FRONTEND -> BACKEND: Payments Analysis:');
-  servicesProductsData.payments?.forEach((payment, index) => {
-    console.log(`   Payment ${index + 1}:`, {
-      methodId: payment.methodId,
-      methodName: payment.methodName,
-      amount: payment.amount,
-      hasRemark: !!payment.remark,
-      isAutoPending: payment.isAutoPending
-    });
-  });
 
-  const { transactionDetails } = get();
+        const { transactionDetails } = get();
 
-  const payload = {
-    customer_type: transactionDetails.customerType,
-    member_id: transactionDetails.memberId,
-    receipt_number: transactionDetails.receiptNumber,
-    remarks: transactionDetails.transactionRemark,
-    created_by: transactionDetails.createdBy,
-    handled_by: transactionDetails.handledBy,
-    created_at: transactionDetails.createdAt,
-    updated_at: transactionDetails.updatedAt,
-    
-    // ✅ CRITICAL: Include GST breakdown in payload
-    gstBreakdown: servicesProductsData.gstBreakdown,
-    
-    items: servicesProductsData.items.map((item, index) => {
-      const mappedItem = {
-        type: item.type,
-        data: item.data,
-        pricing: item.pricing,
-        assignedEmployee: item.assignedEmployee || item.employee_id,
-        remarks: item.remarks || ''
-      };
-      
-      // ✅ NEW: Log each mapped item
-      console.log(`🔄 FRONTEND -> BACKEND: Mapping Item ${index + 1}:`, {
-        original: {
-          type: item.type,
-          name: item.data?.name,
-          pricingKeys: Object.keys(item.pricing || {}),
-          employeeAssignment: item.assignedEmployee || item.employee_id
-        },
-        mapped: {
-          type: mappedItem.type,
-          name: mappedItem.data?.name,
-          pricingKeys: Object.keys(mappedItem.pricing || {}),
-          employeeAssignment: mappedItem.assignedEmployee
+        const payload = {
+          customer_type: transactionDetails.customerType,
+          member_id: transactionDetails.memberId,
+          receipt_number: transactionDetails.receiptNumber,
+          remarks: transactionDetails.transactionRemark,
+          created_by: transactionDetails.createdBy,
+          handled_by: transactionDetails.handledBy,
+          created_at: transactionDetails.createdAt,
+          updated_at: transactionDetails.updatedAt,
+          
+          // Include GST breakdown in payload
+          gstBreakdown: servicesProductsData.gstBreakdown,
+          
+          items: servicesProductsData.items.map((item, index) => {
+            const mappedItem = {
+              type: item.type,
+              data: item.data,
+              pricing: item.pricing,
+              assignedEmployee: item.assignedEmployee || item.employee_id,
+              remarks: item.remarks || ''
+            };
+            
+
+            
+            return mappedItem;
+          }),
+          payments: servicesProductsData.payments || []
+        };
+
+
+
+        const response = await api.post('/st/services-products', payload);
+
+        if (!response.data?.success) {
+          throw new Error(response.data?.message || 'Failed to create services/products transaction');
         }
-      });
-      
-      return mappedItem;
-    }),
-    payments: servicesProductsData.payments || []
-  };
 
-  // ✅ ENHANCED: Comprehensive payload logging
-  console.log('📤 FRONTEND -> BACKEND: Final Payload Summary:', {
-    transactionDetails: {
-      customerType: payload.customer_type,
-      memberId: payload.member_id,
-      receiptNumber: payload.receipt_number,
-      createdBy: payload.created_by,
-      handledBy: payload.handled_by,
-      createdAt: payload.created_at,
-      updatedAt: payload.updated_at
-    },
-    gstBreakdown: payload.gstBreakdown,
-    itemsCount: payload.items.length,
-    paymentsCount: payload.payments.length,
-    totalItemAmount: payload.items.reduce((sum, item) => sum + (item.pricing?.totalLinePrice || 0), 0),
-    totalPaymentAmount: payload.payments.reduce((sum, payment) => sum + (payment.amount || 0), 0)
-  });
-
-  // ✅ NEW: Log complete payload (be careful in production)
-  console.log('📋 FRONTEND -> BACKEND: Complete Payload Details:', JSON.stringify(payload, null, 2));
-
-  const response = await api.post('/st/services-products', payload);
-
-  if (!response.data?.success) {
-    throw new Error(response.data?.message || 'Failed to create services/products transaction');
-  }
-
-  return response.data.data;
-},
+        return response.data.data;
+      },
 
       // ✅ UPDATED: Create individual MCP transaction with creation date/time and GST
       createMcpTransaction: async (mcpData) => {
-        console.log('📦 Creating MCP transaction...');
-
         const { transactionDetails } = get();
 
         const payload = {
@@ -1017,11 +941,8 @@ createServicesProductsTransaction: async (servicesProductsData) => {
             remarks: mcpData.item.remarks || '',
           },
           payments: mcpData.payments || [],
-          // ✅ NEW: Include GST breakdown
           gstBreakdown: mcpData.gstBreakdown,
         };
-
-        console.log('📤 MCP payload with GST breakdown:', payload);
 
         const response = await api.post('/st/mcp', payload);
 
@@ -1034,8 +955,6 @@ createServicesProductsTransaction: async (servicesProductsData) => {
 
       // ✅ UPDATED: Create individual MV transaction with creation date/time and GST
       createMvTransaction: async (mvData) => {
-        console.log('🎟️ Creating MV transaction...');
-
         const { transactionDetails } = get();
 
         const payload = {
@@ -1055,15 +974,11 @@ createServicesProductsTransaction: async (servicesProductsData) => {
             remarks: mvData.item.remarks || '',
           },
           payments: mvData.payments || [],
-          // ✅ NEW: Include GST breakdown
           gstBreakdown: mvData.gstBreakdown,
         };
 
-        console.log('📤 MV payload with GST breakdown:', payload);
-
         const response = await api.post('/mv/create', payload);
         const mvId = response.data.data.voucher_id;
-        console.log(mvId);
 
         if (!response.data?.success) {
           throw new Error(response.data?.message || 'Failed to create MV transaction');
@@ -1074,8 +989,6 @@ createServicesProductsTransaction: async (servicesProductsData) => {
 
       // ✅ UPDATED: Create individual MCP Transfer transaction with creation date/time
       createMcpTransferTransaction: async (mcpTransferData) => {
-        console.log('🔄 Creating MCP Transfer transaction...');
-
         const { transactionDetails } = get();
 
         const payload = {
@@ -1095,11 +1008,8 @@ createServicesProductsTransaction: async (servicesProductsData) => {
             remarks: mcpTransferData.item.remarks || '',
           },
           payments: mcpTransferData.payments || [],
-          // ✅ NEW: Include GST breakdown (no GST for MCP transfers)
           gstBreakdown: mcpTransferData.gstBreakdown,
         };
-
-        console.log('📤 MCP Transfer payload:', payload);
 
         const response = await api.post('/st/mcp-transfer', payload);
 
@@ -1112,8 +1022,6 @@ createServicesProductsTransaction: async (servicesProductsData) => {
 
       // ✅ UPDATED: Create individual MV Transfer transaction with creation date/time and GST
       createMvTransferTransaction: async (mvTransferData) => {
-        console.log('🔄 Creating MV Transfer transaction...');
-
         const { transactionDetails } = get();
 
         const payload = {
@@ -1123,7 +1031,6 @@ createServicesProductsTransaction: async (servicesProductsData) => {
           remarks: transactionDetails.transactionRemark,
           created_by: transactionDetails.createdBy,
           handled_by: transactionDetails.handledBy,
-          // ✅ NEW: Include creation date/time in payload
           created_at: transactionDetails.createdAt,
           updated_at: transactionDetails.updatedAt,
           item: {
@@ -1134,12 +1041,9 @@ createServicesProductsTransaction: async (servicesProductsData) => {
             remarks: mvTransferData.item.remarks || '',
           },
           payments: mvTransferData.payments || [],
-          newVoucherId: mvTransferData.newVoucherId, // ✅ Include in payload
-          // ✅ NEW: Include GST breakdown
+          newVoucherId: mvTransferData.newVoucherId,
           gstBreakdown: mvTransferData.gstBreakdown,
         };
-
-        console.log('📤 MV Transfer payload with GST breakdown:', payload);
 
         const response = await api.post('/st/mv-transfer', payload);
 
@@ -1158,10 +1062,6 @@ createServicesProductsTransaction: async (servicesProductsData) => {
           return { success: true, message: 'No failed transactions to retry' };
         }
 
-        console.log('🔄 Retrying failed transactions...');
-        // Implementation for retry logic
-        // This would recreate the failed transactions
-
         return { success: false, message: 'Retry functionality not implemented yet' };
       },
 
@@ -1178,11 +1078,9 @@ createServicesProductsTransaction: async (servicesProductsData) => {
           errors.push('Transaction handler is required');
         }
 
-        // ✅ NEW: Validate creation date/time
         if (!transactionDetails.createdAt) {
           errors.push('Creation date & time is required');
         } else {
-          // Validate that the date is actually valid
           try {
             const dateValue = new Date(transactionDetails.createdAt);
             if (isNaN(dateValue.getTime())) {
@@ -1215,7 +1113,6 @@ createServicesProductsTransaction: async (servicesProductsData) => {
 
       // Reset store
       reset: () => {
-        console.log('🧹 Resetting sale transaction store');
         set(getInitialState());
       },
 

@@ -588,25 +588,39 @@ const CartItemsWithPayment = ({
   };
 
   // Update payment amount
-  const updatePaymentAmount = (sectionId, paymentId, amount) => {
-    const numAmount = roundTo2Decimals(parseFloat(amount) || 0);
-    const section = paymentSections.find((s) => s.id === sectionId);
-    const currentPayments = sectionPayments[sectionId] || [];
+const updatePaymentAmount = (sectionId, paymentId, amount) => {
+  const numAmount = roundTo2Decimals(parseFloat(amount) || 0);
+  const section = paymentSections.find((s) => s.id === sectionId);
+  const currentPayments = sectionPayments[sectionId] || [];
 
-    const otherPaymentsTotal = roundTo2Decimals(
-      currentPayments.filter((p) => p.id !== paymentId).reduce((sum, p) => sum + p.amount, 0)
-    );
+  const otherPaymentsTotal = roundTo2Decimals(
+    currentPayments.filter((p) => p.id !== paymentId).reduce((sum, p) => sum + p.amount, 0)
+  );
 
-    // ✅ Limit payment to remaining section amount (inclusive of GST)
-    const maxAllowed = section ? roundTo2Decimals(section.inclusiveAmount - otherPaymentsTotal) : numAmount;
-    const clampedAmount = roundTo2Decimals(Math.min(numAmount, Math.max(0, maxAllowed)));
+  // ✅ CRITICAL FIX: Make sure we're using the INCLUSIVE amount (with GST)
+  // This should be section.inclusiveAmount, NOT section.amount
+  const maxAllowed = section ? roundTo2Decimals(section.inclusiveAmount - otherPaymentsTotal) : numAmount;
+  const clampedAmount = roundTo2Decimals(Math.min(numAmount, Math.max(0, maxAllowed)));
 
-    if (numAmount > maxAllowed && maxAllowed >= 0) {
-      console.warn(`Payment amount limited from ${numAmount} to ${clampedAmount} for section ${sectionId}`);
-    }
+  if (numAmount > maxAllowed && maxAllowed >= 0) {
+    console.warn(`Payment amount limited from ${numAmount} to ${clampedAmount} for section ${sectionId}`);
+  }
 
-    onPaymentChange('updateAmount', sectionId, { paymentId, amount: clampedAmount });
-  };
+  // Add debugging to see what's being passed
+  console.log('💳 Payment Amount Update Debug:', {
+    sectionId,
+    paymentId,
+    inputAmount: numAmount,
+    sectionInclusiveAmount: section?.inclusiveAmount,
+    sectionExclusiveAmount: section?.exclusiveAmount,
+    sectionGstAmount: section?.gstAmount,
+    otherPaymentsTotal,
+    maxAllowed,
+    clampedAmount
+  });
+
+  onPaymentChange('updateAmount', sectionId, { paymentId, amount: clampedAmount });
+};
 
   // Update payment remark
   const updatePaymentRemark = (sectionId, paymentId, remark) => {
@@ -1149,14 +1163,6 @@ const CartItemsWithPayment = ({
                         <span className='text-blue-600'>Customer pays:</span>
                         <div className='font-bold text-green-600'>{formatCurrency(section.inclusiveAmount)}</div>
                       </div>
-                    </div>
-                    <div className='mt-2 pt-2 border-t border-blue-200 text-xs text-blue-600'>
-                      <strong>Formula:</strong> {formatCurrency(section.exclusiveAmount)} +{' '}
-                      {formatCurrency(section.gstAmount)} = {formatCurrency(section.inclusiveAmount)}
-                    </div>
-                    <div className='mt-1 text-xs text-blue-600'>
-                      <strong>Backend total_transaction_amount:</strong> {formatCurrency(section.inclusiveAmount)}{' '}
-                      (includes GST)
                     </div>
                   </div>
                 </div>

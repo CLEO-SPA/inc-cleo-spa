@@ -883,7 +883,13 @@ const createMemberVoucher = async (
       remarks,
       created_at,
       updated_at,
+      gstBreakdown, // ✅ NEW: Extract GST breakdown
     } = transactionData;
+
+    // ✅ ADD: Helper function to round to 2 decimal places
+    const roundTo2Decimals = (num: number): number => {
+      return Math.round((num + Number.EPSILON) * 100) / 100;
+    };
 
     // Early validation
     if (!created_by) {
@@ -907,8 +913,8 @@ const createMemberVoucher = async (
     }
 
     // ✅ Parse and validate custom creation date/time for sale transactions
-    let customCreatedAt = null;
-    let customUpdatedAt = null;
+    let customCreatedAt: Date = new Date();
+    let customUpdatedAt: Date = new Date();
 
     if (created_at) {
       try {
@@ -921,8 +927,6 @@ const createMemberVoucher = async (
         console.warn('Error parsing created_at, using current time:', error);
         customCreatedAt = new Date();
       }
-    } else {
-      customCreatedAt = new Date();
     }
 
     if (updated_at) {
@@ -957,13 +961,13 @@ const createMemberVoucher = async (
       created_at: voucher_created_at,
       created_by: item_created_by,
       creation_datetime,
-      free_of_charge = 0, // Default to 0
-      member_voucher_details = [], // Default to empty array
+      free_of_charge = 0,
+      member_voucher_details = [],
       member_voucher_name,
       remarks: voucherRemarks,
       selected_template,
       starting_balance,
-      status = 'active', // Default status
+      status = 'active',
       total_price,
       voucher_template_id,
     } = data;
@@ -973,30 +977,74 @@ const createMemberVoucher = async (
       throw new Error('member_voucher_name is required');
     }
 
+    // ✅ FIXED: Ensure all numeric fields are properly parsed and validated
+    const parseNumber = (value: any, fieldName: string, defaultValue: number = 0): number => {
+      if (value === null || value === undefined || value === '') {
+        return defaultValue;
+      }
+      const parsed = typeof value === 'string' ? parseFloat(value) : Number(value);
+      if (isNaN(parsed)) {
+        console.warn(`Invalid ${fieldName}: ${value}, using default: ${defaultValue}`);
+        return defaultValue;
+      }
+      return roundTo2Decimals(parsed);
+    };
+
+    const parseInteger = (value: any, fieldName: string, allowNull: boolean = false): number | null => {
+      if ((value === null || value === undefined || value === '') && allowNull) {
+        return null;
+      }
+      if (value === null || value === undefined || value === '') {
+        throw new Error(`${fieldName} is required`);
+      }
+      const parsed = typeof value === 'string' ? parseInt(value) : Number(value);
+      if (isNaN(parsed)) {
+        throw new Error(`Invalid ${fieldName}: ${value}`);
+      }
+      return parsed;
+    };
+
+    // ✅ FIXED: Parse and validate all numeric fields
+    const parsedMemberId = parseInteger(member_id, 'member_id');
+    const parsedCreatedBy = parseInteger(created_by, 'created_by');
+    const parsedHandledBy = parseInteger(handled_by, 'handled_by');
+    const parsedVoucherTemplateId = parseInteger(voucher_template_id, 'voucher_template_id', true);
+    const parsedFreeOfCharge = parseNumber(free_of_charge, 'free_of_charge', 0);
+    const parsedTotalPrice = parseNumber(total_price, 'total_price', 0);
+    const parsedStartingBalance = parseNumber(starting_balance, 'starting_balance', 0);
+
+    console.log('✅ Parsed MV numeric fields:', {
+      parsedMemberId,
+      parsedCreatedBy,
+      parsedHandledBy,
+      parsedVoucherTemplateId,
+      parsedFreeOfCharge,
+      parsedTotalPrice,
+      parsedStartingBalance
+    });
+
     // FIXED: Better default calculation
     const default_total_price = selected_template?.default_total_price
-      ? Number(selected_template.default_total_price)
-      : total_price
-      ? Number(total_price)
-      : 0;
+      ? parseNumber(selected_template.default_total_price, 'default_total_price')
+      : parsedTotalPrice;
 
     const is_bypass = bypass_template === true;
 
-    const createdAt = customCreatedAt; // Use sale transaction date
-    const updatedAt = customUpdatedAt; // Use sale transaction date
+    const createdAt = customCreatedAt;
+    const updatedAt = customUpdatedAt;
 
-    const employee_id = assignedEmployee ? Number(assignedEmployee) : Number(created_by);
+    const employee_id = assignedEmployee ? parseInteger(assignedEmployee, 'assignedEmployee') : parsedCreatedBy;
 
     // Database validations
     let validationPromises = [
-      client.query('SELECT id FROM members WHERE id = $1', [member_id]),
+      client.query('SELECT id FROM members WHERE id = $1', [parsedMemberId]),
       client.query('SELECT id FROM employees WHERE id = $1', [employee_id]),
       client.query<{ id: string }>('SELECT get_or_create_status($1) as id', ['is_enabled']),
     ];
 
     // FIXED: Only validate voucher template if not bypassing AND template ID exists
-    if (!is_bypass && voucher_template_id && voucher_template_id !== '0') {
-      validationPromises.push(client.query('SELECT id FROM voucher_templates WHERE id = $1', [voucher_template_id]));
+    if (!is_bypass && parsedVoucherTemplateId && parsedVoucherTemplateId !== 0) {
+      validationPromises.push(client.query('SELECT id FROM voucher_templates WHERE id = $1', [parsedVoucherTemplateId]));
     }
 
     const results = await Promise.all(validationPromises);
@@ -1004,7 +1052,7 @@ const createMemberVoucher = async (
 
     // FIXED: Proper validation checking
     if (memberResult.rows.length === 0) {
-      throw new Error(`Member with ID ${member_id} not found`);
+      throw new Error(`Member with ID ${parsedMemberId} not found`);
     }
 
     if (employeeResult.rows.length === 0) {
@@ -1016,69 +1064,70 @@ const createMemberVoucher = async (
     }
 
     // FIXED: Check voucher template validation if applicable
-    if (!is_bypass && voucher_template_id && voucher_template_id !== '0' && results[3]?.rows.length === 0) {
-      throw new Error(`Voucher template with ID ${voucher_template_id} not found`);
+    if (!is_bypass && parsedVoucherTemplateId && parsedVoucherTemplateId !== 0 && results[3]?.rows.length === 0) {
+      throw new Error(`Voucher template with ID ${parsedVoucherTemplateId} not found`);
     }
 
-    // ✅ FIXED: Payment calculations using CORRECT MCP logic
-    const totalTransactionAmount: number = pricing?.totalLinePrice || 0;
+    // ✅ UPDATED: Calculate GST amounts with proper breakdown
+    let totalTransactionAmount: number;
+    let totalGSTAmount: number;
+
+    if (gstBreakdown) {
+      totalTransactionAmount = roundTo2Decimals(gstBreakdown.inclusiveTotal || 0);
+      totalGSTAmount = roundTo2Decimals(gstBreakdown.gstTotal || 0);
+      console.log('✅ MV Using GST breakdown from frontend:', {
+        inclusive: totalTransactionAmount,
+        gst: totalGSTAmount
+      });
+    } else {
+      const exclusiveTotal = roundTo2Decimals(pricing?.totalLinePrice || 0);
+      totalGSTAmount = roundTo2Decimals(exclusiveTotal * 0.09);
+      totalTransactionAmount = roundTo2Decimals(exclusiveTotal + totalGSTAmount);
+      console.log('⚠️ MV No GST breakdown provided, calculated:', {
+        exclusive: exclusiveTotal,
+        gst: totalGSTAmount,
+        inclusive: totalTransactionAmount
+      });
+    }
 
     const PENDING_PAYMENT_METHOD_ID = 7;
-    const GST_PAYMENT_METHOD_ID = 10;
 
-    // Separate payments by type (same as MCP)
+    // ✅ FIXED: Separate pending and non-pending payments
     const pendingPayments = payments.filter(
       (payment: PaymentMethodRequest) => payment.methodId === PENDING_PAYMENT_METHOD_ID
     );
 
-    const gstPayments = payments.filter((payment: PaymentMethodRequest) => payment.methodId === GST_PAYMENT_METHOD_ID);
-
-    const actualPayments = payments.filter(
-      (payment: PaymentMethodRequest) =>
-        payment.methodId !== PENDING_PAYMENT_METHOD_ID && payment.methodId !== GST_PAYMENT_METHOD_ID
+    const nonPendingPayments = payments.filter(
+      (payment: PaymentMethodRequest) => payment.methodId !== PENDING_PAYMENT_METHOD_ID
     );
 
-    // Calculate amounts (same logic as MCP)
-    const totalActualPaymentAmount: number = actualPayments.reduce((total: number, payment: PaymentMethodRequest) => {
+    // Calculate amounts using non-pending payments only
+    const totalPaidAmount: number = roundTo2Decimals(nonPendingPayments.reduce((total: number, payment: PaymentMethodRequest) => {
       return total + (payment.amount || 0);
-    }, 0);
+    }, 0));
 
-    const totalGSTAmount: number = gstPayments.reduce((total: number, payment: PaymentMethodRequest) => {
-      return total + (payment.amount || 0);
-    }, 0);
-
-    // IGNORE pending amount from frontend - calculate our own (same as MCP)
-    const frontendPendingAmount: number = pendingPayments.reduce((total: number, payment: PaymentMethodRequest) => {
-      return total + (payment.amount || 0);
-    }, 0);
-
-    // Calculate correct outstanding amount (backend authority) - same as MCP
-    const outstandingAmount: number = Math.max(0, totalTransactionAmount - totalActualPaymentAmount);
-
-    // Total paid amount = actual payments + GST (EXCLUDES pending) - same as MCP
-    const totalPaidAmount: number = totalActualPaymentAmount + totalGSTAmount;
+    // Calculate correct outstanding amount
+    const outstandingAmount: number = roundTo2Decimals(Math.max(0, totalTransactionAmount - totalPaidAmount));
 
     const transactionStatus: 'FULL' | 'PARTIAL' = outstandingAmount <= 0 ? 'FULL' : 'PARTIAL';
     const processPayment: boolean = outstandingAmount > 0;
 
-    console.log('✅ MV Creation Payment calculations:', {
+    console.log('✅ MV Payment calculations with GST:', {
       totalTransactionAmount,
-      totalActualPaymentAmount,
+      totalPaidAmount,
       totalGSTAmount,
-      frontendPendingAmount: `${frontendPendingAmount} (from frontend - IGNORED)`,
-      outstandingAmount: `${outstandingAmount} (backend calculated - USED)`,
-      totalPaidAmount: `${totalPaidAmount} (actual + GST, excludes pending)`,
+      outstandingAmount,
       transactionStatus,
-      note: 'Backend ignores frontend pending amount and calculates its own',
+      processPayment
     });
 
     // ✅ FIXED: Use correct payment logic for voucher balance calculation
-    const is_fully_paid = outstandingAmount <= 0; // Use backend calculated outstanding
+    const is_fully_paid = outstandingAmount <= 0;
 
     // FIXED: Cleaner balance calculation
-    const base_balance = default_total_price + free_of_charge;
-    const final_starting_balance = base_balance;
-    const final_current_balance = is_fully_paid ? default_total_price : default_total_price - outstandingAmount;
+    const base_balance = default_total_price + parsedFreeOfCharge;
+    const final_starting_balance = roundTo2Decimals(base_balance);
+    const final_current_balance = roundTo2Decimals(is_fully_paid ? default_total_price : default_total_price - outstandingAmount);
 
     // ✅ Insert member voucher using sale transaction dates
     const i_mv_sql = `
@@ -1092,11 +1141,11 @@ const createMemberVoucher = async (
 
     const { rows: mvRows } = await client.query<{ id: string }>(i_mv_sql, [
       member_voucher_name,
-      is_bypass ? 0 : voucher_template_id || 0,
-      member_id,
+      is_bypass ? 0 : parsedVoucherTemplateId || 0,
+      parsedMemberId,
       final_current_balance,
       final_starting_balance,
-      free_of_charge,
+      parsedFreeOfCharge,
       default_total_price,
       status,
       voucherRemarks || itemRemarks || '',
@@ -1107,7 +1156,7 @@ const createMemberVoucher = async (
       updatedAt,
     ]);
 
-    const memberVoucherId = Number(mvRows[0].id);
+    const memberVoucherId = parseInt(mvRows[0].id);
 
     // FIXED: Better service mapping with validation
     const services = member_voucher_details.map(
@@ -1119,11 +1168,11 @@ const createMemberVoucher = async (
         return {
           id: detail.service_id || 0,
           name: detail.name || 'Unknown Service',
-          original_price: Number(detail.price || 0),
-          custom_price: Number(detail.custom_price ?? detail.price ?? 0),
-          discount: Number(detail.price ?? 0) - Number(detail.custom_price ?? detail.price ?? 0),
-          final_price: Number(detail.custom_price ?? detail.price ?? 0),
-          duration: Number(detail.duration || 0),
+          original_price: parseNumber(detail.price, 'service price'),
+          custom_price: parseNumber(detail.custom_price ?? detail.price, 'service custom_price'),
+          discount: parseNumber(detail.price, 'price') - parseNumber(detail.custom_price ?? detail.price, 'custom_price'),
+          final_price: parseNumber(detail.custom_price ?? detail.price, 'final_price'),
+          duration: parseNumber(detail.duration, 'duration'),
         };
       }
     );
@@ -1188,9 +1237,9 @@ const createMemberVoucher = async (
     ]);
 
     // ✅ FOC transaction using sale transaction dates
-    if (transactionStatus === 'FULL' && free_of_charge > 0) {
+    if (transactionStatus === 'FULL' && parsedFreeOfCharge > 0) {
       // Calculate new balance after adding FOC
-      const newCurrentBalance = final_current_balance + free_of_charge;
+      const newCurrentBalance = roundTo2Decimals(final_current_balance + parsedFreeOfCharge);
 
       // Update the member voucher with new balance
       const updateVoucherSql = `
@@ -1201,7 +1250,7 @@ const createMemberVoucher = async (
 
       await client.query(updateVoucherSql, [
         newCurrentBalance,
-        updatedAt, // ✅ Now uses sale transaction date
+        updatedAt,
         memberVoucherId,
       ]);
 
@@ -1210,8 +1259,8 @@ const createMemberVoucher = async (
         memberVoucherId,
         'Free of Charge Addition',
         createdAt,
-        newCurrentBalance, // Updated balance after FOC
-        free_of_charge, // FOC amount as amount_change
+        newCurrentBalance,
+        parsedFreeOfCharge,
         employee_id,
         'ADD FOC',
         employee_id,
@@ -1222,7 +1271,7 @@ const createMemberVoucher = async (
 
       console.log('FOC transaction added:', {
         memberVoucherId,
-        focAmount: free_of_charge,
+        focAmount: parsedFreeOfCharge,
         newCurrentBalance,
         transactionType: 'ADD FOC',
       });
@@ -1238,7 +1287,7 @@ const createMemberVoucher = async (
       finalReceiptNo = `ST${receiptResult.rows[0].next_number.toString().padStart(6, '0')}`;
     }
 
-    // ✅ Insert sale transaction using sale transaction dates
+    // ✅ UPDATED: Insert sale transaction with GST amount
     const transactionQuery: string = `
       INSERT INTO sale_transactions (
         customer_type,
@@ -1252,28 +1301,40 @@ const createMemberVoucher = async (
         handled_by,
         created_by,
         created_at,
-        updated_at
-      ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12)
+        updated_at,
+        gst_amount
+      ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13)
       RETURNING id
     `;
 
+    // ✅ UPDATED: Include totalGSTAmount as parameter 13
     const transactionParams: (string | number | boolean | null | Date)[] = [
       customer_type?.toUpperCase() || 'MEMBER',
-      member_id || null,
-      totalPaidAmount, // Actual + GST (excludes pending)
-      outstandingAmount, // Transaction amount - actual payments (excludes GST)
+      parsedMemberId,
+      totalPaidAmount,
+      outstandingAmount,
       transactionStatus,
       finalReceiptNo,
       remarks || '',
       processPayment,
-      handled_by,
-      created_by,
+      parsedHandledBy,
+      parsedCreatedBy,
       createdAt,
       updatedAt,
+      totalGSTAmount, // ✅ NEW: GST amount parameter
     ];
+
+    console.log('MV Transaction Params with GST:', {
+      totalPaidAmount,
+      outstandingAmount,
+      totalGSTAmount,
+      transactionStatus
+    });
 
     const transactionResult = await client.query(transactionQuery, transactionParams);
     const saleTransactionId: number = transactionResult.rows[0].id;
+
+    console.log('🏛️ MV GST amount stored in sale_transactions.gst_amount:', totalGSTAmount);
 
     const itemQuery: string = `
       INSERT INTO sale_transaction_items (
@@ -1299,34 +1360,22 @@ const createMemberVoucher = async (
       null, // product_name
       null, // member_care_package_id
       memberVoucherId, // Use actual voucher ID
-      pricing?.originalPrice || 0,
-      pricing?.customPrice || 0,
-      pricing?.discount || 0,
+      roundTo2Decimals(pricing?.originalPrice || 0),
+      roundTo2Decimals(pricing?.customPrice || 0),
+      roundTo2Decimals(pricing?.discount || 0),
       pricing?.quantity || 1,
-      pricing?.totalLinePrice || 0,
+      roundTo2Decimals(pricing?.totalLinePrice || 0),
       'member voucher',
       item.remarks || '',
     ];
-
-    console.log('MV Item Query:', itemQuery);
-    console.log('MV Item Params:', itemParams);
 
     const itemResult = await client.query(itemQuery, itemParams);
     const saleTransactionItemId: number = itemResult.rows[0].id;
 
     console.log('Created MV sale transaction item with ID:', saleTransactionItemId);
 
-    // ✅ Insert all payments (actual + GST) and create correct pending payment
+    // ✅ UPDATED: Insert payments with updated_by and rounded amounts
     for (const payment of payments) {
-      // Skip frontend pending payments - we'll create our own (same as MCP)
-      if (payment.methodId === PENDING_PAYMENT_METHOD_ID) {
-        console.log('Skipping frontend pending payment:', {
-          amount: payment.amount,
-          note: 'Backend will create correct pending payment',
-        });
-        continue;
-      }
-
       if (payment.amount > 0) {
         const paymentQuery: string = `
           INSERT INTO payment_to_sale_transactions (
@@ -1336,64 +1385,29 @@ const createMemberVoucher = async (
             remarks,
             created_by,
             created_at,
+            updated_by,
             updated_at
-          ) VALUES ($1, $2, $3, $4, $5, $6, $7)
+          ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8)
           RETURNING id
         `;
 
         const paymentParams: (number | string | Date)[] = [
           saleTransactionId,
           payment.methodId,
-          payment.amount,
+          roundTo2Decimals(payment.amount), // ✅ Round payment amounts
           payment.remark || '',
-          created_by,
-          createdAt, // ✅ Now uses sale transaction date
-          updatedAt, // ✅ Now uses sale transaction date
+          parsedCreatedBy,
+          createdAt,
+          parsedCreatedBy, // ✅ NEW: updated_by
+          updatedAt,
         ];
-
-        console.log('MV Payment Query:', paymentQuery);
-        console.log('MV Payment Params:', paymentParams);
 
         const paymentResult = await client.query(paymentQuery, paymentParams);
         console.log('Created MV payment with ID:', paymentResult.rows[0].id, {
           methodId: payment.methodId,
-          amount: payment.amount,
-          isGST: payment.methodId === GST_PAYMENT_METHOD_ID,
+          amount: roundTo2Decimals(payment.amount),
         });
       }
-    }
-
-    // ✅ Create correct pending payment if needed (using backend calculated amount) - same as MCP
-    if (outstandingAmount > 0) {
-      const pendingPaymentQuery: string = `
-        INSERT INTO payment_to_sale_transactions (
-          sale_transaction_id,
-          payment_method_id,
-          amount,
-          remarks,
-          created_by,
-          created_at,
-          updated_at
-        ) VALUES ($1, $2, $3, $4, $5, $6, $7)
-        RETURNING id
-      `;
-
-      const pendingPaymentParams: (number | string | Date)[] = [
-        saleTransactionId,
-        PENDING_PAYMENT_METHOD_ID,
-        outstandingAmount,
-        'Backend calculated pending payment',
-        handled_by,
-        createdAt,
-        updatedAt,
-      ];
-
-      const pendingResult = await client.query(pendingPaymentQuery, pendingPaymentParams);
-      console.log('Created correct pending payment with ID:', pendingResult.rows[0].id, {
-        methodId: PENDING_PAYMENT_METHOD_ID,
-        amount: outstandingAmount,
-        note: 'Backend calculated - ignores frontend pending',
-      });
     }
 
     await client.query('COMMIT');
@@ -1404,18 +1418,19 @@ const createMemberVoucher = async (
       id: saleTransactionId,
       receipt_no: finalReceiptNo,
       customer_type: customer_type?.toUpperCase() || 'MEMBER',
-      member_id: member_id ? member_id.toString() : null,
+      member_id: parsedMemberId.toString(),
       total_transaction_amount: totalTransactionAmount,
-      total_paid_amount: totalPaidAmount, // Actual + GST (excludes pending)
-      outstanding_total_payment_amount: outstandingAmount, // Transaction - actual (excludes GST)
+      total_paid_amount: totalPaidAmount,
+      outstanding_total_payment_amount: outstandingAmount,
       transaction_status: transactionStatus,
       remarks: remarks || '',
-      created_by,
-      handled_by,
+      created_by: parsedCreatedBy,
+      handled_by: parsedHandledBy,
       voucher_id: memberVoucherId,
       voucher_name: member_voucher_name,
       items_count: 1,
       payments_count: payments.filter((p: PaymentMethodRequest) => p.amount > 0).length,
+      gst_amount: totalGSTAmount, // ✅ NEW: Include GST amount in result
     };
   } catch (error) {
     await client.query('ROLLBACK');

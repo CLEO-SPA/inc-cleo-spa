@@ -1,4 +1,4 @@
-import { pool } from '../config/database.js';
+import { pool, query as dbQuery , queryOnPool } from '../config/database.js';
 import {
   Member,
   Payment,
@@ -30,6 +30,11 @@ import {
   APIResponse,
 } from '../types/SaleTransactionTypes.js';
 import mcpModel from './mcpModel.js';
+
+const roundTo2Decimals = (num: number): number => {
+  return Math.round((num + Number.EPSILON) * 100) / 100;
+};
+
 
 const getSalesTransactionList = async (
   filter?: string,
@@ -147,7 +152,7 @@ const getSalesTransactionList = async (
 
     console.log('Count query:', countQuery);
 
-    const countResult = await pool().query(countQuery, queryParams);
+    const countResult = await dbQuery(countQuery, queryParams);
     const totalItems = parseInt(countResult.rows[0].total);
 
     // Calculate pagination
@@ -191,7 +196,7 @@ const getSalesTransactionList = async (
     `;
 
     const mainQueryParams = [...queryParams, limit, offset];
-    const salesTransactions = await pool().query(mainQuery, mainQueryParams);
+    const salesTransactions = await dbQuery(mainQuery, mainQueryParams);
 
     const transactionIds = salesTransactions.rows.map((row: any) => row.id);
     let paymentData: any[] = [];
@@ -207,7 +212,7 @@ const getSalesTransactionList = async (
         WHERE ptst.sale_transaction_id = ANY($1)
       `;
 
-      const paymentResult = await pool().query(paymentQuery, [transactionIds]);
+      const paymentResult = await dbQuery(paymentQuery, [transactionIds]);
       paymentData = paymentResult.rows;
     }
 
@@ -289,7 +294,9 @@ const getSalesTransactionById = async (id: string): Promise<SalesTransactionDeta
         he.employee_name as handler_name,
         -- Creator information
         ce.employee_code as creator_code,
-        ce.employee_name as creator_name
+        ce.employee_name as creator_name,
+        -- GST amount from sale_transactions table
+        st.gst_amount
       FROM sale_transactions st
       LEFT JOIN members m ON st.member_id = m.id
       LEFT JOIN employees he ON st.handled_by = he.id
@@ -297,7 +304,7 @@ const getSalesTransactionById = async (id: string): Promise<SalesTransactionDeta
       WHERE st.id = $1
     `;
 
-    const transactionResult = await pool().query(transactionQuery, [id]);
+    const transactionResult = await dbQuery(transactionQuery, [id]);
 
     if (transactionResult.rows.length === 0) {
       return null;
@@ -335,7 +342,7 @@ const getSalesTransactionById = async (id: string): Promise<SalesTransactionDeta
       ORDER BY sti.id
     `;
 
-    const itemsResult = await pool().query(itemsQuery, [id]);
+    const itemsResult = await dbQuery(itemsQuery, [id]);
 
     // Get payment information
     const paymentsQuery = `
@@ -360,19 +367,20 @@ const getSalesTransactionById = async (id: string): Promise<SalesTransactionDeta
       ORDER BY ptst.created_at
     `;
 
-    const paymentsResult = await pool().query(paymentsQuery, [id]);
+    const paymentsResult = await dbQuery(paymentsQuery, [id]);
 
     // Transform the transaction data
-    const totalAmount =
-      parseFloat(transaction.total_paid_amount || 0) + parseFloat(transaction.outstanding_total_payment_amount || 0);
+    const totalAmount = roundTo2Decimals(
+      parseFloat(transaction.total_paid_amount || 0) + parseFloat(transaction.outstanding_total_payment_amount || 0)
+    );
 
     const transformedTransaction: SalesTransactionDetail = {
       transaction_id: transaction.id.toString(),
       receipt_no: transaction.receipt_no,
       customer_type: transaction.customer_type,
       total_transaction_amount: totalAmount,
-      total_paid_amount: parseFloat(transaction.total_paid_amount || 0),
-      outstanding_total_payment_amount: parseFloat(transaction.outstanding_total_payment_amount || 0),
+      total_paid_amount: roundTo2Decimals(parseFloat(transaction.total_paid_amount || 0)),
+      outstanding_total_payment_amount: roundTo2Decimals(parseFloat(transaction.outstanding_total_payment_amount || 0)),
       transaction_status: transaction.sale_transaction_status,
       transaction_created_at: transaction.created_at,
       transaction_updated_at: transaction.updated_at,
@@ -382,6 +390,7 @@ const getSalesTransactionById = async (id: string): Promise<SalesTransactionDeta
       has_care_packages: false,
       process_payment: transaction.process_payment,
       reference_sales_transaction_id: transaction.reference_sales_transaction_id,
+      gst_amount: roundTo2Decimals(parseFloat(transaction.gst_amount || 0)), // Add GST amount directly from sale_transactions table
 
       // Member information
       member: transaction.member_table_id
@@ -412,7 +421,7 @@ const getSalesTransactionById = async (id: string): Promise<SalesTransactionDeta
       // Payment information
       payments: paymentsResult.rows.map((payment: any) => ({
         id: payment.payment_id.toString(),
-        amount: parseFloat(payment.amount || 0),
+        amount: roundTo2Decimals(parseFloat(payment.amount || 0)),
         payment_method: payment.payment_method_name,
         created_at: payment.payment_created_at,
         updated_at: payment.payment_updated_at,
@@ -434,20 +443,20 @@ const getSalesTransactionById = async (id: string): Promise<SalesTransactionDeta
         product_name: item.product_name || null,
         member_care_package_id: item.member_care_package_id?.toString() || null,
         member_voucher_id: item.member_voucher_id?.toString() || null,
-        original_unit_price: parseFloat(item.original_unit_price || 0),
-        custom_unit_price: parseFloat(item.custom_unit_price || 0),
-        discount_percentage: parseFloat(item.discount_percentage || 0),
+        original_unit_price: roundTo2Decimals(parseFloat(item.original_unit_price || 0)),
+        custom_unit_price: roundTo2Decimals(parseFloat(item.custom_unit_price || 0)),
+        discount_percentage: roundTo2Decimals(parseFloat(item.discount_percentage || 0)),
         quantity: item.quantity,
         remarks: item.remarks || '',
-        amount: parseFloat(item.amount || 0),
+        amount: roundTo2Decimals(parseFloat(item.amount || 0)),
         item_type: item.item_type,
         // Enhanced voucher information
         member_voucher_name: item.member_voucher_name || undefined,
-        voucher_balance: item.voucher_balance ? parseFloat(item.voucher_balance) : undefined,
+        voucher_balance: item.voucher_balance ? roundTo2Decimals(parseFloat(item.voucher_balance)) : undefined,
         voucher_status: item.voucher_status || undefined,
         // Enhanced care package information
         care_package_name: item.care_package_name || undefined,
-        care_package_balance: item.care_package_balance ? parseFloat(item.care_package_balance) : undefined,
+        care_package_balance: item.care_package_balance ? roundTo2Decimals(parseFloat(item.care_package_balance)) : undefined,
         care_package_status: item.care_package_status || undefined,
       })),
     };
@@ -504,7 +513,7 @@ const searchServices = async (searchQuery: string): Promise<Service[]> => {
 
     query += ` LIMIT 10`;
 
-    const result = await pool().query(query, params);
+    const result = await dbQuery(query, params);
 
     return result.rows.map((service: any) => ({
       id: `S${service.id}`,
@@ -517,8 +526,8 @@ const searchServices = async (searchQuery: string): Promise<Service[]> => {
       category: service.service_category_name || 'Uncategorized',
       service_category_name: service.service_category_name || 'Uncategorized',
       service_category_id: service.service_category_id ? service.service_category_id.toString() : null,
-      price: parseFloat(service.service_price || 0),
-      service_default_price: parseFloat(service.service_price || 0),
+      price: roundTo2Decimals(parseFloat(service.service_price || 0)),
+      service_default_price: roundTo2Decimals(parseFloat(service.service_price || 0)),
       is_enabled: service.service_is_enabled || false,
       sequence_no: service.service_sequence_no || 0,
     }));
@@ -569,7 +578,7 @@ const searchProducts = async (searchQuery: string): Promise<Product[]> => {
 
     query += ` LIMIT 10`;
 
-    const result = await pool().query(query, params);
+    const result = await dbQuery(query, params);
 
     return result.rows.map((product: any) => ({
       id: `P${product.id}`,
@@ -581,8 +590,8 @@ const searchProducts = async (searchQuery: string): Promise<Product[]> => {
       category: product.product_category_name || 'Uncategorized',
       product_category_name: product.product_category_name || 'Uncategorized',
       product_category_id: product.product_category_id ? product.product_category_id.toString() : null,
-      price: parseFloat(product.product_unit_sale_price || 0) /* Updated column name */,
-      cost_price: parseFloat(product.product_unit_cost_price || 0) /* Updated column name */,
+      price: roundTo2Decimals(parseFloat(product.product_unit_sale_price || 0)) /* Updated column name */,
+      cost_price: roundTo2Decimals(parseFloat(product.product_unit_cost_price || 0)) /* Updated column name */,
       is_enabled: product.product_is_enabled || false,
       sequence_no: product.product_sequence_no || 0,
     }));
@@ -668,18 +677,18 @@ const createServicesProductsTransaction = async (
     let totalGSTAmount: number;
 
     if (gstBreakdown) {
-      totalTransactionAmount = gstBreakdown.inclusiveTotal || 0;
-      totalGSTAmount = gstBreakdown.gstTotal || 0;
+      totalTransactionAmount = roundTo2Decimals(gstBreakdown.inclusiveTotal || 0);
+      totalGSTAmount = roundTo2Decimals(gstBreakdown.gstTotal || 0);
       console.log('✅ Using GST breakdown from frontend:', {
         inclusive: totalTransactionAmount,
         gst: totalGSTAmount
       });
     } else {
-      const exclusiveTotal = items.reduce((total: number, item: TransactionRequestItem) => {
+      const exclusiveTotal = roundTo2Decimals(items.reduce((total: number, item: TransactionRequestItem) => {
         return total + (item.pricing?.totalLinePrice || 0);
-      }, 0);
-      totalGSTAmount = exclusiveTotal * 0.09;
-      totalTransactionAmount = exclusiveTotal + totalGSTAmount;
+      }, 0));
+      totalGSTAmount = roundTo2Decimals(exclusiveTotal * 0.09);
+      totalTransactionAmount = roundTo2Decimals(exclusiveTotal + totalGSTAmount);
       console.log('⚠️ No GST breakdown provided, calculated:', {
         exclusive: exclusiveTotal,
         gst: totalGSTAmount,
@@ -687,11 +696,11 @@ const createServicesProductsTransaction = async (
       });
     }
 
-    const totalPaidAmount: number = payments.reduce((total: number, payment: PaymentMethodRequest) => {
+    const totalPaidAmount: number = roundTo2Decimals(payments.reduce((total: number, payment: PaymentMethodRequest) => {
       return total + (payment.amount || 0);
-    }, 0);
+    }, 0));
 
-    const outstandingAmount: number = totalTransactionAmount - totalPaidAmount;
+    const outstandingAmount: number = roundTo2Decimals(totalTransactionAmount - totalPaidAmount);
     const transactionStatus: 'FULL' | 'PARTIAL' = outstandingAmount <= 0 ? 'FULL' : 'PARTIAL';
 
     let finalReceiptNo: string = receipt_number || '';
@@ -977,16 +986,16 @@ const createMcpTransaction = async (
     let totalGSTAmount: number;
 
     if (gstBreakdown) {
-      totalTransactionAmount = gstBreakdown.inclusiveTotal || 0;
-      totalGSTAmount = gstBreakdown.gstTotal || 0;
+      totalTransactionAmount = roundTo2Decimals(gstBreakdown.inclusiveTotal || 0);
+      totalGSTAmount = roundTo2Decimals(gstBreakdown.gstTotal || 0);
       console.log('✅ MCP Using GST breakdown from frontend:', {
         inclusive: totalTransactionAmount,
         gst: totalGSTAmount
       });
     } else {
-      const exclusiveTotal = item.pricing?.totalLinePrice || 0;
-      totalGSTAmount = exclusiveTotal * 0.09;
-      totalTransactionAmount = exclusiveTotal + totalGSTAmount;
+      const exclusiveTotal = roundTo2Decimals(item.pricing?.totalLinePrice || 0);
+      totalGSTAmount = roundTo2Decimals(exclusiveTotal * 0.09);
+      totalTransactionAmount = roundTo2Decimals(exclusiveTotal + totalGSTAmount);
       console.log('⚠️ MCP No GST breakdown provided, calculated:', {
         exclusive: exclusiveTotal,
         gst: totalGSTAmount,
@@ -1003,13 +1012,11 @@ const createMcpTransaction = async (
     const nonPendingPayments = payments.filter(
       (payment: PaymentMethodRequest) => payment.methodId !== PENDING_PAYMENT_METHOD_ID
     );
-    const totalPaidAmount: number = nonPendingPayments.reduce((total: number, payment: PaymentMethodRequest) => {
+    const totalPaidAmount: number = roundTo2Decimals(nonPendingPayments.reduce((total: number, payment: PaymentMethodRequest) => {
       return total + (payment.amount || 0);
-    }, 0);
+    }, 0));
 
-    const outstandingAmount: number = pendingPayments.reduce((total: number, payment: PaymentMethodRequest) => {
-      return total + (payment.amount || 0);
-    }, 0);
+const outstandingAmount: number = roundTo2Decimals(Math.max(0, totalTransactionAmount - totalPaidAmount));
 
     const transactionStatus: 'FULL' | 'PARTIAL' = outstandingAmount <= 0 ? 'FULL' : 'PARTIAL';
     const processPayment: boolean = outstandingAmount > 0;
@@ -1284,12 +1291,12 @@ const createMcpTransferTransaction = async (
     });
 
     // Calculate totals from single transfer item
-    const totalTransactionAmount: number = item.pricing?.totalLinePrice || 0;
+    const totalTransactionAmount: number = roundTo2Decimals(item.pricing?.totalLinePrice || 0);
     const totalGSTAmount: number = 0;  // ✅ NO GST for MCP transfers
     // For transfers, we expect full payment
-    const totalPaidAmount: number = payments.reduce((total: number, payment: PaymentMethodRequest) => {
+    const totalPaidAmount: number = roundTo2Decimals(payments.reduce((total: number, payment: PaymentMethodRequest) => {
       return total + (payment.amount || 0);
-    }, 0);
+    }, 0));
 
     const outstandingAmount: number = 0;
     const transactionStatus: 'TRANSFER' | 'FULL' = 'TRANSFER';
@@ -1580,16 +1587,16 @@ const createMvTransferTransaction = async (
     let totalGSTAmount: number;
 
     if (gstBreakdown) {
-      totalTransactionAmount = gstBreakdown.inclusiveTotal || 0;
-      totalGSTAmount = gstBreakdown.gstTotal || 0;
+      totalTransactionAmount = roundTo2Decimals(gstBreakdown.inclusiveTotal || 0);
+      totalGSTAmount = roundTo2Decimals(gstBreakdown.gstTotal || 0);
       console.log('✅ MV Transfer Using GST breakdown from frontend:', {
         inclusive: totalTransactionAmount,
         gst: totalGSTAmount
       });
     } else {
-      const exclusiveTotal = item.pricing?.totalLinePrice || 0;
-      totalGSTAmount = exclusiveTotal * 0.09;
-      totalTransactionAmount = exclusiveTotal + totalGSTAmount;
+      const exclusiveTotal = roundTo2Decimals(item.pricing?.totalLinePrice || 0);
+      totalGSTAmount = roundTo2Decimals(exclusiveTotal * 0.09);
+      totalTransactionAmount = roundTo2Decimals(exclusiveTotal + totalGSTAmount);
       console.log('⚠️ MV Transfer No GST breakdown provided, calculated:', {
         exclusive: exclusiveTotal,
         gst: totalGSTAmount,
@@ -1597,9 +1604,9 @@ const createMvTransferTransaction = async (
       });
     }
 
-    const totalPaidAmount: number = payments.reduce((total: number, payment: PaymentMethodRequest) => {
+    const totalPaidAmount: number = roundTo2Decimals(payments.reduce((total: number, payment: PaymentMethodRequest) => {
       return total + (payment.amount || 0);
-    }, 0);
+    }, 0));
 
     const outstandingAmount: number = 0;
     const transactionStatus: 'FULL' | 'PARTIAL' = 'FULL';
@@ -1786,6 +1793,7 @@ const createMvTransferTransaction = async (
   }
 };
 
+
 const processPartialPayment = async (
   transactionId: string | number,
   paymentData: ProcessPartialPaymentDataWithHandler
@@ -1799,8 +1807,8 @@ const processPartialPayment = async (
       payments,
       general_remarks,
       transaction_handler_id,
-      payment_handler_id, // NEW: Extract payment handler from frontend
-      receipt_number, // NEW: Extract receipt number from frontend
+      payment_handler_id,
+      receipt_number,
       created_at,
     } = paymentData;
 
@@ -1865,9 +1873,9 @@ const processPartialPayment = async (
     const actualPayments = payments.filter((payment) => payment.payment_method_id !== PENDING_PAYMENT_METHOD_ID);
     const pendingPayments = payments.filter((payment) => payment.payment_method_id === PENDING_PAYMENT_METHOD_ID);
 
-    const totalActualPaymentAmount = actualPayments.reduce((sum, payment) => sum + payment.amount, 0);
-    const totalPendingAmount = pendingPayments.reduce((sum, payment) => sum + payment.amount, 0);
-    const totalNewPaymentAmount = totalActualPaymentAmount + totalPendingAmount;
+    const totalActualPaymentAmount = roundTo2Decimals(actualPayments.reduce((sum, payment) => sum + payment.amount, 0));
+    const totalPendingAmount = roundTo2Decimals(pendingPayments.reduce((sum, payment) => sum + payment.amount, 0));
+    const totalNewPaymentAmount = roundTo2Decimals(totalActualPaymentAmount + totalPendingAmount);
 
     // Validate payment amount doesn't exceed outstanding
     if (totalNewPaymentAmount > originalTransaction.outstanding_total_payment_amount) {
@@ -1890,8 +1898,8 @@ const processPartialPayment = async (
     const originalItems = originalItemsResult.rows;
 
     // Calculate new transaction values
-    const newTotalPaidAmount = totalActualPaymentAmount;
-    const newOutstandingAmount = originalTransaction.outstanding_total_payment_amount - totalActualPaymentAmount;
+    const newTotalPaidAmount = roundTo2Decimals(totalActualPaymentAmount);
+    const newOutstandingAmount = roundTo2Decimals(originalTransaction.outstanding_total_payment_amount - totalActualPaymentAmount);
     const newTransactionStatus = newOutstandingAmount > 0.01 ? 'PARTIAL' : 'FULL';
     const newProcessPayment = newOutstandingAmount > 0.01;
 
@@ -1927,10 +1935,10 @@ const processPartialPayment = async (
       newOutstandingAmount,
       newTransactionStatus,
       general_remarks || `Additional payment for receipt ${originalTransaction.receipt_no}`,
-      finalReceiptNumber, // Use custom receipt number or original
+      finalReceiptNumber,
       originalTransaction.id,
-      transaction_handler_id, // handled_by (transaction handler from frontend)
-      payment_handler_id, // created_by (payment handler from frontend)
+      transaction_handler_id,
+      payment_handler_id,
       currentTime,
       currentTime,
       newProcessPayment,
@@ -1989,7 +1997,7 @@ const processPartialPayment = async (
       await client.query(insertItemQuery, itemParams);
     }
 
-    // Create payment records - Use payment handler from each payment
+    // Create payment records
     for (const payment of payments) {
       const insertPaymentQuery = `
         INSERT INTO payment_to_sale_transactions (
@@ -2003,8 +2011,8 @@ const processPartialPayment = async (
         payment.payment_method_id,
         payment.amount,
         payment.remarks || '',
-        payment.payment_handler_id, // Use payment handler for created_by
-        payment.payment_handler_id, // Use payment handler for updated_by
+        payment.payment_handler_id,
+        payment.payment_handler_id,
         currentTime,
         currentTime,
       ];
@@ -2130,8 +2138,8 @@ const processPartialPayment = async (
               freeOfCharge,
               transaction_handler_id,
               'ADD FOC',
-              payment_handler_id, // Use payment handler for created_by
-              payment_handler_id, // Use payment handler for last_updated_by
+              payment_handler_id,
+              payment_handler_id,
               currentTime,
               currentTime,
             ];
@@ -2153,7 +2161,7 @@ const processPartialPayment = async (
     return {
       new_transaction: {
         id: newTransactionId,
-        receipt_no: finalReceiptNumber, // Return the actual receipt number used
+        receipt_no: finalReceiptNumber,
         total_paid_amount: newTotalPaidAmount,
         outstanding_amount: newOutstandingAmount,
         transaction_status: newTransactionStatus,
