@@ -1095,32 +1095,37 @@ const createMemberVoucher = async (
     const processPayment: boolean = outstandingAmount > 0;
 
     // ✅ UPDATED: For voucher balance calculation, use exclusive amount (like MCP)
-    let exclusiveAmountForBalance: number;
+// ✅ UPDATED: For voucher balance calculation, subtract GST from payment
+let exclusiveAmountForBalance: number;
 
-    if (gstBreakdown) {
-      exclusiveAmountForBalance = roundTo2Decimals(gstBreakdown.exclusiveTotal || 0);
-    } else {
-      exclusiveAmountForBalance = roundTo2Decimals(pricing?.totalLinePrice || 0);
-    }
+if (gstBreakdown) {
+  exclusiveAmountForBalance = roundTo2Decimals(gstBreakdown.exclusiveTotal || 0);
+} else {
+  exclusiveAmountForBalance = roundTo2Decimals(pricing?.totalLinePrice || 0);
+}
 
-    // Calculate how much should be added to voucher balance (excluding GST)
-    const paidAmountForBalance = Math.min(totalPaidAmount, exclusiveAmountForBalance);
+// ✅ NEW: Calculate net payment amount (subtract GST from payment)
+const netAmountForBalance = roundTo2Decimals(totalPaidAmount - totalGSTAmount);
 
-    const is_fully_paid = outstandingAmount === 0;
+// Calculate how much should be added to voucher balance (net payment, capped at exclusive amount)
+const paidAmountForBalance = Math.max(0, Math.min(netAmountForBalance, exclusiveAmountForBalance));
 
-    // FIXED: Cleaner balance calculation using exclusive amount
-    const base_balance = exclusiveAmountForBalance + free_of_charge; // Use exclusive amount for balance
-    const final_starting_balance = base_balance;
-    const final_current_balance = is_fully_paid ? exclusiveAmountForBalance : exclusiveAmountForBalance - (exclusiveAmountForBalance - paidAmountForBalance);
+const is_fully_paid = outstandingAmount === 0;
 
-    console.log('💰 MV Balance Calculation:', {
-      totalTransactionAmount, // $85.02 (what customer pays)
-      exclusiveAmountForBalance, // $78.00 (voucher value)
-      totalGSTAmount, // $7.02 (GST)
-      totalPaidAmount, // What customer actually paid
-      paidAmountForBalance, // Amount for voucher balance (max $78)
-      final_current_balance // Final voucher balance
-    });
+// ✅ UPDATED: Balance calculation using net payment amount
+const base_balance = exclusiveAmountForBalance + free_of_charge; // Use exclusive amount for balance
+const final_starting_balance = base_balance;
+const final_current_balance = is_fully_paid ? exclusiveAmountForBalance : paidAmountForBalance;
+
+console.log('💰 MV Balance Calculation (GST Subtracted):', {
+  totalTransactionAmount, // $85.02 (what customer pays including GST)
+  exclusiveAmountForBalance, // $78.00 (voucher value without GST)
+  totalGSTAmount, // $7.02 (GST amount)
+  totalPaidAmount, // $100 (what customer actually paid)
+  netAmountForBalance, // $92.98 (payment minus GST: $100 - $7.02)
+  paidAmountForBalance, // $78.00 (amount for voucher balance, capped at exclusive)
+  final_current_balance // Final voucher balance
+});
 
     // Insert member voucher (UNCHANGED - uses voucher creation dates)
     const i_mv_sql = `
