@@ -215,16 +215,12 @@ export default function ManageEmployeePage() {
                                   <Button
                                     variant="secondary"
                                     size="sm"
-                                    onClick={() => navigate(`/employees/${employee.id}/commissions`)}
+                                    onClick={() => navigate(`/cm/monthly-employee-commission?employeeId=${employee.id}&employeeName=${employee.employee_name}`)}
                                   >
                                     Commission
                                   </Button>
                                 </div>
                               </TableCell>
-
-
-
-
                             </TableRow>
                           ))}
                         </TableBody>

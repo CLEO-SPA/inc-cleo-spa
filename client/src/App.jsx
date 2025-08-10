@@ -107,6 +107,10 @@ import RefundVoucherForm from '@/pages/Refund/RefundVoucherForm';
 import CreditNotesPage from '@/pages/Refund/CreditNotesPage';
 import CreditNoteDetailsPage from '@/pages/Refund/CreditNoteDetailsPage';
 
+// Commission
+import ViewMonthlyEmployeeCommission from '@/pages/cm/ViewMonthlyEmployeeCommission';
+import ViewDailyCommissionBreakdownPage from '@/pages/cm/CommissionBreakdownPage';
+import CommissionSettingsManager from '@/pages/CommissionSettingManager';
 const SuperAdminRoute = ({ children }) => {
   const { user } = useAuth();
   if (user && user.role === 'super_admin') {
@@ -280,13 +284,17 @@ function App() {
                 <Route path='/users' element={<ManageUsersPage />} />
                 <Route path='/users/create' element={<CreateUserPage />} />
                 <Route path='/users/edit/:id' element={<UpdateUserPage />} />
+
+
               </Route>
 
               {/* Public routes */}
               <Route path='/login' element={<LoginPage />} />
               <Route path='/invites' element={<ResetPasswordPage />} />
               <Route path='/reset-password' element={<ResetPasswordPage />} />
-
+              <Route path="/admin/commission-settings" element={<CommissionSettingsManager />} />
+              <Route path="/cm/monthly-employee-commission" element={<ViewMonthlyEmployeeCommission />} />
+              <Route path="/cm/employee-commission-breakdown/:employeeId/:date" element={<ViewDailyCommissionBreakdownPage />} />
               {/* 404 Page */}
               <Route path='*' element={<NotFoundPage />} />
             </Routes>

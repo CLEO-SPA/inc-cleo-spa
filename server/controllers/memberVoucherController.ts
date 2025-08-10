@@ -526,7 +526,7 @@ const deleteTransactionLogsByLogId = async (req: Request, res: Response, next: N
 };
 
 
-const createMemberVoucher = async (req: Request, res: Response): Promise<void> => {
+const createMemberVoucher = async (req: Request, res: Response, next: NextFunction): Promise<void> => {
   try {
     console.log('Creating MV transaction:', req.body);
 
@@ -535,11 +535,13 @@ const createMemberVoucher = async (req: Request, res: Response): Promise<void> =
 
     console.log('MV transaction created successfully:', result);
 
-    res.status(201).json({
+    res.locals.data = {
       success: true,
       message: 'MV transaction created successfully',
-      data: result
-    });
+      data: result,
+    };
+
+    next();
 
   } catch (error: any) {
     console.error('Error creating MV transaction:', error);

@@ -4,6 +4,7 @@ const router = express.Router();
 import isAuthenticated from '../middlewares/authMiddleware.js';
 
 import controller from '../controllers/memberVoucherController.js';
+import commissionMiddleware from '../middlewares/commissionMiddleware.js';
 
 // =========================
 // Public routes
@@ -14,7 +15,7 @@ import controller from '../controllers/memberVoucherController.js';
 // =========================
 router.use(isAuthenticated);
 
-router.post('/create', controller.createMemberVoucher);
+router.post('/create', controller.createMemberVoucher, commissionMiddleware.applyMvCommission);
 router.delete('/:id/rm', controller.removeMemberVoucher);
 
 router.get('/v', controller.getAllMemberVouchers);
