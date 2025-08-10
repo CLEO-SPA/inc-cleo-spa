@@ -6,6 +6,7 @@ import isAuthenticated from '../middlewares/authMiddleware.js';
 import controller from '../controllers/memberVoucherController.js';
 import commissionMiddleware from '../middlewares/commissionMiddleware.js';
 
+
 // =========================
 // Public routes
 // =========================
@@ -39,5 +40,10 @@ router.post(
 router.put('/:id/t/update', controller.updateTransactionLogsAndCurrentBalanceByLogId);
 
 router.delete('/:id/t/:transaction_log_id/delete', controller.deleteTransactionLogsByLogId);
+
+
+router.get('/m', controller.getMemberVoucherDetailsHandler);
+router.post('/transfer', controller.transferVoucherDetailsHandler);
+
 
 export default router;
