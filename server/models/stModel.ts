@@ -1,4 +1,4 @@
-import { pool, query as dbQuery , queryOnPool } from '../config/database.js';
+import { pool, query as dbQuery, queryOnPool } from '../config/database.js';
 import {
   Member,
   Payment,
@@ -34,7 +34,6 @@ import mcpModel from './mcpModel.js';
 const roundTo2Decimals = (num: number): number => {
   return Math.round((num + Number.EPSILON) * 100) / 100;
 };
-
 
 const getSalesTransactionList = async (
   filter?: string,
@@ -456,7 +455,9 @@ const getSalesTransactionById = async (id: string): Promise<SalesTransactionDeta
         voucher_status: item.voucher_status || undefined,
         // Enhanced care package information
         care_package_name: item.care_package_name || undefined,
-        care_package_balance: item.care_package_balance ? roundTo2Decimals(parseFloat(item.care_package_balance)) : undefined,
+        care_package_balance: item.care_package_balance
+          ? roundTo2Decimals(parseFloat(item.care_package_balance))
+          : undefined,
         care_package_status: item.care_package_status || undefined,
       })),
     };
@@ -681,24 +682,28 @@ const createServicesProductsTransaction = async (
       totalGSTAmount = roundTo2Decimals(gstBreakdown.gstTotal || 0);
       console.log('✅ Using GST breakdown from frontend:', {
         inclusive: totalTransactionAmount,
-        gst: totalGSTAmount
+        gst: totalGSTAmount,
       });
     } else {
-      const exclusiveTotal = roundTo2Decimals(items.reduce((total: number, item: TransactionRequestItem) => {
-        return total + (item.pricing?.totalLinePrice || 0);
-      }, 0));
+      const exclusiveTotal = roundTo2Decimals(
+        items.reduce((total: number, item: TransactionRequestItem) => {
+          return total + (item.pricing?.totalLinePrice || 0);
+        }, 0)
+      );
       totalGSTAmount = roundTo2Decimals(exclusiveTotal * 0.09);
       totalTransactionAmount = roundTo2Decimals(exclusiveTotal + totalGSTAmount);
       console.log('⚠️ No GST breakdown provided, calculated:', {
         exclusive: exclusiveTotal,
         gst: totalGSTAmount,
-        inclusive: totalTransactionAmount
+        inclusive: totalTransactionAmount,
       });
     }
 
-    const totalPaidAmount: number = roundTo2Decimals(payments.reduce((total: number, payment: PaymentMethodRequest) => {
-      return total + (payment.amount || 0);
-    }, 0));
+    const totalPaidAmount: number = roundTo2Decimals(
+      payments.reduce((total: number, payment: PaymentMethodRequest) => {
+        return total + (payment.amount || 0);
+      }, 0)
+    );
 
     const outstandingAmount: number = roundTo2Decimals(totalTransactionAmount - totalPaidAmount);
     const transactionStatus: 'FULL' | 'PARTIAL' = outstandingAmount <= 0 ? 'FULL' : 'PARTIAL';
@@ -736,8 +741,8 @@ const createServicesProductsTransaction = async (
     const transactionParams: (string | number | boolean | null | Date)[] = [
       customer_type?.toUpperCase() || 'MEMBER',
       member_id || null,
-      totalTransactionAmount,        // Use inclusive amount as total_paid_amount
-      outstandingAmount,             // This will be 0 if fully paid
+      totalTransactionAmount, // Use inclusive amount as total_paid_amount
+      outstandingAmount, // This will be 0 if fully paid
       transactionStatus,
       finalReceiptNo,
       remarks || '',
@@ -746,7 +751,7 @@ const createServicesProductsTransaction = async (
       created_by,
       customCreatedAt,
       customUpdatedAt,
-      totalGSTAmount,               
+      totalGSTAmount,
     ];
 
     console.log('Services/Products Transaction Params:', transactionParams);
@@ -848,7 +853,7 @@ const createServicesProductsTransaction = async (
           payment.remark || '',
           handled_by,
           customCreatedAt,
-          handled_by,       // updated_by
+          handled_by, // updated_by
           customUpdatedAt,
         ];
 
@@ -878,7 +883,7 @@ const createServicesProductsTransaction = async (
       handled_by,
       items_count: items.length,
       payments_count: payments.filter((p: PaymentMethodRequest) => p.amount > 0).length,
-      createdItemIds
+      createdItemIds,
     };
   } catch (error) {
     await client.query('ROLLBACK');
@@ -888,7 +893,6 @@ const createServicesProductsTransaction = async (
     client.release();
   }
 };
-
 
 const createMcpTransaction = async (
   transactionData: SingleItemTransactionRequestData
@@ -910,7 +914,7 @@ const createMcpTransaction = async (
       payments,
       created_at,
       updated_at,
-      gstBreakdown, 
+      gstBreakdown,
     } = transactionData;
 
     // Validate required fields
@@ -990,7 +994,7 @@ const createMcpTransaction = async (
       totalGSTAmount = roundTo2Decimals(gstBreakdown.gstTotal || 0);
       console.log('✅ MCP Using GST breakdown from frontend:', {
         inclusive: totalTransactionAmount,
-        gst: totalGSTAmount
+        gst: totalGSTAmount,
       });
     } else {
       const exclusiveTotal = roundTo2Decimals(item.pricing?.totalLinePrice || 0);
@@ -999,7 +1003,7 @@ const createMcpTransaction = async (
       console.log('⚠️ MCP No GST breakdown provided, calculated:', {
         exclusive: exclusiveTotal,
         gst: totalGSTAmount,
-        inclusive: totalTransactionAmount
+        inclusive: totalTransactionAmount,
       });
     }
 
@@ -1014,9 +1018,11 @@ const createMcpTransaction = async (
     );
 
     // Keep existing total_paid_amount calculation (includes GST)
-    const totalPaidAmount: number = roundTo2Decimals(nonPendingPayments.reduce((total: number, payment: PaymentMethodRequest) => {
-      return total + (payment.amount || 0);
-    }, 0));
+    const totalPaidAmount: number = roundTo2Decimals(
+      nonPendingPayments.reduce((total: number, payment: PaymentMethodRequest) => {
+        return total + (payment.amount || 0);
+      }, 0)
+    );
 
     const outstandingAmount: number = roundTo2Decimals(Math.max(0, totalTransactionAmount - totalPaidAmount));
 
@@ -1067,7 +1073,7 @@ const createMcpTransaction = async (
       created_by,
       customCreatedAt,
       customUpdatedAt,
-      totalGSTAmount,  // ✅ NEW: GST amount parameter
+      totalGSTAmount, // ✅ NEW: GST amount parameter
     ];
 
     const transactionResult = await client.query(transactionQuery, transactionParams);
@@ -1125,40 +1131,40 @@ const createMcpTransaction = async (
       // Calculate from item pricing (fallback)
       exclusiveAmountForBalance = roundTo2Decimals(item.pricing?.totalLinePrice || 0);
     }
-const gstAmount = totalGSTAmount || (gstBreakdown?.gstAmount || 0);
+    const gstAmount = totalGSTAmount;
 
-// Calculate net amount for MCP balance (payment minus GST)
-const netAmountForBalance = roundTo2Decimals(totalPaidAmount - gstAmount);
+    // Calculate net amount for MCP balance (payment minus GST)
+    const netAmountForBalance = roundTo2Decimals(totalPaidAmount - gstAmount);
 
-console.log('💰 MCP Balance Update (GST Subtracted):', {
-  totalPaidAmount, // $100 (what customer paid)
-  gstAmount, // $18 (GST amount from frontend)
-  netAmountForBalance, // $82 (amount to add to MCP balance)
-});
+    console.log('💰 MCP Balance Update (GST Subtracted):', {
+      totalPaidAmount, // $100 (what customer paid)
+      gstAmount, // $18 (GST amount from frontend)
+      netAmountForBalance, // $82 (amount to add to MCP balance)
+    });
 
-// Update MCP balance with net amount (excluding GST completely)
-if (netAmountForBalance > 0) {
-  const newBalance = currentBalance + netAmountForBalance;
+    // Update MCP balance with net amount (excluding GST completely)
+    if (netAmountForBalance > 0) {
+      const newBalance = currentBalance + netAmountForBalance;
 
-  const updateBalanceQuery = `
+      const updateBalanceQuery = `
     UPDATE member_care_packages 
     SET balance = $1, updated_at = $2
     WHERE id = $3
     RETURNING balance
   `;
 
-  const updateBalanceResult = await client.query(updateBalanceQuery, [newBalance, customUpdatedAt, mcpId]);
-  const updatedBalance = updateBalanceResult.rows[0].balance;
+      const updateBalanceResult = await client.query(updateBalanceQuery, [newBalance, customUpdatedAt, mcpId]);
+      const updatedBalance = updateBalanceResult.rows[0].balance;
 
-  console.log('✅ Updated MCP balance (GST completely subtracted):', {
-    mcpId: mcpId,
-    previousBalance: currentBalance,
-    totalPaidAmount: totalPaidAmount, // $100 - recorded in sale_transactions
-    gstAmount: gstAmount, // $18 - GST subtracted
-    netAmountForBalance: netAmountForBalance, // $82 - added to MCP balance
-    newBalance: updatedBalance,
-  });
-}
+      console.log('✅ Updated MCP balance (GST completely subtracted):', {
+        mcpId: mcpId,
+        previousBalance: currentBalance,
+        totalPaidAmount: totalPaidAmount, // $100 - recorded in sale_transactions
+        gstAmount: gstAmount, // $18 - GST subtracted
+        netAmountForBalance: netAmountForBalance, // $82 - added to MCP balance
+        newBalance: updatedBalance,
+      });
+    }
 
     // ✅ UPDATED: Include updated_by in payment insertions
     for (const payment of payments) {
@@ -1184,7 +1190,7 @@ if (netAmountForBalance > 0) {
           payment.remark || '',
           handled_by,
           customCreatedAt,
-          handled_by,     // ✅ NEW: updated_by
+          handled_by, // ✅ NEW: updated_by
           customUpdatedAt,
         ];
 
@@ -1213,7 +1219,7 @@ if (netAmountForBalance > 0) {
       items_count: 1,
       payments_count: payments.filter((p: PaymentMethodRequest) => p.amount > 0).length,
       mcpId: mcpId,
-      gst_amount: totalGSTAmount,  // ✅ NEW: Include GST amount in result
+      gst_amount: totalGSTAmount, // ✅ NEW: Include GST amount in result
     };
   } catch (error) {
     await client.query('ROLLBACK');
@@ -1234,7 +1240,6 @@ if (netAmountForBalance > 0) {
     client.release();
   }
 };
-
 
 const createMcpTransferTransaction = async (
   transactionData: SingleItemTransactionRequestData
@@ -1317,11 +1322,13 @@ const createMcpTransferTransaction = async (
 
     // Calculate totals from single transfer item
     const totalTransactionAmount: number = roundTo2Decimals(item.pricing?.totalLinePrice || 0);
-    const totalGSTAmount: number = 0;  // ✅ NO GST for MCP transfers
+    const totalGSTAmount: number = 0; // ✅ NO GST for MCP transfers
     // For transfers, we expect full payment
-    const totalPaidAmount: number = roundTo2Decimals(payments.reduce((total: number, payment: PaymentMethodRequest) => {
-      return total + (payment.amount || 0);
-    }, 0));
+    const totalPaidAmount: number = roundTo2Decimals(
+      payments.reduce((total: number, payment: PaymentMethodRequest) => {
+        return total + (payment.amount || 0);
+      }, 0)
+    );
 
     const outstandingAmount: number = 0;
     const transactionStatus: 'TRANSFER' | 'FULL' = 'TRANSFER';
@@ -1346,7 +1353,7 @@ const createMcpTransferTransaction = async (
       finalReceiptNo = `ST${receiptResult.rows[0].next_number.toString().padStart(6, '0')}`;
     }
 
-const transactionQuery: string = `
+    const transactionQuery: string = `
   INSERT INTO sale_transactions (
     customer_type,
     member_id,
@@ -1365,22 +1372,22 @@ const transactionQuery: string = `
   RETURNING id
 `;
 
-// ✅ FIXED: Include totalGSTAmount as parameter 13
-const transactionParams: (string | number | boolean | null | Date)[] = [
-  customer_type?.toUpperCase() || 'MEMBER',
-  member_id || null,
-  totalPaidAmount,                    // $3
-  outstandingAmount,                  // $4
-  transactionStatus,                  // $5
-  finalReceiptNo,                     // $6
-  remarks || '',                      // $7
-  processPayment,                     // $8
-  handled_by,                         // $9
-  created_by,                         // $10
-  customCreatedAt,                    // $11
-  customUpdatedAt,                    // $12
-  totalGSTAmount                    
-];
+    // ✅ FIXED: Include totalGSTAmount as parameter 13
+    const transactionParams: (string | number | boolean | null | Date)[] = [
+      customer_type?.toUpperCase() || 'MEMBER',
+      member_id || null,
+      totalPaidAmount, // $3
+      outstandingAmount, // $4
+      transactionStatus, // $5
+      finalReceiptNo, // $6
+      remarks || '', // $7
+      processPayment, // $8
+      handled_by, // $9
+      created_by, // $10
+      customCreatedAt, // $11
+      customUpdatedAt, // $12
+      totalGSTAmount,
+    ];
 
     console.log('MCP Transfer Transaction Query:', transactionQuery);
     console.log('MCP Transfer Transaction Params:', transactionParams);
@@ -1550,7 +1557,7 @@ const createMvTransferTransaction = async (
       payments,
       created_at,
       updated_at,
-      gstBreakdown,  // ✅ NEW: Extract GST breakdown
+      gstBreakdown, // ✅ NEW: Extract GST breakdown
     } = transactionData;
 
     // Validate required fields
@@ -1617,7 +1624,7 @@ const createMvTransferTransaction = async (
       totalGSTAmount = roundTo2Decimals(gstBreakdown.gstTotal || 0);
       console.log('✅ MV Transfer Using GST breakdown from frontend:', {
         inclusive: totalTransactionAmount,
-        gst: totalGSTAmount
+        gst: totalGSTAmount,
       });
     } else {
       const exclusiveTotal = roundTo2Decimals(item.pricing?.totalLinePrice || 0);
@@ -1626,13 +1633,15 @@ const createMvTransferTransaction = async (
       console.log('⚠️ MV Transfer No GST breakdown provided, calculated:', {
         exclusive: exclusiveTotal,
         gst: totalGSTAmount,
-        inclusive: totalTransactionAmount
+        inclusive: totalTransactionAmount,
       });
     }
 
-    const totalPaidAmount: number = roundTo2Decimals(payments.reduce((total: number, payment: PaymentMethodRequest) => {
-      return total + (payment.amount || 0);
-    }, 0));
+    const totalPaidAmount: number = roundTo2Decimals(
+      payments.reduce((total: number, payment: PaymentMethodRequest) => {
+        return total + (payment.amount || 0);
+      }, 0)
+    );
 
     const outstandingAmount: number = 0;
     const transactionStatus: 'FULL' | 'PARTIAL' = 'FULL';
@@ -1690,7 +1699,7 @@ const createMvTransferTransaction = async (
       created_by,
       customCreatedAt,
       customUpdatedAt,
-      totalGSTAmount,  // ✅ NEW: GST amount for MV transfers
+      totalGSTAmount, // ✅ NEW: GST amount for MV transfers
     ];
 
     console.log('MV Transfer Transaction Query:', transactionQuery);
@@ -1776,7 +1785,7 @@ const createMvTransferTransaction = async (
           payment.remark || '',
           created_by,
           customCreatedAt,
-          created_by,    // ✅ NEW: updated_by
+          created_by, // ✅ NEW: updated_by
           customUpdatedAt,
         ];
 
@@ -1808,7 +1817,7 @@ const createMvTransferTransaction = async (
       transfer_description: item.data?.description || '',
       items_count: 1,
       payments_count: payments.filter((p: PaymentMethodRequest) => p.amount > 0).length,
-      gst_amount: totalGSTAmount,  // ✅ NEW: Include GST amount in result
+      gst_amount: totalGSTAmount, // ✅ NEW: Include GST amount in result
     };
   } catch (error) {
     await client.query('ROLLBACK');
@@ -1819,7 +1828,6 @@ const createMvTransferTransaction = async (
   }
 };
 
-
 const processPartialPayment = async (
   transactionId: string | number,
   paymentData: ProcessPartialPaymentDataWithHandler
@@ -1829,14 +1837,8 @@ const processPartialPayment = async (
   try {
     await client.query('BEGIN');
 
-    const {
-      payments,
-      general_remarks,
-      transaction_handler_id,
-      payment_handler_id,
-      receipt_number,
-      created_at,
-    } = paymentData;
+    const { payments, general_remarks, transaction_handler_id, payment_handler_id, receipt_number, created_at } =
+      paymentData;
 
     console.log('Processing partial payment for transaction:', transactionId);
     console.log('Payment data:', paymentData);
@@ -1925,7 +1927,9 @@ const processPartialPayment = async (
 
     // Calculate new transaction values
     const newTotalPaidAmount = roundTo2Decimals(totalActualPaymentAmount);
-    const newOutstandingAmount = roundTo2Decimals(originalTransaction.outstanding_total_payment_amount - totalActualPaymentAmount);
+    const newOutstandingAmount = roundTo2Decimals(
+      originalTransaction.outstanding_total_payment_amount - totalActualPaymentAmount
+    );
     const newTransactionStatus = newOutstandingAmount > 0.01 ? 'PARTIAL' : 'FULL';
     const newProcessPayment = newOutstandingAmount > 0.01;
 
