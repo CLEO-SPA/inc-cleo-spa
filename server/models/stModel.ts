@@ -1321,40 +1321,41 @@ const createMcpTransferTransaction = async (
       finalReceiptNo = `ST${receiptResult.rows[0].next_number.toString().padStart(6, '0')}`;
     }
 
-    const transactionQuery: string = `
-      INSERT INTO sale_transactions (
-        customer_type,
-        member_id,
-        total_paid_amount,
-        outstanding_total_payment_amount,
-        sale_transaction_status,
-        receipt_no,
-        remarks,
-        process_payment,
-        handled_by,
-        created_by,
-        created_at,
-        updated_at,
-        gst_amount
-      ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12)
-      RETURNING id
-    `;
+const transactionQuery: string = `
+  INSERT INTO sale_transactions (
+    customer_type,
+    member_id,
+    total_paid_amount,
+    outstanding_total_payment_amount,
+    sale_transaction_status,
+    receipt_no,
+    remarks,
+    process_payment,
+    handled_by,
+    created_by,
+    created_at,
+    updated_at,
+    gst_amount
+  ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13)
+  RETURNING id
+`;
 
-    const transactionParams: (string | number | boolean | null | Date)[] = [
-      customer_type?.toUpperCase() || 'MEMBER',
-      member_id || null,
-      totalPaidAmount,
-      outstandingAmount,
-      transactionStatus,
-      finalReceiptNo,
-      remarks || '',
-      processPayment,
-      handled_by,
-      created_by,
-      customCreatedAt,
-      customUpdatedAt,
-      totalGSTAmount
-    ];
+// ✅ FIXED: Include totalGSTAmount as parameter 13
+const transactionParams: (string | number | boolean | null | Date)[] = [
+  customer_type?.toUpperCase() || 'MEMBER',
+  member_id || null,
+  totalPaidAmount,                    // $3
+  outstandingAmount,                  // $4
+  transactionStatus,                  // $5
+  finalReceiptNo,                     // $6
+  remarks || '',                      // $7
+  processPayment,                     // $8
+  handled_by,                         // $9
+  created_by,                         // $10
+  customCreatedAt,                    // $11
+  customUpdatedAt,                    // $12
+  totalGSTAmount                    
+];
 
     console.log('MCP Transfer Transaction Query:', transactionQuery);
     console.log('MCP Transfer Transaction Params:', transactionParams);
