@@ -251,12 +251,13 @@ const createEmployeeModel = async (data: CreateEmployeeData) => {
   }
 };
 
-export const getEmployeeIdByUserAuthId = async (id: string) => {
-  const employee_sql = 'SELECT id FROM employees WHERE user_auth_id = $1';
-  const params = [id];
+// !!DEPRECATED
+// export const getEmployeeIdByUserAuthId = async (id: string) => {
+//   const employee_sql = 'SELECT id FROM employees WHERE user_auth_id = $1';
+//   const params = [id];
 
-  return await pool().query<{ id: string }>(employee_sql, params);
-};
+//   return await pool().query<{ id: string }>(employee_sql, params);
+// };
 /**
  * Get all active employees with basic details
  * This function is used for search functionality in the timetable management system.
@@ -677,7 +678,7 @@ export default {
   checkEmployeeEmailExists,
   getAllEmployees,
   getAllEmployeesForDropdown,
-  getEmployeeIdByUserAuthId,
+  // getEmployeeIdByUserAuthId,
   getBasicEmployeeDetails,
   createEmployeeModel,
   getAllRolesForDropdown,
