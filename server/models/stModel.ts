@@ -1125,39 +1125,40 @@ const createMcpTransaction = async (
       // Calculate from item pricing (fallback)
       exclusiveAmountForBalance = roundTo2Decimals(item.pricing?.totalLinePrice || 0);
     }
+const gstAmount = totalGSTAmount || (gstBreakdown?.gstAmount || 0);
 
-    // For MCP balance: only add the exclusive amount, regardless of how much was paid
-    const paidAmountForBalance = Math.min(totalPaidAmount, exclusiveAmountForBalance);
+// Calculate net amount for MCP balance (payment minus GST)
+const netAmountForBalance = roundTo2Decimals(totalPaidAmount - gstAmount);
 
-    console.log('💰 MCP Balance Update:', {
-      totalPaidAmount, // $85 (what customer paid - stored in sale_transactions.total_paid_amount)
-      exclusiveAmountForBalance, // $78 (item price without GST)
-      paidAmountForBalance, // $78 (amount added to MCP balance)
-      gstAmountNotAddedToBalance: totalPaidAmount - paidAmountForBalance // $7 (GST not added to balance)
-    });
+console.log('💰 MCP Balance Update (GST Subtracted):', {
+  totalPaidAmount, // $100 (what customer paid)
+  gstAmount, // $18 (GST amount from frontend)
+  netAmountForBalance, // $82 (amount to add to MCP balance)
+});
 
-    // Update MCP balance with ONLY the exclusive amount (not the GST portion)
-    if (paidAmountForBalance > 0) {
-      const newBalance = currentBalance + paidAmountForBalance;
+// Update MCP balance with net amount (excluding GST completely)
+if (netAmountForBalance > 0) {
+  const newBalance = currentBalance + netAmountForBalance;
 
-      const updateBalanceQuery = `
-        UPDATE member_care_packages 
-        SET balance = $1, updated_at = $2
-        WHERE id = $3
-        RETURNING balance
-      `;
+  const updateBalanceQuery = `
+    UPDATE member_care_packages 
+    SET balance = $1, updated_at = $2
+    WHERE id = $3
+    RETURNING balance
+  `;
 
-      const updateBalanceResult = await client.query(updateBalanceQuery, [newBalance, customUpdatedAt, mcpId]);
-      const updatedBalance = updateBalanceResult.rows[0].balance;
+  const updateBalanceResult = await client.query(updateBalanceQuery, [newBalance, customUpdatedAt, mcpId]);
+  const updatedBalance = updateBalanceResult.rows[0].balance;
 
-      console.log('✅ Updated MCP balance (GST excluded from balance):', {
-        mcpId: mcpId,
-        previousBalance: currentBalance,
-        totalPaidAmount: totalPaidAmount, // $85 - recorded in sale_transactions
-        paidAmountForBalance: paidAmountForBalance, // $78 - added to MCP balance
-        newBalance: updatedBalance,
-      });
-    }
+  console.log('✅ Updated MCP balance (GST completely subtracted):', {
+    mcpId: mcpId,
+    previousBalance: currentBalance,
+    totalPaidAmount: totalPaidAmount, // $100 - recorded in sale_transactions
+    gstAmount: gstAmount, // $18 - GST subtracted
+    netAmountForBalance: netAmountForBalance, // $82 - added to MCP balance
+    newBalance: updatedBalance,
+  });
+}
 
     // ✅ UPDATED: Include updated_by in payment insertions
     for (const payment of payments) {
