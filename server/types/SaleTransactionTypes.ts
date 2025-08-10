@@ -55,6 +55,7 @@ export interface TransactionItem {
   care_package_status?: 'is_enabled' | 'is_disabled' | 'completed';
 }
 
+
 export interface SalesTransaction {
   transaction_id: string;
   receipt_no: string;
@@ -68,9 +69,11 @@ export interface SalesTransaction {
   has_products: boolean;
   has_care_packages: boolean;
   process_payment: boolean;
+  gst_amount?: number;  // ✅ NEW: GST amount
   member: Member | null;
   payments: Payment[];
 }
+
 
 export interface SalesTransactionDetail extends SalesTransaction {
   transaction_updated_at: Date;
@@ -80,6 +83,8 @@ export interface SalesTransactionDetail extends SalesTransaction {
   creator: Employee | null;
   payments: PaymentDetail[];
   items: TransactionItem[];
+  gst_amount: number; 
+  net_amount?: number; 
 }
 
 // Pagination interfaces
@@ -129,6 +134,7 @@ export interface ItemPricing {
   customPrice: number;
   discount: number;
   quantity: number;
+  finalUnitPrice?: number;
   totalLinePrice: number;
 }
 
@@ -154,6 +160,15 @@ export interface PaymentMethodRequest {
   remark?: string;
 }
 
+
+export interface GSTBreakdown {
+  inclusiveTotal: number; // Total amount customer pays (with GST)
+  exclusiveTotal: number; // Total amount excluding GST  
+  gstTotal: number;       // GST amount
+  gstRate: number;        // GST rate percentage (e.g., 9)
+}
+
+
 export interface TransactionRequestData {
   customer_type?: string;
   member_id?: string | number;
@@ -165,7 +180,9 @@ export interface TransactionRequestData {
   payments: PaymentMethodRequest[];
   created_at?: string;
   updated_at?: string;
+  gstBreakdown?: GSTBreakdown; 
 }
+
 
 export interface TransactionCreationResult {
   id: number;
@@ -181,6 +198,8 @@ export interface TransactionCreationResult {
   handled_by: number;
   items_count: number;
   payments_count: number;
+  createdItemIds?: number[];
+  gst_amount?: number; // ✅ NEW: GST amount in result
 }
 
 export interface SingleTransactionRequestItem {
@@ -219,6 +238,7 @@ export interface SingleTransactionRequestItem {
   employeeRemarks?: string;
 }
 
+
 export interface SingleItemTransactionRequestData {
   customer_type?: string;
   member_id?: number | number;
@@ -231,7 +251,9 @@ export interface SingleItemTransactionRequestData {
   created_at?: string;
   updated_at?: string;
   newVoucherId?: number;
+  gstBreakdown?: GSTBreakdown; 
 }
+
 
 export interface SingleItemTransactionCreationResult {
   id: number;
@@ -257,6 +279,7 @@ export interface SingleItemTransactionCreationResult {
   items_count: number;
   payments_count: number;
   mcpId?: string | number | null;
+  gst_amount?: number; 
 }
 
 export interface PartialPaymentRequest {
@@ -526,42 +549,88 @@ export interface APIResponse<T> {
   };
 }
 
-export interface GSTBreakdown {
-  inclusiveTotal: number; // Total amount customer pays (with GST)
-  exclusiveTotal: number; // Total amount excluding GST
-  gstTotal: number; // GST amount
-  gstRate: number; // GST rate percentage (e.g., 9)
-}
 
-// Updated TransactionRequestData interface
-export interface TransactionRequestData {
-  customer_type?: string;
-  member_id?: string | number;
-  receipt_number?: string;
-  remarks?: string;
-  created_by: number;
+export interface SaleTransactionRecord {
+  id: number;
+  customer_type: string;
+  member_id: number | null;
+  total_paid_amount: number;
+  outstanding_total_payment_amount: number;
+  sale_transaction_status: 'FULL' | 'PARTIAL' | 'TRANSFER' | 'REFUND';
+  remarks: string;
+  receipt_no: string;
+  reference_sales_transaction_id: number | null;
   handled_by: number;
-  items: TransactionRequestItem[];
-  payments: PaymentMethodRequest[];
-  created_at?: string;
-  updated_at?: string;
-  gstBreakdown?: GSTBreakdown; // Add GST breakdown field
+  created_by: number;
+  created_at: Date;
+  updated_at: Date;
+  process_payment: boolean;
+  gst_amount: number; // ✅ NEW: GST amount column
 }
 
-// Updated TransactionCreationResult interface
-export interface TransactionCreationResult {
+
+export interface SaleTransactionWithGST {
   id: number;
   receipt_no: string;
   customer_type: string;
-  member_id: string | number | null;
-  total_transaction_amount: number;
+  member_id: number | null;
   total_paid_amount: number;
   outstanding_total_payment_amount: number;
-  transaction_status: 'FULL' | 'PARTIAL' | 'TRANSFER' | 'REFUND';
+  sale_transaction_status: string;
   remarks: string;
-  created_by: number;
   handled_by: number;
-  items_count: number;
-  payments_count: number;
-  createdItemIds: number[];
+  created_by: number;
+  created_at: Date;
+  updated_at: Date;
+  process_payment: boolean;
+  gst_amount: number;
+  
+  // Calculated fields
+  net_amount: number;        // total_paid_amount - gst_amount
+  gst_percentage?: number;   // (gst_amount / net_amount) * 100
+  
+  // Joined member data
+  member_name?: string;
+  member_email?: string;
+  member_contact?: string;
+  
+  // Joined employee data
+  handler_name?: string;
+  creator_name?: string;
+  
+  // Count fields
+  items_count?: number;
+  payments_count?: number;
+}
+
+
+export interface GSTSummary {
+  total_transactions: number;
+  total_revenue: number;          // Sum of total_paid_amount
+  total_gst_collected: number;    // Sum of gst_amount
+  total_net_revenue: number;      // total_revenue - total_gst_collected
+  average_gst_per_transaction: number;
+  gst_rate_used: number;
+}
+
+
+export interface GSTBreakdownByDate {
+  transaction_date: string;
+  transaction_count: number;
+  total_revenue: number;
+  total_gst: number;
+  total_net_revenue: number;
+  average_gst_per_transaction: number;
+}
+
+// ✅ NEW: GST Verification interface for debugging
+export interface GSTVerification {
+  transaction_id: number;
+  receipt_no: string;
+  stored_gst: number;
+  calculated_gst: number;
+  gst_difference: number;
+  is_correct: boolean;
+  exclusive_amount: number;
+  inclusive_amount: number;
 }
