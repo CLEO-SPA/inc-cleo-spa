@@ -50,8 +50,13 @@ cd setup
 # Install required dependencies
 pip install pyinstaller pillow
 
-# Run the development build script
-python build.py
+# Run the development build script for your platform
+python build_github_actions.py --platform windows   # For Windows
+python build_github_actions.py --platform macos     # For macOS
+python build_github_actions.py --platform linux     # For Linux
+
+# Or use the Windows batch file (includes venv activation)
+build.bat   # Windows only
 ```
 
 The **installer build** creates a self-contained executable that includes all project files and provides a proper installation interface. This is recommended for distribution to end users.
