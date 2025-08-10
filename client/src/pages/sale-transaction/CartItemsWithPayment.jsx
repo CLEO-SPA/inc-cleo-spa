@@ -59,8 +59,10 @@ const CartItemsWithPayment = ({
     fetchGSTRate();
   }, []);
 
-  const employees = useEmployeeStore((state) => state.employees);
   const fetchDropdownEmployees = useEmployeeStore((state) => state.fetchDropdownEmployees);
+  const dropdownEmployees = useEmployeeStore((state) => state.dropdownEmployees);
+  const isFetchingDropdown = useEmployeeStore((state) => state.isFetchingDropdown);
+
 
   const commissionSettings = useEmployeeStore((state) => state.commissionSettings);
   const fetchCommissionSettings = useEmployeeStore((state) => state.fetchCommissionSettings);
@@ -72,11 +74,11 @@ const CartItemsWithPayment = ({
 
   // Effect to ensure employees are loaded
   useEffect(() => {
-    if (employees.length === 0 && !loading && !hasFetchedEmployees) {
+    if (dropdownEmployees.length === 0 && !isFetchingDropdown && !hasFetchedEmployees) {
       setHasFetchedEmployees(true);
       fetchDropdownEmployees();
     }
-  }, [employees.length, loading, hasFetchedEmployees, fetchDropdownEmployees]);
+  }, [dropdownEmployees.length, isFetchingDropdown, hasFetchedEmployees, fetchDropdownEmployees]);
 
   // Effect to ensure commission settings are loaded
   useEffect(() => {
@@ -336,7 +338,7 @@ const CartItemsWithPayment = ({
     if (!employeeId) return;
 
     // Find the selected employee to get their name
-    const selectedEmployee = employees.find((emp) => emp.id === String(employeeId));
+    const selectedEmployee = dropdownEmployees.find((emp) => emp.id === String(employeeId));
 
     // Find the item to get its type
     const item = cartItems.find((cartItem) => cartItem.id === itemId);
@@ -532,7 +534,7 @@ const CartItemsWithPayment = ({
     const normalized = raw.map((entry) => {
       if (typeof entry === 'string' || typeof entry === 'number') {
         const empId = entry.toString();
-        const emp = employees.find((e) => e.id === empId);
+        const emp = dropdownEmployees.find((e) => e.id === empId);
         const pricing = getItemPricing(itemId);
         const perfRate = 100 / raw.length; // Distribute equally among all employees
         const perfAmt = (pricing.totalLinePrice * perfRate) / 100;
@@ -596,39 +598,39 @@ const CartItemsWithPayment = ({
   };
 
   // Update payment amount
-const updatePaymentAmount = (sectionId, paymentId, amount) => {
-  const numAmount = roundTo2Decimals(parseFloat(amount) || 0);
-  const section = paymentSections.find((s) => s.id === sectionId);
-  const currentPayments = sectionPayments[sectionId] || [];
+  const updatePaymentAmount = (sectionId, paymentId, amount) => {
+    const numAmount = roundTo2Decimals(parseFloat(amount) || 0);
+    const section = paymentSections.find((s) => s.id === sectionId);
+    const currentPayments = sectionPayments[sectionId] || [];
 
-  const otherPaymentsTotal = roundTo2Decimals(
-    currentPayments.filter((p) => p.id !== paymentId).reduce((sum, p) => sum + p.amount, 0)
-  );
+    const otherPaymentsTotal = roundTo2Decimals(
+      currentPayments.filter((p) => p.id !== paymentId).reduce((sum, p) => sum + p.amount, 0)
+    );
 
-  // ✅ CRITICAL FIX: Make sure we're using the INCLUSIVE amount (with GST)
-  // This should be section.inclusiveAmount, NOT section.amount
-  const maxAllowed = section ? roundTo2Decimals(section.inclusiveAmount - otherPaymentsTotal) : numAmount;
-  const clampedAmount = roundTo2Decimals(Math.min(numAmount, Math.max(0, maxAllowed)));
+    // ✅ CRITICAL FIX: Make sure we're using the INCLUSIVE amount (with GST)
+    // This should be section.inclusiveAmount, NOT section.amount
+    const maxAllowed = section ? roundTo2Decimals(section.inclusiveAmount - otherPaymentsTotal) : numAmount;
+    const clampedAmount = roundTo2Decimals(Math.min(numAmount, Math.max(0, maxAllowed)));
 
-  if (numAmount > maxAllowed && maxAllowed >= 0) {
-    console.warn(`Payment amount limited from ${numAmount} to ${clampedAmount} for section ${sectionId}`);
-  }
+    if (numAmount > maxAllowed && maxAllowed >= 0) {
+      console.warn(`Payment amount limited from ${numAmount} to ${clampedAmount} for section ${sectionId}`);
+    }
 
-  // Add debugging to see what's being passed
-  console.log('💳 Payment Amount Update Debug:', {
-    sectionId,
-    paymentId,
-    inputAmount: numAmount,
-    sectionInclusiveAmount: section?.inclusiveAmount,
-    sectionExclusiveAmount: section?.exclusiveAmount,
-    sectionGstAmount: section?.gstAmount,
-    otherPaymentsTotal,
-    maxAllowed,
-    clampedAmount
-  });
+    // Add debugging to see what's being passed
+    console.log('💳 Payment Amount Update Debug:', {
+      sectionId,
+      paymentId,
+      inputAmount: numAmount,
+      sectionInclusiveAmount: section?.inclusiveAmount,
+      sectionExclusiveAmount: section?.exclusiveAmount,
+      sectionGstAmount: section?.gstAmount,
+      otherPaymentsTotal,
+      maxAllowed,
+      clampedAmount
+    });
 
-  onPaymentChange('updateAmount', sectionId, { paymentId, amount: clampedAmount });
-};
+    onPaymentChange('updateAmount', sectionId, { paymentId, amount: clampedAmount });
+  };
 
   // Update payment remark
   const updatePaymentRemark = (sectionId, paymentId, remark) => {
@@ -1146,11 +1148,10 @@ const updatePaymentAmount = (sectionId, paymentId, amount) => {
                   <div className='flex justify-between items-center'>
                     <span className='text-sm text-gray-500'>Remaining to pay:</span>
                     <span
-                      className={`text-sm font-medium ${
-                        roundTo2Decimals(section.inclusiveAmount - getSectionPaymentTotal(section.id)) === 0
+                      className={`text-sm font-medium ${roundTo2Decimals(section.inclusiveAmount - getSectionPaymentTotal(section.id)) === 0
                           ? 'text-green-600'
                           : 'text-red-600'
-                      }`}
+                        }`}
                     >
                       {formatCurrency(section.inclusiveAmount - getSectionPaymentTotal(section.id))}
                     </span>
