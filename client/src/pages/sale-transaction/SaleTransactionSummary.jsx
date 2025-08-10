@@ -189,104 +189,216 @@ const SaleTransactionSummary = () => {
   };
 
   // Enhanced validation function for better error messages
-  const getValidationErrors = () => {
-    const errors = [];
-    const itemsNeedingEmployees = [];
-    const itemsWithInvalidPerformance = [];
+const getValidationErrors = () => {
+  const errors = [];
+  const itemsNeedingEmployees = [];
+  const itemsWithInvalidPerformance = [];
+  const sectionsWithInsufficientGSTPayment = [];
 
-    // Check cart items
-    if (cartItems.length === 0) {
-      errors.push('Add items to your cart');
-    }
-    console.log('Cart items:', cartItems);
+  // Check cart items
+  if (cartItems.length === 0) {
+    errors.push('Add items to your cart');
+  }
+  console.log('Cart items:', cartItems);
 
-    // Check required transaction details
-    if (!transactionDetails.receiptNumber || transactionDetails.receiptNumber.trim() === '') {
-      errors.push('Receipt number is required');
-    }
+  // Check required transaction details
+  if (!transactionDetails.receiptNumber || transactionDetails.receiptNumber.trim() === '') {
+    errors.push('Receipt number is required');
+  }
 
-    if (!transactionDetails.createdBy || transactionDetails.createdBy === '') {
-      errors.push('Transaction creator must be selected');
-    }
+  if (!transactionDetails.createdBy || transactionDetails.createdBy === '') {
+    errors.push('Transaction creator must be selected');
+  }
 
-    if (!transactionDetails.handledBy || transactionDetails.handledBy === '') {
-      errors.push('Payment handler must be selected');
-    }
+  if (!transactionDetails.handledBy || transactionDetails.handledBy === '') {
+    errors.push('Payment handler must be selected');
+  }
 
-    // Check creation date/time with validation
-    if (!transactionDetails.createdAt || transactionDetails.createdAt.trim() === '') {
-      errors.push('Creation date & time is required');
-    } else {
-      // Validate that the date is actually valid
-      try {
-        const dateValue = new Date(transactionDetails.createdAt);
-        if (isNaN(dateValue.getTime())) {
-          errors.push('Creation date & time is invalid');
-        }
-      } catch (error) {
+  // Check creation date/time with validation
+  if (!transactionDetails.createdAt || transactionDetails.createdAt.trim() === '') {
+    errors.push('Creation date & time is required');
+  } else {
+    // Validate that the date is actually valid
+    try {
+      const dateValue = new Date(transactionDetails.createdAt);
+      if (isNaN(dateValue.getTime())) {
         errors.push('Creation date & time is invalid');
       }
+    } catch (error) {
+      errors.push('Creation date & time is invalid');
     }
+  }
 
-    cartItems.forEach((item) => {
-      const assignments = itemEmployees[item.id] || [];
+  // Check employee assignments and performance rates
+  cartItems.forEach((item) => {
+    const assignments = itemEmployees[item.id] || [];
 
-      if (assignments.length === 0) {
-        itemsNeedingEmployees.push(item);
-      } else {
-        const totalPerfRate = assignments.reduce((sum, emp) => sum + (parseFloat(emp.performanceRate) || 0), 0);
-        const roundedTotal = parseFloat(totalPerfRate.toFixed(2)); // Prevents float precision bugs
+    if (assignments.length === 0) {
+      itemsNeedingEmployees.push(item);
+    } else {
+      const totalPerfRate = assignments.reduce((sum, emp) => sum + (parseFloat(emp.performanceRate) || 0), 0);
+      const roundedTotal = parseFloat(totalPerfRate.toFixed(2)); // Prevents float precision bugs
 
-        if (roundedTotal !== 100) {
-          itemsWithInvalidPerformance.push({
-            name: item.name || item.data?.name,
-            rate: roundedTotal,
-          });
-        }
+      if (roundedTotal !== 100) {
+        itemsWithInvalidPerformance.push({
+          name: item.name || item.data?.name,
+          rate: roundedTotal,
+        });
       }
-    });
+    }
+  });
 
-    // Build error message for items with no assigned employees
-    if (itemsNeedingEmployees.length > 0) {
-      const itemNames = itemsNeedingEmployees.map(it => it.name || it.data?.name);
+  // Build error message for items with no assigned employees
+  if (itemsNeedingEmployees.length > 0) {
+    const itemNames = itemsNeedingEmployees.map(it => it.name || it.data?.name);
+    errors.push(
+      `Please assign employee(s) to the following ${itemsNeedingEmployees.length} item(s): ${itemNames.join(', ')}.`
+    );
+  }
+
+  // Build error message for items with invalid performance rate
+  if (itemsWithInvalidPerformance.length > 0) {
+    const badItems = itemsWithInvalidPerformance.map(it => `${it.name} (Total Rate: ${it.rate}%)`);
+    errors.push(
+      `The following item(s) have assigned employees whose combined performance rate is not 100%: ${badItems.join(', ')}.`
+    );
+  }
+
+  // ✅ FIXED: Check Services & Products payment requirement (must be fully paid)
+  const servicesAndProducts = [
+    ...cartItems.filter(item => item.type === 'service'),
+    ...cartItems.filter(item => item.type === 'product')
+  ];
+
+  if (servicesAndProducts.length > 0) {
+    // Calculate total exclusive amount (item prices without GST)
+    const sectionExclusiveTotal = servicesAndProducts.reduce((total, item) => {
+      const pricing = getItemPricing(item.id);
+      return total + pricing.totalLinePrice; // This is exclusive amount
+    }, 0);
+
+    // Calculate GST amount (9% of exclusive total)
+    const gstAmount = sectionExclusiveTotal * 0.09;
+    const sectionInclusiveTotal = sectionExclusiveTotal + gstAmount; // Total customer must pay
+
+    // Calculate current payments
+    const sectionPaymentTotal = sectionPayments['services-products']?.reduce((total, payment) =>
+      total + (payment.amount || 0), 0
+    ) || 0;
+
+    const remainingAmount = sectionInclusiveTotal - sectionPaymentTotal;
+
+    // Check if fully paid (allow small rounding differences)
+    if (Math.abs(remainingAmount) >= 0.01) {
       errors.push(
-        `Please assign employee(s) to the following ${itemsNeedingEmployees.length} item(s): ${itemNames.join(', ')}.`
+        `Services & Products section must be fully paid. ` +
+        `Total required: ${formatCurrency(sectionInclusiveTotal)} ` +
+        `(${formatCurrency(sectionExclusiveTotal)} + ${formatCurrency(gstAmount)} GST). ` +
+        `Current payments: ${formatCurrency(sectionPaymentTotal)}. ` +
+        `Remaining: ${formatCurrency(remainingAmount)}.`
       );
     }
 
-    // Build error message for items with invalid performance rate
-    if (itemsWithInvalidPerformance.length > 0) {
-      const badItems = itemsWithInvalidPerformance.map(it => `${it.name} (Total Rate: ${it.rate}%)`);
-      errors.push(
-        `The following item(s) have assigned employees whose combined performance rate is not 100%: ${badItems.join(', ')}.`
-      );
+    // Also check minimum GST payment requirement
+    if (sectionPaymentTotal < gstAmount) {
+      sectionsWithInsufficientGSTPayment.push({
+        sectionTitle: 'Services & Products',
+        minimumRequired: gstAmount,
+        currentPaid: sectionPaymentTotal,
+        shortfall: gstAmount - sectionPaymentTotal
+      });
     }
+  }
 
-    // Check Services & Products payment requirement
-    // const servicesAndProducts = [
-    //   ...cartItems.filter(item => item.type === 'service'),
-    //   ...cartItems.filter(item => item.type === 'product')
-    // ];
-
-    // if (servicesAndProducts.length > 0) {
-    //   const sectionTotal = servicesAndProducts.reduce((total, item) => {
-    //     const pricing = getItemPricing(item.id);
-    //     return total + pricing.totalLinePrice;
-    //   }, 0);
-
-    //   const sectionPaymentTotal = sectionPayments['services-products']?.reduce((total, payment) =>
-    //     total + (payment.amount || 0), 0
-    //   ) || 0;
-
-    //   const remainingAmount = sectionTotal - sectionPaymentTotal;
-
-    //   if (Math.abs(remainingAmount) >= 0.01) { // Allow for small rounding differences
-    //     errors.push(`Services & Products section must be fully paid (remaining: ${formatCurrency(remainingAmount)})`);
-    //   }
-    // }
-
-    return errors;
+  // ✅ NEW: Check GST minimum payment requirements for individual sections
+  // Helper function to calculate GST from exclusive amount
+  const calculateGSTFromExclusive = (exclusiveAmount, gstRate = 9) => {
+    return exclusiveAmount * (gstRate / 100);
   };
+
+  // Check individual Package sections
+  cartItems.filter(item => item.type === 'package').forEach(item => {
+    const sectionId = `package-${item.id}`;
+    const pricing = getItemPricing(item.id);
+    const exclusiveAmount = pricing.totalLinePrice;
+    const gstAmount = calculateGSTFromExclusive(exclusiveAmount);
+    const inclusiveAmount = exclusiveAmount + gstAmount;
+
+    const sectionPaymentTotal = sectionPayments[sectionId]?.reduce((total, payment) =>
+      total + (payment.amount || 0), 0
+    ) || 0;
+
+    // Check minimum GST payment
+    if (gstAmount > 0 && sectionPaymentTotal < gstAmount) {
+      sectionsWithInsufficientGSTPayment.push({
+        sectionTitle: `Package: ${item.data?.name || 'Unnamed Package'}`,
+        minimumRequired: gstAmount,
+        currentPaid: sectionPaymentTotal,
+        shortfall: gstAmount - sectionPaymentTotal
+      });
+    }
+  });
+
+  // Check individual Voucher sections
+  cartItems.filter(item => item.type === 'member-voucher').forEach(item => {
+    const sectionId = `voucher-${item.id}`;
+    const pricing = getItemPricing(item.id);
+    const exclusiveAmount = pricing.totalLinePrice;
+    const gstAmount = calculateGSTFromExclusive(exclusiveAmount);
+    const inclusiveAmount = exclusiveAmount + gstAmount;
+
+    const sectionPaymentTotal = sectionPayments[sectionId]?.reduce((total, payment) =>
+      total + (payment.amount || 0), 0
+    ) || 0;
+
+    // Check minimum GST payment
+    if (gstAmount > 0 && sectionPaymentTotal < gstAmount) {
+      sectionsWithInsufficientGSTPayment.push({
+        sectionTitle: `Voucher: ${item.data?.member_voucher_name || 'Unnamed Voucher'}`,
+        minimumRequired: gstAmount,
+        currentPaid: sectionPaymentTotal,
+        shortfall: gstAmount - sectionPaymentTotal
+      });
+    }
+  });
+
+  // Check MV Transfer sections (they have GST)
+  cartItems.filter(item => item.type === 'transferMV').forEach(item => {
+    const sectionId = `transfer-mv-${item.id}`;
+    const pricing = getItemPricing(item.id);
+    const exclusiveAmount = pricing.totalLinePrice;
+    const gstAmount = calculateGSTFromExclusive(exclusiveAmount);
+
+    const sectionPaymentTotal = sectionPayments[sectionId]?.reduce((total, payment) =>
+      total + (payment.amount || 0), 0
+    ) || 0;
+
+    // Check minimum GST payment
+    if (gstAmount > 0 && sectionPaymentTotal < gstAmount) {
+      sectionsWithInsufficientGSTPayment.push({
+        sectionTitle: `MV Transfer: ${item.data?.description || 'Member Voucher Transfer'}`,
+        minimumRequired: gstAmount,
+        currentPaid: sectionPaymentTotal,
+        shortfall: gstAmount - sectionPaymentTotal
+      });
+    }
+  });
+
+  // Note: MCP Transfers (transferMCP) are skipped as they don't have GST
+
+  // Add GST minimum payment validation errors
+  if (sectionsWithInsufficientGSTPayment.length > 0) {
+    sectionsWithInsufficientGSTPayment.forEach(section => {
+      errors.push(
+        `${section.sectionTitle}: Must pay at least ${formatCurrency(section.minimumRequired)} (GST amount). ` +
+        `Currently paid: ${formatCurrency(section.currentPaid)}. ` +
+        `Need ${formatCurrency(section.shortfall)} more to meet GST requirement.`
+      );
+    });
+  }
+
+  return errors;
+};
 
   // Simplified validation function
   const isTransactionValid = () => {

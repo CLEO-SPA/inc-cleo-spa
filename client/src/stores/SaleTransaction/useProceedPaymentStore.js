@@ -15,13 +15,12 @@ const useProceedPaymentStore = create(
       newPayments: [],
       selectedPaymentMethod: '',
       paymentHandlerId: '',
-      transactionHandlerId: '', // NEW: For the transaction handler
+      transactionHandlerId: '',
       generalRemark: '',
-      createdAt: '', // RESTORED: For custom creation date
+      createdAt: '',
       
       // Constants
       PENDING_PAYMENT_METHOD_ID: 7,
-      GST_PAYMENT_METHOD_ID: 10, // ✅ NEW: Add GST constant
       
       // Actions
       setTransaction: (transaction) => {
@@ -30,8 +29,8 @@ const useProceedPaymentStore = create(
         const transactionHandler = transaction?.handler?.code || '';
         set({ 
           transaction,
-          transactionHandlerId: transactionHandler, // Auto-populate from transaction
-          receiptNumber: transaction?.receipt_no || '' // NEW: Auto-populate receipt number
+          transactionHandlerId: transactionHandler,
+          receiptNumber: transaction?.receipt_no || ''
         });
       },
       
@@ -127,75 +126,60 @@ const useProceedPaymentStore = create(
         return parseFloat(transaction.outstanding_total_payment_amount || 0);
       },
       
-      // ✅ FIXED: Calculate total payments using CORRECT backend logic
+      // Calculate total payments (excluding pending)
       getNewPaymentsTotal: () => {
-        const { newPayments, PENDING_PAYMENT_METHOD_ID, GST_PAYMENT_METHOD_ID } = get();
+        const { newPayments, PENDING_PAYMENT_METHOD_ID } = get();
         
-        // Separate payments by type (same as backend)
+        // Only actual payments (exclude pending)
         const actualPayments = newPayments.filter(payment => 
-          payment.methodId !== PENDING_PAYMENT_METHOD_ID.toString() &&
-          payment.methodId !== GST_PAYMENT_METHOD_ID.toString()
-        );
-        
-        const gstPayments = newPayments.filter(payment => 
-          payment.methodId === GST_PAYMENT_METHOD_ID.toString()
+          payment.methodId !== PENDING_PAYMENT_METHOD_ID.toString()
         );
         
         const totalActualPaymentAmount = actualPayments.reduce((total, payment) => 
           total + (parseFloat(payment.amount) || 0), 0
         );
         
-        const totalGSTAmount = gstPayments.reduce((total, payment) => 
-          total + (parseFloat(payment.amount) || 0), 0
-        );
-        
-        // Total paid = actual + GST (excludes pending) - same as backend
-        const totalPaid = totalActualPaymentAmount + totalGSTAmount;
-        
-        console.log('✅ Store getNewPaymentsTotal (matches backend):', {
+        console.log('Store getNewPaymentsTotal:', {
           totalActualPaymentAmount,
-          totalGSTAmount,
-          totalPaid,
           note: 'Excludes pending payments'
         });
         
-        return totalPaid;
+        return totalActualPaymentAmount;
       },
       
-      // ✅ FIXED: Calculate remaining outstanding using CORRECT backend logic
+      // Calculate remaining outstanding
       getRemainingOutstanding: () => {
-        const { newPayments, getOutstandingAmount, PENDING_PAYMENT_METHOD_ID, GST_PAYMENT_METHOD_ID } = get();
+        const { newPayments, getOutstandingAmount, PENDING_PAYMENT_METHOD_ID } = get();
         
-        // Only actual payments reduce outstanding (same as backend)
+        // Only actual payments reduce outstanding
         const actualPayments = newPayments.filter(payment => 
-          payment.methodId !== PENDING_PAYMENT_METHOD_ID.toString() &&
-          payment.methodId !== GST_PAYMENT_METHOD_ID.toString()
+          payment.methodId !== PENDING_PAYMENT_METHOD_ID.toString()
         );
         
         const totalActualPaymentAmount = actualPayments.reduce((total, payment) => 
           total + (parseFloat(payment.amount) || 0), 0
         );
         
-        // Calculate remaining outstanding (backend authority) - same as backend
+        // Calculate remaining outstanding
         const remainingOutstanding = Math.max(0, getOutstandingAmount() - totalActualPaymentAmount);
         
-        console.log('✅ Store getRemainingOutstanding (matches backend):', {
+        console.log('Store getRemainingOutstanding:', {
           originalOutstanding: getOutstandingAmount(),
           totalActualPaymentAmount,
           remainingOutstanding,
-          note: 'Only actual payments reduce outstanding, GST excluded'
+          note: 'Only actual payments reduce outstanding'
         });
         
         return remainingOutstanding;
       },
       
-      // ✅ FIXED: Updated pending amount calculation using backend logic
+      // Updated pending amount calculation
       getUpdatedPendingAmount: () => {
         const { getRemainingOutstanding } = get();
         // This is what backend will create as pending payment
         const pendingAmount = getRemainingOutstanding();
         
-        console.log('✅ Store getUpdatedPendingAmount (matches backend):', {
+        console.log('Store getUpdatedPendingAmount:', {
           pendingAmount,
           note: 'This is what backend will auto-create'
         });
@@ -203,41 +187,30 @@ const useProceedPaymentStore = create(
         return pendingAmount;
       },
       
-      // ✅ NEW: Get payment breakdown for UI display
+      // Get payment breakdown for UI display
       getPaymentBreakdown: () => {
-        const { newPayments, getOutstandingAmount, PENDING_PAYMENT_METHOD_ID, GST_PAYMENT_METHOD_ID } = get();
+        const { newPayments, getOutstandingAmount, PENDING_PAYMENT_METHOD_ID } = get();
         
-        // Separate payments by type (same as backend)
+        // Separate payments by type
         const actualPayments = newPayments.filter(payment => 
-          payment.methodId !== PENDING_PAYMENT_METHOD_ID.toString() &&
-          payment.methodId !== GST_PAYMENT_METHOD_ID.toString()
+          payment.methodId !== PENDING_PAYMENT_METHOD_ID.toString()
         );
         
-        const gstPayments = newPayments.filter(payment => 
-          payment.methodId === GST_PAYMENT_METHOD_ID.toString()
-        );
-        
-        // Calculate amounts (same logic as backend)
+        // Calculate amounts
         const totalActualPaymentAmount = actualPayments.reduce((total, payment) => 
           total + (parseFloat(payment.amount) || 0), 0
         );
         
-        const totalGSTAmount = gstPayments.reduce((total, payment) => 
-          total + (parseFloat(payment.amount) || 0), 0
-        );
-        
-        // Calculate correct outstanding amount (backend authority) - same as backend
-        const outstandingReduction = totalActualPaymentAmount; // Only actual payments reduce outstanding
+        // Calculate correct outstanding amount
+        const outstandingReduction = totalActualPaymentAmount;
         const newOutstandingAmount = Math.max(0, getOutstandingAmount() - outstandingReduction);
         
-        // Total paid amount = actual payments + GST (EXCLUDES pending) - same as backend
-        const totalPaidAmount = totalActualPaymentAmount + totalGSTAmount;
+        // Total paid amount = actual payments
+        const totalPaidAmount = totalActualPaymentAmount;
         
         return {
           actualPayments,
-          gstPayments,
           totalActualPaymentAmount,
-          totalGSTAmount,
           outstandingReduction,
           newOutstandingAmount,
           totalPaidAmount,
@@ -265,9 +238,8 @@ const useProceedPaymentStore = create(
           return { valid: false, message: 'Please add at least one payment method' };
         }
         
-        // ✅ FIXED: Only validate non-GST payments for amount validation
-        const nonGSTPayments = newPayments.filter(p => !p.isGST && !p.methodName?.includes('GST'));
-        const invalidPayments = nonGSTPayments.filter(p => !p.amount || parseFloat(p.amount) <= 0);
+        // Validate all payments have valid amounts
+        const invalidPayments = newPayments.filter(p => !p.amount || parseFloat(p.amount) <= 0);
         if (invalidPayments.length > 0) {
           return { valid: false, message: 'Please enter valid amounts for all payment methods' };
         }
@@ -288,7 +260,7 @@ const useProceedPaymentStore = create(
           paymentHandlerId: '',
           transactionHandlerId: '',
           generalRemark: '',
-          receiptNumber: '', // NEW: Reset receipt number
+          receiptNumber: '',
           createdAt: new Date().toISOString().slice(0, 16)
         });
       },
@@ -304,7 +276,7 @@ const useProceedPaymentStore = create(
       }
     }),
     {
-      name: 'proceed-payment-store', // Store name for devtools
+      name: 'proceed-payment-store',
     }
   )
 );

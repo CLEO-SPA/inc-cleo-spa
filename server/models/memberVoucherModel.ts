@@ -16,6 +16,9 @@ import {
   SingleItemTransactionRequestData,
 } from '../types/SaleTransactionTypes.js';
 
+const roundTo2Decimals = (num: number): number => {
+  return Math.round((num + Number.EPSILON) * 100) / 100;
+};
 const normalizeBigInts = (data: any): any =>
   JSON.parse(JSON.stringify(data, (_, value) => (typeof value === 'bigint' ? value.toString() : value)));
 
@@ -864,6 +867,7 @@ const deleteTransactionLogsAndCurrentBalanceByLogId = async (
   }
 };
 
+
 const createMemberVoucher = async (
   transactionData: SingleItemTransactionRequestData
 ): Promise<SingleItemTransactionCreationResult> => {
@@ -872,6 +876,7 @@ const createMemberVoucher = async (
   try {
     await client.query('BEGIN');
 
+    // VALIDATION MOVED TO TOP - Validate required fields first
     const {
       created_by,
       customer_type,
@@ -881,8 +886,9 @@ const createMemberVoucher = async (
       payments,
       receipt_number,
       remarks,
-      created_at,
-      updated_at,
+      created_at,        // ✅ NEW: Add custom date support
+      updated_at,        // ✅ NEW: Add custom date support
+      gstBreakdown       // ✅ NEW: Add GST breakdown support
     } = transactionData;
 
     // Early validation
@@ -906,7 +912,7 @@ const createMemberVoucher = async (
       throw new Error('member_id is required for member voucher transactions');
     }
 
-    // ✅ Parse and validate custom creation date/time for sale transactions
+    // ✅ NEW: Parse and validate custom creation date/time for sale transactions
     let customCreatedAt = null;
     let customUpdatedAt = null;
 
@@ -942,11 +948,17 @@ const createMemberVoucher = async (
 
     console.log('✅ MV Sale Transaction Using custom date/time:', {
       created_at: customCreatedAt.toISOString(),
-      updated_at: customUpdatedAt.toISOString(),
+      updated_at: customUpdatedAt.toISOString()
     });
 
     // Extract item data
-    const { assignedEmployee, data, pricing, remarks: itemRemarks, type } = item;
+    const {
+      assignedEmployee,
+      data,
+      pricing,
+      remarks: itemRemarks,
+      type
+    } = item;
 
     if (!data) {
       throw new Error('item.data is required for member voucher');
@@ -965,7 +977,7 @@ const createMemberVoucher = async (
       starting_balance,
       status = 'active', // Default status
       total_price,
-      voucher_template_id,
+      voucher_template_id
     } = data;
 
     // Validate required voucher data
@@ -973,19 +985,36 @@ const createMemberVoucher = async (
       throw new Error('member_voucher_name is required');
     }
 
+    if (!creation_datetime) {
+      throw new Error('creation_datetime is required');
+    }
+
     // FIXED: Better default calculation
     const default_total_price = selected_template?.default_total_price
       ? Number(selected_template.default_total_price)
-      : total_price
-      ? Number(total_price)
-      : 0;
+      : (total_price ? Number(total_price) : 0);
 
     const is_bypass = bypass_template === true;
+    const createdAt = new Date(creation_datetime);  // Keep voucher creation date separate
+    const updatedAt = createdAt;                    // Keep voucher update date separate
 
-    const createdAt = customCreatedAt; // Use sale transaction date
-    const updatedAt = customUpdatedAt; // Use sale transaction date
+    // FIXED: Proper employee ID handling
+    /**
+     * Original code - since we are sending an array of assigned employees from the frontend, i changed this to handle that.
+     */
+    // const employee_id = assignedEmployee ? Number(assignedEmployee) : Number(created_by);
 
-    const employee_id = assignedEmployee ? Number(assignedEmployee) : Number(created_by);
+    /**
+     * Debugging employee_id calculation
+     */
+    const employee_id = assignedEmployee && Array.isArray(assignedEmployee) && assignedEmployee.length > 0
+      ? Number(assignedEmployee[0].employeeId || assignedEmployee[0]) // Get first employee's ID for voucher creation
+      : Number(created_by); // Fallback to created_by
+
+    // Validate that employee_id is not NaN
+    if (isNaN(employee_id)) {
+      throw new Error(`Invalid employee ID: ${employee_id}. Check assignedEmployee data or created_by value.`);
+    }
 
     // Database validations
     let validationPromises = [
@@ -996,7 +1025,9 @@ const createMemberVoucher = async (
 
     // FIXED: Only validate voucher template if not bypassing AND template ID exists
     if (!is_bypass && voucher_template_id && voucher_template_id !== '0') {
-      validationPromises.push(client.query('SELECT id FROM voucher_templates WHERE id = $1', [voucher_template_id]));
+      validationPromises.push(
+        client.query('SELECT id FROM voucher_templates WHERE id = $1', [voucher_template_id])
+      );
     }
 
     const results = await Promise.all(validationPromises);
@@ -1020,67 +1051,78 @@ const createMemberVoucher = async (
       throw new Error(`Voucher template with ID ${voucher_template_id} not found`);
     }
 
-    // ✅ FIXED: Payment calculations using CORRECT MCP logic
-    const totalTransactionAmount: number = pricing?.totalLinePrice || 0;
+    // ✅ NEW: Calculate GST amounts (same logic as MCP)
+    let totalTransactionAmount: number;
+    let totalGSTAmount: number;
 
+    if (gstBreakdown) {
+      totalTransactionAmount = roundTo2Decimals(gstBreakdown.inclusiveTotal || 0);
+      totalGSTAmount = roundTo2Decimals(gstBreakdown.gstTotal || 0);
+      console.log('✅ MV Using GST breakdown from frontend:', {
+        inclusive: totalTransactionAmount,
+        gst: totalGSTAmount
+      });
+    } else {
+      const exclusiveTotal = roundTo2Decimals(pricing?.totalLinePrice || 0);
+      totalGSTAmount = roundTo2Decimals(exclusiveTotal * 0.09);
+      totalTransactionAmount = roundTo2Decimals(exclusiveTotal + totalGSTAmount);
+      console.log('⚠️ MV No GST breakdown provided, calculated:', {
+        exclusive: exclusiveTotal,
+        gst: totalGSTAmount,
+        inclusive: totalTransactionAmount
+      });
+    }
+
+    // FIXED: Payment calculations using correct logic
     const PENDING_PAYMENT_METHOD_ID = 7;
-    const GST_PAYMENT_METHOD_ID = 10;
 
-    // Separate payments by type (same as MCP)
-    const pendingPayments = payments.filter(
-      (payment: PaymentMethodRequest) => payment.methodId === PENDING_PAYMENT_METHOD_ID
+    const pendingPayments = payments.filter((payment: PaymentMethodRequest) =>
+      payment.methodId === PENDING_PAYMENT_METHOD_ID
     );
 
-    const gstPayments = payments.filter((payment: PaymentMethodRequest) => payment.methodId === GST_PAYMENT_METHOD_ID);
-
-    const actualPayments = payments.filter(
-      (payment: PaymentMethodRequest) =>
-        payment.methodId !== PENDING_PAYMENT_METHOD_ID && payment.methodId !== GST_PAYMENT_METHOD_ID
+    const nonPendingPayments = payments.filter((payment: PaymentMethodRequest) =>
+      payment.methodId !== PENDING_PAYMENT_METHOD_ID
     );
 
-    // Calculate amounts (same logic as MCP)
-    const totalActualPaymentAmount: number = actualPayments.reduce((total: number, payment: PaymentMethodRequest) => {
+    // ✅ UPDATED: Calculate payments based on total transaction amount (inclusive of GST)
+    const totalPaidAmount: number = roundTo2Decimals(nonPendingPayments.reduce((total: number, payment: PaymentMethodRequest) => {
       return total + (payment.amount || 0);
-    }, 0);
+    }, 0));
 
-    const totalGSTAmount: number = gstPayments.reduce((total: number, payment: PaymentMethodRequest) => {
-      return total + (payment.amount || 0);
-    }, 0);
-
-    // IGNORE pending amount from frontend - calculate our own (same as MCP)
-    const frontendPendingAmount: number = pendingPayments.reduce((total: number, payment: PaymentMethodRequest) => {
-      return total + (payment.amount || 0);
-    }, 0);
-
-    // Calculate correct outstanding amount (backend authority) - same as MCP
-    const outstandingAmount: number = Math.max(0, totalTransactionAmount - totalActualPaymentAmount);
-
-    // Total paid amount = actual payments + GST (EXCLUDES pending) - same as MCP
-    const totalPaidAmount: number = totalActualPaymentAmount + totalGSTAmount;
+    const outstandingAmount: number = roundTo2Decimals(Math.max(0, totalTransactionAmount - totalPaidAmount));
 
     const transactionStatus: 'FULL' | 'PARTIAL' = outstandingAmount <= 0 ? 'FULL' : 'PARTIAL';
     const processPayment: boolean = outstandingAmount > 0;
 
-    console.log('✅ MV Creation Payment calculations:', {
-      totalTransactionAmount,
-      totalActualPaymentAmount,
-      totalGSTAmount,
-      frontendPendingAmount: `${frontendPendingAmount} (from frontend - IGNORED)`,
-      outstandingAmount: `${outstandingAmount} (backend calculated - USED)`,
-      totalPaidAmount: `${totalPaidAmount} (actual + GST, excludes pending)`,
-      transactionStatus,
-      note: 'Backend ignores frontend pending amount and calculates its own',
+    // ✅ UPDATED: For voucher balance calculation, use exclusive amount (like MCP)
+    let exclusiveAmountForBalance: number;
+
+    if (gstBreakdown) {
+      exclusiveAmountForBalance = roundTo2Decimals(gstBreakdown.exclusiveTotal || 0);
+    } else {
+      exclusiveAmountForBalance = roundTo2Decimals(pricing?.totalLinePrice || 0);
+    }
+
+    // Calculate how much should be added to voucher balance (excluding GST)
+    const paidAmountForBalance = Math.min(totalPaidAmount, exclusiveAmountForBalance);
+
+    const is_fully_paid = outstandingAmount === 0;
+
+    // FIXED: Cleaner balance calculation using exclusive amount
+    const base_balance = exclusiveAmountForBalance + free_of_charge; // Use exclusive amount for balance
+    const final_starting_balance = base_balance;
+    const final_current_balance = is_fully_paid ? exclusiveAmountForBalance : exclusiveAmountForBalance - (exclusiveAmountForBalance - paidAmountForBalance);
+
+    console.log('💰 MV Balance Calculation:', {
+      totalTransactionAmount, // $85.02 (what customer pays)
+      exclusiveAmountForBalance, // $78.00 (voucher value)
+      totalGSTAmount, // $7.02 (GST)
+      totalPaidAmount, // What customer actually paid
+      paidAmountForBalance, // Amount for voucher balance (max $78)
+      final_current_balance // Final voucher balance
     });
 
-    // ✅ FIXED: Use correct payment logic for voucher balance calculation
-    const is_fully_paid = outstandingAmount <= 0; // Use backend calculated outstanding
-
-    // FIXED: Cleaner balance calculation
-    const base_balance = default_total_price + free_of_charge;
-    const final_starting_balance = base_balance;
-    const final_current_balance = is_fully_paid ? default_total_price : default_total_price - outstandingAmount;
-
-    // ✅ Insert member voucher using sale transaction dates
+    // Insert member voucher (UNCHANGED - uses voucher creation dates)
     const i_mv_sql = `
       INSERT INTO member_vouchers
       (member_voucher_name, voucher_template_id, member_id, current_balance, starting_balance, 
@@ -1092,43 +1134,47 @@ const createMemberVoucher = async (
 
     const { rows: mvRows } = await client.query<{ id: string }>(i_mv_sql, [
       member_voucher_name,
-      is_bypass ? 0 : voucher_template_id || 0,
+      is_bypass ? 0 : (voucher_template_id || 0),
       member_id,
       final_current_balance,
       final_starting_balance,
       free_of_charge,
-      default_total_price,
+      exclusiveAmountForBalance, // Use exclusive amount for default_total_price
       status,
       voucherRemarks || itemRemarks || '',
       employee_id,
       employee_id,
       employee_id,
-      createdAt,
-      updatedAt,
+      createdAt,      // Voucher creation date
+      updatedAt       // Voucher update date
     ]);
 
     const memberVoucherId = Number(mvRows[0].id);
 
     // FIXED: Better service mapping with validation
-    const services = member_voucher_details.map(
-      (detail: { service_id?: number; name?: string; price?: number; custom_price?: number; duration?: number }) => {
-        if (!detail.service_id && !is_bypass) {
-          throw new Error('service_id is required for each voucher detail when not bypassing template');
-        }
-
-        return {
-          id: detail.service_id || 0,
-          name: detail.name || 'Unknown Service',
-          original_price: Number(detail.price || 0),
-          custom_price: Number(detail.custom_price ?? detail.price ?? 0),
-          discount: Number(detail.price ?? 0) - Number(detail.custom_price ?? detail.price ?? 0),
-          final_price: Number(detail.custom_price ?? detail.price ?? 0),
-          duration: Number(detail.duration || 0),
-        };
+    const services = member_voucher_details.map((detail: {
+      service_id?: number;
+      name?: string;
+      price?: number;
+      custom_price?: number;
+      duration?: number;
+    }) => {
+      if (!detail.service_id && !is_bypass) {
+        throw new Error('service_id is required for each voucher detail when not bypassing template');
       }
-    );
 
-    // ✅ Insert voucher details using sale transaction dates
+      return {
+        id: detail.service_id || 0,
+        name: detail.name || 'Unknown Service',
+        original_price: Number(detail.price || 0),
+        custom_price: Number(detail.custom_price ?? detail.price ?? 0),
+        discount: Number(detail.price ?? 0) - Number(detail.custom_price ?? detail.price ?? 0),
+        final_price: Number(detail.custom_price ?? detail.price ?? 0),
+        duration: Number(detail.duration || 0)
+      };
+    });
+
+    // Insert voucher details (UNCHANGED - uses voucher creation dates)
     if (services.length > 0) {
       const i_mvd_sql = `
         INSERT INTO member_voucher_details
@@ -1138,33 +1184,32 @@ const createMemberVoucher = async (
       `;
 
       await Promise.all(
-        services.map(
-          (service: {
-            id: number;
-            name: string;
-            original_price: number;
-            custom_price: number;
-            discount: number;
-            final_price: number;
-            duration: number;
-          }) =>
-            client.query(i_mvd_sql, [
-              memberVoucherId,
-              is_bypass ? 0 : service.id,
-              service.name,
-              service.original_price,
-              service.custom_price,
-              service.discount,
-              service.final_price,
-              service.duration,
-              createdAt,
-              updatedAt,
-            ])
+        services.map((service: {
+          id: number;
+          name: string;
+          original_price: number;
+          custom_price: number;
+          discount: number;
+          final_price: number;
+          duration: number;
+        }) =>
+          client.query(i_mvd_sql, [
+            memberVoucherId,
+            is_bypass ? 0 : service.id,
+            service.name,
+            service.original_price,
+            service.custom_price,
+            service.discount,
+            service.final_price,
+            service.duration,
+            createdAt,    // Voucher creation date
+            updatedAt     // Voucher update date
+          ])
         )
       );
     }
 
-    // ✅ Insert transaction log using sale transaction dates
+    // Insert transaction log (UNCHANGED - uses voucher creation dates)
     const i_mvtl_sql = `
       INSERT INTO member_voucher_transaction_logs
       (member_voucher_id, service_description, service_date, current_balance, 
@@ -1176,22 +1221,22 @@ const createMemberVoucher = async (
     await client.query(i_mvtl_sql, [
       memberVoucherId,
       'N.A',
-      createdAt,
+      createdAt,      // Voucher creation date
       final_current_balance,
       final_current_balance,
       employee_id,
       'PURCHASE',
       employee_id,
       employee_id,
-      createdAt,
-      updatedAt,
+      createdAt,      // Voucher creation date
+      updatedAt
     ]);
 
-    // ✅ FOC transaction using sale transaction dates
+    // FOC handling - only add FOC if transaction is fully paid
     if (transactionStatus === 'FULL' && free_of_charge > 0) {
       // Calculate new balance after adding FOC
       const newCurrentBalance = final_current_balance + free_of_charge;
-
+      
       // Update the member voucher with new balance
       const updateVoucherSql = `
         UPDATE member_vouchers
@@ -1201,30 +1246,30 @@ const createMemberVoucher = async (
 
       await client.query(updateVoucherSql, [
         newCurrentBalance,
-        updatedAt, // ✅ Now uses sale transaction date
-        memberVoucherId,
+        customUpdatedAt,
+        memberVoucherId
       ]);
 
       // Insert FOC transaction log
       await client.query(i_mvtl_sql, [
         memberVoucherId,
         'Free of Charge Addition',
-        createdAt,
-        newCurrentBalance, // Updated balance after FOC
-        free_of_charge, // FOC amount as amount_change
+        customCreatedAt,      // Use custom date for FOC transaction
+        newCurrentBalance,    // Updated balance after FOC
+        free_of_charge,       // FOC amount as amount_change
         employee_id,
         'ADD FOC',
         employee_id,
         employee_id,
-        createdAt,
-        updatedAt,
+        customCreatedAt,      // Use custom date for FOC transaction
+        customUpdatedAt       // Use custom date for FOC transaction
       ]);
-
+      
       console.log('FOC transaction added:', {
         memberVoucherId,
         focAmount: free_of_charge,
         newCurrentBalance,
-        transactionType: 'ADD FOC',
+        transactionType: 'ADD FOC'
       });
     }
 
@@ -1238,7 +1283,7 @@ const createMemberVoucher = async (
       finalReceiptNo = `ST${receiptResult.rows[0].next_number.toString().padStart(6, '0')}`;
     }
 
-    // ✅ Insert sale transaction using sale transaction dates
+    // ✅ UPDATED: Include gst_amount in sale_transactions insert
     const transactionQuery: string = `
       INSERT INTO sale_transactions (
         customer_type,
@@ -1252,28 +1297,34 @@ const createMemberVoucher = async (
         handled_by,
         created_by,
         created_at,
-        updated_at
-      ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12)
+        updated_at,
+        gst_amount
+      ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13)
       RETURNING id
     `;
 
+    // ✅ UPDATED: Include totalGSTAmount as parameter 13
     const transactionParams: (string | number | boolean | null | Date)[] = [
       customer_type?.toUpperCase() || 'MEMBER',
       member_id || null,
-      totalPaidAmount, // Actual + GST (excludes pending)
-      outstandingAmount, // Transaction amount - actual payments (excludes GST)
+      totalPaidAmount,
+      outstandingAmount,
       transactionStatus,
       finalReceiptNo,
       remarks || '',
       processPayment,
       handled_by,
       created_by,
-      createdAt,
-      updatedAt,
+      customCreatedAt,      // Use custom date for sale transaction
+      customUpdatedAt,      // Use custom date for sale transaction
+      totalGSTAmount        // ✅ NEW: GST amount parameter
     ];
 
     const transactionResult = await client.query(transactionQuery, transactionParams);
     const saleTransactionId: number = transactionResult.rows[0].id;
+
+    console.log('Created MV sale transaction with ID:', saleTransactionId);
+    console.log('🏛️ MV GST amount stored in sale_transactions.gst_amount:', totalGSTAmount);
 
     const itemQuery: string = `
       INSERT INTO sale_transaction_items (
@@ -1303,7 +1354,7 @@ const createMemberVoucher = async (
       pricing?.customPrice || 0,
       pricing?.discount || 0,
       pricing?.quantity || 1,
-      pricing?.totalLinePrice || 0,
+      exclusiveAmountForBalance, // Use exclusive amount for item amount
       'member voucher',
       item.remarks || '',
     ];
@@ -1316,17 +1367,8 @@ const createMemberVoucher = async (
 
     console.log('Created MV sale transaction item with ID:', saleTransactionItemId);
 
-    // ✅ Insert all payments (actual + GST) and create correct pending payment
+    // ✅ UPDATED: Include updated_by in payment insertions
     for (const payment of payments) {
-      // Skip frontend pending payments - we'll create our own (same as MCP)
-      if (payment.methodId === PENDING_PAYMENT_METHOD_ID) {
-        console.log('Skipping frontend pending payment:', {
-          amount: payment.amount,
-          note: 'Backend will create correct pending payment',
-        });
-        continue;
-      }
-
       if (payment.amount > 0) {
         const paymentQuery: string = `
           INSERT INTO payment_to_sale_transactions (
@@ -1336,8 +1378,9 @@ const createMemberVoucher = async (
             remarks,
             created_by,
             created_at,
+            updated_by,
             updated_at
-          ) VALUES ($1, $2, $3, $4, $5, $6, $7)
+          ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8)
           RETURNING id
         `;
 
@@ -1346,54 +1389,18 @@ const createMemberVoucher = async (
           payment.methodId,
           payment.amount,
           payment.remark || '',
-          created_by,
-          createdAt, // ✅ Now uses sale transaction date
-          updatedAt, // ✅ Now uses sale transaction date
+          handled_by,      // Use handled_by for payment created_by
+          customCreatedAt, // Use custom date for payment
+          handled_by,      // ✅ NEW: updated_by
+          customUpdatedAt  // Use custom date for payment
         ];
 
         console.log('MV Payment Query:', paymentQuery);
         console.log('MV Payment Params:', paymentParams);
 
         const paymentResult = await client.query(paymentQuery, paymentParams);
-        console.log('Created MV payment with ID:', paymentResult.rows[0].id, {
-          methodId: payment.methodId,
-          amount: payment.amount,
-          isGST: payment.methodId === GST_PAYMENT_METHOD_ID,
-        });
+        console.log('Created MV payment with ID:', paymentResult.rows[0].id);
       }
-    }
-
-    // ✅ Create correct pending payment if needed (using backend calculated amount) - same as MCP
-    if (outstandingAmount > 0) {
-      const pendingPaymentQuery: string = `
-        INSERT INTO payment_to_sale_transactions (
-          sale_transaction_id,
-          payment_method_id,
-          amount,
-          remarks,
-          created_by,
-          created_at,
-          updated_at
-        ) VALUES ($1, $2, $3, $4, $5, $6, $7)
-        RETURNING id
-      `;
-
-      const pendingPaymentParams: (number | string | Date)[] = [
-        saleTransactionId,
-        PENDING_PAYMENT_METHOD_ID,
-        outstandingAmount,
-        'Backend calculated pending payment',
-        handled_by,
-        createdAt,
-        updatedAt,
-      ];
-
-      const pendingResult = await client.query(pendingPaymentQuery, pendingPaymentParams);
-      console.log('Created correct pending payment with ID:', pendingResult.rows[0].id, {
-        methodId: PENDING_PAYMENT_METHOD_ID,
-        amount: outstandingAmount,
-        note: 'Backend calculated - ignores frontend pending',
-      });
     }
 
     await client.query('COMMIT');
@@ -1406,8 +1413,8 @@ const createMemberVoucher = async (
       customer_type: customer_type?.toUpperCase() || 'MEMBER',
       member_id: member_id ? member_id.toString() : null,
       total_transaction_amount: totalTransactionAmount,
-      total_paid_amount: totalPaidAmount, // Actual + GST (excludes pending)
-      outstanding_total_payment_amount: outstandingAmount, // Transaction - actual (excludes GST)
+      total_paid_amount: totalPaidAmount,
+      outstanding_total_payment_amount: outstandingAmount,
       transaction_status: transactionStatus,
       remarks: remarks || '',
       created_by,
@@ -1416,7 +1423,9 @@ const createMemberVoucher = async (
       voucher_name: member_voucher_name,
       items_count: 1,
       payments_count: payments.filter((p: PaymentMethodRequest) => p.amount > 0).length,
+      gst_amount: totalGSTAmount  // ✅ NEW: Include GST amount in result
     };
+
   } catch (error) {
     await client.query('ROLLBACK');
     console.error('Error creating MV sale transaction:', error);
@@ -1425,6 +1434,8 @@ const createMemberVoucher = async (
     client.release();
   }
 };
+
+
 
 /**
  * Soft Delete (status changed to DISABLED)
