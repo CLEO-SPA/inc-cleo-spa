@@ -16,6 +16,9 @@ import {
   SingleItemTransactionRequestData,
 } from '../types/SaleTransactionTypes.js';
 
+const roundTo2Decimals = (num: number): number => {
+  return Math.round((num + Number.EPSILON) * 100) / 100;
+};
 const normalizeBigInts = (data: any): any =>
   JSON.parse(JSON.stringify(data, (_, value) => (typeof value === 'bigint' ? value.toString() : value)));
 
@@ -884,13 +887,9 @@ const createMemberVoucher = async (
       receipt_number,
       remarks,
       created_at,        // ✅ NEW: Add custom date support
-      updated_at         // ✅ NEW: Add custom date support
+      updated_at,        // ✅ NEW: Add custom date support
+      gstBreakdown       // ✅ NEW: Add GST breakdown support
     } = transactionData;
-
-    // ✅ ADD: Helper function to round to 2 decimal places
-    const roundTo2Decimals = (num: number): number => {
-      return Math.round((num + Number.EPSILON) * 100) / 100;
-    };
 
     // Early validation
     if (!created_by) {
@@ -928,6 +927,8 @@ const createMemberVoucher = async (
         console.warn('Error parsing created_at, using current time:', error);
         customCreatedAt = new Date();
       }
+    } else {
+      customCreatedAt = new Date();
     }
 
     if (updated_at) {
@@ -968,13 +969,13 @@ const createMemberVoucher = async (
       created_at: voucher_created_at,
       created_by: item_created_by,
       creation_datetime,
-      free_of_charge = 0,
-      member_voucher_details = [],
+      free_of_charge = 0, // Default to 0
+      member_voucher_details = [], // Default to empty array
       member_voucher_name,
       remarks: voucherRemarks,
       selected_template,
       starting_balance,
-      status = 'active',
+      status = 'active', // Default status
       total_price,
       voucher_template_id
     } = data;
@@ -1017,7 +1018,7 @@ const createMemberVoucher = async (
 
     // Database validations
     let validationPromises = [
-      client.query('SELECT id FROM members WHERE id = $1', [parsedMemberId]),
+      client.query('SELECT id FROM members WHERE id = $1', [member_id]),
       client.query('SELECT id FROM employees WHERE id = $1', [employee_id]),
       client.query<{ id: string }>('SELECT get_or_create_status($1) as id', ['is_enabled']),
     ];
@@ -1034,7 +1035,7 @@ const createMemberVoucher = async (
 
     // FIXED: Proper validation checking
     if (memberResult.rows.length === 0) {
-      throw new Error(`Member with ID ${parsedMemberId} not found`);
+      throw new Error(`Member with ID ${member_id} not found`);
     }
 
     if (employeeResult.rows.length === 0) {
@@ -1046,8 +1047,30 @@ const createMemberVoucher = async (
     }
 
     // FIXED: Check voucher template validation if applicable
-    if (!is_bypass && parsedVoucherTemplateId && parsedVoucherTemplateId !== 0 && results[3]?.rows.length === 0) {
-      throw new Error(`Voucher template with ID ${parsedVoucherTemplateId} not found`);
+    if (!is_bypass && voucher_template_id && voucher_template_id !== '0' && results[3]?.rows.length === 0) {
+      throw new Error(`Voucher template with ID ${voucher_template_id} not found`);
+    }
+
+    // ✅ NEW: Calculate GST amounts (same logic as MCP)
+    let totalTransactionAmount: number;
+    let totalGSTAmount: number;
+
+    if (gstBreakdown) {
+      totalTransactionAmount = roundTo2Decimals(gstBreakdown.inclusiveTotal || 0);
+      totalGSTAmount = roundTo2Decimals(gstBreakdown.gstTotal || 0);
+      console.log('✅ MV Using GST breakdown from frontend:', {
+        inclusive: totalTransactionAmount,
+        gst: totalGSTAmount
+      });
+    } else {
+      const exclusiveTotal = roundTo2Decimals(pricing?.totalLinePrice || 0);
+      totalGSTAmount = roundTo2Decimals(exclusiveTotal * 0.09);
+      totalTransactionAmount = roundTo2Decimals(exclusiveTotal + totalGSTAmount);
+      console.log('⚠️ MV No GST breakdown provided, calculated:', {
+        exclusive: exclusiveTotal,
+        gst: totalGSTAmount,
+        inclusive: totalTransactionAmount
+      });
     }
 
     // FIXED: Payment calculations using correct logic
@@ -1061,16 +1084,43 @@ const createMemberVoucher = async (
       payment.methodId !== PENDING_PAYMENT_METHOD_ID
     );
 
-    const outstanding_amount = pendingPayments.reduce((total: number, payment: PaymentMethodRequest) => {
+    // ✅ UPDATED: Calculate payments based on total transaction amount (inclusive of GST)
+    const totalPaidAmount: number = roundTo2Decimals(nonPendingPayments.reduce((total: number, payment: PaymentMethodRequest) => {
       return total + (payment.amount || 0);
-    }, 0);
+    }, 0));
 
-    const is_fully_paid = outstanding_amount === 0;
+    const outstandingAmount: number = roundTo2Decimals(Math.max(0, totalTransactionAmount - totalPaidAmount));
 
-    // FIXED: Cleaner balance calculation
-    const base_balance = default_total_price + free_of_charge;
+    const transactionStatus: 'FULL' | 'PARTIAL' = outstandingAmount <= 0 ? 'FULL' : 'PARTIAL';
+    const processPayment: boolean = outstandingAmount > 0;
+
+    // ✅ UPDATED: For voucher balance calculation, use exclusive amount (like MCP)
+    let exclusiveAmountForBalance: number;
+
+    if (gstBreakdown) {
+      exclusiveAmountForBalance = roundTo2Decimals(gstBreakdown.exclusiveTotal || 0);
+    } else {
+      exclusiveAmountForBalance = roundTo2Decimals(pricing?.totalLinePrice || 0);
+    }
+
+    // Calculate how much should be added to voucher balance (excluding GST)
+    const paidAmountForBalance = Math.min(totalPaidAmount, exclusiveAmountForBalance);
+
+    const is_fully_paid = outstandingAmount === 0;
+
+    // FIXED: Cleaner balance calculation using exclusive amount
+    const base_balance = exclusiveAmountForBalance + free_of_charge; // Use exclusive amount for balance
     const final_starting_balance = base_balance;
-    const final_current_balance = is_fully_paid ? default_total_price : default_total_price - outstanding_amount;
+    const final_current_balance = is_fully_paid ? exclusiveAmountForBalance : exclusiveAmountForBalance - (exclusiveAmountForBalance - paidAmountForBalance);
+
+    console.log('💰 MV Balance Calculation:', {
+      totalTransactionAmount, // $85.02 (what customer pays)
+      exclusiveAmountForBalance, // $78.00 (voucher value)
+      totalGSTAmount, // $7.02 (GST)
+      totalPaidAmount, // What customer actually paid
+      paidAmountForBalance, // Amount for voucher balance (max $78)
+      final_current_balance // Final voucher balance
+    });
 
     // Insert member voucher (UNCHANGED - uses voucher creation dates)
     const i_mv_sql = `
@@ -1088,8 +1138,8 @@ const createMemberVoucher = async (
       member_id,
       final_current_balance,
       final_starting_balance,
-      parsedFreeOfCharge,
-      default_total_price,
+      free_of_charge,
+      exclusiveAmountForBalance, // Use exclusive amount for default_total_price
       status,
       voucherRemarks || itemRemarks || '',
       employee_id,
@@ -1099,7 +1149,7 @@ const createMemberVoucher = async (
       updatedAt       // Voucher update date
     ]);
 
-    const memberVoucherId = parseInt(mvRows[0].id);
+    const memberVoucherId = Number(mvRows[0].id);
 
     // FIXED: Better service mapping with validation
     const services = member_voucher_details.map((detail: {
@@ -1182,33 +1232,7 @@ const createMemberVoucher = async (
       updatedAt
     ]);
 
-
-
-    // FIXED: Calculate transaction totals using correct logic
-    const totalTransactionAmount: number = pricing?.totalLinePrice || 0;
-
-    const totalPaidAmount: number = nonPendingPayments.reduce((total: number, payment: PaymentMethodRequest) => {
-      return total + (payment.amount || 0);
-    }, 0);
-
-    const outstandingAmount: number = pendingPayments.reduce((total: number, payment: PaymentMethodRequest) => {
-      return total + (payment.amount || 0);
-    }, 0);
-
-    const transactionStatus: 'FULL' | 'PARTIAL' = outstandingAmount <= 0 ? 'FULL' : 'PARTIAL';
-    const processPayment: boolean = outstandingAmount > 0;
-
-    // Verification: total should match
-    const calculatedTotal = totalPaidAmount + outstandingAmount;
-    if (Math.abs(calculatedTotal - totalTransactionAmount) > 0.01) {
-      console.warn('Payment total mismatch:', {
-        totalTransactionAmount,
-        totalPaidAmount,
-        outstandingAmount,
-        calculatedTotal
-      });
-    }
-
+    // FOC handling - only add FOC if transaction is fully paid
     if (transactionStatus === 'FULL' && free_of_charge > 0) {
       // Calculate new balance after adding FOC
       const newCurrentBalance = final_current_balance + free_of_charge;
@@ -1243,11 +1267,12 @@ const createMemberVoucher = async (
       
       console.log('FOC transaction added:', {
         memberVoucherId,
-        focAmount: parsedFreeOfCharge,
+        focAmount: free_of_charge,
         newCurrentBalance,
         transactionType: 'ADD FOC'
       });
     }
+
     // Generate receipt number
     let finalReceiptNo: string = receipt_number || '';
     if (!finalReceiptNo) {
@@ -1258,6 +1283,7 @@ const createMemberVoucher = async (
       finalReceiptNo = `ST${receiptResult.rows[0].next_number.toString().padStart(6, '0')}`;
     }
 
+    // ✅ UPDATED: Include gst_amount in sale_transactions insert
     const transactionQuery: string = `
       INSERT INTO sale_transactions (
         customer_type,
@@ -1287,15 +1313,17 @@ const createMemberVoucher = async (
       finalReceiptNo,
       remarks || '',
       processPayment,
-      parsedHandledBy,
-      parsedCreatedBy,
-      createdAt,
-      updatedAt
+      handled_by,
+      created_by,
+      customCreatedAt,      // Use custom date for sale transaction
+      customUpdatedAt,      // Use custom date for sale transaction
+      totalGSTAmount        // ✅ NEW: GST amount parameter
     ];
 
     const transactionResult = await client.query(transactionQuery, transactionParams);
     const saleTransactionId: number = transactionResult.rows[0].id;
 
+    console.log('Created MV sale transaction with ID:', saleTransactionId);
     console.log('🏛️ MV GST amount stored in sale_transactions.gst_amount:', totalGSTAmount);
 
     const itemQuery: string = `
@@ -1322,21 +1350,24 @@ const createMemberVoucher = async (
       null, // product_name
       null, // member_care_package_id
       memberVoucherId, // Use actual voucher ID
-      roundTo2Decimals(pricing?.originalPrice || 0),
-      roundTo2Decimals(pricing?.customPrice || 0),
-      roundTo2Decimals(pricing?.discount || 0),
+      pricing?.originalPrice || 0,
+      pricing?.customPrice || 0,
+      pricing?.discount || 0,
       pricing?.quantity || 1,
-      roundTo2Decimals(pricing?.totalLinePrice || 0),
+      exclusiveAmountForBalance, // Use exclusive amount for item amount
       'member voucher',
       item.remarks || '',
     ];
+
+    console.log('MV Item Query:', itemQuery);
+    console.log('MV Item Params:', itemParams);
 
     const itemResult = await client.query(itemQuery, itemParams);
     const saleTransactionItemId: number = itemResult.rows[0].id;
 
     console.log('Created MV sale transaction item with ID:', saleTransactionItemId);
 
-
+    // ✅ UPDATED: Include updated_by in payment insertions
     for (const payment of payments) {
       if (payment.amount > 0) {
         const paymentQuery: string = `
@@ -1356,12 +1387,16 @@ const createMemberVoucher = async (
         const paymentParams: (number | string | Date)[] = [
           saleTransactionId,
           payment.methodId,
-          roundTo2Decimals(payment.amount), // ✅ Round payment amounts
+          payment.amount,
           payment.remark || '',
-          created_by,
-          createdAt,
-          updatedAt
+          handled_by,      // Use handled_by for payment created_by
+          customCreatedAt, // Use custom date for payment
+          handled_by,      // ✅ NEW: updated_by
+          customUpdatedAt  // Use custom date for payment
         ];
+
+        console.log('MV Payment Query:', paymentQuery);
+        console.log('MV Payment Params:', paymentParams);
 
         const paymentResult = await client.query(paymentQuery, paymentParams);
         console.log('Created MV payment with ID:', paymentResult.rows[0].id);
@@ -1376,20 +1411,19 @@ const createMemberVoucher = async (
       id: saleTransactionId,
       receipt_no: finalReceiptNo,
       customer_type: customer_type?.toUpperCase() || 'MEMBER',
-      member_id: parsedMemberId.toString(),
+      member_id: member_id ? member_id.toString() : null,
       total_transaction_amount: totalTransactionAmount,
-      total_paid_amount: totalPaidAmount,
-      outstanding_total_payment_amount: outstandingAmount,
       total_paid_amount: totalPaidAmount,
       outstanding_total_payment_amount: outstandingAmount,
       transaction_status: transactionStatus,
       remarks: remarks || '',
-      created_by: parsedCreatedBy,
-      handled_by: parsedHandledBy,
+      created_by,
+      handled_by,
       voucher_id: memberVoucherId,
       voucher_name: member_voucher_name,
       items_count: 1,
-      payments_count: payments.filter((p: PaymentMethodRequest) => p.amount > 0).length
+      payments_count: payments.filter((p: PaymentMethodRequest) => p.amount > 0).length,
+      gst_amount: totalGSTAmount  // ✅ NEW: Include GST amount in result
     };
 
   } catch (error) {

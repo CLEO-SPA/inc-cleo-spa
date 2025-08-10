@@ -1012,11 +1012,13 @@ const createMcpTransaction = async (
     const nonPendingPayments = payments.filter(
       (payment: PaymentMethodRequest) => payment.methodId !== PENDING_PAYMENT_METHOD_ID
     );
+
+    // Keep existing total_paid_amount calculation (includes GST)
     const totalPaidAmount: number = roundTo2Decimals(nonPendingPayments.reduce((total: number, payment: PaymentMethodRequest) => {
       return total + (payment.amount || 0);
     }, 0));
 
-const outstandingAmount: number = roundTo2Decimals(Math.max(0, totalTransactionAmount - totalPaidAmount));
+    const outstandingAmount: number = roundTo2Decimals(Math.max(0, totalTransactionAmount - totalPaidAmount));
 
     const transactionStatus: 'FULL' | 'PARTIAL' = outstandingAmount <= 0 ? 'FULL' : 'PARTIAL';
     const processPayment: boolean = outstandingAmount > 0;
@@ -1113,9 +1115,30 @@ const outstandingAmount: number = roundTo2Decimals(Math.max(0, totalTransactionA
 
     console.log('Created MCP sale transaction item with ID:', saleTransactionItemId);
 
-    // Update MCP balance with the paid amount (only non-pending payments)
-    if (totalPaidAmount > 0) {
-      const newBalance = currentBalance + totalPaidAmount;
+    // ✅ FIXED: Calculate exclusive amount for MCP balance (without GST)
+    let exclusiveAmountForBalance: number;
+
+    if (gstBreakdown) {
+      // Use breakdown provided from frontend
+      exclusiveAmountForBalance = roundTo2Decimals(gstBreakdown.exclusiveTotal || 0);
+    } else {
+      // Calculate from item pricing (fallback)
+      exclusiveAmountForBalance = roundTo2Decimals(item.pricing?.totalLinePrice || 0);
+    }
+
+    // For MCP balance: only add the exclusive amount, regardless of how much was paid
+    const paidAmountForBalance = Math.min(totalPaidAmount, exclusiveAmountForBalance);
+
+    console.log('💰 MCP Balance Update:', {
+      totalPaidAmount, // $85 (what customer paid - stored in sale_transactions.total_paid_amount)
+      exclusiveAmountForBalance, // $78 (item price without GST)
+      paidAmountForBalance, // $78 (amount added to MCP balance)
+      gstAmountNotAddedToBalance: totalPaidAmount - paidAmountForBalance // $7 (GST not added to balance)
+    });
+
+    // Update MCP balance with ONLY the exclusive amount (not the GST portion)
+    if (paidAmountForBalance > 0) {
+      const newBalance = currentBalance + paidAmountForBalance;
 
       const updateBalanceQuery = `
         UPDATE member_care_packages 
@@ -1127,10 +1150,11 @@ const outstandingAmount: number = roundTo2Decimals(Math.max(0, totalTransactionA
       const updateBalanceResult = await client.query(updateBalanceQuery, [newBalance, customUpdatedAt, mcpId]);
       const updatedBalance = updateBalanceResult.rows[0].balance;
 
-      console.log('✅ Updated MCP balance:', {
+      console.log('✅ Updated MCP balance (GST excluded from balance):', {
         mcpId: mcpId,
         previousBalance: currentBalance,
-        paidAmount: totalPaidAmount,
+        totalPaidAmount: totalPaidAmount, // $85 - recorded in sale_transactions
+        paidAmountForBalance: paidAmountForBalance, // $78 - added to MCP balance
         newBalance: updatedBalance,
       });
     }
