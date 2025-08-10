@@ -138,7 +138,9 @@ def update_docker_compose_config(app):
         updated_content = f"""version: '3.8'
 services:
   backend:
-    build: ./server
+    build:
+      context: .
+      dockerfile: ./server/Dockerfile
     ports:
       - '{app.backend_port.get()}:3000'
     depends_on:

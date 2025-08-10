@@ -13,8 +13,8 @@ COPY server/package*.json ./
 RUN npm install --only=production
 COPY --from=builder /app/dist ./dist
 
-# Copy seed directory from root context
-COPY seed /usr/src/seed
+# Copy seed directory to the location expected by the application
+COPY seed ./seed
 
 # Expose the port the app runs on
 EXPOSE 3000
