@@ -62,7 +62,7 @@ const MemberCarePackageServices = () => {
                 <TableRow key={detail.id}>
                   <TableCell className='font-medium'>{detail.service_name}</TableCell>
                   <TableCell className='text-right'>${detail.price.toFixed(2)}</TableCell>
-                  <TableCell className='text-center'>{(detail.discount / 100).toFixed(0)}%</TableCell>
+                  <TableCell className='text-center'>{((1 - detail.discount) * 100).toFixed(0)}%</TableCell>
                   <TableCell className='text-right font-semibold'>${finalPrice.toFixed(2)}</TableCell>
                   <TableCell className='text-center'>{detail.quantity}</TableCell>
                   <TableCell className='text-center font-semibold'>{detail.remaining_quantity}</TableCell>

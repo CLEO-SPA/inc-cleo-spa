@@ -4,7 +4,6 @@ import { pool, query as dbQuery, queryOnPool } from '../config/database.js';
 import { CursorPayload, FieldMapping, PaginatedOptions, PaginatedReturn } from '../types/common.types.js';
 import { CarePackageItemDetails, CarePackages, Employees } from '../types/model.types.js';
 import { encodeCursor } from '../utils/cursorUtils.js';
-import { getEmployeeIdByUserAuthId } from './employeeModel.js';
 
 const getPaginatedCarePackages = async (
   limit: number,
@@ -644,8 +643,7 @@ const emulateCarePackage = async (method: string, payload: Partial<emulatePayloa
       const lastCp: CarePackages | undefined = cpRows[0];
       const lastCpId = lastCp && lastCp.id ? parseInt(lastCp.id) : 0;
 
-      payload.employee_id =
-        payload.employee_id || (await getEmployeeIdByUserAuthId(payload.user_id as string)).rows[0].id;
+      payload.employee_id = payload.employee_id;
 
       const newCp: CarePackages = {
         id: (lastCpId + 1).toString(),
@@ -654,8 +652,8 @@ const emulateCarePackage = async (method: string, payload: Partial<emulatePayloa
         care_package_price: payload.package_price,
         care_package_customizable: payload.is_customizable,
         status: 'ENABLED',
-        created_by: payload.employee_id,
-        last_updated_by: payload.employee_id,
+        created_by: payload.employee_id!,
+        last_updated_by: payload.employee_id!,
         created_at: payload.created_at || new Date().toISOString(),
         updated_at: payload.updated_at || new Date().toISOString(),
       };
@@ -719,8 +717,7 @@ const emulateCarePackage = async (method: string, payload: Partial<emulatePayloa
         oldCarePackage.id,
       ]);
 
-      payload.employee_id =
-        payload.employee_id || (await getEmployeeIdByUserAuthId(payload.user_id as string)).rows[0].id;
+      payload.employee_id = payload.employee_id;
 
       const fieldMappings: FieldMapping<emulatePayload, CarePackages>[] = [
         { payloadKey: 'package_name', dbKey: 'care_package_name' },

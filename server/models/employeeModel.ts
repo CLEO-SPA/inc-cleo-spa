@@ -93,15 +93,21 @@ const getAllEmployees = async (
       SELECT id FROM employees
       WHERE created_at BETWEEN
         COALESCE($1, '0001-01-01'::timestamptz) AND $2
-      ${search ? `AND (
+      ${
+        search
+          ? `AND (
         LOWER(employee_name) ILIKE '%' || $5 || '%' OR
         LOWER(employee_email) ILIKE '%' || $5 || '%' OR
         LOWER(employee_code) ILIKE '%' || $5 || '%'
-      )` : ''}
+      )`
+          : ''
+      }
       ORDER BY id ASC
       LIMIT $3 OFFSET $4
     `;
-    const idValues = search ? [startDate_utc, endDate_utc, limit, offset, search] : [startDate_utc, endDate_utc, limit, offset];
+    const idValues = search
+      ? [startDate_utc, endDate_utc, limit, offset, search]
+      : [startDate_utc, endDate_utc, limit, offset];
     const idResult = await dbQuery(idQuery, idValues);
     const employeeIds: number[] = idResult.rows.map((row) => row.id);
 
@@ -169,11 +175,15 @@ const getAllEmployees = async (
       SELECT COUNT(*) FROM employees
       WHERE created_at BETWEEN
         COALESCE($1, '0001-01-01'::timestamptz) AND $2
-      ${search ? `AND (
+      ${
+        search
+          ? `AND (
         LOWER(employee_name) ILIKE '%' || $3 || '%' OR
         LOWER(employee_email) ILIKE '%' || $3 || '%' OR
         LOWER(employee_code) ILIKE '%' || $3 || '%'
-      )` : ''}
+      )`
+          : ''
+      }
     `;
     const totalValues = search ? [startDate_utc, endDate_utc, search] : [startDate_utc, endDate_utc];
     const totalResult = await dbQuery(totalQuery, totalValues);
@@ -190,8 +200,6 @@ const getAllEmployees = async (
     throw new Error('Error fetching employees');
   }
 };
-
-
 
 const createEmployeeModel = async (data: CreateEmployeeData) => {
   const client = await pool().connect();
@@ -243,12 +251,13 @@ const createEmployeeModel = async (data: CreateEmployeeData) => {
   }
 };
 
-export const getEmployeeIdByUserAuthId = async (id: string) => {
-  const employee_sql = 'SELECT id FROM employees WHERE user_auth_id = $1';
-  const params = [id];
+// !!DEPRECATED
+// export const getEmployeeIdByUserAuthId = async (id: string) => {
+//   const employee_sql = 'SELECT id FROM employees WHERE user_auth_id = $1';
+//   const params = [id];
 
-  return await pool().query<{ id: string }>(employee_sql, params);
-};
+//   return await pool().query<{ id: string }>(employee_sql, params);
+// };
 /**
  * Get all active employees with basic details
  * This function is used for search functionality in the timetable management system.
@@ -468,8 +477,8 @@ const getAllEmployeesForDropdown = async () => {
       WHERE employee_is_active = true
       ORDER BY employee_name ASC
     `;
-    const result = await dbQuery(query);
-    return result.rows;
+    const { rows } = await dbQuery(query);
+    return rows;
   } catch (error) {
     console.error('Error fetching employee list:', error);
     throw new Error('Error fetching employee list');
@@ -482,8 +491,8 @@ const getAllRolesForDropdown = async () => {
       SELECT id, role_name FROM roles
       ORDER BY role_name ASC
     `;
-    const result = await dbQuery(query);
-    return result.rows;
+    const { rows } = await dbQuery(query);
+    return rows;
   } catch (error) {
     console.error('Error fetching role list:', error);
     throw new Error('Error fetching role list');
@@ -540,8 +549,6 @@ const getAllRolesForDropdown = async () => {
 
 //   return emp;
 // };
-
-
 
 /* --------------------------------------------------------------------------
  * Robust UPDATE of employee + auth + positions
@@ -671,7 +678,7 @@ export default {
   checkEmployeeEmailExists,
   getAllEmployees,
   getAllEmployeesForDropdown,
-  getEmployeeIdByUserAuthId,
+  // getEmployeeIdByUserAuthId,
   getBasicEmployeeDetails,
   createEmployeeModel,
   getAllRolesForDropdown,

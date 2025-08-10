@@ -213,7 +213,7 @@ CREATE TABLE "membership_types" (
 
 -- CreateTable
 CREATE TABLE "payment_methods" (
-    "id" BIGINT NOT NULL,
+    "id" BIGSERIAL NOT NULL,
     "payment_method_name" TEXT NOT NULL,
     "is_enabled" BOOLEAN NOT NULL,
     "is_income" BOOLEAN NOT NULL,
@@ -310,7 +310,7 @@ CREATE TABLE "service_categories" (
 
 -- CreateTable
 CREATE TABLE "translations" (
-    "id" SERIAL NOT NULL,
+    "id" BIGSERIAL NOT NULL,
     "english" VARCHAR(255) NOT NULL,
     "chinese" VARCHAR(255) NOT NULL,
     "meaning_in_english" VARCHAR(255) NOT NULL,
@@ -369,7 +369,7 @@ CREATE TABLE "member_voucher_details" (
 
 -- CreateTable
 CREATE TABLE "member_voucher_transaction_logs" (
-    "id" SERIAL NOT NULL,
+    "id" BIGSERIAL NOT NULL,
     "member_voucher_id" INTEGER NOT NULL,
     "service_description" VARCHAR(500),
     "service_date" TIMESTAMPTZ(6),
@@ -387,8 +387,8 @@ CREATE TABLE "member_voucher_transaction_logs" (
 
 -- CreateTable
 CREATE TABLE "member_vouchers" (
-    "id" BIGINT NOT NULL,
-    "member_vouchers_name" VARCHAR(100) NOT NULL,
+    "id" BIGSERIAL NOT NULL,
+    "member_voucher_name" VARCHAR(100) NOT NULL,
     "voucher_template_id" INTEGER NOT NULL,
     "member_id" INTEGER NOT NULL,
     "current_balance" DECIMAL(10,2),
@@ -408,7 +408,7 @@ CREATE TABLE "member_vouchers" (
 
 -- CreateTable
 CREATE TABLE "payment_to_sale_transactions" (
-    "id" INTEGER NOT NULL,
+    "id" BIGSERIAL NOT NULL,
     "payment_method_id" INTEGER,
     "sale_transaction_id" INTEGER,
     "amount" DECIMAL(10,2),
@@ -423,7 +423,7 @@ CREATE TABLE "payment_to_sale_transactions" (
 
 -- CreateTable
 CREATE TABLE "sale_transaction_items" (
-    "id" INTEGER NOT NULL,
+    "id" BIGSERIAL NOT NULL,
     "sale_transaction_id" INTEGER,
     "service_name" VARCHAR(255),
     "product_name" VARCHAR(255),
@@ -452,6 +452,7 @@ CREATE TABLE "sale_transactions" (
     "remarks" VARCHAR(500),
     "receipt_no" VARCHAR(80),
     "reference_sales_transaction_id" BIGINT,
+    "process_payment" BOOLEAN NOT NULL DEFAULT false,
     "handled_by" BIGINT,
     "created_by" BIGINT,
     "created_at" TIMESTAMPTZ(6),
@@ -462,7 +463,7 @@ CREATE TABLE "sale_transactions" (
 
 -- CreateTable
 CREATE TABLE "timetables" (
-    "id" SERIAL NOT NULL,
+    "id" BIGSERIAL NOT NULL,
     "employee_id" INTEGER NOT NULL,
     "restday_number" INTEGER NOT NULL,
     "effective_startdate" TIMESTAMP(6) NOT NULL,
@@ -663,7 +664,7 @@ ALTER TABLE "member_voucher_transaction_logs" ADD CONSTRAINT "member_voucher_tra
 
 -- Foreign Keys for table "member_vouchers"
 ALTER TABLE "member_vouchers" ADD CONSTRAINT "member_vouchers_voucher_template_id_fkey" FOREIGN KEY ("voucher_template_id") REFERENCES "voucher_templates"("id") ON DELETE RESTRICT ON UPDATE CASCADE;
-ALTER TABLE "member_vouchers" ADD CONSTRAINT "member_vouchers_members_id_fkey" FOREIGN KEY ("members_id") REFERENCES "members"("id") ON DELETE CASCADE ON UPDATE CASCADE;
+ALTER TABLE "member_vouchers" ADD CONSTRAINT "member_vouchers_member_id_fkey" FOREIGN KEY ("member_id") REFERENCES "members"("id") ON DELETE CASCADE ON UPDATE CASCADE;
 ALTER TABLE "member_vouchers" ADD CONSTRAINT "member_vouchers_created_by_fkey" FOREIGN KEY ("created_by") REFERENCES "employees"("id") ON DELETE SET NULL ON UPDATE CASCADE;
 ALTER TABLE "member_vouchers" ADD CONSTRAINT "member_vouchers_handled_by_fkey" FOREIGN KEY ("handled_by") REFERENCES "employees"("id") ON DELETE SET NULL ON UPDATE CASCADE;
 ALTER TABLE "member_vouchers" ADD CONSTRAINT "member_vouchers_last_updated_by_fkey" FOREIGN KEY ("last_updated_by") REFERENCES "employees"("id") ON DELETE SET NULL ON UPDATE CASCADE;
@@ -675,7 +676,7 @@ ALTER TABLE "payment_to_sale_transactions" ADD CONSTRAINT "payment_to_sale_trans
 ALTER TABLE "payment_to_sale_transactions" ADD CONSTRAINT "payment_to_sale_transactions_updated_by_fkey" FOREIGN KEY ("updated_by") REFERENCES "employees"("id") ON DELETE SET NULL ON UPDATE CASCADE;
 
 -- Foreign Keys for table "sale_transaction_items"
-ALTER TABLE "sale_transaction_items" ADD CONSTRAINT "sale_transaction_items_sale_transactions_id_fkey" FOREIGN KEY ("sale_transactions_id") REFERENCES "sale_transactions"("id") ON DELETE CASCADE ON UPDATE CASCADE;
+ALTER TABLE "sale_transaction_items" ADD CONSTRAINT "sale_transaction_items_sale_transaction_id_fkey" FOREIGN KEY ("sale_transaction_id") REFERENCES "sale_transactions"("id") ON DELETE CASCADE ON UPDATE CASCADE;
 ALTER TABLE "sale_transaction_items" ADD CONSTRAINT "sale_transaction_items_member_care_package_id_fkey" FOREIGN KEY ("member_care_package_id") REFERENCES "member_care_packages"("id") ON DELETE SET NULL ON UPDATE CASCADE;
 ALTER TABLE "sale_transaction_items" ADD CONSTRAINT "sale_transaction_items_member_voucher_id_fkey" FOREIGN KEY ("member_voucher_id") REFERENCES "member_vouchers"("id") ON DELETE SET NULL ON UPDATE CASCADE;
 
@@ -755,10 +756,10 @@ CREATE INDEX "idx_appointments_member_id" ON "appointments"("member_id");
 CREATE INDEX "idx_appointments_servicing_employee_id" ON "appointments"("servicing_employee_id");
 CREATE INDEX "idx_appointments_appointment_date" ON "appointments"("appointment_date");
 CREATE INDEX "idx_member_voucher_details_mv_id" ON "member_voucher_details"("member_voucher_id");
-CREATE INDEX "idx_member_vouchers_members_id" ON "member_vouchers"("members_id");
+CREATE INDEX "idx_member_vouchers_member_id" ON "member_vouchers"("member_id");
 CREATE INDEX "idx_member_vouchers_voucher_template_id" ON "member_vouchers"("voucher_template_id");
 CREATE INDEX "idx_payment_to_sale_trans_sale_id" ON "payment_to_sale_transactions"("sale_transaction_id");
-CREATE INDEX "idx_sale_transaction_items_sale_id" ON "sale_transaction_items"("sale_transactions_id");
+CREATE INDEX "idx_sale_transaction_items_sale_id" ON "sale_transaction_items"("sale_transaction_id");
 CREATE INDEX "idx_sale_transactions_member_id" ON "sale_transactions"("member_id");
 CREATE INDEX "idx_sale_transactions_handled_by" ON "sale_transactions"("handled_by");
 CREATE INDEX "idx_sale_transactions_created_at" ON "sale_transactions"("created_at");

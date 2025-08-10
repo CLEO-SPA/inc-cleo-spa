@@ -65,26 +65,34 @@ const CartItemsWithPayment = ({
   const commissionSettings = useEmployeeStore((state) => state.commissionSettings);
   const fetchCommissionSettings = useEmployeeStore((state) => state.fetchCommissionSettings);
 
+  // State to prevent infinite loops
+  const [hasFetchedEmployees, setHasFetchedEmployees] = useState(false);
+  const [hasFetchedCommissions, setHasFetchedCommissions] = useState(false);
+  const [hasFetchedPaymentMethods, setHasFetchedPaymentMethods] = useState(false);
+
   // Effect to ensure employees are loaded
   useEffect(() => {
-    if (employees.length === 0 && !loading) {
+    if (employees.length === 0 && !loading && !hasFetchedEmployees) {
+      setHasFetchedEmployees(true);
       fetchDropdownEmployees();
     }
-  }, [employees.length, loading, fetchDropdownEmployees]);
+  }, [employees.length, loading, hasFetchedEmployees, fetchDropdownEmployees]);
 
   // Effect to ensure commission settings are loaded
   useEffect(() => {
-    if (!commissionSettings || (Object.keys(commissionSettings).length === 0 && !loading)) {
+    if (!commissionSettings || (Object.keys(commissionSettings).length === 0 && !loading && !hasFetchedCommissions)) {
+      setHasFetchedCommissions(true);
       fetchCommissionSettings();
     }
-  }, [commissionSettings, loading, fetchCommissionSettings]);
+  }, [commissionSettings, loading, hasFetchedCommissions, fetchCommissionSettings]);
 
   // Effect to ensure payment methods are loaded
   useEffect(() => {
-    if (dropdownPaymentMethods.length === 0 && !loading) {
+    if (dropdownPaymentMethods.length === 0 && !loading && !hasFetchedPaymentMethods) {
+      setHasFetchedPaymentMethods(true);
       fetchDropdownPaymentMethods();
     }
-  }, [dropdownPaymentMethods.length, loading, fetchDropdownPaymentMethods]);
+  }, [dropdownPaymentMethods.length, loading, hasFetchedPaymentMethods, fetchDropdownPaymentMethods]);
 
   // Helper function to round to 2 decimal places
   const roundTo2Decimals = (num) => {
@@ -892,6 +900,7 @@ const updatePaymentAmount = (sectionId, paymentId, amount) => {
                             <div className='flex items-center gap-2'>
                               <div className='flex-1'>
                                 <EmployeeSelect
+                                  name='employee_id'
                                   label=''
                                   value={tempEmployeeSelections[item.id] || ''}
                                   onChange={(id) =>

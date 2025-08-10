@@ -233,7 +233,6 @@ const updateMemberCarePackage = async (req: Request, res: Response, next: NextFu
       services,
       status,
       employee_id,
-      req.session.user_id!,
       updated_at
     );
     res.status(200).json({ success: true, results });
@@ -283,7 +282,7 @@ const removeMemberCarePackage = async (req: Request, res: Response, next: NextFu
 
 const createConsumption = async (req: Request, res: Response, next: NextFunction): Promise<void> => {
   try {
-    const { mcp_id, mcp_details, employee_id } = req.body;
+    const { mcp_id, mcp_details, assignedEmployee } = req.body;
 
     // console.log(req.body);
 
@@ -305,7 +304,7 @@ const createConsumption = async (req: Request, res: Response, next: NextFunction
       return;
     }
 
-    const results = await model.createConsumption(mcp_id, mcp_details, employee_id, req.session.user_id!);
+    const results = await model.createConsumption(mcp_id, mcp_details, assignedEmployee[0].employeeId);
 
     res.status(200).json(results);
   } catch (error) {
