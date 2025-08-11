@@ -113,7 +113,6 @@ id,service_name,service_description,service_remarks,service_duration,service_pri
 112,Thermasoft Hand Mask,,,0,28,true,2020-08-01T10:20:00+08:00,2020-08-01T10:20:00+08:00,11,4,15,15
 113,Thermasoft Foot Mask,,,0,38,true,2020-08-01T10:20:00+08:00,2020-08-01T10:20:00+08:00,11,5,15,15
 114,Lash Extension,,,0,68,true,2020-08-01T10:20:00+08:00,2020-08-01T10:20:00+08:00,7,8,15,15
-115,Relaxing Hand Massage,,,0,38,true,2020-08-01T10:20:00+08:00,2020-08-01T10:20:00+08:00,11,6,15,15
 116,Nourishing Hand Treatment,,,0,68,true,2020-08-01T10:20:00+08:00,2020-08-01T10:20:00+08:00,11,7,15,15
 117,SPA Whitening Hand Treatment,,,0,68,true,2020-08-01T10:20:00+08:00,2020-08-01T10:20:00+08:00,11,8,15,15
 118,SPA Whitening Foot Treatment,,,0,78,true,2020-08-01T10:20:00+08:00,2020-08-01T10:20:00+08:00,11,9,15,15

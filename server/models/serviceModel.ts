@@ -1,4 +1,4 @@
-import { pool, getProdPool as prodPool } from '../config/database.js';
+import { pool, query as dbQuery } from '../config/database.js';
 import { createServiceInput, updateServiceInput } from '../types/service.type.js';
 
 // get all services, sorted by sequence number
@@ -33,7 +33,7 @@ const getAllServices = async () => {
       END,
       s.service_sequence_no
     `;
-    const result = await pool().query(query);
+    const result = await dbQuery(query);
     return result.rows;
   } catch (error) {
     console.error('Error fetching all services:', error);
@@ -59,7 +59,7 @@ const getServicesPaginationFilter = async (
       );`;
     const params = [page, limit, search, category, status];
 
-    const result = await prodPool().query(query, params);
+    const result = await dbQuery(query, params);
     return result.rows;
   } catch (error) {
     console.error('Error in getServicesPaginationFilter:', error);
@@ -93,8 +93,7 @@ const getTotalCount = async (search: string | null, category: number | null, sta
       query += ` WHERE ` + conditions.join(' AND ');
     }
 
-    const result =
-      search || category || status !== null ? await prodPool().query(query, params) : await prodPool().query(query);
+    const result = search || category || status !== null ? await dbQuery(query, params) : await dbQuery(query);
     if (result.rows.length === 0) {
       return 0; // No services found
     }
@@ -115,7 +114,7 @@ const getAllServicesForDropdown = async () => {
       WHERE service_is_enabled = true
       ORDER BY service_category_sequence_no, service_sequence_no ASC
     `;
-    const result = await pool().query(query);
+    const result = await dbQuery(query);
     return result.rows;
   } catch (error) {
     console.error('Error fetching service list:', error);
@@ -131,7 +130,7 @@ const getServiceById = async (id: number) => {
         FROM public.services s
         WHERE s.id = $1; 
     `;
-    const result = await pool().query(query, [id]); // Added id parameter to query
+    const result = await dbQuery(query, [id]); // Added id parameter to query
     return result.rows[0];
   } catch (error) {
     console.error('Error fetching service by id:', error);
@@ -149,7 +148,7 @@ const getServiceByName = async (service_name: string) => {
         FROM services AS s
         WHERE s.service_name = $1; 
     `;
-    const result = await pool().query(query, [service_name]); // Added string parameter to query
+    const result = await dbQuery(query, [service_name]); // Added string parameter to query
     return result.rows[0];
   } catch (error) {
     console.error('Error fetching service by name:', error);
@@ -194,7 +193,7 @@ const getEnabledServiceById = async (id: number) => {
         WHERE s.id = $1 AND s.service_is_enabled = true;
           
     `;
-    const result = await pool().query(query, [id]); // Added id parameter to query
+    const result = await dbQuery(query, [id]); // Added id parameter to query
     return result.rows;
   } catch (error) {
     console.error('Error fetching service list:', error);
@@ -209,7 +208,7 @@ const getServiceSequenceNo = async (service_category_id: number) => {
     SELECT COUNT(*) + 1 AS seq_no FROM services
     WHERE service_category_id = $1
     AND service_is_enabled = true;`;
-    const result = await pool().query(query, [service_category_id]);
+    const result = await dbQuery(query, [service_category_id]);
     return result.rows[0].seq_no;
   } catch (error) {
     console.error('Error fetching service sequence no:', error);
@@ -224,7 +223,7 @@ const getServiceByCategory = async (service_category_id: number) => {
     WHERE service_category_id = $1
     AND service_is_enabled = true
     ORDER BY service_sequence_no ASC;`;
-    const result = await pool().query(query, [service_category_id]);
+    const result = await dbQuery(query, [service_category_id]);
     return result.rows;
   } catch (error) {
     console.error('Error fetching services:', error);
@@ -280,7 +279,7 @@ const createService = async ({
       created_by,
       updated_by,
     ];
-    const result = await pool().query(query, params);
+    const result = await dbQuery(query, params);
     return result.rows;
   } catch (error) {
     console.error('Error creating new service:', error);
@@ -362,7 +361,7 @@ const updateService = async ({
     RETURNING *`;
     params.push(id || 0);
 
-    const result = await prodPool().query(query, params);
+    const result = await dbQuery(query, params);
     return result.rows;
   } catch (error) {
     console.error('Error updating service:', error);
@@ -378,7 +377,7 @@ const reorderServices = async (services: { id: number; service_sequence_no: numb
     WHERE id = $2`;
     for (const service of services) {
       const params = [service.service_sequence_no, service.id];
-      await prodPool().query(query, params);
+      await dbQuery(query, params);
     }
     return { success: true, updatedCount: services.length };
   } catch (error) {
@@ -420,7 +419,7 @@ const changeServiceStatus = async (updateData: {
       WHERE id = $5
       RETURNING *`;
 
-    const result = await pool().query(query, params);
+    const result = await dbQuery(query, params);
     return result.rows[0];
   } catch (error) {
     console.error('Error enabling service sequence:', error);
@@ -439,7 +438,7 @@ const getServiceCategories = async () => {
       GROUP BY sc.id
       ORDER BY sc.service_category_sequence_no;
     `;
-    const result = await pool().query(query);
+    const result = await dbQuery(query);
     return result.rows;
   } catch (error) {
     console.error('Error fetching service categories:', error);
@@ -456,7 +455,7 @@ const getServiceCategoryById = async (id: number) => {
         FROM service_categories
         WHERE id = $1; 
     `;
-    const result = await pool().query(query, [id]); // Added string parameter to query
+    const result = await dbQuery(query, [id]); // Added string parameter to query
     return result.rows[0];
   } catch (error) {
     console.error('Error fetching service category by id:', error);
@@ -468,7 +467,7 @@ const getServiceCategoryById = async (id: number) => {
 const getSalesHistoryByServiceId = async (id: number, month: number, year: number) => {
   try {
     const salesQuery = `SELECT * FROM get_sales_history_for_each_service($1, $2, $3);`;
-    const result = await pool().query(salesQuery, [id, year, month]);
+    const result = await dbQuery(salesQuery, [id, year, month]);
 
     return result.rows;
   } catch (error) {
@@ -481,7 +480,7 @@ const getSalesHistoryByServiceId = async (id: number, month: number, year: numbe
 const createServiceCategory = async (name: string) => {
   try {
     const query = `SELECT * FROM create_service_category($1)`;
-    const result = await pool().query(query, [name]);
+    const result = await dbQuery(query, [name]);
     return result.rows;
   } catch (error) {
     console.error('Error creating service category:', error);
@@ -497,7 +496,7 @@ const createServiceCategory = async (name: string) => {
 // update service category by id
 const updateServiceCategory = async (id: number, name: string) => {
   try {
-    const result = await prodPool().query('SELECT * FROM update_service_category($1, $2)', [id, name]);
+    const result = await dbQuery('SELECT * FROM update_service_category($1, $2)', [id, name]);
     return result.rows;
   } catch (error) {
     console.error('Error updating service category:', error);
@@ -516,7 +515,7 @@ const updateServiceCategory = async (id: number, name: string) => {
 
 // reorder service category sequence no
 const reorderServiceCategory = async (categories: { id: number; service_category_sequence_no: number }[]) => {
-  const client = await prodPool().connect();
+  const client = await pool().connect();
 
   try {
     await client.query('BEGIN');
@@ -556,7 +555,7 @@ const getServiceCategoriesCount = async (search: string | null) => {
       query += ` WHERE ` + conditions.join(' AND ');
     }
 
-    const result = await pool().query(query, params);
+    const result = await dbQuery(query, params);
     return result.rows[0].total_count;
   } catch (error) {
     console.error('Error in getServiceCategoriesCount:', error);
@@ -588,7 +587,7 @@ const getServiceCategoriesPaginationFilter = async (page: number, limit: number,
       LIMIT $1 OFFSET $2;
     `;
 
-    const result = await pool().query(query, params);
+    const result = await dbQuery(query, params);
     return result.rows;
   } catch (error) {
     console.error('Error in getServiceCategoriesPaginationFilter:', error);

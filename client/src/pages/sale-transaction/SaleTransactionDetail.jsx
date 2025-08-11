@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
-import { ArrowLeft, Package, FileText, DollarSign, Receipt, Calendar, User, CreditCard, Info, RefreshCcw, Eye, Ticket, Gift } from 'lucide-react';
+import { ArrowLeft, Package, FileText, DollarSign, Receipt, Calendar, User, CreditCard, Info, RefreshCcw, Eye, Ticket, Gift, Receipt as ReceiptIcon } from 'lucide-react';
 import api from '@/services/api';
 import { AppSidebar } from '@/components/app-sidebar';
 import { SiteHeader } from '@/components/site-header';
@@ -257,6 +257,12 @@ const SaleTransactionDetail = () => {
                                     <User className="h-4 w-4 mr-2 text-gray-400" />
                                     <span>Customer Type: {transaction.customer_type}</span>
                                 </div>
+                                {transaction.gst_amount > 0 && (
+                                    <div className="flex items-center">
+                                        <ReceiptIcon className="h-4 w-4 mr-2 text-gray-400" />
+                                        <span>GST Amount: ${Number(transaction.gst_amount).toFixed(2)}</span>
+                                    </div>
+                                )}
                             </div>
                         </div>
                         <div className="flex gap-2 mt-4 md:mt-0">
@@ -432,14 +438,22 @@ const SaleTransactionDetail = () => {
                                             <td className="px-6 py-4 whitespace-nowrap">{payment.id}</td>
                                             <td className="px-6 py-4 whitespace-nowrap">
                                                 <div className="flex items-center">
-                                                    {payment.payment_method?.toLowerCase() === 'cash' ?
-                                                        <DollarSign className="h-4 w-4 mr-2" /> :
-                                                        <CreditCard className="h-4 w-4 mr-2" />}
-                                                    {payment.payment_method}
+                                                    {payment.payment_method?.toLowerCase() === 'gst' ? (
+                                                        <ReceiptIcon className="h-4 w-4 mr-2 text-orange-500" />
+                                                    ) : payment.payment_method?.toLowerCase() === 'cash' ? (
+                                                        <DollarSign className="h-4 w-4 mr-2 text-green-500" />
+                                                    ) : (
+                                                        <CreditCard className="h-4 w-4 mr-2 text-blue-500" />
+                                                    )}
+                                                    <span className={payment.payment_method?.toLowerCase() === 'gst' ? 'text-orange-600 font-medium' : ''}>
+                                                        {payment.payment_method}
+                                                    </span>
                                                 </div>
                                             </td>
                                             <td className="px-6 py-4 whitespace-nowrap text-right font-medium">
-                                                ${Number(payment.amount).toFixed(2)}
+                                                <span className={payment.payment_method?.toLowerCase() === 'gst' ? 'text-orange-600' : ''}>
+                                                    ${Number(payment.amount).toFixed(2)}
+                                                </span>
                                             </td>
                                             <td className="px-6 py-4 whitespace-nowrap">
                                                 {new Date(payment.created_at).toLocaleString()}
@@ -460,8 +474,25 @@ const SaleTransactionDetail = () => {
                     <div className="border-t border-gray-200 bg-gray-50 py-4 px-6">
                         <div className="ml-auto w-full max-w-xs space-y-3">
                             <div className="flex justify-between">
-                                <span className="text-sm text-gray-500">Transaction Total</span>
+                                <span className="text-sm text-gray-500">Subtotal</span>
                                 <span className="text-sm font-medium text-gray-900">
+                                    ${(Number(transaction.total_transaction_amount) - Number(transaction.gst_amount || 0)).toFixed(2)}
+                                </span>
+                            </div>
+                            {transaction.gst_amount > 0 && (
+                                <div className="flex justify-between">
+                                    <span className="text-sm text-gray-500 flex items-center">
+                                        <ReceiptIcon className="h-3 w-3 mr-1 text-orange-500" />
+                                        GST (9%)
+                                    </span>
+                                    <span className="text-sm font-medium text-orange-600">
+                                        ${Number(transaction.gst_amount).toFixed(2)}
+                                    </span>
+                                </div>
+                            )}
+                            <div className="flex justify-between border-t border-gray-300 pt-2">
+                                <span className="text-sm font-medium text-gray-700">Transaction Total</span>
+                                <span className="text-sm font-bold text-gray-900">
                                     ${Number(transaction.total_transaction_amount).toFixed(2)}
                                 </span>
                             </div>

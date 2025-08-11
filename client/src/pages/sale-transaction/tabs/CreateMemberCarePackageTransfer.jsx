@@ -54,18 +54,32 @@ const CreateMemberCarePackageTransfer = () => {
 
   useEffect(() => {
     if (selectedMember) {
-      fetchMemberCarePackageOptionsByMember(selectedMember.id);
-      fetchServiceOptions();
-      fetchEmployeeOptions();
-      fetchCarePackageOptions();
+      const initializeData = async () => {
+        const promises = [];
+
+        promises.push(fetchMemberCarePackageOptionsByMember(selectedMember.id));
+
+        if (serviceOptions.length === 0) {
+          promises.push(fetchServiceOptions());
+        }
+        if (employeeOptions.length === 0) {
+          promises.push(fetchEmployeeOptions());
+        }
+        if (packageOptions.length === 0) {
+          promises.push(fetchCarePackageOptions());
+        }
+
+        try {
+          await Promise.all(promises);
+        } catch (error) {
+          console.error('Error initializing transfer data:', error);
+        }
+      };
+
+      initializeData();
     }
-  }, [
-    selectedMember,
-    fetchMemberCarePackageOptionsByMember,
-    fetchServiceOptions,
-    fetchEmployeeOptions,
-    fetchCarePackageOptions,
-  ]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [selectedMember?.id]); // Only depend on selectedMember ID
 
   const handlePackageSelect = (pkg) => {
     if (pkg) {

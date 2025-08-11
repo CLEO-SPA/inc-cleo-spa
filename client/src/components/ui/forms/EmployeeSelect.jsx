@@ -23,24 +23,24 @@ export function EmployeeSelect({
   const control = controlProp || formContext?.control;
   const errors = errorsProp || formContext?.formState?.errors || {};
 
-const employees = useEmployeeStore((state) => state.dropdownEmployees);
- const loading = useEmployeeStore((state) => state.isFetchingDropdown); 
+  const employees = useEmployeeStore((state) => state.dropdownEmployees);
+  const loading = useEmployeeStore((state) => state.isFetchingDropdown);
   const error = useEmployeeStore((state) => state.error);
   const fetchDropdownEmployees = useEmployeeStore((state) => state.fetchDropdownEmployees);
 
   const [searchTerm, setSearchTerm] = useState('');
   const [inputValue, setInputValue] = useState(''); // Separate state for input value
   const [isOpen, setIsOpen] = useState(false);
-  
+
   // added ref for the search input
   const searchInputRef = useRef(null);
-  
+
   // debounced search function
   const debouncedSearch = useCallback(
     debounce((value) => {
       setSearchTerm(value);
     }, 300), // 300ms delay
-    []
+    [setSearchTerm]
   );
 
   // Combine employees with custom options
@@ -49,11 +49,15 @@ const employees = useEmployeeStore((state) => state.dropdownEmployees);
     emp.employee_name.toLowerCase().includes(searchTerm.toLowerCase())
   );
 
+  // State to prevent infinite loops
+  const [hasFetchedEmployees, setHasFetchedEmployees] = useState(false);
+
   useEffect(() => {
-    if (employees.length === 0 && !loading) {
+    if (employees.length === 0 && !loading && !hasFetchedEmployees) {
+      setHasFetchedEmployees(true);
       fetchDropdownEmployees();
     }
-  }, [employees.length, loading, fetchDropdownEmployees]);
+  }, [employees.length, loading, hasFetchedEmployees, fetchDropdownEmployees]);
 
   // focus the search input when dropdown opens
   useEffect(() => {
@@ -65,35 +69,37 @@ const employees = useEmployeeStore((state) => state.dropdownEmployees);
     }
   }, [isOpen]);
 
-  const customTriggerStyle = customHeight ? {
-    height: '42px',
-    minHeight: '42px',
-    padding: '8px 12px',
-    fontSize: '14px',
-    lineHeight: '1.5'
-  } : {};
+  const customTriggerStyle = customHeight
+    ? {
+        height: '42px',
+        minHeight: '42px',
+        padding: '8px 12px',
+        fontSize: '14px',
+        lineHeight: '1.5',
+      }
+    : {};
 
   // handle search input change with debouncing
   const handleSearchChange = (e) => {
     e.preventDefault();
     e.stopPropagation();
     const value = e.target.value;
-    setInputValue(value); 
-    debouncedSearch(value); 
+    setInputValue(value);
+    debouncedSearch(value);
   };
 
   // handle search input key events
   const handleSearchKeyDown = (e) => {
     // prevent the select from closing when typing
     e.stopPropagation();
-    
+
     if (e.key === 'Escape') {
       setIsOpen(false);
       setSearchTerm('');
       setInputValue('');
     }
   };
-  
+
   // cleanup debounced function on unmount
   useEffect(() => {
     return () => {
@@ -139,12 +145,8 @@ const employees = useEmployeeStore((state) => state.dropdownEmployees);
                 open={isOpen}
                 onOpenChange={setIsOpen}
               >
-                <SelectTrigger 
-                  className={cn(
-                    'w-full',
-                    errors[name] ? 'border-red-500' : '',
-                    customHeight ? 'h-[42px]' : ''
-                  )}
+                <SelectTrigger
+                  className={cn('w-full', errors[name] ? 'border-red-500' : '', customHeight ? 'h-[42px]' : '')}
                   style={customTriggerStyle}
                 >
                   <SelectValue
@@ -213,12 +215,8 @@ const employees = useEmployeeStore((state) => state.dropdownEmployees);
           open={isOpen}
           onOpenChange={setIsOpen}
         >
-          <SelectTrigger 
-            className={cn(
-              'w-full',
-              errors[name] ? 'border-red-500' : '',
-              customHeight ? 'h-[42px]' : ''
-            )}
+          <SelectTrigger
+            className={cn('w-full', errors[name] ? 'border-red-500' : '', customHeight ? 'h-[42px]' : '')}
             style={customTriggerStyle}
           >
             <SelectValue

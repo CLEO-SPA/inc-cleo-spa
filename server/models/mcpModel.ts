@@ -1,6 +1,6 @@
 /* eslint-disable @typescript-eslint/no-explicit-any */
 import { PoolClient } from 'pg';
-import { pool } from '../config/database.js';
+import { pool, query as dbQuery, queryOnPool } from '../config/database.js';
 import { CursorPayload, FieldMapping, PaginatedOptions, PaginatedReturn } from '../types/common.types.js';
 import {
   Employees,
@@ -9,7 +9,6 @@ import {
   MemberCarePackageTransactionLogs,
 } from '../types/model.types.js';
 import { encodeCursor } from '../utils/cursorUtils.js';
-import { getEmployeeIdByUserAuthId } from './employeeModel.js';
 
 const getPaginatedMemberCarePackages = async (
   limit: number,
@@ -386,7 +385,7 @@ const getMemberCarePackagesForDropdown = async (memberId: string) => {
           mcp.created_at DESC;
     `;
 
-    const { rows } = await pool().query(sql, [memberId]);
+    const { rows } = await dbQuery(sql, [memberId]);
 
     return rows;
   } catch (error) {
@@ -524,7 +523,6 @@ const updateMemberCarePackage = async (
   services: servicePayload[],
   status: 'ENABLED' | 'DISABLED',
   employee_id: string,
-  user_id: string,
   updated_at: string
 ) => {
   const client = await pool().connect();
@@ -550,7 +548,7 @@ const updateMemberCarePackage = async (
 
     // Check employee_id
     if (!employee_id) {
-      employee_id = (await getEmployeeIdByUserAuthId(user_id)).rows[0].id;
+      throw new Error('Employee Id not found');
     }
 
     const d_mcpd_sql = 'DELETE FROM member_care_package_details WHERE member_care_package_id = $1';
@@ -707,12 +705,7 @@ interface mcpConsumptionDetails {
   mcpd_date: string;
 }
 
-const createConsumption = async (
-  mcp_id: string,
-  mcp_details: mcpConsumptionDetails[],
-  employee_id: string,
-  user_id: string
-) => {
+const createConsumption = async (mcp_id: string, mcp_details: mcpConsumptionDetails[], employee_id: string) => {
   const client = await pool().connect();
   try {
     await client.query('BEGIN');
@@ -728,7 +721,7 @@ const createConsumption = async (
     }
 
     if (!employee_id) {
-      employee_id = (await getEmployeeIdByUserAuthId(user_id)).rows[0].id;
+      throw new Error(`Member care package with id ${mcp_id} has no employee id`);
     }
 
     const u_mcp_sql = `
@@ -766,6 +759,7 @@ const createConsumption = async (
 
       // Create a local tracking variable for the remaining balance
       let currentBalance = mcp.package.balance;
+      mcpDetailToConsume.price *= mcpDetailToConsume.discount;
       const consumptionLogPromises = [];
 
       for (let i = 0; i < d.mcpd_quantity; i++) {
@@ -1056,13 +1050,12 @@ const emulateMemberCarePackage = async (method: string, payload: Partial<emulate
       const lastMcp: MemberCarePackages | undefined = mcp[0];
       const lastMcpId = lastMcpSql && lastMcp.id ? parseInt(lastMcp.id) : 0;
 
-      payload.employee_id =
-        payload.employee_id || (await getEmployeeIdByUserAuthId(payload.user_id as string)).rows[0].id;
+      payload.employee_id = payload.employee_id;
 
       const newMcp: MemberCarePackages = {
         id: (lastMcpId + 1).toString(),
         member_id: payload.member_id,
-        employee_id: payload.employee_id,
+        employee_id: payload.employee_id!,
         package_name: payload.package_name,
         package_remarks: payload.package_remarks,
         status: 'ENABLED',
@@ -1160,8 +1153,7 @@ const emulateMemberCarePackage = async (method: string, payload: Partial<emulate
       const { rows: oldMcpd } = await pool().query<MemberCarePackagesDetails>(mcpdSql, [oldMcp[0].id]);
       const { rows: oldMcptl } = await pool().query<MemberCarePackageTransactionLogs>(mcptlSql, [oldMcpd[0].id]);
 
-      payload.employee_id =
-        payload.employee_id || (await getEmployeeIdByUserAuthId(payload.user_id as string)).rows[0].id;
+      payload.employee_id = payload.employee_id;
 
       const mcpMapping: FieldMapping<emulatePayload, MemberCarePackages>[] = [
         { payloadKey: 'package_name', dbKey: 'package_name' },
@@ -1259,8 +1251,8 @@ const emulateMemberCarePackage = async (method: string, payload: Partial<emulate
         throw new Error(`Member care package with id ${payload.id} not found for deletion.`);
       }
 
-      const { rows: mcpd } = await pool().query(mcpdSql, [mcp[0].id]);
-      const { rows: mcptl } = await pool().query(mcptlSql, [mcpd[0].id]);
+      const { rows: mcpd } = await dbQuery(mcpdSql, [mcp[0].id]);
+      const { rows: mcptl } = await dbQuery(mcptlSql, [mcpd[0].id]);
 
       return {
         old: {

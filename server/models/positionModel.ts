@@ -1,11 +1,11 @@
-import { pool, getProdPool as prodPool } from '../config/database.js';
+import { pool, getProdPool as prodPool, query as dbQuery, queryOnPool } from '../config/database.js';
 import { Positions } from '../types/model.types.js';
 
 const checkPositionNameExists = async (position_name: string) => {
   try {
     const query = `SELECT * FROM positions WHERE position_name = $1`;
     const values = [position_name];
-    const result = await pool().query(query, values);
+    const result = await dbQuery(query, values);
     return result.rows.length > 0;
   } catch (error) {
     console.error(error);
@@ -33,11 +33,11 @@ const getAllPositions = async (offset: number, limit: number, startDate_utc: str
         AND $2
     `;
     const totalValues = [startDate_utc, endDate_utc];
-    const totalResult = await pool().query(totalQuery, totalValues);
+    const totalResult = await dbQuery(totalQuery, totalValues);
     const totalFiltered = parseInt(totalResult.rows[0].count, 10);
     const totalPages = Math.ceil(totalFiltered / limit);
 
-    const allCountResult = await pool().query(`SELECT COUNT(*) FROM positions`);
+    const allCountResult = await dbQuery(`SELECT COUNT(*) FROM positions`);
     const totalCount = parseInt(allCountResult.rows[0].count, 10);
 
     return {

@@ -2,6 +2,7 @@ import express from 'express';
 const router = express.Router();
 
 import simulationMiddleware from '../middlewares/simulationMiddleware.js';
+import { checkDatabaseHealth } from '../config/database.js';
 
 import superAdminRoutes from './superAdminRoutes.js';
 import authRoutes from './authRoutes.js';
@@ -27,12 +28,28 @@ import appointmentRoutes from './appointmentRoutes.js';
 import productRoutes from './productRoutes.js';
 import revenueRoutes from './revenueRoutes.js';
 import stRoutes from './stRoutes.js';
+import commisionRoutes from './commissionRoutes.js';
 
 router.use(simulationMiddleware);
 
 router.use('/auth', authRoutes);
 router.use('/session', sessionRoutes);
 router.use('/trans', translationRoutes);
+
+// Health check endpoint
+router.get('/health/db', async (req, res) => {
+  try {
+    const healthStatus = await checkDatabaseHealth();
+    const statusCode = healthStatus.status === 'healthy' ? 200 : 503;
+    res.status(statusCode).json(healthStatus);
+  } catch (error) {
+    res.status(503).json({
+      status: 'unhealthy',
+      message: error instanceof Error ? error.message : 'Unknown error',
+      timestamp: new Date().toISOString(),
+    });
+  }
+});
 
 router.use('/member', memberRoutes);
 router.use('/mv', memberVoucherRoutes);
@@ -53,5 +70,6 @@ router.use('/ab', appointmentRoutes);
 router.use('/rr', revenueRoutes);
 router.use('/sa', superAdminRoutes);
 router.use('/product', productRoutes);
+router.use('/com', commisionRoutes);
 
 export default router;
