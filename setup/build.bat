@@ -7,16 +7,29 @@ echo.
 REM Change to the setup directory
 cd /d "%~dp0"
 
-REM Check if virtual environment exists
+REM Check if virtual environment exists, create if not
 if not exist "..\.venv\Scripts\activate.bat" (
-    echo Error: Virtual environment not found at ..\.venv
-    echo Please create a virtual environment first:
-    echo   cd ..
-    echo   python -m venv .venv
-    echo   .venv\Scripts\activate
-    echo   pip install -r setup\requirements.txt
-    pause
-    exit /b 1
+    echo Virtual environment not found. Creating one...
+    echo.
+    
+    REM Go to parent directory to create venv
+    cd ..
+    
+    REM Create virtual environment
+    echo Creating virtual environment...
+    python -m venv .venv
+    if %ERRORLEVEL% NEQ 0 (
+        echo Error: Failed to create virtual environment.
+        echo Please ensure Python is installed and accessible.
+        pause
+        exit /b 1
+    )
+    
+    REM Return to setup directory
+    cd setup
+    
+    echo Virtual environment created successfully!
+    echo.
 )
 
 REM Activate virtual environment
@@ -30,6 +43,14 @@ if %ERRORLEVEL% NEQ 0 (
     echo Please check your virtual environment setup.
     pause
     exit /b 1
+)
+
+REM Install requirements if they don't exist or are outdated
+echo Checking and installing requirements...
+pip install -r requirements.txt --quiet
+if %ERRORLEVEL% NEQ 0 (
+    echo Warning: Some packages might not have installed correctly.
+    echo Continuing with build...
 )
 
 REM Run the build script for Windows platform
