@@ -56,6 +56,7 @@ export default function ManageProduct() {
   const [changeProduct, setChangeProduct] = useState(null);
   const [changeStatus, setChangeStatus] = useState(false);
   const [updateForm, setUpdateForm] = useState({
+    enabled: false,
     updated_at: "",
     updated_by: "",
     product_remarks: ""
