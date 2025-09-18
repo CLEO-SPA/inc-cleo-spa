@@ -442,7 +442,8 @@ def execute_sql_file_in_container(app, db_config, sql_file_path):
             stdout=subprocess.PIPE,
             stderr=subprocess.PIPE,
             text=True,
-            creationflags=subprocess.CREATE_NO_WINDOW if hasattr(subprocess, 'CREATE_NO_WINDOW') else 0
+            creationflags=subprocess.CREATE_NO_WINDOW if hasattr(subprocess, 'CREATE_NO_WINDOW') else 0,
+            encoding='utf-8'
         )
         
         stdout, stderr = process.communicate(input=sql_content)
